@@ -29,5 +29,12 @@ Photo module and image preview
 ![Image](vidmod.png)
 Video module
 
+## Thrid-party Modules
+![Image](ffmpegfactory.png)
+FFmpeg Factory - Online media file conversion tool
+
+![Image](notepada.png)
+NotepadA - Online text editor based on Ace-Editor. Suitable for developing aCloud within aCloud environment.
+
 ## Youtube Reviews
 (To be updated)
