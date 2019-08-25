@@ -2,7 +2,7 @@
 
 <img src="https://img.shields.io/badge/License-Partially%20Open%20Source-blue"> <img src="https://img.shields.io/badge/Build-Community-brightgreen"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In-Hong%20Kong-blueviolet">
 
-# ArOZ Online System
+# ArOZ Online System / aCloud
 Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B. A place to start cloud music and video streaming, data storage, office work / text processing, 3D printing file previews, Cloud programming IDE and more!
 
 ## Getting Started
@@ -87,6 +87,17 @@ And then download the package to the current location, unzip it and setup the pe
 ![Image](img/screenshots/diskman.png?raw=true)
 ![Image](img/screenshots/settings.png?raw=true)
 Click <a href="https://github.com/tobychui/ArOZ-Online-System/tree/master/img/screenshots">here</a> for more preview screenshots
+
+## Versioning
+Different major change in versioning will lead to an upgrade to the codename. Here are a list of versions currently ArOZ Online System provides. 
+
+| Version Number | Code Name | Major Change | Type (Barebone / Community / Full* ) |
+|----------------|-----------|--------------|---------------------------------------------|
+| Before Beta 1.1.4     | Aloplex                  | N/A          | Full                         |
+| Before Beta 1.2.8     | Sempervivum Tectorum     | N/A          | Full                         |
+| 1.0                   | aCloud                   | Init Release | Community                    |
+
+*Full versions are only disclose to internal developers or testers for review purpose only.
 
 ## Author
 ### Developer
