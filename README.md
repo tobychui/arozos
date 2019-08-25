@@ -90,9 +90,14 @@ And then download the package to the current location, unzip it and setup the pe
 
 ## License
 Core Modules (Audio / Photo / Video) - MIT License
+
 Desktop Module (Desktop) - GPLv3 License
+
 All core scripts and binary files under root (./) and System Scrupt Folder (SystemAOB/*) - tobychui feat. ArOZ Online Project, All Right Reserved.
+
 All other files or modules that is not covered by the license above - See the module's license for more information.
+
+THIS SYSTEM IS ONLY FOR PERSONAL AND NON COMMERCIAL USE ONLY. RE-SELL ,DISTRIBUTE OR CLAIM THIS AS YOUR OWN WORK IS PROHIBITED
 
 ## Acknowledgments
 Special thanks for the following projects which bring insights to this project.
