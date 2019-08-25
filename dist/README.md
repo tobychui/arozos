@@ -1,4 +1,6 @@
 # Distribution Package Naming Scheme
+**This is the dist-packs for other Linux Platform / other SBCs. If you are looking for distribution image for Raspberry Pi, please click  <a href="https://hkwtc.org/aroz_online/dist/" target="_blank">HERE</a>**
+
 The naming method of the Distribution Package (dist pack) are as follows.
 ```
 acloud_{dd}-{mm}-{yyyy}_{build}
