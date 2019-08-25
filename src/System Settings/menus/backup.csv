@@ -1,0 +1,7 @@
+refresh,Backup & Restore
+sysupdate,System Update,SystemAOB/functions/backup/update.php
+restore,Restore Points,SystemAOB/functions/backup/index.php
+backup,Create Backup,SystemAOB/functions/backup/create.php
+bkupset,Backup Settings,SystemAOB/functions/backup/autoConfig.php?configName=Backup
+archset,Archive Settings,SystemAOB/functions/backup/autoConfig.php?configName=Archive%20Format
+sysbuild,Build System,SystemAOB/functions/backup/build.php

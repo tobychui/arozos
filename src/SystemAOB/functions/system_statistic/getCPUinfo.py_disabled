@@ -1,0 +1,5 @@
+import os
+Temp = os.popen('cat /proc/cpuinfo').read()
+Temp = Temp.replace(":","=").replace("\t","")
+print(Temp.replace("\n",","))
+

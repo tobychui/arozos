@@ -1,0 +1,30 @@
+/*
+ * jsCalendar theme
+ * DarkSeries v1.1
+ * 
+ * 
+ * MIT License
+ * 
+ * Copyright (c) 2018 Grammatopoulos Athanasios-Vasileios
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * 
+ */
+
+.jsCalendar.black-theme table{color:#ccc;background-color:#000;box-shadow:0 0 2px rgba(80,80,80,.4)}.jsCalendar.black-theme thead .jsCalendar-nav-left,.jsCalendar.black-theme thead .jsCalendar-nav-right{color:#505050}.jsCalendar.black-theme thead .jsCalendar-nav-left:hover,.jsCalendar.black-theme thead .jsCalendar-nav-right:hover{background-color:#252525;color:#aaa}.jsCalendar.black-theme tbody td.jsCalendar-selected{border:2px solid #404040;background-color:#000}.jsCalendar.black-theme tbody td:hover{background-color:#252525;color:#fff}.jsCalendar.black-theme tbody td.jsCalendar-current{background-color:#252525}.jsCalendar.black-theme tbody td.jsCalendar-next,.jsCalendar.black-theme tbody td.jsCalendar-previous{color:#505050}.jsCalendar.black-theme tbody td.jsCalendar-next:hover,.jsCalendar.black-theme tbody td.jsCalendar-previous:hover{color:#fff}.jsCalendar.black-theme ::selection{background:#505050}.jsCalendar.black-theme ::-moz-selection{background:#505050}.jsCalendar.grey-theme table{color:#242529;background-color:#e3e6eb;box-shadow:0 0 2px rgba(0,0,0,.5)}.jsCalendar.grey-theme thead .jsCalendar-nav-left,.jsCalendar.grey-theme thead .jsCalendar-nav-right{color:#717580}.jsCalendar.grey-theme thead .jsCalendar-nav-left:hover,.jsCalendar.grey-theme thead .jsCalendar-nav-right:hover{background-color:#717580;color:#e3e6eb}.jsCalendar.grey-theme tbody td.jsCalendar-selected{border:2px solid #a3a6ae;background-color:transparent}.jsCalendar.grey-theme tbody td:hover{background-color:#717580;color:#e3e6eb}.jsCalendar.grey-theme tbody td.jsCalendar-current{background-color:#42454c}.jsCalendar.grey-theme tbody td.jsCalendar-current:hover{color:#e3e6eb}.jsCalendar.grey-theme tbody td.jsCalendar-next,.jsCalendar.grey-theme tbody td.jsCalendar-previous{color:#b0b4bd}.jsCalendar.grey-theme tbody td.jsCalendar-next:hover,.jsCalendar.grey-theme tbody td.jsCalendar-previous:hover{color:#e3e6eb}.jsCalendar.grey-theme ::selection{background:#b0b4bd}.jsCalendar.white-theme table{color:#333;background-color:#fff;box-shadow:0 0 2px rgba(80,80,80,.4)}.jsCalendar.white-theme thead .jsCalendar-nav-left,.jsCalendar.white-theme thead .jsCalendar-nav-right{color:#afafaf}.jsCalendar.white-theme thead .jsCalendar-nav-left:hover,.jsCalendar.white-theme thead .jsCalendar-nav-right:hover{background-color:#dadada;color:#555}.jsCalendar.white-theme tbody td:hover{background-color:#dadada;color:#000}.jsCalendar.white-theme tbody td.jsCalendar-selected{border:2px solid #bfbfbf}.jsCalendar.white-theme tbody td.jsCalendar-current{background-color:#222}.jsCalendar.white-theme tbody td.jsCalendar-current:hover{color:#fff}.jsCalendar.white-theme tbody td.jsCalendar-next,.jsCalendar.white-theme tbody td.jsCalendar-previous{color:#afafaf}.jsCalendar.white-theme tbody td.jsCalendar-next:hover,.jsCalendar.white-theme tbody td.jsCalendar-previous:hover{color:#000}.jsCalendar.white-theme ::selection{background:#afafaf}

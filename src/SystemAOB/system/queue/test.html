@@ -1,0 +1,41 @@
+<html>
+    <head>
+        <title>Simpel test script for checking if the system queue working or not</title>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" href="../../../script/tocas/tocas.css">
+        <script type='text/javascript' src="../../../script/tocas/tocas.js"></script>
+        <script src="../../../script/jquery.min.js"></script>
+    </head>
+    <body>
+        <br><br>
+        <div class="ts text container">
+                <div class="ts header">
+                        Testing Interface for System Queue
+                        <div class="sub header">As title, if you can read English :)</div>
+                    </div>
+            <div class="ts fluid input">
+                <input id="moduleName" type="text" placeholder="Module Name" value="SystemAOB">
+            </div>
+            <div class="ts fluid input">
+                <input id="path" type="text" placeholder="Access Path" value="SystemAOB/system/demo.php?text=helloworld">
+            </div>
+            <div class="ts fluid input">
+                <input id="queueType" type="text" placeholder="Process Priority" value="asap">
+            </div>
+            <button class="ts button" onClick="sendTest();">Send</button>
+            <div id="returnVal">N/A</div>
+        </div>
+        <script>
+        function sendTest(){
+            var moduleName = $("#moduleName").val();
+            var requestPath = $("#path").val();
+            var queueType = $("#queueType").val();
+            var jsonstring = JSON.stringify([moduleName, requestPath,queueType]);
+            $.post("create.php",{"taskInfo": jsonstring}).done(function(data){
+                console.log(data);
+                $("#returnVal").text(data);
+            });
+        }
+        </script>
+    </body>
+</html>

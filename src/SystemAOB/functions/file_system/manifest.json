@@ -1,0 +1,22 @@
+{
+  "name": "Host File Explorer",
+  "short_name": "FileExplorer",
+  "icons": [{
+    "src": "icon/128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    }, {
+      "src": "icon/192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }, {
+      "src": "icon/256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }],
+  "start_url": "index.php?pwa=enabled&controlLv=2",
+  "display": "standalone",
+  "scope": "./",
+  "background_color": "#f7f7f7",
+  "theme_color": "#4286f4"
+}

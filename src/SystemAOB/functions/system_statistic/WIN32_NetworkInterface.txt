@@ -1,0 +1,6 @@
+﻿Intel(R) Ethernet Connection I217-V,,False,True
+Realtek RTL8192CU Wireless LAN 802.11n USB 2.0 Network Adapter,,False,True
+Software Loopback Interface 1,,False,True
+Microsoft ISATAP Adapter,,False,True
+Microsoft ISATAP Adapter #2,,False,True
+Teredo Tunneling Pseudo-Interface,,False,False

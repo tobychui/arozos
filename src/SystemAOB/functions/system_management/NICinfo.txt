@@ -1,0 +1,4 @@
+﻿Intel(R) Ethernet Connection I217-V,區域連線,Enabled
+Software Loopback Interface 1,Loopback Pseudo-Interface 1,Enabled
+Microsoft ISATAP Adapter,isatap.{82235798-BB3A-44A3-9EBE-BA2E596DBBED},Enabled
+Teredo Tunneling Pseudo-Interface,Teredo Tunneling Pseudo-Interface,Enabled

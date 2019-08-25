@@ -1,0 +1,8 @@
+disk outline,Host Machine
+hostserver,Host Information,SystemAOB/functions/system_statistic/index.php
+webapps,Add or Remove Web Apps,SystemAOB/functions/system_management/addOrRemoveWebApp.php
+packageman,WebApp Package Manager,SystemAOB/functions/package_manager/index.php
+loadtable,System Load Graphs,SystemAOB/functions/system_management/systemLoadGraph.php
+thermalinfo,Thermal Graphs,SystemAOB/functions/system_management/ThermalGraph.php
+efs,Expand File System,SystemAOB/functions/system_management/expandFileSystem.php
+phpinfo,PHP Information,SystemAOB/functions/phpinfo.php

@@ -1,0 +1,5 @@
+file outline,File & Storage
+fsearch,File Search,SystemAOB/functions/system_statistic/searchFile.php
+fshortcut,Explorer Shortcuts,SystemAOB/functions/file_system/fileShortcutUI.php
+usbdev,USB Mounting,SystemAOB/functions/usbMount.php
+smbconf,Samba Config,SystemAOB/functions/samba_config/index.php

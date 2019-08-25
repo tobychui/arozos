@@ -1,0 +1,1 @@
+The Upload Manager allow you to upload files to different functions if the function support upload. To use the Upload Manager, make sure you have created an "uploads" directory under your function's root folder.

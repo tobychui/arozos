@@ -1,0 +1,4 @@
+import os
+Temp = os.popen('lsusb').read()
+print(Temp.replace("\n",","))
+
