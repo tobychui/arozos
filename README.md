@@ -78,6 +78,12 @@ And then download the package to the current location, unzip it and setup the pe
   Open your default browser and visit the http://{Raspberry_Pi_IP_Address}/AOB/ and follow the on scren guide for setting up a new user.
 
 ## Preview / Screenshots
+![Image](img/gifs/gif01.gif?raw=true)
+![Image](img/gifs/gif02.gif?raw=true)
+![Image](img/gifs/gif03.gif?raw=true)
+![Image](img/gifs/gif04.gif?raw=true)
+![Image](img/gifs/gif05.gif?raw=true)
+![Image](img/gifs/gif06.gif?raw=true)
 
 ## Author
 ### Developer
