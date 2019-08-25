@@ -1,4 +1,9 @@
-# ArOZ-Online-Beta
+<img src="https://raw.githubusercontent.com/tobychui/ArOZ-Online-Beta/master/img/banner.png?token=AF32EM367IHUH7354JO667S5MIMRC">
+
+<img src="https://img.shields.io/badge/License-Partially%20Open%20Source-blue"> <img src="https://img.shields.io/badge/Build-Community-brightgreen"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In-Hong%20Kong-blueviolet">
+
+
+# ArOZ Online System
 Web Desktop System powered by PHP with modular functionality for Raspberry Pi
 
 For download or documentation, please visit http://aroz.online
