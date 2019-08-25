@@ -31,6 +31,8 @@ sudo apt-get install samba
 ### Prebuilt Image File
 To install ArOZ Online System to your Raspberry pi, you can use the prebuilt image file for Raspberry Pi 4B / 3B+. You can find the image in the link below:
 
+https://git.hkwtc.org/TC/aCloud-Images
+
 ### Manual Installation
 Before installing the ArOZ Online System, you need to firstly setup the package settings. 
 
