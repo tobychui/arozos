@@ -33,20 +33,24 @@ To install ArOZ Online System to your Raspberry pi, you can use the prebuilt ima
 
 ### Manual Installation
 Before installing the ArOZ Online System, you need to firstly setup the package settings. 
+
 1. Edit php.ini to increase the max file upload size setting. The php.ini file can usually be found in /etc/php/{php-version}/apache2/php.ini. Change the two lines below as follows:
   ```
   upload_max_filesize = 2048M
   post_max_size = 2048M
   ```
-2.Edit /etc/sudoers, add the following line at the bottom of the file.
+  
+2. Edit /etc/sudoers, add the following line at the bottom of the file.
   ```
   www-data ALL=(ALL:ALL) NOPASSWD:ALL
   ```
+  
 3. Edit /etc/apache2/apache2.conf, add the following two lines to the bottom of the file
   ```
   XSendFile on
   XSendFilePath /media
   ```
+  
 4. Create directory at /media/storage1 and /media/storage2
   ```
   sudo mkdir /media/storage1 /media/storage2
@@ -70,3 +74,31 @@ And then download the package to the current location, unzip it and setup the pe
   ```
   
   Open your default browser and visit the http://{Raspberry_Pi_IP_Address}/AOB/ and follow the on scren guide for setting up a new user.
+
+## Preview / Screenshots
+
+## Author
+### Developer
+(Blame them if you encounter any bugs within the system)
+* tobychui - Project initiator / System Developer / Core Modules designer and programmer
+* <a href="https://github.com/yeungalan">yeungalan</a> - Module maintainer / Network Setting Module developer
+
+### Beta Tester
+(Find them if you want to know how to use a specific function in the system)
+* <a href="https://github.com/aceisace">aceisace</a>
+* <a href="https://github.com/RubMing">RubMing</a>
+
+## License
+Core Modules (Audio / Photo / Video) - MIT License
+Desktop Module (Desktop) - GPLv3 License
+All core scripts and binary files under root (./) and System Scrupt Folder (SystemAOB/*) - tobychui feat. ArOZ Online Project, All Right Reserved.
+All other files or modules that is not covered by the license above - See the module's license for more information.
+
+## Acknowledgments
+Special thanks for the following projects which bring insights to this project.
+
+TocasUI by Yami Odymel - https://tocas-ui.com/ 
+EyeOS - https://en.wikipedia.org/wiki/EyeOS
+
+
+
