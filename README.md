@@ -104,7 +104,7 @@ Core Modules (Audio / Photo / Video) - MIT License
 
 Desktop Module (Desktop) - GPLv3 License
 
-All core scripts and binary files under root (./) and System Scrupt Folder (SystemAOB/*) - tobychui feat. ArOZ Online Project, All Right Reserved.
+All core scripts and binary files under root (./) and System Script Folder (SystemAOB/*) - tobychui feat. ArOZ Online Project, All Right Reserved.
 
 All other files or modules that is not covered by the license above - See the module's license for more information.
 
