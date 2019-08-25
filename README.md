@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/tobychui/ArOZ-Online-System/master/img/banner.png?token=AF32EM45I4CSOYNPJS4LN3K5MIOJK">
+![Image](../blob/master/img/banner.png?raw=true)
 
 <img src="https://img.shields.io/badge/License-Partially%20Open%20Source-blue"> <img src="https://img.shields.io/badge/Build-Community-brightgreen"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In-Hong%20Kong-blueviolet">
 
