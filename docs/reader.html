@@ -1,0 +1,132 @@
+<html>
+<head>
+<meta charset="utf-8"> 
+<title>ArOZ Online System Documentation</title>
+<!-- Tocas UI：CSS 與元件 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.css">
+<!-- Tocas JS：模塊與 JavaScript 函式 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
+<script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+<script src="showdown.min.js"></script>
+<style>
+.specialpadding{
+	margin-top:0px !important;
+	padding-left:20px;
+}
+.rightPadded{
+	position:absolute !important;
+	right:10px;
+	width:55px;
+}
+</style>
+</head>
+<body>
+<br><br>
+<div class="ts container">
+<div class="ts segment">
+<div class="ts icon buttons" style="width:100% !important;">
+    <button id="backbtn" class="ts button" onClick="lastPage();"><i class="arrow left icon"></i></button>
+    <button id="nextbtn" class="ts button" onClick="nextPage();"><i class="arrow right icon"></i></button>
+	<button id="nextbtn" class="ts button" onClick="showList();"><i class="content icon"></i></button>
+	<div class="ts specialpadding header"><i class="bookmark icon"></i><span id="readerTitle">Welcome to ArOZ Online Documentation Reader</span></div>
+</div>
+<button class="ts rightPadded button" onClick="starThispage();"><i class="empty star icon"></i></button>
+</div>
+<div id="docLoader" class="ts segment">
+</div>
+<div class="ts segment">
+ArOZ Documentation Reader v1.0
+</div>
+</div>
+<br><br><br><br>
+<script>
+var currentRenderPage = 0;
+var searchingPage = 0; 
+var lang = window.location.hash.replace("#",""); //get lang id
+var docs = []; //All documents will be loaded into memory as the reader loads, but not rendered yet
+var baseFolder = "lang/" + lang + "/";
+initLoad();
+
+function loadAllDocs(){
+	$.ajax({
+		type: 'get',
+		timeout: 5000,
+		url: baseFolder + searchingPage + ".md",
+		success: function(data, textStatus, XMLHttpRequest){
+			data = data.split("\r\n").join("\n");
+			docs.push(data.split("\n"));
+			//console.log(data.split("\n"));
+			searchingPage++;
+			loadAllDocs();
+		},
+		error:function (xhr, ajaxOptions, thrownError){
+			//End of documentation
+			//console.log(docs);
+			readDoc(); //Start rendering
+		}
+	});
+}
+
+function nextPage(){
+	currentRenderPage = currentRenderPage + 1;
+	if (currentRenderPage >= docs.length){
+		//No more pages
+		currentRenderPage = currentRenderPage - 1;
+		return;
+	}
+	readDoc();
+}
+
+
+function lastPage(){
+	currentRenderPage = currentRenderPage - 1;
+	if (currentRenderPage < 0){
+		//No more pages
+		currentRenderPage = currentRenderPage + 1;
+		return;
+	}
+	readDoc();
+}
+
+function readDoc(){
+	let pageInfo = Array.from(docs[currentRenderPage]);
+	var metaTag = JSON.parse(pageInfo.shift());
+	document.title = metaTag[0];
+	$("#readerTitle").text(metaTag[0]);
+	$("#docLoader").html("");
+	for (var i =0; i < pageInfo.length; i++){
+		$("#docLoader").append(md2html(pageInfo[i]));
+	}
+	
+}
+
+function md2html(input){
+	var converter = new showdown.Converter();
+	return converter.makeHtml(input);
+}
+
+//Initiate the loading interface
+function initLoad(){
+	$("#docLoader").html('<div align="center" style="width:100%;">\
+		<br><br>\
+		<i class="big spinner loading icon stillLoading"></i><br>\
+		<p class="loadFailMsg">Loading...</p>\
+		<br><br>\
+	</div>');
+	setTimeout(chkLoadFail,15000);
+	loadAllDocs();
+}
+
+//Check if the load failed using setTimeout
+function chkLoadFail(){
+	if ($(".stillLoading").length > 0){
+		//Something screwed up during loading of JSON based documentation. Ask for refresh
+		$(".stillLoading").removeClass("spinner").removeClass("loading").addClass("remove");
+		$(".loadFailMsg").text("Seems something went wrong. Try refreshing the page?");
+	}
+}
+
+
+</script>
+</body>
+</html>
