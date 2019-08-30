@@ -58,7 +58,7 @@ img{
 	<button id="nextbtn" class="ts button" onClick="toggleList();"><i class="content icon"></i></button>
 	<div class="ts specialpadding header"><i class="bookmark icon"></i><span id="readerTitle">Welcome to ArOZ Online Documentation Reader</span></div>
 </div>
-<button class="ts rightPadded button" onClick="starThispage();"><i class="empty star icon"></i></button>
+<button id="starBtn" class="ts rightPadded button" onClick="starThisPage();"><i class="empty star icon"></i></button>
 </div>
 <div id="docLoader" class="ts segment">
 </div>
@@ -76,22 +76,76 @@ var docs = []; //All documents will be loaded into memory as the reader loads, b
 var docsTitles = [];
 var baseFolder = "lang/" + lang + "/";
 var sidebarMode = "index"; //Either index or stars
+var staredPages = [];
 initLoad();
+
+//Check if there are stared pages. If yes, load them
+if (localStorage.getItem(lang) !== null) {
+	staredPages = JSON.parse(localStorage.getItem(lang));
+}
+
+function starThisPage(){
+	for (var i =0; i < staredPages.length; i++){
+		if (staredPages[i][0] == currentRenderPage){
+			//This page is already started. Remove the star
+			staredPages.splice(i,1);
+			$("#starBtn").find("i").addClass("empty");
+			$("#starBtn").removeClass("primary");
+			localStorage.setItem(lang,JSON.stringify(staredPages));
+			if (sidebarMode == "stars"){
+				renderStarList();
+			}
+			return;
+		}
+		
+	}
+	//This page is not stared yet. Add it to list
+	staredPages.push([currentRenderPage,docsTitles[currentRenderPage]]);
+	console.log("[Page Saved] " + staredPages);
+	$("#starBtn").find("i").removeClass("empty");
+	$("#starBtn").addClass("primary");
+	localStorage.setItem(lang,JSON.stringify(staredPages));
+	if (sidebarMode == "stars"){
+		renderStarList();
+	}
+}
+
+function updateStartedIcon(){
+	for (var i =0; i < staredPages.length; i++){
+		if (staredPages[i][0] == currentRenderPage){
+			$("#starBtn").find("i").removeClass("empty");
+			$("#starBtn").addClass("primary");
+			return;
+		}
+	}
+	$("#starBtn").find("i").addClass("empty");
+	$("#starBtn").removeClass("primary");
+}
 
 function toggleMode(mode){
 	if (mode == "stars"){
 		$("#doclist").removeClass("active");
 		$("#starlist").addClass("active");
 		renderStarList();
+		sidebarMode = "stars";
 	}else{
 		$("#starlist").removeClass("active");
 		$("#doclist").addClass("active");
 		renderDocsList();
+		sidebarMode = "index";
 	}
 }
 
 function renderStarList(){
 	$("#pageContent").html("");
+	for (var i = 0; i < staredPages.length; i++){
+		var page = staredPages[i][0];
+		var title = staredPages[i][1];
+		$("#pageContent").append('<p class="selectable" onClick="redirectDoc(' + page + ');"><i class="bookmark icon"></i> ' + title + '</p>');
+	}
+	if (staredPages.length == 0){
+		$("#pageContent").append('<p class=""><i class="remove icon"></i> No bookmark</p>');
+	}
 }
 
 function toggleList(){
@@ -173,6 +227,7 @@ function readDoc(){
 	for (var i =0; i < pageInfo.length; i++){
 		$("#docLoader").append(md2html(pageInfo[i]));
 	}
+	updateStartedIcon();
 }
 
 function parseDocList(){
