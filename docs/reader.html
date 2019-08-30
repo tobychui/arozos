@@ -5,8 +5,9 @@
 <!-- Tocas UI：CSS 與元件 -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.css">
 <!-- Tocas JS：模塊與 JavaScript 函式 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
 <script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
+
 <script src="showdown.min.js"></script>
 <style>
 .specialpadding{
@@ -18,16 +19,43 @@
 	right:10px;
 	width:55px;
 }
+img{
+	max-width:100%;
+}
+.selectable{
+	cursor:pointer;
+	padding:5px;
+	padding-left:10px !important;
+	margin:0px !important;
+}
+.selectable:hover{
+	background-color:#f2f2f2;
+}
 </style>
 </head>
 <body>
+<div class="ts demo left sidebar" style="width:400px !important;">
+    <div class="ts header">
+        ArOZ Online System Documentation
+        <a class="sub header" href="index.html"><i class="reply icon"></i>Exit Reader</a>
+    </div>
+    <div class="ts top attached tabbed menu">
+    <a id="doclist" class="active item" onClick="toggleMode('doclist');"><i class="bookmark icon"></i></a>
+	<a id="starlist" class="item" onClick="toggleMode('stars');"><i class="star icon"></i></a>
+	</div>
+	<div id="pageContent" class="ts active bottom attached tab segment">
+		
+	</div>
+</div>
+<div class="pusher">
 <br><br>
 <div class="ts container">
 <div class="ts segment">
 <div class="ts icon buttons" style="width:100% !important;">
     <button id="backbtn" class="ts button" onClick="lastPage();"><i class="arrow left icon"></i></button>
+	<button id="nextbtn" class="ts button" onClick="reloadAllDocs();"><i class="refresh icon"></i></button>
     <button id="nextbtn" class="ts button" onClick="nextPage();"><i class="arrow right icon"></i></button>
-	<button id="nextbtn" class="ts button" onClick="showList();"><i class="content icon"></i></button>
+	<button id="nextbtn" class="ts button" onClick="toggleList();"><i class="content icon"></i></button>
 	<div class="ts specialpadding header"><i class="bookmark icon"></i><span id="readerTitle">Welcome to ArOZ Online Documentation Reader</span></div>
 </div>
 <button class="ts rightPadded button" onClick="starThispage();"><i class="empty star icon"></i></button>
@@ -37,15 +65,61 @@
 <div class="ts segment">
 ArOZ Documentation Reader v1.0
 </div>
-</div>
 <br><br><br><br>
+</div>
+</div>
 <script>
 var currentRenderPage = 0;
 var searchingPage = 0; 
 var lang = window.location.hash.replace("#",""); //get lang id
 var docs = []; //All documents will be loaded into memory as the reader loads, but not rendered yet
+var docsTitles = [];
 var baseFolder = "lang/" + lang + "/";
+var sidebarMode = "index"; //Either index or stars
 initLoad();
+
+function toggleMode(mode){
+	if (mode == "stars"){
+		$("#doclist").removeClass("active");
+		$("#starlist").addClass("active");
+		renderStarList();
+	}else{
+		$("#starlist").removeClass("active");
+		$("#doclist").addClass("active");
+		renderDocsList();
+	}
+}
+
+function renderStarList(){
+	$("#pageContent").html("");
+}
+
+function toggleList(){
+	ts('.left.sidebar:not(.inverted)').sidebar({
+		dimPage: true,
+		scrollLock: true
+	}).sidebar('toggle');
+}
+
+function redirectDoc(indexID){
+	currentRenderPage = indexID;
+	readDoc();
+	toggleList();
+}
+
+function renderDocsList(){
+	$("#pageContent").html("");
+	for (var i =0; i < docsTitles.length; i++){
+		$("#pageContent").append('<p class="selectable" onClick="redirectDoc(' + i + ');"><i class="book icon"></i> ' + docsTitles[i] + '</p>');
+	}
+}
+
+function reloadAllDocs(){
+	docs = [];
+	searchingPage = 0;
+	initLoad();
+	docsTitles=[];
+}
 
 function loadAllDocs(){
 	$.ajax({
@@ -63,6 +137,8 @@ function loadAllDocs(){
 			//End of documentation
 			//console.log(docs);
 			readDoc(); //Start rendering
+			parseDocList(); //Update the doc list
+			renderDocsList(); //Render the documentation list
 		}
 	});
 }
@@ -97,7 +173,14 @@ function readDoc(){
 	for (var i =0; i < pageInfo.length; i++){
 		$("#docLoader").append(md2html(pageInfo[i]));
 	}
-	
+}
+
+function parseDocList(){
+	for (var i =0; i < docs.length; i++){
+		let pageInfo = Array.from(docs[i]);
+		var metaTag = JSON.parse(pageInfo.shift());
+		docsTitles.push(metaTag[0]);
+	}
 }
 
 function md2html(input){
