@@ -37,7 +37,7 @@ img{
 <div class="ts demo left sidebar" style="width:400px !important;">
     <div class="ts header">
         ArOZ Online System Documentation
-        <a class="sub header" href="index.html"><i class="reply icon"></i>Exit Reader</a>
+		<div id="lang" class="sub header" href="index.html"></div>
     </div>
     <div class="ts top attached tabbed menu">
     <a id="doclist" class="active item" onClick="toggleMode('doclist');"><i class="bookmark icon"></i></a>
@@ -46,12 +46,16 @@ img{
 	<div id="pageContent" class="ts active bottom attached tab segment">
 		
 	</div>
+	<div style="width:100%;" align="right">
+		<a href="index.html">Exit <i class="log out icon"></i></a>
+	</div>
+	
 </div>
 <div class="pusher">
 <br><br>
 <div class="ts container">
 <div class="ts segment">
-<div class="ts icon buttons" style="width:100% !important;">
+<div class="ts icon buttons">
     <button id="backbtn" class="ts button" onClick="lastPage();"><i class="arrow left icon"></i></button>
 	<button id="nextbtn" class="ts button" onClick="reloadAllDocs();"><i class="refresh icon"></i></button>
     <button id="nextbtn" class="ts button" onClick="nextPage();"><i class="arrow right icon"></i></button>
@@ -78,7 +82,7 @@ var baseFolder = "lang/" + lang + "/";
 var sidebarMode = "index"; //Either index or stars
 var staredPages = [];
 initLoad();
-
+$("#lang").text("Language: " + lang);
 //Check if there are stared pages. If yes, load them
 if (localStorage.getItem(lang) !== null) {
 	staredPages = JSON.parse(localStorage.getItem(lang));
