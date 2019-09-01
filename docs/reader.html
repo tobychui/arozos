@@ -31,6 +31,11 @@ img{
 .selectable:hover{
 	background-color:#f2f2f2;
 }
+pre{
+	background-color: #1c1c1c;
+	color: white;
+	padding: 10px;
+}
 </style>
 </head>
 <body>
@@ -228,9 +233,8 @@ function readDoc(){
 	document.title = metaTag[0];
 	$("#readerTitle").text(metaTag[0]);
 	$("#docLoader").html("");
-	for (var i =0; i < pageInfo.length; i++){
-		$("#docLoader").append(md2html(pageInfo[i]));
-	}
+	pageInfo = pageInfo.join("\n");
+	$("#docLoader").append(md2html(pageInfo));
 	updateStartedIcon();
 }
 
