@@ -34,7 +34,7 @@
 		  }
 		  //Update the folder path shown on file explorer (?
 		  if (folder_path != ""){
-				$('#folderdir').html(folder_path);
+				$('#folderdir').html(ao_module_codec.decodeHexFoldername(folder_path));
 		  }else{
 				$('#folderdir').html('Unsorted');
 		  }

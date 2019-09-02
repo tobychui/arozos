@@ -2,10 +2,17 @@
 include_once 'auth.php';
 ?>
 <html>
+<!DOCTYPE HTML>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=0.7, shrink-to-fit=no">
+<title>ArOZ Onlineβ</title>
+<link rel="stylesheet" href="script/tocas/tocas.css">
+<script src="script/tocas/tocas.js"></script>
+<script src="script/jquery.min.js"></script>
+</head>
 <?php
-include_once("header_std.php");
 include_once("SystemAOB/functions/personalization/configIO.php");
-$theme = (getConfig("function_bar"));
+$theme = (getConfig("function_bar",false));
 ?>
 <link rel="stylesheet" type="text/css" href="script/jsCalendar/jsCalendar.css">
 <link rel="stylesheet" type="text/css" href="script/jsCalendar/jsCalendar.clean.min.css">
@@ -20,12 +27,12 @@ body{
 }
 #menuBar{
 	overflow: hidden;
-	background-color: <?php echo $theme["Function Bar"]["background-color"];?>;
 	position: fixed;
 	bottom: 0;
 	width: 100%;
 	z-index:110;
-	background:<?php echo $theme["Function Bar"]["background"];?>;
+	color: #333;
+	background:<?php echo $theme["fbcolor"][3];?>;
 	
 }
 .notificationbar{
@@ -35,12 +42,12 @@ body{
 	height: auto;
 	width:350px;
 	bottom: 34px;
-	background:<?php echo $theme["Notification Bar"]["background"];?>;
+	background:<?php echo $theme["nbcolor"][3];?>;
 	right:0px;
 	border-left: 1px solid #4c4c4c;
 	padding: 20px;
 	padding-left: 25px;
-	color: <?php echo $theme["Notification Bar"]["color"];?>;
+	color: <?php echo $theme["nbfontcolor"][3];?>;
 }
 
 .messagebox{
@@ -77,9 +84,8 @@ body{
 	bottom:0;
 	width:20px;
 	height:15px;
-	color:<?php echo $theme["Resize Indicator"]["color"];?>;
 	cursor: nw-resize;
-	background-image:<?php echo $theme["Resize Indicator"]["background-image"];?>;
+	background-image:url(<?php echo $theme["resizeInd"][3];?>);
 }
 
 .selectable{

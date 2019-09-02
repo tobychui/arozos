@@ -119,9 +119,17 @@ include '../auth.php';
 				foreach ($dirs as $folder){
 						$folder = str_replace("storage/","",$folder);
 						if ($folderpath == $folder){
-							echo "<a class='active item' Onclick='changeFolderView(".'"' . $folder . '"'.")'>".$folder.'</a>';	
+							if(ctype_xdigit($folder)){
+								echo "<a class='active item' Onclick='changeFolderView(".'"' . $folder . '"'.")'>".hex2bin($folder).'</a>';
+							}else{
+								echo "<a class='active item' Onclick='changeFolderView(".'"' . $folder . '"'.")'>".$folder.'</a>';
+							}
 						}else{
-							echo "<a class='item' Onclick='changeFolderView(".'"' . $folder . '"'.")'>".$folder.'</a>';
+							if(ctype_xdigit($folder)){
+								echo "<a class='item' Onclick='changeFolderView(".'"' . $folder . '"'.")'>".hex2bin($folder).'</a>';
+							}else{
+								echo "<a class='item' Onclick='changeFolderView(".'"' . $folder . '"'.")'>".$folder.'</a>';
+							}
 						}
 				}
 			?>

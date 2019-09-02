@@ -4,13 +4,18 @@ include_once("../../../auth.php");
 //Do not use this for configuration of user settings.
 if (isset($_GET['configName']) && $_GET['configName'] != ""){
     //Generate configuration according to config name
-    //include_once($rootPath . "SystemAOB/functions/user/userIsolation.php");
+    include_once("../user/userIsolation.php");
     //$configPath =  $userConfigDirectory . "SystemAOB/functions/personalization/" . $_GET['configName'] . ".config";
     $configPath =  "sysconf/" . $_GET['configName'] . ".config";
     if (file_exists($configPath)){
-        //Config found in user directory. Go ahead and create UI for it.
+        //Config found in global config directory
         $configContent = file_get_contents($configPath);
-        $config = json_decode($configContent);
+        $config = json_decode($configContent,true);
+	}else if (file_exists($userConfigDirectory . "SystemAOB/sysconf/" . $_GET['configName'] . ".config")){
+		//Config found in user directory. Go ahead and create UI for it.
+		$configPath = $userConfigDirectory . "SystemAOB/sysconf/" . $_GET['configName'] . ".config";
+		$configContent = file_get_contents($configPath);
+		$config = json_decode($configContent,true);
     }else{
         die("ERROR. Config cannot be found.");
     }

@@ -232,6 +232,7 @@ if (isset($_GET['download'])){
                        
                         //Check if the generated file is larger than 2GB or not. If larger, use redirect instead of blob
                         $.get("filesize.php?file=" + url + "&raw",function(size){
+                            
                             if (size > 16000000000){ //Larger than 2GB
                                 $("#topBarTitle").text("File Ready!");
                                 $(".oprIcon").attr("src","icon/file_opr/done.png");

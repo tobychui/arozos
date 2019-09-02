@@ -15,8 +15,8 @@ include_once '../auth.php';
     <meta charset="UTF-8">
 	<script src="../script/jquery.min.js"></script>
     <link rel="stylesheet" href="../script/tocas/tocas.css">
+    <script type='text/javascript' src="../script/ao_module.js"></script>
 	<script type='text/javascript' src="../script/tocas/tocas.js"></script>
-	<script type='text/javascript' src="../script/ao_module.js"></script>
 	<title>ArOZ Onlineβ</title>
 	<style>
 	    body{

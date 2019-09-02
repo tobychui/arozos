@@ -1,9 +1,16 @@
 <?php
-include 'auth.php';
+include_once 'auth.php';
 ?>
 <html>
+<!DOCTYPE HTML>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=0.7, shrink-to-fit=no">
+<title>ArOZ Onlineβ</title>
+<link rel="stylesheet" href="script/tocas/tocas.css">
+<script src="script/tocas/tocas.js"></script>
+<script src="script/jquery.min.js"></script>
+</head>
 <?php
-include_once("header_std.php");
 include_once("SystemAOB/functions/personalization/configIO.php");
 $indexConfig = getConfig("index",true);
 //Folders that exclude in the function arranging process.

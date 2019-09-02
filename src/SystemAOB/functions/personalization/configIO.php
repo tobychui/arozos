@@ -10,7 +10,7 @@ if (session_status() == PHP_SESSION_NONE) {
     include_once($rootPath . "SystemAOB/functions/user/userIsolation.php");
 }
 //define the config storage path. In normal case, it should be at /etc/AOB/users/{username}/SystemAOB/functions/personalization/
-$configPath =  $userConfigDirectory . "SystemAOB/functions/personalization/";
+$configPath =  $userConfigDirectory . "SystemAOB/sysconf/";
 if (!file_exists($configPath)){
     mkdir($configPath,0777,true);
 }
@@ -55,6 +55,20 @@ function getConfig($configName, $global = false){
         }
     }
     
+}
+
+function listConfig($global = false){
+    //if global is true, search for config inside sysconf instead of the user's private path.
+    global $configPath;
+    global $rootPath;
+    if ($global == true){
+		//Public configs
+        return glob($rootPath . "SystemAOB/functions/personalization/sysconf/*.config");
+    }else{
+        //Private config
+       return glob($configPath . "*.config");
+    }
+    	
 }
 
 

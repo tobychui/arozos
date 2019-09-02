@@ -143,7 +143,7 @@ setContentWidth();
 updateiFrameHeight();
 
 if (isFunctionBar){
-    $("#toggleSideBar").css("bottom","30px");
+    //$("#toggleSideBar").css("bottom","30px");
 }
 
 $( window ).resize(function() {
