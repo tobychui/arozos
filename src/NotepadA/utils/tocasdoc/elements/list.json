@@ -1,0 +1,203 @@
+{
+    "Outline": "\u6e05\u55ae\u5f88\u50cf\u4e00\u500b\u9078\u55ae\uff0c\u4f46\u662f\u5176\u7d50\u69cb\u66f4\u70ba\u7c21\u6613\uff0c\u5916\u89c0\u4e5f\u4ee5\u7d14\u6587\u5b57\u5c45\u591a\uff0c\u5f88\u9069\u5408\u7528\u5728\u9801\u8173\u7684\u90a3\u7a2e\u9023\u7d50\u6e05\u55ae\u3002",
+    "Title": "\u6e05\u55ae",
+    "Description": "\u4e00\u500b\u9019\u500b\uff0c\u4e00\u500b\u90a3\u500b\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u6e05\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[list]]\">\n  <div class=\"item\">\u860b\u679c</div>\n  <div class=\"item\">\u83e0\u7f85</div>\n  <div class=\"item\">\u62d4\u9cf3\u68a8</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9ed1\u9ede",
+                    "Description": "\u4e00\u500b\u5e36\u6709\u9ed1\u9ede\u7684\u6e05\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[bulleted]] list\">\n    <div class=\"item\">\u6a59\u5e0c</div>\n    <div class=\"item\">\u5361\u8389\u7d72</div>\n    <div class=\"item\">\n        \u5433\u96e8\u85cd\n        <div class=\"list\">\n            <a class=\"item\" href=\"#!\">\u4e9e\u51e1\u82bd</a>\n            <div class=\"item\">\u7fbd\u7530\u767d\u97f3</div>\n            <div class=\"item\">\u96f7\u8389\u4e9e</div>\n        </div>\n    </div>\n    <div class=\"item\">\u4f9d\u53ef\u8afe\u723e</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6392\u5e8f",
+                    "Description": "\u6e05\u55ae\u53ef\u4ee5\u6709\u865f\u78bc\u6392\u5e8f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[ordered]] list\">\n    <a class=\"item\">\u82f1\u68a8\u68a8</a>\n    <a class=\"item\">\u8a69\u7fbd</a>\n    <div class=\"item\">\n        <a>\u5176\u4ed6\u4eba\u7269</a>\n        <div class=\"list\">\n            <a class=\"item\">\u52a0\u85e4\u60e0</a>\n            <a class=\"item\">\u4e5d\u689d\u53ef\u6190</a>\n            <a class=\"item\">\u8c6c\u718a\u967d\u5b50</a>\n        </div>\n    </div>\n    <a class=\"item\">\u5c0f\u8def\u7dbe</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u9023\u7d50",
+                    "Description": "\u6e05\u55ae\u4e5f\u53ef\u4ee5\u662f\u5b58\u653e\u8a31\u591a\u9023\u7d50\u7684\u5730\u65b9\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[link]] list\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u5de5\u4f5c</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u7c21\u5316",
+                    "Description": "\u4f60\u53ef\u4ee5\u76f4\u63a5\u900f\u904e `<ol>` \u548c `<ul>` \u6a19\u7c64\u4f86\u7c21\u5316\u6e05\u55ae\u7684\u4f7f\u7528\u65b9\u5f0f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<[[ol]] class=\"ts list\">\n    <li>\u4f0a\u8389\u96c5</li>\n    <li>\u76f8\u7fbd\u516d</li>\n    <li>\u897f\u7d72\u8482\u5a1c</li>\n</[[ol]]>\n<[[ul]] class=\"ts list\">\n    <li>\u4e03\u6ce2\u767d\u97f3</li>\n    <li>\u5bae\u98a8\u5915\u68a8</li>\n    <li>\u7d2c\u6728\u6c99\u7f85</li>\n</[[ul]]>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u6e05\u55ae\u5177\u6709\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u5df2\u9078\u64c7",
+                    "Description": "\u6e05\u55ae\u7684\u9805\u76ee\u80fd\u5920\u5448\u73fe\u88ab\u9078\u64c7\u7684\u6a23\u5b50\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts segmented list\">\n    <div class=\"item\">\u4ee5\u897f\u7d50</div>\n    <div class=\"[[selected]] item\">\u4f0a\u6ce2\u54b2</div>\n    <div class=\"item\">\u6817\u5bae\u5e0c\u5be6</div>\n</div>\n"
+                }
+            ],
+            "Title": "\u72c0\u614b",
+            "Description": "\u6e05\u55ae\u80fd\u5920\u6709\u4e0d\u540c\u7684\u72c0\u614b\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u9805\u76ee",
+                    "Description": "\u9805\u76ee\u662f\u6e05\u55ae\u4e2d\u6700\u57fa\u672c\u7684\u5167\u5bb9\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts list\">\n    <div class=\"[[item]]\">\u82f1\u68a8\u68a8</div>\n    <div class=\"[[item]]\">\u8a69\u7fbd</div>\n    <div class=\"[[item]]\">\u52a0\u85e4\u60e0</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u793a",
+                    "Description": "\u6e05\u55ae\u5167\u4e5f\u53ef\u4ee5\u64fa\u653e\u5716\u793a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts list\">\n    <a class=\"item\">\n        <i class=\"help [[icon]]\"></i>\n        <div class=\"content\">\n            <div class=\"header\">\u6d6e\u52d5\u5716\u793a</div>\n            <div class=\"description\">\u9019\u4e32\u6587\u5b57\u6703\u6709\u4e00\u500b\u5de6\u908a\u8ddd\uff0c\u7528\u4f86\u78ba\u4fdd\u548c\u4f60\u7684\u5716\u793a\u4e0d\u6703\u9760\u5730\u592a\u8fd1\u3002</div>\n        </div>\n    </a>\n    <a class=\"item\">\n        <i class=\"right triangle [[icon]]\"></i>\n        <div class=\"content\">\n            <div class=\"header\">\u5716\u793a\u5c0d\u9f4a</div>\n            <div class=\"description\">\u6d6e\u52d5\u5716\u793a\u9810\u8a2d\u8cbc\u9f4a\u4e0a\u65b9\u3002\u60f3\u770b\u770b\u6548\u679c\u7684\u8a71\u9019\u500b\u7bc4\u4f8b\u5c31\u662f\u4e86\u3002</div>\n        </div>\n    </a>\n    <div class=\"item\">\n        <i class=\"help [[icon]]\"></i>\n        \u5716\u793a\u540c\u884c\u6587\u5b57\u3002\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u7247",
+                    "Description": "\u6e05\u55ae\u7684\u9805\u76ee\u53ef\u4ee5\u5305\u542b\u5716\u7247\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts list\">\n    <div class=\"item\">\n        <img class=\"ts avatar [[image]]\" src=\"!-user-!\">\n        <div class=\"content\">\n            <a class=\"header\">Yami Odymel</a>\n            <div class=\"description\">\u6b63\u5728\u904a\u73a9 <a><b>Battlefield 1</b></a>\u3002</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar [[image]]\" src=\"!-user2-!\">\n        <div class=\"content\">\n            <a class=\"header\">Mac Taylor</a>\n            <div class=\"description\">\u6b63\u5728\u7814\u767c <a><b>Alan Wakeup</b></a>\u3002</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar [[image]]\" src=\"!-user3-!\">\n        <div class=\"content\">\n            <a class=\"header\">Karisu</a>\n            <div class=\"description\">\u6b63\u5728\u89c0\u770b <a><b>\u9ebb\u8fa3\u9bae\u5e2b</b></a>\u3002</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9023\u7d50",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u6e05\u55ae\u88e1\u9762\u7684\u9805\u76ee\u53ef\u4ee5\u662f\u9023\u7d50\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts list\">\n    <[[a]] class=\"item\">\u4ec0\u9ebc\u662f FAQ\uff1f</[[a]]>\n    <[[a]] class=\"item\">\u8ab0\u662f\u6211\u5011\u7684\u5ba2\u6236\uff1f</[[a]]>\n    <[[a]] class=\"item\">\u6211\u5011\u7684\u8fa6\u516c\u5ba4\u65bc\u4f55\u5730\uff1f</[[a]]>\n</div>\n<br>\n<div class=\"ts list\">\n    <div class=\"item\">\n        <[[a]] class=\"header\">\u6a19\u984c</[[a]]>\n        <div class=\"description\">\n          \u5728\u6211\u5011\u7684 <a>\u8a3b\u91cb\u4e2d</a> \u6309\u4e0b\u5427\uff01\n        </div>\n    </div>\n    <div class=\"item\">\n        <[[a]] class=\"header\">\u77e5\u9053\u66f4\u591a</[[a]]>\n        <div class=\"description\">\n          \u60f3\u77e5\u9053\u9019\u500b\u7db2\u7ad9\u7684\u66f4\u591a\u8acb\u53c3\u95b1 <a>\u6211\u5011\u7684 FAQ \u9801\u9762</a>\u3002\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6a19\u984c",
+                    "Description": "\u6e05\u55ae\u7684\u9805\u76ee\u53ef\u4ee5\u5305\u542b\u4e00\u500b\u6a19\u984c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts list\">\n    <div class=\"item\">\n        <div class=\"[[header]]\">\u5deb\u5e2b\u806f\u76df\u7e3d\u90e8</div>\n        \u96fb\u8166\u5c08\u5bb6\u4ff1\u6a02\u90e8 // \u5deb\u8853\u5be6\u9a57\u5ba4\n    </div>\n    <div class=\"item\">\n        <div class=\"[[header]]\">YSITD</div>\n        Young Students' IT Discussion\n    </div>\n    <div class=\"item\">\n        <div class=\"[[header]]\">HentaiDB</div>\n        Official supergroup of @HentaiDB project.\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u8a3b\u91cb",
+                    "Description": "\u6e05\u55ae\u7684\u9805\u76ee\u53ef\u4ee5\u5305\u542b\u8a3b\u91cb\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts list\">\n    <div class=\"item\">\n        <i class=\"map marker {{icon}}\"></i>\n        <div class=\"content\">\n            <a class=\"header\">\u53f0\u5317 101</a>\n            <div class=\"[[description]]\">\u4e00\u6839\u6bcf\u5230\u8de8\u5e74\u5c31\u6703\u8b8a\u6210\u91d1\u8525\u68d2\u7684\u53f0\u7063\u77e5\u540d\u67f1\u5b50\u3002</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <i class=\"map marker {{icon}}\"></i>\n        <div class=\"content\">\n            <a class=\"header\">\u53f0\u6771</a>\n            <div class=\"[[description]]\">\u4e0d\u932f\u7684\u4f11\u9592\u65c5\u904a\u5730\u9ede\uff0c\u9023\u6211\u90fd\u60f3\u53bb\u3002</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <i class=\"map marker {{icon}}\"></i>\n        <div class=\"content\">\n            <a class=\"header\">\u9ad8\u96c4</a>\n            <div class=\"[[description]]\">\u5927\u5bb6\u6709\u8457\u4e0d\u932f\u7684\u71b1\u60c5\u3002</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <i class=\"map marker {{icon}}\"></i>\n        <div class=\"content\">\n            <a class=\"header\">\u53f0\u5357</a>\n            <div class=\"[[description]]\">\u5c0f\u5403\u662f\u53f0\u7063\u6700\u597d\u5403\u7684\uff0c\u4f60\u8aaa\u4e0d\u597d\u5403\uff1f\u5403\u6176\u8a18\u5566\uff0c\u963f\u9760\u592d\u90a3\u662f\u53f0\u4e2d\u3002</div>\n        </div>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u6e05\u55ae\u5305\u542b\u4e86\u5404\u5f0f\u5404\u6a23\u7684\u5167\u5bb9\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6c34\u5e73\u6e05\u55ae",
+                    "Description": "\u6e05\u55ae\u53ef\u4ee5\u662f\u6c34\u5e73\u6392\u5217\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[horizontal]] list\">\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user-!\">\n        <div class=\"content\">\n            <div class=\"header\">Yami Odymel</div>\n            <div class=\"description\">\u7814\u767c 2016 \u59cb\u6625\u7684\u4eba</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user2-!\">\n        <div class=\"content\">\n            <div class=\"header\">Mac Taylor</div>\n            <div class=\"description\">\u597d\u57fa\u53cb</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user3-!\">\n        <div class=\"content\">\n            <div class=\"header\">Val Pyen</div>\n            <div class=\"description\">OSU! \u559c\u597d\u8005</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Subtitle": "\u6c34\u5e73\u6e05\u55ae\u548c\u9ed1\u9ede",
+                    "Since": "2.3.3",
+                    "Description": "\u6c34\u5e73\u6e05\u55ae\u4e5f\u53ef\u4ee5\u642d\u914d\u9ed1\u9ede\u3002",
+                    "HTML": "<div class=\"ts horizontal [[bulleted]] link list\">\n    <a class=\"item\" href=\"#!\">\u4f7f\u7528\u8005\u689d\u7d04</a>\n    <a class=\"item\" href=\"#!\">\u96b1\u79c1\u653f\u7b56</a>\n    <a class=\"item\" href=\"#!\">\u806f\u7e6b\u6211\u5011</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u53cd\u8272",
+                    "Description": "\u6e05\u55ae\u53ef\u4ee5\u662f\u53cd\u8272\u7684\uff0c\u7528\u5728\u4e0d\u540c\u80cc\u666f\u8272\u7684\u6642\u5019\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts inverted {{segment}}\">\n    <div class=\"ts [[inverted]] relaxed divided list\">\n        <div class=\"item\">\n            <div class=\"content\">\n                <div class=\"header\">Cloud 9</div>\n                <div class=\"description\">\u9084\u4e0d\u932f\u7684\u7dda\u4e0a IDE \u548c\u96f2\u7aef\u670d\u52d9\u3002</div>\n            </div>\n        </div>\n        <div class=\"item\">\n            <div class=\"content\">\n                <div class=\"header\">Facebook</div>\n                <div class=\"description\">\u4f60\u8a8d\u771f\u7684\u55ce\uff1f</div>\n            </div>\n        </div>\n        <div class=\"item\">\n            <div class=\"content\">\n                <div class=\"header\">\u0412\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u0435</div>\n                <div class=\"description\">\u671d\u5411\u7368\u88c1\u9081\u9032\u7684\u4fc4\u7f85\u65af\u793e\u7fa4\u5e73\u53f0\u3002</div>\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9805\u76ee\u8a9e\u610f",
+                    "Description": "\u9805\u76ee\u4e5f\u53ef\u4ee5\u5177\u6709\u8a9e\u610f\u6e32\u67d3\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts relaxed divided list\">\n    <div class=\"[[positive]] item\">\n        \u6b63\u9762\u8a9e\u610f\n    </div>\n    <div class=\"[[negative]] item\">\n        \u5426\u5b9a\u8a9e\u610f\n    </div>\n    <div class=\"[[primary]] item\">\n        \u4e3b\u8981\u8a9e\u610f\n    </div>\n    <div class=\"[[info]] item\">\n        \u8cc7\u8a0a\u8a9e\u610f\n    </div>\n    <div class=\"[[warning]] item\">\n        \u8b66\u544a\u8a9e\u610f\n    </div>\n    <div class=\"[[inverted]] item\">\n        \u53cd\u8272\u8a9e\u610f\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u53cd\u8272\u9805\u76ee\u8a9e\u610f",
+                    "Description": "\u9805\u76ee\u7684\u8a9e\u610f\u6e32\u67d3\u4e5f\u53ef\u4ee5\u662f\u57fa\u65bc\u53cd\u8272\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts inverted {{segment}}\">\n    <div class=\"ts [[inverted]] relaxed divided list\">\n        <div class=\"positive item\">\n            \u6b63\u9762\u8a9e\u610f\n        </div>\n        <div class=\"negative item\">\n            \u5426\u5b9a\u8a9e\u610f\n        </div>\n        <div class=\"primary item\">\n            \u4e3b\u8981\u8a9e\u610f\n        </div>\n        <div class=\"info item\">\n            \u8cc7\u8a0a\u8a9e\u610f\n        </div>\n        <div class=\"warning item\">\n            \u8b66\u544a\u8a9e\u610f\n        </div>\n        <div class=\"inverted item\">\n            \u53cd\u8272\u8a9e\u610f\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u53ef\u9078\u64c7\u7684",
+                    "Description": "\u6e05\u55ae\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u53ef\u4f9b\u9078\u64c7\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts middle aligned [[selection]] list\">\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user-!\">\n        <div class=\"content\">\n            <div class=\"header\">Yami Odymel</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user2-!\">\n        <div class=\"content\">\n            <div class=\"header\">Mac Taylor</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user3-!\">\n        <div class=\"content\">\n            <div class=\"header\">Ruby</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u7247\u6bb5\u7684",
+                    "Description": "\u6e05\u55ae\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u7247\u6bb5\u3127\u6a23\u5c64\u6b21\u5206\u660e\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts selection [[segmented]] list\">\n    <a href=\"#!\" class=\"item\">\u98db\u9ce5\u6e4a</a>\n    <a href=\"#!\" class=\"item\">\u897f\u5712\u5bfa\u98a8\u8389</a>\n    <a href=\"#!\" class=\"item\">\u5927\u57a3\u65e5\u5411</a>\n    <a href=\"#!\" class=\"item\">\u8cb4\u8239\u67da\u5b50</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u81ea\u8a02\u6a19\u9ede",
+                    "Description": "\u4f60\u80fd\u5920\u900f\u904e `[value]` \u4f86\u8b8a\u66f4\u6e05\u55ae\u4e2d\u7684\u6a19\u8a18\u7b26\u865f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<ol class=\"ts list\">\n    <li [[value]]=\"+\">\u6a59\u5e0c</li>\n    <li [[value]]=\"+\">\u5361\u8389\u7d72</li>\n    <li [[value]]=\"+\">\n        \u5433\u96e8\u85cd\n        <ol>\n            <li [[value]]=\"-\"><a class=\"item\" href=\"#!\">\u4e9e\u51e1\u82bd</a></li>\n            <li [[value]]=\"-\">\u6a59\u5e0c</li>\n            <li [[value]]=\"-\">\u5361\u8389\u7d72</li>\n        </ol>\n    </li>\n</ol>\n"
+                },
+                {
+                    "Title": "\u5bec\u9b06",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u4e00\u500b\u9593\u8ddd\u8f03\u5927\u7684\u5bec\u9b06\u6e05\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[relaxed]] list\">\n    <div class=\"item\">\u5929\u91ce\u671b</div>\n    <div class=\"item\">\u706b\u4e95\u5411\u767e\u5408</div>\n    <div class=\"item\">\u6210\u6d77\u9059\u9999</div>\n</div>\n<br>\n<div class=\"ts [[very relaxed]] divided list\">\n    <div class=\"item\">Yami Odymel</div>\n    <div class=\"item\">Karisu</div>\n    <div class=\"item\">Iknore</div>\n</div>\n"
+                },
+                {
+                    "Responsive": true,
+                    "Title": "\u81ea\u52d5\u5c64\u758a",
+                    "Description": "\u6c34\u5e73\u6e05\u55ae\u53ef\u4ee5\u5728\u884c\u52d5\u88dd\u7f6e\u4e0a\u81ea\u52d5\u5c07\u9805\u76ee\u4ee5\u5782\u76f4\u65b9\u5f0f\u9032\u884c\u5c64\u758a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[stackable]] horizontal list\">\n    <div class=\"item\">\u59cb\u6625</div>\n    <div class=\"item\">\u7d62\u590f</div>\n    <div class=\"item\">\u8d77\u79cb</div>\n    <div class=\"item\">\u672b\u51ac</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5206\u9694\u7684",
+                    "Description": "\u5e36\u6709\u5206\u9694\u7dda\u7684\u6e05\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[divided]] list\">\n    <div class=\"item\">\u5343\u5c0e\u9662\u6953</div>\n    <div class=\"item\">\u7c92\u6afb\u674f\u5b50</div>\n    <div class=\"item\">\u82e5\u8449\u6634</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u4e0d\u540c\u7684\u5c3a\u5bf8\u5927\u5c0f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[mini]] horizontal list\">\n    <div class=\"item\">\u8ff7\u4f60</div>\n    <div class=\"item\">\u8ff7\u4f60</div>\n</div><br>\n<div class=\"ts [[tiny]] horizontal list\">\n    <div class=\"item\">\u5fae\u5c0f</div>\n    <div class=\"item\">\u5fae\u5c0f</div>\n</div><br>\n<div class=\"ts [[small]] horizontal list\">\n    <div class=\"item\">\u5c0f\u578b</div>\n    <div class=\"item\">\u5c0f\u578b</div>\n</div><br>\n<div class=\"ts [[medium]] horizontal list\">\n    <div class=\"item\">\u9069\u4e2d</div>\n    <div class=\"item\">\u9069\u4e2d</div>\n</div><br>\n<div class=\"ts [[large]] horizontal list\">\n    <div class=\"item\">\u8f03\u5927</div>\n    <div class=\"item\">\u8f03\u5927</div>\n</div><br>\n<div class=\"ts [[big]] horizontal list\">\n    <div class=\"item\">\u5927\u578b</div>\n    <div class=\"item\">\u5927\u578b</div>\n</div><br>\n<div class=\"ts [[huge]] horizontal list\">\n    <div class=\"item\">\u8d85\u5927</div>\n    <div class=\"item\">\u8d85\u5927</div>\n</div><br>\n<div class=\"ts [[massive]] horizontal list\">\n    <div class=\"item\">\u91cd\u91cf\u7d1a</div>\n    <div class=\"item\">\u91cd\u91cf\u7d1a</div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u6e05\u55ae\u5177\u6709\u4e0d\u540c\u7684\u5916\u89c0\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u5782\u76f4\u5c0d\u9f4a",
+                    "Description": "\u9805\u76ee\u7684\u5167\u5bb9\u53ef\u4ee5\u8abf\u6574\u5782\u76f4\u5c0d\u9f4a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts horizontal list\">\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user-!\">\n        <div class=\"[[top aligned]] content\">\n            \u5411\u4e0a\u7f6e\u9f4a\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user2-!\">\n        <div class=\"[[middle aligned]] content\">\n            \u7f6e\u4e2d\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user3-!\">\n        <div class=\"[[bottom aligned]] content\">\n            \u5411\u4e0b\u7f6e\u9f4a\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6d6e\u52d5",
+                    "Description": "\u9805\u76ee\u7684\u5167\u5bb9\u53ef\u4ee5\u5411\u5de6\u6216\u5411\u53f3\u6d6e\u52d5\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts middle aligned divided list\">\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user-!\">\n        <div class=\"content\">\n            Aoi\n        </div>\n        <div class=\"[[right floated]] content\">\n            <div class=\"ts {{button}}\">\u65b0\u589e</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user2-!\">\n        <div class=\"content\">\n            Orenji\n        </div>\n        <div class=\"[[right floated]] content\">\n            <div class=\"ts {{button}}\">\u65b0\u589e</div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <img class=\"ts avatar {{image}}\" src=\"!-user3-!\">\n        <div class=\"content\">\n            Shirone\n        </div>\n        <div class=\"[[right floated]] content\">\n            <div class=\"ts {{button}}\">\u65b0\u589e</div>\n        </div>\n    </div>\n</div>"
+                }
+            ],
+            "Title": "\u5167\u5bb9\u5916\u89c0",
+            "Description": "\u4f60\u53ef\u4ee5\u9ede\u7db4\u6e05\u55ae\u5167\u5bb9\u7684\u5916\u89c0\u3002"
+        }
+    ]
+}

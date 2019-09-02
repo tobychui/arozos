@@ -1,0 +1,123 @@
+{
+    "Title": "\u9032\u5ea6\u5217",
+    "Description": "\u8b93\u4f7f\u7528\u8005\u77e5\u9053\u4ed6\u9084\u8981\u7b49\u591a\u4e45\uff0c\u524d\u63d0\u662f\u4e0d\u6703\u5361\u5728 99%\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u9032\u5ea6\u5217\u67b6\u69cb\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[progress]]\">\n    <div class=\"bar\" style=\"width: 30%\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u8a9e\u610f",
+                    "Description": "\u9032\u5ea6\u5217\u6709\u8457\u4e0d\u540c\u7684\u8a9e\u610f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[primary]] progress\">\n    <div class=\"bar\" style=\"width: 30%\"></div>\n</div>\n<div class=\"ts [[info]] progress\">\n    <div class=\"bar\" style=\"width: 45%\"></div>\n</div>\n<div class=\"ts [[warning]] progress\">\n    <div class=\"bar\" style=\"width: 65%\"></div>\n</div>\n<div class=\"ts [[inverted]] progress\">\n    <div class=\"bar\" style=\"width: 30%\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u80af\u5b9a\u548c\u5426\u5b9a",
+                    "Description": "\u9032\u5ea6\u5217\u4e5f\u53ef\u4ee5\u5e36\u6709\u80af\u5b9a\u6216\u5426\u5b9a\u7684\u8a9e\u6c23\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[positive]] progress\">\n    <div class=\"bar\" style=\"width: 60%\"></div>\n</div>\n<div class=\"ts [[negative]] progress\">\n    <div class=\"bar\" style=\"width: 35%\"></div>\n</div>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u9032\u5ea6\u5217\u5177\u6709\u591a\u500b\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u9032\u5ea6\u5217",
+                    "Description": "\u4e00\u500b\u986f\u793a\u9032\u5ea6\u6700\u57fa\u672c\u7684\u300c\u5217\u300d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts progress\">\n    <div class=\"[[bar]]\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6587\u5b57",
+                    "Description": "\u53ef\u4ee5\u5728\u9032\u5ea6\u5217\u4e0a\u986f\u793a\u6587\u5b57\u7684\u5143\u7d20\uff0c\u4f8b\u5982\u64fa\u653e\u9032\u5ea6\u767e\u5206\u6bd4\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts progress\">\n    <div class=\"bar\" style=\"width: 32%\">\n        <span class=\"[[text]]\">32%</span>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u9032\u5ea6\u5217\u7684\u5167\u5bb9\u6709\u4e00\u4e9b\u4e0d\u4e00\u6a23\u7684\u5143\u7d20\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6d3b\u52d5\u4e2d",
+                    "Description": "\u986f\u793a\u4e00\u500b\u9032\u5ea6\u5217\u6b63\u5728\u9032\u884c\u4e2d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[active]] progress\">\n    <div class=\"bar\" style=\"width: 60%\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6e96\u5099\u4e2d",
+                    "Description": "\u986f\u793a\u4e00\u500b\u53ef\u80fd\u4f4d\u65bc\u6e96\u5099\u4e2d\u7684\u9032\u5ea6\u5217\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[preparing]] progress\">\n    <div class=\"bar\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u672a\u77e5",
+                    "Description": "\u986f\u793a\u4e00\u500b\u5c1a\u672a\u53d6\u5f97\u72c0\u614b\u7684\u9032\u5ea6\u5217\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[indeterminate]] progress\">\n    <div class=\"bar\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5df2\u8a62\u554f\u672a\u77e5",
+                    "Description": "\u4e00\u500b\u5df2\u7d93\u5411\u4f3a\u670d\u5668\u767c\u9001\u8acb\u6c42\uff0c\u4f46\u72c0\u614b\u4ecd\u8655\u65bc\u672a\u77e5\u7684\u9032\u5ea6\u5217\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[queried indeterminate]] progress\">\n    <div class=\"bar\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u7de9\u885d\u4e2d",
+                    "Description": "\u4e00\u500b\u6b63\u5728\u7de9\u885d\uff0c\u4e26\u5e36\u6709\u7de9\u885d\u689d\u7684\u9032\u5ea6\u5217\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[buffering]] progress\">\n    <div class=\"bar\" style=\"width: 30%\"></div>\n    <div class=\"[[buffer]] bar\" style=\"width: 50%\"></div>\n</div>\n"
+                }
+            ],
+            "Title": "\u72c0\u614b",
+            "Description": "\u9032\u5ea6\u5217\u7684\u6709\u4e0d\u540c\u7684\u72c0\u614b\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u9032\u5ea6\u5217\u5806\u758a",
+                    "Description": "\u9032\u5ea6\u5217\u53ef\u4ee5\u7531\u591a\u500b\u5217\u4f86\u9032\u884c\u5806\u758a\u6392\u5217\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts progress\">\n    <div class=\"[[bar]]\" style=\"width: 20%; background: lightskyblue\">\n        <label class=\"text\">\u6a94\u6848</label>\n    </div>\n    <div class=\"[[bar]]\" style=\"width: 50%; background: orange\">\n        <label class=\"text\">\u97f3\u6a02</label>\n    </div>\n    <div class=\"[[bar]]\" style=\"width: 30%; background: green\">\n        <label class=\"text\">\u5716\u7247</label>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u7fa4\u7d44",
+            "Description": "\u9032\u5ea6\u5217\u53ef\u4ee5\u662f\u4e00\u500b\u7fa4\u7d44\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6d41\u52d5",
+                    "Description": "\u9032\u5ea6\u5217\u53ef\u4ee5\u662f\u6d41\u52d5\u5bec\u5ea6\u4e26\u9069\u5408\u7528\u4f86\u8cbc\u9f4a\u5bb9\u5668\u7684\u5de6\u53f3\u908a\uff0c\u56e0\u70ba\u6c92\u6709\u5713\u89d2\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[fluid]] progress\">\n    <div class=\"bar\" style=\"width: 60%\"></div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5438\u9644",
+                    "Remove": [
+                        "<br><br>"
+                    ],
+                    "Description": "\u9032\u5ea6\u5217\u53ef\u4ee5\u5438\u9644\u5728\u67d0\u4e9b\u5143\u4ef6\u5167\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts {{card}}\">\n    <div class=\"ts positive [[top attached]] progress\">\n        <div class=\"bar\" style=\"width: 25%\"></div>\n    </div>\n    <div class=\"content\">\n        \u9019\u500b\u5361\u7247\u7684\u4e0a\u4e0b\u65b9\u90fd\u5404\u6709\u4e00\u500b\u7368\u7acb\u7684\u5438\u9644\u5f0f\u9032\u5ea6\u689d\u3002\n    </div>\n    <div class=\"ts [[bottom attached]] progress\">\n        <div class=\"bar\" style=\"width: 70%\"></div>\n    </div>\n</div>\n<br><br>\n<div class=\"ts top attached {{segment}}\">\n    \u5c07\u9032\u5ea6\u5217\u64fa\u653e\u65bc\u7247\u6bb5\u4e2d\u9593\u3002\n</div>\n<div class=\"ts [[attached]] progress\">\n    <div class=\"bar\" style=\"width: 35%\"></div>\n</div>\n<div class=\"ts bottom attached {{segment}}\">\n    \u5c31\u50cf\u4f60\u770b\u5230\u7684\u3127\u6a23\uff0c\u9019\u500b\u7bc4\u4f8b\u793a\u7bc4\u8457\u4f60\u53ef\u4ee5\u5c07\u9032\u5ea6\u5217\u5b89\u63d2\u5728\u591a\u500b\u7247\u6bb5\u4e4b\u4e2d\u3002\n</div>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Description": "\u9032\u5ea6\u5217\u63d0\u4f9b\u591a\u7a2e\u5c3a\u5bf8\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[tiny]] progress\">\n    <div class=\"bar\" style=\"width: 40%\"></div>\n</div>\n<div class=\"ts [[small]] progress\">\n    <div class=\"bar\" style=\"width: 50%\"></div>\n</div>\n<div class=\"ts [[medium]] progress\">\n    <div class=\"bar\" style=\"width: 60%\"><span class=\"text\">60%</span></div>\n</div>\n<div class=\"ts [[large]] progress\">\n    <div class=\"bar\" style=\"width: 70%\"><span class=\"text\">70%</span></div>\n</div>\n<div class=\"ts [[big]] progress\">\n    <div class=\"bar\" style=\"width: 80%\"><span class=\"text\">80%</span></div>\n</div>"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u9032\u5ea6\u5217\u6709\u591a\u7a2e\u5916\u89c0\u578b\u614b\u3002"
+        }
+    ]
+}

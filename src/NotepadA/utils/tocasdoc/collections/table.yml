@@ -1,0 +1,1373 @@
+Title      : 表格
+Description: 呈現統計資料的好方法。
+Outline    : 表格不應用來當作網頁架構，而是用來呈現資料，如果你想要用類似的架構設計網頁，請參考格線系統。
+
+Definitions:
+
+  - Title      : 種類
+    Description: 表格具有不同的種類。
+    Sections   :
+
+      - Title      : 表格
+        Description: 一個最基本的表格。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[table]]">
+              <thead>
+                  <tr>
+                      <th>#</th>
+                      <th>姓名</th>
+                      <th>英文暱稱</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>1</td>
+                      <td>卡莉絲</td>
+                      <td>Caris</td>
+                  </tr>
+                  <tr>
+                      <td>2</td>
+                      <td>橙希</td>
+                      <td>Orenji</td>
+                  </tr>
+                  <tr>
+                      <td>3</td>
+                      <td>吳雨藍</td>
+                      <td>Aoi</td>
+                  </tr>
+              </tbody>
+              <tfoot>
+                  <tr>
+                      <th colspan="3">未到人數：3</th>
+                  </tr>
+              </tfoot>
+          </table>
+
+      - Title      : 網格的
+        Description: 表格可以看起來像是一個網格表格。
+        Remove     :
+          - <br>
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[celled]] table">
+              <thead>
+                  <tr>
+                      <th>#</th>
+                      <th>姓名</th>
+                      <th>英文暱稱</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>1</td>
+                      <td>卡莉絲</td>
+                      <td>Caris</td>
+                  </tr>
+                  <tr>
+                      <td>2</td>
+                      <td>橙希</td>
+                      <td>Orenji</td>
+                  </tr>
+                  <tr>
+                      <td>3</td>
+                      <td>吳雨藍</td>
+                      <td>Aoi</td>
+                  </tr>
+              </tbody>
+          </table>
+          <br>
+          <table class="ts very basic collapsing [[celled]] table">
+              <thead>
+                  <tr>
+                      <th>員工</th>
+                      <th>答對題數</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>
+                          <h6 class="ts image {{header}}">
+                              <img class="ts mini rounded {{image}}" src="!-user-!">
+                              <div class="content">
+                                  雷莉亞
+                                  <div class="sub header">科學家</div>
+                              </div>
+                          </h6>
+                      </td>
+                      <td>
+                          22
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>
+                          <h6 class="ts image {{header}}">
+                              <img class="ts mini rounded {{image}}" src="!-user2-!">
+                              <div class="content">
+                                  卡莉絲·伊繁特
+                                  <div class="sub header">初中生</div>
+                              </div>
+                          </h6>
+                      </td>
+                      <td>
+                          13
+                      </td>
+                  </tr>
+              </tbody>
+          </table>
+          <br>
+          <table class="ts [[celled]] striped table">
+              <thead>
+                  <tr><th colspan="3">
+                      Git 倉庫
+                  </th>
+              </tr></thead>
+              <tbody>
+                  <tr>
+                      <td class="collapsing">
+                          <i class="folder {{icon}}"></i> node_modules
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td class="right aligned collapsing">10 小時前</td>
+                  </tr>
+                  <tr>
+                      <td>
+                          <i class="folder {{icon}}"></i> test
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td class="right aligned">10 小時前</td>
+                  </tr>
+                  <tr>
+                      <td>
+                        <i class="folder {{icon}}"></i> build
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td class="right aligned">10 小時前</td>
+                  </tr>
+                  <tr>
+                      <td>
+                          <i class="file outline {{icon}}"></i> package.json
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td class="right aligned">10 小時前</td>
+                  </tr>
+                  <tr>
+                      <td>
+                          <i class="file outline {{icon}}"></i> Gruntfile.js
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td class="right aligned">10 小時前</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 定義
+        Description: 表格中的第一個欄位都是該行的標題。
+        Remove     :
+          - <br>
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[definition]] table">
+              <thead>
+                  <tr>
+                      <th></th>
+                      <th>參數</th>
+                      <th>說明</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>header()</td>
+                      <td>title[<em>string</em>]</td>
+                      <td>輸出網頁標頭。</td>
+                  </tr>
+                  <tr>
+                      <td>footer()</td>
+                      <td>path[<em>string</em>], name[<em>string</em>[<em>optional</em>]]</td>
+                      <td>於網頁最底部輸出內容，可同時儲存內容至一個檔案。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <br>
+          <table class="ts compact celled [[definition]] table">
+              <thead>
+                  <tr>
+                      <th></th>
+                      <th>真實姓名</th>
+                      <th>註冊日期</th>
+                      <th>電子郵件地址</th>
+                      <th>高級會員</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td class="collapsing">
+                          <div class="ts toggle {{checkbox}}">
+                              <input type="checkbox" id="toggle1">
+                              <label for="toggle1"></label>
+                          </div>
+                      </td>
+                      <td>吳雨藍</td>
+                      <td>2014/12/24</td>
+                      <td>aoi@misaka.net</td>
+                      <td>否</td>
+                  </tr>
+                  <tr>
+                      <td class="collapsing">
+                          <div class="ts toggle {{checkbox}}">
+                              <input type="checkbox" id="toggle2">
+                              <label for="toggle2"></label>
+                          </div>
+                      </td>
+                      <td>橙希</td>
+                      <td>2015/03/15</td>
+                      <td>orenji@aoi.com</td>
+                      <td>是</td>
+                  </tr>
+                  <tr>
+                      <td class="collapsing">
+                          <div class="ts toggle {{checkbox}}">
+                              <input type="checkbox" id="toggle3">
+                              <label for="toggle3"></label>
+                          </div>
+                      </td>
+                      <td>羽田白音</td>
+                      <td>2016/01/20</td>
+                      <td>shirone@yahoo.jp.com</td>
+                      <td>是</td>
+                  </tr>
+              </tbody>
+              <tfoot class="full-width">
+                  <tr>
+                      <th></th>
+                      <th colspan="4">
+                          <div class="ts right floated small primary labeled icon {{button}}">
+                              <i class="user {{icon}}"></i> 新增使用者
+                          </div>
+                          <div class="ts small {{button}}">
+                              核准
+                          </div>
+                          <div class="ts small disabled {{button}}">
+                              全部核准
+                          </div>
+                      </th>
+                  </tr>
+              </tfoot>
+          </table>
+
+      - Title      : 複雜結構
+        Description: 表格可以用來呈現更具複雜性的結構。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts celled [[structured]] table">
+              <thead>
+                  <tr>
+                      <th rowspan="2">名稱</th>
+                      <th rowspan="2">種類</th>
+                      <th rowspan="2">檔案數量</th>
+                      <th colspan="3">程式語言</th>
+                  </tr>
+                  <tr>
+                      <th>Ruby</th>
+                      <th>JavaScript</th>
+                      <th>Python</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Alpha 團隊</td>
+                      <td>專案 1</td>
+                      <td class="right aligned">2</td>
+                      <td class="center aligned">
+                          <i class="large positive checkmark {{icon}}"></i>
+                      </td>
+                      <td></td>
+                      <td></td>
+                  </tr>
+                  <tr>
+                      <td rowspan="3">Beta 團隊</td>
+                      <td>專案 1</td>
+                      <td class="right aligned">52</td>
+                      <td class="center aligned">
+                          <i class="large positive checkmark {{icon}}"></i>
+                      </td>
+                      <td></td>
+                      <td></td>
+                  </tr>
+                  <tr>
+                      <td>專案 2</td>
+                      <td class="right aligned">12</td>
+                      <td></td>
+                      <td class="center aligned">
+                          <i class="large positive checkmark {{icon}}"></i>
+                      </td>
+                      <td></td>
+                  </tr>
+                  <tr>
+                      <td>專案 3</td>
+                      <td class="right aligned">21</td>
+                      <td class="center aligned">
+                          <i class="large positive checkmark {{icon}}"></i>
+                      </td>
+                      <td></td>
+                      <td></td>
+                  </tr>
+              </tbody>
+          </table>
+
+  - Title      : 狀態
+    Description: 表格中的欄位可以具有不同的狀態。
+    Sections   :
+
+      - Title      : 肯定和否定
+        Description: 欄位或一整行都可以具有肯定或否定的含義。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th>名稱</th>
+                      <th>英文名稱</th>
+                      <th>計畫狀態</th>
+                      <th>說明</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>可憐</td>
+                      <td>Karen</td>
+                      <td class="[[positive]]"><i class="check {{icon}}"></i> 已完成</td>
+                      <td>多國語元支援的函式庫，協助網站跨國交際。</td>
+                  </tr>
+                  <tr class="[[positive]]">
+                      <td>美由紀</td>
+                      <td>Miyuki</td>
+                      <td><i class="check {{icon}}"></i> 已完成</td>
+                      <td>協助圖像處理的類別，必須要安裝 Imagick。</td>
+                  </tr>
+                  <tr>
+                      <td>卡莉絲</td>
+                      <td>Caris</td>
+                      <td class="[[negative]]"><i class="dont {{icon}}"></i> 尚未完成</td>
+                      <td>一個基於 HTML5 的遊戲引擎。</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 錯誤
+        Description: 錯誤和否定一樣，只是樣式名稱不同，適合用在錯誤的地方。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th>工作區域</th>
+                      <th>目前狀態</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>TeaMeow</td>
+                      <td class="positive"><i class="check {{icon}}"></i>已完成</td>
+                  </tr>
+                  <tr class="error">
+                      <td>Safari</td>
+                      <td><i class="close {{icon}}"></i>已停止</td>
+                  </tr>
+                  <tr>
+                      <td>Isuka</td>
+                      <td class="[[error]]"><i class="close {{icon}}"></i>發生錯誤</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 警告
+        Description: 表格內可以有單個或是多個欄位呈現一個警告的狀態。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th>工作區域</th>
+                      <th>目前狀態</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Avane</td>
+                      <td class="[[warning]]"><i class="caution {{icon}}"></i>需要初始化</td>
+                  </tr>
+                  <tr>
+                      <td>Caris</td>
+                      <td>尚未啟動</td>
+                  </tr>
+                  <tr class="[[warning]]">
+                      <td>Isuka</td>
+                      <td><i class="caution {{icon}}"></i>需要檢查</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 啟用中
+        Description: 顯示一行、欄位於啟用中，或是被選取的樣式。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th>使用者名稱</th>
+                      <th>電子郵件信箱</th>
+                      <th>生日</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr class="[[active]]">
+                      <td>yamiodymel</td>
+                      <td>yamiodymel@yamiodymel.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+                  <tr>
+                      <td>mac0017817</td>
+                      <td>mac0017817@mac0017817.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+                  <tr>
+                      <td class="[[active]]">shiroteacat</td>
+                      <td>shiroteacat@shiroteacat.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+              </tbody>
+              <tbody></tbody>
+          </table>
+
+      - Title      : 已停用
+        Description: 顯示一行、欄位已停用。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th>使用者名稱</th>
+                      <th>電子郵件信箱</th>
+                      <th>生日</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr class="[[disabled]]">
+                      <td>yamiodymel</td>
+                      <td>yamiodymel@yamiodymel.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+                  <tr>
+                      <td>mac0017817</td>
+                      <td>mac0017817@mac0017817.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+                  <tr>
+                      <td class="[[disabled]]">shiroteacat</td>
+                      <td>shiroteacat@shiroteacat.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+              </tbody>
+              <tbody></tbody>
+          </table>
+
+      - Title      : 指示的
+        Description: 你可以用特殊方式凸顯表格中的其中一行、欄。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts celled table">
+              <thead>
+                  <tr>
+                      <th>動畫名稱</th>
+                      <th>放映起始日期</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>WorldEnd: What do you do at the end of the world? Are you busy? Will you save us?</td>
+                      <td>Apr 11, 2017</td>
+                  </tr>
+                  <tr class="[[indicated]]">
+                      <td>Eromanga Sensei</td>
+                      <td>Apr 09, 2017</td>
+                  </tr>
+                  <tr class="negative [[indicated]]">
+                      <td>Armed Girl's Machiavellism</td>
+                      <td>Apr 05, 2017</td>
+                  </tr>
+                  <tr class="info [[indicated]]">
+                      <td>Grimoire of Zero</td>
+                      <td class="positive [[indicated]]">Apr 10, 2017</td>
+                  </tr>
+                  <tr>
+                      <td class="primary [[indicated]]">Attack on Titan Season 2</td>
+                      <td>Apr 01, 2017</td>
+                  </tr>
+                  <tr class="warning [[indicated]]">
+                      <td>Akashic Records of Bastard Magic Instructor;</td>
+                      <td>Apr 04, 2017</td>
+                  </tr>
+              </tbody>
+          </table>
+
+  - Title      : 外觀
+    Description: 表格可以透過額外的樣式來強化外觀。
+    Sections   :
+
+      - Title      : 語意
+        Description: 欄位或行都能有語意。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th>工作區域</th>
+                      <th>目前狀態</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Avane</td>
+                      <td class="[[primary]]">
+                          <i class="unhide {{icon}}"></i> 主要目的
+                      </td>
+                  </tr>
+                  <tr class="[[info]]">
+                      <td>Iknore</td>
+                      <td>
+                          <i class="caution {{icon}}"></i> 尚未確認
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>Sana</td>
+                      <td class="[[inverted]]">
+                          <i class="question {{icon}}"></i> 反色
+                      </td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 註釋
+        Description: 你可以透過 `<caption>` 來詮釋一個表格。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th>姓名</th>
+                      <th>電子郵件地址</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>卡莉絲</td>
+                      <td>caris@gmail.com</td>
+                  </tr>
+                  <tr>
+                      <td>橙希</td>
+                      <td>orenji@gmail.com</td>
+                  </tr>
+                  <tr>
+                      <td>吳雨藍</td>
+                      <td>aoi@gmail.com</td>
+                  </tr>
+              </tbody>
+              <[[caption]]>
+                  這是個使用者清單列表與相關資料，請注意這屬於商業機密，不應該外露或公開給第三者得知。
+              </[[caption]]>
+          </table>
+
+      - Title      : 單行
+        Description: 欄位可以保持單行而避免因擠壓而自動換行。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[single line]] table">
+              <thead>
+                  <tr>
+                      <th>使用者名稱</th>
+                      <th>電子郵件信箱</th>
+                      <th>生日</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>yamiodymel</td>
+                      <td>yamiodymel@yamiodymel.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+                  <tr>
+                      <td>mac0017817</td>
+                      <td>mac0017817@mac0017817.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+                  <tr>
+                      <td>shiroteacat</td>
+                      <td>shiroteacat@shiroteacat.com</td>
+                      <td>1998/07/13</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 固定
+        Description: |
+          表格可以套用 `table-layout: fixed` 來讓表格內容有固定的寬度。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[fixed]] table">
+              <thead>
+                  <tr>
+                      <th>文章名稱</th>
+                      <th>狀態</th>
+                      <th>註釋</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Lorem Ipsum</td>
+                      <td>核准</td>
+                      <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>
+                  </tr>
+                  <tr>
+                      <td>Etiam aliquet</td>
+                      <td>核准</td>
+                      <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>
+                  </tr>
+                  <tr>
+                      <td>Aliquam</td>
+                      <td>拒絕</td>
+                      <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Subtitle   : 和單行搭配的固定表格
+        Description: 這將會讓的欄位遇到該換行時不進行換行，並以 `...` 安插於文字後方。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[fixed]] [[single line]] table">
+              <thead>
+                  <tr>
+                      <th>文章名稱</th>
+                      <th>狀態</th>
+                      <th>註釋</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Lorem Ipsum</td>
+                      <td>核准</td>
+                      <td>我是一個有點長的註釋，當我想要換行的時候卻會因為有了 "single line" 而不能換行，所以我的後面會顯示「...」。</td>
+                  </tr>
+                  <tr>
+                      <td>Etiam aliquet</td>
+                      <td>核准</td>
+                      <td>這是一個比較短的註釋。</td>
+                  </tr>
+                  <tr>
+                      <td>Aliquam</td>
+                      <td>拒絕</td>
+                      <td>短註釋。</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 無框線
+        Description: 一個表格可以沒有框線。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[borderless]] table">
+              <thead>
+                  <tr>
+                      <th>#</th>
+                      <th>姓名</th>
+                      <th>英文暱稱</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>1</td>
+                      <td>卡莉絲</td>
+                      <td>Caris</td>
+                  </tr>
+                  <tr>
+                      <td>2</td>
+                      <td>橙希</td>
+                      <td>Orenji</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 自動重疊
+        Description: 表格可以在行動裝置上自動重疊。
+        Since      : 2.3.3
+        Responsive : true
+        HTML       : |
+          <table class="ts [[stackable]] table">
+              <thead>
+                  <tr>
+                      <th>文章名稱</th>
+                      <th>註釋</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Lorem Ipsum</td>
+                      <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>
+                  </tr>
+                  <tr>
+                      <td>Etiam aliquet</td>
+                      <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>
+                  </tr>
+                  <tr>
+                      <td>Aliquam</td>
+                      <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 可選擇行
+        Description: 表格中的「行」可以像是支援選擇一樣，讓滑鼠移到上面或是點擊時有效果。
+        Remove     :
+          - <br>
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[selectable]] table">
+              <thead>
+                  <tr>
+                      <th>工作區域</th>
+                      <th>目前狀態</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Safari</td>
+                      <td>已停止</td>
+                  </tr>
+                  <tr>
+                      <td>Isuka</td>
+                      <td>發生錯誤</td>
+                  </tr>
+                  <tr>
+                      <td>Karen</td>
+                      <td>尚未確認</td>
+                  </tr>
+              </tbody>
+          </table>
+          <br>
+          <table class="ts inverted [[selectable]] table">
+              <thead>
+                  <tr>
+                      <th>工作區域</th>
+                      <th>目前狀態</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Safari</td>
+                      <td>已停止</td>
+                  </tr>
+                  <tr>
+                      <td>Isuka</td>
+                      <td>發生錯誤</td>
+                  </tr>
+                  <tr>
+                      <td>Karen</td>
+                      <td>尚未確認</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 可選擇欄位
+        Description: 表格中的欄位可以被選擇或是提供點擊事件。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts celled table">
+              <thead>
+                  <tr>
+                      <th>名稱</th>
+                      <th>狀態</th>
+                      <th>編輯</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Yami</td>
+                      <td>沒有動作</td>
+                      <td class="[[selectable]]">
+                          <a href="#">編輯</a>
+                      </td>
+                  </tr>
+                  <tr>
+                    <td>Jamie</td>
+                    <td>已核准</td>
+                    <td class="[[selectable]]">
+                      <a href="#">編輯</a>
+                    </td>
+                  </tr>
+                  <tr class="warning">
+                      <td>John</td>
+                      <td>沒有動作</td>
+                      <td class="[[selectable]] warning">
+                          <a href="#">需要變更</a>
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>Jamie</td>
+                      <td class="positive">已核准</td>
+                      <td class="[[selectable]] positive">
+                          <a href="#">核准</a>
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>Jill</td>
+                      <td class="negative">已拒絕</td>
+                      <td class="[[selectable]] negative">
+                          <a href="#">移除</a>
+                      </td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 附著
+        Description: 表格可以與另一個表格或是元件附著在一起。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[top attached]] table">
+              <tbody>
+                  <tr>
+                      <td>Sciuridae Li</td>
+                      <td>Mac Taylor</td>
+                      <td>李政皇</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts celled [[attached]] table">
+              <tbody>
+                  <tr>
+                      <td>Yan-K</td>
+                      <td>Fan Kangtai</td>
+                      <td>SpaceTimeHalf</td>
+                  </tr>
+                  <tr>
+                      <td>Sean Wei</td>
+                      <td>Hiram Huang</td>
+                      <td>Tsundere Chen</td>
+                  </tr>
+                  <tr>
+                      <td>Sciuridae</td>
+                      <td>Jasper Yu</td>
+                      <td>Chris</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts [[bottom attached]] table">
+              <tbody>
+                  <tr>
+                      <td>Choukai</td>
+                      <td>Henry Wu</td>
+                      <td>Allen Chou</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 垂直對齊
+        Description: 你可以改變表格中欄位的文字垂直對齊。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts striped table">
+              <thead>
+                  <tr>
+                      <th>名稱</th>
+                      <th>狀態</th>
+                      <th>筆記</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr class="[[top aligned]]">
+                      <td>John</td>
+                      <td>已核准</td>
+                      <td class="[[top aligned]]">
+                          貼齊頂部<br>
+                          貼齊頂部
+                      </td>
+                  </tr>
+                  <tr>
+                      <td>Jamie</td>
+                      <td class="[[bottom aligned]]">貼齊底部</td>
+                      <td>
+                          記事錄<br>
+                          1<br>
+                          2<br>
+                      </td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 水平對齊
+        Description: 表格中欄位的文字水平對齊也可以被改變，例如靠左對齊、右，甚至置中。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts striped table">
+              <thead>
+                  <tr>
+                      <th>名稱</th>
+                      <th>狀態</th>
+                      <th class="[[right aligned]]">筆記</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr class="[[center aligned]]">
+                      <td>Yami</td>
+                      <td>置中</td>
+                      <td class="[[right aligned]]">我靠右</td>
+                  </tr>
+                  <tr>
+                      <td>Jamie</td>
+                      <td>已核准</td>
+                      <td class="[[right aligned]]">靠右</td>
+                  </tr>
+                  <tr>
+                      <td>Jill</td>
+                      <td class="[[left aligned]]">靠左邊</td>
+                      <td class="[[right aligned]]">靠右</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 條紋
+        Description: 讓表格具有條紋感。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[striped]] table">
+              <thead>
+                  <tr>
+                      <th>檔案名稱</th>
+                      <th>分類</th>
+                      <th>說明</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>file.php</td>
+                      <td>Controller</td>
+                      <td>用來處理檔案相關程式。</td>
+                  </tr>
+                  <tr>
+                      <td>star.php</td>
+                      <td>Controller</td>
+                      <td>處理星號程式。</td>
+                  </tr>
+                  <tr>
+                      <td>favorite.php</td>
+                      <td>Model</td>
+                      <td>處理最愛的項目。</td>
+                  </tr>
+                  <tr>
+                      <td>user.php</td>
+                      <td>View</td>
+                      <td>處理使用者頁面的模板視圖。</td>
+                  </tr>
+                  <tr>
+                      <td>database.php</td>
+                      <td>Model</td>
+                      <td>和資料庫負責聯繫的模型。</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 基本
+        Description: 表格可以只剩下基本的構造線條。
+        Remove     :
+          - <br>
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[basic]] table">
+              <thead>
+                  <tr>
+                      <th>檔案名稱</th>
+                      <th>分類</th>
+                      <th>說明</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>file.php</td>
+                      <td>Controller</td>
+                      <td>用來處理檔案相關程式。</td>
+                  </tr>
+                  <tr>
+                      <td>star.php</td>
+                      <td>Controller</td>
+                      <td>處理星號程式。</td>
+                  </tr>
+                  <tr>
+                      <td>favorite.php</td>
+                      <td>Model</td>
+                      <td>處理最愛的項目。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <br>
+          <table class="ts [[very basic]] table">
+              <thead>
+                  <tr>
+                      <th>檔案名稱</th>
+                      <th>分類</th>
+                      <th>說明</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>file.php</td>
+                      <td>Controller</td>
+                      <td>用來處理檔案相關程式。</td>
+                  </tr>
+                  <tr>
+                      <td>star.php</td>
+                      <td>Controller</td>
+                      <td>處理星號程式。</td>
+                  </tr>
+                  <tr>
+                      <td>favorite.php</td>
+                      <td>Model</td>
+                      <td>處理最愛的項目。</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 閉合欄位
+        Description: 欄位可以只占欄位內容需要的空間，而不是自動增寬留下過多的空白。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <tbody>
+                  <tr>
+                      <td class="[[collapsing]]">
+                        <i class="folder {{icon}}"></i> node_modules
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td>10 小時前</td>
+                  </tr>
+                  <tr>
+                      <td>
+                        <i class="folder {{icon}}"></i> test
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td>10 小時前</td>
+                  </tr>
+                  <tr>
+                      <td>
+                        <i class="folder {{icon}}"></i> build
+                      </td>
+                      <td>第一次 Commit！</td>
+                      <td>10 小時前</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 欄位均分
+        Description: 你可以從 `one` 至 `ten` 來選出你要將欄位自動均分為幾等分。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[three column]] table">
+              <thead>
+                  <tr>
+                      <th>#</th>
+                      <th>姓名</th>
+                      <th>英文暱稱</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>1</td>
+                      <td>卡莉絲</td>
+                      <td>Caris</td>
+                  </tr>
+                  <tr>
+                      <td>2</td>
+                      <td>橙希</td>
+                      <td>Orenji</td>
+                  </tr>
+                  <tr>
+                      <td>3</td>
+                      <td>吳雨藍</td>
+                      <td>Aoi</td>
+                  </tr>
+              </tbody>
+              <tfoot>
+                  <tr>
+                      <th>3 個人</th>
+                      <th>2 個核准</th>
+                      <th></th>
+                  </tr>
+              </tfoot>
+          </table>
+
+      - Title      : 欄位網格
+        Description: 表格也可以利用像是網格系統一樣的功能來對欄位的寬度進行規劃。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts table">
+              <thead>
+                  <tr>
+                      <th class="[[ten wide]]">名稱</th>
+                      <th class="[[six wide]]">狀態</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>John</td>
+                      <td>已核准</td>
+                  </tr>
+                  <tr>
+                      <td>Jamie</td>
+                      <td>已核准</td>
+                  </tr>
+                  <tr>
+                      <td>Jill</td>
+                      <td>已否決</td>
+                  </tr>
+              </tbody>
+              <tfoot>
+                  <tr>
+                      <th>3 個人</th>
+                      <th>2 個核准</th>
+                  </tr>
+              </tfoot>
+          </table>
+
+      - Title      : 閉合表格
+        Description: 表格本身可以只占用最小寬度。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[collapsing]] table">
+              <thead>
+                  <tr>
+                      <th>#</th>
+                      <th>姓名</th>
+                      <th>英文暱稱</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>1</td>
+                      <td>卡莉絲</td>
+                      <td>Caris</td>
+                  </tr>
+                  <tr>
+                      <td>2</td>
+                      <td>橙希</td>
+                      <td>Orenji</td>
+                  </tr>
+                  <tr>
+                      <td>3</td>
+                      <td>吳雨藍</td>
+                      <td>Aoi</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 增加內距
+        Description: 你可以增加欄位的內距。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[padded]] table">
+              <thead>
+                  <tr>
+                      <th>文章名稱</th>
+                      <th>註釋</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Lorem Ipsum</td>
+                      <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>
+                  </tr>
+                  <tr>
+                      <td>Etiam aliquet</td>
+                      <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>
+                  </tr>
+                  <tr>
+                      <td>Aliquam</td>
+                      <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>
+                  </tr>
+              </tbody>
+          </table>
+          <br>
+          <table class="ts [[very padded]] table">
+              <thead>
+                  <tr>
+                      <th>文章名稱</th>
+                      <th>註釋</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>Lorem Ipsum</td>
+                      <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>
+                  </tr>
+                  <tr>
+                      <td>Etiam aliquet</td>
+                      <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>
+                  </tr>
+                  <tr>
+                      <td>Aliquam</td>
+                      <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 縮減
+        Description: 表格的內距可以稍微縮減用以呈現更多的行數。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[compact]] table">
+              <thead>
+                  <tr>
+                      <th>檔案名稱</th>
+                      <th>分類</th>
+                      <th>說明</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>file.php</td>
+                      <td>Controller</td>
+                      <td>用來處理檔案相關程式。</td>
+                  </tr>
+                  <tr>
+                      <td>star.php</td>
+                      <td>Controller</td>
+                      <td>處理星號程式。</td>
+                  </tr>
+                  <tr>
+                      <td>favorite.php</td>
+                      <td>Model</td>
+                      <td>處理最愛的項目。</td>
+                  </tr>
+                  <tr>
+                      <td>user.php</td>
+                      <td>View</td>
+                      <td>處理使用者頁面的模板視圖。</td>
+                  </tr>
+                  <tr>
+                      <td>database.php</td>
+                      <td>Model</td>
+                      <td>和資料庫負責聯繫的模型。</td>
+                  </tr>
+              </tbody>
+          </table>
+
+      - Title      : 尺寸
+        Description: 表格有不同的尺寸可供選擇。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[mini]] celled table">
+              <tbody>
+                  <tr>
+                      <td>mini</td>
+                      <td>迷你</td>
+                      <td>這是一個迷你的表格。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts [[tiny]] celled table">
+              <tbody>
+                  <tr>
+                      <td>tiny</td>
+                      <td>微小</td>
+                      <td>這是一個微小的表格。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts [[small]] celled table">
+              <tbody>
+                  <tr>
+                      <td>small</td>
+                      <td>小的</td>
+                      <td>這是一個小的表格。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts [[medium]] celled table">
+              <tbody>
+                  <tr>
+                      <td>medium</td>
+                      <td>適中</td>
+                      <td>這是一個適中的表格。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts [[large]] celled table">
+              <tbody>
+                  <tr>
+                      <td>large</td>
+                      <td>大的</td>
+                      <td>這是一個大的表格。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts [[big]] celled table">
+              <tbody>
+                  <tr>
+                      <td>big</td>
+                      <td>大型</td>
+                      <td>這是一個大型的表格。</td>
+                  </tr>
+              </tbody>
+          </table>
+          <table class="ts [[huge]] celled table">
+              <tbody>
+                  <tr>
+                      <td>huge</td>
+                      <td>巨大</td>
+                      <td>這是一個巨大的表格。</td>
+                  </tr>
+              </tbody>
+          </table>
+
+Modules:
+
+  - Title      : JavaScript
+    Description: 表格有提供可用的 JavaScript 模塊。
+    Sections   :
+
+      - Title      : 可排序
+        Description: 使用者可以透過點擊欄位標頭來重新排序表格。排序的方式以系統語系設定為主，英文會以 A-Z 與 Z-A 作為排列，中文則是筆畫順序，俄文則是字母排序。
+        Since      : 2.3.3
+        HTML       : |
+          <table class="ts [[sortable]] table">
+              <thead>
+                  <tr>
+                      <th>檔案名稱</th>
+                      <th>中文分類</th>
+                      <th>說明</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>endpoints.go</td>
+                      <td>終端點</td>
+                      <td>轉繼站會將收到的資訊轉換成終端點並進行下一個操作。</td>
+                  </tr>
+                  <tr>
+                      <td>instrumenting.go</td>
+                      <td>度量</td>
+                      <td>將微服務中的函式處理時間整理成一定的格式並且傳送給 Prometheus 伺服器做統計視覺化整理。</td>
+                  </tr>
+                  <tr>
+                      <td>logging.go</td>
+                      <td>紀錄</td>
+                      <td>觀察並且記錄微服務中所有函式的呼叫與流向。</td>
+                  </tr>
+                  <tr>
+                      <td>main.go</td>
+                      <td>主要</td>
+                      <td>核心檔案，除了開發者外不應由其他人修改。</td>
+                  </tr>
+              </tbody>
+          </table>
+        JavaScript: |
+          ts('.ts.sortable.table').tablesort();
+        AutoExecute: true

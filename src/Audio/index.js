@@ -52,6 +52,7 @@
 		var windowID = $(window.frameElement).parent().attr("id");
 		parent.setWindowFixedSize(windowID + "");
 		parent.setWindowPreferdSize(windowID + "",640,173);
+		parent.cacheWindowSize($(window.frameElement).parent().find("iframe").attr("src"),640,173,false);
 		parent.setWindowIcon(windowID + "","music");
 	}
 	
