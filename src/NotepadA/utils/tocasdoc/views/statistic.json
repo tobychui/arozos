@@ -1,0 +1,145 @@
+{
+    "Outline": "\u7d71\u8a08\u6578\u64da\u53ef\u4ee5\u5728\u6578\u64da\u4e0b\u986f\u793a\u4e00\u500b\u8aaa\u660e\u6a19\u7c64\uff0c\u7528\u4f86\u6558\u8ff0\u8a72\u6578\u5b57\u7684\u542b\u610f\u3002",
+    "Title": "\u7d71\u8a08\u6578\u64da",
+    "Description": "\u5e73\u5747\u53ef\u80fd\u4e0d\u8d85\u904e 8 \u2014\u2014 \u516c\u5206\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u7d71\u8a08\u6578\u64da\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[statistic]]\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u62dc\u8a2a\u6b21\u6578</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6a19\u7c64\u65bc\u4e0a",
+                    "Description": "\u6a19\u7c64\u4e5f\u53ef\u4ee5\u5728\u7d71\u8a08\u6578\u64da\u7684\u4e0a\u65b9\uff0c\u4f60\u53ea\u9700\u8981\u8b8a\u66f4\u9806\u5e8f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts statistic\">\n    <div class=\"[[label]]\">\u6703\u54e1\u7e3d\u6578</div>\n    <div class=\"value\">999</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u8a9e\u610f",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u4e5f\u53ef\u4ee5\u5e36\u6709\u4e0d\u540c\u7684\u8a9e\u610f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[primary]] statistic\">\n    <div class=\"value\">1,463</div>\n    <div class=\"label\">\u4e0b\u8f09\u6b21\u6578</div>\n</div>\n<div class=\"ts [[info]] statistic\">\n    <div class=\"value\">361</div>\n    <div class=\"label\">\u89c0\u770b\u6b21\u6578</div>\n</div>\n<div class=\"ts [[warning]] statistic\">\n    <div class=\"value\">72%</div>\n    <div class=\"label\">\u8ca0\u8f09\u983b\u7387</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u80af\u5b9a\u548c\u5426\u5b9a",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u53ef\u4ee5\u662f\u80af\u5b9a\u6216\u662f\u5426\u5b9a\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[positive]] statistic\">\n    <div class=\"value\">301+</div>\n    <div class=\"label\">\u6b63\u9762</div>\n</div>\n<div class=\"ts [[negative]] statistic\">\n    <div class=\"value\">13</div>\n    <div class=\"label\">\u8ca0\u9762</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u53cd\u8272",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u53ef\u4ee5\u662f\u53cd\u8272\u7684\uff0c\u7528\u4ee5\u5448\u73fe\u5728\u4e0d\u540c\u7684\u80cc\u666f\u4e0a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts inverted {{segment}}\">\n    <div class=\"ts [[inverted]] [[primary]] statistic\">\n        <div class=\"value\">1,463</div>\n        <div class=\"label\">\u4e0b\u8f09\u6b21\u6578</div>\n    </div>\n    <div class=\"ts [[inverted]] [[info]] statistic\">\n        <div class=\"value\">361</div>\n        <div class=\"label\">\u89c0\u770b\u6b21\u6578</div>\n    </div>\n    <div class=\"ts [[inverted]] [[warning]] statistic\">\n        <div class=\"value\">72%</div>\n        <div class=\"label\">\u8ca0\u8f09\u983b\u7387</div>\n    </div>\n    <div class=\"ts [[inverted]] [[positive]] statistic\">\n        <div class=\"value\">301+</div>\n        <div class=\"label\">\u6b63\u9762</div>\n    </div>\n    <div class=\"ts [[inverted]] [[negative]] statistic\">\n        <div class=\"value\">13</div>\n        <div class=\"label\">\u8ca0\u9762</div>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u7d71\u8a08\u6578\u64da\u5177\u6709\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6578\u503c",
+                    "Description": "\u5305\u542b\u4e3b\u8981\u7d71\u8a08\u6578\u64da\u7684\u6578\u5b57\u3001\u6578\u503c\uff0c\u5176\u4e2d\u4e5f\u53ef\u4ee5\u5e36\u6709\u5716\u793a\u3001\u6587\u5b57\u6216\u5716\u7247\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts statistics\">\n    <div class=\"statistic\">\n        <div class=\"[[value]]\">724</div>\n        <div class=\"label\">\u4e0b\u8f09\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"text [[value]]\">\n            \u4e09\u5343\u516d\u767e<br>\n            \u516b\u5341\u842c\n        </div>\n        <div class=\"label\">\u6aa2\u8996\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"[[value]]\">\n            <i class=\"flag {{icon}}\"></i> 32\n        </div>\n        <div class=\"label\">\u5df2\u4f54\u64da</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"[[value]]\">\n            <img class=\"ts right spaced circular {{image}}\" src=\"!-user-!\">\n            Infinity-S\n        </div>\n        <div class=\"label\">\u4eba\u6c23\u6700\u9ad8</div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u7570\u52d5",
+                    "Description": "\u986f\u793a\u8207\u4e0a\u6b21\u7684\u5dee\u8ddd\u3001\u7570\u52d5\u6578\u503c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts statistic\">\n    <div class=\"value\">\n        892\n        <div class=\"[[increment]]\">32</div>\n    </div>\n    <div class=\"label\">\u89c0\u770b\u6b21\u6578</div>\n</div>\n<div class=\"ts statistic\">\n    <div class=\"value\">\n        18\n        <div class=\"[[decrement]]\">32</div>\n    </div>\n    <div class=\"label\">\u6536\u85cf\u6b21\u6578</div>\n</div>\n<div class=\"ts statistic\">\n    <div class=\"value\">\n        1,725\n        <div class=\"[[fluctuation]]\">163+</div>\n    </div>\n    <div class=\"label\">\u8cfc\u8cb7\u6b21\u6578</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6a19\u7c64",
+                    "Description": "\u7528\u4f86\u544a\u8a34\u4f7f\u7528\u8005\u9019\u500b\u6578\u64da\u7684\u542b\u7fa9\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts statistic\">\n    <div class=\"value\">315</div>\n    <div class=\"[[label]]\">\u9ede\u64ca\u6b21\u6578</div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u7d71\u8a08\u6578\u64da\u4e2d\u5305\u6709\u4e0d\u540c\u6027\u8cea\u7684\u5167\u5bb9\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6c34\u5e73\u7d71\u8a08\u6578\u64da",
+                    "Description": "\u8b93\u7d71\u8a08\u6578\u64da\u4ee5\u6c34\u5e73\u7684\u65b9\u5f0f\u64fa\u653e\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[horizontal]] statistic\">\n    <div class=\"value\">315</div>\n    <div class=\"label\">\u9ede\u64ca\u6b21\u6578</div>\n</div>\n<div class=\"ts [[horizontal]] statistics\">\n    <div class=\"statistic\">\n        <div class=\"value\">724</div>\n        <div class=\"label\">\u4e0b\u8f09\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">916</div>\n        <div class=\"label\">\u6aa2\u8996\u6b21\u6578</div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5206\u9694\u7684",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u7fa4\u7d44\u53ef\u4ee5\u6709\u5206\u9694\u7dda\u5283\u5206\u958b\u6bcf\u500b\u7d71\u8a08\u9805\u76ee\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[divided]] statistics\">\n    <div class=\"statistic\">\n        <div class=\"value\">163</div>\n        <div class=\"label\">\u9ede\u64ca\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">12</div>\n        <div class=\"label\">\u8cfc\u8cb7\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">2,847</div>\n        <div class=\"label\">\u8a55\u50f9\u6578</div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5747\u5206\u5bec\u5ea6",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u7684\u5bec\u5ea6\u53ef\u4ee5\u5e73\u5747\u5283\u5206\uff0c\u5f9e `one` \u5230 `ten`\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[three]] statistics\">\n    <div class=\"statistic\">\n        <div class=\"value\">1,463</div>\n        <div class=\"label\">\u4e0b\u8f09\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">361</div>\n        <div class=\"label\">\u89c0\u770b\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">72%</div>\n        <div class=\"label\">\u8ca0\u8f09\u983b\u7387</div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6d41\u52d5\u5bec\u5ea6",
+                    "Description": "\u5982\u679c\u4f60\u4e0d\u60f3\u624b\u52d5\u6307\u5b9a\u7d71\u8a08\u6578\u64da\u7684\u5bec\u5ea6\uff0c\u4f60\u53ef\u4ee5\u8b93\u7d71\u8a08\u6578\u64da\u7fa4\u7d44\u8b8a\u6210\u6d41\u52d5\u5bec\u5ea6\uff0c\u9019\u6703\u76f4\u63a5\u8cbc\u6eff\u7236\u5bb9\u5668\u7684\u5bec\u5ea6\u4e26\u81ea\u52d5\u5747\u5206\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[fluid]] divided statistics\">\n    <div class=\"statistic\">\n        <div class=\"value\">4,712</div>\n        <div class=\"label\">\u8a3b\u518a\u4eba\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">1,394</div>\n        <div class=\"label\">\u6628\u65e5\u767b\u5165</div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5782\u76f4\u5c0d\u9f4a",
+                    "Description": "\u4f60\u53ef\u4ee5\u8b8a\u52d5\u7d71\u8a08\u6578\u64da\u4e2d\u6a19\u7c64\u7684\u5782\u76f4\u5c0d\u9f4a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts horizontal statistic\">\n    <div class=\"value\">4,126</div>\n    <div class=\"[[top aligned]] label\">\u7f6e\u4e0a\u5c0d\u9f4a</div>\n</div>\n<div class=\"ts horizontal statistic\">\n    <div class=\"value\">8,973</div>\n    <div class=\"[[middle aligned]] label\">\u7f6e\u4e2d\u5c0d\u9f4a</div>\n</div>\n<div class=\"ts horizontal statistic\">\n    <div class=\"value\">1,502</div>\n    <div class=\"[[bottom aligned]] label\">\u7f6e\u4e0b\u5c0d\u9f4a</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6c34\u5e73\u5c0d\u9f4a",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u7684\u6c34\u5e73\u5c0d\u9f4a\u662f\u53ef\u4ee5\u8b8a\u66f4\u7684\uff0c\u4f8b\u5982\u5c0d\u9f4a\u5de6\u908a\u800c\u4e0d\u662f\u4e2d\u9593\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[left aligned]] divided fluid statistics\">\n    <div class=\"statistic\">\n        <div class=\"value\">8,651</div>\n        <div class=\"label\">\u4e0b\u8f09\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">958</div>\n        <div class=\"label\">\u89c0\u770b\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">16%</div>\n        <div class=\"label\">\u8ca0\u8f09\u983b\u7387</div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6d6e\u52d5",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u53ef\u4ee5\u662f\u6d6e\u52d5\u9760\u5de6\u6216\u9760\u53f3\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts segment\">\n    <div class=\"ts [[right floated]] statistic\">\n        <div class=\"value\">\n          2,204\n        </div>\n        <div class=\"label\">\n          \u89c0\u770b\u6b21\u6578\n        </div>\n    </div>\n    <p>Te eum doming eirmod, nominati pertinacia argumentum ad his. Ex eam alia facete scriptorem, est autem aliquip detraxit at. Usu ocurreret referrentur at, cu epicurei appellantur vix. Cum ea laoreet recteque electram, eos choro alterum definiebas in. Vim dolorum definiebas an. Mei ex natum rebum iisque.</p>\n    <div class=\"ts [[left floated]] statistic\">\n        <div class=\"value\">\n          2,204\n        </div>\n        <div class=\"label\">\n          \u89c0\u770b\u6b21\u6578\n        </div>\n    </div>\n    <p>Eu quo homero blandit intellegebat. Incorrupte consequuntur mei id. Mei ut facer dolores adolescens, no illum aperiri quo, usu odio brute at. Qui te porro electram, ea dico facete utroque quo. Populo quodsi te eam, wisi everti eos ex, eum elitr altera utamur at. Quodsi convenire mnesarchum eu per, quas minimum postulant per id.</p>\n</div>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Description": "\u7d71\u8a08\u6578\u64da\u6709\u4e0d\u540c\u7684\u5c3a\u5bf8\u53ef\u4f9b\u9078\u64c7\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[mini]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u8ff7\u4f60\u5c3a\u5bf8</div>\n</div>\n<div class=\"ts [[tiny]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u5fae\u5c0f\u5c3a\u5bf8</div>\n</div>\n<div class=\"ts [[small]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u5c0f\u578b\u5c3a\u5bf8</div>\n</div>\n<div class=\"ts [[medium]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u4e00\u822c\u5c3a\u5bf8</div>\n</div>\n<div class=\"ts [[large]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u7a0d\u5927\u5c3a\u5bf8</div>\n</div>\n<div class=\"ts [[big]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u5927\u578b\u5c3a\u5bf8</div>\n</div>\n<div class=\"ts [[huge]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u5de8\u5927\u5c3a\u5bf8</div>\n</div>\n<div class=\"ts [[massive]] statistic\">\n    <div class=\"value\">42,689</div>\n    <div class=\"label\">\u91cd\u91cf\u7d1a\u5c3a\u5bf8</div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u4f60\u4e5f\u53ef\u4ee5\u66f4\u6539\u7d71\u8a08\u6578\u64da\u7684\u5916\u89c0\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u7d71\u8a08\u7fa4\u7d44",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u7d71\u8a08\u6578\u64da\u7fa4\u7d44\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[statistics]]\">\n    <div class=\"statistic\">\n        <div class=\"value\">724</div>\n        <div class=\"label\">\u4e0b\u8f09\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">916</div>\n        <div class=\"label\">\u6aa2\u8996\u6b21\u6578</div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u53cd\u8272\u7fa4\u7d44",
+                    "Description": "\u4f60\u53ef\u4ee5\u76f4\u63a5\u5c07\u7d71\u8a08\u7fa4\u7d44\u8a2d\u7f6e\u70ba\u53cd\u8272\u7684\uff0c\u9019\u6a23\u5c31\u4e0d\u9700\u8981\u66ff\u6bcf\u500b\u7d71\u8a08\u6578\u64da\u8a2d\u7f6e\u6210\u53cd\u8272\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts inverted {{segment}}\">\n    <div class=\"ts [[inverted]] statistics\">\n        <div class=\"statistic\">\n            <div class=\"value\">1,948</div>\n            <div class=\"label\">\u5df2\u6536\u85cf</div>\n        </div>\n        <div class=\"statistic\">\n            <div class=\"value\">625</div>\n            <div class=\"label\">\u5df2\u5206\u4eab</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u7fa4\u7d44\u5c3a\u5bf8",
+                    "Description": "\u7d71\u8a08\u7fa4\u7d44\u53ef\u4ee5\u64c1\u6709\u4e00\u500b\u5c3a\u5bf8\uff0c\u7701\u53bb\u66ff\u6bcf\u500b\u7d71\u8a08\u6578\u64da\u8a2d\u7f6e\u5c3a\u5bf8\u7684\u56f0\u64fe\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[large]] statistics\">\n    <div class=\"statistic\">\n        <div class=\"value\">859</div>\n        <div class=\"label\">\u9ede\u64ca\u6b21\u6578</div>\n    </div>\n    <div class=\"statistic\">\n        <div class=\"value\">8,182</div>\n        <div class=\"label\">\u5df2\u89f8\u53ca</div>\n    </div>\n</div>"
+                }
+            ],
+            "Title": "\u7fa4\u7d44",
+            "Description": "\u4f60\u80fd\u5920\u5c07\u591a\u500b\u7d71\u8a08\u6578\u64da\u653e\u5165\u55ae\u500b\u5bb9\u5668\u6210\u70ba\u4e00\u500b\u7fa4\u7d44\u3002"
+        }
+    ]
+}

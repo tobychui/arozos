@@ -1,0 +1,130 @@
+{
+    "Outline": "\u6a19\u7c64\u6703\u5728\u6c92\u6709\u5167\u5bb9\u7684\u6642\u5019\u81ea\u52d5\u96b1\u85cf\uff0c\u9019\u4e5f\u5f88\u9069\u5408\u7528\u4f86\u7576\u4f5c\u72c0\u614b\u6307\u6a19\u3002\u5c0d\u65bc\u8272\u76f2\u4f7f\u7528\u8005\u800c\u8a00\uff0c\u6a19\u7c64\u4e0d\u61c9\u4ee5\u984f\u8272\u4f86\u5f15\u5c0e\u4ed6\u4eba\uff0c\u800c\u662f\u61c9\u8a72\u4ee5\u5f62\u72c0\u4f86\u6558\u8ff0\u72c0\u614b\uff0c\u4f8b\u5982\uff1a\u5728\u7dda\uff08\u5713\u5f62\uff09\u3001\u66ab\u96e2\uff08\u6b63\u65b9\u5f62\uff09\u3001\u96e2\u7dda\uff08\u4e09\u89d2\u5f62\uff09\u3002",
+    "Title": "\u6a19\u7c64",
+    "Description": "\u90a3\u500b 5 \u5143\uff0c\u7136\u5f8c\u9019\u500b\u2014\u2014\u7121\u50f9\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u6a19\u7c64\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[label]]\">\n    <i class=\"gift {{icon}}\"></i>\n    \u6a19\u7c64\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u7247",
+                    "Description": "\u4e00\u500b\u5e36\u6709\u5716\u7247\u7684\u6a19\u7c64\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[image]] label\">\n    <img src=\"!-user-!\">Yami Odymel\n</div>\n<div class=\"ts [[image]] label\">\n    <img src=\"!-user2-!\">Xiaoan\n</div>\n<div class=\"ts [[image]] label\">\n    <img src=\"!-user3-!\">\u5361\u8389\u7d72\n    <div class=\"detail\">\u5be6\u6cc1\u4e3b</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6307\u5411",
+                    "Description": "\u6a19\u7c64\u53ef\u4ee5\u6709\u770b\u8d77\u4f86\u50cf\u662f\u6307\u5411\u67d0\u500b\u5143\u7d20\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[left pointing]] label\">\n    \u5de6\u908a\n</div>\n<div class=\"ts [[right pointing]] label\">\n    \u53f3\u908a\n</div>\n<div class=\"ts [[pointing top]] label\">\n    \u4e0a\u9762\n</div>\n<div class=\"ts [[pointing below]] label\">\n    \u4e0b\u9762\n</div>\n<div class=\"ts basic [[left pointing]] label\">\n    \u5de6\u908a\n</div>\n<div class=\"ts basic [[right pointing]] label\">\n    \u53f3\u908a\n</div>\n<div class=\"ts basic [[pointing top]] label\">\n    \u4e0a\u9762\n</div>\n<div class=\"ts basic [[pointing below]] label\">\n    \u4e0b\u9762\n</div>\n"
+                },
+                {
+                    "Title": "\u8a9e\u6c23",
+                    "Description": "\u6a19\u7c64\u4e5f\u53ef\u4ee5\u64c1\u6709\u4e0d\u540c\u7684\u8a9e\u6c23\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts circular [[primary]] label\">9</div>\n<div class=\"ts circular [[info]] label\">14</div>\n<div class=\"ts [[warning]] label\">7</div>\n<div class=\"ts [[positive]] label\">13</div>\n<div class=\"ts [[inverted]] label\">1998</div>\n"
+                },
+                {
+                    "Title": "\u5438\u9644",
+                    "Remove": [
+                        "<p>&nbsp;</p>"
+                    ],
+                    "Description": "\u5438\u9644\u5728\u67d0\u500b\u5bb9\u5668\u7684\u89d2\u843d\u6216\u662f\u5167\u5bb9\u4e2d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts segment\">\n    <p>&nbsp;</p>\n    <p>\u4f0a\u7e41\u661f\u6700\u9ad8\u5354\u8b70\uff0c\u6240\u6709\u96b8\u5c6c\u4f0a\u7e41\u661f\u65d7\u4e0b\u5df2\u767c\u4f48\u6216\u662f\u6b63\u65bc\u8a08\u5283\u4e2d\u4e4b\u7522\u54c1\u7686\u9808\u9075\u5b88\u6b64\u5354\u8b70\u3002</p>\n    <p>&nbsp;</p>\n    <div class=\"ts [[top right attached]] label\">\u53f3\u4e0a\u6a19\u7c64</div>\n    <div class=\"ts [[top left attached]] label\">\u5de6\u4e0a\u6a19\u7c64</div>\n    <div class=\"ts [[bottom right attached]] label\">\u53f3\u4e0b\u6a19\u7c64</div>\n    <div class=\"ts [[bottom left attached]] label\">\u5de6\u4e0b\u6a19\u7c64</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6c34\u5e73",
+                    "Description": "\u6a19\u7c64\u53ef\u4ee5\u662f\u6c34\u5e73\u7528\u4f86\u7b26\u5408\u9644\u8fd1\u6587\u5b57\u7528\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[horizontal]] label\">\u9019\u500b\u6a19\u7c64</div> \u5f88\u9069\u5408\u548c\u6587\u5b57\u653e\u5728\u4e00\u8d77\u3002\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u6a19\u7c64\u5177\u6709\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6d6e\u8d77\u9644\u8457",
+                    "Description": "\u6a19\u7c64\u53ef\u4ee5\u6d6e\u8d77\u4e26\u9644\u8457\u5728\u67d0\u500b\u5143\u7d20\u7684\u89d2\u843d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<button class=\"ts primary {{button}}\">\u5df2\u8b80\u6240\u6709\n    <div class=\"ts [[floating]] circular label\">7</div>\n</button>\n<button class=\"ts warning {{button}}\">\u6aa2\u8996\n    <div class=\"ts [[floating]] label\">13</div>\n</button>\n"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u6a19\u7c64\u5177\u6709\u4e0d\u540c\u7684\u5916\u89c0\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u8a73\u7d30\u8cc7\u6599",
+                    "Description": "\u7528\u4ee5\u8a6e\u91cb\u6a19\u7c64\u7684\u5167\u5bb9\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts label\">\u65b0\u90f5\u4ef6\n    <div class=\"[[detail]]\">689</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u793a",
+                    "Description": "\u5728\u6a19\u7c64\u5167\u653e\u7f6e\u4e00\u4e9b\u9ede\u7db4\u6216\u662f\u5177\u6709\u529f\u80fd\u7684\u5716\u793a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[left icon]] label\">\n    <i class=\"mail outline {{icon}}\"></i>\n    \u672a\u8b80\u90f5\u4ef6\n    <div class=\"detail\">142</div>\n</div>\n<div class=\"ts [[right icon]] label\">\n    \u5433\u96e8\u85cd\n    <i class=\"user {{icon}}\"></i>\n</div>\n"
+                },
+                {
+                    "Title": "\u95dc\u9589\u6309\u9215",
+                    "Description": "\u4f60\u53ef\u4ee5\u5728\u6a19\u7c64\u5167\u64fa\u7f6e\u4e00\u500b\u95dc\u9589\u6309\u9215\uff0c\u4f7f\u9019\u500b\u6a19\u7c64\u770b\u8d77\u4f86\u53ef\u4f9b\u95dc\u9589\u6216\u79fb\u9664\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts image label\">\n    <img src=\"!-user-!\">\n    Yami Odymel\n    <button class=\"[[ts small close button]]\"></button>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u6a19\u7c64\u7684\u5167\u5bb9\u5177\u6709\u4e0d\u540c\u7684\u6027\u8cea\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c\u7d50\u69cb",
+                    "Description": "\u6a19\u7c64\u53ef\u4ee5\u53ea\u7559\u4e0b\u57fa\u672c\u7684\u7d50\u69cb\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[basic]] label\">\u9810\u8a2d</div>\n<div class=\"ts [[basic]] positive label\">\u6b63\u9762</div>\n<div class=\"ts [[basic]] negative label\">\u8ca0\u9762</div>\n<div class=\"ts [[basic]] info label\">\u8cc7\u8a0a</div>\n<div class=\"ts [[basic]] primary label\">\u4e3b\u8981</div>\n<div class=\"ts [[basic]] warning label\">\u8b66\u544a</div>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Description": "\u6a19\u7c64\u53ef\u4ee5\u6709\u4e0d\u540c\u7684\u5927\u5c0f\u5c3a\u5bf8\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[mini]] label\">\u8ff7\u4f60</div>\n<div class=\"ts [[tiny]] label\">\u5fae\u5c0f</div>\n<div class=\"ts [[small]] label\">\u5c0f\u578b</div>\n<div class=\"ts label\">\u9810\u8a2d</div>\n<div class=\"ts [[medium]] label\">\u9069\u4e2d</div>\n<div class=\"ts [[large]] label\">\u5927\u578b</div>\n<div class=\"ts [[big]] label\">\u5de8\u5927</div>\n<div class=\"ts [[huge]] label\">\u8d85\u5927</div>\n<div class=\"ts [[massive]] label\">\u91cd\u91cf\u7d1a</div>\n"
+                },
+                {
+                    "Title": "\u6d6e\u52d5",
+                    "Description": "\u6a19\u7c64\u53ef\u4ee5\u9760\u5de6\u6216\u9760\u53f3\u6d6e\u52d5\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[left floated]] label\">\u9760\u5de6\u6d6e\u52d5</div>\n<div class=\"ts [[right floated]] label\">\u9760\u53f3\u6d6e\u52d5</div>\n"
+                },
+                {
+                    "Title": "\u7e2e\u6e1b",
+                    "Description": "\u6a19\u7c64\u5167\u8ddd\u53ef\u4ee5\u7e2e\u6e1b\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[compact]] label\">1,624</div>\n<div class=\"ts [[compact]] primary label\">315</div>\n"
+                },
+                {
+                    "Title": "\u5713\u5f62",
+                    "Description": "\u5c07\u6a19\u7c64\u8b8a\u6210\u5713\u5f62\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[circular]] label\">1</div>\n<div class=\"ts [[circular]] label\">99+</div>\n<div class=\"ts [[circular]] label\">1234567</div>\n"
+                },
+                {
+                    "Title": "\u7a7a\u7684",
+                    "Description": "\u4e00\u500b\u7a7a\u7684\u6a19\u7c64\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[empty]] circular label\"></div>\n<div class=\"ts [[empty]] triangle label\"></div>\n<div class=\"ts [[empty]] square label\"></div>\n<div class=\"ts [[empty]] circular primary label\"></div>\n<div class=\"ts [[empty]] circular info label\"></div>\n<div class=\"ts [[empty]] square positive label\"></div>\n<div class=\"ts [[empty]] square negative label\"></div>\n<div class=\"ts [[empty]] triangle info label\"></div>\n<div class=\"ts [[empty]] triangle warning label\"></div>"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u6a19\u7c64\u5177\u6709\u4e0d\u540c\u7684\u5916\u89c0\u3002"
+        }
+    ]
+}

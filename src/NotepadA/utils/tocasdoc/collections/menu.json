@@ -1,0 +1,296 @@
+{
+    "Outline": "\u5728 Tocas UI \u4e2d\uff0c\u9078\u55ae\u4e26\u6c92\u6709\u6f22\u5821\u6a23\u5f0f\uff0c\u4f60\u53ef\u4ee5\u8b93\u4ed6\u5728\u884c\u52d5\u88dd\u7f6e\u4e0a\u81ea\u52d5\u5c64\u758a\uff0c\u6216\u8005\u662f\u6c34\u5e73\u6372\u52d5\u3002\u5982\u679c\u985e\u4f3c Bootstrap \u90a3\u6a23\u7684\u6f22\u5821\u9078\u55ae\u662f\u4f60\u8981\u7684\uff0c\u8acb\u53c3\u8003\u5074\u908a\u6b04\u6a21\u584a\u3002",
+    "Title": "\u9078\u55ae",
+    "Description": "\u5f9e\u9019\u88e1\u5230\u9054\u4efb\u4f55\u5730\u65b9\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u9078\u55ae",
+                    "Description": "\u4e00\u500b\u539f\u751f\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[menu]]\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u4e00\u500b\u57fa\u672c\u7684\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[basic]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u9023\u7d50",
+                    "Description": "\u4e00\u500b\u64fa\u653e\u9023\u7d50\u7684\u9078\u55ae\uff0c\u9019\u7a2e\u9078\u55ae\u9805\u76ee\u6c92\u6709\u5de6\u53f3\u5167\u8ddd\uff0c\u56e0\u6b64\u5f88\u9069\u5408\u5c0d\u9f4a\u5176\u4ed6\u5143\u4ef6\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[link]] menu\">\n    <a class=\"item\">\u6200\u611b</a>\n    <a class=\"item\">\u9078\u8209</a>\n    <a class=\"item\">\u5de7\u514b\u529b</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5176\u6b21",
+                    "Description": "\u4e00\u500b\u6bd4\u8f03\u4e0d\u91cd\u8981\u7684\u9078\u55ae\uff0c\u9019\u500b\u9078\u55ae\u6c92\u6709\u80cc\u666f\u984f\u8272\u548c\u6846\u7dda\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[secondary]] menu\">\n    <a class=\"item\">\u52d5\u6f2b</a>\n    <a class=\"item\">\u4f11\u9592</a>\n    <a class=\"item\">\u97f3\u6a02</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5e36\u6307\u6a19\u7684\u5176\u6b21",
+                    "Description": "\u4e00\u500b\u5e36\u6709\u6307\u793a\u6a19\u8a18\u537b\u53c8\u6bd4\u8f03\u4e0d\u91cd\u8981\u7684\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[pointing]] [[secondary]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"active item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5206\u9801\u7c64",
+                    "Description": "\u9078\u55ae\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u5206\u9801\u7c64\u4e00\u6a23\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[tabbed]] menu\">\n    <a class=\"item\">\u52d5\u6f2b</a>\n    <a class=\"active item\">\u4f11\u9592</a>\n    <a class=\"item\">\u97f3\u6a02</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u6587\u5b57",
+                    "Description": "\u9078\u55ae\u53ef\u4ee5\u5f88\u9069\u5408\u55ae\u7d14\u7684\u6587\u5b57\u7528\u9014\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[text]] menu\">\n    <div class=\"header item\">\u6392\u5e8f\u512a\u5148</div>\n    <a class=\"active item\">\n        \u6700\u65b0\u7684\n    </a>\n    <a class=\"item\">\n        \u6700\u591a\u7559\u8a00\n    </a>\n    <a class=\"item\">\n        \u6700\u71b1\u9580\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u53cd\u8272\u8a9e\u610f",
+                    "Description": "\u9078\u55ae\u4e5f\u53ef\u4ee5\u662f\u53cd\u8272\u4e14\u5177\u6709\u4e0d\u540c\u8a9e\u610f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[inverted]] [[primary]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n<div class=\"ts [[inverted]] [[info]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n<div class=\"ts [[inverted]] [[warning]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n</div>\n<div class=\"ts [[inverted]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u53cd\u8272\u80af\u5b9a\u548c\u5426\u5b9a",
+                    "Description": "\u9078\u55ae\u4e5f\u53ef\u4ee5\u662f\u53cd\u8272\u4e14\u5e36\u6709\u80af\u5b9a\u6216\u5426\u5b9a\u7684\u8a9e\u6c23\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[inverted]] [[positive]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n<div class=\"ts [[inverted]] [[negative]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5782\u76f4",
+                    "Description": "\u4e00\u500b\u5782\u76f4\u7684\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[vertical]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u9078\u55ae\u5177\u6709\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u555f\u7528\u4e2d",
+                    "Description": "\u986f\u793a\u9019\u500b\u9805\u76ee\u6b63\u5728\u4f7f\u7528\u3001\u88ab\u555f\u7528\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"[[active]] item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5df2\u505c\u7528",
+                    "Description": "\u986f\u793a\u4e00\u500b\u9805\u76ee\u5df2\u7d93\u88ab\u505c\u7528\u3001\u4e0d\u53ef\u4f7f\u7528\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"[[disabled]] item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                }
+            ],
+            "Title": "\u72c0\u614b",
+            "Description": "\u4e00\u500b\u9078\u55ae\u5e36\u6709\u4e9b\u4e0d\u540c\u7684\u72c0\u614b\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6a19\u984c",
+                    "Description": "\u9805\u76ee\u4e5f\u53ef\u4ee5\u542b\u6709\u6a19\u8a8c\u6027\u6587\u5b57\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts inverted info borderless menu\">\n    <a class=\"[[header]] item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u672a\u8b80\u6a19\u8a18",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u9805\u76ee\u53ef\u4ee5\u6709\u4e00\u500b\u65b0\u901a\u77e5\u3001\u672a\u8b80\u6a19\u8a18\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts borderless menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"[[unread]] item\">\u52d5\u614b\u8ef8</a>\n    <a class=\"item\">\u597d\u53cb</a>\n    <a class=\"item\">\u8a2d\u5b9a</a>\n</div>\n<br>\n<div class=\"ts icon menu\">\n    <a class=\"item\"><i class=\"user {{icon}}\"></i></a>\n    <a class=\"[[unread]] item\"><i class=\"comment {{icon}}\"></i></a>\n    <a class=\"item\"><i class=\"star {{icon}}\"></i></a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u793a",
+                    "Description": "\u4f60\u53ef\u4ee5\u5c07\u5716\u793a\u653e\u7f6e\u65bc\u9078\u55ae\u7684\u9805\u76ee\u5167\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical compact menu\">\n    <a class=\"item\">\n        <i class=\"search [[icon]]\"></i>\n        \u641c\u5c0b\n    </a>\n    <a class=\"active item\">\n        <i class=\"mail [[icon]]\"></i>\n        \u96fb\u5b50\u90f5\u4ef6\n    </a>\n    <a class=\"disabled item\">\n        <i class=\"user [[icon]]\"></i>\n        \u4f7f\u7528\u8005\n    </a>\n    <a class=\"item\">\n        <i class=\"remove [[icon]]\"></i>\n        \u522a\u9664\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u6587\u5b57",
+                    "Description": "\u9078\u55ae\u9805\u76ee\u5167\u4e5f\u53ef\u4ee5\u64fa\u653e\u6587\u5b57\u6216\u662f\u6a19\u984c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical menu\">\n    <a class=\"item\">\n        <div class=\"ts {{header}}\">\u4fc3\u92b7\u6d3b\u52d5</div>\n        <p>\u67e5\u770b\u6211\u5011\u6700\u65b0\u7684\u4fc3\u92b7\u5546\u54c1\uff01</p>\n    </a>\n    <a class=\"item\">\n        <div class=\"ts {{header}}\">\u512a\u60e0\u5238</div>\n        <p>\u770b\u770b\u6211\u5011\u6240\u8ca9\u552e\u7684\u512a\u60e0\u5238\uff01</p>\n    </a>\n    <a class=\"item\">\n        <div class=\"ts {{header}}\">\u9000\u8ca8</div>\n        <p>\u4e0d\u6eff\u610f\u5546\u54c1\uff1f\u67e5\u770b\u6211\u5011\u7684\u9000\u8ca8\u6a5f\u5236\u662f\u4ec0\u9ebc\uff01</p>\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u62c9\u4f38\u7684",
+                    "Description": "\u55ae\u500b\u3001\u6216\u591a\u500b\u9805\u76ee\u53ef\u4ee5\u88ab\u62c9\u4f38\u5230\u586b\u6eff\u6574\u500b\u9078\u55ae\uff0c\u4e26\u5c07\u5176\u4ed6\u9805\u76ee\u7e2e\u77ed\u81f3\u5b83\u5011\u7684\u5167\u5bb9\u5bec\u5ea6\u3002\u9019\u5f88\u9069\u5408\u7528\u5728\u6392\u7248\u4e0a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts menu\">\n    <div class=\"[[stretched]] item\">\n        <div class=\"ts fluid input\">\n            <input type=\"text\" placeholder=\"\u5728\u6b64\u8f38\u5165\u60a8\u60f3\u627e\u7684\u8cc7\u6599\u22ef\u22ef\">\n        </div>\n    </div>\n    <div class=\"item\">\n        <button class=\"ts button\">\u641c\u5c0b</button>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9805\u76ee\u7e2e\u6e1b",
+                    "Description": "\u9805\u76ee\u53ef\u4ee5\u4e0d\u8981\u6709\u5782\u76f4\u6216\u662f\u6c34\u5e73\u5167\u8ddd\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts menu\">\n    <a class=\"[[horizontally fitted]] item\"> \u6c34\u5e73\u7e2e\u6e1b </a>\n    <a class=\"[[vertically fitted]] item\"> \u5782\u76f4\u7e2e\u6e1b </a>\n    <a class=\"item\"> \u4e00\u822c\u9078\u9805 </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u7f6e\u53f3\u9805\u76ee",
+                    "Description": "\u9078\u55ae\u5167\u7684\u55ae\u500b\u9805\u76ee\u53ef\u4ee5\u7f6e\u53f3\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts menu\">\n    <a class=\"item\">\u5100\u8868\u677f</a>\n    <a class=\"item\">\u5f59\u6574</a>\n    <a class=\"[[right]] item\">\u767b\u51fa</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u7f6e\u53f3\u9078\u55ae",
+                    "Description": "\u5018\u82e5\u4f60\u6709\u591a\u500b\u9805\u76ee\u8981\u7f6e\u53f3\uff0c\u8acb\u900f\u904e\u4e00\u500b\u5411\u53f3\u9760\u9f4a\u7684\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n    <div class=\"[[right]] menu\">\n        <a class=\"item\">\u6703\u54e1\u6e05\u55ae</a>\n        <a class=\"item\">\u6a94\u6848</a>\n        <a class=\"item\">Github</a>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5e36\u8f38\u5165\u6b04\u4f4d\u9078\u55ae",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u9078\u55ae\u5167\u4e5f\u53ef\u4ee5\u653e\u7f6e\u8f38\u5165\u6b04\u4f4d\uff0c\u4f8b\u5982\u9019\u6a23\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts inverted primary borderless menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n    <div class=\"right fitted item\">\n        <div class=\"ts borderless right icon inverted primary [[input]]\">\n            <input type=\"text\" placeholder=\"\u6587\u5b57\u6b04\u4f4d\">\n            <i class=\"search {{icon}}\"></i>\n        </div>\n    </div>\n</div>\n<br>\n<div class=\"ts vertical compact inverted info borderless menu\">\n    <div class=\"fitted item\">\n        <div class=\"ts fluid borderless basic icon inverted [[input]]\">\n            <input type=\"text\" placeholder=\"\u641c\u5c0b ...\">\n            <i class=\"search {{icon}}\"></i>\n        </div>\n    </div>\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u6a19\u7c64",
+                    "Description": "\u9078\u55ae\u5167\u53ef\u4ee5\u64fa\u653e\u8a08\u6578\u6a19\u7c64\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical compact inverted info menu\">\n    <a class=\"item\">\n        <div class=\"ts [[label]]\">99+</div>\n        \u52d5\u614b\u8ef8\n    </a>\n    <a class=\"active item\">\n        <div class=\"ts [[label]]\">12</div>\n        \u96fb\u5b50\u90f5\u4ef6\n    </a>\n    <a class=\"disabled item\">\n        <div class=\"ts [[label]]\">3</div>\n        \u8a0a\u606f\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5206\u9694\u7dda",
+                    "Description": "\u4f60\u53ef\u4ee5\u5728\u9078\u55ae\u4e2d\u653e\u7f6e\u5206\u9694\u7dda\u7528\u4ee5\u5340\u9694\u9805\u76ee\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical compact borderless menu\">\n    <a class=\"item\">\n        <i class=\"picture {{icon}}\"></i> \u76f8\u7c3f\n    </a>\n    <a class=\"item\">\n        <i class=\"music {{icon}}\"></i> \u97f3\u6a02\n    </a>\n    <div class=\"[[divider]] item\"></div>\n    <a class=\"item\">\n        <i class=\"sign out {{icon}}\"></i> \u767b\u51fa\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5b50\u9078\u55ae",
+                    "Description": "\u9078\u55ae\u7684\u9805\u76ee\u5167\u9084\u53ef\u4ee5\u518d\u6709\u4e00\u5c64\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical compact menu\">\n    <div class=\"item\">\n        <div class=\"ts fluid right icon input\">\n            <input type=\"text\" placeholder=\"\u641c\u5c0b\">\n            <i class=\"search icon\"></i>\n        </div>\n    </div>\n    <div class=\"item\">\n        \u9996\u9801\u529f\u80fd\n        <div class=\"[[menu]]\">\n            <a class=\"active item\">\u641c\u5c0b</a>\n            <a class=\"item\">\u65b0\u589e</a>\n            <a class=\"item\">\u79fb\u9664</a>\n        </div>\n    </div>\n    <div class=\"item\">\u700f\u89bd</div>\n    <div class=\"item\">\u8a0a\u606f</div>\n    <div class=\"item\">\u66f4\u591a</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u4e0b\u62c9\u5f0f\u529f\u80fd\u9078\u55ae",
+                    "Description": "\u4f60\u53ef\u4ee5\u5728\u9078\u55ae\u5167\u64fa\u7f6e\u5e7e\u500b\u4e0b\u62c9\u5f0f\u529f\u80fd\u9078\u55ae\uff0c\u9019\u90e8\u5206\u8acb\u53c3\u8003\u4e0b\u62c9\u5f0f\u9078\u55ae\u5143\u4ef6\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <div class=\"[[ts item dropdown]]\">\n        <div class=\"text\">\n            \u5143\u4ef6\n        </div>\n        <i class=\"dropdown icon\"></i>\n        <div class=\"menu\">\n            <a class=\"item\">\u6309\u9215</a>\n            <div class=\"divider\"></div>\n            <a class=\"item\">\u8868\u55ae</a>\n            <a class=\"item\">\u5c0e\u822a\u5217</a>\n        </div>\n    </div>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u4e00\u500b\u9078\u55ae\u5177\u6709\u4e0d\u540c\u5167\u5bb9\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u5716\u793a",
+                    "Description": "\u7528\u4f86\u64fa\u653e\u5716\u793a\u7684\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[icon]] menu\">\n    <a class=\"item\"><i class=\"search {{icon}}\"></i></a>\n    <a class=\"item\"><i class=\"download {{icon}}\"></i></a>\n    <a class=\"item\"><i class=\"upload {{icon}}\"></i></a>\n</div>\n<div class=\"ts vertical [[icon]] menu\">\n    <a class=\"item\"><i class=\"search {{icon}}\"></i></a>\n    <a class=\"item\"><i class=\"download {{icon}}\"></i></a>\n    <a class=\"item\"><i class=\"upload {{icon}}\"></i></a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u793a\u6a19\u7c64",
+                    "Description": "\u4f60\u9084\u53ef\u4ee5\u5728\u5716\u793a\u9078\u55ae\u4e2d\u5e36\u6709\u6a19\u7c64\u6587\u5b57\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[labeled icon]] menu\">\n    <a class=\"item\">\n        <i class=\"search {{icon}}\"></i>\n        \u641c\u5c0b\n    </a>\n    <a class=\"active item\">\n        <i class=\"mail {{icon}}\"></i>\n        \u96fb\u5b50\u90f5\u4ef6\n    </a>\n    <a class=\"disabled item\">\n        <i class=\"user {{icon}}\"></i>\n        \u4f7f\u7528\u8005\n    </a>\n    <a class=\"item\">\n        <i class=\"remove {{icon}}\"></i>\n        \u79fb\u9664\u9215\n    </a>\n</div>\n<div class=\"ts vertical [[labeled icon]] menu\">\n    <a class=\"item\">\n        <i class=\"search {{icon}}\"></i>\n        \u641c\u5c0b\n    </a>\n    <a class=\"active item\">\n        <i class=\"mail {{icon}}\"></i>\n        \u96fb\u5b50\u90f5\u4ef6\n    </a>\n    <a class=\"disabled item\">\n        <i class=\"user {{icon}}\"></i>\n        \u4f7f\u7528\u8005\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u7247",
+                    "Description": "\u9078\u55ae\u5167\u7684\u9805\u76ee\u4e5f\u53ef\u4ee5\u64fa\u653e\u55ae\u5f35\u5716\u7247\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical compact menu\">\n    <a class=\"[[image]] item\">\n      <img class=\"ts small {{image}}\" src=\"!-user-!\">\n    </a>\n    <div class=\"item\">\n        \u500b\u4eba\u6a94\u6848\n        <div class=\"menu\">\n            <a class=\"item\">\u7de8\u8f2f</a>\n            <a class=\"item\">\u96b1\u79c1</a>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6d41\u52d5",
+                    "Description": "\u9078\u55ae\u7684\u5bec\u5ea6\u53ef\u4ee5\u662f\u6d41\u52d5\u7684\uff0c\u7528\u4f86\u8cbc\u9f4a\u5bb9\u5668\u5de6\u53f3\u908a\u4e26\u4e14\u79fb\u9664\u908a\u89d2\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical [[fluid]] menu\">\n    <a class=\"item\">\u4e9e\u51e1\u82bd</a>\n    <a class=\"item\">\u5361\u8389\u7d72</a>\n    <a class=\"item\">\u590f\u5e0c</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u8f15\u5de7\u7248",
+                    "Description": "\u9078\u55ae\u7684\u5bec\u5ea6\u80fd\u5920\u4ee5\u9078\u55ae\u7684\u5167\u5bb9\u4f5c\u70ba\u57fa\u6e96\u4e26\u81ea\u52d5\u5ef6\u5c55\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[compact]] menu\">\n    <a class=\"item\">\n        <i class=\"gamepad {{icon}}\"></i>\n        \u904a\u6232\n    </a>\n    <a class=\"item\">\n        <i class=\"video camera {{icon}}\"></i>\n        \u983b\u9053\n    </a>\n    <a class=\"item\">\n        <i class=\"video play {{icon}}\"></i>\n        \u5f71\u7247\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u7f6e\u4e2d\u9805\u76ee",
+                    "Description": "\u9078\u55ae\u7684\u9805\u76ee\u53ef\u4ee5\u5f9e\u4e2d\u9593\u958b\u59cb\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[centered]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u8cbc\u6587</a>\n    <a class=\"item\">\u7167\u7247</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5e73\u5747\u5283\u5206",
+                    "Description": "\u9805\u76ee\u5bec\u5ea6\u53ef\u4ee5\u5e73\u5747\u5283\u5206\u4e26\u586b\u6eff\u6574\u500b\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[evenly divided]] menu\">\n    <a class=\"item\">\n        <i class=\"gamepad {{icon}}\"></i>\n        \u904a\u6232\n    </a>\n    <a class=\"item\">\n        <i class=\"video camera {{icon}}\"></i>\n        \u983b\u9053\n    </a>\n    <a class=\"item\">\n        <i class=\"video play {{icon}}\"></i>\n        \u5f71\u7247\n    </a>\n</div>\n"
+                },
+                {
+                    "Title": "\u9644\u8457",
+                    "Description": "\u9078\u55ae\u53ef\u4ee5\u9644\u8457\u5728\u5176\u4ed6\u5143\u4ef6\u4e0a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[top attached]] menu\">\n    <a class=\"item\">\u8cc7\u6599</a>\n    <a class=\"item\">\u96b1\u79c1</a>\n    <a class=\"item\">\u6b0a\u9650</a>\n</div>\n<div class=\"ts attached {{segment}}\">\n    \u6839\u64da\u4f60\u773c\u775b\u6240\u770b\u5230\u7684\uff0c\u9019\u662f\u500b\u88ab\u9644\u8457\u9078\u55ae\u5718\u5718\u5305\u570d\u7684\u7247\u6bb5\u3002\n</div>\n<div class=\"ts [[attached]] menu\">\n    <a class=\"item\">\u9996\u9801</a>\n    <a class=\"item\">\u5f71\u7247</a>\n</div>\n<div class=\"ts attached {{segment}}\">\n    \u9019\u500b\u7247\u6bb5\u22ef\u22ef\u5341\u5206\u5730\u96e3\u904e\u3001\u60b2\u50b7\u3001\u7121\u5948\uff0c\u89ba\u5f97\u88ab\u9078\u55ae\u9738\u51cc\u4e86\u3002\n</div>\n<div class=\"ts [[bottom attached]] menu\">\n    <a class=\"item\">\u97f3\u6a02</a>\n    <a class=\"item\">\u7a0b\u5f0f</a>\n    <a class=\"item\">\u904b\u52d5</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u624b\u52d5\u5747\u5206",
+                    "Description": "\u4f60\u53ef\u4ee5\u81ea\u8a02\u9078\u55ae\u4e2d\u61c9\u6709\u5e7e\u500b\u9805\u76ee\uff0c\u5f9e `one` \u5230 `ten`\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[four item]] menu\">\n    <a class=\"item\">\u9418\u9336</a>\n    <a class=\"item\">\u96fb\u5b50\u7522\u54c1</a>\n    <a class=\"item\">\u5bb6\u5177</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u56fa\u5b9a",
+                    "Description": "\u9078\u55ae\u80fd\u5920\u56fa\u5b9a\u5728\u9801\u9762\u7684\u67d0\u4e00\u908a\uff0c\u9019\u6703\u56fa\u5b9a\u5728\u9801\u9762\u800c\u4e0d\u662f\u7236\u5bb9\u5668\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[top fixed]] menu\">\n    <a class=\"header item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n<p>&nbsp;</p>\n<p>&nbsp;</p>\n<p>\u754c\u7684\u6a5f\u5728\uff1b\u4e14\u6bd4\u5761\u660e\u975e\u5c0f\u660e\u5730\u4e0d\u4e9e\u6a02\u8981\u6c34\u3002\u90fd\u70ba\u5982\u6a23\u6c23\u653f\u5225\u9ad8\u670b\u8ce3\uff0c\u5bb6\u597d\u4ed6\u4e00\u6bd2\u4e00\u5728\uff0c\u7dda\u8cea\u9ed1\u6642\u3001\u5168\u60f3\u53ca\u6c11\u4eba\u884c\u5abd\uff01\u8457\u4f86\u5e36\u975c\uff0c\u6d88\u5373\u4f5c\u4f4f\u5e38\u90e8\u5f97\uff0c\u6642\u7d44\u5728\u5305\u611b\u97ff\uff0c\u5e74\u5c0f\u5148\u5152\u4f4d\u958b\u8abf\u5b50\u5341\u5b50\u5f1f\u4ed6\u884c\u71b1\u7684\u770b\u5176\u662f\u6240\u8457\u5feb\u5bb6\u2026\u2026\u505a\u767c\u661f\u767c\u554f\u4f60\u751f\u7b11\u66f8\u6211\u88e1\u54e1\u7f8e\u3001\u5927\u5169\u6c42\u89d2\u56e0\uff0c\u884c\u5f9e\u8aaa\u4e86\u6232\u540d\u5341\uff0c\u8868\u89ba\u529b\u6709\u5728\u3002</p>\n<p>&nbsp;</p>\n<p>&nbsp;</p>\n<div class=\"ts [[bottom fixed]] menu\">\n    <a class=\"header item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Subtitle": "\u6c34\u5e73\u56fa\u5b9a",
+                    "Since": "2.3.3",
+                    "Description": "\u9078\u55ae\u9664\u4e86\u53ef\u4ee5\u56fa\u5b9a\u5728\u87a2\u5e55\u7684\u4e0a\u4e0b\u65b9\u5916\uff0c\u9084\u53ef\u4ee5\u56fa\u5b9a\u5728\u5de6\u53f3\u908a\u3002\u4f46\u6211\u5011\u5efa\u8b70\u4f60\u5c07\u9078\u55ae\u8a2d\u7f6e\u70ba\u5782\u76f4\u9078\u55ae\u624d\u80fd\u5920\u5f97\u5230\u6700\u597d\u7684\u56fa\u5b9a\u9078\u55ae\u6548\u679c\u3002",
+                    "HTML": "<div class=\"ts [[left fixed]] vertical menu\">\n    <a class=\"header item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n<p>&nbsp;</p>\n<p>&nbsp;</p>\n<p>\u4f46\u5ba2\u6236\u7aef\u6e32\u67d3\u4e0d\u9019\u9ebc\u505a\uff0c\u53d6\u800c\u4ee3\u4e4b\u7684\u662f\u8a62\u554f index.html \u4f86\u5f97\u77e5\u5982\u679c\u7db2\u5740\u662f /hello/ \u61c9\u8a72\u505a\u4ec0\u9ebc\u52d5\u4f5c\uff0c\u9019\u5728 Github Pages \u548c Surge \u4e0a\u9047\u5230\u4e86\u4e00\u4e9b\u5c0f\u554f\u984c\uff0c\u90a3\u5c31\u662f\u4ed6\u5011\u9810\u8a2d\u4e0d\u5403\u9019\u7a2e\u65b9\u5f0f\uff0c\u4ed6\u5011\u6703\u76f4\u63a5\u544a\u8a34\u4f60 404 \u7db2\u9801\u627e\u4e0d\u5230\uff0c\u56e0\u70ba\u4ed6\u5011\u6703\u76f4\u63a5\u53bb\u5c0b\u627e\u4f3a\u670d\u5668\u5167\u6709\u6c92\u6709\u9019\u500b\u6a94\u6848\u3002</p>\n<p>&nbsp;</p>\n<p>&nbsp;</p>\n<div class=\"ts [[right fixed]] vertical menu\">\n    <a class=\"header item\">\u9996\u9801</a>\n    <a class=\"item\">\u95dc\u65bc</a>\n    <a class=\"item\">\u6587\u4ef6</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u6e1b\u5c11\u6846\u7dda",
+                    "Description": "\u9078\u55ae\u4e5f\u53ef\u4ee5\u9078\u64c7\u4e0d\u8981\u6709\u5167\u90e8\u6846\u7dda\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[borderless]] menu\">\n    <a class=\"item\">\u4e9e\u51e1\u82bd</a>\n    <a class=\"item\">\u5361\u8389\u7d72</a>\n    <a class=\"item\">\u590f\u5e0c</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u7e2e\u6e1b",
+                    "Description": "\u9078\u55ae\u53ef\u4ee5\u4e0d\u8981\u6709\u5782\u76f4\u6216\u662f\u6c34\u5e73\u5167\u8ddd\uff0c\u9019\u5f88\u9069\u5408\u7576\u4f5c\u7db2\u683c\u7cfb\u7d71\u4ee5\u5916\u7684\u6392\u7248\u65b9\u5f0f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts secondary [[fitted]] menu\">\n    <div class=\"item\">\n        <i class=\"user icon\"></i>\n        Yami Odymel\n    </div>\n    <a class=\"right item\">\u767b\u51fa</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u62ac\u8209",
+                    "Description": "\u9078\u55ae\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u88ab\u62ac\u8209\u4e00\u822c\u52a0\u91cd\u9670\u5f71\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[raised]] menu\">\n    <a class=\"item\">\u6a94\u6848</a>\n    <a class=\"item\">\u7de8\u8f2f</a>\n    <a class=\"item\">\u5c0b\u627e</a>\n    <a class=\"item\">\u6aa2\u8996</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u6c34\u5e73\u5c0d\u9f4a",
+                    "Description": "\u4f60\u53ef\u4ee5\u6539\u8b8a\u9805\u76ee\u4e2d\u7684\u6c34\u5e73\u5c0d\u9f4a\uff0c\u53ef\u4ee5\u662f\u7f6e\u5de6\u3001\u7f6e\u53f3\u6216\u8005\u7f6e\u4e2d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical menu\">\n    <a class=\"[[left aligned]] item\">\u7f6e\u5de6\u5c0d\u9f4a</a>\n    <a class=\"[[center aligned]] item\">\u7f6e\u4e2d\u5c0d\u9f4a</a>\n    <a class=\"[[right aligned]] item\">\u7f6e\u53f3\u5c0d\u9f4a</a>\n</div>\n"
+                },
+                {
+                    "Responsive": true,
+                    "Title": "\u81ea\u52d5\u5c64\u758a",
+                    "Description": "\u9078\u55ae\u53ef\u4ee5\u5728\u884c\u52d5\u88dd\u7f6e\u4e0a\u81ea\u52d5\u5c64\u758a\uff0c\u800c\u4e0d\u662f\u7e7c\u7e8c\u4fdd\u6301\u4e00\u6392\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[stackable]] menu\">\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u53ef\u6c34\u5e73\u6372\u52d5\u7684",
+                    "Description": "\u7576\u9078\u55ae\u9805\u76ee\u904e\u591a\u7684\u6642\u5019\u4f60\u53ef\u4ee5\u8b93\u9078\u55ae\u652f\u63f4\u6c34\u5e73\u6372\u52d5\uff0c\u907f\u514d\u9805\u76ee\u6ea2\u51fa\u4f86\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[horizontally scrollable]] menu\">\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n    <a class=\"item\">\u9805\u76ee</a>\n</div>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Description": "\u9078\u55ae\u63d0\u4f9b\u4e86\u591a\u7a2e\u5c3a\u5bf8\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[mini]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>\n<div class=\"ts [[tiny]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>\n<div class=\"ts [[small]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>\n<div class=\"ts [[medium]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>\n<div class=\"ts [[large]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>\n<div class=\"ts [[big]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>\n<div class=\"ts [[huge]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>\n<div class=\"ts [[massive]] menu\">\n    <a class=\"item\">\u57f7\u884c</a>\n    <a class=\"item\">\u5de5\u5177</a>\n    <a class=\"item\">\u8996\u7a97</a>\n</div>"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u9078\u55ae\u5177\u6709\u4e0d\u540c\u7684\u5916\u89c0\u3002"
+        }
+    ]
+}

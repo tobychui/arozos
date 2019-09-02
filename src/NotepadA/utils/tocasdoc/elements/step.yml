@@ -1,0 +1,508 @@
+Title      : 步驟
+Description: 告訴別人下一步會是什麼。
+
+Definitions:
+
+  - Title      : 種類
+    Description: 步驟具有不同的種類。
+    Sections   :
+
+      - Title      : 步驟
+        Description: 一個最基本的步驟。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="[[step]]">
+                運送
+              </div>
+          </div>
+
+  - Title      : 群組
+    Description: 步驟可以是一個群組。
+    Sections   :
+
+      - Title      : 步驟群組
+        Description: 一個最基本的步驟群組。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[steps]]">
+              <div class="[[step]]">
+                  <i class="truck icon"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </div>
+              <div class="active [[step]]">
+                  <i class="payment icon"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="disabled [[step]]">
+                  <i class="info icon"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 排序
+        Description: 步驟群組可以有號碼排序。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[ordered]] steps">
+              <div class="completed step">
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </div>
+              <div class="completed step">
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                      <div class="description">認證訂單資訊</div>
+                  </div>
+              </div>
+          </div>
+      - Title      : 垂直
+        Description: 步驟群組可以是垂直擺放的。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[vertical]] steps">
+              <div class="completed step">
+                  <i class="truck icon"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </div>
+              <div class="completed step">
+                  <i class="payment icon"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="notice icon"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                      <div class="description">認證訂單資訊</div>
+                  </div>
+              </div>
+          </div>
+
+  - Title      : 內容
+    Description: 步驟的內容是各式各樣的。
+    Sections   :
+
+      - Title      : 標題
+        Description: 步驟裡面可以有標題。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="step">
+                  <div class="content">
+                      <div class="[[title]]">運送</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 註釋
+        Description: 步驟裡面可以包含註釋。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="step">
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="[[description]]">選擇你的運送方式</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 圖示
+        Description: 步驟也能夠擁有圖示。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="step">
+                  <i class="truck [[icon]]"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 連結
+        Description: 步驟本身可以是連結。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <[[a]] class="active step" href="#!">
+                  <i class="truck icon"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </[[a]]>
+              <[[a]] class="step" href="#!">
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </[[a]]>
+          </div>
+
+      - Subtitle   : 非傳統的連結
+        Description: 步驟的連結樣式也可以出現在非傳統連結標籤上。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="[[link]] step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </div>
+              <div class="[[link]] step">
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+          </div>
+
+  - Title      : 狀態
+    Description: 步驟有許多不同的狀態。
+    Sections   :
+
+      - Title      : 行進中
+        Description: 顯示一個步驟是目前正在行進中的。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="[[active]] step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 完成
+        Description: 顯示一個已經完成的步驟。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="[[completed]] step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 已停用
+        Description: 用來顯示一個不能被選擇的步驟。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts steps">
+              <div class="[[disabled]] step">
+                  結帳
+              </div>
+          </div>
+
+  - Title      : 外觀
+    Description: 步驟的外觀有所不同。
+    Sections   :
+
+      - Title      : 可層疊的
+        Description: 在螢幕縮小時，步驟可以被層疊起來。
+        Since      : 2.3.3
+        Responsive : true
+        HTML       : |
+          <div class="ts [[stackable]] steps">
+              <div class="completed step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                      <div class="description">認證訂單資訊</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 流動
+        Description: 步驟的寬度可以是填滿容器寬度的。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts vertical [[fluid]] steps">
+              <div class="completed step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                      <div class="description">認證訂單資訊</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[fluid]] steps">
+              <div class="completed step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                      <div class="description">認證訂單資訊</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 附著
+        Description: 步驟可以附著在其他元件上。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts three [[top attached]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="info {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts attached {{segment}}">
+              <p>月月，搭拉安！</p>
+              <p>月月，搭拉安！</p>
+              <p>月月，搭拉安！</p>
+          </div>
+          <div class="ts three [[bottom attached]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                      <div class="description">選擇你的運送方式</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                      <div class="description">輸入結帳資訊</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="info {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 尺寸
+        Description: 步驟具有不同尺寸。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[mini]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[tiny]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[small]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[medium]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[large]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[big]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[huge]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment icon"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>
+          <div class="ts [[massive]] steps">
+              <div class="step">
+                  <i class="truck {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">運送</div>
+                  </div>
+              </div>
+              <div class="active step">
+                  <i class="payment {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">結帳</div>
+                  </div>
+              </div>
+              <div class="disabled step">
+                  <i class="notice {{icon}}"></i>
+                  <div class="content">
+                      <div class="title">確認訂單</div>
+                  </div>
+              </div>
+          </div>

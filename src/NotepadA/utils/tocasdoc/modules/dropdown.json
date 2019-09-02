@@ -1,0 +1,167 @@
+{
+    "Title": "\u4e0b\u62c9\u5f0f\u9078\u55ae",
+    "Modules": [
+        {
+            "Sections": [
+                {
+                    "Description": "\u4e00\u500b\u7528\u4ee5\u5448\u73fe\u529f\u80fd\u7684\u4e0b\u62c9\u5f0f\u529f\u80fd\u9078\u55ae",
+                    "JavaScript": "ts('.ts.dropdown:not(.basic)').dropdown();\n",
+                    "AutoExecute": true,
+                    "Title": "\u529f\u80fd\u9078\u55ae",
+                    "HTML": "<div class=\"ts [[dropdown]]\">\n    <div class=\"text\">\u6a94\u6848</div>\n    <i class=\"caret down {{icon}}\"></i>\n    <div class=\"menu\">\n        <div class=\"item\">\n            \u65b0\u589e\n        </div>\n        <div class=\"item\">\n            \u91cd\u65b0\u547d\u540d\n            <span class=\"description\">Ctrl + R</span>\n        </div>\n        <div class=\"item\">\n            <i class=\"folder {{icon}}\"></i>\n            \u79fb\u52d5\u81f3\n        </div>\n        <div class=\"item\">\n            <i class=\"trash {{icon}}\"></i>\n            \u79fb\u81f3\u5783\u573e\u6876\n        </div>\n        <div class=\"divider\"></div>\n        <div class=\"item\">\n            \u4e0b\u8f09\u70ba ...\n        </div>\n    </div>\n</div>\n",
+                    "Since": "2.3.3"
+                }
+            ],
+            "Title": "JavaScript",
+            "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u6709\u63d0\u4f9b\u53ef\u7528\u7684 JavaScript \u6a21\u584a\u3002"
+        }
+    ],
+    "Description": "\u6253\u958b\u4e4b\u5f8c\u6703\u985b\u8986\u4f60\u5148\u524d\u4ee5\u70ba\u4e0d\u80fd\u7684\u60f3\u6cd5\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u6700\u57fa\u672c\u7684\u4e0b\u62c9\u5f0f\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<select class=\"ts [[basic]] dropdown\">\n    <option>1998</option>\n    <option>1999</option>\n    <option>2000</option>\n</select>\n"
+                },
+                {
+                    "Title": "\u8a9e\u610f",
+                    "Description": "\u57fa\u672c\u7684\u4e0b\u62c9\u5f0f\u9078\u55ae\u6709\u8457\u4e0d\u540c\u7684\u8a9e\u610f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<select class=\"ts basic [[primary]] dropdown\">\n    <option>1998</option>\n</select>\n<select class=\"ts basic [[info]] dropdown\">\n    <option>1998</option>\n</select>\n<select class=\"ts basic [[warning]] dropdown\">\n    <option>1998</option>\n</select>\n<select class=\"ts basic [[inverted]] dropdown\">\n    <option>1998</option>\n</select>\n"
+                },
+                {
+                    "Title": "\u80af\u5b9a\u548c\u5426\u5b9a",
+                    "Description": "\u80af\u5b9a\u548c\u5426\u5b9a\u7684\u8a9e\u6c23\u53ef\u4ee5\u7528\u5728\u57fa\u672c\u7684\u4e0b\u62c9\u5f0f\u9078\u55ae\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<select class=\"ts basic [[positive]] dropdown\">\n    <option>1998</option>\n</select>\n<select class=\"ts basic [[negative]] dropdown\">\n    <option>1998</option>\n</select>\n"
+                },
+                {
+                    "Title": "\u591a\u9078\u9805",
+                    "Description": "\u9078\u55ae\u53ef\u4ee5\u4e00\u6b21\u5c55\u73fe\u51fa\u591a\u500b\u9078\u9805\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<select class=\"ts basic dropdown\" [[size]]=\"3\">\n    <option>1998</option>\n    <option>1999</option>\n    <option>2000</option>\n    <option>2001</option>\n    <option>2002</option>\n</select>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u6709\u591a\u500b\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u7fa4\u7d44",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u4e0b\u62c9\u5f0f\u9078\u55ae\u7fa4\u7d44\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[dropdowns]]\">\n    <select class=\"ts basic dropdown\">\n        <option>1998</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>07</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>13</option>\n    </select>\n</div>\n"
+                },
+                {
+                    "Title": "\u5206\u958b\u7684",
+                    "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u7fa4\u7d44\u88e1\u7684\u9078\u55ae\u53ef\u4ee5\u662f\u5206\u958b\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[separated]] dropdowns\">\n    <select class=\"ts basic dropdown\">\n        <option>1998</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>07</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>13</option>\n    </select>\n</div>\n"
+                },
+                {
+                    "Title": "\u8f03\u5bec\u9b06",
+                    "Description": "\u5206\u958b\u7684\u4e0b\u62c9\u5f0f\u9078\u55ae\u7fa4\u7d44\u9593\u9699\u53ef\u4ee5\u8f03\u70ba\u5bec\u9b06\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts fluid separated [[relaxed]] dropdowns\">\n    <select class=\"ts basic dropdown\">\n        <option>1998</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>07</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>13</option>\n    </select>\n</div>\n"
+                }
+            ],
+            "Title": "\u7fa4\u7d44",
+            "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u53ef\u4ee5\u662f\u4e00\u500b\u7fa4\u7d44\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u9805\u76ee",
+                    "Description": "\u9805\u76ee\u662f\u69cb\u6210\u9078\u55ae\u4e2d\u6700\u57fa\u672c\u7684\u4e00\u500b\u90e8\u5206\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts floating dropdown labeled icon {{button}}\">\n    <i class=\"caret down {{icon}}\"></i>\n    <span class=\"text\">\u66f4\u591a\u529f\u80fd</span>\n    <div class=\"menu\">\n        <div class=\"[[item]]\">\n            \u65b0\u589e\n        </div>\n        <div class=\"[[item]]\">\n            \u91cd\u65b0\u547d\u540d\n        </div>\n        <div class=\"[[item]]\">\n            \u4e0b\u8f09\u4e26\u58d3\u7e2e\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6a19\u984c",
+                    "Description": "\u9078\u55ae\u4e2d\u53ef\u4ee5\u6709\u6a19\u984c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts floating dropdown labeled icon {{button}}\">\n    <i class=\"filter {{icon}}\"></i>\n    <span class=\"text\">\u7be9\u9078</span>\n    <div class=\"menu\">\n        <div class=\"[[header]]\">\n            <i class=\"tags {{icon}}\"></i>\n            \u7531\u4e0b\u5217\u6a19\u7c64\u7be9\u9078\n        </div>\n        <div class=\"item\">\n            \u5df2\u5b8c\u6210\n        </div>\n        <div class=\"item\">\n            \u9032\u884c\u4e2d\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5206\u9694\u7dda",
+                    "Description": "\u9078\u55ae\u4e2d\u53ef\u4ee5\u63d2\u5165\u5206\u9694\u7dda\u4f86\u5283\u5206\u5169\u500b\u5340\u584a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts floating dropdown labeled icon {{button}}\">\n    <i class=\"users {{icon}}\"></i>\n    <span class=\"text\">\u9078\u64c7\u4eba\u7269</span>\n    <div class=\"menu\">\n        <div class=\"item\">\n            \u6a59\u5e0c\n        </div>\n        <div class=\"item\">\n            \u5433\u96e8\u85cd\n        </div>\n        <div class=\"[[divider]]\"></div>\n        <div class=\"item\">\n            \u7fbd\u7530\u767d\u97f3\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Subtitle": "\u5340\u6bb5\u5206\u9694\u7dda",
+                    "Since": "2.3.3",
+                    "Description": "\u5206\u9694\u7dda\u7684\u9593\u8ddd\u53ef\u4ee5\u66f4\u5927\uff0c\u7528\u4ee5\u52a0\u5f37\u5206\u9694\u5340\u6bb5\u3002",
+                    "HTML": "<div class=\"ts floating dropdown labeled icon {{button}}\">\n    <i class=\"users {{icon}}\"></i>\n    <span class=\"text\">\u9078\u64c7\u4eba\u7269</span>\n    <div class=\"menu\">\n        <div class=\"item\">\n            \u6a59\u5e0c\n        </div>\n        <div class=\"item\">\n            \u5433\u96e8\u85cd\n        </div>\n        <div class=\"[[section divider]]\"></div>\n        <div class=\"item\">\n            \u7fbd\u7530\u767d\u97f3\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Subtitle": "\u7fa4\u7d44\u5206\u9694\u7dda",
+                    "Since": "2.3.3",
+                    "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u7fa4\u7d44\u4e5f\u80fd\u5728\u4e2d\u9593\u63d2\u5165\u81ea\u5b9a\u7fa9\u5206\u9694\u7dda\u3002",
+                    "HTML": "<div class=\"ts separated dropdowns\">\n    <select class=\"ts basic dropdown\">\n        <option>1998</option>\n    </select>\n    <div class=\"[[divider]]\">\u5e74</div>\n    <select class=\"ts basic dropdown\">\n        <option>07</option>\n    </select>\n    <div class=\"[[divider]]\">\u6708</div>\n    <select class=\"ts basic dropdown\">\n        <option>13</option>\n    </select>\n    <div class=\"[[divider]]\">\u65e5</div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u793a",
+                    "Description": "\u9078\u55ae\u5167\u53ef\u4ee5\u6709\u5716\u793a\u9ede\u7db4\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts floating dropdown {{button}}\">\n    <span class=\"text\">\u60a8\u7684\u5fc3\u60c5\uff1f</span>\n    <div class=\"menu\">\n        <div class=\"item\">\n            <i class=\"frown [[icon]]\"></i>\n            \u96e3\u904e\n        </div>\n        <div class=\"item\">\n            <i class=\"meh [[icon]]\"></i>\n            \u5594\n        </div>\n        <div class=\"item\">\n            <i class=\"smile [[icon]]\"></i>\n            \u958b\u5fc3\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u8a3b\u91cb",
+                    "Description": "\u9078\u55ae\u5167\u7684\u9805\u76ee\u53ef\u4ee5\u5e36\u6709\u8a3b\u91cb\uff0c\u7528\u505a\u8a6e\u91cb\u9805\u76ee\u7684\u6982\u8981\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts floating dropdown labeled icon {{button}}\">\n    <i class=\"caret down {{icon}}\"></i>\n    <span class=\"text\">\u79fb\u81f3\u8cc7\u6599\u593e</span>\n    <div class=\"menu\">\n        <div class=\"item\">\n            <span class=\"text\">\u5716\u7247</span>\n            <span class=\"[[description]]\">\u4eca\u5929\u4e0a\u5348</span>\n        </div>\n        <div class=\"item\">\n            <span class=\"text\">\u97f3\u6a02</span>\n            <span class=\"[[description]]\">\u672a\u66fe\u8b8a\u52d5</span>\n        </div>\n        <div class=\"item\">\n            <span class=\"text\">\u5099\u4efd</span>\n            <span class=\"[[description]]\">\u4e00\u5e74\u524d</span>\n        </div>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u7684\u5167\u5bb9\u7531\u591a\u7a2e\u4e0d\u540c\u7684\u7d50\u69cb\u7d44\u6210\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6d6e\u52d5",
+                    "Description": "\u4e0b\u62c9\u5f0f\u529f\u80fd\u9078\u55ae\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u662f\u6d6e\u52d5\u7684\uff0c\u96e2\u6309\u9215\u66f4\u9060\uff0c\u9670\u5f71\u66f4\u6df1\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[floating]] dropdown labeled icon {{button}}\">\n    <i class=\"caret down {{icon}}\"></i>\n    <span class=\"text\">\u66f4\u591a\u529f\u80fd</span>\n    <div class=\"menu\">\n        <div class=\"item\">\n            \u65b0\u589e\n        </div>\n        <div class=\"item\">\n            \u91cd\u65b0\u547d\u540d\n        </div>\n        <div class=\"item\">\n            \u4e0b\u8f09\u4e26\u58d3\u7e2e\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Description": "\u57fa\u672c\u7684\u4e0b\u62c9\u5f0f\u9078\u55ae\u6709\u591a\u7a2e\u5c3a\u5bf8\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<select class=\"ts basic [[mini]] dropdown\">\n    <option>\u8ff7\u4f60</option>\n</select>\n<select class=\"ts basic [[tiny]] dropdown\">\n    <option>\u5fae\u5c0f</option>\n</select>\n<select class=\"ts basic [[small]] dropdown\">\n    <option>\u5c0f\u7684</option>\n</select>\n<select class=\"ts basic [[medium]] dropdown\">\n    <option>\u9069\u4e2d</option>\n</select>\n<select class=\"ts basic [[large]] dropdown\">\n    <option>\u5927\u7684</option>\n</select>\n<select class=\"ts basic [[big]] dropdown\">\n    <option>\u5927\u578b</option>\n</select>\n<select class=\"ts basic [[huge]] dropdown\">\n    <option>\u5de8\u5927</option>\n</select>\n<select class=\"ts basic [[massive]] dropdown\">\n    <option>\u91cd\u91cf\u7d1a</option>\n</select>\n"
+                },
+                {
+                    "Title": "\u52d5\u4f5c",
+                    "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u7684\u5de6\u53f3\u53ef\u4ee5\u5e36\u6709\u5177\u52d5\u4f5c\u6027\u8cea\u7684\u5143\u7d20\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[action]] dropdown\">\n    <select class=\"ts basic dropdown\">\n        <option>1 \u500b</option>\n    </select>\n    <div class=\"ts button\">\n        \u8cfc\u8cb7\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6d41\u52d5",
+                    "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u53ef\u4ee5\u662f\u6d41\u52d5\u5bec\u5ea6\uff0c\u586b\u6eff\u5bb9\u5668\u5bec\u5ea6\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<select class=\"ts [[fluid]] basic dropdown\">\n    <option>Kasendra</option>\n    <option>Larafel</option>\n    <option>Kake</option>\n</select>\n"
+                },
+                {
+                    "Responsive": true,
+                    "Title": "\u81ea\u52d5\u5c64\u758a",
+                    "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u7fa4\u7d44\u80fd\u5920\u5728\u624b\u6a5f\u4e0a\u81ea\u52d5\u5c64\u758a\uff0c\u800c\u4e0d\u662f\u4fdd\u6301\u6c34\u5e73\u6392\u5217\u3002\u6b32\u770b\u898b\u6548\u679c\uff0c\u4f60\u53ef\u80fd\u9700\u8981\u900f\u904e\u624b\u6a5f\u4f86\u67e5\u770b\u9019\u500b\u7bc4\u4f8b\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[stackable]] dropdowns\">\n    <select class=\"ts basic dropdown\">\n        <option>1998</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>07</option>\n    </select>\n    <select class=\"ts basic dropdown\">\n        <option>13</option>\n    </select>\n</div>\n"
+                },
+                {
+                    "Title": "\u7121\u908a\u6846",
+                    "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u53ef\u4ee5\u6c92\u6709\u908a\u6846\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<select class=\"ts [[borderless]] basic dropdown\">\n    <option>1998</option>\n    <option>1999</option>\n    <option>2000</option>\n</select>\n"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u4e0b\u62c9\u5f0f\u9078\u55ae\u7684\u5916\u89c0\u6709\u6240\u4e0d\u540c\u3002"
+        }
+    ]
+}

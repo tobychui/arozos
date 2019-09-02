@@ -1,0 +1,293 @@
+{
+    "TabDefinitions": "\u57fa\u672c\u6a23\u5f0f",
+    "Elements": "\u4e00\u822c\u5143\u7d20",
+    "Required": "\u5fc5\u586b",
+    "Indexes": "\u7d22\u5f15",
+    "TryMessage": "\u73fe\u5728\u958b\u59cb\u8a66\u7528\uff01\u5c07\u4e0b\u5217\u7a0b\u5f0f\u78bc\u8907\u88fd\u4e26\u8cbc\u4e0a\u65bc HTML \u4e2d\u3002",
+    "xx": "\u5143\u4ef6\u9664\u4e86\u53ef\u4ee5\u55ae\u7368\u4f7f\u7528\uff0c\u9084\u53ef\u4ee5\u6df7\u642d\u8457\u4f7f\u7528",
+    "GettingStarted": "\u5f9e\u9019\u958b\u59cb",
+    "Usage3": "\u53c3\u6578B",
+    "ResponsivePreview": "\u97ff\u61c9\u5f0f\u9810\u89bd",
+    "StructurefulDescription": "\u5f88\u591a\u6846\u67b6\u90fd\u662f\u70ba\u4e86\u9054\u5230\u7279\u6b8a\u5916\u89c0\uff0c\n\n\u800c\u65b0\u589e\u4e86\u5f88\u591a\u4e0d\u5fc5\u8981\u7684 HTML \u7d50\u69cb\uff0c\u4f46\u5728\u9019\u88e1\u5c07\u6709\u6240\u6539\u5584\u3002\n\n\u4e0b\u5217\u662f\u4e00\u500b\u7c21\u55ae\u7684\u5c0e\u822a\u6b04\u9078\u55ae\uff0c\u4e26\u8207\u50b3\u7d71 Bootstrap 4 \u6bd4\u8f03\u3002\n",
+    "Slogan": "\u9019\u88e1\u8fce\u4f86\u65b0\u4e16\u754c",
+    "Collections": "\u805a\u5408\u578b",
+    "StructurefulHeader": "\u66f4\u5177\u7d50\u69cb\u6027",
+    "SourceCode": "\u539f\u59cb\u78bc",
+    "MeaningfulDescription": "Tocas UI \u4ee5\u66f4\u6709\u610f\u7fa9\u7684\u65b9\u5f0f\u4f86\u547d\u540d\u985e\u5225\u540d\u7a31\uff0c\n\n\u5c31\u50cf\u662f\u4f60\u76f4\u63a5\u7a31\u547c\u9019\u500b\u5143\u7d20\u4e00\u6a23\u5730\u89aa\u5207\u3002\n\n\u7a0b\u5f0f\u5df2\u7d93\u5920\u67af\u71e5\u4e4f\u5473\u4e86\uff0c\u5225\u518d\u8b93\u4eba\u751f\u4e5f\u7e7c\u7e8c\u67af\u71e5\u4e0b\u53bb\u3002\n",
+    "TabModules": "\u6a21\u584a\u529f\u80fd",
+    "Views": "\u8996\u5716\u578b",
+    "TabSettings": "\u5c6c\u6027\u8a2d\u7f6e",
+    "MeaningfulHeader": "\u66f4\u6709\u610f\u7fa9",
+    "CommentDescription": "\u4f60\u73fe\u5728\u53ef\u4ee5\u5728\u9019\u88e1\u7559\u8a00\u5566\uff01\u5982\u679c\u6709\u529f\u80fd\u5efa\u8b70\u6216\u662f\u767c\u73fe\u932f\u8aa4\uff0c\u53ef\u4ee5\u5230\u9019\u88e1\u63d0\u51fa Issue\u3002",
+    "x": "\u773e\u591a\u642d\u914d",
+    "Documentation": "\u4f7f\u7528\u6587\u4ef6",
+    "Usage1": "\u65b9\u6cd5\u540d\u7a31",
+    "Responsive": "\u97ff\u61c9\u5f0f",
+    "MixinSettings": "\u4e3b\u984c\u6a23\u5f0f",
+    "Examples": "\u5be6\u969b\u7bc4\u4f8b",
+    "About": "\u95dc\u65bc",
+    "Search": "\u641c\u5c0b",
+    "Playground": "\u5373\u6642\u6e2c\u8a66",
+    "Components": [
+        {
+            "Items": [
+                {
+                    "Name": "\u6309\u9215",
+                    "Alias": "Button",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5bb9\u5668",
+                    "Alias": "Container",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5206\u9694\u7dda",
+                    "Alias": "Divider",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u570b\u65d7",
+                    "Alias": "Flag",
+                    "Since": "3.0.0"
+                },
+                {
+                    "Name": "\u6a19\u984c",
+                    "Alias": "Header",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5716\u793a",
+                    "Alias": "Icon",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5716\u7247",
+                    "Alias": "Image",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u8f38\u5165\u6b04\u4f4d",
+                    "Alias": "Input",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u6a19\u7c64",
+                    "Alias": "Label",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u6e05\u55ae",
+                    "Alias": "List",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u8b80\u53d6\u6307\u793a\u5668",
+                    "Alias": "Loader",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u7247\u6bb5",
+                    "Alias": "Segment",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u677f\u5ca9",
+                    "Alias": "Slate",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u6b65\u9a5f",
+                    "Alias": "Steps",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u9810\u7f6e\u6b04\u4f4d",
+                    "Alias": "Placeholder",
+                    "Since": "3.0.0"
+                },
+                {
+                    "Name": "\u5f15\u8a00",
+                    "Alias": "Quote",
+                    "Since": "2.3.0"
+                }
+            ],
+            "Name": "\u4e00\u822c\u5143\u7d20",
+            "Alias": "Elements"
+        },
+        {
+            "Items": [
+                {
+                    "Name": "\u9eb5\u5305\u5c51",
+                    "Alias": "Breadcrumb",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u8868\u55ae",
+                    "Alias": "Form",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u7db2\u683c\u7cfb\u7d71",
+                    "Alias": "Grid",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u9078\u55ae",
+                    "Alias": "Menu",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u8a0a\u606f",
+                    "Alias": "Message",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u8868\u683c",
+                    "Alias": "Table",
+                    "Since": "2.3.0"
+                }
+            ],
+            "Name": "\u805a\u5408\u578b",
+            "Alias": "Collections"
+        },
+        {
+            "Items": [
+                {
+                    "Name": "\u6838\u53d6\u65b9\u584a",
+                    "Alias": "Checkbox",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5716\u7247\u6bd4\u8f03",
+                    "Alias": "Image Comparision",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u8907\u5408\u5f0f\u9078\u55ae",
+                    "Alias": "Context Menu",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u6de1\u5316\u5e55",
+                    "Alias": "Dimmer",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u4e0b\u62c9\u5f0f\u9078\u55ae",
+                    "Alias": "Dropdown",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5d4c\u5165\u7269\u4ef6",
+                    "Alias": "Embed",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5c0d\u8a71\u8996\u7a97",
+                    "Alias": "Modal",
+                    "Since": "3.0.0"
+                },
+                {
+                    "Name": "\u5f48\u51fa\u5f0f\u63d0\u793a",
+                    "Alias": "Popup",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u9032\u5ea6\u689d",
+                    "Alias": "Progress",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u8a55\u5206",
+                    "Alias": "Rating",
+                    "Since": "3.0.0"
+                },
+                {
+                    "Name": "\u6372\u52d5\u76e3\u807d",
+                    "Alias": "Scrollspy",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u641c\u5c0b",
+                    "Alias": "Search",
+                    "Since": "3.0.0"
+                },
+                {
+                    "Name": "\u5074\u908a\u6b04",
+                    "Alias": "Sidebar",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u6ed1\u687f",
+                    "Alias": "Slider",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u9ede\u5fc3\u689d",
+                    "Alias": "Snackbar",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5206\u9801\u7c64",
+                    "Alias": "Tab",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u7a7f\u68ad\u6846",
+                    "Alias": "Transfer",
+                    "Since": "3.0.0"
+                },
+                {
+                    "Name": "\u8f49\u5834\u6548\u679c",
+                    "Alias": "Transition",
+                    "Since": "3.0.0"
+                }
+            ],
+            "Name": "\u6a21\u584a",
+            "Alias": "Modules"
+        },
+        {
+            "Items": [
+                {
+                    "Name": "\u5361\u7247",
+                    "Alias": "Card",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u7559\u8a00",
+                    "Alias": "Comment",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u5c0d\u8a71",
+                    "Alias": "Conversation",
+                    "Since": "3.0.0"
+                },
+                {
+                    "Name": "\u52d5\u614b\u6642\u8ef8",
+                    "Alias": "Feed",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u9805\u76ee",
+                    "Alias": "Items",
+                    "Since": "2.3.0"
+                },
+                {
+                    "Name": "\u7d71\u8a08\u6578\u64da",
+                    "Alias": "Statistic",
+                    "Since": "2.3.0"
+                }
+            ],
+            "Name": "\u8996\u5716\u578b",
+            "Alias": "Views"
+        }
+    ],
+    "Usage2": "\u53c3\u6578A",
+    "Footer": "\u7531 [Yami Odymel](https://www.facebook.com/yamiodymel) \u6240\u8a2d\u8a08\uff0c\u9084\u6709[\u8ca2\u737b\u8005\u5011](https://github.com/TeaMeow/TocasUI/graphs/contributors)\u7684\u611b\u5fc3 \u2764\ufe0f\u3002\u539f\u59cb\u78bc\u6388\u6b0a\u65b9\u5f0f\u70ba MIT\uff0c\u6587\u4ef6\u5247\u70ba [CC0 1.0 \u516c\u773e\u9818\u57df](https://creativecommons.org/publicdomain/zero/1.0/deed.zh_TW)\uff0c\u9084\u8acb\u76e1\u60c5\u5730\u4f7f\u7528\u548c\u5206\u4eab\uff0c\u6216\u8005\u662f\u4e00\u540c\u6539\u9032 :)",
+    "SponsorMessage": "\u672c\u7db2\u7ad9\u7531\u4ee5\u4e0b\u8d0a\u52a9\u8005\u63d0\u4f9b",
+    "Comment": "\u672c\u9801\u7559\u8a00",
+    "Modules": "\u6a21\u584a",
+    "ToTop": "\u56de\u5230\u9802\u90e8"
+}

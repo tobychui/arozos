@@ -1,0 +1,60 @@
+{
+    "Title": "\u5206\u9694\u7dda",
+    "Description": "\u9019\u88e1\u958b\u555f\u4e86\u53e6\u4e00\u500b\u8a71\u984c\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u5206\u9694\u7dda\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<p>\u6211\u662f\u5fae\u7b11\u5c0f\u5b89\u5b89\uff0c\u6b61\u8fce\u4f86\u5230\u5c0f\u5b89\u7db2\u7ad9\u3002</p>\n<hr class=\"ts [[divider]]\">\n<p>\u4f60\u5c07\u6703\u5728\u9019\u88e1\u770b\u898b\u4e00\u500b\u9b54\u6cd5\u5e2b\u7684\u65e5\u5e38\u751f\u6d3b\uff0c</p>\n<p>\u6c92\u932f\uff0c\u53ea\u8981\u4f60\u80fd\u5920\u55ae\u8eab\u4e09\u5341\u5e74\uff0c\u4f60\u4e5f\u53ef\u4ee5\u8ddf\u6211\u4e00\u6a23\u6210\u70ba\u9b54\u6cd5\u5e2b\u3002</p>\n"
+                },
+                {
+                    "Title": "\u6bb5\u843d",
+                    "Description": "\u5206\u9694\u7dda\u53ef\u4ee5\u589e\u52a0\u9593\u8ddd\u7528\u4ee5\u5340\u5206\u5927\u578b\u6bb5\u843d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "\u9019\u88e1\u662f\u4e00\u500b\u5340\u6bb5\uff0c\u7136\u5f8c\u4e0b\u4e00\u884c\u6703\u662f\u65b0\u4e16\u754c\u3002\n<hr class=\"ts [[section]] divider\">\n\u54c8\u56c9\uff01\u4e16\u754c\uff01\n"
+                },
+                {
+                    "Title": "\u6c34\u5e73\u5206\u9694\u7dda",
+                    "Description": "\u9019\u7a2e\u5206\u9694\u7dda\u53ef\u4ee5\u8b93\u4f60\u5728\u4e2d\u9593\u63d2\u5165\u6587\u5b57\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<p>\u55f6\u55f6\u55f6\u3002</p>\n<div class=\"ts [[horizontal]] divider\">\u6211\u662f\u5206\u9694\u7dda</div>\n<p>\u6c92\u932f\uff0c\u4f60\u53ef\u4ee5\u5728\u5206\u9694\u7dda\u4e2d\u9593\u63d2\u5165\u4e00\u5c0f\u6bb5\u6587\u5b57\uff0c</p>\n<p>\u800c\u4e14\u53ea\u9700\u8981\u4e00\u500b\u5143\u7d20\u3002</p>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u5206\u9694\u7dda\u5177\u6709\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u96b1\u85cf",
+                    "Description": "\u4e0d\u53ef\u898b\u7684\u5206\u9694\u7dda\uff0c\u4f46\u4ecd\u5e36\u6709\u5206\u9694\u6548\u679c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<p>\u55f6\u55f6\u55f6\u3002</p>\n<div class=\"ts [[hidden]] divider\">\u6211\u662f\u5206\u9694\u7dda</div>\n<p>\u4f60\u6709\u770b\u898b\u4e2d\u9593\u7684\u5206\u9694\u7dda\u55ce\uff1f\u3002</p>\n<p>\u5f88\u591a\u4eba\u770b\u4e0d\u898b\u3002</p>\n<p>\u4f46\u662f\u5f88\u591a\u4eba\u4e0d\u8aaa\u3002</p>\n"
+                },
+                {
+                    "Title": "\u7e2e\u6e1b",
+                    "Description": "\u5206\u9694\u7dda\u53ef\u4ee5\u6c92\u6709\u9593\u8ddd\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "\u9019\u500b\u5206\u9694\u7dda\u6703\u6c92\u6709\u9593\u8ddd\uff0c\u5b57\u770b\u8d77\u4f86\u6703\u8ddf\u5206\u9694\u7dda\u9ecf\u5728\u4e00\u8d77\u3002\n<hr class=\"ts [[fitted]] divider\">\n\u7576\u7136\u9019\u4e00\u884c\u4e5f\u4e0d\u4f8b\u5916\u3002\n"
+                },
+                {
+                    "Title": "\u53cd\u8272",
+                    "Description": "\u5206\u9694\u7dda\u7684\u984f\u8272\u662f\u76f8\u53cd\u8272\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts inverted {{segment}}\">\n    \u4e0b\u9762\u7684\u5206\u9694\u7dda\u6703\u548c\u4e00\u822c\u7684\u5206\u9694\u7dda\u984f\u8272\u6709\u6240\u4e0d\u540c\u3002\n    <hr class=\"ts [[inverted]] divider\">\n    \u770b\u898b\u4e86\u55ce\uff01\u5947\u8e5f\u554a\uff01\n</div>\n"
+                },
+                {
+                    "Title": "\u6e05\u7406\u6d6e\u52d5",
+                    "Description": "\u5206\u9694\u7dda\u53ef\u4ee5\u900f\u904e `clear: both` \u6e05\u7406\u4e0a\u4e00\u500b\u5143\u7d20\u7684\u6d6e\u52d5\u72c0\u614b\u3002\n",
+                    "Since": "2.3.3",
+                    "HTML": "\u6708\u6708\uff0c\u642d\u62c9\u5b89\uff01\n<hr class=\"ts [[clearing]] divider\">\n\u6708\u6708\uff0c\u642d\u62c9\u5b89\uff01"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u5206\u9694\u7dda\u7684\u5916\u89c0\u53ef\u4ee5\u6709\u6240\u4e0d\u540c\u3002"
+        }
+    ]
+}

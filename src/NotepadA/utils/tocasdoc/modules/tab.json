@@ -1,0 +1,60 @@
+{
+    "Title": "\u5206\u9801\u7c64",
+    "Modules": [
+        {
+            "Sections": [
+                {
+                    "Description": "<p>\u4f60\u9700\u8981\u900f\u904e JavaScript \u521d\u59cb\u5316\u5206\u9801\u7c64\u529f\u80fd\uff0c\u521d\u59cb\u5316\u6642\u6709\u9019\u4e9b\u53c3\u6578\u9078\u9805\u53ef\u4f9b\u4f7f\u7528\u3002\u900f\u904e `[data-tab]` \u66ff\u6bcf\u500b\u5206\u9801\u547d\u540d\uff0c\u4e26\u8a18\u5f97\u5728\u9078\u55ae\u7684\u9805\u76ee\u4e2d\u4e5f\u52a0\u4e0a\u76f8\u540c\u7684\u540d\u7a31\uff0c\u9019\u6a23\u624d\u80fd\u5920\u4ee4\u9805\u76ee\u9ede\u64ca\u6642\u5207\u63db\u5230\u6307\u5b9a\u5206\u9801\u3002</p>\n<p>\u6709\u8da3\u7684\u662f\u5206\u9801\u540d\u7a31\u4e0d\u4e00\u5b9a\u8981\u662f\u82f1\u6587\uff0c\u9019\u8b93\u4f60\u80fd\u5920\u4f7f\u7528\u81ea\u5df1\u570b\u5bb6\u7684\u8a9e\u8a00\u9032\u884c\u547d\u540d\u4e14\u66f4\u6613\u65bc\u8fd1\u4eba\u3002</p>\n<table class=\"ts small celled stackable definition table\">\n    <thead>\n        <tr>\n            <th></th>\n            <th>\u53c3\u6578</th>\n            <th>\u8a3b\u91cb</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>onSwitch</td>\n            <td>tabName[<em>string</em>], groupName[<em>string|null</em>]</td>\n            <td>\u7576\u5206\u9801\u7c64\u5207\u63db\u6642\u6240\u6703\u547c\u53eb\u7684\u51fd\u5f0f\uff0c\u51fd\u5f0f\u6703\u50b3\u5165\u5169\u500b\u53c3\u6578\uff0c\u5206\u5225\u662f\u6b32\u5207\u63db\u81f3\u7684\u5206\u9801\u8207\u7fa4\u7d44\u540d\u7a31\u3002</td>\n        </tr>\n    </tbody>\n</table>\n",
+                    "JavaScript": "ts('#first.tabbed.menu .item').tab({\n    onSwitch: (tabName, groupName) => {\n        alert(\"\u4f60\u5207\u63db\u5230\u4e86\u300c\" + tabName + \"\u300d\u5206\u9801\uff0c\u800c\u7fa4\u7d44\u662f\u300c\" + groupName + \"\u300d\u3002\");\n    }\n});\n",
+                    "AutoExecute": true,
+                    "Title": "\u521d\u59cb\u5316",
+                    "HTML": "<div id=\"first\" class=\"ts top attached tabbed menu\">\n    <a class=\"active item\" [[data-tab]]=\"\u9996\u8981\u5206\u9801\">\u9996\u8981</a>\n    <a class=\"item\" [[data-tab]]=\"\u6b21\u8981\u5206\u9801\">\u6b21\u8981</a>\n</div>\n<div [[data-tab]]=\"\u9996\u8981\u5206\u9801\" class=\"ts active bottom attached tab segment\">\n    \u7b2c\u4e00\u500b\u5206\u9801\u5167\u5bb9\uff01\n</div>\n<div [[data-tab]]=\"\u6b21\u8981\u5206\u9801\" class=\"ts bottom attached tab segment\">\n    \u7136\u5f8c\u9019\u662f\u7b2c\u4e8c\u500b\u3002\n</div>\n",
+                    "Since": "2.3.3"
+                },
+                {
+                    "Description": "\u4f60\u80fd\u5920\u5728\u7db2\u9801\u4e2d\u653e\u5165\u591a\u5c64\u5206\u9801\uff0c\u900f\u904e `[data-tab-group]` \u5c07\u6709\u95dc\u9023\u7684\u5206\u9801\u727d\u9023\u8d77\u4f86\u6210\u70ba\u7fa4\u7d44\u4e26\u70ba\u5176\u547d\u540d\uff0c\u4e00\u4f46\u4f9d\u7167\u7fa4\u7d44\u5340\u5206\u4e4b\u5f8c\uff0c\u5206\u9801\u7684\u540d\u7a31\u53ef\u4ee5\u548c\u53e6\u4e00\u500b\u7fa4\u7d44\u7684\u5206\u9801\u76f8\u4e92\u91cd\u8907\u800c\u4e0d\u8d77\u885d\u7a81\u3002\n\n\u800c\u5206\u9801\u7fa4\u7d44\u7684\u540d\u7a31\u4e0d\u4e00\u5b9a\u8981\u662f\u82f1\u6587\uff0c\u751a\u81f3\u4e5f\u53ef\u4ee5\u5e36\u6709\u7b26\u865f\u3002\n",
+                    "JavaScript": "ts('.secondary.menu .item').tab();\nts('.tabbed.menu .item').tab();\n",
+                    "AutoExecute": true,
+                    "Title": "\u5206\u9801\u7fa4\u7d44",
+                    "HTML": "<div class=\"ts secondary menu\">\n    <a class=\"active item\" data-tab=\"\u9996\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44\">\u9996\u8981</a>\n    <a class=\"item\" data-tab=\"\u6b21\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44\">\u6b21\u8981</a>\n</div>\n<div data-tab=\"\u9996\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44\" class=\"ts active tab segment\">\n    <p>\u7b2c\u4e00\u500b\u5206\u9801\u3002</p>\n    <div class=\"ts top attached tabbed menu\">\n        <a class=\"active item\" data-tab=\"\u9996\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98011\">\u9996\u8981</a>\n        <a class=\"item\" data-tab=\"\u6b21\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98011\">\u6b21\u8981</a>\n    </div>\n    <div data-tab=\"\u9996\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98011\" class=\"ts active bottom attached tab segment\">\n        \u7b2c\u4e00\u500b\u5206\u9801\u7fa4\u7d44\u7684\u7b2c\u4e00\u500b\u5206\u9801\u3002\n    </div>\n    <div data-tab=\"\u6b21\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98011\" class=\"ts bottom attached tab segment\">\n        \u7b2c\u4e00\u500b\u5206\u9801\u7fa4\u7d44\u7684\u7b2c\u4e8c\u500b\u5206\u9801\u3002\n    </div>\n</div>\n<div data-tab=\"\u6b21\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44\" class=\"ts tab segment\">\n    <p>\u7b2c\u4e8c\u500b\u5206\u9801\u3002</p>\n    <div class=\"ts top attached tabbed menu\">\n        <a class=\"active item\" data-tab=\"\u9996\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98012\">\u9996\u8981</a>\n        <a class=\"item\" data-tab=\"\u6b21\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98012\">\u6b21\u8981</a>\n    </div>\n    <div data-tab=\"\u9996\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98012\" class=\"ts active bottom attached tab segment\">\n        \u7b2c\u4e8c\u500b\u5206\u9801\u7fa4\u7d44\u7684\u7b2c\u4e00\u500b\u5206\u9801\u3002\n    </div>\n    <div data-tab=\"\u6b21\u8981\" [[data-tab-group]]=\"\u7fa4\u7d44/\u5206\u98012\" class=\"ts bottom attached tab segment\">\n        \u7b2c\u4e8c\u500b\u5206\u9801\u7fa4\u7d44\u7684\u7b2c\u4e8c\u500b\u5206\u9801\u3002\n    </div>\n</div>\n",
+                    "Since": "2.3.3"
+                }
+            ],
+            "Title": "JavaScript",
+            "Description": "\u5206\u9801\u7c64\u6709\u63d0\u4f9b\u53ef\u7528\u7684 JavaScript \u6a21\u584a\u3002"
+        }
+    ],
+    "Description": "\u4e0d\u63db\u7db2\u9801\u537b\u80fd\u5728\u591a\u500b\u5167\u5bb9\u4e4b\u9593\u4f5c\u5207\u63db\u7684\u597d\u9078\u64c7\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u5206\u9801\u7c64\u7d44\uff0c\u4f46\u5728\u6c92\u6709\u555f\u7528\u4e4b\u524d\u9801\u7c64\u5167\u5bb9\u6703\u88ab\u96b1\u85cf\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts top attached tabbed menu\">\n    <a class=\"item\">\u5206\u9801</a>\n</div>\n<div class=\"ts bottom attached tab segment\">\n    \u9019\u662f\u5206\u9801\u5167\u5bb9\u3002\n</div>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u5206\u9801\u7c64\u6709\u4e0d\u540c\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u5df2\u555f\u7528",
+                    "Description": "\u4e00\u500b\u5df2\u555f\u7528\u7684\u5206\u9801\u7c64\u6703\u986f\u793a\u5728\u9801\u9762\u4e0a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts top attached tabbed menu\">\n    <a class=\"active item\">\u5206\u9801</a>\n</div>\n<div class=\"ts [[active]] bottom attached tab segment\">\n    \u9019\u662f\u5206\u9801\u5167\u5bb9\u3002\n</div>\n"
+                },
+                {
+                    "Title": "\u8b80\u53d6\u4e2d",
+                    "Description": "\u4e00\u500b\u5206\u9801\u7c64\u53ef\u4ee5\u5448\u73fe\u6b63\u5728\u8b80\u53d6\u7684\u72c0\u614b\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts top attached tabbed menu\">\n    <a class=\"active item\">\u5206\u9801</a>\n</div>\n<div class=\"ts active [[loading]] bottom attached tab segment\">\n    <p>&nbsp;</p>\n    <p>&nbsp;</p>\n    <p>&nbsp;</p>\n</div>\n"
+                }
+            ],
+            "Title": "\u72c0\u614b",
+            "Description": "\u5206\u9801\u7c64\u6709\u4e0d\u540c\u7684\u5448\u73fe\u72c0\u614b\u3002"
+        }
+    ]
+}

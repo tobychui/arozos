@@ -1,0 +1,171 @@
+{
+    "Title": "\u9805\u76ee",
+    "Description": "\u7528\u4f86\u9673\u5217\u5546\u54c1\u6216\u8005\u662f\u4e00\u4e9b\u9805\u76ee\u90fd\u5f88\u4e0d\u932f\u7528\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u57fa\u672c",
+                    "Description": "\u6700\u57fa\u672c\u7684\u9805\u76ee\u7fa4\u7d44\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[items]]\">\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"content\">\n            <a class=\"header\">\u543b\u4ed4\u9b5a</a>\n            <div class=\"meta\">\n                <span>$32 \u5143</span>\n            </div>\n            <div class=\"description\">\n                \u4e00\u822c\u53ef\u5206\u70ba\u6de1\u6c34\u9b5a\u9b69\u4ed4\u9b5a\u8207\u6d77\u6c34\u9b5a\u9b69\u4ed4\u9b5a\u5169\u985e\u3002\n                \u6839\u64da\u81fa\u7063\u5927\u5b78\u738b\u53cb\u6148\u535a\u58eb\u6307\u51fa\uff0c\u9b69\u4ed4\u9b5a\u662f\u55ae\u4e00\u7a2e\u9b5a\u985e\uff0c\n                \u662f\u6c99\u4e01\u9b5a\u82d7\uff0c\u82e5\u6488\u6355\u4f5c\u696d\u4e0d\u6b63\u78ba\u6709\u53ef\u80fd\u6488\u5230\u6578\u5341\u81f3\u4e00\u767e\u4e94\u5341\u7a2e\u985e\u7684\u9b5a\u82d7\u3002\n            </div>\n            <div class=\"extra\">\n                \u7dad\u57fa\u767e\u79d1\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"content\">\n            <a class=\"header\">\u8292\u679c</a>\n            <div class=\"meta\">\n                <span>Mango</span>\n            </div>\n            <div class=\"description\">\n                \u662f\u8292\u679c\u5c6c\u7684\u4e00\u7a2e\u690d\u7269\u548c\u679c\u5be6\uff0c\u539f\u7522\u81ea\u5317\u5370\u5ea6\u548c\u99ac\u4f86\u534a\u5cf6\uff0c\n                \u5728\u68b5\u8a9e\u4e2d\u53eb\u4f5c\u0101mra\uff0c\u97f3\u8b6f\u70ba\u300c\u83f4\u7f85\u300d\uff0c\u6216\u53eb\u4f5c\u0101malaka\uff0c\n                \u97f3\u8b6f\u70ba\u300c\u83f4\u6469\u52d2\u300d\u3001\u300c\u83f4\u6469\u7f85\u300d\u3001\u300c\u963f\u6469\u843d\u4f3d\u300d\u3002\n            </div>\n            <div class=\"extra\">\n                \u7dad\u57fa\u767e\u79d1\n            </div>\n        </div>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u9805\u76ee\u6709\u591a\u500b\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u5df2\u555f\u7528",
+                    "Description": "\u9805\u76ee\u80fd\u5920\u5448\u73fe\u6b63\u5728\u4f7f\u7528\u3001\u5df2\u7d93\u555f\u7528\u7684\u72c0\u614b\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts segmented items\">\n    <div class=\"item\">\n        \u4ee5\u897f\u7d50\n    </div>\n    <div class=\"[[active]] item\">\n        \u4f0a\u6ce2\u54b2\n    </div>\n    <div class=\"item\">\n        \u6817\u5bae\u5e0c\u5be6\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5df2\u9078\u64c7",
+                    "Description": "\u9805\u76ee\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u662f\u88ab\u9078\u64c7\u3001\u5708\u9078\u7684\u6a23\u5b50\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts segmented items\">\n    <div class=\"item\">\n        The Walking Dead\n    </div>\n    <div class=\"[[selected]] item\">\n        Breaking Bad\n    </div>\n    <div class=\"item\">\n        Love Actually\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u72c0\u614b",
+            "Description": "\u9805\u76ee\u80fd\u5920\u6709\u4e0d\u540c\u7684\u72c0\u614b\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u5716\u7247",
+                    "Description": "\u9805\u76ee\u53ef\u4ee5\u5305\u542b\u5716\u7247\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts divided items\">\n    <div class=\"item\">\n        <div class=\"[[image]]\">\n            <img src=\"!-4:3-!\">\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"[[image]]\">\n            <img src=\"!-4:3-!\">\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5167\u5bb9",
+                    "Description": "\u9805\u76ee\u4e2d\u53ef\u4ee5\u6709\u5167\u5bb9\u4f86\u6558\u8ff0\u9805\u76ee\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts divided items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"[[content]]\">\n            \u81fa\u7063\uff0c\u820a\u7a31\u798f\u723e\u6469\u6c99\uff0c\u662f\u4f4d\u65bc\u4e9e\u6d32\u6771\u90e8\u3001\u592a\u5e73\u6d0b\u897f\u5317\u5074\u7684\u5cf6\u5dbc\uff0c\n            \u5730\u8655\u7409\u7403\u7fa4\u5cf6\u8207\u83f2\u5f8b\u8cd3\u7fa4\u5cf6\u4e4b\u9593\uff0c\u897f\u9694\u81fa\u7063\u6d77\u5cfd\u8207\u6b50\u4e9e\u5927\u9678\u76f8\u671b\uff0d\u7dad\u57fa\u767e\u79d1\u3002\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"[[content]]\">\n            \u300c\u81fa\u7063\u300d\u4e4b\u540d\u7684\u7531\u4f86\u8aaa\u6cd5\u751a\u591a\uff0c\u5728\u660e\u671d\u4ee5\u5f8c\u7684\u6587\u737b\u4e2d\uff0c\n            \u81fa\u7063\u4ea6\u5beb\u4f5c\u300c\u5927\u54e1\u300d\u3001\u300c\u81fa\u54e1\u300d\uff08\u4e09\u8005\u81fa\u8a9e\uff1a\u540c\u97f3\uff1aTai-oan\uff09\uff0c\n            \u6216\u662f\u300c\u96de\u7c60\u5c71\u300d\u3001\u300c\u96de\u7c60\u300d\u3001\u300c\u5317\u6e2f\u300d\u3001\u300c\u6771\u8543\u300d\u7b49\uff0d\u7dad\u57fa\u767e\u79d1\u3002\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6a19\u984c",
+                    "Description": "\u9805\u76ee\u4e2d\u53ef\u4ee5\u6709\u6a19\u984c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"[[header]]\">\n                \u7b28\u86cb\u6e2c\u9a57\u53ec\u559a\u7378\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"[[header]]\">\n                \u96f6\u4e4b\u4f7f\u9b54\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u4e2d\u7e7c\u8cc7\u6599",
+                    "Description": "\u53ef\u4ee5\u5728\u9805\u76ee\u4e2d\u653e\u5165\u4e2d\u7e7c\u8cc7\u6599\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"content\">\n            <div class=\"header\">\n                \u6233\u6233\u6d28\u6d28\u5b89\n            </div>\n            <div class=\"[[meta]]\">\n                <span>Android</span>\n                <span>\u514d\u8cbb\u4e0b\u8f09</span>\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Subtitle": "\u5e36\u9ede\u4e2d\u7e7c\u8cc7\u6599",
+                    "Since": "2.3.3",
+                    "Description": "\u4e2d\u7e7c\u8cc7\u6599\u53ef\u4ee5\u6709\u300c\u5b50\u5f48\u9ede\u300d\u6216\u662f\u300c\u4e2d\u9ede\u300d\u4f86\u505a\u5340\u9694\u3002",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"content\">\n            <div class=\"header\">\n                \u96fb\u8166\u73a9\u778e\u54aa\n            </div>\n            <div class=\"[[middoted]] meta\">\n                <span>Yami Odymel</span>\n                <span>\u53f0\u7063</span>\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"content\">\n            <div class=\"header\">\n                \u5e0c\u8c79\n            </div>\n            <div class=\"[[bulleted]] meta\">\n                <span>Seadog007</span>\n                <span>\u53f0\u7063</span>\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Subtitle": "\u540c\u884c\u4e2d\u7e7c\u8cc7\u6599",
+                    "Since": "2.3.3",
+                    "Description": "\u4e2d\u7e7c\u8cc7\u6599\u53ef\u4ee5\u548c\u6a19\u984c\u662f\u540c\u4e00\u884c\u3002",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"content\">\n            <div class=\"header\">\n                \u6a19\u984c\n            </div>\n            <div class=\"[[inline]] meta\">\n                <span>\u540c\u884c</span>\n                <span>\u4e2d\u7e7c\u8cc7\u6599</span>\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u8a3b\u91cb",
+                    "Description": "\u9805\u76ee\u4e2d\u53ef\u4ee5\u5e36\u6709\u8a3b\u91cb\u4f86\u8a6e\u91cb\u6574\u500b\u9805\u76ee\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"content\">\n            <div class=\"header\">Macbook Air</div>\n            <div class=\"[[description]]\">\n                \u4e00\u53f0\u7531\u8cc8\u4f2f\u65af\u5f9e\u725b\u76ae\u4fe1\u5c01\u888b\u4e2d\u62ff\u51fa\u4f86\u7684\u8f15\u8584\u7b46\u96fb\uff0c\u4ee4\u4eba\u70ba\u4e4b\u9a5a\u8277\uff0c\u5606\u70ba\u89c0\u6b62\u3002\u7701\u53bb CD \u5149\u789f\u6a5f\u7684\u6642\u4ee3\u5f9e\u9019\u500b\u6642\u5019\u958b\u59cb\u3002\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u52d5\u4f5c",
+                    "Description": "\u9805\u76ee\u4e2d\u53ef\u4ee5\u64fa\u6709\u5177\u529f\u80fd\u6027\u6309\u9215\u7684\u5340\u584a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts small single line items\">\n    <div class=\"item\">\n        <div class=\"ts mini {{image}}\">\n            <img src=\"!-user-!\">\n        </div>\n        <div class=\"content\">\n            <div class=\"header\">\u535a\u9e97\u9748\u5922</div>\n            <div class=\"meta\">\n                <div>@Hakurei_Reimu</div>\n            </div>\n        </div>\n        <div class=\"[[actions]]\">\n            <div class=\"ts button\">\n                \u52a0\u5165\u597d\u53cb\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts mini {{image}}\">\n            <img src=\"!-user2-!\">\n        </div>\n        <div class=\"content\">\n            <div class=\"header\">\u6771\u98a8\u8c37\u65e9\u82d7</div>\n            <div class=\"meta\">\n                <div>@Kochiya_Sanae</div>\n            </div>\n        </div>\n        <div class=\"[[actions]]\">\n            <div class=\"ts button\">\n                \u52a0\u5165\u597d\u53cb\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u793a",
+                    "Description": "\u9805\u76ee\u4e2d\u53ef\u4ee5\u64fa\u653e\u4e00\u500b\u5340\u584a\u7528\u4f86\u986f\u793a\u55ae\u500b\u9805\u76ee\u7684\u5716\u793a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <i class=\"large users [[icon]]\"></i>\n        <div class=\"content\">\n            <div class=\"header\">\u7fa4\u773e\u6703\u8b70</div>\n            <div class=\"extra\">\n                \u7531\u5927\u773e\u5171\u540c\u8868\u6c7a\u7684\u6c7a\u8b70\u6703\u3002\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <i class=\"large inverted info rounded announcement [[icon]]\"></i>\n        <div class=\"content\">\n            <div class=\"header\">\u7cfb\u7d71\u516c\u544a</div>\n            <div class=\"extra\">\n                \u5b98\u65b9\u7684\u4e3b\u8981\u6d88\u606f\u3002\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9023\u7d50",
+                    "Description": "\u9805\u76ee\u4e2d\u53ef\u4ee5\u6709\u9023\u7d50\uff0c\u5982\u679c\u4f60\u60f3\u8b93\u6574\u500b\u9805\u76ee\u8b8a\u6210\u9023\u7d50\u8acb\u53c3\u8003\u66f4\u4e0b\u65b9\u7684\u6559\u5b78\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <[[a]] class=\"ts tiny {{image}}\">\n            <img src=\"!-user-!\">\n        </[[a]]>\n        <div class=\"content\">\n            <a class=\"header\">\u7fbd\u7530\u767d\u97f3</a>\n            <div class=\"description\">\n                \u4f86\u81ea\u65e5\u672c\uff0c\u5728\u53f0\u7063\u76ee\u7779\u4e00\u5834\u98db\u6a5f\u4e8b\u6545\u4e26\u5728\u5176\u4e2d\u62ef\u6551\u4e86\u53e6\u4e00\u540d\u4e58\u5ba2\uff0c\u4f46\u5f97\u5230\u7684\u56de\u5831\u537b\u4e0d\u662f\u611f\u8b1d\u3002\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <[[a]] class=\"ts tiny {{image}}\">\n            <img src=\"!-user3-!\">\n        </[[a]]>\n        <div class=\"content\">\n            <a class=\"header\">\u5361\u8389\u7d72</a>\n            <div class=\"description\">\n                \u7e3d\u662f\u4ee5\u73a9\u6a02\u70ba\u4e3b\u7684\u521d\u4e2d\u751f\uff0c\u628a\u5927\u591a\u6578\u7684\u6642\u9593\u90fd\u82b1\u5728\u6253\u7406\u81ea\u5df1\u7684\u5916\u89c0\u4e0a\uff0c\u5617\u8a66\u8457\u8b93\u81ea\u5df1\u6210\u70ba\u80fd\u5920\u5927\u53d7\u77da\u76ee\u7684\u4eba\u7269\u3002\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u984d\u5916\u5167\u5bb9",
+                    "Description": "\u4f60\u53ef\u4ee5\u5728\u9805\u76ee\u4e2d\u653e\u5165\u984d\u5916\u5167\u5bb9\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"content\">\n            <div class=\"header\">\u5ee2\u9664\u535a\u611b\u5ea7</div>\n            <div class=\"description\">\n                \u8fd1\u5e74\u4f86\uff0c\u53f0\u7063\u4e00\u822c\u6c11\u773e\u4e4b\u6587\u5316\u6c34\u6e96\u5df2\u660e\u986f\u63d0\u9ad8\uff0c\u5728\u516c\u5171\u904b\u8f38\u5de5\u5177\u4e0a\u8b93\u5ea7\u7d66\u6709\u9700\u8981\u7684\u4eba\u5df2\u7d93\u6210\u70ba\u4e00\u500b\u5e38\u898b\u7684\u884c\u70ba\u3002\u4e0d\u50c5\u50c5\u5c40\u9650\u65bc\u535a\u611b\u5ea7\uff0c\u4e00\u822c\u5ea7\u4f4d\u4e5f\u5e38\u898b\u8b93\u5ea7\u9019\u6a23\u7684\u884c\u70ba\u3002\n            </div>\n            <div class=\"[[extra]]\">\n                <i class=\"check {{icon}}\"></i>\n                121 \u500b\u8d0a\u540c\n            </div>\n        </div>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u9805\u76ee\u7531\u591a\u7a2e\u4e0d\u540c\u69cb\u9020\u7684\u5167\u5bb9\u7d44\u6210\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u5206\u9694\u7684",
+                    "Description": "\u9805\u76ee\u548c\u53e6\u4e00\u500b\u9805\u76ee\u4e4b\u9593\u53ef\u4ee5\u6709\u5206\u9694\u7dda\u505a\u70ba\u5340\u9694\u7684\u754c\u7dda\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[divided]] items\">\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"content\">\n            <a class=\"header\">\u543b\u4ed4\u9b5a</a>\n            <div class=\"meta\">\n                <span>$32 \u5143</span>\n            </div>\n            <div class=\"description\">\n                \u4e00\u822c\u53ef\u5206\u70ba\u6de1\u6c34\u9b5a\u9b69\u4ed4\u9b5a\u8207\u6d77\u6c34\u9b5a\u9b69\u4ed4\u9b5a\u5169\u985e\u3002\u6839\u64da\u81fa\u7063\u5927\u5b78\u738b\u53cb\u6148\u535a\u58eb\u6307\u51fa\uff0c\u9b69\u4ed4\u9b5a\u662f\u55ae\u4e00\u7a2e\u9b5a\u985e\uff0c\u662f\u6c99\u4e01\u9b5a\u82d7\uff0c\u82e5\u6488\u6355\u4f5c\u696d\u4e0d\u6b63\u78ba\u6709\u53ef\u80fd\u6488\u5230\u6578\u5341\u81f3\u4e00\u767e\u4e94\u5341\u7a2e\u985e\u7684\u9b5a\u82d7\u3002\n            </div>\n            <div class=\"extra\">\n                \u7dad\u57fa\u767e\u79d1\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"content\">\n            <a class=\"header\">\u8292\u679c</a>\n            <div class=\"meta\">\n                <span>Mango</span>\n            </div>\n            <div class=\"description\">\n                \u662f\u8292\u679c\u5c6c\u7684\u4e00\u7a2e\u690d\u7269\u548c\u679c\u5be6\uff0c\u539f\u7522\u81ea\u5317\u5370\u5ea6\u548c\u99ac\u4f86\u534a\u5cf6\uff0c\u5728\u68b5\u8a9e\u4e2d\u53eb\u4f5c\u0101mra\uff0c\u97f3\u8b6f\u70ba\u300c\u83f4\u7f85\u300d\uff0c\u6216\u53eb\u4f5c\u0101malaka\uff0c\u97f3\u8b6f\u70ba\u300c\u83f4\u6469\u52d2\u300d\u3001\u300c\u83f4\u6469\u7f85\u300d\u3001\u300c\u963f\u6469\u843d\u4f3d\u300d\u3002\n            </div>\n            <div class=\"extra\">\n                \u7dad\u57fa\u767e\u79d1\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u7247\u6bb5\u7684",
+                    "Description": "\u9805\u76ee\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u7247\u6bb5\u90a3\u6a23\u5c64\u5c64\u5206\u660e\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[segmented]] items\">\n    <div class=\"item\">\n        <div class=\"ts mini {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            \u30c8\u30ea\u30ce\u30e9\u30a4\u30f3\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts mini {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            ReLieF\uff5e\u89aa\u611b\u306a\u308b\u3042\u306a\u305f\u3078\uff5e\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u53ef\u9078\u64c7\u7684",
+                    "Description": "\u9805\u76ee\u53ef\u4ee5\u5728\u6ed1\u9f20\u79fb\u4e0a\u53bb\u6642\u51fa\u73fe\u53ef\u9078\u64c7\u7684\u6a23\u5f0f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[selection]] items\">\n    <div class=\"item\">\n        <div class=\"ts mini {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            \u3053\u3093\u3058\u304d\u306e\u3084\u307f\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts mini {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            \u304f\u308d\u3055\u304d \u3081\u3042\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u8f03\u5bec\u9b06",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u9805\u76ee\u548c\u9805\u76ee\u4e4b\u9593\u7684\u9593\u9699\u53ef\u4ee5\u66f4\u70ba\u5bec\u9b06\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[relaxed]] items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"header\">\n                New Game!\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"header\">\n                Re:\u5f9e\u96f6\u958b\u59cb\u7684\u7570\u4e16\u754c\u751f\u6d3b\n            </div>\n        </div>\n    </div>\n</div>\n<br>\n<div class=\"ts [[very relaxed]] items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"header\">\n                Fate/kaleid liner \u9b54\u6cd5\u5c11\u5973\u2606\u4f0a\u8389\u96c53rei\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-1:1-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"header\">\n                \u9019\u500b\u7f8e\u8853\u793e\u5927\u6709\u554f\u984c\uff01\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u55ae\u884c\u7684",
+                    "Description": "\u9805\u76ee\u53ef\u4ee5\u662f\u7981\u6b62\u63db\u884c\uff0c\u4fdd\u6301\u55ae\u884c\u4e14\u5728\u6587\u5b57\u6ea2\u51fa\u6642\u986f\u793a\u300c\u22ef\u300d\u96b1\u85cf\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[single line]] items\">\n    <div class=\"item\">\n        <div class=\"content\">\n            <div class=\"header\">\n                \u652f\u4ed8\u7cfb\u7d71\uff1f\n            </div>\n            <div class=\"description\">\n                \u5728\u771f\u6b63\u8981\u505a\u9322\u5305\u4e4b\u524d\u5148\u7528\u4e86 PayPal \u7684\u9805\u76ee\u9084\u6709 Tocas UI \u7a0d\u5fae\u642d\u914d\u4e86\u4e00\u4e0b\uff0c\u611f\u89ba\u5916\u89c0\u9084\u662f\u4e0d\u932f\u7684\u3002\u7136\u5f8c\u63d0\u5230 PayPal \u53c8\u8b93\u6211\u60f3\u8d77\u53f0\u7063\u963b\u64cb\u7b2c\u4e09\u65b9\u652f\u4ed8\u7684\u4e8b\u60c5\u22ef\u3002\n            </div>\n            <div class=\"extra\">\n                2016 \u5e74 12 \u6708 19 \u65e5\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"content\">\n            <div class=\"header\">\n                Tocas UI 2.1 \u65b0\u5143\u7d20\uff1a\u677f\u5ca9\n            </div>\n            <div class=\"description\">\n                \u677f\u5ca9\u662f\u805a\u7126\u770b\u677f\u7684\u5f8c\u7e7c\u8005\uff0c\u677f\u5ca9\u9664\u4e86\u64c1\u6709\u4f5c\u70ba\u9801\u9762\u6a19\u984c\u5340\u584a\u7684\u529f\u80fd\u5916\uff0c\u73fe\u5728\u9084\u53ef\u4ee5\u7576\u4f5c\u4e00\u500b\u9810\u7f6e\u5340\u584a\uff08Placeholder\uff09\uff0c\u4f8b\u5982\u4e00\u500b\u7a7a\u7684\u8cfc\u7269\u8eca\u5c31\u53ef\u4ee5\u7528\u4e0a\u677f\u5ca9\u3002\n            </div>\n            <div class=\"extra\">\n                2016 \u5e74 11 \u6708 28 \u65e5\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9644\u8457",
+                    "Description": "\u7247\u6bb5\u7684\u9805\u76ee\u53ef\u4ee5\u548c\u5176\u4ed6\u5143\u4ef6\u9644\u8457\u5728\u4e00\u584a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[top attached]] {{header}}\">\n    \u63a8\u85a6\u5f71\u7247\n</div>\n<div class=\"ts [[attached]] segmented items\">\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-16:9-!\">\n        </div>\n        <div class=\"content\">\n            \u3010\u963f\u6d25\u3011Inner Voices \u6050\u6016\u904a\u6232 - \u9084\u53ef\u4ee5\u5566(\u00b4;\u03c9;`)\n        </div>\n    </div>\n</div>\n<div class=\"ts [[attached]] {{header}}\">\n    \u518d\u770b\u4e00\u6b21\n</div>\n<div class=\"ts [[bottom attached]] segmented items\">\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-16:9-!\">\n        </div>\n        <div class=\"content\">\n            INJUSTICE 2 HARLEY QUINN ENDING - Arcade Ladder Walkthrough Gameplay (Character Story)\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9023\u7d50\u9805\u76ee",
+                    "Description": "\u55ae\u500b\u9805\u76ee\u53ef\u4ee5\u662f\u4e00\u500b\u9023\u7d50\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[link]] items\">\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-user-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"header\">\n                Lorem ipsum\n            </div>\n            <div class=\"description\">\n                Curabitur efficitur nisi vitae lorem bibendum pulvinar.\n                Nec risus ac tellus euismod varius.\n                Nullam commodo turpis lorem,\n                vitae luctus magna consequat sed.\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts tiny {{image}}\">\n            <img src=\"!-user2-!\">\n        </div>\n        <div class=\"middle aligned content\">\n            <div class=\"header\">\n                Cum sociis\n            </div>\n            <div class=\"description\">\n                Quisque gravida dictum justo,\n                vitae dignissim est luctus a. Phasellus placerat,\n                nunc eget hendrerit dictum,\n                orci urna iaculis enim.\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5782\u76f4\u5c0d\u9f4a",
+                    "Description": "\u4f60\u53ef\u4ee5\u81ea\u8a02\u9805\u76ee\u5167\u5bb9\u7684\u5782\u76f4\u5c0d\u9f4a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"[[top aligned]] content\">\n            <div class=\"header\">\n                \u9019\u500b\u6a19\u984c\u6703\u8cbc\u9f4a\u4e0a\u65b9\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"[[middle aligned]] content\">\n            <div class=\"header\">\n                \u9019\u6703\u5782\u76f4\u7f6e\u4e2d\n            </div>\n        </div>\n        <div class=\"[[middle aligned]] actions\">\n            <div class=\"ts positive button\">\n                \u52d5\u4f5c\u5340\u584a\u4e5f\u884c\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"image\">\n            <img src=\"!-4:3-!\">\n        </div>\n        <div class=\"[[bottom aligned]] content\">\n            <div class=\"header\">\n                \u7136\u5f8c\u9019\u500b\u6703\u8cbc\u9f4a\u5e95\u90e8\n            </div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6d6e\u52d5",
+                    "Description": "\u9805\u76ee\u7684\u5167\u5bb9\u53ef\u4ee5\u5de6\u53f3\u6d6e\u52d5\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts items\">\n    <div class=\"item\">\n        <div class=\"ts small {{image}}\">\n            <img src=\"!-user-!\">\n        </div>\n        <div class=\"top aligned content\">\n            <div class=\"header\">\n                Lorem ipsum\n            </div>\n            <div class=\"description\">\n                Curabitur efficitur nisi vitae lorem bibendum pulvinar.\n                Nec risus ac tellus euismod varius.\n                Nullam commodo turpis lorem,\n                vitae luctus magna consequat sed.\n            </div>\n            <div class=\"extra\">\n                <div class=\"ts [[right floated]] {{button}}\">\n                    \u52a0\u5165\u597d\u53cb\n                </div>\n            </div>\n        </div>\n    </div>\n    <div class=\"item\">\n        <div class=\"ts small {{image}}\">\n            <img src=\"!-user2-!\">\n        </div>\n        <div class=\"top aligned content\">\n            <div class=\"header\">\n                Cum sociis\n            </div>\n            <div class=\"description\">\n                Quisque gravida dictum justo,\n                vitae dignissim est luctus a. Phasellus placerat,\n                nunc eget hendrerit dictum,\n                orci urna iaculis enim.\n            </div>\n            <div class=\"extra\">\n                <div class=\"ts [[right floated]] {{button}}\">\n                    \u52a0\u5165\u597d\u53cb\n                </div>\n            </div>\n        </div>\n    </div>\n</div>"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u9805\u76ee\u53ef\u4ee5\u6709\u4e0d\u540c\u7684\u5916\u89c0\u9ede\u7db4\u3002"
+        }
+    ]
+}

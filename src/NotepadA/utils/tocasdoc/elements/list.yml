@@ -1,0 +1,558 @@
+Title      : 清單
+Description: 一個這個，一個那個。
+Outline    : 清單很像一個選單，但是其結構更為簡易，外觀也以純文字居多，很適合用在頁腳的那種連結清單。
+
+Definitions:
+
+  - Title      : 種類
+    Description: 清單具有不同的種類。
+    Sections   :
+
+      - Title      : 基本
+        Description: 一個最基本的清單。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[list]]">
+            <div class="item">蘋果</div>
+            <div class="item">菠羅</div>
+            <div class="item">拔鳳梨</div>
+          </div>
+
+      - Title      : 黑點
+        Description: 一個帶有黑點的清單。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[bulleted]] list">
+              <div class="item">橙希</div>
+              <div class="item">卡莉絲</div>
+              <div class="item">
+                  吳雨藍
+                  <div class="list">
+                      <a class="item" href="#!">亞凡芽</a>
+                      <div class="item">羽田白音</div>
+                      <div class="item">雷莉亞</div>
+                  </div>
+              </div>
+              <div class="item">依可諾爾</div>
+          </div>
+
+      - Title      : 排序
+        Description: 清單可以有號碼排序。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[ordered]] list">
+              <a class="item">英梨梨</a>
+              <a class="item">詩羽</a>
+              <div class="item">
+                  <a>其他人物</a>
+                  <div class="list">
+                      <a class="item">加藤惠</a>
+                      <a class="item">九條可憐</a>
+                      <a class="item">豬熊陽子</a>
+                  </div>
+              </div>
+              <a class="item">小路綾</a>
+          </div>
+
+      - Title      : 連結
+        Description: 清單也可以是存放許多連結的地方。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[link]] list">
+              <a class="item">首頁</a>
+              <a class="item">關於</a>
+              <a class="item">工作</a>
+          </div>
+
+      - Title      : 簡化
+        Description: 你可以直接透過 `<ol>` 和 `<ul>` 標籤來簡化清單的使用方式。
+        Since      : 2.3.3
+        HTML       : |
+          <[[ol]] class="ts list">
+              <li>伊莉雅</li>
+              <li>相羽六</li>
+              <li>西絲蒂娜</li>
+          </[[ol]]>
+          <[[ul]] class="ts list">
+              <li>七波白音</li>
+              <li>宮風夕梨</li>
+              <li>紬木沙羅</li>
+          </[[ul]]>
+
+  - Title      : 狀態
+    Description: 清單能夠有不同的狀態。
+    Sections   :
+
+      - Title      : 已選擇
+        Description: 清單的項目能夠呈現被選擇的樣子。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts segmented list">
+              <div class="item">以西結</div>
+              <div class="[[selected]] item">伊波咲</div>
+              <div class="item">栗宮希實</div>
+          </div>
+
+  - Title      : 內容
+    Description: 清單包含了各式各樣的內容。
+    Sections   :
+
+      - Title      : 項目
+        Description: 項目是清單中最基本的內容。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts list">
+              <div class="[[item]]">英梨梨</div>
+              <div class="[[item]]">詩羽</div>
+              <div class="[[item]]">加藤惠</div>
+          </div>
+
+      - Title      : 圖示
+        Description: 清單內也可以擺放圖示。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts list">
+              <a class="item">
+                  <i class="help [[icon]]"></i>
+                  <div class="content">
+                      <div class="header">浮動圖示</div>
+                      <div class="description">這串文字會有一個左邊距，用來確保和你的圖示不會靠地太近。</div>
+                  </div>
+              </a>
+              <a class="item">
+                  <i class="right triangle [[icon]]"></i>
+                  <div class="content">
+                      <div class="header">圖示對齊</div>
+                      <div class="description">浮動圖示預設貼齊上方。想看看效果的話這個範例就是了。</div>
+                  </div>
+              </a>
+              <div class="item">
+                  <i class="help [[icon]]"></i>
+                  圖示同行文字。
+              </div>
+          </div>
+
+      - Title      : 圖片
+        Description: 清單的項目可以包含圖片。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts list">
+              <div class="item">
+                  <img class="ts avatar [[image]]" src="!-user-!">
+                  <div class="content">
+                      <a class="header">Yami Odymel</a>
+                      <div class="description">正在遊玩 <a><b>Battlefield 1</b></a>。</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar [[image]]" src="!-user2-!">
+                  <div class="content">
+                      <a class="header">Mac Taylor</a>
+                      <div class="description">正在研發 <a><b>Alan Wakeup</b></a>。</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar [[image]]" src="!-user3-!">
+                  <div class="content">
+                      <a class="header">Karisu</a>
+                      <div class="description">正在觀看 <a><b>麻辣鮮師</b></a>。</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 連結
+        Description: 清單裡面的項目可以是連結。
+        Remove     :
+          - <br>
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts list">
+              <[[a]] class="item">什麼是 FAQ？</[[a]]>
+              <[[a]] class="item">誰是我們的客戶？</[[a]]>
+              <[[a]] class="item">我們的辦公室於何地？</[[a]]>
+          </div>
+          <br>
+          <div class="ts list">
+              <div class="item">
+                  <[[a]] class="header">標題</[[a]]>
+                  <div class="description">
+                    在我們的 <a>註釋中</a> 按下吧！
+                  </div>
+              </div>
+              <div class="item">
+                  <[[a]] class="header">知道更多</[[a]]>
+                  <div class="description">
+                    想知道這個網站的更多請參閱 <a>我們的 FAQ 頁面</a>。
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 標題
+        Description: 清單的項目可以包含一個標題。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts list">
+              <div class="item">
+                  <div class="[[header]]">巫師聯盟總部</div>
+                  電腦專家俱樂部 // 巫術實驗室
+              </div>
+              <div class="item">
+                  <div class="[[header]]">YSITD</div>
+                  Young Students' IT Discussion
+              </div>
+              <div class="item">
+                  <div class="[[header]]">HentaiDB</div>
+                  Official supergroup of @HentaiDB project.
+              </div>
+          </div>
+
+      - Title      : 註釋
+        Description: 清單的項目可以包含註釋。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts list">
+              <div class="item">
+                  <i class="map marker {{icon}}"></i>
+                  <div class="content">
+                      <a class="header">台北 101</a>
+                      <div class="[[description]]">一根每到跨年就會變成金蔥棒的台灣知名柱子。</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <i class="map marker {{icon}}"></i>
+                  <div class="content">
+                      <a class="header">台東</a>
+                      <div class="[[description]]">不錯的休閒旅遊地點，連我都想去。</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <i class="map marker {{icon}}"></i>
+                  <div class="content">
+                      <a class="header">高雄</a>
+                      <div class="[[description]]">大家有著不錯的熱情。</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <i class="map marker {{icon}}"></i>
+                  <div class="content">
+                      <a class="header">台南</a>
+                      <div class="[[description]]">小吃是台灣最好吃的，你說不好吃？吃慶記啦，阿靠夭那是台中。</div>
+                  </div>
+              </div>
+          </div>
+
+  - Title      : 外觀
+    Description: 清單具有不同的外觀。
+    Sections   :
+
+      - Title      : 水平清單
+        Description: 清單可以是水平排列的。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[horizontal]] list">
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user-!">
+                  <div class="content">
+                      <div class="header">Yami Odymel</div>
+                      <div class="description">研發 2016 始春的人</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user2-!">
+                  <div class="content">
+                      <div class="header">Mac Taylor</div>
+                      <div class="description">好基友</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user3-!">
+                  <div class="content">
+                      <div class="header">Val Pyen</div>
+                      <div class="description">OSU! 喜好者</div>
+                  </div>
+              </div>
+          </div>
+
+      - Subtitle   : 水平清單和黑點
+        Description: 水平清單也可以搭配黑點。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts horizontal [[bulleted]] link list">
+              <a class="item" href="#!">使用者條約</a>
+              <a class="item" href="#!">隱私政策</a>
+              <a class="item" href="#!">聯繫我們</a>
+          </div>
+
+      - Title      : 反色
+        Description: 清單可以是反色的，用在不同背景色的時候。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts inverted {{segment}}">
+              <div class="ts [[inverted]] relaxed divided list">
+                  <div class="item">
+                      <div class="content">
+                          <div class="header">Cloud 9</div>
+                          <div class="description">還不錯的線上 IDE 和雲端服務。</div>
+                      </div>
+                  </div>
+                  <div class="item">
+                      <div class="content">
+                          <div class="header">Facebook</div>
+                          <div class="description">你認真的嗎？</div>
+                      </div>
+                  </div>
+                  <div class="item">
+                      <div class="content">
+                          <div class="header">ВКонтакте</div>
+                          <div class="description">朝向獨裁邁進的俄羅斯社群平台。</div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 項目語意
+        Description: 項目也可以具有語意渲染。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts relaxed divided list">
+              <div class="[[positive]] item">
+                  正面語意
+              </div>
+              <div class="[[negative]] item">
+                  否定語意
+              </div>
+              <div class="[[primary]] item">
+                  主要語意
+              </div>
+              <div class="[[info]] item">
+                  資訊語意
+              </div>
+              <div class="[[warning]] item">
+                  警告語意
+              </div>
+              <div class="[[inverted]] item">
+                  反色語意
+              </div>
+          </div>
+
+      - Title      : 反色項目語意
+        Description: 項目的語意渲染也可以是基於反色的。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts inverted {{segment}}">
+              <div class="ts [[inverted]] relaxed divided list">
+                  <div class="positive item">
+                      正面語意
+                  </div>
+                  <div class="negative item">
+                      否定語意
+                  </div>
+                  <div class="primary item">
+                      主要語意
+                  </div>
+                  <div class="info item">
+                      資訊語意
+                  </div>
+                  <div class="warning item">
+                      警告語意
+                  </div>
+                  <div class="inverted item">
+                      反色語意
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 可選擇的
+        Description: 清單可以看起來像可供選擇的。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts middle aligned [[selection]] list">
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user-!">
+                  <div class="content">
+                      <div class="header">Yami Odymel</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user2-!">
+                  <div class="content">
+                      <div class="header">Mac Taylor</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user3-!">
+                  <div class="content">
+                      <div class="header">Ruby</div>
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 片段的
+        Description: 清單可以看起來像片段ㄧ樣層次分明。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts selection [[segmented]] list">
+              <a href="#!" class="item">飛鳥湊</a>
+              <a href="#!" class="item">西園寺風莉</a>
+              <a href="#!" class="item">大垣日向</a>
+              <a href="#!" class="item">貴船柚子</a>
+          </div>
+
+      - Title      : 自訂標點
+        Description: 你能夠透過 `[value]` 來變更清單中的標記符號。
+        Since      : 2.3.3
+        HTML       : |
+          <ol class="ts list">
+              <li [[value]]="+">橙希</li>
+              <li [[value]]="+">卡莉絲</li>
+              <li [[value]]="+">
+                  吳雨藍
+                  <ol>
+                      <li [[value]]="-"><a class="item" href="#!">亞凡芽</a></li>
+                      <li [[value]]="-">橙希</li>
+                      <li [[value]]="-">卡莉絲</li>
+                  </ol>
+              </li>
+          </ol>
+
+      - Title      : 寬鬆
+        Description: 一個間距較大的寬鬆清單。
+        Remove     :
+          - <br>
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[relaxed]] list">
+              <div class="item">天野望</div>
+              <div class="item">火井向百合</div>
+              <div class="item">成海遙香</div>
+          </div>
+          <br>
+          <div class="ts [[very relaxed]] divided list">
+              <div class="item">Yami Odymel</div>
+              <div class="item">Karisu</div>
+              <div class="item">Iknore</div>
+          </div>
+
+      - Title      : 自動層疊
+        Description: 水平清單可以在行動裝置上自動將項目以垂直方式進行層疊。
+        Since      : 2.3.3
+        Responsive : true
+        HTML       : |
+          <div class="ts [[stackable]] horizontal list">
+              <div class="item">始春</div>
+              <div class="item">絢夏</div>
+              <div class="item">起秋</div>
+              <div class="item">末冬</div>
+          </div>
+
+      - Title      : 分隔的
+        Description: 帶有分隔線的清單。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[divided]] list">
+              <div class="item">千導院楓</div>
+              <div class="item">粒櫻杏子</div>
+              <div class="item">若葉昴</div>
+          </div>
+
+      - Title      : 尺寸
+        Description: 不同的尺寸大小。
+        Remove     :
+          - <br>
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[mini]] horizontal list">
+              <div class="item">迷你</div>
+              <div class="item">迷你</div>
+          </div><br>
+          <div class="ts [[tiny]] horizontal list">
+              <div class="item">微小</div>
+              <div class="item">微小</div>
+          </div><br>
+          <div class="ts [[small]] horizontal list">
+              <div class="item">小型</div>
+              <div class="item">小型</div>
+          </div><br>
+          <div class="ts [[medium]] horizontal list">
+              <div class="item">適中</div>
+              <div class="item">適中</div>
+          </div><br>
+          <div class="ts [[large]] horizontal list">
+              <div class="item">較大</div>
+              <div class="item">較大</div>
+          </div><br>
+          <div class="ts [[big]] horizontal list">
+              <div class="item">大型</div>
+              <div class="item">大型</div>
+          </div><br>
+          <div class="ts [[huge]] horizontal list">
+              <div class="item">超大</div>
+              <div class="item">超大</div>
+          </div><br>
+          <div class="ts [[massive]] horizontal list">
+              <div class="item">重量級</div>
+              <div class="item">重量級</div>
+          </div>
+
+  - Title      : 內容外觀
+    Description: 你可以點綴清單內容的外觀。
+    Sections   :
+
+      - Title      : 垂直對齊
+        Description: 項目的內容可以調整垂直對齊。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts horizontal list">
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user-!">
+                  <div class="[[top aligned]] content">
+                      向上置齊
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user2-!">
+                  <div class="[[middle aligned]] content">
+                      置中
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user3-!">
+                  <div class="[[bottom aligned]] content">
+                      向下置齊
+                  </div>
+              </div>
+          </div>
+
+      - Title      : 浮動
+        Description: 項目的內容可以向左或向右浮動。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts middle aligned divided list">
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user-!">
+                  <div class="content">
+                      Aoi
+                  </div>
+                  <div class="[[right floated]] content">
+                      <div class="ts {{button}}">新增</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user2-!">
+                  <div class="content">
+                      Orenji
+                  </div>
+                  <div class="[[right floated]] content">
+                      <div class="ts {{button}}">新增</div>
+                  </div>
+              </div>
+              <div class="item">
+                  <img class="ts avatar {{image}}" src="!-user3-!">
+                  <div class="content">
+                      Shirone
+                  </div>
+                  <div class="[[right floated]] content">
+                      <div class="ts {{button}}">新增</div>
+                  </div>
+              </div>
+          </div>

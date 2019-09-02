@@ -1,0 +1,240 @@
+{
+    "Outline": "\u8868\u683c\u4e0d\u61c9\u7528\u4f86\u7576\u4f5c\u7db2\u9801\u67b6\u69cb\uff0c\u800c\u662f\u7528\u4f86\u5448\u73fe\u8cc7\u6599\uff0c\u5982\u679c\u4f60\u60f3\u8981\u7528\u985e\u4f3c\u7684\u67b6\u69cb\u8a2d\u8a08\u7db2\u9801\uff0c\u8acb\u53c3\u8003\u683c\u7dda\u7cfb\u7d71\u3002",
+    "Title": "\u8868\u683c",
+    "Modules": [
+        {
+            "Sections": [
+                {
+                    "Description": "\u4f7f\u7528\u8005\u53ef\u4ee5\u900f\u904e\u9ede\u64ca\u6b04\u4f4d\u6a19\u982d\u4f86\u91cd\u65b0\u6392\u5e8f\u8868\u683c\u3002\u6392\u5e8f\u7684\u65b9\u5f0f\u4ee5\u7cfb\u7d71\u8a9e\u7cfb\u8a2d\u5b9a\u70ba\u4e3b\uff0c\u82f1\u6587\u6703\u4ee5 A-Z \u8207 Z-A \u4f5c\u70ba\u6392\u5217\uff0c\u4e2d\u6587\u5247\u662f\u7b46\u756b\u9806\u5e8f\uff0c\u4fc4\u6587\u5247\u662f\u5b57\u6bcd\u6392\u5e8f\u3002",
+                    "JavaScript": "ts('.ts.sortable.table').tablesort();\n",
+                    "AutoExecute": true,
+                    "Title": "\u53ef\u6392\u5e8f",
+                    "HTML": "<table class=\"ts [[sortable]] table\">\n    <thead>\n        <tr>\n            <th>\u6a94\u6848\u540d\u7a31</th>\n            <th>\u4e2d\u6587\u5206\u985e</th>\n            <th>\u8aaa\u660e</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>endpoints.go</td>\n            <td>\u7d42\u7aef\u9ede</td>\n            <td>\u8f49\u7e7c\u7ad9\u6703\u5c07\u6536\u5230\u7684\u8cc7\u8a0a\u8f49\u63db\u6210\u7d42\u7aef\u9ede\u4e26\u9032\u884c\u4e0b\u4e00\u500b\u64cd\u4f5c\u3002</td>\n        </tr>\n        <tr>\n            <td>instrumenting.go</td>\n            <td>\u5ea6\u91cf</td>\n            <td>\u5c07\u5fae\u670d\u52d9\u4e2d\u7684\u51fd\u5f0f\u8655\u7406\u6642\u9593\u6574\u7406\u6210\u4e00\u5b9a\u7684\u683c\u5f0f\u4e26\u4e14\u50b3\u9001\u7d66 Prometheus \u4f3a\u670d\u5668\u505a\u7d71\u8a08\u8996\u89ba\u5316\u6574\u7406\u3002</td>\n        </tr>\n        <tr>\n            <td>logging.go</td>\n            <td>\u7d00\u9304</td>\n            <td>\u89c0\u5bdf\u4e26\u4e14\u8a18\u9304\u5fae\u670d\u52d9\u4e2d\u6240\u6709\u51fd\u5f0f\u7684\u547c\u53eb\u8207\u6d41\u5411\u3002</td>\n        </tr>\n        <tr>\n            <td>main.go</td>\n            <td>\u4e3b\u8981</td>\n            <td>\u6838\u5fc3\u6a94\u6848\uff0c\u9664\u4e86\u958b\u767c\u8005\u5916\u4e0d\u61c9\u7531\u5176\u4ed6\u4eba\u4fee\u6539\u3002</td>\n        </tr>\n    </tbody>\n</table>\n",
+                    "Since": "2.3.3"
+                }
+            ],
+            "Title": "JavaScript",
+            "Description": "\u8868\u683c\u6709\u63d0\u4f9b\u53ef\u7528\u7684 JavaScript \u6a21\u584a\u3002"
+        }
+    ],
+    "Description": "\u5448\u73fe\u7d71\u8a08\u8cc7\u6599\u7684\u597d\u65b9\u6cd5\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u8868\u683c",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u8868\u683c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[table]]\">\n    <thead>\n        <tr>\n            <th>#</th>\n            <th>\u59d3\u540d</th>\n            <th>\u82f1\u6587\u66b1\u7a31</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>1</td>\n            <td>\u5361\u8389\u7d72</td>\n            <td>Caris</td>\n        </tr>\n        <tr>\n            <td>2</td>\n            <td>\u6a59\u5e0c</td>\n            <td>Orenji</td>\n        </tr>\n        <tr>\n            <td>3</td>\n            <td>\u5433\u96e8\u85cd</td>\n            <td>Aoi</td>\n        </tr>\n    </tbody>\n    <tfoot>\n        <tr>\n            <th colspan=\"3\">\u672a\u5230\u4eba\u6578\uff1a3</th>\n        </tr>\n    </tfoot>\n</table>\n"
+                },
+                {
+                    "Title": "\u7db2\u683c\u7684",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u8868\u683c\u53ef\u4ee5\u770b\u8d77\u4f86\u50cf\u662f\u4e00\u500b\u7db2\u683c\u8868\u683c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[celled]] table\">\n    <thead>\n        <tr>\n            <th>#</th>\n            <th>\u59d3\u540d</th>\n            <th>\u82f1\u6587\u66b1\u7a31</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>1</td>\n            <td>\u5361\u8389\u7d72</td>\n            <td>Caris</td>\n        </tr>\n        <tr>\n            <td>2</td>\n            <td>\u6a59\u5e0c</td>\n            <td>Orenji</td>\n        </tr>\n        <tr>\n            <td>3</td>\n            <td>\u5433\u96e8\u85cd</td>\n            <td>Aoi</td>\n        </tr>\n    </tbody>\n</table>\n<br>\n<table class=\"ts very basic collapsing [[celled]] table\">\n    <thead>\n        <tr>\n            <th>\u54e1\u5de5</th>\n            <th>\u7b54\u5c0d\u984c\u6578</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>\n                <h6 class=\"ts image {{header}}\">\n                    <img class=\"ts mini rounded {{image}}\" src=\"!-user-!\">\n                    <div class=\"content\">\n                        \u96f7\u8389\u4e9e\n                        <div class=\"sub header\">\u79d1\u5b78\u5bb6</div>\n                    </div>\n                </h6>\n            </td>\n            <td>\n                22\n            </td>\n        </tr>\n        <tr>\n            <td>\n                <h6 class=\"ts image {{header}}\">\n                    <img class=\"ts mini rounded {{image}}\" src=\"!-user2-!\">\n                    <div class=\"content\">\n                        \u5361\u8389\u7d72\u00b7\u4f0a\u7e41\u7279\n                        <div class=\"sub header\">\u521d\u4e2d\u751f</div>\n                    </div>\n                </h6>\n            </td>\n            <td>\n                13\n            </td>\n        </tr>\n    </tbody>\n</table>\n<br>\n<table class=\"ts [[celled]] striped table\">\n    <thead>\n        <tr><th colspan=\"3\">\n            Git \u5009\u5eab\n        </th>\n    </tr></thead>\n    <tbody>\n        <tr>\n            <td class=\"collapsing\">\n                <i class=\"folder {{icon}}\"></i> node_modules\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td class=\"right aligned collapsing\">10 \u5c0f\u6642\u524d</td>\n        </tr>\n        <tr>\n            <td>\n                <i class=\"folder {{icon}}\"></i> test\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td class=\"right aligned\">10 \u5c0f\u6642\u524d</td>\n        </tr>\n        <tr>\n            <td>\n              <i class=\"folder {{icon}}\"></i> build\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td class=\"right aligned\">10 \u5c0f\u6642\u524d</td>\n        </tr>\n        <tr>\n            <td>\n                <i class=\"file outline {{icon}}\"></i> package.json\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td class=\"right aligned\">10 \u5c0f\u6642\u524d</td>\n        </tr>\n        <tr>\n            <td>\n                <i class=\"file outline {{icon}}\"></i> Gruntfile.js\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td class=\"right aligned\">10 \u5c0f\u6642\u524d</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u5b9a\u7fa9",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u8868\u683c\u4e2d\u7684\u7b2c\u4e00\u500b\u6b04\u4f4d\u90fd\u662f\u8a72\u884c\u7684\u6a19\u984c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[definition]] table\">\n    <thead>\n        <tr>\n            <th></th>\n            <th>\u53c3\u6578</th>\n            <th>\u8aaa\u660e</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>header()</td>\n            <td>title[<em>string</em>]</td>\n            <td>\u8f38\u51fa\u7db2\u9801\u6a19\u982d\u3002</td>\n        </tr>\n        <tr>\n            <td>footer()</td>\n            <td>path[<em>string</em>], name[<em>string</em>[<em>optional</em>]]</td>\n            <td>\u65bc\u7db2\u9801\u6700\u5e95\u90e8\u8f38\u51fa\u5167\u5bb9\uff0c\u53ef\u540c\u6642\u5132\u5b58\u5167\u5bb9\u81f3\u4e00\u500b\u6a94\u6848\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<br>\n<table class=\"ts compact celled [[definition]] table\">\n    <thead>\n        <tr>\n            <th></th>\n            <th>\u771f\u5be6\u59d3\u540d</th>\n            <th>\u8a3b\u518a\u65e5\u671f</th>\n            <th>\u96fb\u5b50\u90f5\u4ef6\u5730\u5740</th>\n            <th>\u9ad8\u7d1a\u6703\u54e1</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td class=\"collapsing\">\n                <div class=\"ts toggle {{checkbox}}\">\n                    <input type=\"checkbox\" id=\"toggle1\">\n                    <label for=\"toggle1\"></label>\n                </div>\n            </td>\n            <td>\u5433\u96e8\u85cd</td>\n            <td>2014/12/24</td>\n            <td>aoi@misaka.net</td>\n            <td>\u5426</td>\n        </tr>\n        <tr>\n            <td class=\"collapsing\">\n                <div class=\"ts toggle {{checkbox}}\">\n                    <input type=\"checkbox\" id=\"toggle2\">\n                    <label for=\"toggle2\"></label>\n                </div>\n            </td>\n            <td>\u6a59\u5e0c</td>\n            <td>2015/03/15</td>\n            <td>orenji@aoi.com</td>\n            <td>\u662f</td>\n        </tr>\n        <tr>\n            <td class=\"collapsing\">\n                <div class=\"ts toggle {{checkbox}}\">\n                    <input type=\"checkbox\" id=\"toggle3\">\n                    <label for=\"toggle3\"></label>\n                </div>\n            </td>\n            <td>\u7fbd\u7530\u767d\u97f3</td>\n            <td>2016/01/20</td>\n            <td>shirone@yahoo.jp.com</td>\n            <td>\u662f</td>\n        </tr>\n    </tbody>\n    <tfoot class=\"full-width\">\n        <tr>\n            <th></th>\n            <th colspan=\"4\">\n                <div class=\"ts right floated small primary labeled icon {{button}}\">\n                    <i class=\"user {{icon}}\"></i> \u65b0\u589e\u4f7f\u7528\u8005\n                </div>\n                <div class=\"ts small {{button}}\">\n                    \u6838\u51c6\n                </div>\n                <div class=\"ts small disabled {{button}}\">\n                    \u5168\u90e8\u6838\u51c6\n                </div>\n            </th>\n        </tr>\n    </tfoot>\n</table>\n"
+                },
+                {
+                    "Title": "\u8907\u96dc\u7d50\u69cb",
+                    "Description": "\u8868\u683c\u53ef\u4ee5\u7528\u4f86\u5448\u73fe\u66f4\u5177\u8907\u96dc\u6027\u7684\u7d50\u69cb\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts celled [[structured]] table\">\n    <thead>\n        <tr>\n            <th rowspan=\"2\">\u540d\u7a31</th>\n            <th rowspan=\"2\">\u7a2e\u985e</th>\n            <th rowspan=\"2\">\u6a94\u6848\u6578\u91cf</th>\n            <th colspan=\"3\">\u7a0b\u5f0f\u8a9e\u8a00</th>\n        </tr>\n        <tr>\n            <th>Ruby</th>\n            <th>JavaScript</th>\n            <th>Python</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Alpha \u5718\u968a</td>\n            <td>\u5c08\u6848 1</td>\n            <td class=\"right aligned\">2</td>\n            <td class=\"center aligned\">\n                <i class=\"large positive checkmark {{icon}}\"></i>\n            </td>\n            <td></td>\n            <td></td>\n        </tr>\n        <tr>\n            <td rowspan=\"3\">Beta \u5718\u968a</td>\n            <td>\u5c08\u6848 1</td>\n            <td class=\"right aligned\">52</td>\n            <td class=\"center aligned\">\n                <i class=\"large positive checkmark {{icon}}\"></i>\n            </td>\n            <td></td>\n            <td></td>\n        </tr>\n        <tr>\n            <td>\u5c08\u6848 2</td>\n            <td class=\"right aligned\">12</td>\n            <td></td>\n            <td class=\"center aligned\">\n                <i class=\"large positive checkmark {{icon}}\"></i>\n            </td>\n            <td></td>\n        </tr>\n        <tr>\n            <td>\u5c08\u6848 3</td>\n            <td class=\"right aligned\">21</td>\n            <td class=\"center aligned\">\n                <i class=\"large positive checkmark {{icon}}\"></i>\n            </td>\n            <td></td>\n            <td></td>\n        </tr>\n    </tbody>\n</table>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u8868\u683c\u5177\u6709\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u80af\u5b9a\u548c\u5426\u5b9a",
+                    "Description": "\u6b04\u4f4d\u6216\u4e00\u6574\u884c\u90fd\u53ef\u4ee5\u5177\u6709\u80af\u5b9a\u6216\u5426\u5b9a\u7684\u542b\u7fa9\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th>\u540d\u7a31</th>\n            <th>\u82f1\u6587\u540d\u7a31</th>\n            <th>\u8a08\u756b\u72c0\u614b</th>\n            <th>\u8aaa\u660e</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>\u53ef\u6190</td>\n            <td>Karen</td>\n            <td class=\"[[positive]]\"><i class=\"check {{icon}}\"></i> \u5df2\u5b8c\u6210</td>\n            <td>\u591a\u570b\u8a9e\u5143\u652f\u63f4\u7684\u51fd\u5f0f\u5eab\uff0c\u5354\u52a9\u7db2\u7ad9\u8de8\u570b\u4ea4\u969b\u3002</td>\n        </tr>\n        <tr class=\"[[positive]]\">\n            <td>\u7f8e\u7531\u7d00</td>\n            <td>Miyuki</td>\n            <td><i class=\"check {{icon}}\"></i> \u5df2\u5b8c\u6210</td>\n            <td>\u5354\u52a9\u5716\u50cf\u8655\u7406\u7684\u985e\u5225\uff0c\u5fc5\u9808\u8981\u5b89\u88dd Imagick\u3002</td>\n        </tr>\n        <tr>\n            <td>\u5361\u8389\u7d72</td>\n            <td>Caris</td>\n            <td class=\"[[negative]]\"><i class=\"dont {{icon}}\"></i> \u5c1a\u672a\u5b8c\u6210</td>\n            <td>\u4e00\u500b\u57fa\u65bc HTML5 \u7684\u904a\u6232\u5f15\u64ce\u3002</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u932f\u8aa4",
+                    "Description": "\u932f\u8aa4\u548c\u5426\u5b9a\u4e00\u6a23\uff0c\u53ea\u662f\u6a23\u5f0f\u540d\u7a31\u4e0d\u540c\uff0c\u9069\u5408\u7528\u5728\u932f\u8aa4\u7684\u5730\u65b9\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th>\u5de5\u4f5c\u5340\u57df</th>\n            <th>\u76ee\u524d\u72c0\u614b</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>TeaMeow</td>\n            <td class=\"positive\"><i class=\"check {{icon}}\"></i>\u5df2\u5b8c\u6210</td>\n        </tr>\n        <tr class=\"error\">\n            <td>Safari</td>\n            <td><i class=\"close {{icon}}\"></i>\u5df2\u505c\u6b62</td>\n        </tr>\n        <tr>\n            <td>Isuka</td>\n            <td class=\"[[error]]\"><i class=\"close {{icon}}\"></i>\u767c\u751f\u932f\u8aa4</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u8b66\u544a",
+                    "Description": "\u8868\u683c\u5167\u53ef\u4ee5\u6709\u55ae\u500b\u6216\u662f\u591a\u500b\u6b04\u4f4d\u5448\u73fe\u4e00\u500b\u8b66\u544a\u7684\u72c0\u614b\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th>\u5de5\u4f5c\u5340\u57df</th>\n            <th>\u76ee\u524d\u72c0\u614b</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Avane</td>\n            <td class=\"[[warning]]\"><i class=\"caution {{icon}}\"></i>\u9700\u8981\u521d\u59cb\u5316</td>\n        </tr>\n        <tr>\n            <td>Caris</td>\n            <td>\u5c1a\u672a\u555f\u52d5</td>\n        </tr>\n        <tr class=\"[[warning]]\">\n            <td>Isuka</td>\n            <td><i class=\"caution {{icon}}\"></i>\u9700\u8981\u6aa2\u67e5</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u555f\u7528\u4e2d",
+                    "Description": "\u986f\u793a\u4e00\u884c\u3001\u6b04\u4f4d\u65bc\u555f\u7528\u4e2d\uff0c\u6216\u662f\u88ab\u9078\u53d6\u7684\u6a23\u5f0f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th>\u4f7f\u7528\u8005\u540d\u7a31</th>\n            <th>\u96fb\u5b50\u90f5\u4ef6\u4fe1\u7bb1</th>\n            <th>\u751f\u65e5</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr class=\"[[active]]\">\n            <td>yamiodymel</td>\n            <td>yamiodymel@yamiodymel.com</td>\n            <td>1998/07/13</td>\n        </tr>\n        <tr>\n            <td>mac0017817</td>\n            <td>mac0017817@mac0017817.com</td>\n            <td>1998/07/13</td>\n        </tr>\n        <tr>\n            <td class=\"[[active]]\">shiroteacat</td>\n            <td>shiroteacat@shiroteacat.com</td>\n            <td>1998/07/13</td>\n        </tr>\n    </tbody>\n    <tbody></tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u5df2\u505c\u7528",
+                    "Description": "\u986f\u793a\u4e00\u884c\u3001\u6b04\u4f4d\u5df2\u505c\u7528\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th>\u4f7f\u7528\u8005\u540d\u7a31</th>\n            <th>\u96fb\u5b50\u90f5\u4ef6\u4fe1\u7bb1</th>\n            <th>\u751f\u65e5</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr class=\"[[disabled]]\">\n            <td>yamiodymel</td>\n            <td>yamiodymel@yamiodymel.com</td>\n            <td>1998/07/13</td>\n        </tr>\n        <tr>\n            <td>mac0017817</td>\n            <td>mac0017817@mac0017817.com</td>\n            <td>1998/07/13</td>\n        </tr>\n        <tr>\n            <td class=\"[[disabled]]\">shiroteacat</td>\n            <td>shiroteacat@shiroteacat.com</td>\n            <td>1998/07/13</td>\n        </tr>\n    </tbody>\n    <tbody></tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u6307\u793a\u7684",
+                    "Description": "\u4f60\u53ef\u4ee5\u7528\u7279\u6b8a\u65b9\u5f0f\u51f8\u986f\u8868\u683c\u4e2d\u7684\u5176\u4e2d\u4e00\u884c\u3001\u6b04\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts celled table\">\n    <thead>\n        <tr>\n            <th>\u52d5\u756b\u540d\u7a31</th>\n            <th>\u653e\u6620\u8d77\u59cb\u65e5\u671f</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>WorldEnd: What do you do at the end of the world? Are you busy? Will you save us?</td>\n            <td>Apr 11, 2017</td>\n        </tr>\n        <tr class=\"[[indicated]]\">\n            <td>Eromanga Sensei</td>\n            <td>Apr 09, 2017</td>\n        </tr>\n        <tr class=\"negative [[indicated]]\">\n            <td>Armed Girl's Machiavellism</td>\n            <td>Apr 05, 2017</td>\n        </tr>\n        <tr class=\"info [[indicated]]\">\n            <td>Grimoire of Zero</td>\n            <td class=\"positive [[indicated]]\">Apr 10, 2017</td>\n        </tr>\n        <tr>\n            <td class=\"primary [[indicated]]\">Attack on Titan Season 2</td>\n            <td>Apr 01, 2017</td>\n        </tr>\n        <tr class=\"warning [[indicated]]\">\n            <td>Akashic Records of Bastard Magic Instructor;</td>\n            <td>Apr 04, 2017</td>\n        </tr>\n    </tbody>\n</table>\n"
+                }
+            ],
+            "Title": "\u72c0\u614b",
+            "Description": "\u8868\u683c\u4e2d\u7684\u6b04\u4f4d\u53ef\u4ee5\u5177\u6709\u4e0d\u540c\u7684\u72c0\u614b\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u8a9e\u610f",
+                    "Description": "\u6b04\u4f4d\u6216\u884c\u90fd\u80fd\u6709\u8a9e\u610f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th>\u5de5\u4f5c\u5340\u57df</th>\n            <th>\u76ee\u524d\u72c0\u614b</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Avane</td>\n            <td class=\"[[primary]]\">\n                <i class=\"unhide {{icon}}\"></i> \u4e3b\u8981\u76ee\u7684\n            </td>\n        </tr>\n        <tr class=\"[[info]]\">\n            <td>Iknore</td>\n            <td>\n                <i class=\"caution {{icon}}\"></i> \u5c1a\u672a\u78ba\u8a8d\n            </td>\n        </tr>\n        <tr>\n            <td>Sana</td>\n            <td class=\"[[inverted]]\">\n                <i class=\"question {{icon}}\"></i> \u53cd\u8272\n            </td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u8a3b\u91cb",
+                    "Description": "\u4f60\u53ef\u4ee5\u900f\u904e `<caption>` \u4f86\u8a6e\u91cb\u4e00\u500b\u8868\u683c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th>\u59d3\u540d</th>\n            <th>\u96fb\u5b50\u90f5\u4ef6\u5730\u5740</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>\u5361\u8389\u7d72</td>\n            <td>caris@gmail.com</td>\n        </tr>\n        <tr>\n            <td>\u6a59\u5e0c</td>\n            <td>orenji@gmail.com</td>\n        </tr>\n        <tr>\n            <td>\u5433\u96e8\u85cd</td>\n            <td>aoi@gmail.com</td>\n        </tr>\n    </tbody>\n    <[[caption]]>\n        \u9019\u662f\u500b\u4f7f\u7528\u8005\u6e05\u55ae\u5217\u8868\u8207\u76f8\u95dc\u8cc7\u6599\uff0c\u8acb\u6ce8\u610f\u9019\u5c6c\u65bc\u5546\u696d\u6a5f\u5bc6\uff0c\u4e0d\u61c9\u8a72\u5916\u9732\u6216\u516c\u958b\u7d66\u7b2c\u4e09\u8005\u5f97\u77e5\u3002\n    </[[caption]]>\n</table>\n"
+                },
+                {
+                    "Title": "\u55ae\u884c",
+                    "Description": "\u6b04\u4f4d\u53ef\u4ee5\u4fdd\u6301\u55ae\u884c\u800c\u907f\u514d\u56e0\u64e0\u58d3\u800c\u81ea\u52d5\u63db\u884c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[single line]] table\">\n    <thead>\n        <tr>\n            <th>\u4f7f\u7528\u8005\u540d\u7a31</th>\n            <th>\u96fb\u5b50\u90f5\u4ef6\u4fe1\u7bb1</th>\n            <th>\u751f\u65e5</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>yamiodymel</td>\n            <td>yamiodymel@yamiodymel.com</td>\n            <td>1998/07/13</td>\n        </tr>\n        <tr>\n            <td>mac0017817</td>\n            <td>mac0017817@mac0017817.com</td>\n            <td>1998/07/13</td>\n        </tr>\n        <tr>\n            <td>shiroteacat</td>\n            <td>shiroteacat@shiroteacat.com</td>\n            <td>1998/07/13</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u56fa\u5b9a",
+                    "Description": "\u8868\u683c\u53ef\u4ee5\u5957\u7528 `table-layout: fixed` \u4f86\u8b93\u8868\u683c\u5167\u5bb9\u6709\u56fa\u5b9a\u7684\u5bec\u5ea6\u3002\n",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[fixed]] table\">\n    <thead>\n        <tr>\n            <th>\u6587\u7ae0\u540d\u7a31</th>\n            <th>\u72c0\u614b</th>\n            <th>\u8a3b\u91cb</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Lorem Ipsum</td>\n            <td>\u6838\u51c6</td>\n            <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>\n        </tr>\n        <tr>\n            <td>Etiam aliquet</td>\n            <td>\u6838\u51c6</td>\n            <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>\n        </tr>\n        <tr>\n            <td>Aliquam</td>\n            <td>\u62d2\u7d55</td>\n            <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Subtitle": "\u548c\u55ae\u884c\u642d\u914d\u7684\u56fa\u5b9a\u8868\u683c",
+                    "Since": "2.3.3",
+                    "Description": "\u9019\u5c07\u6703\u8b93\u7684\u6b04\u4f4d\u9047\u5230\u8a72\u63db\u884c\u6642\u4e0d\u9032\u884c\u63db\u884c\uff0c\u4e26\u4ee5 `...` \u5b89\u63d2\u65bc\u6587\u5b57\u5f8c\u65b9\u3002",
+                    "HTML": "<table class=\"ts [[fixed]] [[single line]] table\">\n    <thead>\n        <tr>\n            <th>\u6587\u7ae0\u540d\u7a31</th>\n            <th>\u72c0\u614b</th>\n            <th>\u8a3b\u91cb</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Lorem Ipsum</td>\n            <td>\u6838\u51c6</td>\n            <td>\u6211\u662f\u4e00\u500b\u6709\u9ede\u9577\u7684\u8a3b\u91cb\uff0c\u7576\u6211\u60f3\u8981\u63db\u884c\u7684\u6642\u5019\u537b\u6703\u56e0\u70ba\u6709\u4e86 \"single line\" \u800c\u4e0d\u80fd\u63db\u884c\uff0c\u6240\u4ee5\u6211\u7684\u5f8c\u9762\u6703\u986f\u793a\u300c...\u300d\u3002</td>\n        </tr>\n        <tr>\n            <td>Etiam aliquet</td>\n            <td>\u6838\u51c6</td>\n            <td>\u9019\u662f\u4e00\u500b\u6bd4\u8f03\u77ed\u7684\u8a3b\u91cb\u3002</td>\n        </tr>\n        <tr>\n            <td>Aliquam</td>\n            <td>\u62d2\u7d55</td>\n            <td>\u77ed\u8a3b\u91cb\u3002</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u7121\u6846\u7dda",
+                    "Description": "\u4e00\u500b\u8868\u683c\u53ef\u4ee5\u6c92\u6709\u6846\u7dda\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[borderless]] table\">\n    <thead>\n        <tr>\n            <th>#</th>\n            <th>\u59d3\u540d</th>\n            <th>\u82f1\u6587\u66b1\u7a31</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>1</td>\n            <td>\u5361\u8389\u7d72</td>\n            <td>Caris</td>\n        </tr>\n        <tr>\n            <td>2</td>\n            <td>\u6a59\u5e0c</td>\n            <td>Orenji</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Responsive": true,
+                    "Title": "\u81ea\u52d5\u91cd\u758a",
+                    "Description": "\u8868\u683c\u53ef\u4ee5\u5728\u884c\u52d5\u88dd\u7f6e\u4e0a\u81ea\u52d5\u91cd\u758a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[stackable]] table\">\n    <thead>\n        <tr>\n            <th>\u6587\u7ae0\u540d\u7a31</th>\n            <th>\u8a3b\u91cb</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Lorem Ipsum</td>\n            <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>\n        </tr>\n        <tr>\n            <td>Etiam aliquet</td>\n            <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>\n        </tr>\n        <tr>\n            <td>Aliquam</td>\n            <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u53ef\u9078\u64c7\u884c",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u8868\u683c\u4e2d\u7684\u300c\u884c\u300d\u53ef\u4ee5\u50cf\u662f\u652f\u63f4\u9078\u64c7\u4e00\u6a23\uff0c\u8b93\u6ed1\u9f20\u79fb\u5230\u4e0a\u9762\u6216\u662f\u9ede\u64ca\u6642\u6709\u6548\u679c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[selectable]] table\">\n    <thead>\n        <tr>\n            <th>\u5de5\u4f5c\u5340\u57df</th>\n            <th>\u76ee\u524d\u72c0\u614b</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Safari</td>\n            <td>\u5df2\u505c\u6b62</td>\n        </tr>\n        <tr>\n            <td>Isuka</td>\n            <td>\u767c\u751f\u932f\u8aa4</td>\n        </tr>\n        <tr>\n            <td>Karen</td>\n            <td>\u5c1a\u672a\u78ba\u8a8d</td>\n        </tr>\n    </tbody>\n</table>\n<br>\n<table class=\"ts inverted [[selectable]] table\">\n    <thead>\n        <tr>\n            <th>\u5de5\u4f5c\u5340\u57df</th>\n            <th>\u76ee\u524d\u72c0\u614b</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Safari</td>\n            <td>\u5df2\u505c\u6b62</td>\n        </tr>\n        <tr>\n            <td>Isuka</td>\n            <td>\u767c\u751f\u932f\u8aa4</td>\n        </tr>\n        <tr>\n            <td>Karen</td>\n            <td>\u5c1a\u672a\u78ba\u8a8d</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u53ef\u9078\u64c7\u6b04\u4f4d",
+                    "Description": "\u8868\u683c\u4e2d\u7684\u6b04\u4f4d\u53ef\u4ee5\u88ab\u9078\u64c7\u6216\u662f\u63d0\u4f9b\u9ede\u64ca\u4e8b\u4ef6\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts celled table\">\n    <thead>\n        <tr>\n            <th>\u540d\u7a31</th>\n            <th>\u72c0\u614b</th>\n            <th>\u7de8\u8f2f</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Yami</td>\n            <td>\u6c92\u6709\u52d5\u4f5c</td>\n            <td class=\"[[selectable]]\">\n                <a href=\"#\">\u7de8\u8f2f</a>\n            </td>\n        </tr>\n        <tr>\n          <td>Jamie</td>\n          <td>\u5df2\u6838\u51c6</td>\n          <td class=\"[[selectable]]\">\n            <a href=\"#\">\u7de8\u8f2f</a>\n          </td>\n        </tr>\n        <tr class=\"warning\">\n            <td>John</td>\n            <td>\u6c92\u6709\u52d5\u4f5c</td>\n            <td class=\"[[selectable]] warning\">\n                <a href=\"#\">\u9700\u8981\u8b8a\u66f4</a>\n            </td>\n        </tr>\n        <tr>\n            <td>Jamie</td>\n            <td class=\"positive\">\u5df2\u6838\u51c6</td>\n            <td class=\"[[selectable]] positive\">\n                <a href=\"#\">\u6838\u51c6</a>\n            </td>\n        </tr>\n        <tr>\n            <td>Jill</td>\n            <td class=\"negative\">\u5df2\u62d2\u7d55</td>\n            <td class=\"[[selectable]] negative\">\n                <a href=\"#\">\u79fb\u9664</a>\n            </td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u9644\u8457",
+                    "Description": "\u8868\u683c\u53ef\u4ee5\u8207\u53e6\u4e00\u500b\u8868\u683c\u6216\u662f\u5143\u4ef6\u9644\u8457\u5728\u4e00\u8d77\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[top attached]] table\">\n    <tbody>\n        <tr>\n            <td>Sciuridae Li</td>\n            <td>Mac Taylor</td>\n            <td>\u674e\u653f\u7687</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts celled [[attached]] table\">\n    <tbody>\n        <tr>\n            <td>Yan-K</td>\n            <td>Fan Kangtai</td>\n            <td>SpaceTimeHalf</td>\n        </tr>\n        <tr>\n            <td>Sean Wei</td>\n            <td>Hiram Huang</td>\n            <td>Tsundere Chen</td>\n        </tr>\n        <tr>\n            <td>Sciuridae</td>\n            <td>Jasper Yu</td>\n            <td>Chris</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts [[bottom attached]] table\">\n    <tbody>\n        <tr>\n            <td>Choukai</td>\n            <td>Henry Wu</td>\n            <td>Allen Chou</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u5782\u76f4\u5c0d\u9f4a",
+                    "Description": "\u4f60\u53ef\u4ee5\u6539\u8b8a\u8868\u683c\u4e2d\u6b04\u4f4d\u7684\u6587\u5b57\u5782\u76f4\u5c0d\u9f4a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts striped table\">\n    <thead>\n        <tr>\n            <th>\u540d\u7a31</th>\n            <th>\u72c0\u614b</th>\n            <th>\u7b46\u8a18</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr class=\"[[top aligned]]\">\n            <td>John</td>\n            <td>\u5df2\u6838\u51c6</td>\n            <td class=\"[[top aligned]]\">\n                \u8cbc\u9f4a\u9802\u90e8<br>\n                \u8cbc\u9f4a\u9802\u90e8\n            </td>\n        </tr>\n        <tr>\n            <td>Jamie</td>\n            <td class=\"[[bottom aligned]]\">\u8cbc\u9f4a\u5e95\u90e8</td>\n            <td>\n                \u8a18\u4e8b\u9304<br>\n                1<br>\n                2<br>\n            </td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u6c34\u5e73\u5c0d\u9f4a",
+                    "Description": "\u8868\u683c\u4e2d\u6b04\u4f4d\u7684\u6587\u5b57\u6c34\u5e73\u5c0d\u9f4a\u4e5f\u53ef\u4ee5\u88ab\u6539\u8b8a\uff0c\u4f8b\u5982\u9760\u5de6\u5c0d\u9f4a\u3001\u53f3\uff0c\u751a\u81f3\u7f6e\u4e2d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts striped table\">\n    <thead>\n        <tr>\n            <th>\u540d\u7a31</th>\n            <th>\u72c0\u614b</th>\n            <th class=\"[[right aligned]]\">\u7b46\u8a18</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr class=\"[[center aligned]]\">\n            <td>Yami</td>\n            <td>\u7f6e\u4e2d</td>\n            <td class=\"[[right aligned]]\">\u6211\u9760\u53f3</td>\n        </tr>\n        <tr>\n            <td>Jamie</td>\n            <td>\u5df2\u6838\u51c6</td>\n            <td class=\"[[right aligned]]\">\u9760\u53f3</td>\n        </tr>\n        <tr>\n            <td>Jill</td>\n            <td class=\"[[left aligned]]\">\u9760\u5de6\u908a</td>\n            <td class=\"[[right aligned]]\">\u9760\u53f3</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u689d\u7d0b",
+                    "Description": "\u8b93\u8868\u683c\u5177\u6709\u689d\u7d0b\u611f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[striped]] table\">\n    <thead>\n        <tr>\n            <th>\u6a94\u6848\u540d\u7a31</th>\n            <th>\u5206\u985e</th>\n            <th>\u8aaa\u660e</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>file.php</td>\n            <td>Controller</td>\n            <td>\u7528\u4f86\u8655\u7406\u6a94\u6848\u76f8\u95dc\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>star.php</td>\n            <td>Controller</td>\n            <td>\u8655\u7406\u661f\u865f\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>favorite.php</td>\n            <td>Model</td>\n            <td>\u8655\u7406\u6700\u611b\u7684\u9805\u76ee\u3002</td>\n        </tr>\n        <tr>\n            <td>user.php</td>\n            <td>View</td>\n            <td>\u8655\u7406\u4f7f\u7528\u8005\u9801\u9762\u7684\u6a21\u677f\u8996\u5716\u3002</td>\n        </tr>\n        <tr>\n            <td>database.php</td>\n            <td>Model</td>\n            <td>\u548c\u8cc7\u6599\u5eab\u8ca0\u8cac\u806f\u7e6b\u7684\u6a21\u578b\u3002</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u57fa\u672c",
+                    "Remove": [
+                        "<br>"
+                    ],
+                    "Description": "\u8868\u683c\u53ef\u4ee5\u53ea\u5269\u4e0b\u57fa\u672c\u7684\u69cb\u9020\u7dda\u689d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[basic]] table\">\n    <thead>\n        <tr>\n            <th>\u6a94\u6848\u540d\u7a31</th>\n            <th>\u5206\u985e</th>\n            <th>\u8aaa\u660e</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>file.php</td>\n            <td>Controller</td>\n            <td>\u7528\u4f86\u8655\u7406\u6a94\u6848\u76f8\u95dc\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>star.php</td>\n            <td>Controller</td>\n            <td>\u8655\u7406\u661f\u865f\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>favorite.php</td>\n            <td>Model</td>\n            <td>\u8655\u7406\u6700\u611b\u7684\u9805\u76ee\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<br>\n<table class=\"ts [[very basic]] table\">\n    <thead>\n        <tr>\n            <th>\u6a94\u6848\u540d\u7a31</th>\n            <th>\u5206\u985e</th>\n            <th>\u8aaa\u660e</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>file.php</td>\n            <td>Controller</td>\n            <td>\u7528\u4f86\u8655\u7406\u6a94\u6848\u76f8\u95dc\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>star.php</td>\n            <td>Controller</td>\n            <td>\u8655\u7406\u661f\u865f\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>favorite.php</td>\n            <td>Model</td>\n            <td>\u8655\u7406\u6700\u611b\u7684\u9805\u76ee\u3002</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u9589\u5408\u6b04\u4f4d",
+                    "Description": "\u6b04\u4f4d\u53ef\u4ee5\u53ea\u5360\u6b04\u4f4d\u5167\u5bb9\u9700\u8981\u7684\u7a7a\u9593\uff0c\u800c\u4e0d\u662f\u81ea\u52d5\u589e\u5bec\u7559\u4e0b\u904e\u591a\u7684\u7a7a\u767d\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <tbody>\n        <tr>\n            <td class=\"[[collapsing]]\">\n              <i class=\"folder {{icon}}\"></i> node_modules\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td>10 \u5c0f\u6642\u524d</td>\n        </tr>\n        <tr>\n            <td>\n              <i class=\"folder {{icon}}\"></i> test\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td>10 \u5c0f\u6642\u524d</td>\n        </tr>\n        <tr>\n            <td>\n              <i class=\"folder {{icon}}\"></i> build\n            </td>\n            <td>\u7b2c\u4e00\u6b21 Commit\uff01</td>\n            <td>10 \u5c0f\u6642\u524d</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u6b04\u4f4d\u5747\u5206",
+                    "Description": "\u4f60\u53ef\u4ee5\u5f9e `one` \u81f3 `ten` \u4f86\u9078\u51fa\u4f60\u8981\u5c07\u6b04\u4f4d\u81ea\u52d5\u5747\u5206\u70ba\u5e7e\u7b49\u5206\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[three column]] table\">\n    <thead>\n        <tr>\n            <th>#</th>\n            <th>\u59d3\u540d</th>\n            <th>\u82f1\u6587\u66b1\u7a31</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>1</td>\n            <td>\u5361\u8389\u7d72</td>\n            <td>Caris</td>\n        </tr>\n        <tr>\n            <td>2</td>\n            <td>\u6a59\u5e0c</td>\n            <td>Orenji</td>\n        </tr>\n        <tr>\n            <td>3</td>\n            <td>\u5433\u96e8\u85cd</td>\n            <td>Aoi</td>\n        </tr>\n    </tbody>\n    <tfoot>\n        <tr>\n            <th>3 \u500b\u4eba</th>\n            <th>2 \u500b\u6838\u51c6</th>\n            <th></th>\n        </tr>\n    </tfoot>\n</table>\n"
+                },
+                {
+                    "Title": "\u6b04\u4f4d\u7db2\u683c",
+                    "Description": "\u8868\u683c\u4e5f\u53ef\u4ee5\u5229\u7528\u50cf\u662f\u7db2\u683c\u7cfb\u7d71\u4e00\u6a23\u7684\u529f\u80fd\u4f86\u5c0d\u6b04\u4f4d\u7684\u5bec\u5ea6\u9032\u884c\u898f\u5283\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts table\">\n    <thead>\n        <tr>\n            <th class=\"[[ten wide]]\">\u540d\u7a31</th>\n            <th class=\"[[six wide]]\">\u72c0\u614b</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>John</td>\n            <td>\u5df2\u6838\u51c6</td>\n        </tr>\n        <tr>\n            <td>Jamie</td>\n            <td>\u5df2\u6838\u51c6</td>\n        </tr>\n        <tr>\n            <td>Jill</td>\n            <td>\u5df2\u5426\u6c7a</td>\n        </tr>\n    </tbody>\n    <tfoot>\n        <tr>\n            <th>3 \u500b\u4eba</th>\n            <th>2 \u500b\u6838\u51c6</th>\n        </tr>\n    </tfoot>\n</table>\n"
+                },
+                {
+                    "Title": "\u9589\u5408\u8868\u683c",
+                    "Description": "\u8868\u683c\u672c\u8eab\u53ef\u4ee5\u53ea\u5360\u7528\u6700\u5c0f\u5bec\u5ea6\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[collapsing]] table\">\n    <thead>\n        <tr>\n            <th>#</th>\n            <th>\u59d3\u540d</th>\n            <th>\u82f1\u6587\u66b1\u7a31</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>1</td>\n            <td>\u5361\u8389\u7d72</td>\n            <td>Caris</td>\n        </tr>\n        <tr>\n            <td>2</td>\n            <td>\u6a59\u5e0c</td>\n            <td>Orenji</td>\n        </tr>\n        <tr>\n            <td>3</td>\n            <td>\u5433\u96e8\u85cd</td>\n            <td>Aoi</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u589e\u52a0\u5167\u8ddd",
+                    "Description": "\u4f60\u53ef\u4ee5\u589e\u52a0\u6b04\u4f4d\u7684\u5167\u8ddd\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[padded]] table\">\n    <thead>\n        <tr>\n            <th>\u6587\u7ae0\u540d\u7a31</th>\n            <th>\u8a3b\u91cb</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Lorem Ipsum</td>\n            <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>\n        </tr>\n        <tr>\n            <td>Etiam aliquet</td>\n            <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>\n        </tr>\n        <tr>\n            <td>Aliquam</td>\n            <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>\n        </tr>\n    </tbody>\n</table>\n<br>\n<table class=\"ts [[very padded]] table\">\n    <thead>\n        <tr>\n            <th>\u6587\u7ae0\u540d\u7a31</th>\n            <th>\u8a3b\u91cb</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>Lorem Ipsum</td>\n            <td>Etiam aliquet pulvinar sapien, et venenatis orci placerat vitae. Sed posuere bibendum ante et porttitor. Fusce auctor.</td>\n        </tr>\n        <tr>\n            <td>Etiam aliquet</td>\n            <td>Nulla sed ex eget ligula gravida condimentum non id dui. Donec rutrum accumsan augue vitae pretium.</td>\n        </tr>\n        <tr>\n            <td>Aliquam</td>\n            <td>Curabitur volutpat tristique erat ut pulvinar. Aliquam varius, mi ut convallis rhoncus, nunc dolor feugiat mi.</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u7e2e\u6e1b",
+                    "Description": "\u8868\u683c\u7684\u5167\u8ddd\u53ef\u4ee5\u7a0d\u5fae\u7e2e\u6e1b\u7528\u4ee5\u5448\u73fe\u66f4\u591a\u7684\u884c\u6578\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[compact]] table\">\n    <thead>\n        <tr>\n            <th>\u6a94\u6848\u540d\u7a31</th>\n            <th>\u5206\u985e</th>\n            <th>\u8aaa\u660e</th>\n        </tr>\n    </thead>\n    <tbody>\n        <tr>\n            <td>file.php</td>\n            <td>Controller</td>\n            <td>\u7528\u4f86\u8655\u7406\u6a94\u6848\u76f8\u95dc\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>star.php</td>\n            <td>Controller</td>\n            <td>\u8655\u7406\u661f\u865f\u7a0b\u5f0f\u3002</td>\n        </tr>\n        <tr>\n            <td>favorite.php</td>\n            <td>Model</td>\n            <td>\u8655\u7406\u6700\u611b\u7684\u9805\u76ee\u3002</td>\n        </tr>\n        <tr>\n            <td>user.php</td>\n            <td>View</td>\n            <td>\u8655\u7406\u4f7f\u7528\u8005\u9801\u9762\u7684\u6a21\u677f\u8996\u5716\u3002</td>\n        </tr>\n        <tr>\n            <td>database.php</td>\n            <td>Model</td>\n            <td>\u548c\u8cc7\u6599\u5eab\u8ca0\u8cac\u806f\u7e6b\u7684\u6a21\u578b\u3002</td>\n        </tr>\n    </tbody>\n</table>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Description": "\u8868\u683c\u6709\u4e0d\u540c\u7684\u5c3a\u5bf8\u53ef\u4f9b\u9078\u64c7\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<table class=\"ts [[mini]] celled table\">\n    <tbody>\n        <tr>\n            <td>mini</td>\n            <td>\u8ff7\u4f60</td>\n            <td>\u9019\u662f\u4e00\u500b\u8ff7\u4f60\u7684\u8868\u683c\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts [[tiny]] celled table\">\n    <tbody>\n        <tr>\n            <td>tiny</td>\n            <td>\u5fae\u5c0f</td>\n            <td>\u9019\u662f\u4e00\u500b\u5fae\u5c0f\u7684\u8868\u683c\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts [[small]] celled table\">\n    <tbody>\n        <tr>\n            <td>small</td>\n            <td>\u5c0f\u7684</td>\n            <td>\u9019\u662f\u4e00\u500b\u5c0f\u7684\u8868\u683c\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts [[medium]] celled table\">\n    <tbody>\n        <tr>\n            <td>medium</td>\n            <td>\u9069\u4e2d</td>\n            <td>\u9019\u662f\u4e00\u500b\u9069\u4e2d\u7684\u8868\u683c\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts [[large]] celled table\">\n    <tbody>\n        <tr>\n            <td>large</td>\n            <td>\u5927\u7684</td>\n            <td>\u9019\u662f\u4e00\u500b\u5927\u7684\u8868\u683c\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts [[big]] celled table\">\n    <tbody>\n        <tr>\n            <td>big</td>\n            <td>\u5927\u578b</td>\n            <td>\u9019\u662f\u4e00\u500b\u5927\u578b\u7684\u8868\u683c\u3002</td>\n        </tr>\n    </tbody>\n</table>\n<table class=\"ts [[huge]] celled table\">\n    <tbody>\n        <tr>\n            <td>huge</td>\n            <td>\u5de8\u5927</td>\n            <td>\u9019\u662f\u4e00\u500b\u5de8\u5927\u7684\u8868\u683c\u3002</td>\n        </tr>\n    </tbody>\n</table>\n"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u8868\u683c\u53ef\u4ee5\u900f\u904e\u984d\u5916\u7684\u6a23\u5f0f\u4f86\u5f37\u5316\u5916\u89c0\u3002"
+        }
+    ]
+}

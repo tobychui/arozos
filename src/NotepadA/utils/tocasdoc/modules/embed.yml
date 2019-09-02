@@ -1,0 +1,154 @@
+Title      : 嵌入物件
+Description: 把東西搬進來囉。
+Outline    : 透過嵌入物件元件，你可以很簡單地將 HTML5 影片、Google Map、YouTube 等影片嵌入至自己的網站內。你亦可透過此元件保持物件的長寬比，如 16:9 或 4:3 甚至 1:1⋯⋯等多種比例。
+
+Definitions:
+
+  - Title      : 種類
+    Description: 嵌入物件有不同的種類可供使用。
+    Sections   :
+
+      - Title      : YouTube
+        Description: 你可以嵌入一則來自 YouTube 的影片。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts embed" [[data-source]]="youtube" data-id="I6hHkf9mIcU" data-query="autoplay=true" data-placeholder="!-embed:karen-!"></div>
+
+      - Title      : Vimeo
+        Description: 或者是 Vimeo 上的影片。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts embed" [[data-source]]="vimeo" data-id="125292332" data-placeholder="!-embed:vimeo-!"></div>
+
+      - Title      : 自訂影片
+        Description: 你可以手動指定影片的來源網址，當來源影片是 `mov`、`mp4`、`ogg`、`webm` 格式的時候，會由 HTML5 影片播放器播放。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts embed" [[data-url]]="https://html5demos.com/assets/dizzy.mp4" data-placeholder="!-16:9-!" data-icon="right circle arrow" data-options="controls, autoplay"></div>
+
+      - Title      : 外部內容
+        Description: 來源網址也可以是一個網站的內容，而不一定是則影片。所以你也可以像這樣嵌入一個 Google Map 地圖，試著點擊圖示以讀取地圖。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts embed" [[data-url]]="https://goo.gl/GKpzom" data-icon="map"></div>
+
+      - Title      : 圖片
+        Description: 嵌入物件裡面可以放置圖片，並善用長寬比設定調整比例。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts 21:9 embed">
+              <[[img]] src="!-1:1-!">
+          </div>
+
+  - Title      : 狀態
+    Description: 嵌入物件有不同的狀態。
+    Sections   :
+
+      - Title      : 已停用
+        Description: 顯示這個嵌入物件已經不可使用了。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[disabled]] embed">
+            <iframe src="https://goo.gl/GKpzom"></iframe>
+          </div>
+
+      - Title      : 唯讀
+        Description: 讓嵌入物件僅可檢視，無法與其做出任何反應與變動。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[read only]] embed">
+            <iframe src="https://goo.gl/GKpzom"></iframe>
+          </div>
+
+  - Title      : 外觀
+    Description: 嵌入物件可以有不同的外觀呈現。
+    Sections   :
+
+      - Title      : 長寬比
+        Description: |
+          你可以很簡單的透過像是 `4:3`、`16:9` 更改嵌入物件的長寬比，並且保持他們一定的比例。這個表格列出了你所能使用的長寬比。
+          <br>
+          <table class="ts small stackable definition table">
+              <tbody>
+                  <tr>
+                      <td>寬型</td>
+                      <td>`21:9`</td>
+                      <td>`18:9`</td>
+                      <td>`16:9`</td>
+                      <td>`5:2`</td>
+                      <td>`9:18`</td>
+                  </tr>
+                  <tr>
+                      <td>方型</td>
+                      <td>`1:1`</td>
+                      <td>`4:3`</td>
+                      <td>`3:2`</td>
+                      <td></td>
+                      <td></td>
+                  </tr>
+                  <tr>
+                      <td>長型</td>
+                      <td>`9:16`</td>
+                      <td>`3:4`</td>
+                      <td>`2:3`</td>
+                      <td></td>
+                      <td></td>
+                  </tr>
+              </tbody>
+          </table>
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts [[5:2]] embed" data-source="youtube" data-id="I6hHkf9mIcU" data-placeholder="!-embed:karen-!"></div>
+
+Modules:
+
+  - Title      : JavaScript
+    Description: 嵌入物件有提供可用的 JavaScript 模塊。
+    Sections   :
+
+      - Title      : 初始化
+        Description: 你需要透過 JavaScript 初始化嵌入物件才能正常運作並載入正確的內容。
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts embed" data-source="youtube" data-id="I6hHkf9mIcU" data-placeholder="!-embed:karen-!"></div>
+        JavaScript: |
+          ts('.ts.embed').embed();
+        AutoExecute: true
+
+      - Title      : 中繼選項
+        Description: |
+          <p>你能夠透過中繼選項來變更嵌入物件的一些參數或是外觀。</p>
+          <table class="ts small stackable definition table">
+              <thead>
+                  <tr>
+                      <th></th>
+                      <th>註釋</th>
+                      <th>範例</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td>data-placeholder</td>
+                      <td>預置封面的圖片路徑，這個圖片會在嵌入物件尚未載入時出現。</td>
+                      <td><code>data-placeholder="image.png"</code></td>
+                  </tr>
+                  <tr>
+                      <td>data-options</td>
+                      <td>這會變動嵌入物件的標籤（Attributes），你亦能透過選項使影片自動播放、顯示影片控制元件等。選項可以是鍵值，並以逗點分隔。</td>
+                      <td><code>data-options="controls, data-user-id=12345"</code></td>
+                  </tr>
+                  <tr>
+                      <td>data-query</td>
+                      <td>你能夠手動指定網址參數，當請求遠端影片時，這段參數會被追加在請求網址之後。像是指定 YouTube 的自動播放時很好用。</td>
+                      <td><code>data-query="autoplay=true"</code></td>
+                  </tr>
+                  <tr>
+                      <td>data-icon</td>
+                      <td>影片尚未播放前的圖示是可以修改的，可用來表示此嵌入物件的型態。相關圖示名稱請參考圖示元件。</td>
+                      <td><code>data-icon="map"</code></td>
+                  </tr>
+              </tbody>
+          </table>
+        Since      : 2.3.3
+        HTML       : |
+          <div class="ts embed" data-source="youtube" data-id="I6hHkf9mIcU" [[data-query]]="autoplay=true" [[data-placeholder]]="!-16:9-!"></div>

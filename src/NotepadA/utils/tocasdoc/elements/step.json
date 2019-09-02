@@ -1,0 +1,133 @@
+{
+    "Title": "\u6b65\u9a5f",
+    "Description": "\u544a\u8a34\u5225\u4eba\u4e0b\u4e00\u6b65\u6703\u662f\u4ec0\u9ebc\u3002",
+    "Definitions": [
+        {
+            "Sections": [
+                {
+                    "Title": "\u6b65\u9a5f",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u6b65\u9a5f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"[[step]]\">\n      \u904b\u9001\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u7a2e\u985e",
+            "Description": "\u6b65\u9a5f\u5177\u6709\u4e0d\u540c\u7684\u7a2e\u985e\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6b65\u9a5f\u7fa4\u7d44",
+                    "Description": "\u4e00\u500b\u6700\u57fa\u672c\u7684\u6b65\u9a5f\u7fa4\u7d44\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[steps]]\">\n    <div class=\"[[step]]\">\n        <i class=\"truck icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n    <div class=\"active [[step]]\">\n        <i class=\"payment icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"disabled [[step]]\">\n        <i class=\"info icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6392\u5e8f",
+                    "Description": "\u6b65\u9a5f\u7fa4\u7d44\u53ef\u4ee5\u6709\u865f\u78bc\u6392\u5e8f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[ordered]] steps\">\n    <div class=\"completed step\">\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n    <div class=\"completed step\">\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n            <div class=\"description\">\u8a8d\u8b49\u8a02\u55ae\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5782\u76f4",
+                    "Description": "\u6b65\u9a5f\u7fa4\u7d44\u53ef\u4ee5\u662f\u5782\u76f4\u64fa\u653e\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[vertical]] steps\">\n    <div class=\"completed step\">\n        <i class=\"truck icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n    <div class=\"completed step\">\n        <i class=\"payment icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"notice icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n            <div class=\"description\">\u8a8d\u8b49\u8a02\u55ae\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u7fa4\u7d44",
+            "Description": "\u6b65\u9a5f\u53ef\u4ee5\u662f\u4e00\u500b\u7fa4\u7d44\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u6a19\u984c",
+                    "Description": "\u6b65\u9a5f\u88e1\u9762\u53ef\u4ee5\u6709\u6a19\u984c\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"step\">\n        <div class=\"content\">\n            <div class=\"[[title]]\">\u904b\u9001</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u8a3b\u91cb",
+                    "Description": "\u6b65\u9a5f\u88e1\u9762\u53ef\u4ee5\u5305\u542b\u8a3b\u91cb\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"step\">\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"[[description]]\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5716\u793a",
+                    "Description": "\u6b65\u9a5f\u4e5f\u80fd\u5920\u64c1\u6709\u5716\u793a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"step\">\n        <i class=\"truck [[icon]]\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9023\u7d50",
+                    "Description": "\u6b65\u9a5f\u672c\u8eab\u53ef\u4ee5\u662f\u9023\u7d50\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <[[a]] class=\"active step\" href=\"#!\">\n        <i class=\"truck icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </[[a]]>\n    <[[a]] class=\"step\" href=\"#!\">\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </[[a]]>\n</div>\n"
+                },
+                {
+                    "Subtitle": "\u975e\u50b3\u7d71\u7684\u9023\u7d50",
+                    "Since": "2.3.3",
+                    "Description": "\u6b65\u9a5f\u7684\u9023\u7d50\u6a23\u5f0f\u4e5f\u53ef\u4ee5\u51fa\u73fe\u5728\u975e\u50b3\u7d71\u9023\u7d50\u6a19\u7c64\u4e0a\u3002",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"[[link]] step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n    <div class=\"[[link]] step\">\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u5167\u5bb9",
+            "Description": "\u6b65\u9a5f\u7684\u5167\u5bb9\u662f\u5404\u5f0f\u5404\u6a23\u7684\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Title": "\u884c\u9032\u4e2d",
+                    "Description": "\u986f\u793a\u4e00\u500b\u6b65\u9a5f\u662f\u76ee\u524d\u6b63\u5728\u884c\u9032\u4e2d\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"[[active]] step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5b8c\u6210",
+                    "Description": "\u986f\u793a\u4e00\u500b\u5df2\u7d93\u5b8c\u6210\u7684\u6b65\u9a5f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"[[completed]] step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5df2\u505c\u7528",
+                    "Description": "\u7528\u4f86\u986f\u793a\u4e00\u500b\u4e0d\u80fd\u88ab\u9078\u64c7\u7684\u6b65\u9a5f\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts steps\">\n    <div class=\"[[disabled]] step\">\n        \u7d50\u5e33\n    </div>\n</div>\n"
+                }
+            ],
+            "Title": "\u72c0\u614b",
+            "Description": "\u6b65\u9a5f\u6709\u8a31\u591a\u4e0d\u540c\u7684\u72c0\u614b\u3002"
+        },
+        {
+            "Sections": [
+                {
+                    "Responsive": true,
+                    "Title": "\u53ef\u5c64\u758a\u7684",
+                    "Description": "\u5728\u87a2\u5e55\u7e2e\u5c0f\u6642\uff0c\u6b65\u9a5f\u53ef\u4ee5\u88ab\u5c64\u758a\u8d77\u4f86\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[stackable]] steps\">\n    <div class=\"completed step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n            <div class=\"description\">\u8a8d\u8b49\u8a02\u55ae\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u6d41\u52d5",
+                    "Description": "\u6b65\u9a5f\u7684\u5bec\u5ea6\u53ef\u4ee5\u662f\u586b\u6eff\u5bb9\u5668\u5bec\u5ea6\u7684\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts vertical [[fluid]] steps\">\n    <div class=\"completed step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n            <div class=\"description\">\u8a8d\u8b49\u8a02\u55ae\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[fluid]] steps\">\n    <div class=\"completed step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n            <div class=\"description\">\u8a8d\u8b49\u8a02\u55ae\u8cc7\u8a0a</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u9644\u8457",
+                    "Description": "\u6b65\u9a5f\u53ef\u4ee5\u9644\u8457\u5728\u5176\u4ed6\u5143\u4ef6\u4e0a\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts three [[top attached]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"info {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts attached {{segment}}\">\n    <p>\u6708\u6708\uff0c\u642d\u62c9\u5b89\uff01</p>\n    <p>\u6708\u6708\uff0c\u642d\u62c9\u5b89\uff01</p>\n    <p>\u6708\u6708\uff0c\u642d\u62c9\u5b89\uff01</p>\n</div>\n<div class=\"ts three [[bottom attached]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n            <div class=\"description\">\u9078\u64c7\u4f60\u7684\u904b\u9001\u65b9\u5f0f</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n            <div class=\"description\">\u8f38\u5165\u7d50\u5e33\u8cc7\u8a0a</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"info {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n"
+                },
+                {
+                    "Title": "\u5c3a\u5bf8",
+                    "Description": "\u6b65\u9a5f\u5177\u6709\u4e0d\u540c\u5c3a\u5bf8\u3002",
+                    "Since": "2.3.3",
+                    "HTML": "<div class=\"ts [[mini]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[tiny]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[small]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[medium]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[large]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[big]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[huge]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment icon\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>\n<div class=\"ts [[massive]] steps\">\n    <div class=\"step\">\n        <i class=\"truck {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u904b\u9001</div>\n        </div>\n    </div>\n    <div class=\"active step\">\n        <i class=\"payment {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u7d50\u5e33</div>\n        </div>\n    </div>\n    <div class=\"disabled step\">\n        <i class=\"notice {{icon}}\"></i>\n        <div class=\"content\">\n            <div class=\"title\">\u78ba\u8a8d\u8a02\u55ae</div>\n        </div>\n    </div>\n</div>"
+                }
+            ],
+            "Title": "\u5916\u89c0",
+            "Description": "\u6b65\u9a5f\u7684\u5916\u89c0\u6709\u6240\u4e0d\u540c\u3002"
+        }
+    ]
+}
