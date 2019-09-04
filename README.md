@@ -6,7 +6,7 @@
 Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B. A place to start cloud music and video streaming, data storage, office work / text processing, 3D printing file previews, Cloud programming IDE and more!
 
 ## Getting Started
-These instructions will show you how to deploy a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. See "Full Version Deployment" for the instruction to deploy other builds of the system.
+These instructions will show you how to deploy a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. Read more on the [Full System Documentation](https://hkwtc.org/aroz_online/docs/).
 
 ### Prerequisites
 The following packages are required for the community edition to run on your Linux system.
