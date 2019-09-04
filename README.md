@@ -111,15 +111,17 @@ Different major change in versioning will lead to an upgrade to the codename. He
 * <a href="https://github.com/RubMing">RubMing</a>
 
 ## License
-Core Modules (Audio / Photo / Video) - MIT License
+Build-in Multimedia Modules (Audio / Photo / Video) - MIT License
 
-Desktop Module (Desktop) - GPLv3 License
+Desktop Module (Desktop) and its utilities - *All Right Reserved*, Free to use ONLY on Raspberry Pi and other ARMv6, v7 or ARM64 based SBC for non-commercial purposes.
 
 All core scripts and binary files under root (./) and System Script Folder (SystemAOB/*) - tobychui feat. ArOZ Online Project, All Right Reserved.
 
 All other files or modules that is not covered by the license above - See the module's license for more information.
 
-THIS SYSTEM IS ONLY FOR PERSONAL AND NON COMMERCIAL USE ONLY. RE-SELL ,DISTRIBUTE OR CLAIM THIS AS YOUR OWN WORK IS PROHIBITED
+THIS SOFTWARE IS ONLY FOR PERSONAL AND NON COMMERCIAL USE ONLY. RE-SELL ,DISTRIBUTE OR CLAIM THIS AS YOUR OWN WORK IS PROHIBITED
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Acknowledgments
 Special thanks for the following projects which bring insights to this project.
