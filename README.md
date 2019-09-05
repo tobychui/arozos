@@ -113,7 +113,7 @@ Different major change in versioning will lead to an upgrade to the codename. He
 ## License
 Build-in Multimedia Modules (Audio / Photo / Video) - MIT License
 
-Desktop Module (Desktop) and its utilities - *All Right Reserved*, Free to use ONLY on Raspberry Pi and other ARMv6, v7 or ARM64 based SBC for non-commercial purposes.
+Desktop Module (Desktop) and its utilities - *All Right Reserved*, Free to use ONLY on Raspberry Pi and other ARMv6, v7 or ARM64 based SBC for non-commercial purposes. No derivative should be made on this module. However we welcome any pull request for improvements :)
 
 All core scripts and binary files under root (./) and System Script Folder (SystemAOB/*) - tobychui feat. ArOZ Online Project, All Right Reserved.
 
