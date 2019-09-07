@@ -8,7 +8,11 @@ if (file_exists("img/bg")){
 			//If it is a directory as well as it has image in it
 			$images = glob($theme . "/*.{jpg,gif}", GLOB_BRACE);
 			$bgcount = count($images);
-			array_push($data,[basename($theme),$theme,$bgcount]);
+			$mode = "jpg";
+			if (file_exists(file_exists($theme . "/0.gif"))){
+			    $mode = "gif";
+			}
+			array_push($data,[basename($theme),$theme,$bgcount,$mode]);
 		}
 	}
 }else{

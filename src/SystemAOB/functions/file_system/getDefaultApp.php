@@ -72,7 +72,16 @@ if (isset($_GET['mode']) && $_GET['mode'] != ""){
 				$data = [];
 				foreach ($content as $line){
 					$line = trim($line);
-					array_push($data,explode(",",$line));
+					$opener = explode(",",$line);
+					if (file_exists("../../../" . $opener[0])){
+					    //Only push into the list if the opening module exists
+					    array_push($data,$opener);
+					}
+					
+				}
+				if (count($data) == 0){
+				    //Opener defined but not exists in the current WebApp list
+				    die("ERROR. Defined opener do not exists.");
 				}
 				header('Content-Type: application/json');
 				echo json_encode($data);

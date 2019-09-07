@@ -1,5 +1,13 @@
 <?php
 include '../auth.php';
+include_once("../SystemAOB/functions/personalization/configIO.php");
+$theme = (getConfig("function_bar",false));
+$themeColor = "#4286f4";
+if (isset($theme["actBtnColor"][3])){
+    $themeColor = $theme["actBtnColor"][3];
+}
+
+
 ?>
 <html>
 <head>
@@ -9,9 +17,8 @@ include '../auth.php';
         setTimeout(function() { window.scrollTo(0, 1); }, 1);
       }, false);
 </script>
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="viewport" content="width=device-width, initial-scale=0.7, shrink-to-fit=no">
-
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="viewport" content="width=device-width, initial-scale=0.7, shrink-to-fit=no">
     <meta charset="UTF-8">
 	<script src="../script/jquery.min.js"></script>
     <link rel="stylesheet" href="../script/tocas/tocas.css">
@@ -39,7 +46,9 @@ include '../auth.php';
 	.sub{
 	    font-size:60% !important;
 	}
-	
+	.themeColor{
+	    color: <?php echo $themeColor;?>;
+	}
 	</style>
 </head>
 <body>
@@ -62,14 +71,14 @@ include '../auth.php';
 	<div class="doubling six column row">
         <a class="column clickable" href="navi.php?page=host">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="disk outline icon"></i>Host
+			<i class="disk outline icon themeColor"></i>Host
 			<div class="sub header">Host Info, WebApps, Thermal</div>
 		</h4>
 		<br>
 		</a>
         <a class="column clickable" href="navi.php?page=device">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="laptop icon"></i>Device
+			<i class="laptop icon themeColor"></i>Device
 			<div class="sub header">Storage, USB Mounting, IO</div>
 		</h4>
 		<br>
@@ -77,7 +86,7 @@ include '../auth.php';
 		
         <a class="column clickable" href="navi.php?page=network">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="wifi icon"></i>Network
+			<i class="wifi icon themeColor"></i>Network
 			<div class="sub header">WiFi Adaptor, Access Point, Ethernet</div>
 		</h4>
 		<br>
@@ -85,7 +94,7 @@ include '../auth.php';
 		
         <a class="column clickable" href="navi.php?page=theme">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="paint brush icon"></i>Personalization
+			<i class="paint brush icon themeColor"></i>Personalization
 			<div class="sub header">Color Scheme, Desktop Theme, Lock Screen</div>
 		</h4>
 		<br>
@@ -93,7 +102,7 @@ include '../auth.php';
 		
 		<a class="column clickable" href="navi.php?page=users">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="user outline icon"></i>Users
+			<i class="user outline icon themeColor"></i>Users
 			<div class="sub header">Your account, device UUID, Identification</div>
 		</h4>
 		<br>
@@ -101,7 +110,7 @@ include '../auth.php';
 		
 		<a class="column clickable" href="navi.php?page=time">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="clock icon"></i>Time
+			<i class="clock icon themeColor"></i>Time
 			<div class="sub header">Clock, Date Settings</div>
 		</h4>
 		<br>
@@ -109,7 +118,7 @@ include '../auth.php';
 		
 		<a class="column clickable" href="navi.php?page=file">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="file outline icon"></i>File & Storage
+			<i class="file outline icon themeColor"></i>File & Storage
 			<div class="sub header">File List, Clean, Search</div>
 		</h4>
 		<br>
@@ -117,7 +126,7 @@ include '../auth.php';
 		
 		<a class="column clickable" href="navi.php?page=sync">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="cloud upload icon"></i>ArOZ Sync
+			<i class="cloud upload icon themeColor"></i>ArOZ Sync
 			<div class="sub header">Cluster File Hosting, Disk Recovery</div>
 		</h4>
 		<br>
@@ -125,7 +134,7 @@ include '../auth.php';
 		
 		<a class="column clickable" href="navi.php?page=cluster">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="server icon"></i>ArOZ Clusters
+			<i class="server icon themeColor"></i>ArOZ Clusters
 			<div class="sub header">MapReduce, Cluster Settings</div>
 		</h4>
 		<br>
@@ -133,7 +142,7 @@ include '../auth.php';
 		
 		<a class="column clickable" href="navi.php?page=backup">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="refresh icon"></i>Backup and Restore
+			<i class="refresh icon themeColor"></i>Backup and Restore
 			<div class="sub header">Create backup, restore</div>
 		</h4>
 		<br>
@@ -141,7 +150,7 @@ include '../auth.php';
 		
 		<a class="column clickable" href="navi.php?page=about">
 		<h4 class="ts center aligned icon header">
-			<i style="color:#4286f4" class="notice icon"></i>About ArOZ
+			<i class="notice icon themeColor"></i>About ArOZ
 			<div class="sub header">More information, contact developer</div>
 		</h4>
 		<br>

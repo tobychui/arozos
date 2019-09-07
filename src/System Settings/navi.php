@@ -84,6 +84,7 @@ if (isset($_GET['page']) && $_GET['page']!=""){
 			array_push($sidebarContent,$lines);
 		}
 	}else{
+		header("Location: ../SystemAOB/functions/badDist.php");
 		die("[Critical Error] The defined setting menu is not found.");
 	}
 	

@@ -35,6 +35,11 @@ body{
 	background:<?php echo $theme["fbcolor"][3];?>;
 	
 }
+.fwPanelColor{
+	background:<?php echo $theme["fbcolor"][3];?>;
+}
+
+
 .notificationbar{
 	position:fixed;
 	top:0px;
@@ -44,7 +49,6 @@ body{
 	bottom: 34px;
 	background:<?php echo $theme["nbcolor"][3];?>;
 	right:0px;
-	border-left: 1px solid #4c4c4c;
 	padding: 20px;
 	padding-left: 25px;
 	color: <?php echo $theme["nbfontcolor"][3];?>;
@@ -93,7 +97,24 @@ body{
 }
 
 .selectable:hover{
-	background-color:#424242;
+	background-color:<?php echo $theme["actBtnColor"][3];?>;
+}
+
+.menuButton.active{
+	background-color:<?php echo $theme["actBtnColor"][3];?>;
+}
+
+.menuButton{
+	background-color:<?php echo $theme["defBtnColor"][3];?>;
+	width:60px;
+	height60px:
+	border: 1px solid red;
+	padding: .4em;
+}
+.toggleBtn{
+	width:59px;
+	height:49px;
+	padding-top:5px;
 }
 </style>
 <?php
@@ -119,13 +140,13 @@ foreach ($folders as $module){
 				<!-- First Left hand side system icons-->
 				<div class="eight wide column" style="left:2%;">
 					<div id="activatedModuleIcons" class="ts grid" style="line-height: 35px;" align="center">
-						<div class="one wide column" style="cursor: pointer;" onClick="ToogleMenuBar();"><i class="dropdown large icon" style="line-height: 35px;"></i></div>
-						<div class="one wide column" style="background-color:#111111;cursor: pointer;height:60px;" onClick="TooglePowerManuel(this);"><i class="cloud large icon" style="line-height: 35px;padding-top:3px;"></i></div>
-						<div id="folderBtn" class="one wide column" style="cursor: pointer;background-color: #333;height:60px;" onClick="ToogleFileExplorer();">
+						<div class="toggleBtn" style="cursor: pointer;" onClick="ToogleMenuBar();"><i class="dropdown large icon" style="line-height: 35px;"></i></div>
+						<div class="menuButton active" style="cursor: pointer;height:60px;" onClick="TooglePowerManuel(this);"><i class="cloud large icon" style="line-height: 35px;padding-top:3px;"></i></div>
+						<div id="folderBtn" class="menuButton" style="cursor: pointer;height:60px;" onClick="ToogleFileExplorer();">
 							<i class="folder outline icon" style="line-height: 35px;"></i>
 						</div>
 						<!-- New windows will be added here-->
-						<div id="moreBtn" class="one wide column" style="cursor: pointer;background-color: #333;height:60px;" onClick="AddWindows();" ><i class="plus icon" style="line-height: 35px;"></i></div>
+						<div id="moreBtn" class="menuButton" style="cursor: pointer;height:60px;" onClick="AddWindows();" ><i class="plus icon" style="line-height: 35px;"></i></div>
 					</div>
 				</div>
 				<!-- Second Right hand side tray icons -->
@@ -151,7 +172,7 @@ foreach ($folders as $module){
 	</div>
 	
 	<!-- floatWindow List Window -->
-	<div id="fwListWindow" style="overflow: hidden;position: fixed;left: 100;min-width: 250px;bottom:34px;min-height:40px;display:none;background-color:#282828;z-index:150;">
+	<div id="fwListWindow" class="fwPanelColor" style="overflow: hidden;position: fixed;left: 100;min-width: 250px;bottom:34px;min-height:40px;display:none;z-index:150;">
 	<div class="selectable" style="border:1px solid transparent;padding:10px;"><p class="ts inverted header" style="font-size:0.9em;">
 		<i class="spinner loading icon"></i>Loading...
 	</p></div>
@@ -245,13 +266,13 @@ foreach ($folders as $module){
 	
 	<!-- New Window Cloning Code -->
 	<div id="newWindow" style="border: 0px;overflow: hidden;position: fixed;left: 0;width: 720px;bottom:45px;height:480px;display:none;z-index:1;background-color:white;">
-		<div class="floatWindow" style="width:100%; position: relative; background-color:#333;color:white;left:0;top:0;height:20px;z-index:8;overflow:hidden;text-overflow: ellipsis;white-space: nowrap;cursor: context-menu;">
+		<div class="floatWindow fwPanelColor" style="width:100%; position: relative; color:white;left:0;top:0;height:20px;z-index:8;overflow:hidden;text-overflow: ellipsis;white-space: nowrap;cursor: context-menu;">
 		  <i class="folder icon"></i>%WINDOW_TITLE%
 		<div style="top:2px;right:3px;cursor: pointer;position:absolute;" class="closeWindow"><i class="remove icon"></i></div>
 		<div style="top:5px;right:25px;cursor: pointer;position:absolute;" class="maximizeWindow"><i class="small window maximize icon"></i></div>
 		<div style="top:5px;right:47px;cursor: pointer;position:absolute;" class="minimizeWindow"><i class="minus icon"></i></div>
 		</div>
-		<iframe style="width:100%;height: -webkit-calc(100% - 20px);height: -moz-calc(100% - 20px);height:calc(100% - 20px); bottom:0;position:absolute;top:20px;" src="%srcPath%" frameborder="1"></iframe>
+		<iframe style="width:100%;height: -webkit-calc(100% - 20px);height: -moz-calc(100% - 20px);height:calc(100% - 20px); bottom:0;position:absolute;top:20px;" src="about:blank" frameborder="1"></iframe>
 		<div class="resizeWindow" align="center"></div>
 	</div>
 	
@@ -280,6 +301,8 @@ foreach ($folders as $module){
 	<div style="display:none;">
 		<div id="DATA_PIPELINE_supportedModules"><?php echo json_encode($supportedModules); ?></div>
 		<div id="DATA_PIPELINE_windowID"><?php $date = date_create(); echo date_timestamp_get($date);?></div>
+		<div id="DATA_PIPELINE_themeColor"><?php echo $theme["fbcolor"][3];?></div>
+		<div id="DATA_PIPELINE_activeColor"><?php echo $theme["actBtnColor"][3];?></div>
 	</div>
 	<script src="function_bar.js"></script>
 </body>

@@ -10,6 +10,11 @@ include_once("../../../auth.php");
         <script src="../../../script/jquery.min.js"></script>
          <script src="../../../script/ao_module.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <style>
+            a{
+                cursor:pointer;
+            }
+        </style>
     </head>
     <body>
         <br><br>
@@ -37,7 +42,7 @@ include_once("../../../auth.php");
         				    foreach ($configs as $config){
         				        echo '<tr>
                                         <td>' . basename($config) . '</td>
-                                        <td><button class="ts icon basic button configEditor" configName="' .basename($config,".config") .'"><i class="external icon"></i></button></td>
+                                        <td><a class="configEditor" configName="' .basename($config,".config") .'"><i class="edit icon"></i>Edit</a></td>
                                     </tr>';
         				    }
         				

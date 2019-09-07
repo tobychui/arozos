@@ -252,7 +252,8 @@ if (file_exists($iconPath . $_SESSION['login'] . ".png")){
 				//If this is not Safari, hide the menu immediately
 				parent.$('#powerMenu').hide();
 			}
-			
+			$("body").css("background",parent.themeColor["theme"]);
+			$("#shutdownMenu").css("background-color",parent.themeColor["active"]);
 			$(document).ready(function(){
 			    loadModules();
                 updateUserName();

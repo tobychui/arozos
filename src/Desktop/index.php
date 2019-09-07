@@ -1104,10 +1104,16 @@ function loadDesktopContextMenu(){
 	appendToRightClickMenu("Upload to Desktop","desktopUploadTips");
 	appendToRightClickMenu("divider");
 	appendToRightClickMenu("Desktop Transfer <i class='exchange right icon' style='right:0;position:absolute'></i>","stateTransfer");
+	appendToRightClickMenu("Personalization <i class='paint brush icon' style='right:0;position:absolute'></i>","openThemeSelector");
 	appendToRightClickMenu("Background <i class='caret right icon' style='right:0;position:absolute'></i>","loadBackgroundTheme");
 	appendToRightClickMenu("Toggle FullScreen  <i class='maximize right icon' style='right:0;position:absolute'></i>","fullScreenMode");
 	appendToRightClickMenu("Exit Virtual Desktop","extvdi");
 	
+}
+
+function openThemeSelector(){
+	newfw("Desktop/themeSelector.php","Personalization - Theme Color","eyedropper","desktopThemeSelector",640,460,window.innerWidth/2 - 320,window.innerHeight/2 - 230,false,false);
+	hideAllContextMenu();
 }
 
 function stateTransfer(){
