@@ -16,16 +16,18 @@ include_once '../auth.php';
 	    .fixedsize{
             min-width:280px;
 			border: 1px solid transparent;
+			cursor:pointer;
 	    }
 		.fixedsize:hover{
 			background-color:#ecf3fd;
 			border: 1px solid #b8d6fb;
-			 border-radius: 3px;
+			border-radius: 3px;
 		}
 		.clickedFixedSize{
 			background-image: linear-gradient(#daeafc,#c1dcfc);
 			border: 1px solid #7da2ce !important;
 			border-radius: 3px;
+			cursor:pointer !important;
 		}
 		.selectable{
 		    border: 1px solid transparent;

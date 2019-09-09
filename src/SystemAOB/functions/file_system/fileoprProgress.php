@@ -44,7 +44,8 @@ if (isset($_GET['download'])){
     //Download the given file after the operation finished
     $download = $_GET['download'];
     //Check if the download target is inside AOR. If not, add handling script in front of the filepath
-    if (strpos(realpath($download),realpath("../../../")) !== 0){
+    //if (strpos(realpath($download),realpath("../../../")) !== 0){
+	if (strpos(realpath($download),"/media/") === 0){
         //This file might be in external storage. Try to give it extDiskAccess
         $download = "../extDiskAccess.php?file=" . $download;
     }
@@ -52,6 +53,7 @@ if (isset($_GET['download'])){
     $download = "false";
 }
 
+//var_dump([realpath($download),realpath("../../../")]);
 ?>
 <!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes" />

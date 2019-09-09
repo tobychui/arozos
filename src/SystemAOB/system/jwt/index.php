@@ -49,7 +49,7 @@ if (isset($_GET['remove']) && $_GET['remove'] != ""){
 			</div>
 			<div class="ts segment">
 			<p>New Token<br>
-			Please enter an expire time (in seconds) for the token. Leave empty for 3600 seconds or 0 for never expire.</p>
+			Please enter an expire time (in seconds) for the token. Leave empty or set to 0 for 3600 seconds / -1 for never expire.</p>
 				<div class="ts labeled fluid action input">
 					<input id="expireTime" type="number" min="0" >
 					<div class="ts basic label">@ <?php echo $_SESSION['login'];?></div>

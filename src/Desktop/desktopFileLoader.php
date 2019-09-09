@@ -1,10 +1,10 @@
 <?php
 //This php loads all the desktop content from a given username
-include '../auth.php';
+include_once('../auth.php');
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-header('Content-Type: text/html; charset=utf-8');
+//header('Content-Type: text/html; charset=utf-8');
 function getDecodeFileName($filename){
 	if (strpos($filename,"inith") !== false){
 		$ext = pathinfo($filename, PATHINFO_EXTENSION);
@@ -51,11 +51,12 @@ if (isset($_GET['username']) && $_GET['username'] != ""){
 		}else{
 			$filePositions = "";
 		}
+		
 		//For all items on the desktop
 		foreach ($files as $file){
 			$decodedFilename = "";
 			if (is_file($file) || is_dir($file)){
-				array_push($validfile,basename($file));
+				array_push($validfile,urlencode(basename($file)));
 				$fileDesktopPosition = getLineContain($filePositions,basename($file).",");
 				$decodedFilename = getDecodeFileName(basename($file));
 				//The filename has to be encoded into base64 first before sending to the Desktop as some UTF issue is happening here

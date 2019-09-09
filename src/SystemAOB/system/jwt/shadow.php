@@ -422,6 +422,7 @@ else {
 }
 
 if (key_exists("error",$returnArray)){
+    header("HTTP/1.1 401 Unauthorized");
 	die("ERROR. Shadow Runner failed to initiate. " . $returnArray["error"]);
 }
 

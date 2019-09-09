@@ -104,6 +104,10 @@ body{
 	background-color:<?php echo $theme["actBtnColor"][3];?>;
 }
 
+.themeColorShader{
+	box-shadow: -1px -1px 3px 1px <?php echo $theme["defBtnColor"][3];?>;
+}
+
 .menuButton{
 	background-color:<?php echo $theme["defBtnColor"][3];?>;
 	width:60px;
@@ -245,8 +249,8 @@ foreach ($folders as $module){
 	
 	</div>
 	<!-- USB Reminder Interface -->
-	<div id="USBList" style="border: 2px #333 solid;overflow: hidden;position: fixed;right: 0;width: 450px;bottom:32px;height:500px;display:none;z-index:118;background-color:white;">
-		<div style="width:100%; position: relative; background-color:#333;color:white;left:0;top:0;height:20px;z-index:8;overflow:hidden;text-overflow: ellipsis;white-space: nowrap;cursor: context-menu;"><i class="usb icon"></i>USB Device List</div>
+	<div id="USBList" class="themeColorShader" style="overflow: hidden;position: fixed;right: 0;width: 450px;bottom:34px;height:500px;display:none;z-index:118;background-color:white;">
+		<div class="fwPanelColor" style="width:100%; position: relative;color:white;left:0;top:0;height:20px;z-index:8;overflow:hidden;text-overflow: ellipsis;white-space: nowrap;cursor: context-menu;padding-left:5px;"><i class="usb icon"></i>USB Device List</div>
 		<iframe id="USBListDisplay" style="width:100%;height:100%;position:absolute;top:20px;" src="SystemAOB/functions/usbMount.php"></iframe>
 		</div>
 	</div>
