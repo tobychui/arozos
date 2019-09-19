@@ -359,10 +359,11 @@ function updateDesktopFiles(){
 	$.get( "desktopFileLoader.php?username=" + username, function(data) {
 		if (Array.isArray(data) == false && data.substring(0, 5) == "ERROR"){
 			showNotification("<i class='help icon'></i> Desktop file Synchronization");
+		}else if (data == ""){
+			//PHP returns nothing, mostly due to Windows Filename encoding error.
 		}else{
 			returnedFileList = returnedFileList.concat(data[0]);
 		}
-		
 		if (arraysEqual(desktopFiles,returnedFileList)){
 			//All the files are the same as before, keep the current desktop file list
 		}else{
@@ -384,6 +385,45 @@ function initUserDesktop(callback = null,callbackvar = "",callbackSeq = 0){
 	desktopFileLocations = [];
 	desktopEmptyPositions = [];
 	//showNotification("<i class='loading spinner icon'></i> Desktop environment initializing...");
+	$.ajax({
+		url: "desktopFileLoader.php?username=" + username,
+		success: function(data){
+				if (Array.isArray(data) == false && data.substring(0, 5) == "ERROR"){
+					showNotification(data);
+				}else{
+					desktopFiles = desktopFiles.concat(data[0]); //All the raw filenames 
+					desktopFileNames = desktopFileNames.concat(data[1]); //All decoded filenames
+					desktopFileLocations = desktopFileLocations.concat(data[2]); //All desktop file locations
+					calculateEmptyDesktopSlots();
+					if (callbackSeq == 0){
+						updateDesktopGraphic();
+					}
+				}
+				if (callback != null){
+					if (callbackvar == ""){
+						callback();
+					}else{
+						callback(callbackvar);
+					}
+				}
+				if (callbackSeq == 1){
+					updateDesktopGraphic();
+				}
+			},
+		timeout: 10000,
+		error: function(jqXHR, textStatus, errorThrown) {
+				parent.msgbox("Your desktop is unable to load due to host system encoding issue. We are trying to fix the issue.","<i class='caution sign icon'></i> Critial Error!",undefined,false);
+				$.get("fixWinDesktop.php",function(data){
+					if (data.includes("ERROR") == false){
+						parent.msgbox("Your desktop is fixed and the corrupted file is moved to recover/ folder on your desktop. Click the link below to refresh.","<i class='checkmark sign icon'></i> Recovery Completed","{reload}",false);
+					}else{
+						alert("Unable to recover. See console.log for more information.");
+					}
+				});
+			}
+		}
+	   );
+	/*
 	$.get( "desktopFileLoader.php?username=" + username, function(data) {
 		if (Array.isArray(data) == false && data.substring(0, 5) == "ERROR"){
 			showNotification(data);
@@ -407,7 +447,7 @@ function initUserDesktop(callback = null,callbackvar = "",callbackSeq = 0){
 			updateDesktopGraphic();
 		}
 	});
-	
+	*/
 	$.get( "loadAllModule.php", function( data ) {
 		openWithModuleList = data;
 		

@@ -20,7 +20,12 @@ if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
            $n = "[Drive not ready]"; 
        } 
 	//echo "Drive " . $dO->DriveLetter . ": - " . $type[$dO->DriveType] . " - " . $n . " - " . $s . "<br>";
-	array_push($result,[$dO->DriveLetter . ":",$n,$s]);
+	if (isset($_GET["nomerge"])){
+	    array_push($result,[$dO->DriveLetter . ":",$n,file_size($dO->FreeSpace),file_size($dO->TotalSize)]);
+	}else{
+	    array_push($result,[$dO->DriveLetter . ":",$n,$s]);
+	}
+	
     }
 	header('Content-Type: application/json');
 	echo json_encode($result);
@@ -34,7 +39,11 @@ if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 		$dataline = preg_replace("!\s+!",",",$line);
 		$dataline = explode(",",$dataline);
 		if ($dataline[0] != "tmpfs" && $dataline[0] != "Filesystem"){
-			array_push($result,[$dataline[5],$dataline[0],$dataline[3] . "/" . $dataline[1]]);
+		    	if (isset($_GET["nomerge"])){
+		    	    array_push($result,[$dataline[5],$dataline[0],$dataline[3] , $dataline[1]]);
+		    	}else{
+		    	    array_push($result,[$dataline[5],$dataline[0],$dataline[3] . "/" . $dataline[1]]);
+		    	}
 		}
 	}
 	header('Content-Type: application/json');

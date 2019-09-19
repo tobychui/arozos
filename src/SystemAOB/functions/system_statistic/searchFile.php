@@ -44,7 +44,7 @@ if(!isset($_GET["keyword"])){
 				<div class="sixteen wide field">
 					<label>Keyword</label>
 					<input type="text" placeholder="Keyword" id="keywordInput">
-					&nbsp;
+					 
 					<button onclick="updatelist()" id="btn" class="ts button">Search</button>
 				</div>
 				</div>
@@ -89,6 +89,8 @@ if(!isset($_GET["keyword"])){
 			var targetFilepath = "";
 			var targetFilename = "";
 			function updatelist(){
+			    $("body").parent().append($("#operationSelect")); //Move the selection box away first
+			    $("#operationSelect").hide(); //Hide the selection box
 				$('#mainmenu').html('<div class="item"><div class="ts active centered inline loader"></div></div>');
 				$.get("searchFile.php?keyword=" + $('#keywordInput').val(), function(data, status){
 					$('#mainmenu').html("");
@@ -322,8 +324,12 @@ if(!isset($_GET["keyword"])){
 	$files = getDirContents('../../../');
 	$result = [];
 	foreach ($files as $file){
-		if (strpos(basename($file),$keyword)){
+		if (strpos(basename($file),$keyword) !== false){
 			$relativePath = getRelativePath(realpath("../../../"),$file);
+			$decodedName = hexFilenameDecoder(basename($file));
+			array_push($result,[$relativePath,$decodedName]);
+		}else if (strpos(basename($file),bin2hex($keyword)) !== false){
+		    $relativePath = getRelativePath(realpath("../../../"),$file);
 			$decodedName = hexFilenameDecoder(basename($file));
 			array_push($result,[$relativePath,$decodedName]);
 		}

@@ -1821,7 +1821,12 @@ function msgbox(warningMsg,title="",redirectpath="",autoclose=true){
 	}
 	box += warningMsg;
 	if (redirectpath != ""){
-		box += '<br><a style="cursor:pointer;" href="' + redirectpath + '" target="_blank">Open in Module <i class="external icon"></i></a>';
+		if (redirectpath == "{reload}"){
+			box += '<br><a style="cursor:pointer;" onClick="window.location.reload();">Refresh <i class="refresh icon"></i></a>';
+		}else{
+			box += '<br><a style="cursor:pointer;" href="' + redirectpath + '" target="_blank">Open in Module <i class="external icon"></i></a>';
+		}
+		
 	}
 	box += '</div><div class="four wide column" align="right"><i class="remove icon pressable" onClick="closemsgbox(this);"></i><br><br></div></div></div>';
 	$(box).hide().prependTo("#messageBoard").slideDown();

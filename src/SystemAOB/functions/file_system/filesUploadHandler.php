@@ -7,10 +7,10 @@ include '../../../auth.php';
 if (isset($_FILES['files']) && !empty($_FILES['files'])) {
 	if (isset($_GET['path']) && $_GET['path'] != ""){
 		$path = $_GET['path'];
-		if  (strpos($path,"/SystemAOB") === false && $path != "/media"){
+		if  ((strpos($path,"/SystemAOB") === false || file_exists("developer.mode")) && $path != "/media"){
 			$path = $path . "/";
-			if (strpos($path,"AOB/") !== false){
-				$path = str_replace("AOB/","../../../",$path);
+			if (strpos($path,"AOB/") === 0){
+				$path = "../../../" . substr($path,4);
 			}
 			$no_files = count($_FILES["files"]['name']);
 			for ($i = 0; $i < $no_files; $i++) {
@@ -49,6 +49,7 @@ if (isset($_FILES['files']) && !empty($_FILES['files'])) {
 				die("ERROR. /media is mounting directory.");
 			}else{
 				die("ERROR. SystemAOB is not a valid upload path for files.");
+		
 			}
 			
 		}
