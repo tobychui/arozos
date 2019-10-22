@@ -281,6 +281,13 @@ var desktopFileNames = [];
 var desktopFileLocations = [];
 var desktopEmptyPositions = [];
 var username = localStorage.getItem('ArOZusername'); //Or use the session login username if needed, but due to multi desktop support, it is not recommended
+var privateBrowsing = false;
+if (username === undefined){
+	//Force using session username if under private browsing mode
+	username = session_username; 
+	privateBrowsing = true;
+	parent.msgbox("No permission to write to localStorage. Some functions might not work under the current borwser permission settings.","<i class='privacy icon'></i>Private Browsing");
+}
 var session_username = $("#setting_sessionUsername").text().trim();
 var highlighting = false;
 var nextSlot=[10,110];

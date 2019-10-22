@@ -1,5 +1,13 @@
 <?php
 include '../auth.php';
+include_once("../SystemAOB/functions/personalization/configIO.php");
+$theme = (getConfig("function_bar",false));
+$themeColor = "#4286f4";
+$sideBarColor = "rgba(48,48,48,0.7)";
+if (isset($theme["actBtnColor"][3])){
+    $themeColor = $theme["actBtnColor"][3];
+    $sideBarColor = $theme["nbcolor"][3];
+}
 ?>
 <!doctype html>
 <html>
@@ -102,7 +110,7 @@ if (isset($_GET['page']) && $_GET['page']!=""){
 
 
 ?>
-<div id="sidebar" class="ts vertical compact menu" style="position:fixed;top:0px;left:0px;width:235px;z-index:99;background-color:#e8edf4;height:100%;">
+<div id="sidebar" class="ts vertical compact menu" style="position:fixed;top:0px;left:0px;width:235px;z-index:99;background-color:<?php echo "#ededed"; ?>;height:100%;">
 	<div class="item">
 		<a href="index.php" style="color:#404040;"><i class="angle left icon"></i>System Setting</a>
 	</div>
@@ -118,7 +126,7 @@ if (isset($_GET['page']) && $_GET['page']!=""){
 	<?php
 	for ($x = 1; $x < count($sidebarContent); $x++){
 		if ($x == $tabID){
-			echo '<a id="'.$sidebarContent[$x][0].'" class="item" href="navi.php?page='.$page.'&tab='.$x.'" style="background-color:#bcd1ff;">'.$sidebarContent[$x][1].'</a>';
+			echo '<a id="'.$sidebarContent[$x][0].'" class="item" href="navi.php?page='.$page.'&tab='.$x.'" style="background-color:#d1d1d1;">'.$sidebarContent[$x][1].'</a>';
 		}else{
 			echo '<a id="'.$sidebarContent[$x][0].'" class="item" href="navi.php?page='.$page.'&tab='.$x.'">'.$sidebarContent[$x][1].'</a>';
 		}

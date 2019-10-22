@@ -150,7 +150,7 @@ if (isset($_POST['username']) && isset($_POST['apwd']) && isset($_POST['rmbm']))
 }
 
 if (file_exists($databasePath)){
-	$actual_link = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+	//$actual_link = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 	$rootPath = "";
 	if (file_exists("root.inf")){
 		//The script is running on the root folder
@@ -164,9 +164,35 @@ if (file_exists($databasePath)){
 			}
 		} 
 	}
+	//Get the number of layers this script is below root
+	if ($rootPath == ""){
+		$layers = 1;
+	}else{
+		$layers = count(explode("../",$rootPath));
+	}
+	
+	//Resolve the link and use it as redirection
+	$uri = $_SERVER['REQUEST_URI'];
+	$paramter = "";
+	if (strpos($uri,"?") !== false){
+		$tmp = explode("?",$uri);
+		$uri = array_shift($tmp);
+		$paramter = implode("?",$tmp);
+	}
+	//Resolve the relative uri segment from webroot
+	$uri = explode("/",$uri);
+	$validURISegment = [];
+	for ($i=0; $i < $layers; $i++){
+		array_push($validURISegment,array_pop($uri));
+	}
+	$validURISegment = array_reverse($validURISegment);
+	$validURISegment = implode("/",$validURISegment);
+	$actual_link = $validURISegment;
+	
 if (session_id() == '' || !isset($_SESSION['login']) || $_SESSION['login'] == "") {
 	//echo $actual_link;
-	header('Location: ' . $rootPath .'login.php?target=' . str_replace("&","%26",$actual_link));
+	//header('Location: ' . $rootPath .'login.php?target=' . str_replace("&","%26",$actual_link));
+	header('Location: ' . $rootPath .'login.php?target=' . urlEncodeRFC3986($actual_link));
 	exit();
 }else{
 	//session exists. Let the user go through with updates cookie
@@ -176,7 +202,8 @@ if (session_id() == '' || !isset($_SESSION['login']) || $_SESSION['login'] == ""
 	}else{
 		//cookie expired. Request for another update with login
 		$_SESSION['login'] = "";
-		header('Location: ' . $rootPath .'login.php?target=' . str_replace("&","%26",$actual_link));
+		//header('Location: ' . $rootPath .'login.php?target=' . str_replace("&","%26",$actual_link));
+		header('Location: ' . $rootPath .'login.php?target=' . urlEncodeRFC3986($actual_link));
 		exit();
 	}
 	
@@ -186,5 +213,11 @@ if (session_id() == '' || !isset($_SESSION['login']) || $_SESSION['login'] == ""
 	header("Location: regi.php");
 	exit();
 	
+}
+
+function urlEncodeRFC3986($string) {
+    $entities = array('%21', '%2A', '%27', '%28', '%29', '%3B', '%3A', '%40', '%26', '%3D', '%2B', '%24', '%2C', '%2F', '%3F', '%25', '%23', '%5B', '%5D');
+    $replacements = array('!', '*', "'", "(", ")", ";", ":", "@", "&", "=", "+", "$", ",", "/", "?", "%", "#", "[", "]");
+    return str_replace($entities, $replacements, urlencode($string));
 }
 ?>

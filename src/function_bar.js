@@ -12,7 +12,8 @@ If you decide to change anything here, please do it with your own risk.
 **/
 var powerManualVisable = false;
 var menuBarVisable = true;
-var fileExplorerVisable = false;
+//var fileExplorerVisable = false; //Deprectaed paramter
+var isTouchScreenDevice = is_touch_device();
 var focusedObject = null;
 var dragging = false;
 var resizing = false;
@@ -28,6 +29,12 @@ var isFunctionBar = true; //Reference Point for background application
 var windowID = $("#DATA_PIPELINE_windowID").text().trim();
 $("#notificationbar").css("left",$(window).width() + "px");
 var themeColor = {"theme":$("#DATA_PIPELINE_themeColor").text().trim(), "active":$("#DATA_PIPELINE_activeColor").text().trim()};
+if (themeColor === undefined || themeColor == "" || themeColor === null){
+	//No existing profile for theme color. Use default.
+	themeColor = '{"theme":"rgba(48,48,48,0.7)","active":"rgba(34, 34, 34,1)"}';
+}
+var mouseEventsListener = []; //Indicate which iframe id will listen
+var currentMouseFocusedMenuButton = ""; //The id where its menu is shown currently due to single item group preview window policy.
 window.mobilecheck = function() {
   var check = false;
   (function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
@@ -75,6 +82,11 @@ function bindMotions(object = undefined){
 	if (object !== undefined){
 		target = $("#" + object);
 	}
+	//Clear all old events
+	$('.floatWindow').unbind();
+	$('.menuButton').unbind();
+	$('#fwListWindow').unbind();
+	
 	//Float Window Drag Drop Control Code
 	$( ".floatWindow" ).on("mousedown", target, function( event ) {
 		event.preventDefault();
@@ -736,9 +748,58 @@ function bindMotions(object = undefined){
 			maxicon.parent().html('<i class="small window restore icon"></i>');
 		}
 	});
+	
+	//Bind on mouse hover to listMenuButton, show detail menu. This function is only valid when there is one float window in group
+	$(".menuButton").on("mouseover",function(e){
+		if (!$(this).hasClass("listMenuButton")){
+			//This is not a fw button but a normal button
+			hidefwListWindow();
+		}
+	});
+	
+	$("#fwListWindow").on("mouseleave",function(e){
+		if ($("#fwListWindow").find(".fwListBtn").length == 1){
+			hidefwListWindow();
+		}
+	});
 
 }
 //END OF PAGE MOTION BINDING
+
+function showFwListOnItem(object){
+	if ($(object).hasClass("listMenuButton")){
+		//Check the detail bar for the tab
+		var idlist = JSON.parse(decodeURIComponent($(object).attr("floatWindowUID")));
+		var icon = $(object).find("i").attr("class");
+		currentMouseFocusedMenuButton = $(object).attr("id");
+		if (idlist.length == 1){
+			var targetfwTitle = $("#" + idlist).find(".floatwindow").text().trim();
+			var encodedIDList = encodeURIComponent(idlist);
+			//Append content into fwListWindow
+			$("#fwListWindow").html('<div class="selectable fwListBtn" style="border:1px solid transparent;padding:5px;padding-right:20px;" floatwindowuid="' + encodedIDList + '" onclick="ToggleFloatWindow(this);">\
+			<p class="ts inverted header" style="font-size:0.9em;">\
+			<i class="mini ' + icon + '"></i>' + targetfwTitle + '\
+			<button style="position:absolute;right:0px;top:3px;margin-right:-23px;color:white;cursor:pointer;" onclick="closeFromFWListWindow(this);">\
+			<i class="remove icon"></i></button>\
+			</p>\
+			</div>');
+			
+			//Show fwlistWindow
+			$("#fwListWindow").css("left",$(object).offset().left);
+			$("#fwListWindow").show();
+		}else if (idlist.length > 1){
+			ToggleFloatWindow(object,overrideMode="show");
+		}
+	}else{
+		//Just normal buttons. Hide the fwListWindow if there is only one fwlist btn
+		if ($("#fwListWindow").find(".fwListBtn").length == 1){
+			hidefwListWindow();
+		}
+		
+	}
+	currentMouseFocusedMenuButton = $(object).attr("id");
+
+}
 
 //Standard Menu Control Code
 function removeFloatWindowFromMenuBarByID(divid){
@@ -1077,7 +1138,7 @@ function AppendNewIcon(iconTag,uid,src){
 			}
 		}else{
 			//This is a desktop module. One button per floatWindow is needed
-			var template = '<div id="' + uid + 'Btn" floatWindowUID="' + encodeURIComponent(JSON.stringify([uid])) +'" moduleBase="' + moduleBase + '" class="fbicon listMenuButton menuButton active" style="cursor: pointer;height:60px;" onClick="ToggleFloatWindow(this);"><i class="' + iconTag +' icon" style="line-height: 35px;"></i></div>';
+			var template = '<div id="' + uid + 'Btn" floatWindowUID="' + encodeURIComponent(JSON.stringify([uid])) +'" moduleBase="' + moduleBase + '" class="fbicon listMenuButton menuButton active" style="cursor: pointer;height:60px;" onClick="ToggleFloatWindow(this);" onmouseover="showFwListOnItem(this);"><i class="' + iconTag +' icon" style="line-height: 35px;"></i></div>';
 			$('#activatedModuleIcons').append(template);
 			$('#' + uid + "Btn").insertAfter('#folderBtn');
 			return;
@@ -1102,7 +1163,7 @@ function AppendNewIcon(iconTag,uid,src){
 	});
 	if (sameBaseModuleButton == ""){
 		//There is no similar matches. Append a new button
-		var template = '<div id="' + uid + 'Btn" floatWindowUID="' + encodeURIComponent(JSON.stringify([uid])) +'" moduleBase="' + moduleBase + '" class="fbicon listMenuButton menuButton active" style="cursor: pointer;height:60px;" onClick="ToggleFloatWindow(this);"><i class="' + iconTag +' icon" style="line-height: 35px;"></i></div>';
+		var template = '<div id="' + uid + 'Btn" floatWindowUID="' + encodeURIComponent(JSON.stringify([uid])) +'" moduleBase="' + moduleBase + '" class="fbicon listMenuButton menuButton active" style="cursor: pointer;height:60px;" onClick="ToggleFloatWindow(this);" onclick="closeFromFWListWindow(this);" onmouseover="showFwListOnItem(this);"><i class="' + iconTag +' icon" style="line-height: 35px;"></i></div>';
 		$('#activatedModuleIcons').append(template);
 		$('#' + uid + "Btn").insertAfter('#folderBtn');
 	}else{
@@ -1126,8 +1187,15 @@ function AppendNewIcon(iconTag,uid,src){
 }
 
 //Hiding a window with btn
-function ToggleFloatWindow(object){
-	var idlist = JSON.parse(decodeURIComponent($(object).attr("floatWindowUID")));
+//overrideMode 1. default (toggle), 2. show , 3. hide
+function ToggleFloatWindow(object,overrideMode="default"){
+	var idlist = [];
+	try {
+		var idlist = JSON.parse(decodeURIComponent($(object).attr("floatWindowUID")));
+	}catch(e){
+		//JSON parse error. This floatWindow ID is not represented in the form of URL Components
+		idlist = [$(object).attr("floatWindowUID")];
+	}
 	if (idlist.length == 1){
 		hidefwListWindow();
 		id = idlist[0];
@@ -1141,17 +1209,28 @@ function ToggleFloatWindow(object){
 		}else{
 			//This window has already been focused
 			$('#' + id).fadeToggle('fast',function(){
-			if ($('#' + id).css('display') == 'none') {
-				//The floatwindow is now hidden
-				//$('#' + id + 'Btn').css('background-color','#444');
-				$('#' + id + 'Btn').removeClass("active");
-			}else{
-				//The floatwindow is now shown
-				//$('#' + id + 'Btn').css('background-color','#222');
-				$('#' + id + 'Btn').addClass("active");
-			}
-		});
+				if ($('#' + id).css('display') == 'none') {
+					//The floatwindow is now hidden
+					//$('#' + id + 'Btn').css('background-color','#444');
+					$('#' + id + 'Btn').removeClass("active");
+				}else{
+					//The floatwindow is now shown
+					//$('#' + id + 'Btn').css('background-color','#222');
+					$('#' + id + 'Btn').addClass("active");
+				}
+			});
 		}
+	}else if ($(object).attr("moduleBase") === undefined){
+		//This is a special case where there is one float window in the group. Toggle its visability
+		var targetfw = $(object).attr("floatwindowuid");
+		if ($('#' + targetfw).css("z-index") < 100){
+			//This window is at the back of some other windows --> Bring it in front
+			focusFloatWindow(targetfw);
+		}else{
+			$("#" + targetfw).fadeToggle('fast');
+			hidefwListWindow();
+		}
+		
 	}else{
 		//There are multiple windows hidden inside this button. Use floatWindowListWindow to show all of them.
 		var position = [$(object).offset().left,$(object).offset().top];
@@ -1174,7 +1253,8 @@ function ToggleFloatWindow(object){
 				//console.log("CRITICAL ERROR! Unable to parse floatWindow data from attributes. Please refresh this page.");
 			}
 		}
-		if ($("#fwListWindow").attr("dockedModuleBase") != buttonModuleBase){
+		
+		if (overrideMode == "show"){
 			//Move and show the floatWindowListWindow
 			$("#fwListWindow").css("left",position[0] + "px").attr("dockedModuleBase",buttonModuleBase);
 			//Animated slideUp to show code
@@ -1195,11 +1275,36 @@ function ToggleFloatWindow(object){
 					height: ""
 				});
 			});
-		}else{
-			//Click twice on the same button
+		}else if (overrideMode == "hide"){
 			hidefwListWindow();
+		}else{
+			//Default toggle action
+			if ($("#fwListWindow").attr("dockedModuleBase") != buttonModuleBase){
+				//Move and show the floatWindowListWindow
+				$("#fwListWindow").css("left",position[0] + "px").attr("dockedModuleBase",buttonModuleBase);
+				//Animated slideUp to show code
+				var div = $("#fwListWindow:not(:visible)");
+				var height = div.css({
+					display: "block"
+				}).height();
+				
+				div.css({
+					overflow: "hidden",
+					height: 0
+				}).animate({
+					height: height
+				}, 200, function () {
+					$(this).css({
+						display: "",
+						overflow: "",
+						height: ""
+					});
+				});
+			}else{
+				//Click twice on the same button
+				hidefwListWindow();
+			}
 		}
-	
 	}
 	
 }
@@ -1234,6 +1339,7 @@ function hidefwListWindow(){
 			});
 		});
 	}
+	currentMouseFocusedMenuButton = "";
 }
 
 function getIconAndTitleFromFloatWindow(uid){
@@ -1338,17 +1444,23 @@ function SetUSBFound(state){
 			if (data.includes("Device") && data.includes("ID")){
 				//This is raspberry pi
 				var info = data.split("ID")[1];
-				$('#USBopr').html("<i class='usb icon'></i>" + info);
+				$('#USBopr').html('<i class="icons">\
+                                    <i class="usb icon"></i>\
+                                <i class="checkmark icon" style="font-size:80%;position:absolute;margin-top:8px;margin-left:8px;"></i>\
+                                </i>');
 			}else{
 				//This is Window machine
-				$('#USBopr').html("<i class='usb icon'></i>" + data[0]);
+				$('#USBopr').html('<i class="icons">\
+                                    <i class="usb icon"></i>\
+                                <i class="checkmark icon" style="font-size:80%;position:absolute;margin-top:8px;margin-left:8px;"></i>\
+                                </i>');
 			}
 			
 		});
 		
 	}else{
 		//No more usb is inserted
-		$('#USBopr').html("<i class='usb icon'></i> USB Hub");
+		$('#USBopr').html("<i class='usb icon'></i>");
 	}
 }
 
@@ -1510,6 +1622,22 @@ $( window ).resize(function() {
 		$("#interface").css("height",$(window).outerHeight() + "px");
 	}
 });
+
+function is_touch_device() {
+  var prefixes = ' -webkit- -moz- -o- -ms- '.split(' ');
+  var mq = function(query) {
+    return window.matchMedia(query).matches;
+  }
+
+  if (('ontouchstart' in window) || window.DocumentTouch && document instanceof DocumentTouch) {
+    return true;
+  }
+
+  // include the 'heartz' as a way to have a non matching MQ to help terminate the join
+  // https://git.io/vznFH
+  var query = ['(', prefixes.join('touch-enabled),('), 'heartz', ')'].join('');
+  return mq(query);
+}
 
 var notificationbarAnimateOngoing = false;
 function toggleNoticeBoard(){
@@ -1900,9 +2028,16 @@ $(document).keyup(function(e) {
 	}
 });
 
+function hideAllControlElements(windowID){
+	 var windowElement = $("#" + windowID);
+	 windowElement.find(".floatWindow").hide();
+	 windowElement.css("box-shadow","");
+	 
+}
+
 function checkCachedWindowSize(url){
 	//Check if there are cached window size for this interface. If yes, override the default value
-	if (localStorage.getItem("aosystem.fwscache") === null){
+	if (localStorage.getItem("aosystem.fwscache") === null || localStorage.getItem("aosystem.fwscache") == ""){
 		return false;
 	}else{
 		var cachedWindowSizeList = JSON.parse(localStorage.getItem("aosystem.fwscache"));
@@ -1951,6 +2086,32 @@ function cacheWindowSize(url,ww,wh,exact=false){
 	
 	
 	
+}
+
+//Mouse event lister hooking
+/*
+This function is designed to catch the functional bar mouse events and pass it to child listeners.
+Example:
+parent.hookMasterMouseEvents(ao_module_windowID,"mousemove","bar");
+where bar is the function that takes in e as event arguments
+*/
+function hookMasterMouseEvents(windowID, eventype, fucObj){
+	var framewindow = $("#" + windowID).find("iframe");
+	mouseEventsListener.push({"wid":windowID,"evt":eventype,"func":fucObj});
+	window.addEventListener(eventype,function(e){
+		let actEventType = eventype;
+		let actWindowID = windowID;
+		let actFuncName = fucObj;
+		var targetFloatWindow = document.getElementById(actWindowID);
+		if (targetFloatWindow === undefined || targetFloatWindow === null){
+			window.removeEventListener(eventype, arguments.callee);
+			console.log("[info] Deteching one event listener for window ID " + windowID + " for " + eventype + " event",'color: #3734eb');
+		}else{
+			var contentFrame = document.getElementById(actWindowID).querySelectorAll('iframe')[0].contentWindow;
+			contentFrame[fucObj](e);
+		}
+		
+	});
 }
 
 

@@ -196,10 +196,10 @@ $function_exclude = ["Help","img","script","msb"];
 			}else{
 				if (DesktopExists){
 					//Desktop exists and no defined Desktop. Use default instead
-					window.location.href = "function_bar.php#Desktop";
+					window.location.href = "function_bar.php#Desktop/";
 				}else{
 					//Desktop not exists. Use SystemAOB main page as Desktop environment
-					window.location.href = "function_bar.php#SystemAOB";
+					window.location.href = "function_bar.php#SystemAOB/";
 				}
 				
 			}

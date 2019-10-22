@@ -186,7 +186,12 @@ function postLogin(){
 		if (data.includes("DONE")){
 			console.log($.urlParam('target'))
 			localStorage.setItem("ArOZusername", $("#username").val());
-			window.location.href=$.urlParam('target').replace("%26","&");
+			try{
+				window.location.href=$.urlParam('target').replace("%26","&");
+			}catch(err){
+				window.location.href="index.php";
+			}
+			
 		}
 	});
 }

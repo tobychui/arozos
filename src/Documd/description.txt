@@ -1,1 +1,1 @@
-Documd - The Markdown rendering interface for Software Documentation.
+Documd - The ArOZ Online Offical Documentation.

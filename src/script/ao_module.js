@@ -92,6 +92,15 @@ function ao_module_getProcessID(modulename){
 	return false;
 }
 
+//Hide all control element of this float window.
+function ao_module_hideAllControls(){
+    if (ao_module_virtualDesktop){
+        parent.hideAllControlElements(ao_module_windowID);
+		return true;
+	}
+	return false;
+}
+
 //Crashed
 function ao_module_declareCrash(crashmsg){
 	return false;

@@ -28,5 +28,5 @@ include '../../../auth.php';
 
 <?php
 system('sudo poweroff');
-echo "DONE";
+//echo "DONE";
 ?>
