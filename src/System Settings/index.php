@@ -79,7 +79,7 @@ if (isset($theme["actBtnColor"][3])){
         <a class="column clickable" href="navi.php?page=device">
 		<h4 class="ts center aligned icon header">
 			<i class="laptop icon themeColor"></i>Device
-			<div class="sub header">Storage, USB Mounting, IO</div>
+			<div class="sub header">Client, Nearby or IoT Devices</div>
 		</h4>
 		<br>
 		</a>

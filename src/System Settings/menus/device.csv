@@ -2,4 +2,6 @@ laptop,Device
 cinfo,Client Device Information,SystemAOB/functions/info/clientInfo.php
 audset,Audio Setting,SystemAOB/functions/system_management/audioSettings.php
 vidtest,Display Testing,SystemAOB/functions/system_management/displayTest.php
+iotman,Manage IoT,SystemAOB/system/iotpipe/index.php
+iot,Discover IoT,SystemAOB/system/iotpipe/listdev.php
 snb,Network Neighborhood,SystemAOB/functions/system_management/scanNearByArOZ.php

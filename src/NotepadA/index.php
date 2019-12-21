@@ -310,11 +310,12 @@ var previousSavedState = true;
 var currentSaveAsPath = "";
 var insertTarget;
 var currentTabWidth = 0;
+var mainCodingWindow = true;
 var functionList = {
 	File: ["📄 New","📂 Open File","Run in FloatWindow","Open current directory","Reload","💾 Save","💾 Save As","Close All Tabs","🖨 Print","Exit"],
 	Edit: ["⤺ Undo","⤻ Redo","Open in New Tab","Insert Special Characters"],
 	Search:["Find / Replace"],
-	Utils:["🗃 Open Cache folder","🎨 Color Picker","📱 Mobile Preview","📔 CSS Document","📘 System Icons"],
+	Utils:["🗃 Open Cache folder","🎨 Color Picker","📱 Mobile Preview","📔 CSS Document","📘 System Icons","🏗 gcc Builder"],
 	Theme:["ambiance","chaos","chrome","clouds","clouds_midnight","cobalt","crimson_editor","dawn","dracula","dreamweaver","eclipse","github","gob","gruvbox","idle_fingers","iplastic","katzenmilch","kr_theme","kuroir","merbivore","merbivore_soft","mono_industrial","monokai","pastel_on_dark","solarized_dark","solarized_light","sqlserver","terminal","textmate","tomorrow","tomorrow_night","tomorrow_night_blue","tomorrow_night_bright","tomorrow_night_eighties","twilight","vibrant_ink","xcode"],
 	Font_Size:["8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25"],
 	About:["About NotepadA"]
@@ -708,6 +709,14 @@ function handleCacheMenu(itemText){
 			var icon = "bookmark";
 			newfw(url,title,icon,uid,335,550,undefined,undefined,false,true);
 			break;
+		case 5:
+			//Open gcc builder
+			var url = "NotepadA/utils/gcci/index.php";
+			var uid = Math.round((new Date()).getTime() / 1000);
+			var title = "NotepadA" + " - GCCI";
+			var icon = "code";
+			newfw(url,title,icon,uid,420,550,undefined,undefined,false,true,ao_module_windowID);
+			break;
 	}
 }
 
@@ -924,14 +933,14 @@ function handleAboutMenu(itemText){
 	}
 }
 
-function newfw(src,windowname,icon,uid,sizex,sizey,posx = undefined,posy = undefined,fixsize = undefined,tran = undefined){
+function newfw(src,windowname,icon,uid,sizex,sizey,posx = undefined,posy = undefined,fixsize = undefined,tran = undefined, parentUID=undefined, callbackFunct=undefined){
 	//Example
 	//newEmbededWindow('Memo/index.php','Memo','sticky note outline','memoEmbedded',475,700);
 	if (!VDI){
 		window.open("../" + src);
 		return;
 	}
-	parent.newEmbededWindow(src,windowname,icon,uid,sizex,sizey,posx,posy,fixsize,tran);
+	parent.newEmbededWindow(src,windowname,icon,uid,sizex,sizey,posx,posy,fixsize,tran,parentUID,callbackFunct);
 }
 
 function getFocusedTab(){

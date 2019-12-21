@@ -111,7 +111,7 @@ body{
 .menuButton{
 	background-color:<?php echo $theme["defBtnColor"][3];?>;
 	width:60px;
-	height60px:
+	height:60px:
 	border: 1px solid red;
 	padding: .4em;
 }
@@ -119,6 +119,10 @@ body{
 	width:59px;
 	height:49px;
 	padding-top:5px;
+}
+.trayicon{
+    display:inline-block;
+    margin-top:-10px;
 }
 </style>
 <?php
@@ -154,14 +158,13 @@ foreach ($folders as $module){
 					</div>
 				</div>
 				<!-- Second Right hand side tray icons -->
-				<div class="eight wide column" align="right" style="right:2%;">
-					<div class="ts grid" style="line-height: 35px;" align="center">
-						<div class="nine wide column"></div>
-						<div class="two wide column" id="USBopr" onclick="CheckUSBNoDifferent();" style="cursor: pointer;">Detecting</div>
-						<div class="two wide column" id="gVol" onClick="ToggleGlobalVol();" style="cursor: pointer;"><i class="volume down icon"></i>N/A</div>
-						<div class="two wide column" id="clock" onmouseover="ShowCalender();" onmouseleave="HideCalender();">Loading</div>
-						<div class="one wide column" style="padding-top:18px;" onClick="toggleNoticeBoard();"><i class="mail icon"></i></div>
-					</div>
+				<div class="eight wide column" align="right" style="right:12px;">
+						<div style="width:100%;">
+    						<div class="trayicon" id="USBopr" onclick="CheckUSBNoDifferent();" style="cursor: pointer;padding-top:16px; width:50px;"><i class="loading spinner icon"></i></div>
+    						<div class="trayicon" id="gVol" onClick="ToggleGlobalVol();" style="cursor: pointer;width:70px;"><i class="volume down icon"></i>N/A</div>
+    						<div class="trayicon" style="width:100px;" id="clock" onmouseover="ShowCalender();" onmouseleave="HideCalender();">Loading</div>
+    						<div class="trayicon" style="padding-top:18px;width:50px;cursor:pointer;" onClick="toggleNoticeBoard();"><i class="mail icon"></i></div>
+						</div>
 				</div>
 			</div>
 			
@@ -245,7 +248,7 @@ foreach ($folders as $module){
 	</div>
 	
 	<!-- Movement Cover for iframe drag drop-->
-	<div id="iframeCover" style="position:absolute;background-color:rgba(255,255,255,0.1);z-index:115;display:none;top:20px;">
+	<div id="iframeCover" style="position:absolute;background-color:rgba(255,255,255,0.05);z-index:115;display:none;top:20px;">
 	
 	</div>
 	<!-- USB Reminder Interface -->

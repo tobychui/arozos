@@ -1,0 +1,2331 @@
+<HTML>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!-- Created on March, 22  2008 by texi2html 1.64 -->
+<!-- 
+Written by: Lionel Cons <Lionel.Cons@cern.ch> (original author)
+			Karl Berry  <karl@freefriends.org>
+			Olaf Bachmann <obachman@mathematik.uni-kl.de>
+			and many others.
+Maintained by: Olaf Bachmann <obachman@mathematik.uni-kl.de>
+Send bugs and suggestions to <texi2html@mathematik.uni-kl.de>
+ 
+-->
+<HEAD>
+<TITLE>Tiny C Compiler Reference Documentation: </TITLE>
+
+<META NAME="description" CONTENT="Tiny C Compiler Reference Documentation: ">
+<META NAME="keywords" CONTENT="Tiny C Compiler Reference Documentation: ">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META NAME="Generator" CONTENT="texi2html 1.64">
+
+</HEAD>
+
+<BODY LANG="" BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#800080" ALINK="#FF0000">
+
+<A NAME="SEC1"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC2"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<P>
+
+<A NAME="Introduction"></A>
+<H1> 1. Introduction </H1>
+<!--docid::SEC1::-->
+<P>
+
+TinyCC (aka TCC) is a small but hyper fast C compiler. Unlike other C
+compilers, it is meant to be self-relying: you do not need an
+external assembler or linker because TCC does that for you.
+</P><P>
+
+TCC compiles so <EM>fast</EM> that even for big projects <CODE>Makefile</CODE>s may
+not be necessary. 
+</P><P>
+
+TCC not only supports ANSI C, but also most of the new ISO C99
+standard and many GNUC extensions including inline assembly.
+</P><P>
+
+TCC can also be used to make <EM>C scripts</EM>, i.e. pieces of C source
+that you run as a Perl or Python script. Compilation is so fast that
+your script will be as fast as if it was an executable.
+</P><P>
+
+TCC can also automatically generate memory and bound checks
+(see section <A HREF="tcc-doc.html#SEC21">6. TinyCC Memory and Bound checks</A>) while allowing all C pointers operations. TCC can do
+these checks even if non patched libraries are used.
+</P><P>
+
+With <CODE>libtcc</CODE>, you can use TCC as a backend for dynamic code
+generation (see section <A HREF="tcc-doc.html#SEC22">7. The <CODE>libtcc</CODE> library</A>).
+</P><P>
+
+TCC mainly supports the i386 target on Linux and Windows. There are alpha
+ports for the ARM (<CODE>arm-tcc</CODE>) and the TMS320C67xx targets
+(<CODE>c67-tcc</CODE>). More information about the ARM port is available at
+<A HREF="http://lists.gnu.org/archive/html/tinycc-devel/2003-10/msg00044.html">http://lists.gnu.org/archive/html/tinycc-devel/2003-10/msg00044.html</A>.
+</P><P>
+
+<A NAME="Invoke"></A>
+<HR SIZE="6">
+<A NAME="SEC2"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC3"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> 2. Command line invocation </H1>
+<!--docid::SEC2::-->
+<P>
+
+[This manual documents version 0.9.24 of the Tiny C Compiler]
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC3"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC2"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC4"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 2.1 Quick start </H2>
+<!--docid::SEC3::-->
+<P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>usage: tcc [options] [<VAR>infile1</VAR> <VAR>infile2</VAR><small>...</small>] [<SAMP>`-run'</SAMP> <VAR>infile</VAR> <VAR>args</VAR><small>...</small>]
+</pre></td></tr></table></P><P>
+
+TCC options are a very much like gcc options. The main difference is that TCC
+can also execute directly the resulting program and give it runtime
+arguments.
+</P><P>
+
+Here are some examples to understand the logic:
+</P><P>
+
+<DL COMPACT>
+<DT><CODE><SAMP>`tcc -run a.c'</SAMP></CODE>
+<DD>Compile <TT>`a.c'</TT> and execute it directly
+<P>
+
+<DT><CODE><SAMP>`tcc -run a.c arg1'</SAMP></CODE>
+<DD>Compile a.c and execute it directly. arg1 is given as first argument to
+the <CODE>main()</CODE> of a.c.
+<P>
+
+<DT><CODE><SAMP>`tcc a.c -run b.c arg1'</SAMP></CODE>
+<DD>Compile <TT>`a.c'</TT> and <TT>`b.c'</TT>, link them together and execute them. arg1 is given
+as first argument to the <CODE>main()</CODE> of the resulting program. Because
+multiple C files are specified, <SAMP>`--'</SAMP> are necessary to clearly separate the
+program arguments from the TCC options.
+<P>
+
+<DT><CODE><SAMP>`tcc -o myprog a.c b.c'</SAMP></CODE>
+<DD>Compile <TT>`a.c'</TT> and <TT>`b.c'</TT>, link them and generate the executable <TT>`myprog'</TT>.
+<P>
+
+<DT><CODE><SAMP>`tcc -o myprog a.o b.o'</SAMP></CODE>
+<DD>link <TT>`a.o'</TT> and <TT>`b.o'</TT> together and generate the executable <TT>`myprog'</TT>.
+<P>
+
+<DT><CODE><SAMP>`tcc -c a.c'</SAMP></CODE>
+<DD>Compile <TT>`a.c'</TT> and generate object file <TT>`a.o'</TT>.
+<P>
+
+<DT><CODE><SAMP>`tcc -c asmfile.S'</SAMP></CODE>
+<DD>Preprocess with C preprocess and assemble <TT>`asmfile.S'</TT> and generate
+object file <TT>`asmfile.o'</TT>.
+<P>
+
+<DT><CODE><SAMP>`tcc -c asmfile.s'</SAMP></CODE>
+<DD>Assemble (but not preprocess) <TT>`asmfile.s'</TT> and generate object file
+<TT>`asmfile.o'</TT>.
+<P>
+
+<DT><CODE><SAMP>`tcc -r -o ab.o a.c b.c'</SAMP></CODE>
+<DD>Compile <TT>`a.c'</TT> and <TT>`b.c'</TT>, link them together and generate the object file <TT>`ab.o'</TT>.
+<P>
+
+</DL>
+<P>
+
+Scripting:
+</P><P>
+
+TCC can be invoked from <EM>scripts</EM>, just as shell scripts. You just
+need to add <CODE>#!/usr/local/bin/tcc -run</CODE> at the start of your C source:
+</P><P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>#!/usr/local/bin/tcc -run
+#include &#60;stdio.h&#62;
+
+int main() 
+{
+    printf("Hello World\n");
+    return 0;
+}
+</pre></td></tr></table></P><P>
+
+<HR SIZE="6">
+<A NAME="SEC4"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC3"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC5"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 2.2 Option summary </H2>
+<!--docid::SEC4::-->
+<P>
+
+General Options:
+</P><P>
+
+<DL COMPACT>
+<DT><SAMP>`-v'</SAMP>
+<DD>Display current TCC version.
+<P>
+
+<DT><SAMP>`-c'</SAMP>
+<DD>Generate an object file (<SAMP>`-o'</SAMP> option must also be given).
+<P>
+
+<DT><SAMP>`-o outfile'</SAMP>
+<DD>Put object file, executable, or dll into output file <TT>`outfile'</TT>.
+<P>
+
+<DT><SAMP>`-Bdir'</SAMP>
+<DD>Set the path where the tcc internal libraries can be found (default is
+<TT>`PREFIX/lib/tcc'</TT>).
+<P>
+
+<DT><SAMP>`-bench'</SAMP>
+<DD>Output compilation statistics.
+<P>
+
+<DT><SAMP>`-run source [args...]'</SAMP>
+<DD><P>
+
+Compile file <VAR>source</VAR> and run it with the command line arguments
+<VAR>args</VAR>. In order to be able to give more than one argument to a
+script, several TCC options can be given <EM>after</EM> the
+<SAMP>`-run'</SAMP> option, separated by spaces. Example:
+</P><P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>tcc "-run -L/usr/X11R6/lib -lX11" ex4.c
+</pre></td></tr></table></P><P>
+
+In a script, it gives the following header:
+</P><P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>#!/usr/local/bin/tcc -run -L/usr/X11R6/lib -lX11
+#include &#60;stdlib.h&#62;
+int main(int argc, char **argv)
+{
+    ...
+}
+</pre></td></tr></table></P><P>
+
+</DL>
+<P>
+
+Preprocessor options:
+</P><P>
+
+<DL COMPACT>
+<DT><SAMP>`-Idir'</SAMP>
+<DD>Specify an additional include path. Include paths are searched in the
+order they are specified.
+<P>
+
+System include paths are always searched after. The default system
+include paths are: <TT>`/usr/local/include'</TT>, <TT>`/usr/include'</TT>
+and <TT>`PREFIX/lib/tcc/include'</TT>. (<TT>`PREFIX'</TT> is usually
+<TT>`/usr'</TT> or <TT>`/usr/local'</TT>).
+</P><P>
+
+<DT><SAMP>`-Dsym[=val]'</SAMP>
+<DD>Define preprocessor symbol <SAMP>`sym'</SAMP> to
+val. If val is not present, its value is <SAMP>`1'</SAMP>. Function-like macros can
+also be defined: <SAMP>`-DF(a)=a+1'</SAMP>
+<P>
+
+<DT><SAMP>`-Usym'</SAMP>
+<DD>Undefine preprocessor symbol <SAMP>`sym'</SAMP>.
+</DL>
+<P>
+
+Compilation flags:
+</P><P>
+
+Note: each of the following warning options has a negative form beginning with
+<SAMP>`-fno-'</SAMP>.
+</P><P>
+
+<DL COMPACT>
+<DT><SAMP>`-funsigned-char'</SAMP>
+<DD>Let the <CODE>char</CODE> type be unsigned.
+<P>
+
+<DT><SAMP>`-fsigned-char'</SAMP>
+<DD>Let the <CODE>char</CODE> type be signed.
+<P>
+
+<DT><SAMP>`-fno-common'</SAMP>
+<DD>Do not generate common symbols for uninitialized data.
+<P>
+
+<DT><SAMP>`-fleading-underscore'</SAMP>
+<DD>Add a leading underscore at the beginning of each C symbol.
+<P>
+
+</DL>
+<P>
+
+Warning options:
+</P><P>
+
+<DL COMPACT>
+<DT><SAMP>`-w'</SAMP>
+<DD>Disable all warnings.
+<P>
+
+</DL>
+<P>
+
+Note: each of the following warning options has a negative form beginning with
+<SAMP>`-Wno-'</SAMP>.
+</P><P>
+
+<DL COMPACT>
+<DT><SAMP>`-Wimplicit-function-declaration'</SAMP>
+<DD>Warn about implicit function declaration.
+<P>
+
+<DT><SAMP>`-Wunsupported'</SAMP>
+<DD>Warn about unsupported GCC features that are ignored by TCC.
+<P>
+
+<DT><SAMP>`-Wwrite-strings'</SAMP>
+<DD>Make string constants be of type <CODE>const char *</CODE> instead of <CODE>char
+*</CODE>.
+<P>
+
+<DT><SAMP>`-Werror'</SAMP>
+<DD>Abort compilation if warnings are issued.
+<P>
+
+<DT><SAMP>`-Wall'</SAMP>
+<DD>Activate all warnings, except <SAMP>`-Werror'</SAMP>, <SAMP>`-Wunusupported'</SAMP> and
+<SAMP>`-Wwrite-strings'</SAMP>.
+<P>
+
+</DL>
+<P>
+
+Linker options:
+</P><P>
+
+<DL COMPACT>
+<DT><SAMP>`-Ldir'</SAMP>
+<DD>Specify an additional static library path for the <SAMP>`-l'</SAMP> option. The
+default library paths are <TT>`/usr/local/lib'</TT>, <TT>`/usr/lib'</TT> and <TT>`/lib'</TT>.
+<P>
+
+<DT><SAMP>`-lxxx'</SAMP>
+<DD>Link your program with dynamic library libxxx.so or static library
+libxxx.a. The library is searched in the paths specified by the
+<SAMP>`-L'</SAMP> option.
+<P>
+
+<DT><SAMP>`-shared'</SAMP>
+<DD>Generate a shared library instead of an executable (<SAMP>`-o'</SAMP> option
+must also be given).
+<P>
+
+<DT><SAMP>`-static'</SAMP>
+<DD>Generate a statically linked executable (default is a shared linked
+executable) (<SAMP>`-o'</SAMP> option must also be given).
+<P>
+
+<DT><SAMP>`-rdynamic'</SAMP>
+<DD>Export global symbols to the dynamic linker. It is useful when a library
+opened with <CODE>dlopen()</CODE> needs to access executable symbols.
+<P>
+
+<DT><SAMP>`-r'</SAMP>
+<DD>Generate an object file combining all input files (<SAMP>`-o'</SAMP> option must
+also be given).
+<P>
+
+<DT><SAMP>`-Wl,-Ttext,address'</SAMP>
+<DD>Set the start of the .text section to <VAR>address</VAR>.
+<P>
+
+<DT><SAMP>`-Wl,--oformat,fmt'</SAMP>
+<DD>Use <VAR>fmt</VAR> as output format. The supported output formats are:
+<DL COMPACT>
+<DT><CODE>elf32-i386</CODE>
+<DD>ELF output format (default)
+<DT><CODE>binary</CODE>
+<DD>Binary image (only for executable output)
+<DT><CODE>coff</CODE>
+<DD>COFF output format (only for executable output for TMS320C67xx target)
+</DL>
+<P>
+
+</DL>
+<P>
+
+Debugger options:
+</P><P>
+
+<DL COMPACT>
+<DT><SAMP>`-g'</SAMP>
+<DD>Generate run time debug information so that you get clear run time
+error messages: <CODE> test.c:68: in function 'test5()': dereferencing
+invalid pointer</CODE> instead of the laconic <CODE>Segmentation
+fault</CODE>.
+<P>
+
+<DT><SAMP>`-b'</SAMP>
+<DD>Generate additional support code to check
+memory allocations and array/pointer bounds. <SAMP>`-g'</SAMP> is implied. Note
+that the generated code is slower and bigger in this case.
+<P>
+
+<DT><SAMP>`-bt N'</SAMP>
+<DD>Display N callers in stack traces. This is useful with <SAMP>`-g'</SAMP> or
+<SAMP>`-b'</SAMP>.
+<P>
+
+</DL>
+<P>
+
+Note: GCC options <SAMP>`-Ox'</SAMP>, <SAMP>`-fx'</SAMP> and <SAMP>`-mx'</SAMP> are
+ignored.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC5"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC4"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC6"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> 3. C language support </H1>
+<!--docid::SEC5::-->
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC6"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC5"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC7"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 3.1 ANSI C </H2>
+<!--docid::SEC6::-->
+<P>
+
+TCC implements all the ANSI C standard, including structure bit fields
+and floating point numbers (<CODE>long double</CODE>, <CODE>double</CODE>, and
+<CODE>float</CODE> fully supported).
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC7"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC6"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC8"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 3.2 ISOC99 extensions </H2>
+<!--docid::SEC7::-->
+<P>
+
+TCC implements many features of the new C standard: ISO C99. Currently
+missing items are: complex and imaginary numbers and variable length
+arrays.
+</P><P>
+
+Currently implemented ISOC99 features:
+</P><P>
+
+<UL>
+
+<LI>64 bit <CODE>long long</CODE> types are fully supported.
+<P>
+
+<LI>The boolean type <CODE>_Bool</CODE> is supported.
+<P>
+
+<LI><CODE>__func__</CODE> is a string variable containing the current
+function name.
+<P>
+
+<LI>Variadic macros: <CODE>__VA_ARGS__</CODE> can be used for
+   function-like macros:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    #define dprintf(level, __VA_ARGS__) printf(__VA_ARGS__)
+</pre></td></tr></table><P>
+
+<CODE>dprintf</CODE> can then be used with a variable number of parameters.
+</P><P>
+
+<LI>Declarations can appear anywhere in a block (as in C++).
+<P>
+
+<LI>Array and struct/union elements can be initialized in any order by
+  using designators:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    struct { int x, y; } st[10] = { [0].x = 1, [0].y = 2 };
+
+    int tab[10] = { 1, 2, [5] = 5, [9] = 9};
+</pre></td></tr></table>    
+<LI>Compound initializers are supported:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    int *p = (int []){ 1, 2, 3 };
+</pre></td></tr></table>to initialize a pointer pointing to an initialized array. The same
+works for structures and strings.
+<P>
+
+<LI>Hexadecimal floating point constants are supported:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>          double d = 0x1234p10;
+</pre></td></tr></table><P>
+
+is the same as writing 
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>          double d = 4771840.0;
+</pre></td></tr></table></P><P>
+
+<LI><CODE>inline</CODE> keyword is ignored.
+<P>
+
+<LI><CODE>restrict</CODE> keyword is ignored.
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC8"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC7"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC9"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 3.3 GNU C extensions </H2>
+<!--docid::SEC8::-->
+<P>
+
+TCC implements some GNU C extensions:
+</P><P>
+
+<UL>
+
+<LI>array designators can be used without '=':
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    int a[10] = { [0] 1, [5] 2, 3, 4 };
+</pre></td></tr></table><P>
+
+<LI>Structure field designators can be a label:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    struct { int x, y; } st = { x: 1, y: 1};
+</pre></td></tr></table>instead of
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    struct { int x, y; } st = { .x = 1, .y = 1};
+</pre></td></tr></table><P>
+
+<LI><CODE>\e</CODE> is ASCII character 27.
+<P>
+
+<LI>case ranges : ranges can be used in <CODE>case</CODE>s:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    switch(a) {
+    case 1 <small>...</small> 9:
+          printf("range 1 to 9\n");
+          break;
+    default:
+          printf("unexpected\n");
+          break;
+    }
+</pre></td></tr></table><P>
+
+<LI>The keyword <CODE>__attribute__</CODE> is handled to specify variable or
+function attributes. The following attributes are supported:
+<UL>
+
+<LI><CODE>aligned(n)</CODE>: align a variable or a structure field to n bytes
+(must be a power of two).
+  
+<LI><CODE>packed</CODE>: force alignment of a variable or a structure field to
+  1.
+<P>
+
+<LI><CODE>section(name)</CODE>: generate function or data in assembly section
+name (name is a string containing the section name) instead of the default
+section.
+<P>
+
+<LI><CODE>unused</CODE>: specify that the variable or the function is unused.
+<P>
+
+<LI><CODE>cdecl</CODE>: use standard C calling convention (default).
+<P>
+
+<LI><CODE>stdcall</CODE>: use Pascal-like calling convention.
+<P>
+
+<LI><CODE>regparm(n)</CODE>: use fast i386 calling convention. <VAR>n</VAR> must be
+between 1 and 3. The first <VAR>n</VAR> function parameters are respectively put in
+registers <CODE>%eax</CODE>, <CODE>%edx</CODE> and <CODE>%ecx</CODE>.
+<P>
+
+</UL>
+<P>
+
+Here are some examples:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    int a __attribute__ ((aligned(8), section(".mysection")));
+</pre></td></tr></table></P><P>
+
+align variable <CODE>a</CODE> to 8 bytes and put it in section <CODE>.mysection</CODE>.
+</P><P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    int my_add(int a, int b) __attribute__ ((section(".mycodesection"))) 
+    {
+        return a + b;
+    }
+</pre></td></tr></table></P><P>
+
+generate function <CODE>my_add</CODE> in section <CODE>.mycodesection</CODE>.
+</P><P>
+
+<LI>GNU style variadic macros:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>    #define dprintf(fmt, args<small>...</small>) printf(fmt, ## args)
+
+    dprintf("no arg\n");
+    dprintf("one arg %d\n", 1);
+</pre></td></tr></table><P>
+
+<LI><CODE>__FUNCTION__</CODE> is interpreted as C99 <CODE>__func__</CODE>
+(so it has not exactly the same semantics as string literal GNUC
+where it is a string literal).
+<P>
+
+<LI>The <CODE>__alignof__</CODE> keyword can be used as <CODE>sizeof</CODE>
+to get the alignment of a type or an expression.
+<P>
+
+<LI>The <CODE>typeof(x)</CODE> returns the type of <CODE>x</CODE>.
+<CODE>x</CODE> is an expression or a type.
+<P>
+
+<LI>Computed gotos: <CODE>&#38;&#38;label</CODE> returns a pointer of type
+<CODE>void *</CODE> on the goto label <CODE>label</CODE>. <CODE>goto *expr</CODE> can be
+used to jump on the pointer resulting from <CODE>expr</CODE>.
+<P>
+
+<LI>Inline assembly with asm instruction:
+<A NAME="IDX1"></A>
+<A NAME="IDX2"></A>
+<A NAME="IDX3"></A>
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>static inline void * my_memcpy(void * to, const void * from, size_t n)
+{
+int d0, d1, d2;
+__asm__ __volatile__(
+        "rep ; movsl\n\t"
+        "testb $2,%b4\n\t"
+        "je 1f\n\t"
+        "movsw\n"
+        "1:\ttestb $1,%b4\n\t"
+        "je 2f\n\t"
+        "movsb\n"
+        "2:"
+        : "=&c" (d0), "=&#38;D" (d1), "=&#38;S" (d2)
+        :"0" (n/4), "q" (n),"1" ((long) to),"2" ((long) from)
+        : "memory");
+return (to);
+}
+</pre></td></tr></table><P>
+
+<A NAME="IDX4"></A>
+TCC includes its own x86 inline assembler with a <CODE>gas</CODE>-like (GNU
+assembler) syntax. No intermediate files are generated. GCC 3.x named
+operands are supported.
+</P><P>
+
+<LI><CODE>__builtin_types_compatible_p()</CODE> and <CODE>__builtin_constant_p()</CODE>
+are supported.
+<P>
+
+<LI><CODE>#pragma pack</CODE> is supported for win32 compatibility.
+<P>
+
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC9"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC8"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC10"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 3.4 TinyCC extensions </H2>
+<!--docid::SEC9::-->
+<P>
+
+<UL>
+
+<LI><CODE>__TINYC__</CODE> is a predefined macro to <CODE>1</CODE> to
+indicate that you use TCC.
+<P>
+
+<LI><CODE>#!</CODE> at the start of a line is ignored to allow scripting.
+<P>
+
+<LI>Binary digits can be entered (<CODE>0b101</CODE> instead of
+<CODE>5</CODE>).
+<P>
+
+<LI><CODE>__BOUNDS_CHECKING_ON</CODE> is defined if bound checking is activated.
+<P>
+
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC10"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC9"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC11"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> 4. TinyCC Assembler </H1>
+<!--docid::SEC10::-->
+<P>
+
+Since version 0.9.16, TinyCC integrates its own assembler. TinyCC
+assembler supports a gas-like syntax (GNU assembler). You can
+desactivate assembler support if you want a smaller TinyCC executable
+(the C compiler does not rely on the assembler).
+</P><P>
+
+TinyCC Assembler is used to handle files with <TT>`.S'</TT> (C
+preprocessed assembler) and <TT>`.s'</TT> extensions. It is also used to
+handle the GNU inline assembler with the <CODE>asm</CODE> keyword.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC11"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC10"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC12"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 4.1 Syntax </H2>
+<!--docid::SEC11::-->
+<P>
+
+TinyCC Assembler supports most of the gas syntax. The tokens are the
+same as C.
+</P><P>
+
+<UL>
+
+<LI>C and C++ comments are supported.
+<P>
+
+<LI>Identifiers are the same as C, so you cannot use '.' or '$'.
+<P>
+
+<LI>Only 32 bit integer numbers are supported.
+<P>
+
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC12"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC11"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC13"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 4.2 Expressions </H2>
+<!--docid::SEC12::-->
+<P>
+
+<UL>
+
+<LI>Integers in decimal, octal and hexa are supported.
+<P>
+
+<LI>Unary operators: +, -, ~.
+<P>
+
+<LI>Binary operators in decreasing priority order:
+<P>
+
+<OL>
+<LI>*, /, %
+<LI>&#38;, |, ^
+<LI>+, -
+</OL>
+<P>
+
+<LI>A value is either an absolute number or a label plus an offset.
+All operators accept absolute values except '+' and '-'. '+' or '-' can be
+used to add an offset to a label. '-' supports two labels only if they
+are the same or if they are both defined and in the same section.
+<P>
+
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC13"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC12"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC14"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 4.3 Labels </H2>
+<!--docid::SEC13::-->
+<P>
+
+<UL>
+
+<LI>All labels are considered as local, except undefined ones.
+<P>
+
+<LI>Numeric labels can be used as local <CODE>gas</CODE>-like labels.
+They can be defined several times in the same source. Use 'b'
+(backward) or 'f' (forward) as suffix to reference them:
+<P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre> 1:
+      jmp 1b /* jump to '1' label before */
+      jmp 1f /* jump to '1' label after */
+ 1:
+</pre></td></tr></table></P><P>
+
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC14"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC13"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC15"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 4.4 Directives </H2>
+<!--docid::SEC14::-->
+<P>
+
+All directives are preceeded by a '.'. The following directives are
+supported:
+</P><P>
+
+<UL>
+<LI>.align n[,value]
+<LI>.skip n[,value]
+<LI>.space n[,value]
+<LI>.byte value1[,...]
+<LI>.word value1[,...]
+<LI>.short value1[,...]
+<LI>.int value1[,...]
+<LI>.long value1[,...]
+<LI>.quad immediate_value1[,...]
+<LI>.globl symbol
+<LI>.global symbol
+<LI>.section section
+<LI>.text
+<LI>.data
+<LI>.bss
+<LI>.fill repeat[,size[,value]]
+<LI>.org n
+<LI>.previous
+<LI>.string string[,...]
+<LI>.asciz string[,...]
+<LI>.ascii string[,...]
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC15"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC14"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC16"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 4.5 X86 Assembler </H2>
+<!--docid::SEC15::-->
+<P>
+
+All X86 opcodes are supported. Only ATT syntax is supported (source
+then destination operand order). If no size suffix is given, TinyCC
+tries to guess it from the operand sizes.
+</P><P>
+
+Currently, MMX opcodes are supported but not SSE ones.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC16"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC15"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC17"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> 5. TinyCC Linker </H1>
+<!--docid::SEC16::-->
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC17"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC16"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC18"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 5.1 ELF file generation </H2>
+<!--docid::SEC17::-->
+<P>
+
+TCC can directly output relocatable ELF files (object files),
+executable ELF files and dynamic ELF libraries without relying on an
+external linker.
+</P><P>
+
+Dynamic ELF libraries can be output but the C compiler does not generate
+position independent code (PIC). It means that the dynamic library
+code generated by TCC cannot be factorized among processes yet.
+</P><P>
+
+TCC linker eliminates unreferenced object code in libraries. A single pass is
+done on the object and library list, so the order in which object files and
+libraries are specified is important (same constraint as GNU ld). No grouping
+options (<SAMP>`--start-group'</SAMP> and <SAMP>`--end-group'</SAMP>) are supported.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC18"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC17"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC19"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 5.2 ELF file loader </H2>
+<!--docid::SEC18::-->
+<P>
+
+TCC can load ELF object files, archives (.a files) and dynamic
+libraries (.so).
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC19"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC18"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC20"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 5.3 PE-i386 file generation </H2>
+<!--docid::SEC19::-->
+<P>
+
+TCC for Windows supports the native Win32 executable file format (PE-i386). It
+generates both EXE and DLL files. DLL symbols can be imported thru DEF files
+generated with the <CODE>tiny_impdef</CODE> tool.
+</P><P>
+
+Currently TCC for Windows cannot generate nor read PE object files, so ELF
+object files are used for that purpose. It can be a problem if
+interoperability with MSVC is needed. Moreover, no leading underscore is
+currently generated in the ELF symbols.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC20"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC19"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC21"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 5.4 GNU Linker Scripts </H2>
+<!--docid::SEC20::-->
+<P>
+
+Because on many Linux systems some dynamic libraries (such as
+<TT>`/usr/lib/libc.so'</TT>) are in fact GNU ld link scripts (horrible!),
+the TCC linker also supports a subset of GNU ld scripts.
+</P><P>
+
+The <CODE>GROUP</CODE> and <CODE>FILE</CODE> commands are supported. <CODE>OUTPUT_FORMAT</CODE>
+and <CODE>TARGET</CODE> are ignored.
+</P><P>
+
+Example from <TT>`/usr/lib/libc.so'</TT>:
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>/* GNU ld script
+   Use the shared library, but some functions are only in
+   the static library, so try that secondarily.  */
+GROUP ( /lib/libc.so.6 /usr/lib/libc_nonshared.a )
+</pre></td></tr></table></P><P>
+
+<A NAME="Bounds"></A>
+<HR SIZE="6">
+<A NAME="SEC21"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC20"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC22"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> 6. TinyCC Memory and Bound checks </H1>
+<!--docid::SEC21::-->
+<P>
+
+This feature is activated with the <SAMP>`-b'</SAMP> (see section <A HREF="tcc-doc.html#SEC2">2. Command line invocation</A>).
+</P><P>
+
+Note that pointer size is <EM>unchanged</EM> and that code generated
+with bound checks is <EM>fully compatible</EM> with unchecked
+code. When a pointer comes from unchecked code, it is assumed to be
+valid. Even very obscure C code with casts should work correctly.
+</P><P>
+
+For more information about the ideas behind this method, see
+<A HREF="http://www.doc.ic.ac.uk/~phjk/BoundsChecking.html">http://www.doc.ic.ac.uk/~phjk/BoundsChecking.html</A>.
+</P><P>
+
+Here are some examples of caught errors:
+</P><P>
+
+<DL COMPACT>
+
+<DT>Invalid range with standard string function:
+<DD><TABLE><tr><td>&nbsp;</td><td class=example><pre>{
+    char tab[10];
+    memset(tab, 0, 11);
+}
+</pre></td></tr></table><P>
+
+<DT>Out of bounds-error in global or local arrays:
+<DD><TABLE><tr><td>&nbsp;</td><td class=example><pre>{
+    int tab[10];
+    for(i=0;i&#60;11;i++) {
+        sum += tab[i];
+    }
+}
+</pre></td></tr></table><P>
+
+<DT>Out of bounds-error in malloc'ed data:
+<DD><TABLE><tr><td>&nbsp;</td><td class=example><pre>{
+    int *tab;
+    tab = malloc(20 * sizeof(int));
+    for(i=0;i&#60;21;i++) {
+        sum += tab4[i];
+    }
+    free(tab);
+}
+</pre></td></tr></table><P>
+
+<DT>Access of freed memory:
+<DD><TABLE><tr><td>&nbsp;</td><td class=example><pre>{
+    int *tab;
+    tab = malloc(20 * sizeof(int));
+    free(tab);
+    for(i=0;i&#60;20;i++) {
+        sum += tab4[i];
+    }
+}
+</pre></td></tr></table><P>
+
+<DT>Double free:
+<DD><TABLE><tr><td>&nbsp;</td><td class=example><pre>{
+    int *tab;
+    tab = malloc(20 * sizeof(int));
+    free(tab);
+    free(tab);
+}
+</pre></td></tr></table><P>
+
+</DL>
+<P>
+
+<A NAME="Libtcc"></A>
+<HR SIZE="6">
+<A NAME="SEC22"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC21"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC23"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> 7. The <CODE>libtcc</CODE> library </H1>
+<!--docid::SEC22::-->
+<P>
+
+The <CODE>libtcc</CODE> library enables you to use TCC as a backend for
+dynamic code generation. 
+</P><P>
+
+Read the <TT>`libtcc.h'</TT> to have an overview of the API. Read
+<TT>`libtcc_test.c'</TT> to have a very simple example.
+</P><P>
+
+The idea consists in giving a C string containing the program you want
+to compile directly to <CODE>libtcc</CODE>. Then you can access to any global
+symbol (function or variable) defined.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC23"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC22"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC24"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> 8. Developer's guide </H1>
+<!--docid::SEC23::-->
+<P>
+
+This chapter gives some hints to understand how TCC works. You can skip
+it if you do not intend to modify the TCC code.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC24"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC23"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC25"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.1 File reading </H2>
+<!--docid::SEC24::-->
+<P>
+
+The <CODE>BufferedFile</CODE> structure contains the context needed to read a
+file, including the current line number. <CODE>tcc_open()</CODE> opens a new
+file and <CODE>tcc_close()</CODE> closes it. <CODE>inp()</CODE> returns the next
+character.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC25"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC24"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC26"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.2 Lexer </H2>
+<!--docid::SEC25::-->
+<P>
+
+<CODE>next()</CODE> reads the next token in the current
+file. <CODE>next_nomacro()</CODE> reads the next token without macro
+expansion.
+</P><P>
+
+<CODE>tok</CODE> contains the current token (see <CODE>TOK_xxx</CODE>)
+constants. Identifiers and keywords are also keywords. <CODE>tokc</CODE>
+contains additional infos about the token (for example a constant value
+if number or string token).
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC26"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC25"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC27"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.3 Parser </H2>
+<!--docid::SEC26::-->
+<P>
+
+The parser is hardcoded (yacc is not necessary). It does only one pass,
+except:
+</P><P>
+
+<UL>
+
+<LI>For initialized arrays with unknown size, a first pass
+is done to count the number of elements.
+<P>
+
+<LI>For architectures where arguments are evaluated in
+reverse order, a first pass is done to reverse the argument order.
+<P>
+
+</UL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC27"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC26"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC28"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.4 Types </H2>
+<!--docid::SEC27::-->
+<P>
+
+The types are stored in a single 'int' variable. It was choosen in the
+first stages of development when tcc was much simpler. Now, it may not
+be the best solution.
+</P><P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>#define VT_INT        0  /* integer type */
+#define VT_BYTE       1  /* signed byte type */
+#define VT_SHORT      2  /* short type */
+#define VT_VOID       3  /* void type */
+#define VT_PTR        4  /* pointer */
+#define VT_ENUM       5  /* enum definition */
+#define VT_FUNC       6  /* function type */
+#define VT_STRUCT     7  /* struct/union definition */
+#define VT_FLOAT      8  /* IEEE float */
+#define VT_DOUBLE     9  /* IEEE double */
+#define VT_LDOUBLE   10  /* IEEE long double */
+#define VT_BOOL      11  /* ISOC99 boolean type */
+#define VT_LLONG     12  /* 64 bit integer */
+#define VT_LONG      13  /* long integer (NEVER USED as type, only
+                            during parsing) */
+#define VT_BTYPE      0x000f /* mask for basic type */
+#define VT_UNSIGNED   0x0010  /* unsigned type */
+#define VT_ARRAY      0x0020  /* array type (also has VT_PTR) */
+#define VT_BITFIELD   0x0040  /* bitfield modifier */
+
+#define VT_STRUCT_SHIFT 16   /* structure/enum name shift (16 bits left) */
+</pre></td></tr></table></P><P>
+
+When a reference to another type is needed (for pointers, functions and
+structures), the <CODE>32 - VT_STRUCT_SHIFT</CODE> high order bits are used to
+store an identifier reference.
+</P><P>
+
+The <CODE>VT_UNSIGNED</CODE> flag can be set for chars, shorts, ints and long
+longs.
+</P><P>
+
+Arrays are considered as pointers <CODE>VT_PTR</CODE> with the flag
+<CODE>VT_ARRAY</CODE> set.
+</P><P>
+
+The <CODE>VT_BITFIELD</CODE> flag can be set for chars, shorts, ints and long
+longs. If it is set, then the bitfield position is stored from bits
+VT_STRUCT_SHIFT to VT_STRUCT_SHIFT + 5 and the bit field size is stored
+from bits VT_STRUCT_SHIFT + 6 to VT_STRUCT_SHIFT + 11.
+</P><P>
+
+<CODE>VT_LONG</CODE> is never used except during parsing.
+</P><P>
+
+During parsing, the storage of an object is also stored in the type
+integer:
+</P><P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>#define VT_EXTERN  0x00000080  /* extern definition */
+#define VT_STATIC  0x00000100  /* static variable */
+#define VT_TYPEDEF 0x00000200  /* typedef definition */
+</pre></td></tr></table></P><P>
+
+<HR SIZE="6">
+<A NAME="SEC28"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC27"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC29"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.5 Symbols </H2>
+<!--docid::SEC28::-->
+<P>
+
+All symbols are stored in hashed symbol stacks. Each symbol stack
+contains <CODE>Sym</CODE> structures.
+</P><P>
+
+<CODE>Sym.v</CODE> contains the symbol name (remember
+an idenfier is also a token, so a string is never necessary to store
+it). <CODE>Sym.t</CODE> gives the type of the symbol. <CODE>Sym.r</CODE> is usually
+the register in which the corresponding variable is stored. <CODE>Sym.c</CODE> is
+usually a constant associated to the symbol.
+</P><P>
+
+Four main symbol stacks are defined:
+</P><P>
+
+<DL COMPACT>
+
+<DT><CODE>define_stack</CODE>
+<DD>for the macros (<CODE>#define</CODE>s).
+<P>
+
+<DT><CODE>global_stack</CODE>
+<DD>for the global variables, functions and types.
+<P>
+
+<DT><CODE>local_stack</CODE>
+<DD>for the local variables, functions and types.
+<P>
+
+<DT><CODE>global_label_stack</CODE>
+<DD>for the local labels (for <CODE>goto</CODE>).
+<P>
+
+<DT><CODE>label_stack</CODE>
+<DD>for GCC block local labels (see the <CODE>__label__</CODE> keyword).
+<P>
+
+</DL>
+<P>
+
+<CODE>sym_push()</CODE> is used to add a new symbol in the local symbol
+stack. If no local symbol stack is active, it is added in the global
+symbol stack.
+</P><P>
+
+<CODE>sym_pop(st,b)</CODE> pops symbols from the symbol stack <VAR>st</VAR> until
+the symbol <VAR>b</VAR> is on the top of stack. If <VAR>b</VAR> is NULL, the stack
+is emptied.
+</P><P>
+
+<CODE>sym_find(v)</CODE> return the symbol associated to the identifier
+<VAR>v</VAR>. The local stack is searched first from top to bottom, then the
+global stack.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC29"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC28"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC30"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.6 Sections </H2>
+<!--docid::SEC29::-->
+<P>
+
+The generated code and datas are written in sections. The structure
+<CODE>Section</CODE> contains all the necessary information for a given
+section. <CODE>new_section()</CODE> creates a new section. ELF file semantics
+is assumed for each section.
+</P><P>
+
+The following sections are predefined:
+</P><P>
+
+<DL COMPACT>
+
+<DT><CODE>text_section</CODE>
+<DD>is the section containing the generated code. <VAR>ind</VAR> contains the
+current position in the code section.
+<P>
+
+<DT><CODE>data_section</CODE>
+<DD>contains initialized data
+<P>
+
+<DT><CODE>bss_section</CODE>
+<DD>contains uninitialized data
+<P>
+
+<DT><CODE>bounds_section</CODE>
+<DD><DT><CODE>lbounds_section</CODE>
+<DD>are used when bound checking is activated
+<P>
+
+<DT><CODE>stab_section</CODE>
+<DD><DT><CODE>stabstr_section</CODE>
+<DD>are used when debugging is actived to store debug information
+<P>
+
+<DT><CODE>symtab_section</CODE>
+<DD><DT><CODE>strtab_section</CODE>
+<DD>contain the exported symbols (currently only used for debugging).
+<P>
+
+</DL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC30"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC29"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC31"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.7 Code generation </H2>
+<!--docid::SEC30::-->
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC31"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC30"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC32"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H3> 8.7.1 Introduction </H3>
+<!--docid::SEC31::-->
+<P>
+
+The TCC code generator directly generates linked binary code in one
+pass. It is rather unusual these days (see gcc for example which
+generates text assembly), but it can be very fast and surprisingly
+little complicated.
+</P><P>
+
+The TCC code generator is register based. Optimization is only done at
+the expression level. No intermediate representation of expression is
+kept except the current values stored in the <EM>value stack</EM>.
+</P><P>
+
+On x86, three temporary registers are used. When more registers are
+needed, one register is spilled into a new temporary variable on the stack.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC32"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC31"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC33"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H3> 8.7.2 The value stack </H3>
+<!--docid::SEC32::-->
+<P>
+
+When an expression is parsed, its value is pushed on the value stack
+(<VAR>vstack</VAR>). The top of the value stack is <VAR>vtop</VAR>. Each value
+stack entry is the structure <CODE>SValue</CODE>.
+</P><P>
+
+<CODE>SValue.t</CODE> is the type. <CODE>SValue.r</CODE> indicates how the value is
+currently stored in the generated code. It is usually a CPU register
+index (<CODE>REG_xxx</CODE> constants), but additional values and flags are
+defined:
+</P><P>
+
+<TABLE><tr><td>&nbsp;</td><td class=example><pre>#define VT_CONST     0x00f0
+#define VT_LLOCAL    0x00f1
+#define VT_LOCAL     0x00f2
+#define VT_CMP       0x00f3
+#define VT_JMP       0x00f4
+#define VT_JMPI      0x00f5
+#define VT_LVAL      0x0100
+#define VT_SYM       0x0200
+#define VT_MUSTCAST  0x0400
+#define VT_MUSTBOUND 0x0800
+#define VT_BOUNDED   0x8000
+#define VT_LVAL_BYTE     0x1000
+#define VT_LVAL_SHORT    0x2000
+#define VT_LVAL_UNSIGNED 0x4000
+#define VT_LVAL_TYPE     (VT_LVAL_BYTE | VT_LVAL_SHORT | VT_LVAL_UNSIGNED)
+</pre></td></tr></table></P><P>
+
+<DL COMPACT>
+
+<DT><CODE>VT_CONST</CODE>
+<DD>indicates that the value is a constant. It is stored in the union
+<CODE>SValue.c</CODE>, depending on its type.
+<P>
+
+<DT><CODE>VT_LOCAL</CODE>
+<DD>indicates a local variable pointer at offset <CODE>SValue.c.i</CODE> in the
+stack.
+<P>
+
+<DT><CODE>VT_CMP</CODE>
+<DD>indicates that the value is actually stored in the CPU flags (i.e. the
+value is the consequence of a test). The value is either 0 or 1. The
+actual CPU flags used is indicated in <CODE>SValue.c.i</CODE>. 
+<P>
+
+If any code is generated which destroys the CPU flags, this value MUST be
+put in a normal register.
+</P><P>
+
+<DT><CODE>VT_JMP</CODE>
+<DD><DT><CODE>VT_JMPI</CODE>
+<DD>indicates that the value is the consequence of a conditional jump. For VT_JMP,
+it is 1 if the jump is taken, 0 otherwise. For VT_JMPI it is inverted.
+<P>
+
+These values are used to compile the <CODE>||</CODE> and <CODE>&#38;&#38;</CODE> logical
+operators.
+</P><P>
+
+If any code is generated, this value MUST be put in a normal
+register. Otherwise, the generated code won't be executed if the jump is
+taken.
+</P><P>
+
+<DT><CODE>VT_LVAL</CODE>
+<DD>is a flag indicating that the value is actually an lvalue (left value of
+an assignment). It means that the value stored is actually a pointer to
+the wanted value. 
+<P>
+
+Understanding the use <CODE>VT_LVAL</CODE> is very important if you want to
+understand how TCC works.
+</P><P>
+
+<DT><CODE>VT_LVAL_BYTE</CODE>
+<DD><DT><CODE>VT_LVAL_SHORT</CODE>
+<DD><DT><CODE>VT_LVAL_UNSIGNED</CODE>
+<DD>if the lvalue has an integer type, then these flags give its real
+type. The type alone is not enough in case of cast optimisations.
+<P>
+
+<DT><CODE>VT_LLOCAL</CODE>
+<DD>is a saved lvalue on the stack. <CODE>VT_LLOCAL</CODE> should be eliminated
+ASAP because its semantics are rather complicated.
+<P>
+
+<DT><CODE>VT_MUSTCAST</CODE>
+<DD>indicates that a cast to the value type must be performed if the value
+is used (lazy casting).
+<P>
+
+<DT><CODE>VT_SYM</CODE>
+<DD>indicates that the symbol <CODE>SValue.sym</CODE> must be added to the constant.
+<P>
+
+<DT><CODE>VT_MUSTBOUND</CODE>
+<DD><DT><CODE>VT_BOUNDED</CODE>
+<DD>are only used for optional bound checking.
+<P>
+
+</DL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC33"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC32"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC34"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H3> 8.7.3 Manipulating the value stack </H3>
+<!--docid::SEC33::-->
+<P>
+
+<CODE>vsetc()</CODE> and <CODE>vset()</CODE> pushes a new value on the value
+stack. If the previous <VAR>vtop</VAR> was stored in a very unsafe place(for
+example in the CPU flags), then some code is generated to put the
+previous <VAR>vtop</VAR> in a safe storage.
+</P><P>
+
+<CODE>vpop()</CODE> pops <VAR>vtop</VAR>. In some cases, it also generates cleanup
+code (for example if stacked floating point registers are used as on
+x86).
+</P><P>
+
+The <CODE>gv(rc)</CODE> function generates code to evaluate <VAR>vtop</VAR> (the
+top value of the stack) into registers. <VAR>rc</VAR> selects in which
+register class the value should be put. <CODE>gv()</CODE> is the <EM>most
+important function</EM> of the code generator.
+</P><P>
+
+<CODE>gv2()</CODE> is the same as <CODE>gv()</CODE> but for the top two stack
+entries.
+</P><P>
+
+<HR SIZE="6">
+<A NAME="SEC34"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC33"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC35"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H3> 8.7.4 CPU dependent code generation </H3>
+<!--docid::SEC34::-->
+See the <TT>`i386-gen.c'</TT> file to have an example.
+<P>
+
+<DL COMPACT>
+
+<DT><CODE>load()</CODE>
+<DD>must generate the code needed to load a stack value into a register.
+<P>
+
+<DT><CODE>store()</CODE>
+<DD>must generate the code needed to store a register into a stack value
+lvalue.
+<P>
+
+<DT><CODE>gfunc_start()</CODE>
+<DD><DT><CODE>gfunc_param()</CODE>
+<DD><DT><CODE>gfunc_call()</CODE>
+<DD>should generate a function call
+<P>
+
+<DT><CODE>gfunc_prolog()</CODE>
+<DD><DT><CODE>gfunc_epilog()</CODE>
+<DD>should generate a function prolog/epilog.
+<P>
+
+<DT><CODE>gen_opi(op)</CODE>
+<DD>must generate the binary integer operation <VAR>op</VAR> on the two top
+entries of the stack which are guaranted to contain integer types.
+<P>
+
+The result value should be put on the stack.
+</P><P>
+
+<DT><CODE>gen_opf(op)</CODE>
+<DD>same as <CODE>gen_opi()</CODE> for floating point operations. The two top
+entries of the stack are guaranted to contain floating point values of
+same types.
+<P>
+
+<DT><CODE>gen_cvt_itof()</CODE>
+<DD>integer to floating point conversion.
+<P>
+
+<DT><CODE>gen_cvt_ftoi()</CODE>
+<DD>floating point to integer conversion.
+<P>
+
+<DT><CODE>gen_cvt_ftof()</CODE>
+<DD>floating point to floating point of different size conversion.
+<P>
+
+<DT><CODE>gen_bounded_ptr_add()</CODE>
+<DD><DT><CODE>gen_bounded_ptr_deref()</CODE>
+<DD>are only used for bounds checking.
+<P>
+
+</DL>
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC35"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC34"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36"> &gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H2> 8.8 Optimizations done </H2>
+<!--docid::SEC35::-->
+Constant propagation is done for all operations. Multiplications and
+divisions are optimized to shifts when appropriate. Comparison
+operators are optimized by maintaining a special cache for the
+processor flags. &#38;&#38;, || and ! are optimized by maintaining a special
+'jump target' value. No other jump optimization is currently performed
+because it would require to store the code in a more abstract fashion.
+<P>
+
+<HR SIZE="6">
+<A NAME="SEC36"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC35"> &lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[ &lt;&lt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1"> Up </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[ &gt;&gt; ]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1> Concept Index </H1>
+<!--docid::SEC36::-->
+<table><tr><th valign=top>Jump to: &nbsp; </th><td><A HREF="tcc-doc.html#cp__" style="text-decoration:none"><b>_</b></A>
+ &nbsp; 
+<BR>
+<A HREF="tcc-doc.html#cp_A" style="text-decoration:none"><b>A</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_B" style="text-decoration:none"><b>B</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_C" style="text-decoration:none"><b>C</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_D" style="text-decoration:none"><b>D</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_E" style="text-decoration:none"><b>E</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_F" style="text-decoration:none"><b>F</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_G" style="text-decoration:none"><b>G</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_I" style="text-decoration:none"><b>I</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_J" style="text-decoration:none"><b>J</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_L" style="text-decoration:none"><b>L</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_M" style="text-decoration:none"><b>M</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_O" style="text-decoration:none"><b>O</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_P" style="text-decoration:none"><b>P</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_Q" style="text-decoration:none"><b>Q</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_R" style="text-decoration:none"><b>R</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_S" style="text-decoration:none"><b>S</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_T" style="text-decoration:none"><b>T</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_U" style="text-decoration:none"><b>U</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_V" style="text-decoration:none"><b>V</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_W" style="text-decoration:none"><b>W</b></A>
+ &nbsp; 
+</td></tr></table><br><P></P>
+<TABLE border=0>
+<TR><TD></TD><TH ALIGN=LEFT>Index Entry</TH><TH ALIGN=LEFT> Section</TH></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp__"></A>_</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#IDX3">__asm__</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_A"></A>A</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">align directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">aligned attribute</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">ascii directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">asciz directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC15">assembler</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC15">4.5 X86 Assembler</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">assembler directives</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#IDX2">assembly, inline</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_B"></A>B</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC21">bound checks</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC21">6. TinyCC Memory and Bound checks</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">bss directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">byte directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_C"></A>C</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">caching processor flags</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">cdecl attribute</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC30">code generation</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC30">8.7 Code generation</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">comparison operators</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">constant propagation</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC34">CPU dependent</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC34">8.7.4 CPU dependent code generation</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_D"></A>D</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">data directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">directives, assembler</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_E"></A>E</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC17">ELF</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC17">5.1 ELF file generation</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_F"></A>F</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">FILE, linker command</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">5.4 GNU Linker Scripts</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">fill directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">flags, caching</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_G"></A>G</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#IDX4">gas</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">global directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">globl directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">GROUP, linker command</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">5.4 GNU Linker Scripts</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_I"></A>I</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#IDX1">inline assembly</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">int directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_J"></A>J</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">jump optimization</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_L"></A>L</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC16">linker</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC16">5. TinyCC Linker</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">linker scripts</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">5.4 GNU Linker Scripts</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">long directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_M"></A>M</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC21">memory checks</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC21">6. TinyCC Memory and Bound checks</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_O"></A>O</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">optimizations</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">org directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">OUTPUT_FORMAT, linker command</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">5.4 GNU Linker Scripts</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_P"></A>P</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">packed attribute</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC19">PE-i386</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC19">5.3 PE-i386 file generation</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">previous directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_Q"></A>Q</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">quad directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_R"></A>R</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">regparm attribute</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_S"></A>S</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">scripts, linker</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">5.4 GNU Linker Scripts</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">section attribute</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">section directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">short directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">skip directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">space directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">stdcall attribute</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">strength reduction</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">string directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_T"></A>T</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">TARGET, linker command</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC20">5.4 GNU Linker Scripts</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">text directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_U"></A>U</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">unused attribute</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_V"></A>V</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC33">value stack</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC33">8.7.3 Manipulating the value stack</A></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC32">value stack, introduction</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC32">8.7.2 The value stack</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+<TR><TH><A NAME="cp_W"></A>W</TH><TD></TD><TD></TD></TR>
+<TR><TD></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">word directive</A></TD><TD valign=top><A HREF="tcc-doc.html#SEC14">4.4 Directives</A></TD></TR>
+<TR><TD COLSPAN=3> <HR></TD></TR>
+</TABLE><P></P><table><tr><th valign=top>Jump to: &nbsp; </th><td><A HREF="tcc-doc.html#cp__" style="text-decoration:none"><b>_</b></A>
+ &nbsp; 
+<BR>
+<A HREF="tcc-doc.html#cp_A" style="text-decoration:none"><b>A</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_B" style="text-decoration:none"><b>B</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_C" style="text-decoration:none"><b>C</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_D" style="text-decoration:none"><b>D</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_E" style="text-decoration:none"><b>E</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_F" style="text-decoration:none"><b>F</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_G" style="text-decoration:none"><b>G</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_I" style="text-decoration:none"><b>I</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_J" style="text-decoration:none"><b>J</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_L" style="text-decoration:none"><b>L</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_M" style="text-decoration:none"><b>M</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_O" style="text-decoration:none"><b>O</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_P" style="text-decoration:none"><b>P</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_Q" style="text-decoration:none"><b>Q</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_R" style="text-decoration:none"><b>R</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_S" style="text-decoration:none"><b>S</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_T" style="text-decoration:none"><b>T</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_U" style="text-decoration:none"><b>U</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_V" style="text-decoration:none"><b>V</b></A>
+ &nbsp; 
+<A HREF="tcc-doc.html#cp_W" style="text-decoration:none"><b>W</b></A>
+ &nbsp; 
+</td></tr></table><br><P>
+
+<HR SIZE="6">
+<A NAME="SEC_Contents"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1>Table of Contents</H1>
+<UL>
+<A NAME="TOC1" HREF="tcc-doc.html#SEC1">1. Introduction</A>
+<BR>
+<A NAME="TOC2" HREF="tcc-doc.html#SEC2">2. Command line invocation</A>
+<BR>
+<UL>
+<A NAME="TOC3" HREF="tcc-doc.html#SEC3">2.1 Quick start</A>
+<BR>
+<A NAME="TOC4" HREF="tcc-doc.html#SEC4">2.2 Option summary</A>
+<BR>
+</UL>
+<A NAME="TOC5" HREF="tcc-doc.html#SEC5">3. C language support</A>
+<BR>
+<UL>
+<A NAME="TOC6" HREF="tcc-doc.html#SEC6">3.1 ANSI C</A>
+<BR>
+<A NAME="TOC7" HREF="tcc-doc.html#SEC7">3.2 ISOC99 extensions</A>
+<BR>
+<A NAME="TOC8" HREF="tcc-doc.html#SEC8">3.3 GNU C extensions</A>
+<BR>
+<A NAME="TOC9" HREF="tcc-doc.html#SEC9">3.4 TinyCC extensions</A>
+<BR>
+</UL>
+<A NAME="TOC10" HREF="tcc-doc.html#SEC10">4. TinyCC Assembler</A>
+<BR>
+<UL>
+<A NAME="TOC11" HREF="tcc-doc.html#SEC11">4.1 Syntax</A>
+<BR>
+<A NAME="TOC12" HREF="tcc-doc.html#SEC12">4.2 Expressions</A>
+<BR>
+<A NAME="TOC13" HREF="tcc-doc.html#SEC13">4.3 Labels</A>
+<BR>
+<A NAME="TOC14" HREF="tcc-doc.html#SEC14">4.4 Directives</A>
+<BR>
+<A NAME="TOC15" HREF="tcc-doc.html#SEC15">4.5 X86 Assembler</A>
+<BR>
+</UL>
+<A NAME="TOC16" HREF="tcc-doc.html#SEC16">5. TinyCC Linker</A>
+<BR>
+<UL>
+<A NAME="TOC17" HREF="tcc-doc.html#SEC17">5.1 ELF file generation</A>
+<BR>
+<A NAME="TOC18" HREF="tcc-doc.html#SEC18">5.2 ELF file loader</A>
+<BR>
+<A NAME="TOC19" HREF="tcc-doc.html#SEC19">5.3 PE-i386 file generation</A>
+<BR>
+<A NAME="TOC20" HREF="tcc-doc.html#SEC20">5.4 GNU Linker Scripts</A>
+<BR>
+</UL>
+<A NAME="TOC21" HREF="tcc-doc.html#SEC21">6. TinyCC Memory and Bound checks</A>
+<BR>
+<A NAME="TOC22" HREF="tcc-doc.html#SEC22">7. The <CODE>libtcc</CODE> library</A>
+<BR>
+<A NAME="TOC23" HREF="tcc-doc.html#SEC23">8. Developer's guide</A>
+<BR>
+<UL>
+<A NAME="TOC24" HREF="tcc-doc.html#SEC24">8.1 File reading</A>
+<BR>
+<A NAME="TOC25" HREF="tcc-doc.html#SEC25">8.2 Lexer</A>
+<BR>
+<A NAME="TOC26" HREF="tcc-doc.html#SEC26">8.3 Parser</A>
+<BR>
+<A NAME="TOC27" HREF="tcc-doc.html#SEC27">8.4 Types</A>
+<BR>
+<A NAME="TOC28" HREF="tcc-doc.html#SEC28">8.5 Symbols</A>
+<BR>
+<A NAME="TOC29" HREF="tcc-doc.html#SEC29">8.6 Sections</A>
+<BR>
+<A NAME="TOC30" HREF="tcc-doc.html#SEC30">8.7 Code generation</A>
+<BR>
+<UL>
+<A NAME="TOC31" HREF="tcc-doc.html#SEC31">8.7.1 Introduction</A>
+<BR>
+<A NAME="TOC32" HREF="tcc-doc.html#SEC32">8.7.2 The value stack</A>
+<BR>
+<A NAME="TOC33" HREF="tcc-doc.html#SEC33">8.7.3 Manipulating the value stack</A>
+<BR>
+<A NAME="TOC34" HREF="tcc-doc.html#SEC34">8.7.4 CPU dependent code generation</A>
+<BR>
+</UL>
+<A NAME="TOC35" HREF="tcc-doc.html#SEC35">8.8 Optimizations done</A>
+<BR>
+</UL>
+<A NAME="TOC36" HREF="tcc-doc.html#SEC36">Concept Index</A>
+<BR>
+</UL>
+<HR SIZE=1>
+<A NAME="SEC_OVERVIEW"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1>Short Table of Contents</H1>
+<BLOCKQUOTE>
+<A NAME="TOC1" HREF="tcc-doc.html#SEC1">1. Introduction</A>
+<BR>
+<A NAME="TOC2" HREF="tcc-doc.html#SEC2">2. Command line invocation</A>
+<BR>
+<A NAME="TOC5" HREF="tcc-doc.html#SEC5">3. C language support</A>
+<BR>
+<A NAME="TOC10" HREF="tcc-doc.html#SEC10">4. TinyCC Assembler</A>
+<BR>
+<A NAME="TOC16" HREF="tcc-doc.html#SEC16">5. TinyCC Linker</A>
+<BR>
+<A NAME="TOC21" HREF="tcc-doc.html#SEC21">6. TinyCC Memory and Bound checks</A>
+<BR>
+<A NAME="TOC22" HREF="tcc-doc.html#SEC22">7. The <CODE>libtcc</CODE> library</A>
+<BR>
+<A NAME="TOC23" HREF="tcc-doc.html#SEC23">8. Developer's guide</A>
+<BR>
+<A NAME="TOC36" HREF="tcc-doc.html#SEC36">Concept Index</A>
+<BR>
+
+</BLOCKQUOTE>
+<HR SIZE=1>
+<A NAME="SEC_About"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC1">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC36">Index</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="tcc-doc.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<H1>About this document</H1>
+This document was generated on <I>March, 22  2008</I>
+using <A HREF="http://www.mathematik.uni-kl.de/~obachman/Texi2html
+"><I>texi2html</I></A>
+<P></P>  
+The buttons in the navigation panels have the following meaning:
+<P></P>
+<table border = "1">
+<TR>
+<TH> Button </TH>
+<TH> Name </TH>
+<TH> Go to </TH>
+<TH> From 1.2.3 go to</TH>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [ &lt; ] </TD>
+<TD ALIGN="CENTER">
+Back
+</TD>
+<TD>
+previous section in reading order
+</TD>
+<TD>
+1.2.2
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [ &gt; ] </TD>
+<TD ALIGN="CENTER">
+Forward
+</TD>
+<TD>
+next section in reading order
+</TD>
+<TD>
+1.2.4
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [ &lt;&lt; ] </TD>
+<TD ALIGN="CENTER">
+FastBack
+</TD>
+<TD>
+previous or up-and-previous section 
+</TD>
+<TD>
+1.1
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [ Up ] </TD>
+<TD ALIGN="CENTER">
+Up
+</TD>
+<TD>
+up section
+</TD>
+<TD>
+1.2
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [ &gt;&gt; ] </TD>
+<TD ALIGN="CENTER">
+FastForward
+</TD>
+<TD>
+next or up-and-next section
+</TD>
+<TD>
+1.3
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [Top] </TD>
+<TD ALIGN="CENTER">
+Top
+</TD>
+<TD>
+cover (top) of document
+</TD>
+<TD>
+ &nbsp; 
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [Contents] </TD>
+<TD ALIGN="CENTER">
+Contents
+</TD>
+<TD>
+table of contents
+</TD>
+<TD>
+ &nbsp; 
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [Index] </TD>
+<TD ALIGN="CENTER">
+Index
+</TD>
+<TD>
+concept index
+</TD>
+<TD>
+ &nbsp; 
+</TD>
+</TR>
+<TR>
+<TD ALIGN="CENTER">
+ [ ? ] </TD>
+<TD ALIGN="CENTER">
+About
+</TD>
+<TD>
+this page
+</TD>
+<TD>
+ &nbsp; 
+</TD>
+</TR>
+</TABLE>
+<P></P>
+where the <STRONG> Example </STRONG> assumes that the current position 
+is at <STRONG> Subsubsection One-Two-Three </STRONG> of a document of 
+the following structure:
+<UL>
+<LI> 1. Section One  </LI>
+<UL>
+<LI>1.1 Subsection One-One</LI>
+<UL>
+<LI> ... </LI>
+</UL>
+<LI>1.2 Subsection One-Two</LI>
+<UL>
+<LI>1.2.1 Subsubsection One-Two-One
+</LI><LI>1.2.2 Subsubsection One-Two-Two
+</LI><LI>1.2.3 Subsubsection One-Two-Three &nbsp; &nbsp; <STRONG>
+&lt;== Current Position </STRONG>
+</LI><LI>1.2.4 Subsubsection One-Two-Four
+</LI></UL>
+<LI>1.3 Subsection One-Three</LI>
+<UL>
+<LI> ... </LI>
+</UL>
+<LI>1.4 Subsection One-Four</LI>
+</UL>
+</UL>
+
+<HR SIZE=1>
+<BR>  
+<FONT SIZE="-1">
+This document was generated
+on <I>March, 22  2008</I>
+using <A HREF="http://www.mathematik.uni-kl.de/~obachman/Texi2html
+"><I>texi2html</I></A>
+
+</BODY>
+</HTML>
