@@ -1,0 +1,274 @@
+<<<<<<< HEAD
+["FloatWindow API"]
+![](img/devdoc/7/0.png)
+# Float Window API
+Float Window是基於HTML的iframe功能，他允許使用者拖拽，放大縮小，隨意開啟關閉視窗。因為本功能屬於Function Bar的一部份，因此本名稱為"Float Window API"。
+
+Float Window的API可以經ao_module存取，以下是部份基本功能的簡介和範例。
+
+## Float Window 原理
+Floa Window原理就是將iframe嵌入div內，使所有WebApp可以提供互動功能。以下是需注意的事項。
+
+1.每個FloatWindow都有唯一的UID。**如果使用同一個UID啟動FloatWindow，則原floatWindow將會被新的floatWindow取代**
+2. FloatWindow可以停在屏幕的左或右。但如果以“固定大小模式”啟動，該floatWindow將無法靠左或右。
+3. 按兩下floatWindow可最大化窗口。
+
+## 引用ao_module
+引用ao_module需要在``<head>`''部分中包含下面的代碼。 由於ao_module需要jquery，因此請先引用**jquery。
+=======
+["FloatWindow Control API"]
+![](img/devdoc/7/0.png)
+# Float Window Control API
+Float Window is a kind of iframe control interface and classes that allow iframes to be able to drag around the screen with controls over minimize, maximize, resize and close. It is the barebone of Function Bar Mode which provide floating Windows to users on Web Interface. Hence its name "Float Window API".
+
+The Float Window is a subsystem of the Function Bar system and it can be access via ao_module API. Here are the basic functions and some example of the functions for creating and using the Float Window System.
+
+## Float Window Mechanism
+FloatWindows are actually iframes embedded in a div which wrap it to provide css and interactive functions. Here are some important notes about their implementation.
+
+1. FloatWindow launches using unique UID. **If you are launching a float window with UID that has already been existing on the current screen, your old floatWindow object will be automatically replaced with the new properties. (including src and css properties)**
+2. FloatWindows can be docked to the left or right side of the screen. However, if your float window is launched with "fixed size mode", the window will reject the docking action.
+3. Double click the floatWindow control panel will maximize the float window size to fit the current screen.
+
+## Including the ao_module wrapper
+To include the ao_module wrapper, simply include this line in your module's page ```<head>``` section. As jquery is also required by the ao_module, it is necessary to include the jquery **before** the ao_module wrapper.
+>>>>>>> e8e2a97f33094b36d044bf4fc9d1bf506fb12648
+
+```
+<script src="../script/jquery.min.js"></script>
+<script src="../script/ao_module.js"></script>
+```
+
+<<<<<<< HEAD
+##建立Float Window
+可以透過ao_module來建立Float Window，啟動方式如下：
+
+###方法1：使用FloatWindow.php建立Float Window
+以Float Window模式啟動Module時，部份WebApp可能會有不同的顯示方式。
+請使用以下代碼以於Float Window啟動Module。
+=======
+## Float Window Creation
+To create a float window, you can use the following command from the ao_module wrapper to initiate the float window in two methods.
+
+### Method 1: Create float window using FloatWindow.php
+Some modules define their own method to start the module in Float Window Mode. To initiate a module in Float Window Mode, you can call the following function after including the wrapper.
+>>>>>>> e8e2a97f33094b36d044bf4fc9d1bf506fb12648
+
+```
+ao_module_launchModule(module_name);
+
+//Example
+ao_module_launchModule("Audio");
+```
+
+<<<<<<< HEAD
+###方法2：使用newfw建立Float Window
+這可以用於所有頁面，包括WebApp內外的html，php或任何瀏覽器支援的格式。 newfw使得FloatWindow可顯示任何的網絡資源。請使用以下代碼以於Float Window啟動Module。
+=======
+### Method 2: Create float window using newfw function call
+You can also create a float window from newfw function call. This can be applied to any page including html, php within or outside of a module or even other objects that is supported by the browser. In simple words, it create a float window wrapped iframe and provide access to floating window for any network resource. Here are some examples for using the newfw function.
+>>>>>>> e8e2a97f33094b36d044bf4fc9d1bf506fb12648
+
+```
+ao_module_newfw(src,windowname,icon,uid,sizex = undefined,sizey = undefined,posx = undefined,posy = undefined,fixsize = undefined,glassEffect = undefined,parentUID=null, callbackFunct=null)
+
+Example 1: opening the Memo index with the following code:
+ao_module_newfw('Memo/index.php','Memo','sticky note outline','memoEmbedded',475,700);
+
+Example 2: opening the Memo index with minimal parameter:
+ao_module_newfw('Memo/index.php','Memo','sticky note outline','memoEmbedded');
+
+Example 3: opening a sub-module and tell the sub-module the parent's window id that is not yourself:
+ao_module_newfw('Memo/index.php','Memo','sticky note outline','memoEmbedded',undefined,undefined,undefined,undefined,undefined,undefined,"someoneElseUID");
+
+Example 4: opening a sub-module and ask for a callback: (Default parentUID is set to this module's WindowID and hence, the call back will be called to this content window)
+ao_module_newfw('Memo/index.php','Memo','sticky note outline','memoEmbedded',undefined,undefined,undefined,undefined,undefined,undefined,undefined,"callBackFunctionName");
+
+```
+
+<<<<<<< HEAD
+##Float window屬性
+###檢查Float window是否已啟用
+要檢查是否啟用了Float window，可以檢查全域變數"ao_module_virtualDesktop"的boolean。以下代碼是示範如何偵測。
+=======
+## Float Window Properties
+### Check if Float Window Enabled
+To check if float window is enabled, you can check the ```ao_module_virtualDesktop``` paramter from the global domain. Here is an example for the check.
+>>>>>>> e8e2a97f33094b36d044bf4fc9d1bf506fb12648
+
+```
+if (ao_module_virtualDesktop){
+	//Running in float window mode
+}else{
+	//Running in default mode, might be pwa or just launched as a normal webapp
+}
+```
+
+<<<<<<< HEAD
+### FloatWindow ID、父級和子級
+每個FloatWindow都應該要有唯一的ID。在大多數情況下，這可以通過```ao_module_utils.getRandomUID();```取得。每個浮動視窗可能具有父視窗和子視窗，但實際取決於是那一個模組以"newfw()"啟動FloatWindow。JS可以從全域變數中取得這些參數。 
+=======
+### Float Window ID, Parent and Child
+Each float window should have an unique ID. In most case, this can be generated via the ```ao_module_utils.getRandomUID();``` function. Each float window might have parent and child depending on which module launched the float window with ```newfw()``` function call. To access these paramters, your script can access these variables in the your page's global variable field. 
+>>>>>>> e8e2a97f33094b36d044bf4fc9d1bf506fb12648
+
+```
+//Get the float window ID
+ao_module_windowID
+
+//Get the caller ID or parent ID
+ao_module_parentID
+
+//Get the callback function name from the parent iframe (String, require eval)
+ao_module_callback
+
+```
+
+<<<<<<< HEAD
+*在不支援浮動視窗的模組，上述所有代碼將會回傳false*
+
+### Float Window CSS 屬性
+你亦可以使用下列代碼取得CSS屬性。
+=======
+*In the case when the module is launched under default mode which has no float window support, all the varable above will be set to false.*
+
+### Float Window CSS Properties
+You can also access the float window properties with the following wrapper functions.
+>>>>>>> e8e2a97f33094b36d044bf4fc9d1bf506fb12648
+
+```
+//Get the float window width
+ao_module_getWidth();
+
+//Get the float window height
+ao_module_getHeight();
+
+//Get the float window on screen left position
+ao_module_getLeft();
+
+//Get the float window on screen top position
+ao_module_getTop();
+```
+
+## Float Window Customization
+Float Window API provide functions to allow adjustment on the float window function and interface. For example, developer can initiate their WebApp with float window mode and adjust the float window properties after the page load. Hence, developer can adjust the floatWindow iframe properties inside the iframe itself using the wrapper provided functions.
+
+Here are some commonly used float window adjustment functions.
+
+```
+//Set the icon to the given icon class (without "icon"), see Tocas UI > icon for more information.
+ao_module_setWindowIcon(icon);
+
+//Change the float window title
+ao_module_setWindowTitle(title);
+
+//Enable glassEffect mode on this float window
+ao_module_setGlassEffectMode();
+
+//Force float window to be non-resizable
+ao_module_setFixedWindowSize();
+
+//Set float window size with the given width and height
+//cache: Remember the window size from last launch. Set this to true to allow browser to restore the same window size on launch.
+//exact: Require exact URL. Set this to true if you want index.php?var1 and index.php?var2 to have different window size to be remembered by the browser.
+ao_module_setWindowSize(width,height,cache,exact);
+
+//Close the current float window
+ao_module_close();
+
+```
+
+## Focus Float Window
+To focus a float window, the float window object can request the function bar system to focus the iframe to the top z-index. In simple words, you can call the following function.
+
+```
+ao_module_focus();
+```
+
+The float window system support at most 50 float windows running in the same desktop environment. The current z-index of a particular float window must be an even number max at 100 and min at 2. For each float window layer there is a drag-drop cover in which provide cover to the underlaying float window to prevent mouse event being transfered to the iframe content window. 
+
+**It is recommended that float window script DO NOT TRY TO MODIFY THE Z-INDEX**
+
+## Float Window Closing Override
+As the section above suggested, a float window launched WebApp module can call to the function ```ao_module_close();``` in order to close the float window. While the float window close button is clicked, there is a function call to the float window object depending your scripting method. Here is a table for that action.
+
+<table class="ts table">
+  <tr>
+    <th>Use of ao_module<br></th>
+    <th>on_close action</th>
+  </tr>
+  <tr>
+    <td>True</td>
+    <td>Call to ao_module wrapper ao_module_close()</td>
+  </tr>
+  <tr>
+    <td>False</td>
+    <td>Remove the iframe object from the parent window</td>
+  </tr>
+</table>
+
+To override the on close action for alternative actions like "save check" or "on close saving", you can create a new function after including the ao_module wrapper to override the internal ```ao_module_close()``` function. Here is an example for that.
+
+
+```
+<script src="../script/ao_module.js"></script>
+<!-- Other HTML elements -->
+<script>
+function ao_module_close(){
+	//Do something here before closing
+	parent.closeWindow(ao_module_windowID);
+	return true;
+}
+</script>
+
+```
+
+## Float Window Parent and Child Callback
+Float Windows can be called with given pid and callback function name. This is specially useful on float windows that requires data communication to and from the parent module. Here are the meta data that you can find on the float window panels.
+
+```
+//These two meta data will be found on the float window panel
+puid	//The parent float window UID
+callback	//The function in parent where the call back should be made in String data type.
+```
+
+You can push **one** object into the ```ao_module_parentCallback``` function. The data will be jsonified as string and delivered to the reciving function. Here is an example for callback and closing the child module.
+
+```
+//Assume you are building a file selector
+selectedFiles = {"filename":"test.txt","filepath":"/demo/text_files/test.txt"};
+if (ao_module_virtualDesktop){
+	var returnvalue = ao_module_parentCallback(selectedFiles);
+	if (returnvalue == false){
+		//Unable to call to parent. Maybe parent is dead or function is not found.
+	}else{
+		//Parameter pass through succeed
+		ao_module_close();
+	}             
+}
+```
+
+## System Setting Navigation Environment
+In order for file selector to be used in System Seting ```navi.php```,  the navigation interface will also provide partial support over float window API with function call to file selector. In this special case, any page loaded via navigation php will return ```ao_module_virtualDesktop``` as ```true```. To check if this is navigation interface instead of a real float window environment, check the paramter below if you are making a page that allow launching from System Setting and float window mode.
+
+```
+/Return true if this is running under navi.php
+parent.underNaviEnv
+
+//Example for using the parameter
+if (ao_module_virtualDesktop && parent.underNaviEnv){
+	//Launch inside System Setting interface
+}else if (ao_module_virtualDesktop){
+	//Launch inside float window mode
+}else{
+	//Otherwise
+}
+<<<<<<< HEAD
+```
+=======
+```
+
+
+
+
+>>>>>>> e8e2a97f33094b36d044bf4fc9d1bf506fb12648
