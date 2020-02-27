@@ -1,5 +1,6 @@
 <!DOCTYPE HTML>
 <head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=0.7, shrink-to-fit=no">
 <title>ArOZ Onlineβ User Authentication</title>
 <link rel="stylesheet" href="script/tocas/tocas.css">
@@ -184,13 +185,28 @@ function postLogin(){
 			}
 		}
 		if (data.includes("DONE")){
-			console.log($.urlParam('target'))
+			//Data contain DONE. Try to perform redirection
 			localStorage.setItem("ArOZusername", $("#username").val());
-			try{
-				window.location.href=$.urlParam('target').replace("%26","&");
-			}catch(err){
-				window.location.href="index.php";
-			}
+			//Prase the URL in which it might contains multiple &
+				var actualRedirectURL = window.location.href;
+				actualRedirectURL = actualRedirectURL.split("=");
+				actualRedirectURL.shift();
+				actualRedirectURL = actualRedirectURL.join("=");
+				if (actualRedirectURL.substring(actualRedirectURL.length - 1, actualRedirectURL.length) == "?"){
+					actualRedirectURL = actualRedirectURL.substring(0,actualRedirectURL.length - 1);
+				}
+				if (actualRedirectURL == ""){
+					window.location.href="index.php";
+				}else{
+					//Redirect check
+					try{
+						window.location.href=actualRedirectURL;
+						return
+					}catch(err){
+						window.location.href="index.php";
+					}
+				}
+			
 			
 		}
 	});

@@ -1,425 +1,234 @@
-﻿AD,Europe/Andorra
-AE,Asia/Dubai
-AF,Asia/Kabul
-AG,America/Antigua
-AI,America/Anguilla
-AL,Europe/Tirane
-AM,Asia/Yerevan
-AO,Africa/Luanda
-AQ,Antarctica/Casey
-AQ,Antarctica/Davis
-AQ,Antarctica/DumontDUrville
-AQ,Antarctica/Mawson
-AQ,Antarctica/McMurdo
-AQ,Antarctica/Palmer
-AQ,Antarctica/Rothera
-AQ,Antarctica/Syowa
-AQ,Antarctica/Troll
-AQ,Antarctica/Vostok
-AR,America/Argentina/Buenos_Aires
-AR,America/Argentina/Catamarca
-AR,America/Argentina/Cordoba
-AR,America/Argentina/Jujuy
-AR,America/Argentina/La_Rioja
-AR,America/Argentina/Mendoza
-AR,America/Argentina/Rio_Gallegos
-AR,America/Argentina/Salta
-AR,America/Argentina/San_Juan
-AR,America/Argentina/San_Luis
-AR,America/Argentina/Tucuman
-AR,America/Argentina/Ushuaia
-AS,Pacific/Pago_Pago
-AT,Europe/Vienna
-AU,Antarctica/Macquarie
-AU,Australia/Adelaide
-AU,Australia/Brisbane
-AU,Australia/Broken_Hill
-AU,Australia/Currie
-AU,Australia/Darwin
-AU,Australia/Eucla
-AU,Australia/Hobart
-AU,Australia/Lindeman
-AU,Australia/Lord_Howe
-AU,Australia/Melbourne
-AU,Australia/Perth
-AU,Australia/Sydney
-AW,America/Aruba
-AX,Europe/Mariehamn
-AZ,Asia/Baku
-BA,Europe/Sarajevo
-BB,America/Barbados
-BD,Asia/Dhaka
-BE,Europe/Brussels
-BF,Africa/Ouagadougou
-BG,Europe/Sofia
-BH,Asia/Bahrain
-BI,Africa/Bujumbura
-BJ,Africa/Porto-Novo
-BL,America/St_Barthelemy
-BM,Atlantic/Bermuda
-BN,Asia/Brunei
-BO,America/La_Paz
-BQ,America/Kralendijk
-BR,America/Araguaina
-BR,America/Bahia
-BR,America/Belem
-BR,America/Boa_Vista
-BR,America/Campo_Grande
-BR,America/Cuiaba
-BR,America/Eirunepe
-BR,America/Fortaleza
-BR,America/Maceio
-BR,America/Manaus
-BR,America/Noronha
-BR,America/Porto_Velho
-BR,America/Recife
-BR,America/Rio_Branco
-BR,America/Santarem
-BR,America/Sao_Paulo
-BS,America/Nassau
-BT,Asia/Thimphu
-BW,Africa/Gaborone
-BY,Europe/Minsk
-BZ,America/Belize
-CA,America/Atikokan
-CA,America/Blanc-Sablon
-CA,America/Cambridge_Bay
-CA,America/Creston
-CA,America/Dawson
-CA,America/Dawson_Creek
-CA,America/Edmonton
-CA,America/Fort_Nelson
-CA,America/Glace_Bay
-CA,America/Goose_Bay
-CA,America/Halifax
-CA,America/Inuvik
-CA,America/Iqaluit
-CA,America/Moncton
-CA,America/Nipigon
-CA,America/Pangnirtung
-CA,America/Rainy_River
-CA,America/Rankin_Inlet
-CA,America/Regina
-CA,America/Resolute
-CA,America/St_Johns
-CA,America/Swift_Current
-CA,America/Thunder_Bay
-CA,America/Toronto
-CA,America/Vancouver
-CA,America/Whitehorse
-CA,America/Winnipeg
-CA,America/Yellowknife
-CC,Indian/Cocos
-CC*,TZ*
-CD,Africa/Kinshasa
-CD,Africa/Lubumbashi
-CF,Africa/Bangui
-CG,Africa/Brazzaville
-CH,Europe/Zurich
-CI,Africa/Abidjan
-CK,Pacific/Rarotonga
-CL,America/Punta_Arenas
-CL,America/Santiago
-CL,Pacific/Easter
-CM,Africa/Douala
-CN,Asia/Shanghai
-CN,Asia/Urumqi
-CO,America/Bogota
-CR,America/Costa_Rica
-CU,America/Havana
-CV,Atlantic/Cape_Verde
-CW,America/Curacao
-CX,Indian/Christmas
-CY,Asia/Famagusta
-CY,Europe/Nicosia
-CZ,Europe/Prague
-DE,Europe/Berlin
-DE,Europe/Busingen
-DJ,Africa/Djibouti
-DK,Europe/Copenhagen
-DM,America/Dominica
-DO,America/Santo_Domingo
-DZ,Africa/Algiers
-EC,America/Guayaquil
-EC,Pacific/Galapagos
-EE,Europe/Tallinn
-EG,Africa/Cairo
-EH,Africa/El_Aaiun
-ER,Africa/Asmara
-ES,Africa/Ceuta
-ES,Atlantic/Canary
-ES,Europe/Madrid
-ET,Africa/Addis_Ababa
-FI,Europe/Helsinki
-FJ,Pacific/Fiji
-FK,Atlantic/Stanley
-FM,Pacific/Chuuk
-FM,Pacific/Kosrae
-FM,Pacific/Pohnpei
-FO,Atlantic/Faroe
-FR,Europe/Paris
-GA,Africa/Libreville
-GB,Europe/London
-GD,America/Grenada
-GE,Asia/Tbilisi
-GF,America/Cayenne
-GG,Europe/Guernsey
-GH,Africa/Accra
-GI,Europe/Gibraltar
-GL,America/Danmarkshavn
-GL,America/Godthab
-GL,America/Scoresbysund
-GL,America/Thule
-GM,Africa/Banjul
-GN,Africa/Conakry
-GP,America/Guadeloupe
-GQ,Africa/Malabo
-GR,Europe/Athens
-GS,Atlantic/South_Georgia
-GT,America/Guatemala
-GU,Pacific/Guam
-GW,Africa/Bissau
-GY,America/Guyana
-HK,Asia/Hong_Kong
-HN,America/Tegucigalpa
-HR,Europe/Zagreb
-HT,America/Port-au-Prince
-HU,Europe/Budapest
-ID,Asia/Jakarta
-ID,Asia/Jayapura
-ID,Asia/Makassar
-ID,Asia/Pontianak
-IE,Europe/Dublin
-IL,Asia/Jerusalem
-IM,Europe/Isle_of_Man
-IN,Asia/Kolkata
-IO,Indian/Chagos
-IQ,Asia/Baghdad
-IR,Asia/Tehran
-IS,Atlantic/Reykjavik
-IT,Europe/Rome
-JE,Europe/Jersey
-JM,America/Jamaica
-JO,Asia/Amman
-JP,Asia/Tokyo
-KE,Africa/Nairobi
-KG,Asia/Bishkek
-KH,Asia/Phnom_Penh
-KI,Pacific/Enderbury
-KI,Pacific/Kiritimati
-KI,Pacific/Tarawa
-KM,Indian/Comoro
-KN,America/St_Kitts
-KP,Asia/Pyongyang
-KR,Asia/Seoul
-KW,Asia/Kuwait
-KY,America/Cayman
-KZ,Asia/Almaty
-KZ,Asia/Aqtau
-KZ,Asia/Aqtobe
-KZ,Asia/Atyrau
-KZ,Asia/Oral
-KZ,Asia/Qyzylorda
-LA,Asia/Vientiane
-LB,Asia/Beirut
-LC,America/St_Lucia
-LI,Europe/Vaduz
-LK,Asia/Colombo
-LR,Africa/Monrovia
-LS,Africa/Maseru
-LT,Europe/Vilnius
-LU,Europe/Luxembourg
-LV,Europe/Riga
-LY,Africa/Tripoli
-MA,Africa/Casablanca
-MC,Europe/Monaco
-MD,Europe/Chisinau
-ME,Europe/Podgorica
-MF,America/Marigot
-MG,Indian/Antananarivo
-MH,Pacific/Kwajalein
-MH,Pacific/Majuro
-MK,Europe/Skopje
-ML,Africa/Bamako
-MM,Asia/Yangon
-MN,Asia/Choibalsan
-MN,Asia/Hovd
-MN,Asia/Ulaanbaatar
-MO,Asia/Macau
-MP,Pacific/Saipan
-MQ,America/Martinique
-MR,Africa/Nouakchott
-MS,America/Montserrat
-MT,Europe/Malta
-MU,Indian/Mauritius
-MV,Indian/Maldives
-MW,Africa/Blantyre
-MX,America/Bahia_Banderas
-MX,America/Cancun
-MX,America/Chihuahua
-MX,America/Hermosillo
-MX,America/Matamoros
-MX,America/Mazatlan
-MX,America/Merida
-MX,America/Mexico_City
-MX,America/Monterrey
-MX,America/Ojinaga
-MX,America/Tijuana
-MY,Asia/Kuala_Lumpur
-MY,Asia/Kuching
-MZ,Africa/Maputo
-NA,Africa/Windhoek
-NC,Pacific/Noumea
-NE,Africa/Niamey
-NF,Pacific/Norfolk
-NG,Africa/Lagos
-NI,America/Managua
-NL,Europe/Amsterdam
-NO,Europe/Oslo
-NP,Asia/Kathmandu
-NR,Pacific/Nauru
-NU,Pacific/Niue
-NZ,Pacific/Auckland
-NZ,Pacific/Chatham
-OM,Asia/Muscat
-PA,America/Panama
-PE,America/Lima
-PF,Pacific/Gambier
-PF,Pacific/Marquesas
-PF,Pacific/Tahiti
-PG,Pacific/Bougainville
-PG,Pacific/Port_Moresby
-PH,Asia/Manila
-PK,Asia/Karachi
-PL,Europe/Warsaw
-PM,America/Miquelon
-PN,Pacific/Pitcairn
-PR,America/Puerto_Rico
-PS,Asia/Gaza
-PS,Asia/Hebron
-PT,Atlantic/Azores
-PT,Atlantic/Madeira
-PT,Europe/Lisbon
-PW,Pacific/Palau
-PY,America/Asuncion
-QA,Asia/Qatar
-RE,Indian/Reunion
-RO,Europe/Bucharest
-RS,Europe/Belgrade
-RU,Asia/Anadyr
-RU,Asia/Barnaul
-RU,Asia/Chita
-RU,Asia/Irkutsk
-RU,Asia/Kamchatka
-RU,Asia/Khandyga
-RU,Asia/Krasnoyarsk
-RU,Asia/Magadan
-RU,Asia/Novokuznetsk
-RU,Asia/Novosibirsk
-RU,Asia/Omsk
-RU,Asia/Sakhalin
-RU,Asia/Srednekolymsk
-RU,Asia/Tomsk
-RU,Asia/Ust-Nera
-RU,Asia/Vladivostok
-RU,Asia/Yakutsk
-RU,Asia/Yekaterinburg
-RU,Europe/Astrakhan
-RU,Europe/Kaliningrad
-RU,Europe/Kirov
-RU,Europe/Moscow
-RU,Europe/Samara
-RU,Europe/Saratov
-RU,Europe/Ulyanovsk
-RU,Europe/Volgograd
-RW,Africa/Kigali
-SA,Asia/Riyadh
-SB,Pacific/Guadalcanal
-SC,Indian/Mahe
-SD,Africa/Khartoum
-SE,Europe/Stockholm
-SG,Asia/Singapore
-SH,Atlantic/St_Helena
-SI,Europe/Ljubljana
-SJ,Arctic/Longyearbyen
-SK,Europe/Bratislava
-SL,Africa/Freetown
-SM,Europe/San_Marino
-SN,Africa/Dakar
-SO,Africa/Mogadishu
-SR,America/Paramaribo
-SS,Africa/Juba
-ST,Africa/Sao_Tome
-SV,America/El_Salvador
-SX,America/Lower_Princes
-SY,Asia/Damascus
-SZ,Africa/Mbabane
-TC,America/Grand_Turk
-TD,Africa/Ndjamena
-TF,Indian/Kerguelen
-TG,Africa/Lome
-TH,Asia/Bangkok
-TJ,Asia/Dushanbe
-TK,Pacific/Fakaofo
-TL,Asia/Dili
-TM,Asia/Ashgabat
-TN,Africa/Tunis
-TO,Pacific/Tongatapu
-TR,Europe/Istanbul
-TT,America/Port_of_Spain
-TV,Pacific/Funafuti
-TW,Asia/Taipei
-TZ,Africa/Dar_es_Salaam
-UA,Europe/Kiev
-UA,Europe/Simferopol
-UA,Europe/Uzhgorod
-UA,Europe/Zaporozhye
-UG,Africa/Kampala
-UM,Pacific/Midway
-UM,Pacific/Wake
-US,America/Adak
-US,America/Anchorage
-US,America/Boise
-US,America/Chicago
-US,America/Denver
-US,America/Detroit
-US,America/Indiana/Indianapolis
-US,America/Indiana/Knox
-US,America/Indiana/Marengo
-US,America/Indiana/Petersburg
-US,America/Indiana/Tell_City
-US,America/Indiana/Vevay
-US,America/Indiana/Vincennes
-US,America/Indiana/Winamac
-US,America/Juneau
-US,America/Kentucky/Louisville
-US,America/Kentucky/Monticello
-US,America/Los_Angeles
-US,America/Menominee
-US,America/Metlakatla
-US,America/New_York
-US,America/Nome
-US,America/North_Dakota/Beulah
-US,America/North_Dakota/Center
-US,America/North_Dakota/New_Salem
-US,America/Phoenix
-US,America/Sitka
-US,America/Yakutat
-US,Pacific/Honolulu
-UY,America/Montevideo
-UZ,Asia/Samarkand
-UZ,Asia/Tashkent
-VA,Europe/Vatican
-VC,America/St_Vincent
-VE,America/Caracas
-VG,America/Tortola
-VI,America/St_Thomas
-VN,Asia/Ho_Chi_Minh
-VU,Pacific/Efate
-WF,Pacific/Wallis
-WS,Pacific/Apia
-YE,Asia/Aden
-YT,Indian/Mayotte
-ZA,Africa/Johannesburg
-ZM,Africa/Lusaka
-ZW,Africa/Harare
+﻿Azores Time,Atlantic/Azores,Azores Standard Time
+East Greenland Time,America/Scoresbysund,Azores Standard Time
+Greenwich Mean Time,Etc/GMT,UTC
+Greenwich Mean Time - Abidjan,Africa/Abidjan,Greenwich Standard Time
+Greenwich Mean Time - Accra,Africa/Accra,Greenwich Standard Time
+Greenwich Mean Time - Bissau,Africa/Bissau,Greenwich Standard Time
+Greenwich Mean Time - Danmarkshavn,America/Danmarkshavn,UTC
+Greenwich Mean Time - Monrovia,Africa/Monrovia,Greenwich Standard Time
+Greenwich Mean Time - Reykjavik,Atlantic/Reykjavik,Greenwich Standard Time
+Greenwich Mean Time - São Tomé,Africa/Sao_Tome,W. Central Africa Standard Time
+Central European Standard Time - Algiers,Africa/Algiers,W. Central Africa Standard Time
+Central European Standard Time - Tunis,Africa/Tunis,W. Central Africa Standard Time
+Ireland Time,Europe/Dublin,GMT Standard Time
+Morocco Time,Africa/Casablanca,Morocco Standard Time
+United Kingdom Time,Europe/London,GMT Standard Time
+West Africa Standard Time - Lagos,Africa/Lagos,W. Central Africa Standard Time
+West Africa Standard Time - Ndjamena,Africa/Ndjamena,W. Central Africa Standard Time
+Western European Time - Canary,Atlantic/Canary,GMT Standard Time
+Western Sahara Time,Africa/El_Aaiun,Morocco Standard Time
+Central Africa Time - Khartoum,Africa/Khartoum,Sudan Standard Time
+Central Africa Time - Maputo,Africa/Maputo,South Africa Standard Time
+Central Africa Time - Windhoek,Africa/Windhoek,Namibia Standard Time
+Central European Time - Amsterdam,Europe/Amsterdam,W. Europe Standard Time
+Central European Time - Andorra,Europe/Andorra,W. Europe Standard Time
+Central European Time - Belgrade,Europe/Belgrade,Central Europe Standard Time
+Central European Time - Berlin,Europe/Berlin,W. Europe Standard Time
+Central European Time - Brussels,Europe/Brussels,Romance Standard Time
+Central European Time - Budapest,Europe/Budapest,Central Europe Standard Time
+Central European Time - Copenhagen,Europe/Copenhagen,Romance Standard Time
+Central European Time - Gibraltar,Europe/Gibraltar,W. Europe Standard Time
+Central European Time - Luxembourg,Europe/Luxembourg,W. Europe Standard Time
+Central European Time - Malta,Europe/Malta,W. Europe Standard Time
+Central European Time - Monaco,Europe/Monaco,W. Europe Standard Time
+Central European Time - Oslo,Europe/Oslo,W. Europe Standard Time
+Central European Time - Paris,Europe/Paris,Romance Standard Time
+Central European Time - Prague,Europe/Prague,Central Europe Standard Time
+Central European Time - Rome,Europe/Rome,W. Europe Standard Time
+Central European Time - Stockholm,Europe/Stockholm,W. Europe Standard Time
+Central European Time - Tirane,Europe/Tirane,Central Europe Standard Time
+Central European Time - Vienna,Europe/Vienna,W. Europe Standard Time
+Central European Time - Warsaw,Europe/Warsaw,Central European Standard Time
+Central European Time - Zurich,Europe/Zurich,W. Europe Standard Time
+Eastern European Standard Time - Cairo,Africa/Cairo,Egypt Standard Time
+Eastern European Standard Time - Kaliningrad,Europe/Kaliningrad,Kaliningrad Standard Time
+Eastern European Standard Time - Tripoli,Africa/Tripoli,Libya Standard Time
+Eastern European Time (Syria) - Damascus,Asia/Damascus,Syria Standard Time
+South Africa Standard Time,Africa/Johannesburg,South Africa Standard Time
+Arabian Standard Time - Baghdad,Asia/Baghdad,Arabic Standard Time
+Arabian Standard Time - Qatar,Asia/Qatar,Arab Standard Time
+Arabian Standard Time - Riyadh,Asia/Riyadh,Arab Standard Time
+East Africa Time - Juba,Africa/Juba,E. Africa Standard Time
+East Africa Time - Nairobi,Africa/Nairobi,E. Africa Standard Time
+Eastern European Time - Amman,Asia/Amman,Jordan Standard Time
+Eastern European Time - Athens,Europe/Athens,GTB Standard Time
+Eastern European Time - Beirut,Asia/Beirut,Middle East Standard Time
+Eastern European Time - Bucharest,Europe/Bucharest,GTB Standard Time
+Eastern European Time - Chisinau,Europe/Chisinau,E. Europe Standard Time
+Eastern European Time - Hebron,Asia/Hebron,West Bank Standard Time
+Eastern European Time - Helsinki,Europe/Helsinki,FLE Standard Time
+Eastern European Time - Kiev,Europe/Kiev,FLE Standard Time
+Eastern European Time - Riga,Europe/Riga,FLE Standard Time
+Eastern European Time - Sofia,Europe/Sofia,FLE Standard Time
+Eastern European Time - Tallinn,Europe/Tallinn,FLE Standard Time
+Eastern European Time - Vilnius,Europe/Vilnius,FLE Standard Time
+Israel Time,Asia/Jerusalem,Israel Standard Time
+Moscow Standard Time - Minsk,Europe/Minsk,Belarus Standard Time
+Moscow Standard Time - Moscow,Europe/Moscow,Russian Standard Time
+Moscow Standard Time - Simferopol,Europe/Simferopol,Russian Standard Time
+Syowa Time,Antarctica/Syowa,E. Africa Standard Time
+Turkey Time,Europe/Istanbul,Turkey Standard Time
+Iran Time,Asia/Tehran,Iran Standard Time
+Armenia Standard Time,Asia/Yerevan,Caucasus Standard Time
+Astrakhan Time,Europe/Astrakhan,Astrakhan Standard Time
+Azerbaijan Standard Time,Asia/Baku,Azerbaijan Standard Time
+Georgia Standard Time,Asia/Tbilisi,Georgian Standard Time
+Gulf Standard Time,Asia/Dubai,Arabian Standard Time
+Mauritius Standard Time,Indian/Mauritius,Mauritius Standard Time
+Réunion Time,Indian/Reunion,Mauritius Standard Time
+Samara Standard Time,Europe/Samara,Russia Time Zone 3
+Saratov Time,Europe/Saratov,Saratov Standard Time
+Seychelles Time,Indian/Mahe,Mauritius Standard Time
+Afghanistan Time,Asia/Kabul,Afghanistan Standard Time
+French Southern & Antarctic Time,Indian/Kerguelen,West Asia Standard Time
+Maldives Time,Indian/Maldives,West Asia Standard Time
+Mawson Time,Antarctica/Mawson,West Asia Standard Time
+Pakistan Standard Time,Asia/Karachi,Pakistan Standard Time
+Tajikistan Time,Asia/Dushanbe,West Asia Standard Time
+Turkmenistan Standard Time,Asia/Ashgabat,West Asia Standard Time
+Uzbekistan Standard Time - Tashkent,Asia/Tashkent,West Asia Standard Time
+Yekaterinburg Standard Time,Asia/Yekaterinburg,Ekaterinburg Standard Time
+India Standard Time - Colombo,Asia/Colombo,Sri Lanka Standard Time
+Bangladesh Standard Time,Asia/Dhaka,Bangladesh Standard Time
+Bhutan Time,Asia/Thimphu,Bangladesh Standard Time
+East Kazakhstan Time - Almaty,Asia/Almaty,Central Asia Standard Time
+Indian Ocean Time,Indian/Chagos,Central Asia Standard Time
+Kyrgyzstan Time,Asia/Bishkek,Central Asia Standard Time
+Omsk Standard Time,Asia/Omsk,Omsk Standard Time
+Urumqi Time,Asia/Urumqi,Central Asia Standard Time
+Vostok Time,Antarctica/Vostok,Central Asia Standard Time
+Cocos Islands Time,Indian/Cocos,Myanmar Standard Time
+Barnaul Time,Asia/Barnaul,Altai Standard Time
+Christmas Island Time,Indian/Christmas,SE Asia Standard Time
+Davis Time,Antarctica/Davis,SE Asia Standard Time
+Hovd Standard Time,Asia/Hovd,W. Mongolia Standard Time
+Indochina Time - Bangkok,Asia/Bangkok,SE Asia Standard Time
+Krasnoyarsk Standard Time - Krasnoyarsk,Asia/Krasnoyarsk,North Asia Standard Time
+Novosibirsk Standard Time,Asia/Novosibirsk,N. Central Asia Standard Time
+Tomsk Time,Asia/Tomsk,Tomsk Standard Time
+Australian Western Standard Time - Casey,Antarctica/Casey,W. Australia Standard Time
+Australian Western Standard Time - Perth,Australia/Perth,W. Australia Standard Time
+Brunei Darussalam Time,Asia/Brunei,Singapore Standard Time
+Central Indonesia Time,Asia/Makassar,Singapore Standard Time
+China Standard Time - Macao,Asia/Macau,China Standard Time
+China Standard Time - Shanghai,Asia/Shanghai,China Standard Time
+Hong Kong Standard Time,Asia/Hong_Kong,China Standard Time
+Irkutsk Standard Time,Asia/Irkutsk,North Asia East Standard Time
+Philippine Standard Time,Asia/Manila,Singapore Standard Time
+Singapore Standard Time,Asia/Singapore,Singapore Standard Time
+Taipei Standard Time,Asia/Taipei,Taipei Standard Time
+Ulaanbaatar Standard Time,Asia/Ulaanbaatar,Ulaanbaatar Standard Time
+Australian Central Western Standard Time,Australia/Eucla,Aus Central W. Standard Time
+East Timor Time,Asia/Dili,Tokyo Standard Time
+Eastern Indonesia Time,Asia/Jayapura,Tokyo Standard Time
+Japan Standard Time,Asia/Tokyo,Tokyo Standard Time
+Korean Standard Time - Pyongyang,Asia/Pyongyang,North Korea Standard Time
+Korean Standard Time - Seoul,Asia/Seoul,Korea Standard Time
+Palau Time,Pacific/Palau,Tokyo Standard Time
+Yakutsk Standard Time - Chita,Asia/Chita,Transbaikal Standard Time
+Yakutsk Standard Time - Yakutsk,Asia/Yakutsk,Yakutsk Standard Time
+Australian Central Standard Time,Australia/Darwin,AUS Central Standard Time
+Australian Eastern Standard Time - Brisbane,Australia/Brisbane,E. Australia Standard Time
+Chamorro Standard Time,Pacific/Guam,West Pacific Standard Time
+Dumont-d'Urville Time,Antarctica/DumontDUrville,West Pacific Standard Time
+Papua New Guinea Time,Pacific/Port_Moresby,West Pacific Standard Time
+Vladivostok Standard Time - Vladivostok,Asia/Vladivostok,Vladivostok Standard Time
+Central Australia Time - Adelaide,Australia/Adelaide,Cen. Australia Standard Time
+Bougainville Time,Pacific/Bougainville,Bougainville Standard Time
+Eastern Australia Time - Hobart,Australia/Hobart,Tasmania Standard Time
+Eastern Australia Time - Sydney,Australia/Sydney,AUS Eastern Standard Time
+Lord Howe Time,Australia/Lord_Howe,Lord Howe Standard Time
+Macquarie Island Time,Antarctica/Macquarie,Central Pacific Standard Time
+Magadan Standard Time,Asia/Magadan,Magadan Standard Time
+New Caledonia Standard Time,Pacific/Noumea,Central Pacific Standard Time
+Norfolk Island Time,Pacific/Norfolk,Norfolk Standard Time
+Sakhalin Standard Time,Asia/Sakhalin,Sakhalin Standard Time
+Solomon Islands Time,Pacific/Guadalcanal,Central Pacific Standard Time
+Srednekolymsk Time,Asia/Srednekolymsk,Russia Time Zone 10
+Vanuatu Standard Time,Pacific/Efate,Central Pacific Standard Time
+Fiji Time,Pacific/Fiji,Fiji Standard Time
+Gilbert Islands Time,Pacific/Tarawa,UTC+12
+Nauru Time,Pacific/Nauru,UTC+12
+Petropavlovsk-Kamchatski Standard Time,Asia/Kamchatka,Russia Time Zone 11
+Tuvalu Time,Pacific/Funafuti,UTC+12
+Wake Island Time,Pacific/Wake,UTC+12
+Wallis & Futuna Time,Pacific/Wallis,UTC+12
+New Zealand Time,Pacific/Auckland,New Zealand Standard Time
+Phoenix Islands Time,Pacific/Enderbury,UTC+13
+Tokelau Time,Pacific/Fakaofo,UTC+13
+Tonga Standard Time,Pacific/Tongatapu,Tonga Standard Time
+Chatham Time,Pacific/Chatham,Chatham Islands Standard Time
+Apia Time,Pacific/Apia,Samoa Standard Time
+Line Islands Time,Pacific/Kiritimati,Line Islands Standard Time
+Cape Verde Standard Time,Atlantic/Cape_Verde,Cape Verde Standard Time
+Fernando de Noronha Standard Time,America/Noronha,UTC-02
+South Georgia Time,Atlantic/South_Georgia,UTC-02
+St. Pierre & Miquelon Time,America/Miquelon,Saint Pierre Standard Time
+West Greenland Time,America/Godthab,Greenland Standard Time
+Newfoundland Time,America/St_Johns,Newfoundland Standard Time
+Atlantic Time - Bermuda,Atlantic/Bermuda,Atlantic Standard Time
+Atlantic Time - Halifax,America/Halifax,Atlantic Standard Time
+Atlantic Time - Thule,America/Thule,Atlantic Standard Time
+Brasilia Standard Time - Araguaina,America/Araguaina,Tocantins Standard Time
+Brasilia Standard Time - Bahia,America/Bahia,Bahia Standard Time
+Brasilia Standard Time - Sao Paulo,America/Sao_Paulo,E. South America Standard Time
+Chile Time,America/Santiago,Pacific SA Standard Time
+Falkland Islands Standard Time,Atlantic/Stanley,SA Eastern Standard Time
+French Guiana Time,America/Cayenne,SA Eastern Standard Time
+Palmer Time,Antarctica/Palmer,Magallanes Standard Time
+Paraguay Time,America/Asuncion,Paraguay Standard Time
+Punta Arenas Time,America/Punta_Arenas,Magallanes Standard Time
+Rothera Time,Antarctica/Rothera,SA Eastern Standard Time
+Suriname Time,America/Paramaribo,SA Eastern Standard Time
+Uruguay Standard Time,America/Montevideo,Montevideo Standard Time
+Amazon Standard Time - Cuiaba,America/Cuiaba,Central Brazilian Standard Time
+Atlantic Standard Time - Barbados,America/Barbados,SA Western Standard Time
+Atlantic Standard Time - Blanc-Sablon,America/Blanc-Sablon,SA Western Standard Time
+Atlantic Standard Time - Curaçao,America/Curacao,SA Western Standard Time
+Atlantic Standard Time - Martinique,America/Martinique,SA Western Standard Time
+Atlantic Standard Time - Port of Spain,America/Port_of_Spain,SA Western Standard Time
+Atlantic Standard Time - Puerto Rico,America/Puerto_Rico,SA Western Standard Time
+Atlantic Standard Time - Santo Domingo,America/Santo_Domingo,SA Western Standard Time
+Bolivia Time,America/La_Paz,SA Western Standard Time
+Cuba Time,America/Havana,Cuba Standard Time
+Eastern Time - Grand Turk,America/Grand_Turk,Turks And Caicos Standard Time
+Eastern Time - Nassau,America/Nassau,Eastern Standard Time
+Eastern Time - New York,America/New_York,Eastern Standard Time
+Eastern Time - Port-au-Prince,America/Port-au-Prince,Haiti Standard Time
+Guyana Time,America/Guyana,SA Western Standard Time
+Venezuela Time,America/Caracas,Venezuela Standard Time
+Central Time - Chicago,America/Chicago,Central Standard Time
+Central Time - Matamoros,America/Matamoros,Central Standard Time
+Central Time - Mexico City,America/Mexico_City,Central Standard Time (Mexico)
+Colombia Standard Time,America/Bogota,SA Pacific Standard Time
+Easter Island Time,Pacific/Easter,Easter Island Standard Time
+Eastern Standard Time - Cancun,America/Cancun,Eastern Standard Time (Mexico)
+Eastern Standard Time - Jamaica,America/Jamaica,SA Pacific Standard Time
+Eastern Standard Time - Panama,America/Panama,SA Pacific Standard Time
+Ecuador Time,America/Guayaquil,SA Pacific Standard Time
+Peru Standard Time,America/Lima,SA Pacific Standard Time
+Central Standard Time - Belize,America/Belize,Central America Standard Time
+Central Standard Time - Costa Rica,America/Costa_Rica,Central America Standard Time
+Central Standard Time - El Salvador,America/El_Salvador,Central America Standard Time
+Central Standard Time - Guatemala,America/Guatemala,Central America Standard Time
+Central Standard Time - Managua,America/Managua,Central America Standard Time
+Central Standard Time - Regina,America/Regina,Canada Central Standard Time
+Central Standard Time - Tegucigalpa,America/Tegucigalpa,Central America Standard Time
+Galapagos Time,Pacific/Galapagos,Central America Standard Time
+Mexican Pacific Time - Chihuahua,America/Chihuahua,Mountain Standard Time (Mexico)
+Mountain Time - Denver,America/Denver,Mountain Standard Time
+Mountain Time - Ojinaga,America/Ojinaga,Mountain Standard Time
+Mexican Pacific Standard Time,America/Hermosillo,US Mountain Standard Time
+Mountain Standard Time - Phoenix,America/Phoenix,US Mountain Standard Time
+Pacific Time - Los Angeles,America/Los_Angeles,Pacific Standard Time
+Pacific Time - Tijuana,America/Tijuana,Pacific Standard Time (Mexico)
+Alaska Time - Anchorage,America/Anchorage,Alaskan Standard Time
+Pitcairn Time,Pacific/Pitcairn,UTC-08
+Gambier Time,Pacific/Gambier,UTC-09
+Hawaii-Aleutian Time (Adak),America/Adak,Aleutian Standard Time
+Marquesas Time,Pacific/Marquesas,Marquesas Standard Time
+Cook Islands Standard Time,Pacific/Rarotonga,Hawaiian Standard Time
+Hawaii-Aleutian Standard Time,Pacific/Honolulu,Hawaiian Standard Time
+Tahiti Time,Pacific/Tahiti,Hawaiian Standard Time
+Niue Time,Pacific/Niue,UTC-11
+Samoa Standard Time,Pacific/Pago_Pago,UTC-11

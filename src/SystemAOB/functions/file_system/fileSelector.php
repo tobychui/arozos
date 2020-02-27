@@ -33,7 +33,7 @@ include_once '../../../auth.php';
 	}
 	
 	.dirbarHorizon{
-	    width:100%;
+	    width:100% !important;
 	    padding-top:10px !important;
 	}
 	
@@ -83,34 +83,58 @@ include_once '../../../auth.php';
 <?php
 $allowMultiple = "false";
 $selectMode = "file"; //Allow file, folder or mix (both file and folder)
+$defaultFilename = "newfile.txt";
+$useUMF = "false";
 if (isset($_GET['allowMultiple']) && $_GET['allowMultiple'] == "true" ){
     $allowMultiple = "true";
 }
 
 if (isset($_GET['selectMode']) && $_GET['selectMode'] != "" ){
-    if (in_array($_GET['selectMode'],["file","folder","mix"])){
+    if (in_array($_GET['selectMode'],["file","folder","mix","new"])){
         $selectMode = $_GET['selectMode'];
     }else{
         die("ERROR. Not supported selectMode. Only allow 'file', 'folder' or 'mix' mode");
     }
 }
 
+if (isset($_GET['newfn']) && !empty($_GET['newfn'])){
+    $defaultFilename = strip_tags($_GET['newfn']);
+}
+
+if (isset($_GET['useUMF']) && $_GET['useUMF'] == "true"){
+    $useUMF = "true";
+}
+
 if (isset($_GET['puid']) && $_GET['puid'] != ""){
     $parentUID = $_GET['puid'];
+}
+
+if ($selectMode == "new"){
+    //You can only create one new file at a time.
+    $allowMultiple = "false";
 }
 ?>
 <div style="display:none;">
     <div id="allowMultiple"><?php echo $allowMultiple;?></div>
     <div id="selectMode"><?php echo $selectMode;?></div>
     <div id="parentUID"><?php echo $parentUID;?></div>
+    <div id="defaultFilename"><?php echo $defaultFilename;?></div>
+    <div id="useUMF"><?php echo $useUMF;?></div>
 </div>
 <div id="topMenubar" class="ts fluid raised segment topbar">
     <button class="ts tiny icon button" onClick="back();"><i class="arrow left icon"></i></button>
     <button class="ts tiny icon button" onClick="exitLayer();"><i class="arrow up icon"></i></button>
     <button class="ts tiny icon button" onClick="refresh();"><i class="refresh icon"></i></button>
-    <div id="pathbar" class="ts tiny action input dirbar" >
-        <input type="text" id="pathcontent" style="width:100%;" placeholder="Current Directory" readonly="readonly">
-        <button class="ts icon positive button" onClick="confirmSelections();" ><i class="checkmark icon"></i></button>
+    <div class="dirbar" style="display:inline-block;vertical-align:top;">
+        <div id="pathbar" class="ts tiny action fluid input" >
+            <input type="text" id="pathcontent" style="width:100%;" placeholder="Current Directory" readonly="readonly">
+            <button class="ts icon positive button" onClick="confirmSelections();" ><i class="checkmark icon"></i></button>
+        </div>
+        <div id="fnameinput" class="ts left icon action tiny fluid input" style="margin-top:5px; display:none;">
+            <input id="newfilename" type="text" placeholder="New Filename" style="width:100%;">
+            <i class="file icon"></i>
+            <button class="ts icon button" onClick="changeFMode();" ><i class="exchange icon"></i></button>
+        </div>
     </div>
 </div>
 <div id="content" class="ts fluid stackable grid padded">
@@ -145,7 +169,7 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
         </div>
     </div>
     <div id="fileList" class="twelve wide column fileListMenu">
-        <div id="filelist" class="ts list">
+        <div id="" class="ts list">
             <div class="selectable item">
                 <i class="loading spinner icon"></i>
                 <div class="content">
@@ -153,19 +177,21 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
                 </div>
             </div>
         </div>
+        <br><br>
     </div>
+    
 </div>
-
 <div id="dimmer" class="ts active dimmer" style="display:none;">
 	<div id="dimmerText" class="ts text loader">Processing...</div>
 </div>
-<br><br>
  <script>
     var currentPath = "../../../";
     var backStack = [];
     var allowMultiple = $("#allowMultiple").text().trim();
     var selectMode = $("#selectMode").text().trim();
     var puid = $("#parentUID").text().trim();
+    var defaultFilename = $("#defaultFilename").text().trim();
+    var useUMF = $("#useUMF").text().trim() == "true";
     var selectionConfirmed = false;
 	var shortcuts = [];
 	
@@ -186,13 +212,24 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
 	});
 	
      $(document).ready(function(){
-         resizeDirBar();
          listDir(currentPath);
          if (allowMultiple == "true"){
              allowMultiple = true;
          }
          initDescription();
+         resizeDirBar();
      });
+     
+     function changeFMode(){
+         useUMF = !useUMF;
+         if (useUMF){
+             $("#newfilename").css("background-color","rgb(216, 240, 255)");
+         }else{
+             $("#newfilename").css("background-color","");
+             var safeFilename = $("#newfilename").val().replace(/[^a-zA-Z0-9._]/gi, '_')
+             $("#newfilename").val(safeFilename);
+         }
+     }
 	 
 	 function gotoShortcut(object){
 		 var openTarget = $(object).attr("openPath");
@@ -223,21 +260,28 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
          var text = "Select file to open.";
          if (selectMode == "file"){
              if (allowMultiple == true){
-                 text = "Select multiple files to open."
+                 text = "Select multiple files to open.";
              }else{
-                 text = "Select only one file from the list below."
+                 text = "Select only one file from the list below.";
              }
          }else if (selectMode == "folder"){
              if (allowMultiple == true){
-                 text = "Select multiple folders to open."
+                 text = "Select multiple folders to open.";
              }else{
-                 text = "Select only one folder from the list below."
+                 text = "Select only one folder from the list below.";
+             }
+         }else if (selectMode == "new"){
+             text = "Select the target to create a new file";
+             $("#newfilename").val(defaultFilename);
+             $("#fnameinput").show();
+             if (useUMF){
+                 $("#newfilename").css("background-color","rgb(216, 240, 255)");
              }
          }else{
              if (allowMultiple == true){
-                 text = "Select multiple files / folders."
+                 text = "Select multiple files / folders.";
              }else{
-                 text = "Select only one file or folder."
+                 text = "Select only one file or folder.";
              }
          }
          $("#fsd").text(text);
@@ -256,10 +300,22 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
          //To handle special case of selecting under folder mode and the user entered the select folder and select nothing inside it 
          //(i.e. the current folder that user is in is the file that they want to select)
          if (selectedFiles.length == 0 && selectMode == "folder"){
-            var filepathData = $("#pathcontent").val().trim().replace("/AOR/","");
+            var filepathData = $("#pathcontent").val().trim().replace("/AOR/","").replace("/AOR","");
             var filenameData = baseName(filepathData);
             var fileObject = {filepath: filepathData, filename: filenameData};
             selectedFiles.push(fileObject);
+         }
+         
+         //Handle new file request
+         if (selectMode == "new"){
+             var saveFilename = $("#newfilename").val();
+             if (useUMF){
+                 saveFilename = ao_module_codec.encodeUMFilename(saveFilename);
+             }
+             var filepathData = $("#pathcontent").val().trim().replace("/AOR/","").replace("/AOR","") + "/" + saveFilename;
+             var filenameData = $("#newfilename").val();
+             var fileObject = {filepath: filepathData, filename: filenameData};
+             selectedFiles.push(fileObject);
          }
          
          if (ao_module_virtualDesktop){
@@ -301,14 +357,15 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
      
      function resizeDirBar(){
         if ($(window).width() < 650){
-             $("#pathbar").removeClass("dirbar");
-             $("#pathbar").addClass("dirbarHorizon");
-             $("#content").css("padding-top","120px", 'important');
+             $("#pathbar").parent().removeClass("dirbar");
+             $("#pathbar").parent().addClass("dirbarHorizon");
+             $("#content").css("padding-top",(parseInt($("#topMenubar").css("height").replace("px","")) + 12) + "px", 'important');
          }else{
-             $("#pathbar").removeClass("dirbarHorizon");
-             $("#pathbar").addClass("dirbar");
-             $("#content").css("padding-top","80px", 'important');
+             $("#pathbar").parent().removeClass("dirbarHorizon");
+             $("#pathbar").parent().addClass("dirbar");
+             $("#content").css("padding-top",(parseInt($("#topMenubar").css("height").replace("px","")) + 12) + "px", 'important');
          }
+         
      }
      $(window).on("resize",function(){
          resizeDirBar();
@@ -368,6 +425,7 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
         $(".item.selectable").each(function(){
             if ($(this).attr("filepath") == filepath){
                 $(this).css("background-color","rgb(202, 249, 209)");
+                $(this).attr("fmode","hex")
                 $(this).find(".header").text(decodedName);
                 return;
             }
@@ -378,6 +436,7 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
         $(".item.selectable").each(function(){
             if ($(this).attr("filepath") == filepath){
                 $(this).css("background-color","rgb(216, 240, 255)");
+                $(this).attr("fmode","um")
                 $(this).find(".header").text(decodedName);
                 return;
             }
@@ -413,6 +472,20 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
                         $(this).removeClass("selected");
                     });
                     $(object).addClass("selected");
+                }
+            }
+        }else if (selectMode == "new"){
+            //Copy the filename to the newfilename input
+            if ($(object).attr("type") == "file"){
+                 $(".selected").each(function(){
+                    $(this).removeClass("selected");
+                });
+                $(object).addClass("selected");
+                //Move this to the newfile input
+                $("#newfilename").val($(object).text().trim());
+                if ($(object).attr('fmode') != "default" && useUMF == false){
+                    //This file is not default encoded file. Force use UMF mode
+                    changeFMode();
                 }
             }
         }else{
@@ -461,7 +534,7 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
             filepath = filepath.split("//").join("/");
         }
         filepath = filepath.replace("../../../","");
-        var template = '<div class="item selectable" onClick="selectItem(this);" ondblClick="enterFolder(this);" filepath="' + filepath + '" type="folder">\
+        var template = '<div class="item selectable" onClick="selectItem(this);" fmode="default" ondblClick="enterFolder(this);" filepath="' + filepath + '" type="folder">\
                 <i class="folder icon"></i>\
                 <div class="content" style="display:inline;">\
                     <div class="header" style="display:inline;">' + filename.trim() + '</div>\
@@ -478,7 +551,7 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
         filepath = filepath.replace("../../../","");
         var ext = filename.split(".").pop();
         var icon = ao_module_utils.getIconFromExt(ext);
-        var template = '<div class="item selectable" onClick="selectItem(this);" ondblClick="dblclickSelect(this);" filepath="' + filepath + '" type="file">\
+        var template = '<div class="item selectable" onClick="selectItem(this);" fmode="default" ondblClick="dblclickSelect(this);" filepath="' + filepath + '" type="file">\
                 <i class="' + icon +' icon"></i>\
                 <div class="content" style="display:inline;">\
                     <div class="header" style="display:inline;">' + filename.trim() + '</div>\
@@ -502,7 +575,7 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
     
     function listDir(filepath){
         resetSelectedItem();
-        $("#fileList").html('<div id="filelist" class="ts list">\
+        $("#fileList").html('<div id="" class="ts list">\
             <div class="selectable item">\
                 <i class="loading spinner icon"></i>\
                 <div class="content">\
@@ -527,6 +600,9 @@ if (isset($_GET['puid']) && $_GET['puid'] != ""){
      if (selectMode == "folder"){
          ao_module_setWindowIcon("folder open outline");
          ao_module_setWindowTitle("Open Folder");
+     }else if (selectMode == "new"){
+         ao_module_setWindowIcon("add");
+         ao_module_setWindowTitle("New File");
      }else{
          ao_module_setWindowIcon("file outline");
          ao_module_setWindowTitle("Open File");

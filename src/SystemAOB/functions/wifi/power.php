@@ -26,11 +26,11 @@ if (strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
         $wlan = mv("enable");
         if ($wlan == "wlan0"){
             //Enable wlan0 no matter it is enabled or not
-            system("sudo ifup wlan0");
+            system("sudo ifconfig wlan0 up");
             die("DONE");
         }else if ($wlan == "wlan1"){
             //Enable wlan1 no matter it is enable or not
-            system("sudo ifup wlan1");
+            system("sudo ifconfig wlan1 up");
             die("DONE");
         }
     }
@@ -40,14 +40,14 @@ if (strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
             if (checkLinuxWlanUpDown(1) == "down"){
                 die("ERROR. Cannot disable wlan0 while wlan1 is also disabled.");
             }else{
-                system("sudo ifdown wlan0");
+                system("sudo ifconfig wlan0 down");
                 die("DONE");
             }
         }else if (mv("disable") == "wlan1"){
             if (checkLinuxWlanUpDown(0) == "down"){
                 die("ERROR. Cannot disable wlan1 while wlan0 is also disabled.");
             }else{
-                system("sudo ifdown wlan1");
+                system("sudo ifconfig wlan1 down");
                 die("DONE");
             }
         }

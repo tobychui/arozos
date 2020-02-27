@@ -91,6 +91,15 @@ if (!file_exists("tokenDB/")){
 //Only store the hashed name of the token, the creation timestamp and expire time.
 file_put_contents("tokenDB/" . $hashedToken . ".atok",json_encode([$hashedToken,$payloadArray['crd'],$expTime]));
 
+if (isset($_GET['module']) && !empty($_GET['module']) && file_exists("../../../" . $_GET['module'])){
+	//Module request for creating jwt token. Store it into file as well.
+	$moduleName = $_GET['module'];
+	$saveDir = $sysConfigDir . "users/" . $username . "/" . $moduleName . "/token/";
+	if (!file_exists($saveDir)){
+		mkdir($saveDir,0777,true);
+	}
+	file_put_contents($saveDir . $hashedToken . ".aptok",$token);
+}
 //Return token to caller
 $returnArray = array('token' => $token);
 $jsonEncodedReturnArray = json_encode($returnArray, JSON_PRETTY_PRINT);

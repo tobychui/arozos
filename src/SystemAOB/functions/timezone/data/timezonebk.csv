@@ -1,0 +1,704 @@
+﻿(GMT+00:00) Azores Time,Atlantic/Azores,Azores Standard Time
+(GMT+00:00) East Greenland Time,America/Scoresbysund,Azores Standard Time
+(GMT+00:00) Greenwich Mean Time,Etc/GMT,UTC
+(GMT+00:00) Greenwich Mean Time - Abidjan,Africa/Abidjan,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Accra,Africa/Accra,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Bissau,Africa/Bissau,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Danmarkshavn,America/Danmarkshavn,UTC
+(GMT+00:00) Greenwich Mean Time - Monrovia,Africa/Monrovia,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Reykjavik,Atlantic/Reykjavik,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - São Tomé,Africa/Sao_Tome,W. Central Africa Standard Time
+(GMT+01:00) Central European Standard Time - Algiers,Africa/Algiers,W. Central Africa Standard Time
+(GMT+01:00) Central European Standard Time - Tunis,Africa/Tunis,W. Central Africa Standard Time
+(GMT+01:00) Ireland Time,Europe/Dublin,GMT Standard Time
+(GMT+01:00) Morocco Time,Africa/Casablanca,Morocco Standard Time
+(GMT+01:00) United Kingdom Time,Europe/London,GMT Standard Time
+(GMT+01:00) West Africa Standard Time - Lagos,Africa/Lagos,W. Central Africa Standard Time
+(GMT+01:00) West Africa Standard Time - Ndjamena,Africa/Ndjamena,W. Central Africa Standard Time
+(GMT+01:00) Western European Time - Canary,Atlantic/Canary,GMT Standard Time
+(GMT+01:00) Western Sahara Time,Africa/El_Aaiun,Morocco Standard Time
+(GMT+02:00) Central Africa Time - Khartoum,Africa/Khartoum,Sudan Standard Time
+(GMT+02:00) Central Africa Time - Maputo,Africa/Maputo,South Africa Standard Time
+(GMT+02:00) Central Africa Time - Windhoek,Africa/Windhoek,Namibia Standard Time
+(GMT+02:00) Central European Time - Amsterdam,Europe/Amsterdam,W. Europe Standard Time
+(GMT+02:00) Central European Time - Andorra,Europe/Andorra,W. Europe Standard Time
+(GMT+02:00) Central European Time - Belgrade,Europe/Belgrade,Central Europe Standard Time
+(GMT+02:00) Central European Time - Berlin,Europe/Berlin,W. Europe Standard Time
+(GMT+02:00) Central European Time - Brussels,Europe/Brussels,Romance Standard Time
+(GMT+02:00) Central European Time - Budapest,Europe/Budapest,Central Europe Standard Time
+(GMT+02:00) Central European Time - Copenhagen,Europe/Copenhagen,Romance Standard Time
+(GMT+02:00) Central European Time - Gibraltar,Europe/Gibraltar,W. Europe Standard Time
+(GMT+02:00) Central European Time - Luxembourg,Europe/Luxembourg,W. Europe Standard Time
+(GMT+02:00) Central European Time - Malta,Europe/Malta,W. Europe Standard Time
+(GMT+02:00) Central European Time - Monaco,Europe/Monaco,W. Europe Standard Time
+(GMT+02:00) Central European Time - Oslo,Europe/Oslo,W. Europe Standard Time
+(GMT+02:00) Central European Time - Paris,Europe/Paris,Romance Standard Time
+(GMT+02:00) Central European Time - Prague,Europe/Prague,Central Europe Standard Time
+(GMT+02:00) Central European Time - Rome,Europe/Rome,W. Europe Standard Time
+(GMT+02:00) Central European Time - Stockholm,Europe/Stockholm,W. Europe Standard Time
+(GMT+02:00) Central European Time - Tirane,Europe/Tirane,Central Europe Standard Time
+(GMT+02:00) Central European Time - Vienna,Europe/Vienna,W. Europe Standard Time
+(GMT+02:00) Central European Time - Warsaw,Europe/Warsaw,Central European Standard Time
+(GMT+02:00) Central European Time - Zurich,Europe/Zurich,W. Europe Standard Time
+(GMT+02:00) Eastern European Standard Time - Cairo,Africa/Cairo,Egypt Standard Time
+(GMT+02:00) Eastern European Standard Time - Kaliningrad,Europe/Kaliningrad,Kaliningrad Standard Time
+(GMT+02:00) Eastern European Standard Time - Tripoli,Africa/Tripoli,Libya Standard Time
+(GMT+02:00) Eastern European Time (Syria) - Damascus,Asia/Damascus,Syria Standard Time
+(GMT+02:00) South Africa Standard Time,Africa/Johannesburg,South Africa Standard Time
+(GMT+03:00) Arabian Standard Time - Baghdad,Asia/Baghdad,Arabic Standard Time
+(GMT+03:00) Arabian Standard Time - Qatar,Asia/Qatar,Arab Standard Time
+(GMT+03:00) Arabian Standard Time - Riyadh,Asia/Riyadh,Arab Standard Time
+(GMT+03:00) East Africa Time - Juba,Africa/Juba,E. Africa Standard Time
+(GMT+03:00) East Africa Time - Nairobi,Africa/Nairobi,E. Africa Standard Time
+(GMT+03:00) Eastern European Time - Amman,Asia/Amman,Jordan Standard Time
+(GMT+03:00) Eastern European Time - Athens,Europe/Athens,GTB Standard Time
+(GMT+03:00) Eastern European Time - Beirut,Asia/Beirut,Middle East Standard Time
+(GMT+03:00) Eastern European Time - Bucharest,Europe/Bucharest,GTB Standard Time
+(GMT+03:00) Eastern European Time - Chisinau,Europe/Chisinau,E. Europe Standard Time
+(GMT+03:00) Eastern European Time - Hebron,Asia/Hebron,West Bank Standard Time
+(GMT+03:00) Eastern European Time - Helsinki,Europe/Helsinki,FLE Standard Time
+(GMT+03:00) Eastern European Time - Kiev,Europe/Kiev,FLE Standard Time
+(GMT+03:00) Eastern European Time - Riga,Europe/Riga,FLE Standard Time
+(GMT+03:00) Eastern European Time - Sofia,Europe/Sofia,FLE Standard Time
+(GMT+03:00) Eastern European Time - Tallinn,Europe/Tallinn,FLE Standard Time
+(GMT+03:00) Eastern European Time - Vilnius,Europe/Vilnius,FLE Standard Time
+(GMT+03:00) Israel Time,Asia/Jerusalem,Israel Standard Time
+(GMT+03:00) Moscow Standard Time - Minsk,Europe/Minsk,Belarus Standard Time
+(GMT+03:00) Moscow Standard Time - Moscow,Europe/Moscow,Russian Standard Time
+(GMT+03:00) Moscow Standard Time - Simferopol,Europe/Simferopol,Russian Standard Time
+(GMT+03:00) Syowa Time,Antarctica/Syowa,E. Africa Standard Time
+(GMT+03:00) Turkey Time,Europe/Istanbul,Turkey Standard Time
+(GMT+03:30) Iran Time,Asia/Tehran,Iran Standard Time
+(GMT+04:00) Armenia Standard Time,Asia/Yerevan,Caucasus Standard Time
+(GMT+04:00) Astrakhan Time,Europe/Astrakhan,Astrakhan Standard Time
+(GMT+04:00) Azerbaijan Standard Time,Asia/Baku,Azerbaijan Standard Time
+(GMT+04:00) Georgia Standard Time,Asia/Tbilisi,Georgian Standard Time
+(GMT+04:00) Gulf Standard Time,Asia/Dubai,Arabian Standard Time
+(GMT+04:00) Mauritius Standard Time,Indian/Mauritius,Mauritius Standard Time
+(GMT+04:00) Réunion Time,Indian/Reunion,Mauritius Standard Time
+(GMT+04:00) Samara Standard Time,Europe/Samara,Russia Time Zone 3
+(GMT+04:00) Saratov Time,Europe/Saratov,Saratov Standard Time
+(GMT+04:00) Seychelles Time,Indian/Mahe,Mauritius Standard Time
+(GMT+04:30) Afghanistan Time,Asia/Kabul,Afghanistan Standard Time
+(GMT+05:00) French Southern & Antarctic Time,Indian/Kerguelen,West Asia Standard Time
+(GMT+05:00) Maldives Time,Indian/Maldives,West Asia Standard Time
+(GMT+05:00) Mawson Time,Antarctica/Mawson,West Asia Standard Time
+(GMT+05:00) Pakistan Standard Time,Asia/Karachi,Pakistan Standard Time
+(GMT+05:00) Tajikistan Time,Asia/Dushanbe,West Asia Standard Time
+(GMT+05:00) Turkmenistan Standard Time,Asia/Ashgabat,West Asia Standard Time
+(GMT+05:00) Uzbekistan Standard Time - Tashkent,Asia/Tashkent,West Asia Standard Time
+(GMT+05:00) Yekaterinburg Standard Time,Asia/Yekaterinburg,Ekaterinburg Standard Time
+(GMT+05:30) India Standard Time - Colombo,Asia/Colombo,Sri Lanka Standard Time
+(GMT+06:00) Bangladesh Standard Time,Asia/Dhaka,Bangladesh Standard Time
+(GMT+06:00) Bhutan Time,Asia/Thimphu,Bangladesh Standard Time
+(GMT+06:00) East Kazakhstan Time - Almaty,Asia/Almaty,Central Asia Standard Time
+(GMT+06:00) Indian Ocean Time,Indian/Chagos,Central Asia Standard Time
+(GMT+06:00) Kyrgyzstan Time,Asia/Bishkek,Central Asia Standard Time
+(GMT+06:00) Omsk Standard Time,Asia/Omsk,Omsk Standard Time
+(GMT+06:00) Urumqi Time,Asia/Urumqi,Central Asia Standard Time
+(GMT+06:00) Vostok Time,Antarctica/Vostok,Central Asia Standard Time
+(GMT+06:30) Cocos Islands Time,Indian/Cocos,Myanmar Standard Time
+(GMT+07:00) Barnaul Time,Asia/Barnaul,Altai Standard Time
+(GMT+07:00) Christmas Island Time,Indian/Christmas,SE Asia Standard Time
+(GMT+07:00) Davis Time,Antarctica/Davis,SE Asia Standard Time
+(GMT+07:00) Hovd Standard Time,Asia/Hovd,W. Mongolia Standard Time
+(GMT+07:00) Indochina Time - Bangkok,Asia/Bangkok,SE Asia Standard Time
+(GMT+07:00) Krasnoyarsk Standard Time - Krasnoyarsk,Asia/Krasnoyarsk,North Asia Standard Time
+(GMT+07:00) Novosibirsk Standard Time,Asia/Novosibirsk,N. Central Asia Standard Time
+(GMT+07:00) Tomsk Time,Asia/Tomsk,Tomsk Standard Time
+(GMT+08:00) Australian Western Standard Time - Casey,Antarctica/Casey,W. Australia Standard Time
+(GMT+08:00) Australian Western Standard Time - Perth,Australia/Perth,W. Australia Standard Time
+(GMT+08:00) Brunei Darussalam Time,Asia/Brunei,Singapore Standard Time
+(GMT+08:00) Central Indonesia Time,Asia/Makassar,Singapore Standard Time
+(GMT+08:00) China Standard Time - Macao,Asia/Macau,China Standard Time
+(GMT+08:00) China Standard Time - Shanghai,Asia/Shanghai,China Standard Time
+(GMT+08:00) Hong Kong Standard Time,Asia/Hong_Kong,China Standard Time
+(GMT+08:00) Irkutsk Standard Time,Asia/Irkutsk,North Asia East Standard Time
+(GMT+08:00) Philippine Standard Time,Asia/Manila,Singapore Standard Time
+(GMT+08:00) Singapore Standard Time,Asia/Singapore,Singapore Standard Time
+(GMT+08:00) Taipei Standard Time,Asia/Taipei,Taipei Standard Time
+(GMT+08:00) Ulaanbaatar Standard Time,Asia/Ulaanbaatar,Ulaanbaatar Standard Time
+(GMT+08:45) Australian Central Western Standard Time,Australia/Eucla,Aus Central W. Standard Time
+(GMT+09:00) East Timor Time,Asia/Dili,Tokyo Standard Time
+(GMT+09:00) Eastern Indonesia Time,Asia/Jayapura,Tokyo Standard Time
+(GMT+09:00) Japan Standard Time,Asia/Tokyo,Tokyo Standard Time
+(GMT+09:00) Korean Standard Time - Pyongyang,Asia/Pyongyang,North Korea Standard Time
+(GMT+09:00) Korean Standard Time - Seoul,Asia/Seoul,Korea Standard Time
+(GMT+09:00) Palau Time,Pacific/Palau,Tokyo Standard Time
+(GMT+09:00) Yakutsk Standard Time - Chita,Asia/Chita,Transbaikal Standard Time
+(GMT+09:00) Yakutsk Standard Time - Yakutsk,Asia/Yakutsk,Yakutsk Standard Time
+(GMT+09:30) Australian Central Standard Time,Australia/Darwin,AUS Central Standard Time
+(GMT+10:00) Australian Eastern Standard Time - Brisbane,Australia/Brisbane,E. Australia Standard Time
+(GMT+10:00) Chamorro Standard Time,Pacific/Guam,West Pacific Standard Time
+(GMT+10:00) Dumont-d'Urville Time,Antarctica/DumontDUrville,West Pacific Standard Time
+(GMT+10:00) Papua New Guinea Time,Pacific/Port_Moresby,West Pacific Standard Time
+(GMT+10:00) Vladivostok Standard Time - Vladivostok,Asia/Vladivostok,Vladivostok Standard Time
+(GMT+10:30) Central Australia Time - Adelaide,Australia/Adelaide,Cen. Australia Standard Time
+(GMT+11:00) Bougainville Time,Pacific/Bougainville,Bougainville Standard Time
+(GMT+11:00) Eastern Australia Time - Hobart,Australia/Hobart,Tasmania Standard Time
+(GMT+11:00) Eastern Australia Time - Sydney,Australia/Sydney,AUS Eastern Standard Time
+(GMT+11:00) Lord Howe Time,Australia/Lord_Howe,Lord Howe Standard Time
+(GMT+11:00) Macquarie Island Time,Antarctica/Macquarie,Central Pacific Standard Time
+(GMT+11:00) Magadan Standard Time,Asia/Magadan,Magadan Standard Time
+(GMT+11:00) New Caledonia Standard Time,Pacific/Noumea,Central Pacific Standard Time
+(GMT+11:00) Norfolk Island Time,Pacific/Norfolk,Norfolk Standard Time
+(GMT+11:00) Sakhalin Standard Time,Asia/Sakhalin,Sakhalin Standard Time
+(GMT+11:00) Solomon Islands Time,Pacific/Guadalcanal,Central Pacific Standard Time
+(GMT+11:00) Srednekolymsk Time,Asia/Srednekolymsk,Russia Time Zone 10
+(GMT+11:00) Vanuatu Standard Time,Pacific/Efate,Central Pacific Standard Time
+(GMT+12:00) Fiji Time,Pacific/Fiji,Fiji Standard Time
+(GMT+12:00) Gilbert Islands Time,Pacific/Tarawa,UTC+12
+(GMT+12:00) Nauru Time,Pacific/Nauru,UTC+12
+(GMT+12:00) Petropavlovsk-Kamchatski Standard Time,Asia/Kamchatka,Russia Time Zone 11
+(GMT+12:00) Tuvalu Time,Pacific/Funafuti,UTC+12
+(GMT+12:00) Wake Island Time,Pacific/Wake,UTC+12
+(GMT+12:00) Wallis & Futuna Time,Pacific/Wallis,UTC+12
+(GMT+13:00) New Zealand Time,Pacific/Auckland,New Zealand Standard Time
+(GMT+13:00) Phoenix Islands Time,Pacific/Enderbury,UTC+13
+(GMT+13:00) Tokelau Time,Pacific/Fakaofo,UTC+13
+(GMT+13:00) Tonga Standard Time,Pacific/Tongatapu,Tonga Standard Time
+(GMT+13:45) Chatham Time,Pacific/Chatham,Chatham Islands Standard Time
+(GMT+14:00) Apia Time,Pacific/Apia,Samoa Standard Time
+(GMT+14:00) Line Islands Time,Pacific/Kiritimati,Line Islands Standard Time
+(GMT-01:00) Cape Verde Standard Time,Atlantic/Cape_Verde,Cape Verde Standard Time
+(GMT-02:00) Fernando de Noronha Standard Time,America/Noronha,UTC-02
+(GMT-02:00) South Georgia Time,Atlantic/South_Georgia,UTC-02
+(GMT-02:00) St. Pierre & Miquelon Time,America/Miquelon,Saint Pierre Standard Time
+(GMT-02:00) West Greenland Time,America/Godthab,Greenland Standard Time
+(GMT-02:30) Newfoundland Time,America/St_Johns,Newfoundland Standard Time
+(GMT-03:00) Atlantic Time - Bermuda,Atlantic/Bermuda,Atlantic Standard Time
+(GMT-03:00) Atlantic Time - Halifax,America/Halifax,Atlantic Standard Time
+(GMT-03:00) Atlantic Time - Thule,America/Thule,Atlantic Standard Time
+(GMT-03:00) Brasilia Standard Time - Araguaina,America/Araguaina,Tocantins Standard Time
+(GMT-03:00) Brasilia Standard Time - Bahia,America/Bahia,Bahia Standard Time
+(GMT-03:00) Brasilia Standard Time - Sao Paulo,America/Sao_Paulo,E. South America Standard Time
+(GMT-03:00) Chile Time,America/Santiago,Pacific SA Standard Time
+(GMT-03:00) Falkland Islands Standard Time,Atlantic/Stanley,SA Eastern Standard Time
+(GMT-03:00) French Guiana Time,America/Cayenne,SA Eastern Standard Time
+(GMT-03:00) Palmer Time,Antarctica/Palmer,Magallanes Standard Time
+(GMT-03:00) Paraguay Time,America/Asuncion,Paraguay Standard Time
+(GMT-03:00) Punta Arenas Time,America/Punta_Arenas,Magallanes Standard Time
+(GMT-03:00) Rothera Time,Antarctica/Rothera,SA Eastern Standard Time
+(GMT-03:00) Suriname Time,America/Paramaribo,SA Eastern Standard Time
+(GMT-03:00) Uruguay Standard Time,America/Montevideo,Montevideo Standard Time
+(GMT-04:00) Amazon Standard Time - Cuiaba,America/Cuiaba,Central Brazilian Standard Time
+(GMT-04:00) Atlantic Standard Time - Barbados,America/Barbados,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Blanc-Sablon,America/Blanc-Sablon,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Curaçao,America/Curacao,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Martinique,America/Martinique,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Port of Spain,America/Port_of_Spain,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Puerto Rico,America/Puerto_Rico,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Santo Domingo,America/Santo_Domingo,SA Western Standard Time
+(GMT-04:00) Bolivia Time,America/La_Paz,SA Western Standard Time
+(GMT-04:00) Cuba Time,America/Havana,Cuba Standard Time
+(GMT-04:00) Eastern Time - Grand Turk,America/Grand_Turk,Turks And Caicos Standard Time
+(GMT-04:00) Eastern Time - Nassau,America/Nassau,Eastern Standard Time
+(GMT-04:00) Eastern Time - New York,America/New_York,Eastern Standard Time
+(GMT-04:00) Eastern Time - Port-au-Prince,America/Port-au-Prince,Haiti Standard Time
+(GMT-04:00) Guyana Time,America/Guyana,SA Western Standard Time
+(GMT-04:00) Venezuela Time,America/Caracas,Venezuela Standard Time
+(GMT-05:00) Central Time - Chicago,America/Chicago,Central Standard Time
+(GMT-05:00) Central Time - Matamoros,America/Matamoros,Central Standard Time
+(GMT-05:00) Central Time - Mexico City,America/Mexico_City,Central Standard Time (Mexico)
+(GMT-05:00) Colombia Standard Time,America/Bogota,SA Pacific Standard Time
+(GMT-05:00) Easter Island Time,Pacific/Easter,Easter Island Standard Time
+(GMT-05:00) Eastern Standard Time - Cancun,America/Cancun,Eastern Standard Time (Mexico)
+(GMT-05:00) Eastern Standard Time - Jamaica,America/Jamaica,SA Pacific Standard Time
+(GMT-05:00) Eastern Standard Time - Panama,America/Panama,SA Pacific Standard Time
+(GMT-05:00) Ecuador Time,America/Guayaquil,SA Pacific Standard Time
+(GMT-05:00) Peru Standard Time,America/Lima,SA Pacific Standard Time
+(GMT-06:00) Central Standard Time - Belize,America/Belize,Central America Standard Time
+(GMT-06:00) Central Standard Time - Costa Rica,America/Costa_Rica,Central America Standard Time
+(GMT-06:00) Central Standard Time - El Salvador,America/El_Salvador,Central America Standard Time
+(GMT-06:00) Central Standard Time - Guatemala,America/Guatemala,Central America Standard Time
+(GMT-06:00) Central Standard Time - Managua,America/Managua,Central America Standard Time
+(GMT-06:00) Central Standard Time - Regina,America/Regina,Canada Central Standard Time
+(GMT-06:00) Central Standard Time - Tegucigalpa,America/Tegucigalpa,Central America Standard Time
+(GMT-06:00) Galapagos Time,Pacific/Galapagos,Central America Standard Time
+(GMT-06:00) Mexican Pacific Time - Chihuahua,America/Chihuahua,Mountain Standard Time (Mexico)
+(GMT-06:00) Mountain Time - Denver,America/Denver,Mountain Standard Time
+(GMT-06:00) Mountain Time - Ojinaga,America/Ojinaga,Mountain Standard Time
+(GMT-07:00) Mexican Pacific Standard Time,America/Hermosillo,US Mountain Standard Time
+(GMT-07:00) Mountain Standard Time - Phoenix,America/Phoenix,US Mountain Standard Time
+(GMT-07:00) Pacific Time - Los Angeles,America/Los_Angeles,Pacific Standard Time
+(GMT-07:00) Pacific Time - Tijuana,America/Tijuana,Pacific Standard Time (Mexico)
+(GMT-08:00) Alaska Time - Anchorage,America/Anchorage,Alaskan Standard Time
+(GMT-08:00) Pitcairn Time,Pacific/Pitcairn,UTC-08
+(GMT-09:00) Gambier Time,Pacific/Gambier,UTC-09
+(GMT-09:00) Hawaii-Aleutian Time (Adak),America/Adak,Aleutian Standard Time
+(GMT-09:30) Marquesas Time,Pacific/Marquesas,Marquesas Standard Time
+(GMT-10:00) Cook Islands Standard Time,Pacific/Rarotonga,Hawaiian Standard Time
+(GMT-10:00) Hawaii-Aleutian Standard Time,Pacific/Honolulu,Hawaiian Standard Time
+(GMT-10:00) Tahiti Time,Pacific/Tahiti,Hawaiian Standard Time
+(GMT-11:00) Niue Time,Pacific/Niue,UTC-11
+(GMT-11:00) Samoa Standard Time,Pacific/Pago_Pago,UTC-11
+
+﻿(GMT+00:00) Azores Time,Atlantic/Azores,Azores Standard Time
+(GMT+00:00) East Greenland Time,America/Scoresbysund,Azores Standard Time
+(GMT+00:00) Greenwich Mean Time,Etc/GMT,UTC
+(GMT+00:00) Greenwich Mean Time - Abidjan,Africa/Abidjan,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Accra,Africa/Accra,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Bissau,Africa/Bissau,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Danmarkshavn,America/Danmarkshavn,UTC
+(GMT+00:00) Greenwich Mean Time - Monrovia,Africa/Monrovia,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Reykjavik,Atlantic/Reykjavik,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - São Tomé,Africa/Sao_Tome,W. Central Africa Standard Time
+(GMT+01:00) Central European Standard Time - Algiers,Africa/Algiers,W. Central Africa Standard Time
+(GMT+01:00) Central European Standard Time - Tunis,Africa/Tunis,W. Central Africa Standard Time
+(GMT+01:00) Ireland Time,Europe/Dublin,GMT Standard Time
+(GMT+01:00) Morocco Time,Africa/Casablanca,Morocco Standard Time
+(GMT+01:00) United Kingdom Time,Europe/London,GMT Standard Time
+(GMT+01:00) West Africa Standard Time - Lagos,Africa/Lagos,W. Central Africa Standard Time
+(GMT+01:00) West Africa Standard Time - Ndjamena,Africa/Ndjamena,W. Central Africa Standard Time
+(GMT+01:00) Western European Time - Canary,Atlantic/Canary,GMT Standard Time
+(GMT+01:00) Western Sahara Time,Africa/El_Aaiun,Morocco Standard Time
+(GMT+02:00) Central Africa Time - Khartoum,Africa/Khartoum,Sudan Standard Time
+(GMT+02:00) Central Africa Time - Maputo,Africa/Maputo,South Africa Standard Time
+(GMT+02:00) Central Africa Time - Windhoek,Africa/Windhoek,Namibia Standard Time
+(GMT+02:00) Central European Time - Amsterdam,Europe/Amsterdam,W. Europe Standard Time
+(GMT+02:00) Central European Time - Andorra,Europe/Andorra,W. Europe Standard Time
+(GMT+02:00) Central European Time - Belgrade,Europe/Belgrade,Central Europe Standard Time
+(GMT+02:00) Central European Time - Berlin,Europe/Berlin,W. Europe Standard Time
+(GMT+02:00) Central European Time - Brussels,Europe/Brussels,Romance Standard Time
+(GMT+02:00) Central European Time - Budapest,Europe/Budapest,Central Europe Standard Time
+(GMT+02:00) Central European Time - Copenhagen,Europe/Copenhagen,Romance Standard Time
+(GMT+02:00) Central European Time - Gibraltar,Europe/Gibraltar,W. Europe Standard Time
+(GMT+02:00) Central European Time - Luxembourg,Europe/Luxembourg,W. Europe Standard Time
+(GMT+02:00) Central European Time - Malta,Europe/Malta,W. Europe Standard Time
+(GMT+02:00) Central European Time - Monaco,Europe/Monaco,W. Europe Standard Time
+(GMT+02:00) Central European Time - Oslo,Europe/Oslo,W. Europe Standard Time
+(GMT+02:00) Central European Time - Paris,Europe/Paris,Romance Standard Time
+(GMT+02:00) Central European Time - Prague,Europe/Prague,Central Europe Standard Time
+(GMT+02:00) Central European Time - Rome,Europe/Rome,W. Europe Standard Time
+(GMT+02:00) Central European Time - Stockholm,Europe/Stockholm,W. Europe Standard Time
+(GMT+02:00) Central European Time - Tirane,Europe/Tirane,Central Europe Standard Time
+(GMT+02:00) Central European Time - Vienna,Europe/Vienna,W. Europe Standard Time
+(GMT+02:00) Central European Time - Warsaw,Europe/Warsaw,Central European Standard Time
+(GMT+02:00) Central European Time - Zurich,Europe/Zurich,W. Europe Standard Time
+(GMT+02:00) Eastern European Standard Time - Cairo,Africa/Cairo,Egypt Standard Time
+(GMT+02:00) Eastern European Standard Time - Kaliningrad,Europe/Kaliningrad,Kaliningrad Standard Time
+(GMT+02:00) Eastern European Standard Time - Tripoli,Africa/Tripoli,Libya Standard Time
+(GMT+02:00) Eastern European Time (Syria) - Damascus,Asia/Damascus,Syria Standard Time
+(GMT+02:00) South Africa Standard Time,Africa/Johannesburg,South Africa Standard Time
+(GMT+03:00) Arabian Standard Time - Baghdad,Asia/Baghdad,Arabic Standard Time
+(GMT+03:00) Arabian Standard Time - Qatar,Asia/Qatar,Arab Standard Time
+(GMT+03:00) Arabian Standard Time - Riyadh,Asia/Riyadh,Arab Standard Time
+(GMT+03:00) East Africa Time - Juba,Africa/Juba,E. Africa Standard Time
+(GMT+03:00) East Africa Time - Nairobi,Africa/Nairobi,E. Africa Standard Time
+(GMT+03:00) Eastern European Time - Amman,Asia/Amman,Jordan Standard Time
+(GMT+03:00) Eastern European Time - Athens,Europe/Athens,GTB Standard Time
+(GMT+03:00) Eastern European Time - Beirut,Asia/Beirut,Middle East Standard Time
+(GMT+03:00) Eastern European Time - Bucharest,Europe/Bucharest,GTB Standard Time
+(GMT+03:00) Eastern European Time - Chisinau,Europe/Chisinau,E. Europe Standard Time
+(GMT+03:00) Eastern European Time - Hebron,Asia/Hebron,West Bank Standard Time
+(GMT+03:00) Eastern European Time - Helsinki,Europe/Helsinki,FLE Standard Time
+(GMT+03:00) Eastern European Time - Kiev,Europe/Kiev,FLE Standard Time
+(GMT+03:00) Eastern European Time - Riga,Europe/Riga,FLE Standard Time
+(GMT+03:00) Eastern European Time - Sofia,Europe/Sofia,FLE Standard Time
+(GMT+03:00) Eastern European Time - Tallinn,Europe/Tallinn,FLE Standard Time
+(GMT+03:00) Eastern European Time - Vilnius,Europe/Vilnius,FLE Standard Time
+(GMT+03:00) Israel Time,Asia/Jerusalem,Israel Standard Time
+(GMT+03:00) Moscow Standard Time - Minsk,Europe/Minsk,Belarus Standard Time
+(GMT+03:00) Moscow Standard Time - Moscow,Europe/Moscow,Russian Standard Time
+(GMT+03:00) Moscow Standard Time - Simferopol,Europe/Simferopol,Russian Standard Time
+(GMT+03:00) Syowa Time,Antarctica/Syowa,E. Africa Standard Time
+(GMT+03:00) Turkey Time,Europe/Istanbul,Turkey Standard Time
+(GMT+03:30) Iran Time,Asia/Tehran,Iran Standard Time
+(GMT+04:00) Armenia Standard Time,Asia/Yerevan,Caucasus Standard Time
+(GMT+04:00) Astrakhan Time,Europe/Astrakhan,Astrakhan Standard Time
+(GMT+04:00) Azerbaijan Standard Time,Asia/Baku,Azerbaijan Standard Time
+(GMT+04:00) Georgia Standard Time,Asia/Tbilisi,Georgian Standard Time
+(GMT+04:00) Gulf Standard Time,Asia/Dubai,Arabian Standard Time
+(GMT+04:00) Mauritius Standard Time,Indian/Mauritius,Mauritius Standard Time
+(GMT+04:00) Réunion Time,Indian/Reunion,Mauritius Standard Time
+(GMT+04:00) Samara Standard Time,Europe/Samara,Russia Time Zone 3
+(GMT+04:00) Saratov Time,Europe/Saratov,Saratov Standard Time
+(GMT+04:00) Seychelles Time,Indian/Mahe,Mauritius Standard Time
+(GMT+04:30) Afghanistan Time,Asia/Kabul,Afghanistan Standard Time
+(GMT+05:00) French Southern & Antarctic Time,Indian/Kerguelen,West Asia Standard Time
+(GMT+05:00) Maldives Time,Indian/Maldives,West Asia Standard Time
+(GMT+05:00) Mawson Time,Antarctica/Mawson,West Asia Standard Time
+(GMT+05:00) Pakistan Standard Time,Asia/Karachi,Pakistan Standard Time
+(GMT+05:00) Tajikistan Time,Asia/Dushanbe,West Asia Standard Time
+(GMT+05:00) Turkmenistan Standard Time,Asia/Ashgabat,West Asia Standard Time
+(GMT+05:00) Uzbekistan Standard Time - Tashkent,Asia/Tashkent,West Asia Standard Time
+(GMT+05:00) Yekaterinburg Standard Time,Asia/Yekaterinburg,Ekaterinburg Standard Time
+(GMT+05:30) India Standard Time - Colombo,Asia/Colombo,Sri Lanka Standard Time
+(GMT+06:00) Bangladesh Standard Time,Asia/Dhaka,Bangladesh Standard Time
+(GMT+06:00) Bhutan Time,Asia/Thimphu,Bangladesh Standard Time
+(GMT+06:00) East Kazakhstan Time - Almaty,Asia/Almaty,Central Asia Standard Time
+(GMT+06:00) Indian Ocean Time,Indian/Chagos,Central Asia Standard Time
+(GMT+06:00) Kyrgyzstan Time,Asia/Bishkek,Central Asia Standard Time
+(GMT+06:00) Omsk Standard Time,Asia/Omsk,Omsk Standard Time
+(GMT+06:00) Urumqi Time,Asia/Urumqi,Central Asia Standard Time
+(GMT+06:00) Vostok Time,Antarctica/Vostok,Central Asia Standard Time
+(GMT+06:30) Cocos Islands Time,Indian/Cocos,Myanmar Standard Time
+(GMT+07:00) Barnaul Time,Asia/Barnaul,Altai Standard Time
+(GMT+07:00) Christmas Island Time,Indian/Christmas,SE Asia Standard Time
+(GMT+07:00) Davis Time,Antarctica/Davis,SE Asia Standard Time
+(GMT+07:00) Hovd Standard Time,Asia/Hovd,W. Mongolia Standard Time
+(GMT+07:00) Indochina Time - Bangkok,Asia/Bangkok,SE Asia Standard Time
+(GMT+07:00) Krasnoyarsk Standard Time - Krasnoyarsk,Asia/Krasnoyarsk,North Asia Standard Time
+(GMT+07:00) Novosibirsk Standard Time,Asia/Novosibirsk,N. Central Asia Standard Time
+(GMT+07:00) Tomsk Time,Asia/Tomsk,Tomsk Standard Time
+(GMT+08:00) Australian Western Standard Time - Casey,Antarctica/Casey,W. Australia Standard Time
+(GMT+08:00) Australian Western Standard Time - Perth,Australia/Perth,W. Australia Standard Time
+(GMT+08:00) Brunei Darussalam Time,Asia/Brunei,Singapore Standard Time
+(GMT+08:00) Central Indonesia Time,Asia/Makassar,Singapore Standard Time
+(GMT+08:00) China Standard Time - Macao,Asia/Macau,China Standard Time
+(GMT+08:00) China Standard Time - Shanghai,Asia/Shanghai,China Standard Time
+(GMT+08:00) Hong Kong Standard Time,Asia/Hong_Kong,China Standard Time
+(GMT+08:00) Irkutsk Standard Time,Asia/Irkutsk,North Asia East Standard Time
+(GMT+08:00) Philippine Standard Time,Asia/Manila,Singapore Standard Time
+(GMT+08:00) Singapore Standard Time,Asia/Singapore,Singapore Standard Time
+(GMT+08:00) Taipei Standard Time,Asia/Taipei,Taipei Standard Time
+(GMT+08:00) Ulaanbaatar Standard Time,Asia/Ulaanbaatar,Ulaanbaatar Standard Time
+(GMT+08:45) Australian Central Western Standard Time,Australia/Eucla,Aus Central W. Standard Time
+(GMT+09:00) East Timor Time,Asia/Dili,Tokyo Standard Time
+(GMT+09:00) Eastern Indonesia Time,Asia/Jayapura,Tokyo Standard Time
+(GMT+09:00) Japan Standard Time,Asia/Tokyo,Tokyo Standard Time
+(GMT+09:00) Korean Standard Time - Pyongyang,Asia/Pyongyang,North Korea Standard Time
+(GMT+09:00) Korean Standard Time - Seoul,Asia/Seoul,Korea Standard Time
+(GMT+09:00) Palau Time,Pacific/Palau,Tokyo Standard Time
+(GMT+09:00) Yakutsk Standard Time - Chita,Asia/Chita,Transbaikal Standard Time
+(GMT+09:00) Yakutsk Standard Time - Yakutsk,Asia/Yakutsk,Yakutsk Standard Time
+(GMT+09:30) Australian Central Standard Time,Australia/Darwin,AUS Central Standard Time
+(GMT+10:00) Australian Eastern Standard Time - Brisbane,Australia/Brisbane,E. Australia Standard Time
+(GMT+10:00) Chamorro Standard Time,Pacific/Guam,West Pacific Standard Time
+(GMT+10:00) Dumont-d'Urville Time,Antarctica/DumontDUrville,West Pacific Standard Time
+(GMT+10:00) Papua New Guinea Time,Pacific/Port_Moresby,West Pacific Standard Time
+(GMT+10:00) Vladivostok Standard Time - Vladivostok,Asia/Vladivostok,Vladivostok Standard Time
+(GMT+10:30) Central Australia Time - Adelaide,Australia/Adelaide,Cen. Australia Standard Time
+(GMT+11:00) Bougainville Time,Pacific/Bougainville,Bougainville Standard Time
+(GMT+11:00) Eastern Australia Time - Hobart,Australia/Hobart,Tasmania Standard Time
+(GMT+11:00) Eastern Australia Time - Sydney,Australia/Sydney,AUS Eastern Standard Time
+(GMT+11:00) Lord Howe Time,Australia/Lord_Howe,Lord Howe Standard Time
+(GMT+11:00) Macquarie Island Time,Antarctica/Macquarie,Central Pacific Standard Time
+(GMT+11:00) Magadan Standard Time,Asia/Magadan,Magadan Standard Time
+(GMT+11:00) New Caledonia Standard Time,Pacific/Noumea,Central Pacific Standard Time
+(GMT+11:00) Norfolk Island Time,Pacific/Norfolk,Norfolk Standard Time
+(GMT+11:00) Sakhalin Standard Time,Asia/Sakhalin,Sakhalin Standard Time
+(GMT+11:00) Solomon Islands Time,Pacific/Guadalcanal,Central Pacific Standard Time
+(GMT+11:00) Srednekolymsk Time,Asia/Srednekolymsk,Russia Time Zone 10
+(GMT+11:00) Vanuatu Standard Time,Pacific/Efate,Central Pacific Standard Time
+(GMT+12:00) Fiji Time,Pacific/Fiji,Fiji Standard Time
+(GMT+12:00) Gilbert Islands Time,Pacific/Tarawa,UTC+12
+(GMT+12:00) Nauru Time,Pacific/Nauru,UTC+12
+(GMT+12:00) Petropavlovsk-Kamchatski Standard Time,Asia/Kamchatka,Russia Time Zone 11
+(GMT+12:00) Tuvalu Time,Pacific/Funafuti,UTC+12
+(GMT+12:00) Wake Island Time,Pacific/Wake,UTC+12
+(GMT+12:00) Wallis & Futuna Time,Pacific/Wallis,UTC+12
+(GMT+13:00) New Zealand Time,Pacific/Auckland,New Zealand Standard Time
+(GMT+13:00) Phoenix Islands Time,Pacific/Enderbury,UTC+13
+(GMT+13:00) Tokelau Time,Pacific/Fakaofo,UTC+13
+(GMT+13:00) Tonga Standard Time,Pacific/Tongatapu,Tonga Standard Time
+(GMT+13:45) Chatham Time,Pacific/Chatham,Chatham Islands Standard Time
+(GMT+14:00) Apia Time,Pacific/Apia,Samoa Standard Time
+(GMT+14:00) Line Islands Time,Pacific/Kiritimati,Line Islands Standard Time
+(GMT-01:00) Cape Verde Standard Time,Atlantic/Cape_Verde,Cape Verde Standard Time
+(GMT-02:00) Fernando de Noronha Standard Time,America/Noronha,UTC-02
+(GMT-02:00) South Georgia Time,Atlantic/South_Georgia,UTC-02
+(GMT-02:00) St. Pierre & Miquelon Time,America/Miquelon,Saint Pierre Standard Time
+(GMT-02:00) West Greenland Time,America/Godthab,Greenland Standard Time
+(GMT-02:30) Newfoundland Time,America/St_Johns,Newfoundland Standard Time
+(GMT-03:00) Atlantic Time - Bermuda,Atlantic/Bermuda,Atlantic Standard Time
+(GMT-03:00) Atlantic Time - Halifax,America/Halifax,Atlantic Standard Time
+(GMT-03:00) Atlantic Time - Thule,America/Thule,Atlantic Standard Time
+(GMT-03:00) Brasilia Standard Time - Araguaina,America/Araguaina,Tocantins Standard Time
+(GMT-03:00) Brasilia Standard Time - Bahia,America/Bahia,Bahia Standard Time
+(GMT-03:00) Brasilia Standard Time - Sao Paulo,America/Sao_Paulo,E. South America Standard Time
+(GMT-03:00) Chile Time,America/Santiago,Pacific SA Standard Time
+(GMT-03:00) Falkland Islands Standard Time,Atlantic/Stanley,SA Eastern Standard Time
+(GMT-03:00) French Guiana Time,America/Cayenne,SA Eastern Standard Time
+(GMT-03:00) Palmer Time,Antarctica/Palmer,Magallanes Standard Time
+(GMT-03:00) Paraguay Time,America/Asuncion,Paraguay Standard Time
+(GMT-03:00) Punta Arenas Time,America/Punta_Arenas,Magallanes Standard Time
+(GMT-03:00) Rothera Time,Antarctica/Rothera,SA Eastern Standard Time
+(GMT-03:00) Suriname Time,America/Paramaribo,SA Eastern Standard Time
+(GMT-03:00) Uruguay Standard Time,America/Montevideo,Montevideo Standard Time
+(GMT-04:00) Amazon Standard Time - Cuiaba,America/Cuiaba,Central Brazilian Standard Time
+(GMT-04:00) Atlantic Standard Time - Barbados,America/Barbados,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Blanc-Sablon,America/Blanc-Sablon,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Curaçao,America/Curacao,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Martinique,America/Martinique,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Port of Spain,America/Port_of_Spain,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Puerto Rico,America/Puerto_Rico,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Santo Domingo,America/Santo_Domingo,SA Western Standard Time
+(GMT-04:00) Bolivia Time,America/La_Paz,SA Western Standard Time
+(GMT-04:00) Cuba Time,America/Havana,Cuba Standard Time
+(GMT-04:00) Eastern Time - Grand Turk,America/Grand_Turk,Turks And Caicos Standard Time
+(GMT-04:00) Eastern Time - Nassau,America/Nassau,Eastern Standard Time
+(GMT-04:00) Eastern Time - New York,America/New_York,Eastern Standard Time
+(GMT-04:00) Eastern Time - Port-au-Prince,America/Port-au-Prince,Haiti Standard Time
+(GMT-04:00) Guyana Time,America/Guyana,SA Western Standard Time
+(GMT-04:00) Venezuela Time,America/Caracas,Venezuela Standard Time
+(GMT-05:00) Central Time - Chicago,America/Chicago,Central Standard Time
+(GMT-05:00) Central Time - Matamoros,America/Matamoros,Central Standard Time
+(GMT-05:00) Central Time - Mexico City,America/Mexico_City,Central Standard Time (Mexico)
+(GMT-05:00) Colombia Standard Time,America/Bogota,SA Pacific Standard Time
+(GMT-05:00) Easter Island Time,Pacific/Easter,Easter Island Standard Time
+(GMT-05:00) Eastern Standard Time - Cancun,America/Cancun,Eastern Standard Time (Mexico)
+(GMT-05:00) Eastern Standard Time - Jamaica,America/Jamaica,SA Pacific Standard Time
+(GMT-05:00) Eastern Standard Time - Panama,America/Panama,SA Pacific Standard Time
+(GMT-05:00) Ecuador Time,America/Guayaquil,SA Pacific Standard Time
+(GMT-05:00) Peru Standard Time,America/Lima,SA Pacific Standard Time
+(GMT-06:00) Central Standard Time - Belize,America/Belize,Central America Standard Time
+(GMT-06:00) Central Standard Time - Costa Rica,America/Costa_Rica,Central America Standard Time
+(GMT-06:00) Central Standard Time - El Salvador,America/El_Salvador,Central America Standard Time
+(GMT-06:00) Central Standard Time - Guatemala,America/Guatemala,Central America Standard Time
+(GMT-06:00) Central Standard Time - Managua,America/Managua,Central America Standard Time
+(GMT-06:00) Central Standard Time - Regina,America/Regina,Canada Central Standard Time
+(GMT-06:00) Central Standard Time - Tegucigalpa,America/Tegucigalpa,Central America Standard Time
+(GMT-06:00) Galapagos Time,Pacific/Galapagos,Central America Standard Time
+(GMT-06:00) Mexican Pacific Time - Chihuahua,America/Chihuahua,Mountain Standard Time (Mexico)
+(GMT-06:00) Mountain Time - Denver,America/Denver,Mountain Standard Time
+(GMT-06:00) Mountain Time - Ojinaga,America/Ojinaga,Mountain Standard Time
+(GMT-07:00) Mexican Pacific Standard Time,America/Hermosillo,US Mountain Standard Time
+(GMT-07:00) Mountain Standard Time - Phoenix,America/Phoenix,US Mountain Standard Time
+(GMT-07:00) Pacific Time - Los Angeles,America/Los_Angeles,Pacific Standard Time
+(GMT-07:00) Pacific Time - Tijuana,America/Tijuana,Pacific Standard Time (Mexico)
+(GMT-08:00) Alaska Time - Anchorage,America/Anchorage,Alaskan Standard Time
+(GMT-08:00) Pitcairn Time,Pacific/Pitcairn,UTC-08
+(GMT-09:00) Gambier Time,Pacific/Gambier,UTC-09
+(GMT-09:00) Hawaii-Aleutian Time (Adak),America/Adak,Aleutian Standard Time
+(GMT-09:30) Marquesas Time,Pacific/Marquesas,Marquesas Standard Time
+(GMT-10:00) Cook Islands Standard Time,Pacific/Rarotonga,Hawaiian Standard Time
+(GMT-10:00) Hawaii-Aleutian Standard Time,Pacific/Honolulu,Hawaiian Standard Time
+(GMT-10:00) Tahiti Time,Pacific/Tahiti,Hawaiian Standard Time
+(GMT-11:00) Niue Time,Pacific/Niue,UTC-11
+(GMT-11:00) Samoa Standard Time,Pacific/Pago_Pago,UTC-11
+
+﻿(GMT+00:00) Azores Time,Atlantic/Azores,Azores Standard Time
+(GMT+00:00) East Greenland Time,America/Scoresbysund,Azores Standard Time
+(GMT+00:00) Greenwich Mean Time,Etc/GMT,UTC
+(GMT+00:00) Greenwich Mean Time - Abidjan,Africa/Abidjan,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Accra,Africa/Accra,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Bissau,Africa/Bissau,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Danmarkshavn,America/Danmarkshavn,UTC
+(GMT+00:00) Greenwich Mean Time - Monrovia,Africa/Monrovia,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - Reykjavik,Atlantic/Reykjavik,Greenwich Standard Time
+(GMT+00:00) Greenwich Mean Time - São Tomé,Africa/Sao_Tome,W. Central Africa Standard Time
+(GMT+01:00) Central European Standard Time - Algiers,Africa/Algiers,W. Central Africa Standard Time
+(GMT+01:00) Central European Standard Time - Tunis,Africa/Tunis,W. Central Africa Standard Time
+(GMT+01:00) Ireland Time,Europe/Dublin,GMT Standard Time
+(GMT+01:00) Morocco Time,Africa/Casablanca,Morocco Standard Time
+(GMT+01:00) United Kingdom Time,Europe/London,GMT Standard Time
+(GMT+01:00) West Africa Standard Time - Lagos,Africa/Lagos,W. Central Africa Standard Time
+(GMT+01:00) West Africa Standard Time - Ndjamena,Africa/Ndjamena,W. Central Africa Standard Time
+(GMT+01:00) Western European Time - Canary,Atlantic/Canary,GMT Standard Time
+(GMT+01:00) Western Sahara Time,Africa/El_Aaiun,Morocco Standard Time
+(GMT+02:00) Central Africa Time - Khartoum,Africa/Khartoum,Sudan Standard Time
+(GMT+02:00) Central Africa Time - Maputo,Africa/Maputo,South Africa Standard Time
+(GMT+02:00) Central Africa Time - Windhoek,Africa/Windhoek,Namibia Standard Time
+(GMT+02:00) Central European Time - Amsterdam,Europe/Amsterdam,W. Europe Standard Time
+(GMT+02:00) Central European Time - Andorra,Europe/Andorra,W. Europe Standard Time
+(GMT+02:00) Central European Time - Belgrade,Europe/Belgrade,Central Europe Standard Time
+(GMT+02:00) Central European Time - Berlin,Europe/Berlin,W. Europe Standard Time
+(GMT+02:00) Central European Time - Brussels,Europe/Brussels,Romance Standard Time
+(GMT+02:00) Central European Time - Budapest,Europe/Budapest,Central Europe Standard Time
+(GMT+02:00) Central European Time - Copenhagen,Europe/Copenhagen,Romance Standard Time
+(GMT+02:00) Central European Time - Gibraltar,Europe/Gibraltar,W. Europe Standard Time
+(GMT+02:00) Central European Time - Luxembourg,Europe/Luxembourg,W. Europe Standard Time
+(GMT+02:00) Central European Time - Malta,Europe/Malta,W. Europe Standard Time
+(GMT+02:00) Central European Time - Monaco,Europe/Monaco,W. Europe Standard Time
+(GMT+02:00) Central European Time - Oslo,Europe/Oslo,W. Europe Standard Time
+(GMT+02:00) Central European Time - Paris,Europe/Paris,Romance Standard Time
+(GMT+02:00) Central European Time - Prague,Europe/Prague,Central Europe Standard Time
+(GMT+02:00) Central European Time - Rome,Europe/Rome,W. Europe Standard Time
+(GMT+02:00) Central European Time - Stockholm,Europe/Stockholm,W. Europe Standard Time
+(GMT+02:00) Central European Time - Tirane,Europe/Tirane,Central Europe Standard Time
+(GMT+02:00) Central European Time - Vienna,Europe/Vienna,W. Europe Standard Time
+(GMT+02:00) Central European Time - Warsaw,Europe/Warsaw,Central European Standard Time
+(GMT+02:00) Central European Time - Zurich,Europe/Zurich,W. Europe Standard Time
+(GMT+02:00) Eastern European Standard Time - Cairo,Africa/Cairo,Egypt Standard Time
+(GMT+02:00) Eastern European Standard Time - Kaliningrad,Europe/Kaliningrad,Kaliningrad Standard Time
+(GMT+02:00) Eastern European Standard Time - Tripoli,Africa/Tripoli,Libya Standard Time
+(GMT+02:00) Eastern European Time (Syria) - Damascus,Asia/Damascus,Syria Standard Time
+(GMT+02:00) South Africa Standard Time,Africa/Johannesburg,South Africa Standard Time
+(GMT+03:00) Arabian Standard Time - Baghdad,Asia/Baghdad,Arabic Standard Time
+(GMT+03:00) Arabian Standard Time - Qatar,Asia/Qatar,Arab Standard Time
+(GMT+03:00) Arabian Standard Time - Riyadh,Asia/Riyadh,Arab Standard Time
+(GMT+03:00) East Africa Time - Juba,Africa/Juba,E. Africa Standard Time
+(GMT+03:00) East Africa Time - Nairobi,Africa/Nairobi,E. Africa Standard Time
+(GMT+03:00) Eastern European Time - Amman,Asia/Amman,Jordan Standard Time
+(GMT+03:00) Eastern European Time - Athens,Europe/Athens,GTB Standard Time
+(GMT+03:00) Eastern European Time - Beirut,Asia/Beirut,Middle East Standard Time
+(GMT+03:00) Eastern European Time - Bucharest,Europe/Bucharest,GTB Standard Time
+(GMT+03:00) Eastern European Time - Chisinau,Europe/Chisinau,E. Europe Standard Time
+(GMT+03:00) Eastern European Time - Hebron,Asia/Hebron,West Bank Standard Time
+(GMT+03:00) Eastern European Time - Helsinki,Europe/Helsinki,FLE Standard Time
+(GMT+03:00) Eastern European Time - Kiev,Europe/Kiev,FLE Standard Time
+(GMT+03:00) Eastern European Time - Riga,Europe/Riga,FLE Standard Time
+(GMT+03:00) Eastern European Time - Sofia,Europe/Sofia,FLE Standard Time
+(GMT+03:00) Eastern European Time - Tallinn,Europe/Tallinn,FLE Standard Time
+(GMT+03:00) Eastern European Time - Vilnius,Europe/Vilnius,FLE Standard Time
+(GMT+03:00) Israel Time,Asia/Jerusalem,Israel Standard Time
+(GMT+03:00) Moscow Standard Time - Minsk,Europe/Minsk,Belarus Standard Time
+(GMT+03:00) Moscow Standard Time - Moscow,Europe/Moscow,Russian Standard Time
+(GMT+03:00) Moscow Standard Time - Simferopol,Europe/Simferopol,Russian Standard Time
+(GMT+03:00) Syowa Time,Antarctica/Syowa,E. Africa Standard Time
+(GMT+03:00) Turkey Time,Europe/Istanbul,Turkey Standard Time
+(GMT+03:30) Iran Time,Asia/Tehran,Iran Standard Time
+(GMT+04:00) Armenia Standard Time,Asia/Yerevan,Caucasus Standard Time
+(GMT+04:00) Astrakhan Time,Europe/Astrakhan,Astrakhan Standard Time
+(GMT+04:00) Azerbaijan Standard Time,Asia/Baku,Azerbaijan Standard Time
+(GMT+04:00) Georgia Standard Time,Asia/Tbilisi,Georgian Standard Time
+(GMT+04:00) Gulf Standard Time,Asia/Dubai,Arabian Standard Time
+(GMT+04:00) Mauritius Standard Time,Indian/Mauritius,Mauritius Standard Time
+(GMT+04:00) Réunion Time,Indian/Reunion,Mauritius Standard Time
+(GMT+04:00) Samara Standard Time,Europe/Samara,Russia Time Zone 3
+(GMT+04:00) Saratov Time,Europe/Saratov,Saratov Standard Time
+(GMT+04:00) Seychelles Time,Indian/Mahe,Mauritius Standard Time
+(GMT+04:30) Afghanistan Time,Asia/Kabul,Afghanistan Standard Time
+(GMT+05:00) French Southern & Antarctic Time,Indian/Kerguelen,West Asia Standard Time
+(GMT+05:00) Maldives Time,Indian/Maldives,West Asia Standard Time
+(GMT+05:00) Mawson Time,Antarctica/Mawson,West Asia Standard Time
+(GMT+05:00) Pakistan Standard Time,Asia/Karachi,Pakistan Standard Time
+(GMT+05:00) Tajikistan Time,Asia/Dushanbe,West Asia Standard Time
+(GMT+05:00) Turkmenistan Standard Time,Asia/Ashgabat,West Asia Standard Time
+(GMT+05:00) Uzbekistan Standard Time - Tashkent,Asia/Tashkent,West Asia Standard Time
+(GMT+05:00) Yekaterinburg Standard Time,Asia/Yekaterinburg,Ekaterinburg Standard Time
+(GMT+05:30) India Standard Time - Colombo,Asia/Colombo,Sri Lanka Standard Time
+(GMT+06:00) Bangladesh Standard Time,Asia/Dhaka,Bangladesh Standard Time
+(GMT+06:00) Bhutan Time,Asia/Thimphu,Bangladesh Standard Time
+(GMT+06:00) East Kazakhstan Time - Almaty,Asia/Almaty,Central Asia Standard Time
+(GMT+06:00) Indian Ocean Time,Indian/Chagos,Central Asia Standard Time
+(GMT+06:00) Kyrgyzstan Time,Asia/Bishkek,Central Asia Standard Time
+(GMT+06:00) Omsk Standard Time,Asia/Omsk,Omsk Standard Time
+(GMT+06:00) Urumqi Time,Asia/Urumqi,Central Asia Standard Time
+(GMT+06:00) Vostok Time,Antarctica/Vostok,Central Asia Standard Time
+(GMT+06:30) Cocos Islands Time,Indian/Cocos,Myanmar Standard Time
+(GMT+07:00) Barnaul Time,Asia/Barnaul,Altai Standard Time
+(GMT+07:00) Christmas Island Time,Indian/Christmas,SE Asia Standard Time
+(GMT+07:00) Davis Time,Antarctica/Davis,SE Asia Standard Time
+(GMT+07:00) Hovd Standard Time,Asia/Hovd,W. Mongolia Standard Time
+(GMT+07:00) Indochina Time - Bangkok,Asia/Bangkok,SE Asia Standard Time
+(GMT+07:00) Krasnoyarsk Standard Time - Krasnoyarsk,Asia/Krasnoyarsk,North Asia Standard Time
+(GMT+07:00) Novosibirsk Standard Time,Asia/Novosibirsk,N. Central Asia Standard Time
+(GMT+07:00) Tomsk Time,Asia/Tomsk,Tomsk Standard Time
+(GMT+08:00) Australian Western Standard Time - Casey,Antarctica/Casey,W. Australia Standard Time
+(GMT+08:00) Australian Western Standard Time - Perth,Australia/Perth,W. Australia Standard Time
+(GMT+08:00) Brunei Darussalam Time,Asia/Brunei,Singapore Standard Time
+(GMT+08:00) Central Indonesia Time,Asia/Makassar,Singapore Standard Time
+(GMT+08:00) China Standard Time - Macao,Asia/Macau,China Standard Time
+(GMT+08:00) China Standard Time - Shanghai,Asia/Shanghai,China Standard Time
+(GMT+08:00) Hong Kong Standard Time,Asia/Hong_Kong,China Standard Time
+(GMT+08:00) Irkutsk Standard Time,Asia/Irkutsk,North Asia East Standard Time
+(GMT+08:00) Philippine Standard Time,Asia/Manila,Singapore Standard Time
+(GMT+08:00) Singapore Standard Time,Asia/Singapore,Singapore Standard Time
+(GMT+08:00) Taipei Standard Time,Asia/Taipei,Taipei Standard Time
+(GMT+08:00) Ulaanbaatar Standard Time,Asia/Ulaanbaatar,Ulaanbaatar Standard Time
+(GMT+08:45) Australian Central Western Standard Time,Australia/Eucla,Aus Central W. Standard Time
+(GMT+09:00) East Timor Time,Asia/Dili,Tokyo Standard Time
+(GMT+09:00) Eastern Indonesia Time,Asia/Jayapura,Tokyo Standard Time
+(GMT+09:00) Japan Standard Time,Asia/Tokyo,Tokyo Standard Time
+(GMT+09:00) Korean Standard Time - Pyongyang,Asia/Pyongyang,North Korea Standard Time
+(GMT+09:00) Korean Standard Time - Seoul,Asia/Seoul,Korea Standard Time
+(GMT+09:00) Palau Time,Pacific/Palau,Tokyo Standard Time
+(GMT+09:00) Yakutsk Standard Time - Chita,Asia/Chita,Transbaikal Standard Time
+(GMT+09:00) Yakutsk Standard Time - Yakutsk,Asia/Yakutsk,Yakutsk Standard Time
+(GMT+09:30) Australian Central Standard Time,Australia/Darwin,AUS Central Standard Time
+(GMT+10:00) Australian Eastern Standard Time - Brisbane,Australia/Brisbane,E. Australia Standard Time
+(GMT+10:00) Chamorro Standard Time,Pacific/Guam,West Pacific Standard Time
+(GMT+10:00) Dumont-d'Urville Time,Antarctica/DumontDUrville,West Pacific Standard Time
+(GMT+10:00) Papua New Guinea Time,Pacific/Port_Moresby,West Pacific Standard Time
+(GMT+10:00) Vladivostok Standard Time - Vladivostok,Asia/Vladivostok,Vladivostok Standard Time
+(GMT+10:30) Central Australia Time - Adelaide,Australia/Adelaide,Cen. Australia Standard Time
+(GMT+11:00) Bougainville Time,Pacific/Bougainville,Bougainville Standard Time
+(GMT+11:00) Eastern Australia Time - Hobart,Australia/Hobart,Tasmania Standard Time
+(GMT+11:00) Eastern Australia Time - Sydney,Australia/Sydney,AUS Eastern Standard Time
+(GMT+11:00) Lord Howe Time,Australia/Lord_Howe,Lord Howe Standard Time
+(GMT+11:00) Macquarie Island Time,Antarctica/Macquarie,Central Pacific Standard Time
+(GMT+11:00) Magadan Standard Time,Asia/Magadan,Magadan Standard Time
+(GMT+11:00) New Caledonia Standard Time,Pacific/Noumea,Central Pacific Standard Time
+(GMT+11:00) Norfolk Island Time,Pacific/Norfolk,Norfolk Standard Time
+(GMT+11:00) Sakhalin Standard Time,Asia/Sakhalin,Sakhalin Standard Time
+(GMT+11:00) Solomon Islands Time,Pacific/Guadalcanal,Central Pacific Standard Time
+(GMT+11:00) Srednekolymsk Time,Asia/Srednekolymsk,Russia Time Zone 10
+(GMT+11:00) Vanuatu Standard Time,Pacific/Efate,Central Pacific Standard Time
+(GMT+12:00) Fiji Time,Pacific/Fiji,Fiji Standard Time
+(GMT+12:00) Gilbert Islands Time,Pacific/Tarawa,UTC+12
+(GMT+12:00) Nauru Time,Pacific/Nauru,UTC+12
+(GMT+12:00) Petropavlovsk-Kamchatski Standard Time,Asia/Kamchatka,Russia Time Zone 11
+(GMT+12:00) Tuvalu Time,Pacific/Funafuti,UTC+12
+(GMT+12:00) Wake Island Time,Pacific/Wake,UTC+12
+(GMT+12:00) Wallis & Futuna Time,Pacific/Wallis,UTC+12
+(GMT+13:00) New Zealand Time,Pacific/Auckland,New Zealand Standard Time
+(GMT+13:00) Phoenix Islands Time,Pacific/Enderbury,UTC+13
+(GMT+13:00) Tokelau Time,Pacific/Fakaofo,UTC+13
+(GMT+13:00) Tonga Standard Time,Pacific/Tongatapu,Tonga Standard Time
+(GMT+13:45) Chatham Time,Pacific/Chatham,Chatham Islands Standard Time
+(GMT+14:00) Apia Time,Pacific/Apia,Samoa Standard Time
+(GMT+14:00) Line Islands Time,Pacific/Kiritimati,Line Islands Standard Time
+(GMT-01:00) Cape Verde Standard Time,Atlantic/Cape_Verde,Cape Verde Standard Time
+(GMT-02:00) Fernando de Noronha Standard Time,America/Noronha,UTC-02
+(GMT-02:00) South Georgia Time,Atlantic/South_Georgia,UTC-02
+(GMT-02:00) St. Pierre & Miquelon Time,America/Miquelon,Saint Pierre Standard Time
+(GMT-02:00) West Greenland Time,America/Godthab,Greenland Standard Time
+(GMT-02:30) Newfoundland Time,America/St_Johns,Newfoundland Standard Time
+(GMT-03:00) Atlantic Time - Bermuda,Atlantic/Bermuda,Atlantic Standard Time
+(GMT-03:00) Atlantic Time - Halifax,America/Halifax,Atlantic Standard Time
+(GMT-03:00) Atlantic Time - Thule,America/Thule,Atlantic Standard Time
+(GMT-03:00) Brasilia Standard Time - Araguaina,America/Araguaina,Tocantins Standard Time
+(GMT-03:00) Brasilia Standard Time - Bahia,America/Bahia,Bahia Standard Time
+(GMT-03:00) Brasilia Standard Time - Sao Paulo,America/Sao_Paulo,E. South America Standard Time
+(GMT-03:00) Chile Time,America/Santiago,Pacific SA Standard Time
+(GMT-03:00) Falkland Islands Standard Time,Atlantic/Stanley,SA Eastern Standard Time
+(GMT-03:00) French Guiana Time,America/Cayenne,SA Eastern Standard Time
+(GMT-03:00) Palmer Time,Antarctica/Palmer,Magallanes Standard Time
+(GMT-03:00) Paraguay Time,America/Asuncion,Paraguay Standard Time
+(GMT-03:00) Punta Arenas Time,America/Punta_Arenas,Magallanes Standard Time
+(GMT-03:00) Rothera Time,Antarctica/Rothera,SA Eastern Standard Time
+(GMT-03:00) Suriname Time,America/Paramaribo,SA Eastern Standard Time
+(GMT-03:00) Uruguay Standard Time,America/Montevideo,Montevideo Standard Time
+(GMT-04:00) Amazon Standard Time - Cuiaba,America/Cuiaba,Central Brazilian Standard Time
+(GMT-04:00) Atlantic Standard Time - Barbados,America/Barbados,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Blanc-Sablon,America/Blanc-Sablon,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Curaçao,America/Curacao,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Martinique,America/Martinique,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Port of Spain,America/Port_of_Spain,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Puerto Rico,America/Puerto_Rico,SA Western Standard Time
+(GMT-04:00) Atlantic Standard Time - Santo Domingo,America/Santo_Domingo,SA Western Standard Time
+(GMT-04:00) Bolivia Time,America/La_Paz,SA Western Standard Time
+(GMT-04:00) Cuba Time,America/Havana,Cuba Standard Time
+(GMT-04:00) Eastern Time - Grand Turk,America/Grand_Turk,Turks And Caicos Standard Time
+(GMT-04:00) Eastern Time - Nassau,America/Nassau,Eastern Standard Time
+(GMT-04:00) Eastern Time - New York,America/New_York,Eastern Standard Time
+(GMT-04:00) Eastern Time - Port-au-Prince,America/Port-au-Prince,Haiti Standard Time
+(GMT-04:00) Guyana Time,America/Guyana,SA Western Standard Time
+(GMT-04:00) Venezuela Time,America/Caracas,Venezuela Standard Time
+(GMT-05:00) Central Time - Chicago,America/Chicago,Central Standard Time
+(GMT-05:00) Central Time - Matamoros,America/Matamoros,Central Standard Time
+(GMT-05:00) Central Time - Mexico City,America/Mexico_City,Central Standard Time (Mexico)
+(GMT-05:00) Colombia Standard Time,America/Bogota,SA Pacific Standard Time
+(GMT-05:00) Easter Island Time,Pacific/Easter,Easter Island Standard Time
+(GMT-05:00) Eastern Standard Time - Cancun,America/Cancun,Eastern Standard Time (Mexico)
+(GMT-05:00) Eastern Standard Time - Jamaica,America/Jamaica,SA Pacific Standard Time
+(GMT-05:00) Eastern Standard Time - Panama,America/Panama,SA Pacific Standard Time
+(GMT-05:00) Ecuador Time,America/Guayaquil,SA Pacific Standard Time
+(GMT-05:00) Peru Standard Time,America/Lima,SA Pacific Standard Time
+(GMT-06:00) Central Standard Time - Belize,America/Belize,Central America Standard Time
+(GMT-06:00) Central Standard Time - Costa Rica,America/Costa_Rica,Central America Standard Time
+(GMT-06:00) Central Standard Time - El Salvador,America/El_Salvador,Central America Standard Time
+(GMT-06:00) Central Standard Time - Guatemala,America/Guatemala,Central America Standard Time
+(GMT-06:00) Central Standard Time - Managua,America/Managua,Central America Standard Time
+(GMT-06:00) Central Standard Time - Regina,America/Regina,Canada Central Standard Time
+(GMT-06:00) Central Standard Time - Tegucigalpa,America/Tegucigalpa,Central America Standard Time
+(GMT-06:00) Galapagos Time,Pacific/Galapagos,Central America Standard Time
+(GMT-06:00) Mexican Pacific Time - Chihuahua,America/Chihuahua,Mountain Standard Time (Mexico)
+(GMT-06:00) Mountain Time - Denver,America/Denver,Mountain Standard Time
+(GMT-06:00) Mountain Time - Ojinaga,America/Ojinaga,Mountain Standard Time
+(GMT-07:00) Mexican Pacific Standard Time,America/Hermosillo,US Mountain Standard Time
+(GMT-07:00) Mountain Standard Time - Phoenix,America/Phoenix,US Mountain Standard Time
+(GMT-07:00) Pacific Time - Los Angeles,America/Los_Angeles,Pacific Standard Time
+(GMT-07:00) Pacific Time - Tijuana,America/Tijuana,Pacific Standard Time (Mexico)
+(GMT-08:00) Alaska Time - Anchorage,America/Anchorage,Alaskan Standard Time
+(GMT-08:00) Pitcairn Time,Pacific/Pitcairn,UTC-08
+(GMT-09:00) Gambier Time,Pacific/Gambier,UTC-09
+(GMT-09:00) Hawaii-Aleutian Time (Adak),America/Adak,Aleutian Standard Time
+(GMT-09:30) Marquesas Time,Pacific/Marquesas,Marquesas Standard Time
+(GMT-10:00) Cook Islands Standard Time,Pacific/Rarotonga,Hawaiian Standard Time
+(GMT-10:00) Hawaii-Aleutian Standard Time,Pacific/Honolulu,Hawaiian Standard Time
+(GMT-10:00) Tahiti Time,Pacific/Tahiti,Hawaiian Standard Time
+(GMT-11:00) Niue Time,Pacific/Niue,UTC-11
+(GMT-11:00) Samoa Standard Time,Pacific/Pago_Pago,UTC-11

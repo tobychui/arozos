@@ -43,11 +43,20 @@ $function_exclude = ["Help","img","script","msb"];
 			margin-left: auto !important;
 			padding-left: auto !important;
 		}
+		.extraRightPadding{
+			margin-right:10px !important;
+		}
+		
+		.selectable{
+			cursor:pointer;
+		}
+		
 	</style>
     <nav id="topbar" class="ts attached inverted borderless large menu">
         <div class="ts narrow container">
-            <a href="index.php" class="item">ArOZ Online β</a>
+            <a href="index.php" class="item localtext" localtext="index/menu/title">ArOZ Online β</a>
         </div>
+		<div id="langbtn" style="position:absolute;top:12px;right:22px;color:white;cursor:pointer;"><i class="globe icon"></i> Language</div>
     </nav>
 
     <!-- Main Banner -->
@@ -59,16 +68,16 @@ $function_exclude = ["Help","img","script","msb"];
                 <div class="sub header">
                         <?php echo $indexConfig["index-tag"][3]; ?>
 					<div class="ts outlined message">
-						<div id="identity">You are now identify as <i class="loading spinner icon"></i></div>
+						<div id="identity"><span class="localtext" localtext="index/banner/identify">You are now identify as</span> <i class="loading spinner icon"></i></div>
 					</div>
 					
                 </div>
             </div>
             <br>
 			<div class="ts buttons">
-            <button id="fbBtn" class="ts primary button" onClick="toggleFunctionBar();"><i class="tasks icon"></i>Activate Virtual Desktop</button>
-			<button id="extDt" class="nvdio ts info button" onClick="extFunctionBar();"><i class="tasks icon"></i>Extend Desktop</button>
-			<button class="ts button" OnClick="window.location.href='logout.php';"><i class="log out icon"></i>Logout</button>
+            <button id="fbBtn" class="ts primary button" onClick="toggleFunctionBar();"><i class="tasks icon"></i><span class="localtext" localtext="index/button/desktop">Activate Virtual Desktop</span></button>
+			<button id="extDt" class="nvdio ts info button" onClick="extFunctionBar();"><i class="tasks icon"></i><span class="localtext" localtext="index/button/extdesktop">Extend Desktop</span></button>
+			<button class="ts button" OnClick="window.location.href='logout.php';"><i class="log out icon"></i><span class="localtext" localtext="index/button/logout">Logout</span></button>
 			</div>
             <br>
             <br>
@@ -78,8 +87,8 @@ $function_exclude = ["Help","img","script","msb"];
 
 	<!-- Mobile Banner-->
 		<div id="mobilebanner" class="ts fluid top attached small buttons" style="display:none;">
-				<div id="vpdm" class="ts primary button"><i class="mobile icon"></i>Your IP: <?php echo $_SERVER['REMOTE_ADDR'];?></div>
-				<button class="ts button" OnClick="window.location.href='logout.php';"><i class="log out icon"></i>Logout</button>
+				<div id="vpdm" class="ts primary button"><i class="mobile icon"></i><span class="localtext" localtext="index/mobile/yourip">Your IP: </span><?php echo $_SERVER['REMOTE_ADDR'];?></div>
+				<button class="ts button" OnClick="window.location.href='logout.php';"><i class="log out icon"></i><span class="localtext" localtext="index/mobile/logout">Logout</span></button>
 		</div>
 			
 	</div>
@@ -97,7 +106,7 @@ $function_exclude = ["Help","img","script","msb"];
                     </div>
                     <div class="left aligned content">
 						<h4>%FOLDERTITLE%</h4>
-                        <div class="description">%DESCRIPTION_TEXT%<br><a href="%FUNCTION_PATH%">Launch</a></div>
+                        <div class="description">%DESCRIPTION_TEXT%<br><a href="%FUNCTION_PATH%" class="localtext" localtext="index/launcher/launch">Launch</a></div>
 						
                     </div>
                 </div>';
@@ -148,7 +157,26 @@ $function_exclude = ["Help","img","script","msb"];
 
     </div>
     <!-- / End of Main Area -->
-
+	<!-- Lanuage Selection Menu -->
+	<div id="langSelection" style="position:absolute;top:45.7px;right:0px;display:none;background-color:#f7f7f7;">
+		<div class="ts segmented items">
+			<div class="selectable language item" lang="">
+				<img class="ts mini middle aligned image extraRightPadding" src="SystemAOB/system/lang/flags/disable.png"> Disable Translation
+			</div>
+			<?php
+			$langs = glob("SystemAOB/system/lang/*.json");
+			foreach ($langs as $lang){
+				$flags = 'SystemAOB/system/lang/flags/' . basename($lang,".json") . ".png";
+				if (!file_exists($flags)){
+					$flags = 'SystemAOB/system/lang/flags/unknown.png';
+				}
+				echo '<div class="selectable language item" lang="' . basename($lang,".json") . '">
+						<img class="ts mini middle aligned image extraRightPadding" src="' . $flags . '">' . basename($lang,".json") . '
+					</div>';
+			}
+			?>
+		</div>
+	</div>
     <!-- Foot -->
     <div class="ts bottom attached segment">
         <div class="ts narrow container">
@@ -169,6 +197,70 @@ $function_exclude = ["Help","img","script","msb"];
 	var DesktopExists = "<?php echo $DesktopExists;?>";
 	var DirectDesktopMode = <?php echo $indexConfig["directDesktop"][3]; ?>;
 	var desktopSettings;
+	var lang = localStorage.getItem("aosystem.localize");
+	var translationkeys;
+	
+	//Handle localization translation and its settings
+	if (lang === undefined || lang == "" || lang === null){
+		if (localStorage.ArOZusername == null || localStorage.ArOZusername == ""){
+		//No User Name
+			var message = localize("index/identify/notfound") || "You have not identified yourself.";
+			$('#identity').html('<i class="user icon"></i>' + message);
+		}else{
+			var message = localize("index/identify/welcomeback") || "Welcome back";
+			$('#identity').html('<i class="user icon"></i>' + message + ' ' + localStorage.ArOZusername + ".");
+		}
+	}
+	
+	$(".selectable").hover(
+       function(){ $(this).addClass('active') },
+       function(){ $(this).removeClass('active') }
+	)
+	
+	$("#langbtn").on("click",function(e){
+		$("#langSelection").slideToggle('fast');
+	});
+	
+	$(".language").on("click",function(){
+		$("#langSelection").slideUp('fast');
+		var targetlang = $(this).attr("lang");
+		localStorage.setItem("aosystem.localize",targetlang);
+		if (targetlang != ""){
+			alert("Language changed to " + targetlang);
+		}else{
+			alert("Translation Disabled.");
+		}
+		window.location.reload();
+	});
+	
+	$.get("SystemAOB/system/lang/" + lang + ".json",function(data){
+		translationkeys = data;
+		console.log("Localization loaded. Lang: " + lang);
+		//Update the on-screen objects with localized translationkeys
+		$(".localtext").each(function(){
+			if (this.hasAttribute("localtext")){
+				var thisKey = $(this).attr("localtext");
+				var localtext = translationkeys.keys[thisKey];
+				$(this).text(localtext);
+			}
+		});
+		
+		if (localStorage.ArOZusername == null || localStorage.ArOZusername == ""){
+		//No User Name
+			var message = localize("index/identify/notfound") || "You have not identified yourself.";
+			$('#identity').html('<i class="user icon"></i>' + message);
+		}else{
+			var message = localize("index/identify/welcomeback") || "Welcome back";
+			$('#identity').html('<i class="user icon"></i>' + message + ' ' + localStorage.ArOZusername + ".");
+		}
+	});
+	
+	function localize(key){
+		if (translationkeys === undefined){
+			return null;
+		}
+		return translationkeys.keys[key];
+	}
 	
 	$.get("SystemAOB/functions/personalization/desktopConfig.php",function(data){
 		if (typeof(data) === "object"){
@@ -221,12 +313,7 @@ $function_exclude = ["Help","img","script","msb"];
 	}
 	
 	*/
-	if (localStorage.ArOZusername == null || localStorage.ArOZusername == ""){
-		//No User Name
-		$('#identity').html('<i class="user icon"></i>You have not identified yourself.');
-	}else{
-		$('#identity').html('<i class="user icon"></i>Welcome back ' + localStorage.ArOZusername + ".");
-	}
+	
 	
 	$(document).ready(function(){
 		//Check if function bar exists or not
@@ -265,6 +352,8 @@ $function_exclude = ["Help","img","script","msb"];
 				$("#mainarea").hide();
 				$("#topbar").removeClass("large").addClass("mini");
 				$("#mobilebanner").show();
+				$("#langbtn").css("top","5px");
+				$("#langSelection").css("top",$("#topbar").height());
 			}else if (DirectDesktopMode){
 			    //This is not mobile, not in fw mode and direct desktop mode is enabled
 			    toggleFunctionBar();

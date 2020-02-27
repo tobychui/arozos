@@ -19,10 +19,21 @@ var ao_module_virtualDesktop = !(!parent.isFunctionBar);
 var ao_module_windowID = false;
 var ao_module_parentID = false;
 var ao_module_callback = false;
+var ao_root = null;
 if (ao_module_virtualDesktop)ao_module_windowID = $(window.frameElement).parent().attr("id");
 if (ao_module_virtualDesktop)ao_module_parentID = $(window.frameElement).parent().find(".floatWindow").attr("puid");
 if (ao_module_virtualDesktop)ao_module_callback = $(window.frameElement).parent().find(".floatWindow").attr("callback");
 if (ao_module_virtualDesktop)ao_module_parentURL = $(window.frameElement).parent().find("iframe").attr("src");
+
+//Try to access the aoRoot by parsing the script including function
+$("script").each(function(){
+	if (this.hasAttribute("src") && $(this).attr("src").includes("ao_module.js")){
+		var tmp = $(this).attr("src");
+		tmp = tmp.split("script/ao_module.js");
+		ao_root = tmp[0];
+	}
+});
+
 
 //Set the current FloatWindow with specified icon
 function ao_module_setWindowIcon(icon){
@@ -39,6 +50,7 @@ function ao_module_setWindowTitle(title){
 		parent.changeWindowTitle(ao_module_windowID + "",title);
 		return true;
 	}
+	window.title = title;
 	return false;
 }
 
@@ -106,37 +118,101 @@ function ao_module_declareCrash(crashmsg){
 	return false;
 }
 
+//Initiate Translation
+/*
+ArOZ Online Localization and Translation Services
+This enable to translation on a given page with the given language or the default language.
+
+To use translation, you will need to include "localtext" in the class field of the DOM element and an attribute "localtext" that point to the classname of the translation.
+Example:
+(in HTML file)
+<span class="localtext" localtext="index/menu/title">Default Text</span>
+
+(in localization file)
+"index/menu/title":"ArOZ Onlineβ",
+
+//Results --> <span>ArOZ Onlineβ</span>
+
+Set overscan to true if you want to allow all elements with "localtext" attribute to be translated without class specified "localtext"
+Example:
+<span localtext="index/menu/title">Default Text</span>
+*/
+function ao_module_initLocalTranslation(overscan = false, lang = null){
+    if (ao_root === null){
+        return;
+    }
+	if (lang === null){
+		//Use default lang
+		lang = localStorage.getItem("aosystem.localize");
+		if (lang === undefined || lang === "" || lang === null){
+			lang = "";
+		}
+	}
+	//Load the given language
+	$.get(ao_root + "SystemAOB/system/lang/" + lang + ".json",function(data){
+		window.arozTranslationKey = data;
+		if (overscan){
+			$("*").each(function(){
+				if (this.hasAttribute("localtext")){
+					var thisKey = $(this).attr("localtext");
+					var localtext = window.arozTranslationKey.keys[thisKey];
+					$(this).text(localtext);
+				}
+			});
+		}else{
+			$(".localtext").each(function(){
+				if (this.hasAttribute("localtext")){
+					var thisKey = $(this).attr("localtext");
+					var localtext = window.arozTranslationKey.keys[thisKey];
+					$(this).text(localtext);
+				}
+			});
+		}
+		
+	});
+	
+}
+
+function ao_module_setLocal(lang){
+	localStorage.setItem("aosystem.localize",lang);
+}
+
 //Open file selector 
 /**
- * File Explorer powered by ArOZ Online File System
- * To pop up a file selector and return an object of files, you can call the following function with the given variable.
- * Usage: ao_module_openFileSelector({uid},{call back function name in String},{window Width},{windowHeight},{allowMultipleFiles},{selectMode});
- * For example, this is a function which FFmpeg Factory calls to the file selector
- * 
- * var uid = ao_module_utils.getRandomUID();
- * ao_module_openFileSelector(uid,"addFileFromSelector",undefined,undefined,true);
- * 
- * This will allow the file selector get files (as selectMode default value is "file") and allow multiple selections
- * The selectMode option provide modes for file / folder / mix, where mix means user can select both files and folders
- * The allowMultiple means if the user can select multiple files. True for allow and false for disallow multi selections.
- *
- * To catch the callback of the selector, you can put the following script into your callBack function (In this case, 'addFileFromSelector')
- * 
- * function addFileFromSelector(fileData){
- *  result = JSON.parse(fileData);
- *   for (var i=0; i < result.length; i++){
- *    var filename = result[i].filename;
- *    var filepath = result[i].filepath;
- *    //DO SOMETHING HERE
- *   }
- *  }
- * 
- * REMINDER
- * If you call this function in default mode, please use the "ao_module_openFileSelectorTab" and pass in the relative location of AOR (Root of ArOZ) as the first variable.
- * You will also need to handle the listen of change in the uid in localStorage for cross tab communication
+  File Explorer powered by ArOZ Online File System
+  To pop up a file selector and return an object of files, you can call the following function with the given variable.
+  Usage: ao_module_openFileSelector({uid},{call back function name in String},{window Width},{windowHeight},{allowMultipleFiles},{selectMode});
+  For example, this is a function which FFmpeg Factory calls to the file selector
+  
+  var uid = ao_module_utils.getRandomUID();
+  ao_module_openFileSelector(uid,"addFileFromSelector",undefined,undefined,true);
+ 
+  This will allow the file selector get files (as selectMode default value is "file") and allow multiple selections
+  The selectMode option provide modes for file / folder / mix / new, where mix means user can select both files and folders and new means create new file.
+  The allowMultiple means if the user can select multiple files. True for allow and false for disallow multi selections.
+ 
+  To catch the callback of the selector, you can put the following script into your callBack function (In this case, 'addFileFromSelector')
+  
+  function addFileFromSelector(fileData){
+   result = JSON.parse(fileData);
+    for (var i=0; i < result.length; i++){
+     var filename = result[i].filename;
+     var filepath = result[i].filepath;
+     //DO SOMETHING HERE
+    }
+   }
+  
+  
+  Example call to create a new file with default filename "dummy.txt"
+    var uid = ao_module_utils.getRandomUID();
+    ao_module_openFileSelector(uid,"addFileFromSelector",undefined,undefined,true,"new","dummy.txt",false);
+    
+  REMINDER
+  If you call this function in default mode, please use the "ao_module_openFileSelectorTab" and pass in the relative location of AOR (Root of ArOZ) as the first variable.
+  You will also need to handle the listen of change in the uid in localStorage for cross tab communication
  **/
  
-function ao_module_openFileSelector(uid,callBackFunctionName, windowWidth = 1080, windowHeight = 645, allowMultiple = false, selectMode = "file"){
+function ao_module_openFileSelector(uid,callBackFunctionName, windowWidth = 1080, windowHeight = 645, allowMultiple = false, selectMode = "file", newfname = "newfile.txt", umf = true){
     //selectMode: file / folder / mix
     //allowMultiple: true / false
     if (allowMultiple){
@@ -144,9 +220,21 @@ function ao_module_openFileSelector(uid,callBackFunctionName, windowWidth = 1080
     }else{
         allowMultiple = "false";
     }
+    
+    if (umf){
+        umf = "true";
+    }else{
+        umf = "false";
+    }
+    
     if (ao_module_virtualDesktop){
         //Launch inside VDI
-        ao_module_newfw("SystemAOB/functions/file_system/fileSelector.php?allowMultiple=" + allowMultiple + "&selectMode=" + selectMode,"Starting file selector","spinner",uid,windowWidth,windowHeight,ao_module_getLeft() + 30,ao_module_getTop() + 30,undefined,undefined,ao_module_windowID,callBackFunctionName);
+        if (selectMode == "new"){
+            ao_module_newfw("SystemAOB/functions/file_system/fileSelector.php?allowMultiple=" + allowMultiple + "&selectMode=" + selectMode + "&useUMF=" + umf + "&newfn=" + newfname,"Starting file selector","spinner",uid,windowWidth,windowHeight,ao_module_getLeft() + 30,ao_module_getTop() + 30,undefined,undefined,ao_module_windowID,callBackFunctionName);
+        }else{
+            ao_module_newfw("SystemAOB/functions/file_system/fileSelector.php?allowMultiple=" + allowMultiple + "&selectMode=" + selectMode,"Starting file selector","spinner",uid,windowWidth,windowHeight,ao_module_getLeft() + 30,ao_module_getTop() + 30,undefined,undefined,ao_module_windowID,callBackFunctionName);
+        }
+        
         return true;
     }else{
         return false;
@@ -176,7 +264,7 @@ function fileProcesser(fileData){
 
 **/
 var ao_module_fileSelectorCallBack,ao_module_fileSelectorWindowObject,ao_module_fileSelectorReplyObject,ao_module_fileSelectorFileAwait;
-function ao_module_openFileSelectorTab(uid, aor,allowMultiple = false, selectMode = "file",callBack=console.log){
+function ao_module_openFileSelectorTab(uid, aor,allowMultiple = false, selectMode = "file",callBack=console.log, newfname = "newfile.txt", umf = true){
     //selectMode: file / folder / mix
     //allowMultiple: true / false
     if (allowMultiple){
@@ -187,9 +275,19 @@ function ao_module_openFileSelectorTab(uid, aor,allowMultiple = false, selectMod
     if (aor.slice(-1) != "/"){
         aor = aor + "/";
     }
+    
+    if (umf){
+        umf = "true";
+    }else{
+        umf = "false";
+    }
 	ao_module_fileSelectorReplyObject = uid;
 	ao_module_fileSelectorCallBack = callBack;
-    var windowObject = window.open(aor + "/SystemAOB/functions/file_system/fileSelector.php?allowMultiple=" + allowMultiple + "&selectMode=" + selectMode + "&puid=" + uid);
+	if (selectMode == "new"){
+	    var windowObject = window.open(aor + "/SystemAOB/functions/file_system/fileSelector.php?allowMultiple=" + allowMultiple + "&selectMode=" + selectMode + "&puid=" + uid + "&useUMF=" + umf + "&newfn=" + newfname);
+	}else{
+        var windowObject = window.open(aor + "/SystemAOB/functions/file_system/fileSelector.php?allowMultiple=" + allowMultiple + "&selectMode=" + selectMode + "&puid=" + uid);
+	}
 	ao_module_fileSelectorWindowObject = windowObject;
 	ao_module_fileSelectorFileAwait = setInterval(ao_module_listenFileSelectionInput,5000);
     return windowObject;
@@ -685,69 +783,313 @@ class ao_module_inputs{
 
 /**
 ArOZ Online Module Functions for WebSocket Communication
-The default port for ArOZ Online Websocket Server is 65530.
+The default port for ArOZ Online Websocket Server is 8000.
 This function is not usable if you don't have a valid websocket setup.
 
+ao_module_ws.init(aor, modulename(nospace), server, channel, JWTtoken, onopen, onmessage, onclose, onerror); //Initialize conenction to aobws
+ao_module_ws.send(conn, object); //Send an object through aobws
+ao_module_ws.sendToUser(conn, username, object); //Send object to a certain username
+ao_module_ws.sendToUUID(conn, uuid, object); //Send object to a connection UUID
+
+ao_module_ws.parse(aor, modulename, msg, callback); //Internal parse engine. Advanced developer only.
+
+Points to be noted:
+After initiation, two commands will be sent automatically:
+/login module_name(aka channel, No Space) token --> return 202 Accepted if succeed
+/chkuuid --> return UUID of this client connection
+
+afterward, you can access the connection object itself using 
+
+window.aobws
+
+or you can also get the UUID of the connection by getting
+
+window.aobwsUUID
 **/
 
 class ao_module_ws{
-    constructor(webSocketLocation) {
-        if (webSocketLocation == undefined){
-            return false;
-        }
-        this.webSocketLocation = webSocketLocation;
-        return true;
-    }
-    
-    init(){
-        this.websocket = new WebSocket(this.webSocketLocation);
-		this.websocket.onopen = this.onOpen;
-		this.websocket.onclose = this.onClose;
-		this.websocket.onerror = this.onError;
-		this.websocket.onmessage = this.onMessage;
-        return this.websocket;
-    }
-	
-	onOpen(evt){
-		console.log(evt.data);
-	}
-	
-	onClose(evt){
-		console.log("DISCONNECTED");
-		return true;
+	//Initialize the websocket connection to aobws. Given server address, channel, token and other important event handlers
+	/*
+		//Here is an example on how to use the init function and set event handlers
+		var conn = ao_module_ws.init("../","Dummy"
+		"ws://192.168.0.107:8000/ws",
+		"channel",
+		"{JWT-token here, leave empty for auto assign. See System Settings > ArOZ Cluster > ShadowJWT}",
+		function(){
+			//Failed callback on auth fail
+			console.log("Auth failed.");
+		},
+		function(data){
+			//Onopen function
+			console.log("Connection opened");
+		},
+		function(data){
+			//Onmessage function
+			console.log(data);
+		}, function(data){
+			//On close function
+			console.log("Connection Closed");
+		},function(data){
+			//On error function
+			console.log("Oops something went wrong.")
+		});
+
+		//On message will return an object with 4 keys:
+		connUUID: sender UUID of this piece of message
+		data: Data in the form of Javascript Object
+		sender: The username / owner of the sender token
+		type: Message type. (broadcast / utell / tell)
+	*/
+	static init(aor, modulename, server, channel, JWTtoken="", failCallback,  onopen, onmessage, onclose, onerror){
+		//server example: "ws://192.168.0.107:8000/ws"
+		//Replace any space in channel with URL elements
+		channel = encodeURI(channel);
+		//Check if jwttoken exists. If not, lead to the authentication interface
+		if (JWTtoken == ""){
+			//Check if this module already has a token. If yes, load from it.
+			$.ajax({
+				url: aor + "SystemAOB/system/jwt/getToken.php?module=" + modulename,
+				success: function(data) {
+					if (data == ""){
+						//No token is generated for this module.
+						//Generate a new token with given GUI
+						var authUI = aor + "SystemAOB/system/jwt/request.php?module=" + modulename;
+						window.wsAuthFailedCallback = failCallback;
+						window.previouswsInitRecord = [aor, modulename, server, channel, JWTtoken, failCallback,  onopen, onmessage, onclose, onerror];
+						$("body").append('<div id="system_jwtauth_ui_dimmer" class="ts active dimmer"></div>');
+						$("body").append('<div id="system_jwtauth_ui_iframe" onClick="ao_module_ws.fadeOutWSAuthUI();" style="z-index:999; width:100%; height:100%; position:fixed;left:0px;top:0px;" align="center"><iframe style="z-index:999; width:560px; height:760px;overflow:hidden;" src="' + authUI + '"></iframe></div>');
+						return;
+					}else{
+						//Token found. Use this as token
+						JWTtoken = data;
+						var conn = new WebSocket(server);
+						conn.onopen = function (evt){
+							//Connection opened. Register this user with the given channel and token
+							conn.send("/login " + channel + " " + JWTtoken);
+							conn.send("/chkuuid");
+							onopen(evt);
+						};
+						conn.onclose = function (evt) {
+							onclose(evt);
+						};
+						conn.onmessage = function (evt) {
+							ao_module_ws.parse(aor, modulename, evt,onmessage);
+						};
+						conn.ononerror = function(evt){
+							onerror(evt);
+						}
+						window.aobws = conn;
+					}
+				}
+			  });
+			
+		}else{
+			var conn = new WebSocket(server);
+			conn.onopen = function (evt){
+				//Connection opened. Register this user with the given channel and token
+				conn.send("/login " + channel + " " + JWTtoken);
+				console.log("/login " + channel + " " + JWTtoken);
+				onopen(evt);
+			};
+			conn.onclose = function (evt) {
+				onclose(evt);
+			};
+			conn.onmessage = function (evt) {
+				console.log(evt);
+				ao_module_ws.parse(evt,onmessage);
+			};
+			conn.ononerror = function(evt){
+				onerror(evt);
+			}
+			window.aobws = conn;
+		}
 	}
 
-	onMessage(evt){
-		console.log(evt.data);
+	//Send (broadcast) an object to everyone including yourself
+	/*
+		Example usage:
+		var dataToBeSent = {"name":"Tester", "age":13};
+    	ao_module_ws.send(conn,dataToBeSent);
+	*/
+	static send(conn, object){
+		conn.send(ao_module_utils.objectToAttr(object));
 	}
 
-	onError(evt){
-		console.log(evt.data);
+	//Send (tell) an object to a given username in the same channel except yourself
+	/*
+		Example usage:
+		var dataToBeSent = {"name":"Tester", "age":13};
+		var targetUser = "user";
+    	ao_module_ws.sendToUser(conn, targetUser, dataToBeSent);
+	*/
+	static sendToUser(conn, username, object){
+		conn.send("/tell " + username + " " + ao_module_utils.objectToAttr(object));
 	}
 
-	sendText(message){
-		this.websocket.send(message);
-		return true;
+	//Send (utell) an ibject to a given client with UUID in the same channel 
+	static sendToUUID(conn, uuid, object){
+		conn.send("/utell " + uuid + " " + ao_module_utils.objectToAttr(object));
 	}
-	
-	disconnect(){
-		this.websocket.close();
-		return this.websocket.readyState;
+
+
+	static fadeOutWSAuthUI(){
+		window.wsAuthFailedCallback();
+        $("#system_jwtauth_ui_dimmer").fadeOut('fast',function(){
+            $(this).remove();
+        });
+        $("#system_jwtauth_ui_iframe").fadeOut('fast',function(){
+            $(this).remove();
+		});
 	}
-	
-	get ws(){
-		return this.websocket;
+
+	//Parse the raw input from aobws to readable format. 
+	//This section should have been included in the init() process which will parse the input data first before handing out to onmessage handler.
+	static parse(aor, modulename, msg, callback){
+		var data = msg.data;
+		var JSONvalid = false;
+		if (/^[\],:{}\s]*$/.test(data.replace(/\\["\\\/bfnrtu]/g, '@').replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
+			JSONvalid = true;
+		}
+		if (!JSONvalid){
+			//Datapack corrupted. Ignore it.
+			return;
+		}
+		data = JSON.parse(data);
+		//Check if the data is command response.
+		if (data.type == "resp"){
+			//Check if it is login failed. If yes, clear up the token and redo authentication
+			if (data.command == "login" &&  data.data == "401 Unauthorized"){
+				//This token is no longer usable.
+				console.log("Warning! Token is dead. Removing token and performing re-authentication process.");
+				$.get(aor + "SystemAOB/system/jwt/getToken.php?clearModule=" + modulename,function(data){
+					window.location.reload();
+				});
+			}else if (data.command == "chkuuid" && data.data != "401 Unauthorized"){
+				//Client connection UUID received.
+				window.aobwsUUID = data.data;
+			}
+			//No need to do further parsing
+			callback(data);
+			return;
+		}
+
+		//This is a communication msgpackage. Parse it
+		var sendType = data.type;
+		var sender = data.sender;
+		var connectionUUID = data.connUUID;
+		var message = ao_module_utils.attrToObject(data.data);
+		callback({
+			"type": sendType,
+			"sender": sender,
+			"connUUID": connectionUUID,
+			"data": message
+		});
 	}
-	
-    get location(){
-        return this.webSocketLocation;
-    }
-    
-    get connected(){
-        return this.websocket.readyState;
-    }
-    
 }
+
+/**
+ArOZ Online Module File System Operation API
+This API is provided for handling backstage file operation via PHP + Golang file system execution system (aka fsexec).
+See fsexec documentation for more information.
+
+ao_module_fs.isFile(source); //Check if a give path is file.
+ao_module_fs.unlink(source); //Remove the given file.
+ao_module_fs.move(source, target, callback); //Move a file / folder to a target location. Path can be either start from File Explorer Relative or AOR Relative.
+ao_module_fs.rename(source, target, callback); //Same as move
+ao_module_fs.copy(source, target, callback); //Copy a file / folder to a target location. Path can be either start from File Explorer Relative or AOR Relative.
+
+
+**/
+class ao_module_fs{
+	static unlink(source, callback = null, overrideConfirm = false){
+		if (!ao_module_virtualDesktop){
+			return false;
+		}
+		if (!overrideConfirm){
+			if (!confirm("The module with ID " + ao_module_windowID + " request to remove file " + source + ". Confirm Delete?")){
+				return;
+			}
+		}
+		parent.$.get( "SystemAOB/functions/file_system/delete.php?filename=" + source, function(data) {
+			console.log(data);
+			callback(data);
+		});
+	}
+	
+	static rename(source,target, callback = null){
+		//Alias both renname and move
+		ao_module_fs.move(source,target, callback);
+	}
+	
+	static isFile(source){
+		var isFile = false;
+		if (source.split(".").length > 1){
+			isFile = true;
+		}
+		return isFile;
+	}
+	
+	static move(source, target, callback = null){
+		if (!ao_module_virtualDesktop){
+			return false;
+		}
+		//Check if the source is a file or folder by checking if it has a file extension
+		var sourceIsFile = ao_module_fs.isFile(source);
+		if (sourceIsFile){
+			//Move file
+			parent.$.get("SystemAOB/functions/file_system/fsexec.php?opr=move&from=" + source + "&target=" + target, function(data) {
+				if (!data.includes("ERROR")){
+					ao_module_fs.createFileOprListener([data],"move",source, target);
+				}else{
+					console.log("[" + ao_module_windowID  + "] " + data);
+				}
+				callback(data);
+			});
+		}else{
+			//Move folder
+			parent.$.get("SystemAOB/functions/file_system/fsexec.php?opr=move_folder&from=" + source + "&target=" + target, function(data) {
+				if (!data.includes("ERROR")){
+					ao_module_fs.createFileOprListener([data],"move",source, target);
+				}else{
+					console.log("[" + ao_module_windowID  + "] " + data);
+				}
+				callback(data);
+			});
+		}
+	}
+	
+	static copy(source, target, callback = null){
+		if (!ao_module_virtualDesktop){
+			return false;
+		}
+		var sourceIsFile = ao_module_fs.isFile(source);
+		if (sourceIsFile){
+			//Copy File
+			parent.$.get("SystemAOB/functions/file_system/fsexec.php?opr=copy&from=" + source + "&target=" + target, function(data) {
+				if (!data.includes("ERROR")){
+					console.log(data);
+					ao_module_fs.createFileOprListener([data],"copy",source, target);
+				}else{
+					console.log("[" + ao_module_windowID  + "] " + data);
+				}
+				callback(data);
+			});
+		}else{
+			//Cp[y Folder
+			parent.$.get("SystemAOB/functions/file_system/fsexec.php?opr=copy_folder&from=" + source + "&target=" + target, function(data) {
+				if (!data.includes("ERROR")){
+					ao_module_fs.createFileOprListener([data],"copy",source, target);
+				}else{
+					console.log("[" + ao_module_windowID  + "] " + data);
+				}
+				callback(data);
+			});	
+		}
+
+	}
+
+}
+
 
 /**
 ArOZ Online Module Utils for quick deploy of ArOZ Online WebApps
@@ -834,7 +1176,8 @@ class ao_module_utils{
         iges:"cube",
 		gcode:"cube",
         shortcut:"external square",
-		opus:"file audio outline"
+		opus:"file audio outline",
+		apscene:"cubes"
         };
         var icon = "";
         if (ext == ""){
@@ -886,20 +1229,62 @@ class ao_module_codec{
 			return umfilename;
 		}
 	}
+	
+	//Encode filename to UMfilename
+	//Example: ao_module_codec.encodeUMFilename("test.stl");
+	static encodeUMFilename(filename){
+	    if (filename.substring(0,5) != "inith"){
+	        //Check if the filename include extension. 
+	        if (filename.includes(".")){
+	            //Filename with extension. pop it out first.
+	            var info = filename.split(".");
+	            var ext = info.pop();
+	            var filenameOnly = info.join(".");
+	            var encodedFilename = "inith" + ao_module_codec.decode_utf8(ao_module_codec.bin2hex(filenameOnly)) + "." + ext;
+	            return encodedFilename;
+	        }else{
+	            //Filename with no extension. Convert the whole name into UMfilename
+	            var encodedFilename = "inith" + ao_module_codec.decode_utf8(ao_module_codec.bin2hex(filename));
+	            return encodedFilename;
+	        }
+	    }else{
+	        //This is already a UMfilename. return the raw filename.
+	        return filename;
+	    }
+	}
+	
 	//Decode hexFoldername into standard foldername in utf-8, return the original name if it is not a hex foldername
 	//Example: ao_module_codec.decodeHexFoldername(hexFolderName_here);
-	static decodeHexFoldername(folderName){
+	static decodeHexFoldername(folderName, prefix=true){
 	    var decodedFoldername = ao_module_codec.decode_utf8(ao_module_codec.hex2bin(folderName));
 		if (decodedFoldername == "false"){
 			//This is not a hex encoded foldername
 			decodedFoldername = folderName;
 		}else{
 			//This is a hex encoded foldername
-			decodedFoldername = "*" + decodedFoldername;
+			if (prefix){
+			    	decodedFoldername = "*" + decodedFoldername;
+			}else{
+			    	decodedFoldername =decodedFoldername;
+			}
 		}
 		return decodedFoldername;
 	}
     
+    //Encode foldername into hexfoldername
+    //Example: ao_module_codec.encodeHexFoldername("test");
+    static encodeHexFoldername(folderName){
+        var encodedFilename = "";
+        if (ao_module_codec.decodeHexFoldername(folderName) == folderName){
+            //This is not hex foldername. Encode it
+            encodedFilename = ao_module_codec.decode_utf8(ao_module_codec.bin2hex(folderName));
+        }else{
+            //This folder name already encoded. Return the original value
+            encodedFilename = folderName;
+        }
+        
+        return encodedFilename;
+    }
     static hex2bin(s){
       var ret = []
       var i = 0
@@ -913,6 +1298,20 @@ class ao_module_codec{
       }
     
       return String.fromCharCode.apply(String, ret)
+    }
+    
+    static bin2hex(s){
+         var i
+          var l
+          var o = ''
+          var n
+          s += ''
+          for (i = 0, l = s.length; i < l; i++) {
+            n = s.charCodeAt(i)
+              .toString(16)
+            o += n.length < 2 ? '0' + n : n
+          }
+          return o
     }
     
     static decode_utf8(s) {

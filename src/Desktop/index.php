@@ -293,7 +293,7 @@ var highlighting = false;
 var nextSlot=[10,110];
 var openWithModuleList = [];
 var currentMovetoFolder = "";
-var iconList={md:"file text outline",txt:"file text outline",pdf:"file pdf outline",doc:"file word outline",docx:"file word outline",xlsx:"file excel outline",ppt:"file powerpoint outline",pptx:"file powerpoint outline",jpg:"file image outline",png:"file image outline",jpeg:"file image outline",gif:"file image outline",zip:"file archive outline",'7z':"file archive outline",rar:"file archive outline",mp3:"file audio outline",m4a:"file audio outline",flac:"file audio outline",wav:"file audio outline",aac:"file audio outline",mp4:"file video outline",webm:"file video outline",php:"file code outline",js:"file code outline",css:"file code outline",bmp:"file image outline",rtf:"file text outline",wmv:"file video outline",mkv:"file video outline",ogg:"file audio outline",stl:"cube",obj:"cube","3ds":"cube",fbx:"cube",collada:"cube",step:"cube",iges:"cube",gcode:"cube",opus:"file audio outline",odt:"file word outline"};
+var iconList={md:"file text outline",txt:"file text outline",pdf:"file pdf outline",doc:"file word outline",docx:"file word outline",xlsx:"file excel outline",ppt:"file powerpoint outline",pptx:"file powerpoint outline",jpg:"file image outline",png:"file image outline",jpeg:"file image outline",gif:"file image outline",zip:"file archive outline",'7z':"file archive outline",rar:"file archive outline",mp3:"file audio outline",m4a:"file audio outline",flac:"file audio outline",wav:"file audio outline",aac:"file audio outline",mp4:"file video outline",webm:"file video outline",php:"file code outline",js:"file code outline",css:"file code outline",bmp:"file image outline",rtf:"file text outline",wmv:"file video outline",mkv:"file video outline",ogg:"file audio outline",stl:"cube",obj:"cube","3ds":"cube",fbx:"cube",collada:"cube",step:"cube",iges:"cube",gcode:"cube",opus:"file audio outline",odt:"file word outline",apscene:"cubes"};
 var iconPositions = [];
 var moveOverwrite = false;
 var renaming = false;
@@ -303,6 +303,7 @@ var bgfileformat = "jpg";
 var preventRefresh = false;
 var newItemList = [];
 var launchIconMaxHeight = 103;//Pixel
+var firstInit = true; //Indicate if this is the first time that the Desktop initiate
 
 initUserDesktop(showNotification,"<i class='checkmark icon'></i> Your Desktop is ready to use.");
 initLaunchIconEvents();
@@ -416,17 +417,24 @@ function initUserDesktop(callback = null,callbackvar = "",callbackSeq = 0){
 				if (callbackSeq == 1){
 					updateDesktopGraphic();
 				}
+				firstInit = false;
 			},
 		timeout: 10000,
 		error: function(jqXHR, textStatus, errorThrown) {
-				parent.msgbox("Your desktop is unable to load due to host system encoding issue. We are trying to fix the issue.","<i class='caution sign icon'></i> Critial Error!",undefined,false);
-				$.get("fixWinDesktop.php",function(data){
-					if (data.includes("ERROR") == false){
-						parent.msgbox("Your desktop is fixed and the corrupted file is moved to recover/ folder on your desktop. Click the link below to refresh.","<i class='checkmark sign icon'></i> Recovery Completed","{reload}",false);
-					}else{
-						alert("Unable to recover. See console.log for more information.");
-					}
-				});
+				//Only show error message if it is first init
+				if (firstInit){
+					parent.msgbox("Your desktop is unable to load due to host system encoding issue. We are trying to fix the issue.","<i class='caution sign icon'></i> Critial Error!",undefined,false);
+					$.get("fixWinDesktop.php",function(data){
+						if (data.includes("ERROR") == false){
+							parent.msgbox("Your desktop is fixed and the corrupted file is moved to recover/ folder on your desktop. Click the link below to refresh.","<i class='checkmark sign icon'></i> Recovery Completed","{reload}",false);
+						}else{
+							alert("Unable to recover. See console.log for more information.");
+						}
+					});
+				}else{
+					//This might cause by server freezing.
+				}
+				
 			}
 		}
 	   );

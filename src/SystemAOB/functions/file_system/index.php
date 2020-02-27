@@ -1,5 +1,12 @@
 <?php
 include_once '../../../auth.php';
+$allowGlobalClipboard = false;
+$allowRemoveSystemAOBScript = false;
+if (file_exists("../personalization/sysconf/fsaccess.config")){
+	$fsconfig = json_decode(file_get_contents("../personalization/sysconf/fsaccess.config"),true);
+	$allowGlobalClipboard = $fsconfig["allowGlobalClipboard"];
+	$allowRemoveSystemAOBScript = !$fsconfig["enablesysscriptCheckBeforeDelete"];
+}
 ?>
 <!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -114,6 +121,9 @@ include_once '../../../auth.php';
 			height:145px !important;
 			width:100% !important;
 			object-fit: cover;
+		}
+		.midblue{
+			background-color:#2358c2 !important;
 		}
     </style>
 </head>
@@ -302,7 +312,7 @@ include_once '../../../auth.php';
     <div class="ts container">
         <!-- Menu -->
         <div class="ts breadcrumb">
-            <div id="returnSC" class="section">ArOZβ Files Viewer</div>
+            <div id="returnSC" class="section" localtext="filesystem/topbar/fileviewer">ArOZβ Files Viewer</div>
             <div class="divider">/</div>
             <a id="moduleName" href="" class="section"><?php
 			if ($moduleName == ""){
@@ -354,41 +364,41 @@ include_once '../../../auth.php';
 				<div id="controls" class="item">
 					<?php
 					if ($permissionLevel >= 0){
-						echo '<button id="backBtn" class="ts icon disabled button oprmenu" onClick="backClicked();" style="display:;">
+						echo '<button id="backBtn" class="ts icon disabled button oprmenu" onClick="backClicked();" style="display:;" title="Parent Directory">
 								<i class="arrow up icon"></i>
 									
 							  </button>
-							  <button id="openBtn" class="ts icon disabled button oprmenu initHidden" onClick="openClicked();">
+							  <button id="openBtn" class="ts icon disabled button oprmenu initHidden" onClick="openClicked();" title="Open Selected">
 								<i class="folder open outline icon"></i>
 								
 							  </button>
-							  <button id="openwith" class="ts icon disabled button oprmenu initHidden" onClick="openWith();">
+							  <button id="openwith" class="ts icon disabled button oprmenu initHidden" onClick="openWith();" title="Open With">
 								<i class="external icon"></i>
 									
 							  </button>
-							  <button id="downloadbtn" class="ts disabled labeled icon button oprmenu initHidden" onClick="downloadFile();" style="width:146px;">
+							  <button id="downloadbtn" class="ts disabled labeled icon button oprmenu initHidden" onClick="downloadFile();" style="width:146px;" title="Download">
 								<i class="download icon"></i>
-									Download
+									<span localtext="filesystem/operations/download">Download</span>
 							  </button>';
 					}
 					if($permissionLevel >= 1){
-						echo '<button id="copybtn" onClick="copy();" class="ts icon disabled button oprmenu initHidden">
+						echo '<button id="copybtn" onClick="copy();" class="ts icon disabled button oprmenu initHidden" title="Copy">
 							<i class="copy icon"></i>
 								
 							</button>
-							<button id="move" onClick="paste();" class="ts icon button oprmenu">
+							<button id="move" onClick="paste();" class="ts icon button oprmenu" title="Paste">
 							<i class="paste icon"></i>
 							
 							</button>
-							<button class="ts icon button oprmenu" onClick="newFile();">
+							<button class="ts icon button oprmenu" onClick="newFile();" title="New File">
 								<i class="file outline icon"></i>
 									
 							 </button>
-							<button id="newfolder" class="ts icon button oprmenu" onClick="newFolder();">
+							<button id="newfolder" class="ts icon button oprmenu" onClick="newFolder();" title="New Folder">
 								<i class="folder outline icon"></i>
 								
 							</button>
-							<button id="upload" class="ts icon button oprmenu" onClick="prepareUpload();">
+							<button id="upload" class="ts icon button oprmenu" onClick="prepareUpload();" title="Upload Files">
 								<i class="upload icon"></i>
 								
 							</button>
@@ -396,33 +406,33 @@ include_once '../../../auth.php';
 					}
 					if($permissionLevel >= 2){
 						echo '
-						<button class="ts icon disabled button oprmenu initHidden" onClick="cut();">
+						<button class="ts icon disabled button oprmenu initHidden" onClick="cut();" title="Cut">
 							<i class="cut icon"></i>
 							
 						</button>
-						<button id="renamebtn" class="ts icon disabled button oprmenu initHidden" onClick="rename();">
+						<button id="renamebtn" class="ts icon disabled button oprmenu initHidden" onClick="rename();" title="Rename">
 							<i class="text cursor icon"></i>
 							
 						</button>
-						<button id="nameConvert" class="ts icon disabled button oprmenu initHidden" onClick="convertFileName();">
+						<button id="nameConvert" class="ts icon disabled button oprmenu initHidden" onClick="convertFileName();" title="Filename Convert">
 							<i class="exchange outline icon"></i>
 							
 						</button>
-						<button id="delete" class="ts icon disabled negative button oprmenu initHidden" onClick="ConfirmDelete();">
+						<button id="delete" class="ts icon disabled negative button oprmenu initHidden" onClick="ConfirmDelete();" title="Delete">
 							<i class="trash outline icon"></i>
 							
 						</button>';
 					}
 					?>
-					<button id="showProperties" class="ts disabled icon button oprmenu initHidden" onClick="showProperties();">
+					<button id="showProperties" class="ts disabled icon button oprmenu initHidden" onClick="showProperties();" title="Properties">
 							<i class="bookmark icon"></i>
 							
 						</button>
-					<button id="showProperties" class="ts icon button oprmenu" onClick="UpdateFileList(currentPath);">
+					<button id="refresh" class="ts icon button oprmenu" onClick="UpdateFileList(currentPath);" title="Refresh">
 						<i class="refresh icon"></i>
 						
 					</button>
-					<button id="showHelpBtn" class="ts icon button oprmenu" onClick="showHelp();">
+					<button id="showHelpBtn" class="ts icon button oprmenu" onClick="showHelp();" title="Show Help">
 							<i class="help icon"></i>
 							
 						</button>
@@ -446,7 +456,7 @@ include_once '../../../auth.php';
                     </div>
 
                     <div class="extra content">
-                        <div id="filename" class="header" style="display:inline-block !important;overflow-wrap: break-word; word-break: break-all;">No selected file</div>
+                        <div id="filename" class="header" style="display:inline-block !important;overflow-wrap: break-word; word-break: break-all;" localtext="filesystem/sidebar/noSelectedFile">No selected file</div>
                     </div>
 
                     <div class="extra content">
@@ -454,38 +464,28 @@ include_once '../../../auth.php';
                             <div class="item">
                                 <i class="folder outline icon"></i>
                                 <div class="content">
-                                    <div class="header">Full Path</div>
+                                    <div class="header" localtext="filesystem/sidebar/fullpath">Full Path</div>
 									<div class="ts mini fluid borderless input" style="padding-top:5px;">
 										<input id="thisFilePath" type="text" placeholder="N/A" readonly="true">
 									</div>
                                     <!-- <div id="thisFilePath" class="description">N/A</div> -->
                                 </div>
                             </div>
-                              <div class="item">
+                            <div class="item">
                                 <i class="favorite icon"></i>
                                 <div class="content">
-                                    <div class="header">Shortcuts</div>
-                                    <div id="shortcutList" class="description">
-                                    </div>
-                                </div>
-                            </div>
-                            <!--
-                            <div class="item">
-                                <i class="file outline icon"></i>
-                                <div class="content">
-                                    <div class="header">File Size</div>
-                                    <div id="thisFileSize" class="description">N/A</div>
-                                </div>
-                            </div>
-
-                            <div class="item">
-                                <i class="code icon"></i>
-                                <div class="content">
-                                    <div class="header">MD5</div>
-                                    <div id="thisFileMD5" class="description">N/A</div>
-                                </div>
-                            </div>
-                            -->
+                                    <div class="header" localtext="filesystem/sidebar/shortcut">Shortcuts</div>
+                                    <div id="shortcutList" class="description"></div>
+								</div>
+							</div>
+							<!-- On-going file operation list-->
+							<div id="ongoingTaskMenu" class="item">
+								<i class="align justify icon"></i>
+								<div class="content">
+									<div class="header" localtext="filesystem/sidebar/ongoingtask">Ongoing Tasks</div>
+									<div id="ongoingTasklist" class="ts list"></div>
+								</div>
+							</div>
                         </div>
 						<?php if (strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
 							//This section of the script only runs on Linux, debian Jessie to be more accurate
@@ -501,13 +501,13 @@ include_once '../../../auth.php';
 						}
 						?>
 						<br><br>
-						<a id="doneBtn" href="<?php echo $returnPath;?>" class="ts basic primary fluid button hideEM">Done</a>
+						<a id="doneBtn" href="<?php echo $returnPath;?>" class="ts basic primary fluid button hideEM" localtext="filesystem/sidebar/done">Done</a>
                     </div>
                 </div>
                 <div id="utilBottomList" class="ts horizontal right floated middoted link list">
-                    <a class="item" onClick="UpdateFileList(currentPath);">Refresh</a>
-                    <a href="<?php echo $returnPath;?>" class="item hideEM hideFW">Cancel</a>
-                    <a href="" class="item">ArOZβ File Explorer</a>
+                    <a class="item" onClick="UpdateFileList(currentPath);" localtext="filesystem/sidebar/refresh">Refresh</a>
+                    <a href="<?php echo $returnPath;?>" class="item hideEM hideFW" localtext="filesystem/sidebar/cancel">Cancel</a>
+                    <a href="" class="item" localtext="filesystem/sidebar/fileviewer">ArOZβ File Explorer</a>
                 </div>
             </div>
         </div>
@@ -530,8 +530,8 @@ include_once '../../../auth.php';
 	<dialog id="delConfirm" class="ts fullscreen modal" style="position:fixed;top:10%;left:30%;width:40%;max-height:70%;z-index:99;">
 		<h5 class="ts fluid header" style="color:#ff778e;">
 			<div class="content" style="color:#ff778e;">
-				<i class="trash icon"></i>Delete Confirm
-				<div class="sub header" style="color:#ff778e;">This file will be removed. This action CANNOT BE UNDONE.</div>
+				<i class="trash icon"></i><span localtext="filesystem/delete/confirm">Delete Confirm</span>
+				<div class="sub header" style="color:#ff778e;" localtext="filesystem/delete/reminder">This file will be removed. This action CANNOT BE UNDONE.</div>
 			</div>
 		</h5>
 		<div class="content" style="width:100%;height:200px;overflow-y:scroll;overflow-wrap: break-word;">
@@ -540,10 +540,10 @@ include_once '../../../auth.php';
 			<p id="dfpath">Loading...</p>
 		</div>
 		<div class="actions">
-			<button class="ts deny basic button" onClick="$('#delConfirm').fadeOut('fast');deleteConfirmInProgress = false;">
+			<button class="ts deny basic button" onClick="$('#delConfirm').fadeOut('fast');deleteConfirmInProgress = false;" localtext="filesystem/delete/cancel">
 				Cancel
 			</button>
-			<button class="ts negative basic button" onClick="deleteFile();">
+			<button class="ts negative basic button" onClick="deleteFile();" localtext="filesystem/delete/yes">
 				Confirm
 			</button>
 		</div>
@@ -554,20 +554,20 @@ include_once '../../../auth.php';
 		<h5 class="ts header">
 			<i class="folder outline icon"></i>
 			<div class="content">
-				New Folder
-				<div class="sub header">Filename must only contain Alphabets, Numbers and Space.<br> Please tick the "Encoded Foldername" option for other special characters.</div>
+				<span localtext="filesystem/newfolder/newfolder">New Folder</span>
+				<div class="sub header"><span localtext="filesystem/newfolder/tips">Filename must only contain Alphabets, Numbers and Space.</span><br><span localtext="filesystem/newfolder/tips2"> Please tick the "Encoded Foldername" option for other special characters.</span></div>
 			</div>
 		</h5>
 		<div class="ts container">
 			<div class="ts checkbox">
 				<input type="checkbox" id="efcb">
-				<label for="efcb">Encoded Foldername (Foldername will be stored in hex format for system encoding compatibility)</label>
+				<label for="efcb" localtext="filesystem/newfolder/efcb">Encoded Foldername (Foldername will be stored in hex format for system encoding compatibility)</label>
 			</div><br><br>
 			<div class="ts fluid input">
 				<input id="newfoldername" type="text" placeholder="New Folder Name">
 			</div><br><br>
-			<button class="ts right floated positive basic button" onClick="CreateNewFolder();">Confirm</button>
-			<button class="ts right floated negative basic button" onClick="$('#newFolderWindow').fadeOut('fast');enableHotKeys=true;">Cancel</button>
+			<button class="ts right floated positive basic button" onClick="CreateNewFolder();" localtext="filesystem/newfolder/confirm">Confirm</button>
+			<button class="ts right floated negative basic button" onClick="$('#newFolderWindow').fadeOut('fast');enableHotKeys=true;" localtext="filesystem/newfolder/cancel">Cancel</button>
 		</div>
 	</div>
 	
@@ -576,28 +576,28 @@ include_once '../../../auth.php';
 		<h5 class="ts header">
 			<i class="file outline icon" id="renameIcon"></i>
 			<div class="content" id="renameTitle">
-				Rename File
-				<div class="sub header">Filename must only contain Alphabets, Numbers and Space.<br> Please tick the "Encoded Filename" option for other special characters.</div>
+				<span localtext="filesystem/rename/rename">Rename File</span>
+				<div class="sub header"><span localtext="filesystem/rename/tips">Filename must only contain Alphabets, Numbers and Space.</span><br><span localtext="filesystem/rename/tips2"> Please tick the "Encoded Filename" option for other special characters.</span></div>
 			</div>
 		</h5>
 		<div class="ts container">
 			<div class="ts checkbox">
 				<input type="checkbox" id="efcbr">
-				<label for="efcbr">Encoded Filename (Filename will be stored in hex format for system encoding compatibility)</label>
+				<label for="efcbr" localtext="filesystem/rename/efcbr">Encoded Filename (Filename will be stored in hex format for system encoding compatibility)</label>
 			</div><br>
-			<label><code>Encoding change of  unsupported filename may results in System Error.</code></label>
+			<label><code localtext="filesystem/rename/label">Encoding change of unsupported filename may results in System Error.</code></label>
 			<br><br>
-			<label>Original Filename</label>
+			<label localtext="filesystem/rename/orgname">Original Filename</label>
 			<div class="ts fluid input">
 				
 				<input id="oldRenameFileName" type="text" placeholder="Original Filename" readonly>
 			</div><br><br>
-			<label>New Filename</label>
+			<label localtext="filesystem/rename/newname">New Filename</label>
 			<div class="ts fluid input">
 				<input id="renameFileName" type="text" placeholder="New File / Folder Name">
 			</div><br><br>
-			<button class="ts right floated positive basic button" onClick="confirmRename();">Confirm</button>
-			<button class="ts right floated negative basic button" onClick="$('#renameFileWindow').fadeOut('fast');enableHotKeys=true;">Cancel</button>
+			<button class="ts right floated positive basic button" onClick="confirmRename();" localtext="filesystem/rename/confirm">Confirm</button>
+			<button class="ts right floated negative basic button" onClick="$('#renameFileWindow').fadeOut('fast');enableHotKeys=true;" localtext="filesystem/rename/cancel">Cancel</button>
 		</div>
 	</div>
 	
@@ -605,130 +605,130 @@ include_once '../../../auth.php';
 	<div id="helpInterface" class="ts info raised segment" style="position:fixed; top:10%;left:20%; right:20%;display:none;z-index:99;bottom:10%;">
 		<div class="ts container" style="height:100%;">
 			<div class="ts header">
-				File Operation Icons
-				<div class="sub header">List of icons on the menu bar and their meanings.</div>
+				<span localtext="filesystem/help/help">File Operation Icons</span>
+				<div class="sub header" localtext="filesystem/help/tips">List of icons on the menu bar and their meanings.</div>
 			</div>
 			<div style="width:100%;overflow-y:auto;height:70%;">
 				<div class="ts list">
 					<div class="item">
 						<i class="arrow up icon"></i>
 						<div class="content">
-							<div class="header">Back</div>
-							<div class="description">Go one directory upward from the current folder tree.</div>
+							<div class="header" localtext="filesystem/help/back">Back</div>
+							<div class="description" localtext="filesystem/help/backdesc">Go one directory upward from the current folder tree.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="folder open outline icon"></i>
 						<div class="content">
-							<div class="header">Open</div>
-							<div class="description">Open the selected file with the default WebApp module.</div>
+							<div class="header" localtext="filesystem/help/open">Open</div>
+							<div class="description" localtext="filesystem/help/opendesc">Open the selected file with the default WebApp module.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="external icon"></i>
 						<div class="content">
-							<div class="header">Open With</div>
-							<div class="description">Open the selected file with the selected WebApp module.</div>
+							<div class="header" localtext="filesystem/help/openwith">Open With</div>
+							<div class="description" localtext="filesystem/help/openwithdesc">Open the selected file with the selected WebApp module.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="download icon"></i>
 						<div class="content">
-							<div class="header">Dwnload / Zip and Down</div>
-							<div class="description">Download the selected file(s) or Zip and Download the selected folder.</div>
+							<div class="header" localtext="filesystem/help/download">Download / Zip and Down</div>
+							<div class="description" localtext="filesystem/help/downloaddesc">Download the selected file(s) or Zip and Download the selected folder.</div>
 						</div>
 					</div>
 					<div class="ts divider"></div>
 					<div class="item">
 						<i class="copy icon"></i>
 						<div class="content">
-							<div class="header">Copy</div>
-							<div class="description">Copy the selected file into file explorer's memory.</div>
+							<div class="header" localtext="filesystem/help/copy">Copy</div>
+							<div class="description" localtext="filesystem/help/copydesc">Copy the selected file into file explorer's memory.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="paste icon"></i>
 						<div class="content">
-							<div class="header">Paste</div>
-							<div class="description">Paste the copied file into current directory.</div>
+							<div class="header" localtext="filesystem/help/paste">Paste</div>
+							<div class="description" localtext="filesystem/help/pastedesc">Paste the copied file into current directory.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="file outline icon"></i>
 						<div class="content">
-							<div class="header">New File</div>
-							<div class="description">Create a new file with given filename.</div>
+							<div class="header" localtext="filesystem/help/newfile">New File</div>
+							<div class="description" localtext="filesystem/help/newfilesesc">Create a new file with given filename.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="folder outline icon"></i>
 						<div class="content">
-							<div class="header">New Folder</div>
-							<div class="description">Create a new folder in the current directory.</div>
+							<div class="header" localtext="filesystem/help/newfolder">New Folder</div>
+							<div class="description" localtext="filesystem/help/newfolderdesc">Create a new folder in the current directory.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="upload icon"></i>
 						<div class="content">
-							<div class="header">Upload</div>
-							<div class="description">Upload file(s) to the current directory.</div>
+							<div class="header" localtext="filesystem/help/upload">Upload</div>
+							<div class="description" localtext="filesystem/help/uploaddesc">Upload file(s) to the current directory.</div>
 						</div>
 					</div>
 					<div class="ts divider"></div>
 					<div class="item">
 						<i class="cut icon"></i>
 						<div class="content">
-							<div class="header">Cut</div>
-							<div class="description">Cut the selected file to be pasted on a new location.</div>
+							<div class="header" localtext="filesystem/help/cut">Cut</div>
+							<div class="description" localtext="filesystem/help/cutdesc">Cut the selected file to be pasted on a new location.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="text cursor icon"></i>
 						<div class="content">
-							<div class="header">Rename</div>
-							<div class="description">Rename the selected file.</div>
+							<div class="header" localtext="filesystem/help/rename">Rename</div>
+							<div class="description" localtext="filesystem/help/renamedesc">Rename the selected file.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="exchange outline icon"></i>
 						<div class="content">
-							<div class="header">Filename Convert</div>
-							<div class="description">Convert the selected file(s) / folder's name into umfilename used by ArOZ Online System. It is recommended that filenames with non-alphanumeric characters should be converted. Converted filename / foldername will be shown as blue / green background respectivly.</div>
+							<div class="header" localtext="filesystem/help/filenameconv">Filename Convert</div>
+							<div class="description" localtext="filesystem/help/filenameconvdesc">Convert the selected file(s) / folder's name into umfilename used by ArOZ Online System. It is recommended that filenames with non-alphanumeric characters should be converted. Converted filename / foldername will be shown as blue / green background respectivly.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="trash outline icon"></i>
 						<div class="content">
-							<div class="header">Remove</div>
-							<div class="description">Remove the selected file(s).</div>
+							<div class="header" localtext="filesystem/help/remove">Remove</div>
+							<div class="description" localtext="filesystem/help/removedesc">Remove the selected file(s).</div>
 						</div>
 					</div>
 					<div class="ts divider"></div>
 					<div class="item">
 						<i class="bookmark icon"></i>
 						<div class="content">
-							<div class="header">Properties</div>
-							<div class="description">Show properties of the selected file / folder.</div>
+							<div class="header" localtext="filesystem/help/properties">Properties</div>
+							<div class="description" localtext="filesystem/help/propertiesdesc">Show properties of the selected file / folder.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="refresh icon"></i>
 						<div class="content">
-							<div class="header">Refresh</div>
-							<div class="description">Refresh the list of file in the current directory.</div>
+							<div class="header" localtext="filesystem/help/refresh">Refresh</div>
+							<div class="description" localtext="filesystem/help/refreshdesc">Refresh the list of file in the current directory.</div>
 						</div>
 					</div>
 					<div class="item">
 						<i class="bookmark icon"></i>
 						<div class="content">
-							<div class="header">Help</div>
-							<div class="description">Show this help message.</div>
+							<div class="header" localtext="filesystem/help/help">Help</div>
+							<div class="description" localtext="filesystem/help/helpdesc">Show this help message.</div>
 						</div>
 					</div>
 				</div>
 			</div>
 			<br>
-			<button class="ts right floated basic button" onClick="$('#helpInterface').fadeOut('fast');enableHotKeys=true;">Close</button>
+			<button class="ts right floated basic button" onClick="$('#helpInterface').fadeOut('fast');enableHotKeys=true;" localtext="filesystem/help/close">Close</button>
 		</div>
 		
 	</div>
@@ -738,29 +738,29 @@ include_once '../../../auth.php';
 		<h5 class="ts header">
 			<i class="upload icon"></i>
 			<div class="content">
-				Upload Files
-				<div class="sub header">All uploaded files will be in hex encoded format following the Upload Manager FIle Naming (UMFN) format.</div>
+				<span localtext="filesystem/upload/upload">Upload Files</span>
+				<div class="sub header" localtext="filesystem/upload/tips">All uploaded files will be in hex encoded format following the Upload Manager FIle Naming (UMFN) format.</div>
 			</div>
 		</h5>
 		<div class="ts container">
 			<p id="msg"></p>
 			<div class="ts form">
 			<div class="field">
-			<label>Uplaod Target</label>
+			<label localtext="filesystem/upload/target">Uplaod Target</label>
 				<input type="text" id="uploadTarget" class="ts fluid input" name="utarget" value="" readonly>
 			</div>
 			<div class="field">
-			<label>Selected Files</label>
+			<label localtext="filesystem/upload/files">Selected Files</label>
 			<input type="file" id="multiFiles" name="files[]" multiple="multiple"/>
 			</div>
 			<div class="ts mini buttons">
-				<button class="ts basic negative button" onClick="closeUploadWindow();$('#uploadFileWindow').fadeOut('fast');">Cancel</button>
-				<button class="ts basic button" onClick="previewUplaodFileList();">Preview File List</button>
-				<button class="ts basic positive button" id="uploadFilesBtn">Upload</button>
+				<button class="ts basic negative button" onClick="closeUploadWindow();$('#uploadFileWindow').fadeOut('fast');" localtext="filesystem/upload/cancel">Cancel</button>
+				<button class="ts basic button" onClick="previewUplaodFileList();" localtext="filesystem/upload/preview">Preview File List</button>
+				<button class="ts basic positive button" id="uploadFilesBtn" localtext="filesystem/upload/upload">Upload</button>
 			</div>
 			</div>
 			<div id="ulFileList" class="ts segment" style="display:none;">
-			<h5>Upload Pending File List</h5>
+			<h5 localtext="filesystem/upload/pending">Upload Pending File List</h5>
 			<div id="ulFileListItems" class="ts ordered list">
 			</div>
 			</div>
@@ -771,14 +771,14 @@ include_once '../../../auth.php';
 	<div id="openWithWindow" class="ts raised segment" style="position:fixed; top:10%; left:30%;right:30%;z-index:99;bottom:10%;display:none;">
 		
 		<div class="ts header">
-			Open File With
-			<div class="sub header">Please select a module from the list below</div>
+			<span localtext="filesystem/openwith/openwith">Open File With</span>
+			<div class="sub header" localtext="filesystem/openwith/tips">Please select a module from the list below</div>
 		</div>
 		<div id="openWithModuleList" class="ts list" style="max-height:50%;overflow-y: auto;overflow-x: hidden;">
 			<div class="item">
 				<img class="ts avatar image" src="../../../img/loading_icon.jpg">
 				<div class="content">
-					<div class="header">Initializing Module Information</div>
+					<div class="header" localtext="filesystem/openwith/init">Initializing Module Information</div>
 					<div class="description">
 						<div class="ts horizontal mini label"><i class="spinner loading icon"></i>List requesting in progress</div>
 					</div>
@@ -786,10 +786,10 @@ include_once '../../../auth.php';
 			</div>
 		</div>
 		<div class="ts divider"></div>
-		<div> Open the selected File in selected Module with the following modes:<Br>
-				<button class="ts mini basic labeled icon button openWithFloatWindow" onClick="confirmOpenWith(1);" ><i class="clone icon"></i>FloatWindow</button>
-				<button class="ts mini basic labeled icon button" onClick="confirmOpenWith(2);"><i class="undo icon"></i>Redirect</button>
-				<button class="ts mini basic labeled icon button" onClick="confirmOpenWith(0);"><i class="external icon"></i>New Window</button>
+		<div><span localtext="filesystem/openwith/openGuide">Open the selected File in selected Module with the following modes:</span><Br>
+				<button class="ts mini basic labeled icon button openWithFloatWindow" onClick="confirmOpenWith(1);" ><i class="clone icon"></i><span localtext="filesystem/openwith/floatWindow">FloatWindow</span></button>
+				<button class="ts mini basic labeled icon button" onClick="confirmOpenWith(2);"><i class="undo icon"></i><span localtext="filesystem/openwith/redirect">Redirect</span></button>
+				<button class="ts mini basic labeled icon button" onClick="confirmOpenWith(0);"><i class="external icon"></i><span localtext="filesystem/openwith/newWindow">New Window</span></button>
 		</div>
 		<button class="ts close button" style="position:absolute;right:8px;top:8px;" onClick="$('#openWithWindow').fadeOut('fast');"></button>
 	</div>
@@ -797,65 +797,65 @@ include_once '../../../auth.php';
 	<!-- New File creation menu -->
 	<div id="newFileWindow" class="ts raised segment" style="position:fixed; top:10%; left:30%;right:30%;z-index:99;bottom:10%;display:none;">
 		<div class="ts header">
-			New File
-			<div class="sub header">Please select a type of file to be created.</div>
+			<span localtext="filesystem/newfile/newfile">New File</span>
+			<div class="sub header" localtext="filesystem/newfile/tips">Please select a type of file to be created.</div>
 		</div>
 		<button class="ts close button" style="position:absolute;right:8px;top:8px;" onClick="$('#newFileWindow').fadeOut('fast');enableHotKeys = true;"></button>
 		<div id="newFileList" class="ts list" style="max-height:50%;overflow-y: auto;overflow-x: hidden;">
 			<div class="ts segment newfileType">
-					<i class="spinner loading icon"></i> Loading File Creation Index
+					<i class="spinner loading icon"></i> <span localtext="filesystem/newfile/loading">Loading File Creation Index</span>
 			</div>
 		</div>
-		<p>Or create an empty file with given filename.</p>
+		<p localtext="filesystem/newfile/manual">Or create an empty file with given filename.</p>
 		<div class="ts action fluid input">
 			<input id="newfilenameInput" type="text" placeholder="New Filename">
-			<button  class="ts button" onClick="createNewFileViaInput();">Create</button>
+			<button  class="ts button" onClick="createNewFileViaInput();" localtext="filesystem/newfile/create">Create</button>
 		</div>
 	</div>
 	<!-- Context Menu for file / folder operations-->
 		<div id="rightClickMenu" class="ts contextmenu" style="min-width:260px;font-size:80%">
-			<div class="selectable item fileonly" onClick="openClicked();">
-				<i class="folder open icon"></i> Open
+			<div class="selectable item" onClick="openClicked();">
+				<i class="folder open icon"></i> <span localtext="filesystem/rightClickMenu/open">Open</span>
 			</div>
-			<div class="selectable item single fileonly" onClick="openWith();">
-				<i class="external icon"></i> Open With
+			<div id="openWithMenuItem" class="selectable item single" onClick="openWith();">
+				<i class="external icon"></i> <span localtext="filesystem/rightClickMenu/openwith">Open With</span>
 			</div>
-			<div class="selectable item pm1 fileonly" onClick="copy();">
-				<i class="copy icon"></i> Copy
+			<div class="selectable item pm1" onClick="copy();">
+				<i class="copy icon"></i> <span localtext="filesystem/rightClickMenu/copy">Copy</span>
 				<span class="description">Ctrl + C</span>
 			</div>
 			<div class="selectable item pm1" onClick="paste();">
-				<i class="paste icon"></i> Paste
+				<i class="paste icon"></i> <span localtext="filesystem/rightClickMenu/paste">Paste</span>
 				<span class="description">Ctrl + V</span>
 			</div>
-			<div class="selectable item pm2 fileonly" onClick="cut();">
-				<i class="cut icon"></i> Cut
+			<div class="selectable item pm2" onClick="cut();">
+				<i class="cut icon"></i> <span localtext="filesystem/rightClickMenu/cut">Cut</span>
 				<span class="description">Ctrl + X</span>
 			</div>
-			<div class="selectable item fileonly" onClick="newFile();">
-				<i class="file outline icon"></i> New File
+			<div class="selectable item" onClick="newFile();">
+				<i class="file outline icon"></i> <span localtext="filesystem/rightClickMenu/newfile">New File</span>
 			</div>
 			<div class="selectable item pm1" onClick="newFolder();">
-				<i class="folder icon"></i> New Folder
+				<i class="folder icon"></i> <span localtext="filesystem/rightClickMenu/newfolder">New Folder</span>
 			</div>
 			<div class="selectable item pm1 single" onClick="prepareUpload();">
-				<i class="upload icon"></i> Upload
+				<i class="upload icon"></i> <span localtext="filesystem/rightClickMenu/upload">Upload</span>
 			</div>
-			<div class="selectable item pm2 single fileonly" onClick="rename();">
-				<i class="text cursor icon"></i> Rename
+			<div class="selectable item pm2 single" onClick="rename();">
+				<i class="text cursor icon"></i> <span localtext="filesystem/rightClickMenu/rename">Rename</span>
 			</div>
-			<div class="selectable item pm2 fileonly" onClick="convertFileName();">
-				<i class="exchange outline icon"></i> Filename Convert
+			<div class="selectable item pm2" onClick="convertFileName();">
+				<i class="exchange outline icon"></i> <span localtext="filesystem/rightClickMenu/filenameconv">Filename Convert</span>
 			</div>
-			<div class="selectable item pm2 fileonly" onClick="ConfirmDelete();">
-				<i class="trash outline icon"></i> Delete
+			<div class="selectable item pm2" onClick="ConfirmDelete();">
+				<i class="trash outline icon"></i> <span localtext="filesystem/rightClickMenu/delete">Delete</span>
 			</div>
 			<div class="divider"></div>
-			<div class="selectable item fileonly" onClick="downloadFile();">
-				<i class="download icon"></i> Download
+			<div class="selectable item" onClick="downloadFile();">
+				<i class="download icon"></i> <span localtext="filesystem/rightClickMenu/download">Download</span>
 			</div>
 			<div class="selectable item single" onClick="showProperties();">
-				<i class="bookmark icon"></i> Properties
+				<i class="bookmark icon"></i> <span localtext="filesystem/rightClickMenu/properties">Properties</span>
 			</div>
 		</div>
 	<div id="filePropertiesWrapper" style="display:none;z-index:999;">
@@ -882,6 +882,7 @@ include_once '../../../auth.php';
 	<div id="aor"><?php echo realpath("../../../");?></div>
 	<div id="targetSubdir"><?php echo str_replace("//","/",$subdir);?></div>
 	<div id="EnablePWAMode"><?php if(isset($_GET['pwa']) && strtolower($_GET['pwa']) == "enabled"){echo "true";}else{echo "false";}?></div>
+	<div id="EnableGlobalClipboard"><?php echo $allowGlobalClipboard ? 'true' : 'false'; ?></div>
     	<script id="arrayMatcher" type="javascript/worker">
           //Array matching algorithms, run as worker to prevent main page freezing
           self.onmessage = function(e) {
@@ -952,6 +953,11 @@ include_once '../../../auth.php';
 	var previousScrollTopPosition = 0;
 	var previousSelectedItemNames = []; //Previous selected items for filelist refresh
 	var usePHPForFileOperations = false; //Use traditional way for copy or move file. Set this to false for faster implementation with golang
+	var enableGlobalClipboard = $("#EnableGlobalClipboard").text().trim() == "true";
+	if (isFunctionBar){ var windowID = $(window.frameElement).parent().attr("id"); }
+	var fileOprListenerInterval = 2000; //Time interval between each file opr progress update
+	
+	
 	// device detection
 	if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent) 
 		|| /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(navigator.userAgent.substr(0,4))) { 
@@ -981,6 +987,45 @@ include_once '../../../auth.php';
           ], { type: "text/javascript" });
 	    return result;
 	}
+	
+	//Translation Services. Load default translation from localStorage if availble
+	initLocalizationTranslation();
+	function initLocalizationTranslation(){
+		var lang = localStorage.getItem("aosystem.localize");
+		if (lang === undefined || lang === "" || lang === null){
+			//Ignore translation
+		}else{
+			//Translate with given lang
+			$.get("../../system/lang/" + lang + ".json",function(data){
+				window.localization = data;
+				$("*").each(function(){
+					if (this.hasAttribute("localtext")){
+						var thisKey = $(this).attr("localtext");
+						var localtext = data.keys[thisKey];
+						$(this).text(localtext);
+					}
+				});
+				//Update window title
+    			if (isFunctionBar){
+    			    parent.changeWindowTitle(windowID,localize("filesystem/topbar/fileviewer","File Explorer"));
+    			}
+    			document.title = localize("filesystem/topbar/fileviewer","File Explorer");
+			});
+		
+		}
+	}
+	
+	function localize(thiskey,defaultMsg){
+		if (window.localization === undefined){
+			return defaultMsg;
+		}
+		if (window.localization.keys[thiskey] === undefined){
+			return defaultMsg;
+		}else{
+			return window.localization.keys[thiskey];
+		}
+	}
+	
 	
 	//Clone the file controls into js after the page loaded
 	//$( document ).ready(function() {
@@ -1019,7 +1064,7 @@ include_once '../../../auth.php';
 			//Remove the index return path in VDI and set Done to close window
 			$("#returnSC").attr("href","");
 			$("#doneBtn").remove();
-			var windowID = $(window.frameElement).parent().attr("id");
+			$("#ongoingTaskMenu").hide();
 			parent.setGlassEffectMode(windowID + "");
 		}else{
 			//If it is run standalone, then it is not necessary.
@@ -1086,6 +1131,7 @@ include_once '../../../auth.php';
 				createNewFileViaInput();
 			}
 		});
+		
 
 	//});
 	
@@ -1130,12 +1176,12 @@ include_once '../../../auth.php';
 		newFileWaitingForReply = true;
 		$.ajax("newFile.php?create=" + ext + "&path=" + currentPath).done(function(data){
 			if (data.includes("ERROR")){
-				ShowNotice('<i class="remove icon"></i> Error occured while trying to create a new file.');
+				ShowNotice('<i class="remove icon"></i> ' + localize("filesystem/popups/newfileerror",'Error occured while trying to create a new file.'));
 				console.log("[File Explorer] " + data);
 				$(object).removeClass("disabled");
 			}else{
 				$("#newFileWindow").fadeOut('fast');
-				ShowNotice('<i class="checkmark icon"></i> File created.');
+				ShowNotice('<i class="checkmark icon"></i> ' + localize("filesystem/popups/newfilesuccess",'File created.'));
 				UpdateFileList(currentPath);
 				$(object).removeClass("disabled");
 				enableHotKeys = true;
@@ -1158,7 +1204,7 @@ include_once '../../../auth.php';
 				console.log("[File Explorer] " + data);
 			}else{
 				$("#newFileWindow").fadeOut('fast');
-				ShowNotice('<i class="checkmark icon"></i> File created.');
+				ShowNotice('<i class="checkmark icon"></i> ' + localize("filesystem/popups/newfilesuccess",'File created.'));
 				UpdateFileList(currentPath);
 				enableHotKeys = true;
 				$("#newfilenameInput").val("");
@@ -1642,44 +1688,68 @@ include_once '../../../auth.php';
 				//No file is selected
 				return;
 			}
-			$("#openWithWindow").fadeIn('fast');
-			openPendingModule = [];
-			let thisfilepath = globalFilePath[lastClicked].replace("../../","");
-			let displayName = $('#' + lastClicked).text().replace("&","%26");
-			openPendingFile = [thisfilepath,displayName];
-			$.get( "loadAllModule.php", function( data ) {
-				if (data.includes("ERROR") == false){
-					var template = '<div class="item openwith" modulepath="%MODULEPATH%" supportembd="%SUPPORTEMBD%" onClick="selectOpenWith(this);" ondblclick="selectOpendbc(this);" style="cursor:pointer;">\
-				<img class="ts avatar image" src="%MODULEPATH%/img/function_icon.png" style="left: 12px;top:1px;">\
-				<div class="content" style="left: 16px;">\
-					<div class="header">%MODULENAME%</div>\
-					<div class="description">';
-					var havefw = '<div class="ts horizontal mini label"><i class="checkmark icon"></i>FloatWindow</div>'
-					var haveembw = '<div class="ts horizontal mini label"><i class="checkmark icon"></i>Embedded Window</div>'
-					var templateend = '</div>\
-				</div\
-			</div>';
-					$("#openWithModuleList").html("");
-					for (var i =0; i < data.length; i++){
-						var box = template.replace("%MODULENAME%",data[i][0].replace("../../../",""));
-							box = box.split("%MODULEPATH%").join(data[i][0]);
-							if (data[i][2] == true){
-								box = box.replace("%SUPPORTEMBD%","true");
-							}else{
-								box = box.replace("%SUPPORTEMBD%","false");
-							}
-							
-							if (data[i][1] == true){
-								box += havefw;
-							}
-							if (data[i][2] == true){
-								box += haveembw;
-							}
-							box += templateend;
-						$("#openWithModuleList").append(box);
-					}
+			
+			//Check if the selected item is folder.
+			if (lastClicked < dirs.length){
+				//This is a folder
+				//Open folder in a new window.
+				var newhash = globalFilePath[lastClicked];
+				var newURL = window.location.href;
+				if (newURL.includes("#")){
+					newURL = window.location.href.split("#");
+					newURL.pop();
+					newURL = newURL.join("#") + "#" + newhash;
+				}else{
+					newURL = newURL + "#" + newhash;
 				}
-			});
+				if (isFunctionBar){
+					var randuuid = new Date().getTime();
+					parent.newEmbededWindow(newURL,"loading...","folder open outline",randuuid,1080,580,undefined,undefined,true,true);
+				}else{
+					window.open(newURL);
+				}
+			}else{
+				//This is a file. Let user selet what module to open
+				$("#openWithWindow").fadeIn('fast');
+				openPendingModule = [];
+				let thisfilepath = globalFilePath[lastClicked].replace("../../","");
+				let displayName = $('#' + lastClicked).text().replace("&","%26");
+				openPendingFile = [thisfilepath,displayName];
+				$.get( "loadAllModule.php", function( data ) {
+					if (data.includes("ERROR") == false){
+						var template = '<div class="item openwith" modulepath="%MODULEPATH%" supportembd="%SUPPORTEMBD%" onClick="selectOpenWith(this);" ondblclick="selectOpendbc(this);" style="cursor:pointer;">\
+					<img class="ts avatar image" src="%MODULEPATH%/img/function_icon.png" style="left: 12px;top:1px;">\
+					<div class="content" style="left: 16px;">\
+						<div class="header">%MODULENAME%</div>\
+						<div class="description">';
+						var havefw = '<div class="ts horizontal mini label"><i class="checkmark icon"></i>FloatWindow</div>'
+						var haveembw = '<div class="ts horizontal mini label"><i class="checkmark icon"></i>Embedded Window</div>'
+						var templateend = '</div>\
+					</div\
+				</div>';
+						$("#openWithModuleList").html("");
+						for (var i =0; i < data.length; i++){
+							var box = template.replace("%MODULENAME%",data[i][0].replace("../../../",""));
+								box = box.split("%MODULEPATH%").join(data[i][0]);
+								if (data[i][2] == true){
+									box = box.replace("%SUPPORTEMBD%","true");
+								}else{
+									box = box.replace("%SUPPORTEMBD%","false");
+								}
+								
+								if (data[i][1] == true){
+									box += havefw;
+								}
+								if (data[i][2] == true){
+									box += haveembw;
+								}
+								box += templateend;
+							$("#openWithModuleList").append(box);
+						}
+					}
+				});
+			}
+
 		}
 	}
 	
@@ -1718,15 +1788,16 @@ include_once '../../../auth.php';
 		}
 		var displayName = openPendingFile[1];
 		var ext = GetFileExt(thisfilepath);
+		console.log(thisfilepath);
 		if (openPendingModule[0] === undefined){
 		    //The user did not click any other modules. Launch with default but with given mode
 		    $.ajax({url: "getDefaultApp.php?mode=get&ext=" + ext, success: function(result){
-    		        var moduleName = result[0][0];
+					var moduleName = result[0][0];
     		        if (mode == 2){
     		            //Open with redirection
     		            if (isFunctionBar){
     		                //Do not allow redirection with current floatWindow as this might lead to inconsistence between floatWindow frame and body content
-    		                ShowNotice("<i class='notice circle icon'></i> Please select a module for redirection.");
+    		                ShowNotice("<i class='notice circle icon'></i> " + localize("filesystem/popups/redirectionTips","Please select a module for redirection."));
     		                return;   
     		            }
     		            if (moduleName.split(".").pop() == "php"){
@@ -1779,10 +1850,10 @@ include_once '../../../auth.php';
 			var windowID = $(window.frameElement).parent().attr("id");
 			var foldername = baseName(directory);
 			if (foldername.trim() == ""){
-				foldername = "File Explorer";
+				foldername = localize("filesystem/windowTitle/default","File Explorer");
 			}else{
 			    foldername = decodeHexFolderName(foldername);
-				foldername += " - Folder View";
+				foldername += localize("filesystem/windowTitle/folderview"," - Folder View");
 			}
 			parent.changeWindowTitle(windowID,foldername);
 		}
@@ -1889,6 +1960,9 @@ include_once '../../../auth.php';
 			if ($(this).hasClass("active") == false && $(this).attr("id") != "controls"){
 				//Nothing is selected yet, select this
 				ItemClick($(this).attr("fid"));
+			}else if ($(".active.item").length == 1 && $(this).hasClass("active")){
+			    //Exceptional case where a user right click on the item he want to right click first before right click it :P
+			    $(".single").show();
 			}else if ($(".active.item").length > 1){
 				//Multie selection. Disable some function on the menu
 				//Added checking if this item is active, this to prevent false activate of multi selection mode
@@ -1897,6 +1971,16 @@ include_once '../../../auth.php';
 				//Invalid operations
 				return;
 			}
+			
+			//Check if the selected item is folder. If yes, change some buttons.
+			if ($(this).attr("id") < dirs.length){
+				//This is a folder
+				$("#openWithMenuItem").html('<i class="external icon"></i> ' + localize("filesystem/rightClickMenu/openInNewWindow", 'Open in New Window'));
+			}else{
+				//This is something else
+				$("#openWithMenuItem").html('<i class="external icon"></i> ' + localize("filesystem/rightClickMenu/openwith",'Open With'));
+			}
+			
 			var posX = event.clientX;
 			var posY = event.clientY;
 			if (posY + $("#rightClickMenu").height() > $( window ).height()){
@@ -2076,11 +2160,11 @@ include_once '../../../auth.php';
 			}else if(lastClicked < dirs.length){
 				//The user clicked on a folder
 				//Change download button to zip and download
-				$('#downloadbtn').html('<i class="zip icon"></i>Zip&Down');
+				$('#downloadbtn').html('<i class="zip icon"></i>' + localize("filesystem/operations/zipAndDown",'Zip&Down'));
 			}else{
 				//The user clicked on a file
 				//Change download button to download
-				$('#downloadbtn').html('<i class="download icon"></i>Download');
+				$('#downloadbtn').html('<i class="download icon"></i>' + localize("filesystem/operations/download",'Download'));
 				$("#downloadbtn").removeClass("disabled");
 				$("#upload").removeClass("disabled");
 				$("#renamebtn").removeClass("disabled");
@@ -2121,7 +2205,7 @@ include_once '../../../auth.php';
 				var ext = GetFileExt(globalFilePath[num]);
 				var fileicon = GetFileIcon(ext);
 				$('#fileicon').html('<i class="icons"><i class="big text file outline icon"></i><i class="corner small text file outline icon"></i></i>');
-				$('#filename').html( lastClicked.length + " items selected.");
+				$('#filename').html( lastClicked.length + localize("filesystem/operations/fileSelected"," items selected."));
 				//Deprecated as real time calculation took too much CPU power
 				//$('#thisFileSize').html("N/A");
 				//$('#thisFileMD5').html("N/A");
@@ -2477,7 +2561,7 @@ include_once '../../../auth.php';
 					}
 				}
 				if (!noFolder){
-					ShowNotice("<i class='remove icon'></i>You cannot include folders in multiple file download request.");
+					ShowNotice("<i class='remove icon'></i>" + localize("filesystem/popups/multiDownloadFolderError","You cannot include folders in multiple file download request."));
 					return;
 				}
 				for (var i =0; i < lastClicked.length; i++){
@@ -2500,17 +2584,17 @@ include_once '../../../auth.php';
 					filename = filename.replace(/[!@#$%^&*()/?]/g, '');
 					if (usePHPForFileOperations){
 						//Use legacy PHP based file zipping script
-						ShowNotice("<i class='caution circle icon'></i>File zipping may take a while...");
+						ShowNotice("<i class='caution circle icon'></i>" + localize("filesystem/popups/zippingTips","File zipping may take a while..."));
 						zipping += 1;
 							$.get( "zipFolder.php?folder=" + file + "&foldername=" + filename, function(data) {
 							  if (data.includes("ERROR") == false){
 								  //The zipping suceed.
-								  ShowNotice("<i class='checkmark icon'></i>The zip file is now ready.");
+								  ShowNotice("<i class='checkmark icon'></i>" + localize("filesystem/popups/zipready","The zip file is now ready."));
 								  window.open("download.php?file_request=" + "export/" + data + "&filename=" + data); 
 								  zipping -=1 ;
 							  }else{
 								  //The zipping failed.
-								  ShowNotice("<i class='checkmark icon'></i>Folder zipping failed.");
+								  ShowNotice("<i class='checkmark icon'></i> " + localize("filesystem/popups/zipfailed","Folder zipping failed."));
 								  zipping -=1 ;
 							  }
 							});
@@ -2564,11 +2648,11 @@ include_once '../../../auth.php';
 	}
 	
 	function filterDownloadFilenameInvalidChars(filename){
-		filename = filename.split("?").join("{QM}"); 
-		filename = filename.split("&").join("{AS}");
-		filename = filename.split("|").join("{VB}");
-		filename = filename.split("<").join("{LA}");
-		filename = filename.split(">").join("{RA}");
+		filename = filename.split("?").join("_"); 
+		filename = filename.split("&").join("_");
+		filename = filename.split("|").join("_");
+		filename = filename.split("<").join("_");
+		filename = filename.split(">").join("_");
 		return filename;
 	}
 	
@@ -2585,6 +2669,7 @@ include_once '../../../auth.php';
 	
 	//Functions releated to showing file / folder properties
 	function showProperties(){
+	    $("#fileProperties").html('<div class="ts active inverted dimmer" style="height:30em;background-color:#fff;"><div class="ts text loader">Loading</div></div>');
 		if (lastClicked != -1){
 			if (lastClicked.length > 1 && lastClicked.constructor === Array){
 				//Not support more than 1 items
@@ -2608,7 +2693,7 @@ include_once '../../../auth.php';
 	function copy(){
 		if (lastClicked != -1){
 			if (PermissionMode == 0){
-				ShowNotice("<i class='paste icon'></i>Permission Denied.");
+				ShowNotice("<i class='paste icon'></i> " + localize("filesystem/popups/permissionDenied","Permission Denied."));
 				return;
 			}
 			if (lastClicked.length > 1){
@@ -2618,7 +2703,7 @@ include_once '../../../auth.php';
 					clipboard.push(file);
 				}
 				cutting = false;
-				ShowNotice("<i class='paste icon'></i> " + lastClicked.length + " items copied.");
+				ShowNotice("<i class='paste icon'></i> " + lastClicked.length + localize("filesystem/popups/itemCopied"," items copied."));
 			}else{	
 				if (lastClicked < dirs.length){
 					//This is a folder
@@ -2626,7 +2711,7 @@ include_once '../../../auth.php';
 					//Folder copy is now supported with "copy_folder.php"
 					var file = globalFilePath[lastClicked];
 					clipboard = file;
-					ShowNotice("<i class='paste icon'></i>Folder copied.");
+					ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/folderCopied","Folder copied."));
 					cutting = false;
 				}else{
 					//This is a file
@@ -2643,13 +2728,19 @@ include_once '../../../auth.php';
 					}
 					*/
 					clipboard = file;
-					ShowNotice("<i class='paste icon'></i>File copied.");
+					ShowNotice("<i class='paste icon'></i> " + localize("filesystem/popups/filecopied","File copied."));
 					cutting = false;
 				}
 			}
+			
+			//Check if Global Clipboard is enabled. If yes, move it into globalClipboard as well.
+			if (enableGlobalClipboard){
+				localStorage.setItem("aroz.filesystem.clipboard",JSON.stringify(clipboard));
+				localStorage.setItem("aroz.filesystem.fileopr","copy");
+			}
 		}else{
 			//When the page just initiate
-			ShowNotice("<i class='copy icon'></i>There is nothing to copy.");
+			ShowNotice("<i class='copy icon'></i>" + localize("filesystem/popups/nothingToCopy","There is nothing to copy."));
 		}
 		
 	}
@@ -2657,7 +2748,7 @@ include_once '../../../auth.php';
 	function cut(){
 		if (lastClicked != -1){
 			if (PermissionMode == 0){
-				ShowNotice("<i class='cut icon'></i>Permission Denied.");
+				ShowNotice("<i class='cut icon'></i> " + localize("filesystem/popups/permissionDenied","Permission Denied."));
 				return;
 			}
 			if (lastClicked.length > 1 && lastClicked.constructor === Array){
@@ -2679,7 +2770,7 @@ include_once '../../../auth.php';
 						cutting = true;
 					}
 				}
-				ShowNotice("<i class='cut icon'></i>" + lastClicked.length + " items are ready to move.");
+				ShowNotice("<i class='cut icon'></i>" + lastClicked.length + localize("filesystem/popups/readyToMove"," items are ready to move."));
 			}else{
 				//Only one object is being cut
 				clipboard = "";
@@ -2689,7 +2780,7 @@ include_once '../../../auth.php';
 					//Folder copy is now supported with "copy_folder.php"
 					var file = globalFilePath[lastClicked];
 					clipboard = file;
-					ShowNotice("<i class='cut icon'></i>Folder ready to move.");
+					ShowNotice("<i class='cut icon'></i>" + localize("filesystem/popups/folderReadyToMove","Folder ready to move."));
 					cutting = true;
 					
 				}else{
@@ -2697,19 +2788,23 @@ include_once '../../../auth.php';
 					var file = globalFilePath[lastClicked];
 					var ext = GetFileExt(file);
 					if (ext == "php" || ext == "js"){
-						ShowNotice("<i class='cut icon'></i>System script cannot be cut via this interface.");
+						ShowNotice("<i class='cut icon'></i>" + localize("filesystem/popups/fileMoveSysScript","System script cannot be cut via this interface."));
 					}else{
 						clipboard = file;
-						ShowNotice("<i class='cut icon'></i>File ready to move.");
+						ShowNotice("<i class='cut icon'></i>" + localize("filesystem/popups/fileReadyToMove","File ready to move."));
 						cutting = true;
 					}
 					
 				}
 			}
+			if (enableGlobalClipboard){
+				localStorage.setItem("aroz.filesystem.clipboard",JSON.stringify(clipboard));
+				localStorage.setItem("aroz.filesystem.fileopr","cut");
+			}
 			
 		}else{
 			//When the page just initiate
-			ShowNotice("<i class='copy icon'></i>There is nothing to cut.");
+			ShowNotice("<i class='copy icon'></i> " + localize("filesystem/popups/nothingToCut","There is nothing to cut."));
 		}
 	}
 	
@@ -2717,11 +2812,23 @@ include_once '../../../auth.php';
 		if (PermissionMode == 0){
 			return;
 		}
+		//Check if global clipboard is enabled. If yes, use the global clipboard instead.
+		if (enableGlobalClipboard){
+			if (localStorage.getItem("aroz.filesystem.clipboard") !== null && localStorage.getItem("aroz.filesystem.clipboard") !== "") {
+				clipboard = JSON.parse(localStorage.getItem("aroz.filesystem.clipboard"));
+				var oprmode = localStorage.getItem("aroz.filesystem.fileopr");
+				if (oprmode == "cut"){
+					cutting = true;
+				}else{
+					cutting = false;
+				}
+			}
+		}
 		var finalPath = currentPath;
 		var cutted = cutting;
 		cutting = false;
 		if (clipboard == "" || clipboard == []){
-			ShowNotice("<i class='paste icon'></i>There is nothing to paste.");
+			ShowNotice("<i class='paste icon'></i> " + localize("filesystem/popups/nothingToPaste","There is nothing to paste."));
 			return;
 		}
 		
@@ -2741,11 +2848,11 @@ include_once '../../../auth.php';
 					if (GetFileExt(GetFileNameFrompath(clipboard[i])).trim() == GetFileNameFrompath(clipboard[i])){
 						//If the paste target is a folder instead
 						var target = finalPath + "/" + GetFileNameFrompath(clipboard[i]);
-						ShowNotice("<i class='paste icon'></i>Pasting in progress...");
+						ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasting","Pasting in progress..."));
 						let thisfile = clipboard[i];
 						$.get( "copy_folder.php?from=" + thisfile + "&target=" + target, function(data) {
 							if (data.includes("DONE")){
-								ShowNotice("<i class='paste icon'></i>Folder pasted. Refershing...");
+								ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/onFolderPasteFinish","Folder pasted. Refershing..."));
 								UpdateFileList(currentPath);
 								if (cutted == true){
 								//Remove the original folder if it is a cut operation
@@ -2753,13 +2860,13 @@ include_once '../../../auth.php';
 									if (data.includes("ERROR") == false){
 										UpdateFileList(currentPath);
 									}else{
-										ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+										ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 									}
 								});
 								}
 							}else{
 								console.log("[File Explorer] " + data);
-								ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+								ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") + " <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -2769,7 +2876,7 @@ include_once '../../../auth.php';
 						let thisfile = clipboard[i];
 						$.get( "copy.php?from=" + thisfile + "&target=" + target, function(data) {
 							if (data.includes("DONE")){
-								ShowNotice("<i class='paste icon'></i>File pasted. Refershing...");
+								ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/filePasted","File pasted. Refershing..."));
 								UpdateFileList(currentPath);
 								if (cutted == true){
 									//Remove the original file if it is a cut operation
@@ -2777,13 +2884,13 @@ include_once '../../../auth.php';
 										if (data.includes("ERROR") == false){
 											UpdateFileList(currentPath);
 										}else{
-											ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+											ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 										}
 									});
 								}
 							}else{
 								console.log("[File Explorer] " + data);
-								ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+								ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +" <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -2797,7 +2904,7 @@ include_once '../../../auth.php';
 					ShowNotice("<i class='paste icon'></i>Pasting in progress...");
 					$.get( "copy_folder.php?from=" + clipboard + "&target=" + target, function(data) {
 						if (data.includes("DONE")){
-							ShowNotice("<i class='paste icon'></i>Folder pasted. Refershing...");
+							ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/folderPasted","Folder pasted. Refershing..."));
 							UpdateFileList(currentPath);
 							if (cutted == true){
 							//Remove the original folder if it is a cut operation
@@ -2805,13 +2912,13 @@ include_once '../../../auth.php';
 								if (data.includes("ERROR") == false){
 									UpdateFileList(currentPath);
 								}else{
-									ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+									ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 								}
 							});
 							}
 						}else{
 							console.log("[File Explorer] " + data);
-							ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+							ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +" <br>" + data.replace("ERROR.",""));
 						}
 						
 					});
@@ -2820,7 +2927,7 @@ include_once '../../../auth.php';
 					var target = finalPath + "/" + GetFileNameFrompath(clipboard);
 					$.get( "copy.php?from=" + clipboard + "&target=" + target, function(data) {
 						if (data.includes("DONE")){
-							ShowNotice("<i class='paste icon'></i>File pasted. Refershing...");
+							ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/filePasted","File pasted. Refershing..."));
 							UpdateFileList(currentPath);
 							if (cutted == true){
 								//Remove the original file if it is a cut operation
@@ -2828,13 +2935,13 @@ include_once '../../../auth.php';
 									if (data.includes("ERROR") == false){
 										UpdateFileList(currentPath);
 									}else{
-										ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+										ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 									}
 								});
 							}
 						}else{
 							console.log("[File Explorer] " + data);
-							ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+							ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +" <br>" + data.replace("ERROR.",""));
 						}
 						
 					});
@@ -2843,7 +2950,7 @@ include_once '../../../auth.php';
 			
 		}else{
 			/*
-				New implementation of file operations (move / move folder / copy / copy golder)
+				New implementation of file operations (move / move folder / copy / copy folder)
 				This provide much better speed than PHP based file operations.
 			*/
 			if (clipboard.length > 1 && clipboard.constructor === Array){
@@ -2852,7 +2959,7 @@ include_once '../../../auth.php';
 					if (GetFileExt(GetFileNameFrompath(clipboard[i])).trim() == GetFileNameFrompath(clipboard[i])){
 						//If the paste target is a folder instead
 						let target = finalPath + "/" + GetFileNameFrompath(clipboard[i]);
-						ShowNotice("<i class='paste icon'></i>Pasting in progress...");
+						ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasting","Pasting in progress..."));
 						let thisfile = clipboard[i];
 						if (cutted == true){
 							//Move operation
@@ -2865,7 +2972,7 @@ include_once '../../../auth.php';
 									}
 								}else{
 									console.log("[File Explorer] " + data);
-									ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+									ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 								}
 								
 							});
@@ -2880,7 +2987,7 @@ include_once '../../../auth.php';
 									}
 								}else{
 									console.log("[File Explorer] " + data);
-									ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+									howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 								}
 								
 							});
@@ -2900,7 +3007,7 @@ include_once '../../../auth.php';
 									}
 								}else{
 									console.log("[File Explorer] " + data);
-									ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+									howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 								}
 								
 							});
@@ -2914,7 +3021,7 @@ include_once '../../../auth.php';
 									}
 								}else{
 									console.log("[File Explorer] " + data);
-									ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+									howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 								}
 								
 							});
@@ -2928,7 +3035,7 @@ include_once '../../../auth.php';
 				if (GetFileExt(GetFileNameFrompath(clipboard)).trim() == GetFileNameFrompath(clipboard)){
 					//If the paste target is a folder instead
 					var target = finalPath + "/" + GetFileNameFrompath(clipboard);
-					ShowNotice("<i class='paste icon'></i>Pasting in progress...");
+					ShowNotice("<i class='paste icon'></i> " + localize("filesystem/popups/pasting","Pasting in progress..."));
 					if (cutted == true){
 						//Move mode
 						$.get( "fsexec.php?opr=move_folder&from=" + clipboard + "&target=" + target, function(data) {
@@ -2936,20 +3043,23 @@ include_once '../../../auth.php';
 								createFileOprListener([data],"move",clipboard, target);
 							}else{
 								console.log("[File Explorer] " + data);
-								ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+								howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 							}
 						});
 
 					}else{
 						//Copy mode
 						var duplicated = false;
-						var isHex = !(decodeHexFoldername(sourceFoldername) == sourceFoldername);
+						var isHex = false;
 						var sourceFoldername = GetFileNameFrompath(clipboard);
+						if (decodeHexFoldername(sourceFoldername) != sourceFoldername){
+						    isHex = true;
+						}
 						if (clipboard == target){
 							//Clone folder in the same directory. Add a clone label for it.
 							duplicated = true;
 						}
-
+                        
 						//Check the paste target (current directory) has the same foldername as the source
 						var foldernames = [];
 						for(var i=0; i < dirs.length; i++){
@@ -2958,7 +3068,7 @@ include_once '../../../auth.php';
 						if (foldernames.includes(sourceFoldername)){
 							duplicated = true;
 						}
-
+                        console.log(isHex);
 						if (duplicated){
 							//Fix the foldername duplication problem
 							var newTarget = target;
@@ -2981,7 +3091,7 @@ include_once '../../../auth.php';
 								createFileOprListener([data],"copy",clipboard, target);
 							}else{
 								console.log("[File Explorer] " + data);
-								ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+								howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -2997,7 +3107,7 @@ include_once '../../../auth.php';
 								createFileOprListener([data],"move",clipboard, target);
 							}else{
 								console.log("[File Explorer] " + data);
-								ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+								howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -3035,7 +3145,7 @@ include_once '../../../auth.php';
 								createFileOprListener([data],"copy",clipboard, target);
 							}else{
 								console.log("[File Explorer] " + data);
-								ShowNotice("<i class='paste icon'></i>Paste Error. Error Message: <br>" + data.replace("ERROR.",""));
+								howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -3064,54 +3174,152 @@ include_once '../../../auth.php';
 	function createFileOprListener(uuid,baseOpr = "copy",source="Unknown Source",target="Unknown Target",downloadOutfile = false){
 		//Create a listner object for the given uuid in large file operations
 		//uuid is an array of at least one item.
+		//Create a file operation dialog
+		var opr = "copy";
+		var title = localize("filesystem/ongoingTasks/copying","Copying ") + uuid.length;
+		var iconTag = "copy";
+		var outfile = target; //Store the raw output file
+		if (baseOpr == "move"){
+			title = localize("filesystem/ongoingTasks/moving","Moving ") + uuid.length;
+			iconTag = "cut"
+			opr = "move"
+		}else if (baseOpr == "zip"){
+			title = localize("filesystem/ongoingTasks/zipping","Zipping ") + uuid.length;
+			iconTag = "file archive outline"
+			opr = "zip"
+		}else if (baseOpr == "unzip"){
+
+		}
+		if (uuid.length > 1){
+			title += localize("filesystem/ongoingTasks/items"," items");
+		}else{
+			title += localize("filesystem/ongoingTasks/item"," item");
+		}
+		//Just in case the source is feeded in as an array, only take one for getting the main dir
+		if (source.length > 1 && source.constructor === Array){
+			source = source[0];
+		}
+		if (source != "Unknown Source" && source.includes(".")){
+			source = dirname(source); //Show its source folder instead of filename
+		}
+
+		if (target != "Unknown Target" && target.includes(".")){
+			target = dirname(target); //Show its source folder instead of filename
+		}
+
 		if (isFunctionBar){
-			//Create a file operation dialog
-			var opr = "copy";
-			var title = "Copying " + uuid.length;
-			var iconTag = "copy";
-			var outfile = target; //Store the raw output file
-			if (baseOpr == "move"){
-				title = "Moving " + uuid.length;
-				iconTag = "cut"
-				opr = "move"
-			}else if (baseOpr == "zip"){
-				title = "Zipping " + uuid.length;
-				iconTag = "file archive outline"
-				opr = "zip"
-			}else if (baseOpr == "unzip"){
-
-			}
-			if (uuid.length > 1){
-				title += " items"
-			}else{
-				title += " item"
-			}
-			//Just in case the source is feeded in as an array, only take one for getting the main dir
-			if (source.length > 1 && source.constructor === Array){
-				source = source[0];
-			}
-			if (source != "Unknown Source" && source.includes(".")){
-				source = dirname(source); //Show its source folder instead of filename
-			}
-
-			if (target != "Unknown Target" && target.includes(".")){
-				target = dirname(target); //Show its source folder instead of filename
-			}
-
 			if (downloadOutfile){
 				var src='SystemAOB/functions/file_system/fileoprProgress.php?opr=' + opr + '&listen=' + JSON.stringify(uuid) + "&source=" + source + "&target=" + target + "&download=" + outfile;
 			}else{
 				var src='SystemAOB/functions/file_system/fileoprProgress.php?opr=' + opr + '&listen=' + JSON.stringify(uuid) + "&source=" + source + "&target=" + target;
 			}
-			
 			var uid = getutime();
 			parent.newEmbededWindow(src, title, iconTag, uid ,480, 210, undefined, undefined, false, true);
 		}else{
-			//Open file operation dialog in a new tab.
-			//Work in progress
+			//Create file operation dialog in the side panel
+			//Try to shorten some path name if needed
+			var dest = target;
+			if (dest.includes("\\")){
+				dest = dest.split("\\").join("/");
+			}
+			if (dest.includes("/")){
+				//Only get the destination foldername if possible.
+				dest = ".../" + decodeHexFolderName(dest.split("/").pop());
+			}
+			if(dest.length > 25) {
+				dest = dest.substring(0,24) + "...";
+			}
+			let listenObjectUUID = new Date().getTime();
+			//Default progress bar
+			var progressbarType = '<div class="ts primary small progress">\
+										<div class="bar" style="width: 0%">\
+											<span class="text">0%</span>\
+										</div>\
+									</div>';
+			if (uuid.length == 1){
+				progressbarType = '<div class="ts preparing primary small progress">\
+									<div class="bar" style="width: 100%"></div>\
+								</div>';
+			}
+			//Multieple item progress bar
+			var foprObject = '<div class="item ongoingTaskObject" uuid="' + listenObjectUUID + '" listen="' + encodeURIComponent(JSON.stringify(uuid)) + '" target="' + encodeURIComponent(outfile) + '">\
+								<i class="' + iconTag + ' icon"></i>\
+								<div class="content">\
+									<div class="header">' + title + localize("filesystem/ongoingTasks/oprInto",' into ') + dest + '</div>\
+									<div class="description">' + progressbarType + '\
+										</div>\
+									</div>\
+								</div>\
+							</div>';
+			$("#ongoingTasklist").append(foprObject);
+
+			//Create listener for this onGoing Task Object
+			let thisuuid = uuid;
+			let downloadResult =downloadOutfile;
+			setTimeout(function(){
+				listenFileOperationMainThread(listenObjectUUID,thisuuid,downloadResult);
+			},fileOprListenerInterval);
+
 		}
 	}
 
+	function listenFileOperationMainThread(listenObjectUUID,thisuuid,downloadOutfile){
+		let thisObjectUUID = listenObjectUUID;
+		let objectListenUUID = thisuuid;
+		//Check if the process finished
+		$.ajax("fsexec.php?listen=" + JSON.stringify(objectListenUUID)).done(function(data){
+			//Get status from returned data
+			//console.log(data,thisuuid);
+			//Calculate the progress rate
+			var finished = 0;
+			var total = thisuuid.length;
+			for (var i = 0; i < data.length; i++){
+				if (data[i][1] == "done"){
+					finished++;
+				}else if (data[i][1] == "null"){
+				    //Something odd happened. Assume finished
+				    finished++;
+				}
+			}
+			//Update the progress bar
+			$(".ongoingTaskObject").each(function(){
+				//Find the corrisponding ongoingTaskObject
+				if ($(this).attr("uuid") == thisObjectUUID){
+					//This is the correct item
+					if (finished == total){
+						//Task completed
+						$(this).find(".bar").css("width","100%");
+						if (!$(this).find(".progress").hasClass("preparing")){
+							$(this).find(".bar").find(".text").text("100%");
+						}
+						$(this).find(".progress").removeClass("primary").removeClass("preparing").addClass("positive");
+						$(this).find(".icon").attr("class","checkmark icon");
+						$(this).find(".header").css("color","#258223");
+						$(this).delay(5000).fadeOut('slow',function() { $(this).remove(); });
+                        
+                        //Download if it is zipping
+						//Work in progress
+                        if (downloadOutfile){
+                            var outfile = decodeURIComponent($(this).attr("target"));
+                            console.log("[File Explorer] File ready: " + outfile);
+                            createFileDownloadRequest(outfile,GetFileNameFrompath(outfile));
+                        }
+						
+					}else{
+						//Task not completed yet, update progress bar
+						if (!$(this).find(".progress").hasClass("preparing")){
+							var progressPercentage = parseInt(finished / total * 100);
+							$(this).find(".bar").css("width",progressPercentage + "%");
+							$(this).find(".bar").find(".text").text(progressPercentage + "%");
+						}
+						setTimeout(function(){
+							listenFileOperationMainThread(listenObjectUUID,thisuuid,downloadOutfile);
+						},fileOprListenerInterval);
+					}
+				}
+			});
+		});
+	}
 	function dirname(path){
 		var windowPathSeperator = false;
 		if (path.includes("\\")){
@@ -3178,10 +3386,11 @@ include_once '../../../auth.php';
 			for(var i = 0; i < deletePendingFile.length; i++){
 				//Delete the path
 				$.get( "delete.php?filename=" + deletePendingFile[i], function(data) {
+					console.log(data);
 					if (data.includes("ERROR") == false){
-						ShowNotice("<i class='checkmark icon'></i> File removed.");
+						ShowNotice("<i class='checkmark icon'></i> " + localize("filesystem/popups/fileRemoved","File removed."));
 					}else{
-						ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+						ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 					}
 				});
 			}
@@ -3338,7 +3547,7 @@ include_once '../../../auth.php';
 				$('#newFolderWindow').fadeOut('fast');
 				enableHotKeys = true;
 			}else{
-				ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+				ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 			}
 		});
 	}
@@ -3350,11 +3559,11 @@ include_once '../../../auth.php';
 	function rename(){
 		if (lastClicked != -1){
 			if (PermissionMode < 2){
-				ShowNotice("<i class='text cursor icon'></i>Permission Denied.");
+				ShowNotice("<i class='text cursor icon'></i> " + localize("filesystem/popups/permissionDenied","Permission Denied."));
 				return;
 			}
 			var useSpecialEncoding = false;
-			var warning = '<div class="sub header">Filename must only contain Alphabets, Numbers and Space.<br> Please tick the "Encoded Filename" option for other special characters.</div>';
+			var warning = '<div class="sub header">' + localize("filesystem/rename/tips",'Filename must only contain Alphabets, Numbers and Space.') + '<br>' + localize("filesystem/rename/tips2",'Please tick the "Encoded Filename" option for other special characters.') + '</div>';
 			var selectedFilename = $("#" + lastClicked).find("div").text();
 			$('#oldRenameFileName').val(selectedFilename);
 			$('#renameFileName').val(selectedFilename);
@@ -3371,21 +3580,21 @@ include_once '../../../auth.php';
 				//This is a folder
 				enableHotKeys = false;
 				$('#renameFileWindow').fadeIn('fast');
-				$('#renameTitle').html("Rename Folder" + warning);
+				$('#renameTitle').html(localize("filesystem/rename/renamefolder","Rename Folder") + warning);
 				$('#renameIcon').removeClass('file').addClass('folder');
 				if (useSpecialEncoding) $('#renameFileName').css('background-color','#caf9d1');
 			}else{
 				//This is a file
 				enableHotKeys = false;
 				$('#renameFileWindow').fadeIn('fast');
-				$('#renameTitle').html("Rename File" + warning);
+				$('#renameTitle').html(localize("filesystem/rename/renamefile","Rename File") + warning);
 				$('#renameIcon').removeClass('folder').addClass('file');
 				if (useSpecialEncoding) $('#renameFileName').css('background-color','#D8F0FF');
 			}
 			renamingFolderID = lastClicked;
 		}else{
 			//When the page just initiate
-			ShowNotice("<i class='text cursor  icon'></i>There is nothing to rename.");
+			ShowNotice("<i class='text cursor  icon'></i> "+ localize("filesystem/popups/nothingToRename","There is nothing to rename."));
 		}
 	}
 	
@@ -3403,7 +3612,7 @@ include_once '../../../auth.php';
 					$('#renameFileWindow').fadeOut('fast');
 					enableHotKeys = true;
 				}else{
-					ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+					ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 				}
 			});
 		}else{
@@ -3413,7 +3622,7 @@ include_once '../../../auth.php';
 					$('#renameFileWindow').fadeOut('fast');
 					enableHotKeys = true;
 				}else{
-					ShowNotice("<i class='remove icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+					ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 				}
 			});
 		}
@@ -3428,7 +3637,7 @@ include_once '../../../auth.php';
 	 function convertFileName(){
 		 if (lastClicked != -1){
 			if (PermissionMode < 2){
-				ShowNotice("<i class='text cursor icon'></i>Permission Denied.");
+				ShowNotice("<i class='text cursor icon'></i> " + localize("filesystem/popups/permissionDenied","Permission Denied."));
 				return;
 			}else{
 				//This function convert the filename to hex or hex back to bin
@@ -3441,7 +3650,7 @@ include_once '../../../auth.php';
 							if (data.includes("DONE")){
 								//Continue to loop and convert filenames
 							}else{
-								ShowNotice("<i class='exchange outline icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+								ShowNotice("<i class='exchange outline icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 								return;
 							}
 						});
@@ -3449,7 +3658,7 @@ include_once '../../../auth.php';
 					let length = lastClicked.length;
 					setTimeout(function(){
 						UpdateFileList(currentPath);
-						ShowNotice("<i class='checkmark icon'></i> " + length + " items has been converted.");
+						ShowNotice("<i class='checkmark icon'></i> " + length + localize("filesystem/popups/itemsConverted"," items has been converted."));
 					},500);
 				 }else{
 				     var jsonpath = encodeURIComponent(JSON.stringify(globalFilePath[lastClicked]));
@@ -3458,7 +3667,7 @@ include_once '../../../auth.php';
 						if (data.includes("DONE")){
 							UpdateFileList(currentPath);
 						}else{
-							ShowNotice("<i class='exchange outline icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+							ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 						}
 					});
 				 }
@@ -3494,7 +3703,7 @@ include_once '../../../auth.php';
 	 
 	 function prepareUpload(){
 		 if (uploading > 0){
-			 ShowNotice("<i class='upload icon'></i>Another upload task is running.<br>Please wait until the previous one is finished.");
+			 ShowNotice("<i class='upload icon'></i>" + localize("filesystem/popups/prepareUploadWait","Another upload task is running.<br>Please wait until the previous one is finished."));
 			 return;
 		 }
 		 $('#uploadFileWindow').fadeIn('fast');
@@ -3515,7 +3724,7 @@ include_once '../../../auth.php';
                         form_data.append("files[]", document.getElementById('multiFiles').files[x]);
                     }
 					 $('#uploadFileWindow').fadeOut('fast');
-					 ShowNotice("<i class='upload icon'></i>The upload will be processed in the background.<br>Please wait until the process is finished.");
+					 ShowNotice("<i class='upload icon'></i>" + localize("filesystem/popups/uploadStart","The upload will be processed in the background.<br>Please wait until the process is finished."));
 					 uploading++;
                     $.ajax({
                         url: 'filesUploadHandler.php?path=' + prepareUplaodPath, 
@@ -3530,16 +3739,16 @@ include_once '../../../auth.php';
 							uploading--;
 							if (data.includes("DONE")){
 								closeUploadWindow();
-								ShowNotice("<i class='upload icon'></i>File upload suceed.");
+								ShowNotice("<i class='upload icon'></i>" + localize("filesystem/popups/uploadSucceed","File upload suceed."));
 								UpdateFileList(currentPath);
 							}else{
 								//Php return error code
-								ShowNotice("<i class='upload icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+								ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 							}
 							
                         },
                         error: function (data) {
-                            ShowNotice("<i class='upload icon'></i> Something went wrong. Error Message: <br>" + data.replace("ERROR.",""));
+                            ShowNotice("<i class='remove icon'></i> " + localize("filesystem/popups/somethingWentWrong","Something went wrong. Error Message:") + " <br>" + data.replace("ERROR.",""));
 							uploading--;
                         }
                     });
@@ -3621,9 +3830,11 @@ include_once '../../../auth.php';
 		return o
 	}
 
+	/*
     function decode_utf8(s) {
       return decodeURIComponent(escape(s));
 	}
+	*/
 
 	function decodeUmFilename(umfilename){
 		if (umfilename.includes("inith")){

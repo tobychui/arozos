@@ -1,3 +1,6 @@
+<?php
+include_once("../../../../../auth.php");
+?>
 <html>
 <head>
 <title>relay_std_driver</title>
@@ -14,29 +17,44 @@
 </style>
 </head>
 <body>
+    <?php
+    $location = "";
+        if (isset($_GET['location']) && $_GET['location'] == "remote"){
+            $location = "remote";
+        }else{
+            $location = "local";
+        }
+    ?>
 <div id="ipv4" style="position:fixed;top:10px;left:10px;z-index:10;color:white;"><?php echo $_GET['ip'];?></div>
 <div id="button" style="width:100%;height:100%;position:fixed;left:0px;top:0px;" onClick="toggleSwitch();">
 <img id="icon" class="center" src="img/default_transparent.png"></img>
 </div>
 <div id="uuid" style="position:fixed;bottom:10px;left:10px;color:white;"></div>
 <script>
-status();
-uuid();
 var uuid = "";
 var currentStatus = "OFF";
-moveIcon();
-function status(){
-$.ajax({url: "http://<?php echo $_GET['ip'];?>/status", 
-	success: function(result){
-        $("#status").html(result);
-		if (result == "ON"){
-			$("#button").css("background-color","#00cccc");
-			currentStatus = "ON";
-		}else{
-			$("#button").css("background-color","#262626");
-			currentStatus = "OFF";
-		}
-    }});
+var clientLocation = "<?php echo $location; ?>";
+var ip = "<?php echo $_GET['ip'];?>";
+getUUID();
+status();
+$(document).ready(function(){
+    moveIcon();
+});
+
+
+function status(results){
+    requestTargetURL("/status",updateStatus);
+}
+
+function updateStatus(result){
+    $("#status").html(result);
+	if (result == "ON"){
+		$("#button").css("background-color","#00cccc");
+		currentStatus = "ON";
+	}else{
+		$("#button").css("background-color","#262626");
+		currentStatus = "OFF";
+	}
 }
 
 function moveIcon(){
@@ -52,23 +70,42 @@ function toggleSwitch(){
 	}
 }
 
+function requestTargetURL(subpath,callback){
+    //Define the basic request URL
+    var requrl = ip + subpath;
+    //Check if the request is coming from external or internal (LAN)
+    if (clientLocation == "remote"){
+        //This request is from external network. Use the request repeater to repeat the HTTP request
+        requrl = "../../extreq.php?reqestRepeat=" + requrl;
+        $.ajax({url: requrl, success: function(result){
+            //Perform the callback function
+            callback(result);
+        }});
+        
+    }else if (clientLocation == "local"){
+        //This request is from LAN. Directly ask the client to request the device.
+        $.ajax({url: "http://" + requrl, success: function(result){
+            //Perform the callback function
+            callback(result);
+        }});
+    }
+}
+
 function off(){
-	$.ajax({url: "http://<?php echo $_GET['ip'];?>/off", success: function(result){
-        status();
-    }});
+    requestTargetURL("/off",status);
 }
 
 function on(){
-	$.ajax({url: "http://<?php echo $_GET['ip'];?>/on", success: function(result){
-        status();
-    }});
+     requestTargetURL("/on",status);
 }
 
-function uuid(){
-	$.ajax({url: "http://<?php echo $_GET['ip'];?>/uuid", success: function(result){
-        $("#uuid").text(result);
-		uuid = result;
-    }});
+function showUUID(result){
+     $("#uuid").text(result);
+	 uuid = result;
+}
+
+function getUUID(){
+    requestTargetURL("/uuid",showUUID);
 }
 
 

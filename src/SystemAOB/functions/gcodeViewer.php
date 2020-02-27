@@ -107,7 +107,7 @@ include_once("../../auth.php");
 				container = document.createElement( 'div' );
 				document.body.appendChild( container );
 				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 10000 );
-				camera.position.set(0, 50, 100 );
+				camera.position.set(0,50,100);
 				
 
 				var controls = new THREE.OrbitControls( camera );
@@ -121,8 +121,15 @@ include_once("../../auth.php");
 				
 				var loader = new THREE.GCodeLoader();
 				loader.load( "<?php echo $filepath;?>", function ( object ) {
-					object.position.set( 0,0, 0);
+				    var box = new THREE.Box3().setFromObject( object );
+                    const center = new THREE.Vector3();
+                    box.getSize(center)
+                    console.log(center)
+					object.position.set(0,0,0);
+					camera.position.set(center.x,50,center.z);
+					controls.update();
 					scene.add( object );
+					
 				} );
 				
 				renderer = new THREE.WebGLRenderer();
@@ -131,6 +138,7 @@ include_once("../../auth.php");
 				container.appendChild( renderer.domElement );
 				window.addEventListener( 'resize', resize, false );
 			}
+			
 
 			function resize() {
 

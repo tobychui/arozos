@@ -7,7 +7,6 @@ if (isset($theme["actBtnColor"][3])){
     $themeColor = $theme["actBtnColor"][3];
 }
 
-
 ?>
 <html>
 <head>
@@ -54,10 +53,10 @@ if (isset($theme["actBtnColor"][3])){
 <body>
 <div id="topbar" class="ts pointing secondary menu">
     <a class="item" href="../"><i class="angle left icon"></i></a>
-    <a class="active item">System Setting</a>
+    <a class="active item" localtext="systemsetting/index/titlebutton">System Setting</a>
 </div>
 <div class="ts container" align="center">
-<h3 class="ts center aligned header">
+<h3 class="ts center aligned header" localtext="systemsetting/index/title" localtext="systemsetting/index/title">
     ArOZ Online System Settings
 </h3>
 <div class="ts icon tiny input">
@@ -71,87 +70,87 @@ if (isset($theme["actBtnColor"][3])){
 	<div class="doubling six column row">
         <a class="column clickable" href="navi.php?page=host">
 		<h4 class="ts center aligned icon header">
-			<i class="disk outline icon themeColor"></i>Host
-			<div class="sub header">Host Info, WebApps, Thermal</div>
+			<i class="disk outline icon themeColor"></i><span localtext="systemsetting/index/host">Host</span>
+			<div class="sub header" localtext="systemsetting/index/hostdesc">Host Info, WebApps, Thermal</div>
 		</h4>
 		<br>
 		</a>
         <a class="column clickable" href="navi.php?page=device">
 		<h4 class="ts center aligned icon header">
-			<i class="laptop icon themeColor"></i>Device
-			<div class="sub header">Client, Nearby or IoT Devices</div>
+			<i class="laptop icon themeColor"></i><span localtext="systemsetting/index/device">Device</span>
+			<div class="sub header" localtext="systemsetting/index/devicedesc">Client, Nearby or IoT Devices</div>
 		</h4>
 		<br>
 		</a>
 		
         <a class="column clickable" href="navi.php?page=network">
 		<h4 class="ts center aligned icon header">
-			<i class="wifi icon themeColor"></i>Network
-			<div class="sub header">WiFi Adaptor, Access Point, Ethernet</div>
+			<i class="wifi icon themeColor"></i><span localtext="systemsetting/index/network">Network</span>
+			<div class="sub header" localtext="systemsetting/index/networkdesc">WiFi Adaptor, Access Point, Ethernet</div>
 		</h4>
 		<br>
 		</a>
 		
         <a class="column clickable" href="navi.php?page=theme">
 		<h4 class="ts center aligned icon header">
-			<i class="paint brush icon themeColor"></i>Personalization
-			<div class="sub header">Color Scheme, Desktop Theme, Lock Screen</div>
+			<i class="paint brush icon themeColor"></i><span localtext="systemsetting/index/personalization">Personalization</span>
+			<div class="sub header" localtext="systemsetting/index/personalizationdesc">Color Scheme, Desktop Theme, Lock Screen</div>
 		</h4>
 		<br>
 		</a>
 		
 		<a class="column clickable" href="navi.php?page=users">
 		<h4 class="ts center aligned icon header">
-			<i class="user outline icon themeColor"></i>Users
-			<div class="sub header">Your account, device UUID, Identification</div>
+			<i class="user outline icon themeColor"></i><span localtext="systemsetting/index/user">Users</span>
+			<div class="sub header" localtext="systemsetting/index/userdesc">Your account, device UUID, Identification</div>
 		</h4>
 		<br>
 		</a>
 		
 		<a class="column clickable" href="navi.php?page=time">
 		<h4 class="ts center aligned icon header">
-			<i class="clock icon themeColor"></i>Time
-			<div class="sub header">Clock, Date Settings</div>
+			<i class="clock icon themeColor"></i><span localtext="systemsetting/index/time">Time</span>
+			<div class="sub header" localtext="systemsetting/index/timedesc">Clock, Date Settings</div>
 		</h4>
 		<br>
 		</a>
 		
 		<a class="column clickable" href="navi.php?page=file">
 		<h4 class="ts center aligned icon header">
-			<i class="file outline icon themeColor"></i>File & Storage
-			<div class="sub header">File List, Clean, Search</div>
+			<i class="file outline icon themeColor"></i><span localtext="systemsetting/index/storage">File & Storage</span>
+			<div class="sub header" localtext="systemsetting/index/storagedesc">File List, Clean, Search</div>
 		</h4>
 		<br>
 		</a>
 		
 		<a class="column clickable" href="navi.php?page=sync">
 		<h4 class="ts center aligned icon header">
-			<i class="cloud upload icon themeColor"></i>ArOZ Sync
-			<div class="sub header">Cluster File Hosting, Disk Recovery</div>
+			<i class="cloud upload icon themeColor"></i><span localtext="systemsetting/index/arozsync">ArOZ Sync</span>
+			<div class="sub header" localtext="systemsetting/index/arozsyncdesc">Cluster File Hosting, Disk Recovery</div>
 		</h4>
 		<br>
 		</a>
 		
 		<a class="column clickable" href="navi.php?page=cluster">
 		<h4 class="ts center aligned icon header">
-			<i class="server icon themeColor"></i>ArOZ Clusters
-			<div class="sub header">MapReduce, Cluster Settings</div>
+			<i class="server icon themeColor"></i><span localtext="systemsetting/index/arozcluster">ArOZ Clusters</span>
+			<div class="sub header" localtext="systemsetting/index/arozclusterdesc">MapReduce, Cluster Settings</div>
 		</h4>
 		<br>
 		</a>
 		
 		<a class="column clickable" href="navi.php?page=backup">
 		<h4 class="ts center aligned icon header">
-			<i class="refresh icon themeColor"></i>Backup and Restore
-			<div class="sub header">Create backup, restore</div>
+			<i class="refresh icon themeColor"></i><span localtext="systemsetting/index/backupAndRestore">Backup and Restore</span>
+			<div class="sub header" localtext="systemsetting/index/backupAndRestoreDesc">Create backup, restore</div>
 		</h4>
 		<br>
 		</a>
 		
 		<a class="column clickable" href="navi.php?page=about">
 		<h4 class="ts center aligned icon header">
-			<i class="notice icon themeColor"></i>About ArOZ
-			<div class="sub header">More information, contact developer</div>
+			<i class="notice icon themeColor"></i><span localtext="systemsetting/index/about">About ArOZ</span>
+			<div class="sub header" localtext="systemsetting/index/aboutdesc">More information, contact developer</div>
 		</h4>
 		<br>
 		</a>
@@ -172,6 +171,29 @@ if (VDI){
 	parent.setWindowIcon(windowID + "","setting");
 	parent.setGlassEffectMode(windowID + "");
 }
+
+
+//Localization translations
+lang = localStorage.getItem("aosystem.localize");
+if (lang === undefined || lang === "" || lang === null){
+	lang = "";
+}
+$.get("../SystemAOB/system/lang/" + lang + ".json",function(data){
+	window.arozTranslationKey = data;
+	$("*").each(function(){
+		if (this.hasAttribute("localtext")){
+			var thisKey = $(this).attr("localtext");
+			var localtext = window.arozTranslationKey.keys[thisKey];
+			$(this).text(localtext);
+		}
+	});
+	if (lang != ""){
+        //Change window title as well
+        parent.changeWindowTitle(windowID + "", window.arozTranslationKey.keys["systemsetting/index/title"]);
+    }
+})
+
+
 
 
 

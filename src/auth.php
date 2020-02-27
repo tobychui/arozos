@@ -170,7 +170,7 @@ if (file_exists($databasePath)){
 	}else{
 		$layers = count(explode("../",$rootPath));
 	}
-	
+	header("aoRoot: " . $rootPath);
 	//Resolve the link and use it as redirection
 	$uri = $_SERVER['REQUEST_URI'];
 	$paramter = "";
@@ -187,7 +187,7 @@ if (file_exists($databasePath)){
 	}
 	$validURISegment = array_reverse($validURISegment);
 	$validURISegment = implode("/",$validURISegment);
-	$actual_link = $validURISegment;
+	$actual_link = $validURISegment . "?" . $paramter;
 	
 if (session_id() == '' || !isset($_SESSION['login']) || $_SESSION['login'] == "") {
 	//echo $actual_link;

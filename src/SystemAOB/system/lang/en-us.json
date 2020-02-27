@@ -1,0 +1,32 @@
+{
+  "lang":"en-US",
+  "author":"tobychui",
+  "version":"1.0",
+  "keys":{
+    "index/menu/title":"ArOZ Onlineβ",
+	"index/identify/welcomeback":"Welcome Back ",
+	"index/identify/notfound":"You have not identify yourself.",
+	"index/banner/identify":"You have been logged in as ",
+	"index/launcher/launch":"Launch",
+	"index/mobile/yourip":"Your IP: ",
+	"index/mobile/logout":"Logout",
+	"index/button/desktop":"Start Web Desktop Mode",
+	"index/button/extdesktop":"Extend Desktop",
+	"index/button/logout":"Logout",
+	"listmenu/sidebar/music": "Musics",
+	"listmenu/sidebar/video": "Videos",
+	"listmenu/sidebar/picture": "Pictures",
+	"listmenu/sidebar/document": "Documents",
+	"listmenu/sidebar/myhost": "MyHost",
+	"listmenu/sidebar/fileview": "File Explorer",
+	"listmenu/sidebar/trashbin": "Trash Bin",
+	"listmenu/sidebar/setting": "Settings",
+	"listmenu/sidebar/help": "Help / Support",
+	"listmenu/powermenu/powermanagement": "Shutdown ",
+	"listmenu/powermenu/logout": "Logout",
+	"listmenu/powermenu/restartapache": "Restart Apache",
+	"listmenu/powermenu/reboot": "Reboot",
+	"listmenu/powermenu/shutdown": "Poweroff"
+	
+  }
+}

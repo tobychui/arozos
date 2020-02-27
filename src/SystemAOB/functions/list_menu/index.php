@@ -104,7 +104,7 @@ if (file_exists($iconPath . $_SESSION['login'] . ".png")){
                 height:510px;
                 width:27%;
             }
-            .shutdown{
+            .shutdownwrapper{
                 color:white;
                 border: 1px solid white;
                 padding-left:8px;
@@ -119,7 +119,7 @@ if (file_exists($iconPath . $_SESSION['login'] . ".png")){
                 letter-spacing: 1px;
                 font-size:80% !important;
             }
-            .shutdown:hover{
+            .shutdownwrapper:hover{
                 background:rgba(255,255,255,0.3) !important;
             }
             .sidebar.item{
@@ -199,19 +199,20 @@ if (file_exists($iconPath . $_SESSION['login'] . ".png")){
             <img class="ts small bordered image" style="border: 3px solid white;" src="<?php echo $imagePath;?>">
             <div id="username" class="sidebar"></div>
             <div class="ts list">
-                <div class="sidebar item" onClick="openMediaFolder(1);">Music</div>
-                <div class="sidebar item" onClick="openMediaFolder(2);">Video</div>
-                <div class="sidebar item" onClick="openMediaFolder(3);">Pictures</div>
-                <div class="sidebar item" onClick="openMediaFolder(4);">Documents</div>
+                <div class="sidebar item localtext" localtext="listmenu/sidebar/music" onClick="openMediaFolder(1);">Music</div>
+                <div class="sidebar item localtext" localtext="listmenu/sidebar/video" onClick="openMediaFolder(2);">Video</div>
+                <div class="sidebar item localtext" localtext="listmenu/sidebar/picture" onClick="openMediaFolder(3);">Pictures</div>
+                <div class="sidebar item localtext" localtext="listmenu/sidebar/document" onClick="openMediaFolder(4);">Documents</div>
                 <div class="ts divider"></div>
-                <div class="sidebar item" onClick="myComputer();"><i class="disk outline icon"></i>  My Host</div>
-                <div class="sidebar item" onClick="AOR();"><i class="folder open outline icon"></i>  File View</div>
-                <div class="sidebar item" onClick="controlPanel();"><i class="setting icon"></i>  Settings</div>
+                <div class="sidebar item" onClick="myComputer();"><i class="disk outline icon"></i>  <span class="localtext" localtext="listmenu/sidebar/myhost">My Host</span></div>
+                <div class="sidebar item" onClick="AOR();"><i class="folder open outline icon"></i>  <span class="localtext" localtext="listmenu/sidebar/fileview">File View</span></div>
+				<div class="sidebar item" onClick="TrashBin();"><i class="trash outline icon"></i>  <span class="localtext" localtext="listmenu/sidebar/trashbin">Trash Bin</span></div>
+                <div class="sidebar item" onClick="controlPanel();"><i class="setting icon"></i>  <span class="localtext" localtext="listmenu/sidebar/setting">Settings</span></div>
                 <div class="ts divider"></div>
-                <div class="sidebar item" onClick="window.open('http://aroz.online');">Help / Support</div>
+                <div class="sidebar item" onClick="window.open('http://aroz.online');"><span class="localtext" localtext="listmenu/sidebar/help">Help / Support</span></div>
             </div>
-            <div class="shutdown" onClick="toggleShutDownMenu();">
-                Shut down <i class="caret right icon" style="border-left: 1px solid white;"></i>
+            <div class="shutdown shutdownwrapper" onClick="toggleShutDownMenu();">
+                <span class="shutdown localtext" localtext="listmenu/powermenu/powermanagement">Shut down</span> <i class="caret right icon" style="border-left: 1px solid white;"></i>
             </div>
             <div class="selectionArrow">
                 <i class = ""></i>
@@ -219,10 +220,10 @@ if (file_exists($iconPath . $_SESSION['login'] . ".png")){
         </div>
 		<div id="shutdownMenu" style="display:none;">
 			<div class="ts list">
-				<div class="selectable item" style="color:white !important;" onClick="Logout();">Logout</div>
-				<div class="selectable item" style="color:white !important;" onClick="RestartApache();">Restart Apache</div>
-				<div class="selectable item" style="color:white !important;" onClick="Reboot();">Reboot</div>
-				<div class="selectable item" style="color:white !important;" onCLick="Shutdown();">Shutdown</div>
+				<div class="selectable item localtext" localtext="listmenu/powermenu/logout" style="color:white !important;" onClick="Logout();">Logout</div>
+				<div class="selectable item localtext" localtext="listmenu/powermenu/restartapache" style="color:white !important;" onClick="RestartApache();">Restart Apache</div>
+				<div class="selectable item localtext" localtext="listmenu/powermenu/reboot" style="color:white !important;" onClick="Reboot();">Reboot</div>
+				<div class="selectable item localtext" localtext="listmenu/powermenu/shutdown" style="color:white !important;" onCLick="Shutdown();">Shutdown</div>
 			</div>
 		</div>
         <script>
@@ -252,16 +253,20 @@ if (file_exists($iconPath . $_SESSION['login'] . ".png")){
 				//If this is not Safari, hide the menu immediately
 				parent.$('#powerMenu').hide();
 			}
-			$("body").css("background",parent.themeColor["theme"]);
-			$("#shutdownMenu").css("background-color",parent.themeColor["active"]);
+			try{
+				$("body").css("background",parent.themeColor["theme"]);
+				$("#shutdownMenu").css("background-color",parent.themeColor["active"]);
+			}catch(ex){
+				
+			}
 			$(document).ready(function(){
 			    loadModules();
                 updateUserName();
-                
                 if (is_safari){
                     //Safari requie the DIV to be visiable in order to use AJAX.load function.
                     parent.$('#powerMenu').hide();
                 }
+				ao_module_initLocalTranslation();
 			});
 			
 			window.addEventListener("focus", function(event) 
@@ -521,6 +526,12 @@ if (file_exists($iconPath . $_SESSION['login'] . ".png")){
                 window.location.reload();
             }
             
+			function TrashBin(){
+				var uid = "trashbin";
+				ao_module_newfw("SystemAOB/functions/file_system/trashBin.php","Trash Bin","trash outline",uid);
+				hideListMenu();
+			}
+			
             function hideListMenu(){
                 parent.$('#powerMenu').fadeOut('fast');
             }

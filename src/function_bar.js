@@ -2063,7 +2063,7 @@ function cacheWindowSize(url,ww,wh,exact=false){
 			baseurl = url.split("?")[0];
 		}
 	}
-	if (localStorage.getItem("aosystem.fwscache") === null){
+	if (localStorage.getItem("aosystem.fwscache") === null || localStorage.getItem("aosystem.fwscache") == ""){
 		localStorage.setItem("aosystem.fwscache", JSON.stringify([[baseurl,ww,wh]]));
 		console.log([[baseurl,ww,wh]]);
 	}else{

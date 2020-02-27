@@ -1,7 +1,8 @@
 <?php
 include '../../../auth.php';
-?>
-<?php
+include_once("../personalization/configIO.php");
+$fsconf = getConfig("fsaccess",true);
+
 //Require variable: filename (Full path)
 //Allowed Deleting Path
 $allowedPath = [str_replace("\\","/",$_SERVER['DOCUMENT_ROOT'])];
@@ -18,6 +19,10 @@ function mv($var){
 }
 
 function insideSystemAOB($filepath){
+	if ($fsconf["enablesysscriptCheckBeforeDelete"][3] == false){
+		//Bypass checking
+		return false;
+	}
 	$systemAOBRealPath = realpath("../../");
 	$filepathRealPath = realpath($filepath);
 	if (strpos($filepathRealPath,$systemAOBRealPath) === 0){
@@ -51,8 +56,8 @@ function listFiles($dir){
 }
 
 function delete_directory($dirname) {
-         if (is_dir($dirname))
-           $dir_handle = opendir($dirname);
+	 if (is_dir($dirname))
+	   $dir_handle = opendir($dirname);
 	 if (!$dir_handle)
 	      return false;
 	 while($file = readdir($dir_handle)) {
@@ -103,12 +108,19 @@ if ($filename != null && file_Exists($filename) && is_file($filename)){
 	if (insideSystemAOB($filename) && $ext == "php"){
 		die("ERROR. Unable to remove protected system script in SystemAOB.");
 	}
-	if (!is_writable($filename) || !unlink($filename)){
-		die('ERROR. Unable to delete file.');
+	if ($fsconf["enableTrashbin"][3] == true){
+		//Move the file into trash bin
+		header("Location: trashHandle.php?opr=mv&filepath=" . str_replace("../../../","",$filename));
 	}else{
-		echo "DONE";
-		die();
+		//Remove without putting it into trash bin
+		if (!is_writable($filename) || !unlink($filename)){
+			die('ERROR. Unable to delete file.');
+		}else{
+			echo "DONE";
+			die();
+		}
 	}
+	
 		
 }else if ($filename != null && file_Exists($filename) && is_dir($filename)){
 	//This is a directory. Check if there exists any php scrip.
@@ -132,7 +144,12 @@ if ($filename != null && file_Exists($filename) && is_file($filename)){
 		echo 'ERROR. This folder contains System files. Delete request is rejected.';
 	}else{
 		//This folder do not contain any js or php file. User can delete this folder.
-		delete_directory($filename);
+		if ($fsconf["enableTrashbin"][3] == true){
+		//Move the file into trash bin
+			header("Location: trashHandle.php?opr=mv&filepath=" . str_replace("../../../","",$filename));
+		}else{
+			delete_directory($filename);
+		}
 		echo 'DONE';
 	}
 	

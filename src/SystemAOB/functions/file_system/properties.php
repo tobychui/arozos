@@ -200,9 +200,9 @@ if ($ext == "shortcut"){
 				<tr>
 					<td><?php
 					if ($fileType == "file"){
-						echo 'Opens with';
+						echo '<span localtext="fileproperties/contents/openwith">Opens with</span>';
 					}elseif ($fileType == "shortcut"){
-						echo 'Target';
+						echo '<span localtext="fileproperties/contents/shortcutTarget">Target</span>';
 					}
 					?></td>
 					<td><?php
@@ -224,16 +224,16 @@ if ($ext == "shortcut"){
 				if ($fileType == "file"){
 				echo "<tr>
 					<td></td>
-					<td><button class='ts tiny basic button' onClick='changeOpenApps();'>Change</button></td>
+					<td><button class='ts tiny basic button' onClick='changeOpenApps();' localtext='fileproperties/contents/changeDefaultWebApp'>Change</button></td>
 				</tr>";
 				}
 				?>
 				<tr>
-					<td><?php echo ($fileType=="shortcut")? "Shortcut " : "";?>Location</td>
+					<td><?php echo ($fileType=="shortcut")? "<span localtext='fileproperties/contents/shortcut'>Shortcut</span> " : "";?><span localtext="fileproperties/contents/location">Location</span></td>
 					<td><div class="ts borderless tiny fluid input"><input id="filelocation" type="text" value="<?php echo realpath($filename);?>" readonly></div></td>
 				</tr>
 				<tr>
-					<td><?php echo ($fileType=="shortcut")? "Shortcut " : "";?>Direct Access Path</td>
+					<td><?php echo ($fileType=="shortcut")? "<span localtext='fileproperties/contents/shortcut'>Shortcut</span> " : "";?><span localtext="fileproperties/contents/directPath">Direct Access Path</span></td>
 					<td><div class="ts borderless tiny fluid input"><input type="text" value="<?php echo str_replace(str_replace("\\","/",$_SERVER['DOCUMENT_ROOT']),"http://$_SERVER[HTTP_HOST]",str_replace("\\","/",realpath($filename)));
 					?>" readonly></div></td>
 				</tr>
@@ -253,13 +253,13 @@ if ($ext == "shortcut"){
 							$realPath = "This shortcut might point to a directory no longer exists.";
 						}
 						echo '<tr>
-					<td>Starting Location</td>
+					<td localtext="fileproperties/contents/shortcutTargetFullpath">Starting Location</td>
 					<td><div class="ts borderless tiny fluid input"><input type="text" value="'.$realPath.'" readonly></div></td>
 				</tr>';
 					}
 				?>
 				<tr>
-					<td>Size</td>
+					<td localtext="fileproperties/contents/size">Size</td>
 					<td><?php 
 					if ($fileType == "folder"){
 						echo getHumanReadableSize(GetDirectorySize($filename));
@@ -270,11 +270,11 @@ if ($ext == "shortcut"){
 					?></td>
 				</tr>
 				<tr>
-					<td>Date Modified</td>
+					<td localtext="fileproperties/contents/datemodified">Date Modified</td>
 					<td><?php echo date("F d Y H:i:s", filemtime($filename));?></td>
 				</tr>
 				<tr>
-					<td>MD5</td>
+					<td localtext="fileproperties/contents/md5">MD5</td>
 					<td><?php 
 					if (is_dir($filename)){
             			echo "N/A";
@@ -296,7 +296,27 @@ if ($ext == "shortcut"){
 	    var ext = "<?php echo $ext;?>";
 	    var VDI = !(!parent.isFunctionBar);
 	    
-	    
+	    //Translation Services. Load default translation from localStorage if availble
+		initLocalizationTranslation();
+		function initLocalizationTranslation(){
+			var lang = localStorage.getItem("aosystem.localize");
+			if (lang === undefined || lang === "" || lang === null){
+				//Ignore translation
+			}else{
+				//Translate with given lang
+				$.get("../../system/lang/" + lang + ".json",function(data){
+					window.localization = data;
+					$("*").each(function(){
+						if (this.hasAttribute("localtext")){
+							var thisKey = $(this).attr("localtext");
+							var localtext = data.keys[thisKey];
+							$(this).text(localtext);
+						}
+					});
+				})
+			}
+		}
+		
         function changeOpenApps(){
 	        if (VDI){
 	            windowID = $(window.frameElement).parent().attr("id");

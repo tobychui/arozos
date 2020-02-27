@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head data-suburl="">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="author" content="TC" />
+<meta name="description" content="iotpipe - IoT Pipeline for the ArOZ Online System " />
+<meta name="keywords" content="go, git, self-hosted, gogs">
+<meta name="referrer" content="no-referrer" />
+<meta name="_csrf" content="IGTiNFsMjtDS59tv5Xh933SqpZU6MTU3MTgxNzUxNzQ2NjgyMzAwMA==" />
+<meta name="_suburl" content="" />
+<meta property="og:url" content="https://git.hkwtc.org/TC/iotpipe" />
+<meta property="og:type" content="object" />
+<meta property="og:title" content="TC/iotpipe">
+<meta property="og:description" content="IoT Pipeline for the ArOZ Online System ">
+<meta property="og:image" content="https://git.hkwtc.org/avatars/2" />
+<link rel="shortcut icon" href="/img/favicon.png" />
+<script src="/js/jquery-1.11.3.min.js"></script>
+<script src="/js/libs/jquery.are-you-sure.js"></script>
+<link rel="stylesheet" href="/assets/font-awesome-4.6.3/css/font-awesome.min.css">
+<link rel="stylesheet" href="/assets/octicons-4.3.0/octicons.min.css">
+<link rel="stylesheet" href="/css/semantic-2.3.1.min.css">
+<link rel="stylesheet" href="/css/gogs.css?v=90b68fe79cdfcda189899016b30daedc">
+<noscript>
+		<style>
+			.dropdown:hover > .menu { display: block; }
+			.ui.secondary.menu .dropdown.item > .menu { margin-top: 0; }
+		 </style>
+	</noscript>
+<script src="/js/semantic-2.3.1.min.js"></script>
+<script src="/js/gogs.js?v=90b68fe79cdfcda189899016b30daedc"></script>
+<title>TC/iotpipe: IoT Pipeline for the ArOZ Online System  - HKWTC</title>
+<meta name="theme-color" content="#ff5343">
+</head>
+<body>
+<div class="full height">
+<noscript>This website works better with JavaScript</noscript>
+<div class="following bar light">
+<div class="ui container">
+<div class="ui grid">
+<div class="column">
+<div class="ui top secondary menu">
+<a class="item brand" href="/">
+<img class="ui mini image" src="/img/favicon.png">
+</a>
+<a class="item" href="/">控制面板</a>
+<a class="item" href="/issues">問題</a>
+<a class="item" href="/pulls">合併請求</a>
+<a class="item" href="/explore/repos">探索</a>
+<div class="right menu">
+<div class="ui dropdown head link jump item poping up" data-content="創建..." data-variation="tiny inverted">
+<span class="text">
+<i class="octicon octicon-plus"><span class="sr-only">創建...</span></i>
+<i class="octicon octicon-triangle-down"></i>
+</span>
+<div class="menu">
+<a class="item" href="/repo/create">
+<i class="octicon octicon-plus"></i> 新增儲存庫
+</a>
+<a class="item" href="/repo/migrate">
+<i class="octicon octicon-repo-clone"></i> 遷移外部倉庫
+</a>
+<a class="item" href="/org/create">
+<i class="octicon octicon-organization"></i> 新增組織
+</a>
+</div>
+</div>
+<div class="ui dropdown head link jump item poping up" tabindex="-1" data-content="用戶信息及更多" data-variation="tiny inverted">
+<span class="text avatar">
+<img class="ui small rounded image" src="/avatars/2">
+<span class="sr-only">用戶信息及更多</span>
+<i class="octicon octicon-triangle-down" tabindex="-1"></i>
+</span>
+<div class="menu" tabindex="-1">
+<div class="ui header">
+已登入用戶 <strong>TC</strong>
+</div>
+<div class="divider"></div>
+<a class="item" href="/TC">
+<i class="octicon octicon-person"></i> 個人資訊
+</a>
+<a class=" item" href="/user/settings">
+<i class="octicon octicon-settings"></i> 用戶設定
+</a>
+<a class="item" target="_blank" rel="noopener noreferrer" href="https://gogs.io/docs" rel="noreferrer">
+<i class="octicon octicon-question"></i> 說明
+</a>
+<div class="divider"></div>
+<a class=" item" href="/admin">
+<i class="icon settings"></i> 管理面板
+</a>
+<div class="divider"></div>
+<form id="logout-form" class="item" action="/user/logout" method="POST">
+<input type="hidden" name="_csrf" value="IGTiNFsMjtDS59tv5Xh933SqpZU6MTU3MTgxNzUxNzQ2NjgyMzAwMA==">
+<div class="submit-button" data-form="#logout-form">
+<i class="octicon octicon-sign-out"></i> 登出
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="repository file list">
+<div class="header-wrapper">
+<div class="ui container">
+<div class="ui vertically padded grid head">
+<div class="column">
+<div class="ui header">
+<div class="ui huge breadcrumb">
+<i class="mega-octicon octicon-lock"></i>
+<a href="/TC">TC</a>
+<div class="divider"> / </div>
+<a href="/TC/iotpipe">iotpipe</a>
+</div>
+<div class="ui right">
+<form class="display inline" action="/TC/iotpipe/action/unwatch?redirect_to=%2fTC%2fiotpipe%2fsrc%2fmaster%2fiotpipe_arm64.elf" method="POST">
+<input type="hidden" name="_csrf" value="IGTiNFsMjtDS59tv5Xh933SqpZU6MTU3MTgxNzUxNzQ2NjgyMzAwMA==">
+<div class="ui labeled button" tabindex="0">
+<button class="ui basic button">
+<i class="eye icon"></i>取消關注
+</button>
+<a class="ui basic label" href="/TC/iotpipe/watchers">
+1
+</a>
+</div>
+</form>
+<form class="display inline" action="/TC/iotpipe/action/star?redirect_to=%2fTC%2fiotpipe%2fsrc%2fmaster%2fiotpipe_arm64.elf" method="POST">
+<input type="hidden" name="_csrf" value="IGTiNFsMjtDS59tv5Xh933SqpZU6MTU3MTgxNzUxNzQ2NjgyMzAwMA==">
+<div class="ui labeled button" tabindex="0">
+<button class="ui basic button">
+<i class="star outline icon"></i>讚好
+</button>
+<a class="ui basic label" href="/TC/iotpipe/stars">
+0
+</a>
+</div>
+</form>
+<div class="ui labeled button" tabindex="0">
+<a class="ui basic button poping up" href="/repo/fork/64">
+<i class="octicon octicon-repo-forked"></i>複刻
+</a>
+<a class="ui basic label" href="/TC/iotpipe/forks">
+0
+ </a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="ui tabs container">
+<div class="ui tabular menu navbar">
+<a class="active item" href="/TC/iotpipe">
+<i class="octicon octicon-file-text"></i> 檔案
+</a>
+<a class=" item" href="/TC/iotpipe/issues">
+<i class="octicon octicon-issue-opened"></i> 問題管理 <span class="ui gray small label">0</span>
+</a>
+<a class=" item" href="/TC/iotpipe/pulls">
+<i class="octicon octicon-git-pull-request"></i> 合併請求 <span class="ui gray small label">0</span>
+</a>
+<a class=" item" href="/TC/iotpipe/wiki">
+<i class="octicon octicon-book"></i> Wiki
+</a>
+<div class="right menu">
+<a class=" item" href="/TC/iotpipe/settings">
+<i class="octicon octicon-tools"></i> 倉庫設置
+</a>
+</div>
+</div>
+</div>
+<div class="ui tabs divider"></div>
+</div>
+<div class="ui container">
+<div class="ui secondary menu">
+<div class="fitted item">
+<a href="/TC/iotpipe/compare/master...master">
+<button class="ui green small button"><i class="octicon octicon-git-compare"></i></button>
+</a>
+</div>
+<div class="fitted item choose reference">
+<div class="ui floating filter dropdown" data-no-results="未找到結果">
+<div class="ui basic small button">
+<span class="text">
+<i class="octicon octicon-git-branch"></i>
+分支:
+<strong>master</strong>
+</span>
+<i class="dropdown icon"></i>
+</div>
+<div class="menu">
+<div class="ui icon search input">
+<i class="filter icon"></i>
+<input name="search" placeholder="過濾分支或標籤...">
+</div>
+<div class="header">
+<div class="ui grid">
+<div class="two column row">
+<a class="reference column" href="#" data-target="#branch-list">
+<span class="text black">
+分支列表
+</span>
+</a>
+<a class="reference column" href="#" data-target="#tag-list">
+<span class="text ">
+標籤列表
+</span>
+</a>
+</div>
+</div>
+</div>
+<div id="branch-list" class="scrolling menu">
+<div class="item selected" data-url="/TC/iotpipe/src/master/iotpipe_arm64.elf">master</div>
+</div>
+<div id="tag-list" class="scrolling menu" style="display: none">
+</div>
+</div>
+</div>
+</div>
+<div class="fitted item">
+<div class="ui breadcrumb">
+<a class="section" href="/TC/iotpipe/src/master">iotpipe</a>
+<div class="divider"> / </div>
+<span class="active section">iotpipe_arm64.elf</span>
+</div>
+</div>
+<div class="right fitted item">
+<div id="file-buttons" class="ui tiny blue buttons">
+</div>
+</div>
+</div>
+<div id="file-content" class="tab-size-8">
+<h4 class="ui top attached header" id="repo-read-file">
+<i class="octicon octicon-file-text ui left"></i>
+<strong>iotpipe_arm64.elf</strong> <span class="text grey normal">6.5 MB</span>
+<div class="ui right file-actions">
+<div class="ui buttons">
+<a class="ui button" href="/TC/iotpipe/src/4c436993d2160c01fa160bb996b9d3e7c3b31f99/iotpipe_arm64.elf">永久連結</a>
+<a class="ui button" href="/TC/iotpipe/commits/master/iotpipe_arm64.elf">文件歷史</a>
+<a class="ui button" href="/TC/iotpipe/raw/master/iotpipe_arm64.elf">原始文件</a>
+</div>
+<i class="octicon octicon-pencil btn-octicon poping up disabled" data-content="不能編輯非文字檔" data-position="bottom center" data-variation="tiny inverted"></i>
+<a href="/TC/iotpipe/_delete/master/iotpipe_arm64.elf"><i class="octicon octicon-trashcan btn-octicon btn-octicon-danger poping up" data-content="刪除此文件" data-position="bottom center" data-variation="tiny inverted"></i></a>
+</div>
+</h4>
+<div class="ui unstackable attached table segment">
+<div id="" class="file-view  has-emoji">
+<div class="view-raw ui center">
+<a href="/TC/iotpipe/raw/master/iotpipe_arm64.elf" rel="nofollow" class="btn btn-gray btn-radius">查看原始文件</a>
+</div>
+</div>
+</div>
+</div>
+<script>
+function submitDeleteForm() {
+    var message = prompt("delete_confirm_message\n\ndelete_commit_summary", "Delete ''");
+    if (message != null) {
+        $("#delete-message").val(message);
+        $("#delete-file-form").submit()
+    }
+}
+</script>
+</div>
+</div>
+</div>
+<footer>
+<div class="ui container">
+<div class="ui left">
+© 2018 Gogs 版本: 0.11.86.0130 頁面: <strong>336ms</strong> 樣板: <strong>1ms</strong>
+</div>
+<div class="ui right links">
+<div class="ui language bottom floating slide up dropdown link item">
+<i class="world icon"></i>
+<div class="text">繁體中文（臺灣）</div>
+<div class="menu">
+<a class="item active selected" href="#">繁體中文（臺灣）</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=en-US">English</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=zh-CN">简体中文</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=zh-HK">繁體中文（香港）</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=de-DE">Deutsch</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=fr-FR">français</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=nl-NL">Nederlands</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=lv-LV">latviešu</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=ru-RU">русский</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=ja-JP">日本語</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=es-ES">español</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=pt-BR">português do Brasil</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=pl-PL">polski</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=bg-BG">български</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=it-IT">italiano</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=fi-FI">suomi</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=tr-TR">Türkçe</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=cs-CZ">čeština</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=sr-SP">српски</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=sv-SE">svenska</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=ko-KR">한국어</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=gl-ES">galego</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=uk-UA">українська</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=en-GB">English (United Kingdom)</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=hu-HU">Magyar</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=sk-SK">Slovenčina</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=id-ID">Indonesian</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=fa-IR">Persian</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=vi-VN">Vietnamese</a>
+<a class="item " href="/TC/iotpipe/src/master/iotpipe_arm64.elf?lang=pt-PT">Português</a>
+</div>
+</div>
+<a href="/assets/librejs/librejs.html" style="display:none" data-jslicense="1">Javascript Licenses</a>
+<a target="_blank" rel="noopener noreferrer" href="https://gogs.io">網站</a>
+<span class="version">Go1.10.4</span>
+</div>
+</div>
+</footer>
+</body>
+<link rel="stylesheet" href="/plugins/highlight-9.6.0/github.css">
+<script src="/plugins/highlight-9.6.0/highlight.pack.js"></script>
+<script src="/js/libs/emojify-1.1.0.min.js"></script>
+<script src="/js/libs/clipboard-1.5.9.min.js"></script>
+</html>

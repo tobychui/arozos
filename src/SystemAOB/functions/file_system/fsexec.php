@@ -84,7 +84,16 @@ if (isset($_GET['opr']) && $_GET['opr'] != ""){
 			$target = $_GET['target'];
 			//Check if the source file exists.
 			if (!file_exists($source)){
-				die("ERROR. Source file not exists. " . $source . " given.");
+				//Check for AOR starting paths
+				if (file_exists("../../../" . $source)){
+					$source = "../../../" . $source;
+					if (substr($target,0,1) !== "/"){
+						//Not real path. Add AOR relative to target too
+						$target = "../../../" . $target;
+					}
+				}else{
+					die("ERROR. Source file not exists. " . $source . " given.");
+				}
 			}
 			//Check if the target file already exists.
 			if (file_exists($target)){
