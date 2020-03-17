@@ -137,6 +137,10 @@ Special thanks for the following projects which bring insights to this project.
 
 TocasUI by Yami Odymel - https://tocas-ui.com/ 
 
+Threejs by Mrdoob - https://threejs.org/
+
+
+
 ## Buy me a coffee
 Actually I don't drink coffee. Send me something that would make me feel interested if you really want to send me something :)
 
