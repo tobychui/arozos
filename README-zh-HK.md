@@ -6,7 +6,7 @@
 設計給 Raspberry Pi 3B + 或 4B 的網頁桌面環境個人雲平台。可以用作雲音樂和影片流，數據存儲，簡易辦公/文書處理，3D列印文件預覽，雲編程IDE等等喔！
 
 ## 快速開始
-這些說明將向您展示如何在自己的Raspberry Pi或其他單片電腦的 Linux上部署ArOZ Online系統。
+本說明將向您展示如何在自己的Raspberry Pi或其他單片電腦的 Linux上安裝ArOZ Online系統。
 
 ### 系統要求
 要在Linux系統上運行該系統，需要以下軟件包。
@@ -17,7 +17,7 @@
 - libav-tools / ffmpeg (可選)
 - samba (可選)
 
-要安裝以上軟件包，請逐行複制以下行並將其貼上到ssh終端內。
+要安裝以上軟件包，請逐行複製以下行並將其貼上到ssh終端內。
 ```
 #Add the following line if you are using a fresh install of Debian Buster
 sudo apt-get install unzip net-tools ntfs-3g -y
@@ -37,7 +37,7 @@ sudo apt-get install samba
 還沒準備好喔！
 
 ### 手動安裝
-ArOZ Online 系統已經過測試可安裝在Debian Jessie和Debian Buster上。在安裝ArOZ Online 系統之前，您需要首先設置軟件包設置。
+ArOZ Online 系統已經過測試可安裝在Debian Jessie和Debian Buster上。在安裝ArOZ Online 系統之前，您需要先行調整設定。
 
 1. 編輯 php.ini以增加最大文件上傳大小設置。 php.ini文件通常可以在 /etc/php/{php-version}/apache2/php.ini 找到. 如下所示的更改這兩行：
   ```
@@ -118,11 +118,13 @@ ArOZ Online 系統已經過測試可安裝在Debian Jessie和Debian Buster上。
 
 內置多媒體模塊 (Audio / Photo / Video) - MIT授權
 
-桌面模塊（Desktop）及其子程式 - *保留所有權利*，僅可在Raspberry Pi和其他基於ARMv6，v7或ARM64的SBC上免費用於非商業目的。 不得 fork 此模塊並進行任何私人轉發版本。 但是我們歡迎任何改進的請求:)
+桌面模塊（Desktop）及其子程式 - *保留所有權利*，僅可在Raspberry Pi和其他基於ARMv6，v7或ARM64的SBC上免費用於非商業目的。 不得 fork 此模塊並進行任何私人修改、重製、公開、改作、散布、發行、公開發表、進行還原工程、解編或反向組譯。 但是我們歡迎任何改進的請求。
 
 根目錄下（./）和系統腳本文件夾內（SystemAOB/*）的所有核心腳本和二進製文件 - tobychui feat ArOZ Online計劃，保留所有權利。
 
 以上許可證未涵蓋的所有其他文件或模塊-有關更多信息，請參閱模塊的許可證。
+
+請注意，部份軟件包可能適用於美國出口管制，如閣下或貴公司或貴用戶所在地於美國貿易禁運國家名單，美國商務部拒絕往來名單或美國財政部特別指定國民名單上，則你可能無法使用本軟件的部分或全部功能。
 
 THIS SOFTWARE IS ONLY FOR PERSONAL AND NON COMMERCIAL USE ONLY. RE-SELL ,DISTRIBUTE OR CLAIM THIS AS YOUR OWN WORK IS PROHIBITED
 
@@ -130,7 +132,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 *Please seek for author approval if you want to deploy this system for purposes other than personal (e.g. home NAS, private media server, automation control in your room etc) and educational (e.g. school projects, course demos etc)*
 
-*如果您並不是把此系統用於個人目的（例如家庭NAS，私人媒體服務器，房間中的自動化控制等）和教育目的（例如學校項目，課程演示等），請先向作者取得使用授權*
+*請注意本軟件僅限於個人或非商業用途（包括但只限於家庭NAS，私人媒體服務器，房間中的自動化控制等）或教育目的（包括但只限於學校項目，課程演示等），如需用作商業用途，請先向作者取得使用授權*
 
 ## 致謝
 TocasUI by Yami Odymel - https://tocas-ui.com/ 
