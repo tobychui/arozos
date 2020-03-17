@@ -2,11 +2,13 @@
 
 <img src="https://img.shields.io/badge/License-Partially%20Open%20Source-blue"> <img src="https://img.shields.io/badge/Build-Community-brightgreen"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In-Hong%20Kong-blueviolet">
 
+![中文說明](README-zh-HK.md)
+
 # ArOZ Online System / aCloud
 Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B. A place to start cloud music and video streaming, data storage, office work / text processing, 3D printing file previews, Cloud programming IDE and more!
 
 ## Getting Started
-These instructions will show you how to deploy a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. Read more on the [Full System Documentation](https://hkwtc.org/aroz_online/docs/).
+These instructions will show you how to deploy a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. Read more on the [Full System Documentation](https://tobychui.github.io/ArOZ-Online-System/).
 
 ### Prerequisites
 The following packages are required for the system to run on your Linux system.
@@ -134,6 +136,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 Special thanks for the following projects which bring insights to this project.
 
 TocasUI by Yami Odymel - https://tocas-ui.com/ 
+
+Threejs by Mrdoob - https://threejs.org/
+
+
 
 ## Buy me a coffee
 Actually I don't drink coffee. Send me something that would make me feel interested if you really want to send me something :)
