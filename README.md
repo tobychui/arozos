@@ -9,7 +9,7 @@ Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B.
 These instructions will show you how to deploy a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. Read more on the [Full System Documentation](https://hkwtc.org/aroz_online/docs/).
 
 ### Prerequisites
-The following packages are required for the community edition to run on your Linux system.
+The following packages are required for the system to run on your Linux system.
 - apache2
 - libapache2-mod-xsendfile
 - php libapache2-mod-php php-cli php-common php-mbstring php-gd php xml php-zip
@@ -19,6 +19,9 @@ The following packages are required for the community edition to run on your Lin
 
 To install the package above, copy and paste the following lines into your ssh terminal line by line.
 ```
+#Add the following line if you are using a fresh install of Debian Buster
+sudo apt-get install unzip net-tools ntfs-3g -y
+sudo apt-get update
 sudo apt-get install -y apache2
 sudo apt-get install -y php libapache2-mod-php php-cli php-common php-mbstring php-gd php xml php-zip 
 sudo apt-get install libapache2-mod-xsendfile
@@ -31,10 +34,10 @@ sudo apt-get install samba
 ### Prebuilt Image File
 To install ArOZ Online System to your Raspberry pi, you can use the prebuilt image file for Raspberry Pi 4B / 3B+. You can find the image in the link below:
 
-https://hkwtc.org/aroz_online/dist/
+WORK IN PROGRESS
 
 ### Manual Installation
-Before installing the ArOZ Online System, you need to firstly setup the package settings. 
+ArOZ Online System is only tested to install on Debian Jessie and Debian Buster. Before installing the ArOZ Online System, you need to firstly setup the package settings. 
 
 1. Edit php.ini to increase the max file upload size setting. The php.ini file can usually be found in /etc/php/{php-version}/apache2/php.ini. Change the two lines below as follows:
   ```
@@ -62,13 +65,15 @@ To do so, you can firsly move into the web root with the following command:
   ```
   cd /var/www/html/
   ```
-And then download the package to the current location, unzip it and setup the permission for ArOZ Online System to work.
-(Replace the {dist-pack} with the link of the current dist-pack zip filepath that you are downloading)
+
+And then download the repo as zip, unzip the "src" folder into /var/www/html and ename "src" to "AOB".
+You can do this with WinSCP if you are using windows. Or otherwise, you can use git clone command similar to the example below. Make sure you have installed git using ```sudo apt-get install git``` before using the git commands.
+
   ```
-  sudo wget {dist-pack}.zip
-  sudo chmod 777 {dist-pack}.zip
-  sudo unzip -o {dist-pack}.zip
-  rm install.zip
+  git clone https://github.com/tobychui/ArOZ-Online-System/
+  sudo mv ArOZ-Online-System/src ./AOB
+  sudo rm -rf ./ArOZ-Online-System
+  
   sudo mkdir -p "/etc/AOB"
   sudo chmod 777 -R "/etc/AOB"
   sudo chmod 777 -R ./AOB
@@ -91,11 +96,11 @@ Click <a href="https://github.com/tobychui/ArOZ-Online-System/tree/master/img/sc
 ## Versioning
 Different major change in versioning will lead to an upgrade to the codename. Here are a list of versions currently ArOZ Online System provides. 
 
-| Version Number | Code Name | Major Change | Type (Barebone / Community / Full* ) |
+| Version Number | Code Name | Major Change | Type (Barebone / Pre-release / Full* ) |
 |----------------|-----------|--------------|---------------------------------------------|
 | Before Beta 1.1.4     | Aloplex                  | N/A          | Full                         |
 | Before Beta 1.2.8     | Sempervivum Tectorum     | N/A          | Full                         |
-| 1.0                   | aCloud                   | Init Release | Community                    |
+| Beta 12-06-2019       | aCloud                   | Init Release | Pre-release                  |
 
 *Full versions are only disclose to internal developers or testers for review purpose only.
 
@@ -123,10 +128,15 @@ THIS SOFTWARE IS ONLY FOR PERSONAL AND NON COMMERCIAL USE ONLY. RE-SELL ,DISTRIB
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+*Please seek for author approval if you want to deploy this system for purposes other than personal (e.g. home NAS, private media server, automation control in your room etc) and educational (e.g. school projects, course demos etc)*
+
 ## Acknowledgments
 Special thanks for the following projects which bring insights to this project.
 
 TocasUI by Yami Odymel - https://tocas-ui.com/ 
+
+## Buy me a coffee
+Actually I don't drink coffee. Send me something that would make me feel interested if you really want to send me something :)
 
 
 
