@@ -25,7 +25,7 @@ To install the package above, copy and paste the following lines into your ssh t
 sudo apt-get install unzip net-tools ntfs-3g -y
 sudo apt-get update
 sudo apt-get install -y apache2
-sudo apt-get install -y php libapache2-mod-php php-cli php-common php-mbstring php-gd php xml php-zip 
+sudo apt-get install -y php libapache2-mod-php php-cli php-common php-mbstring php-gd php-xml php-zip 
 sudo apt-get install libapache2-mod-xsendfile
 #The lines below are optional. But it is recommended to install them for future uses
 sudo apt-get install php-mysql
