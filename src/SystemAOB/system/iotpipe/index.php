@@ -1,5 +1,12 @@
 <?php
 include_once("../../../auth.php");
+if (!file_exists("req/")){
+	mkdir("req/",0777,true);
+}
+if (!file_exists("name/")){
+	mkdir("name/",0777,true);
+}
+
 ?>
 <html>
     <head>

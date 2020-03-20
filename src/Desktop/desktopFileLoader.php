@@ -78,7 +78,7 @@ if (isset($_GET['username']) && $_GET['username'] != ""){
 		**/
 	
 	}else{
-		mkdir("files/" . $username, 0777);
+		mkdir("files/" . $username, 0777, true);
 	}
 
 }else{

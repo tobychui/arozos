@@ -1,6 +1,4 @@
 ﻿Intel(R) Ethernet Connection I217-V,區域連線,Enabled
-Realtek RTL8192CU Wireless LAN 802.11n USB 2.0 Network Adapter,無線網路連線,Enabled
 Software Loopback Interface 1,Loopback Pseudo-Interface 1,Enabled
 Microsoft ISATAP Adapter,isatap.{82235798-BB3A-44A3-9EBE-BA2E596DBBED},Enabled
-Microsoft ISATAP Adapter #2,isatap.{46790D14-4B0E-4527-AD80-5EA3192B8803},Enabled
 Teredo Tunneling Pseudo-Interface,Teredo Tunneling Pseudo-Interface,Enabled

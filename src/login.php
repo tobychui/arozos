@@ -4,7 +4,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=0.7, shrink-to-fit=no">
 <title>ArOZ Onlineβ User Authentication</title>
 <link rel="stylesheet" href="script/tocas/tocas.css">
-<script src="script/paperjs/paper-full.min.js"></script>
 <script src="script/tocas/tocas.js"></script>
 <script src="script/jquery.min.js"></script>
 <?php
@@ -137,9 +136,14 @@ if (file_exists("SystemAOB/functions/personalization/sysconf/login.config")){
 			echo $template;
 		}
 		?>
-		
+		<br><br>
+		<div class="ts container">
+			<div class="ts horizontal bulleted link list">
+				<a class="item" href="SystemAOB/system/compatibility/login.php">Legacy UI</a>
+			</div>
+		</div>
 		<div class="bottombar">
-		© ArOZ Online Project 2019 feat. <a href="http://imuslab.com/" target="_blacnk">IMUS Laboratory</a><br>
+		© ArOZ Online Project 2020 feat. <a href="http://imuslab.com/" target="_blacnk">imuslab</a><br>
 		<div style="display:inline;font-size:80%;"><?php 
 		if ($ipdebug){
 		    echo "<i class='disk outline icon'></i> " . $_SERVER['SERVER_NAME'] . ' ⇄ <i class="laptop icon"></i>' . $_SERVER['REMOTE_ADDR'];

@@ -78,6 +78,7 @@ if (file_exists($seedsbank) == false){
 	}
 }
 
+
 if (isset($_POST['username']) && isset($_POST['apwd']) && isset($_POST['rmbm'])){
 	$loginContent = file_get_contents($databasePath);
 	$loginContent = explode("\n",$loginContent);
@@ -136,6 +137,14 @@ if (isset($_POST['username']) && isset($_POST['apwd']) && isset($_POST['rmbm']))
 						file_put_contents($seedsbank . $cookieExpireTime . '.auth',$cookieContent);
 					}
 					echo "DONE. Login suceed.";
+					if (isset($_POST['redirect'])){
+						//Redirect before exit
+						header("Location: " . $_POST['redirect']);
+					}
+					if (isset($_POST['legacyMode'])){
+						//Visiting site with legacy mode. Ignore cookie updates.
+						$_SESSION['legacyMode'] = true;
+					}
 					exit();
 				}else{
 					echo "ERROR. Password incorrect";
@@ -192,13 +201,17 @@ if (file_exists($databasePath)){
 if (session_id() == '' || !isset($_SESSION['login']) || $_SESSION['login'] == "") {
 	//echo $actual_link;
 	//header('Location: ' . $rootPath .'login.php?target=' . str_replace("&","%26",$actual_link));
+
 	header('Location: ' . $rootPath .'login.php?target=' . urlEncodeRFC3986($actual_link));
 	exit();
 }else{
 	//session exists. Let the user go through with updates cookie
-	if (isset($_COOKIE['username']) && $_COOKIE['username'] != "") {
+	if (isset($_COOKIE['username']) && $_COOKIE['username'] != "" && !isset($_SESSION['legacyMode'])) {
 		setcookie("username",$_COOKIE["username"],time()+ 172800 );
 		setcookie("password",$_COOKIE["password"],time()+ 172800 );
+	}else if ($_SESSION['legacyMode']){
+		//Visiting the site with legacy mode. Continue to location without updating cookies
+		
 	}else{
 		//cookie expired. Request for another update with login
 		$_SESSION['login'] = "";
