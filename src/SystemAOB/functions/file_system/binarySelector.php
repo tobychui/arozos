@@ -17,21 +17,21 @@ function binarySelectExecution ($binaryName, $command){
     	switch(trim($cpuMode)){
     	    case "armv7l": //raspberry pi 3B+
     	    case "armv6l": //Raspberry pi zero w
-    	            $commandString = "sudo ./" . $binaryName . "_armv6l.elf " . $command; 
+    	            $commandString = "./" . $binaryName . "_armv6l.elf " . $command; 
     	        break;
     	   case "aarch64": //Armbian with ARMv8 / arm64
-    	            $commandString = "sudo ./" . $binaryName . "_arm64.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_arm64.elf " . $command;
 				break;
     	   case "i686": //x86 32bit CPU
     	   case "i386": //x86 32bit CPU
-				$commandString = "sudo ./" . $binaryName . "_i386.elf " . $command;
+				$commandString = "./" . $binaryName . "_i386.elf " . $command;
 				break;
     	   case "x86_64": //x86-64 64bit CPU
-    	            $commandString = "sudo ./" . $binaryName . "_amd64.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_amd64.elf " . $command;
 				break;
     	   default:
     	       //No idea why uname -m not working. In that case, x86 32bit binary is used.
-    	            $commandString = "sudo ./" . $binaryName . "_i386.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_i386.elf " . $command;
 				break;
 		}
 	    pclose(popen($commandString . " > null.txt 2>&1 &", 'r'));
@@ -50,21 +50,21 @@ function asyncBinarySelectExecution ($binaryName, $command){
     	switch(trim($cpuMode)){
     	    case "armv7l": //raspberry pi 3B+
     	    case "armv6l": //Raspberry pi zero w
-    	            $commandString = "sudo ./" . $binaryName . "_armv6l.elf " . $command; 
+    	            $commandString = "./" . $binaryName . "_armv6l.elf " . $command; 
     	        break;
     	   case "aarch64": //Armbian with ARMv8 / arm64
-    	            $commandString = "sudo ./" . $binaryName . "_arm64.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_arm64.elf " . $command;
 				break;
     	   case "i686": //x86 32bit CPU
     	   case "i386": //x86 32bit CPU
-				$commandString = "sudo ./" . $binaryName . "_i386.elf " . $command;
+				$commandString = "./" . $binaryName . "_i386.elf " . $command;
 				break;
     	   case "x86_64": //x86-64 64bit CPU
-    	            $commandString = "sudo ./" . $binaryName . "_amd64.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_amd64.elf " . $command;
 				break;
     	   default:
     	       //No idea why uname -m not working. In that case, x86 32bit binary is used.
-    	            $commandString = "sudo ./" . $binaryName . "_i386.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_i386.elf " . $command;
 				break;
 		}
 	    $output = shell_exec($commandString);

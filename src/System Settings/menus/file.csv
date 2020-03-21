@@ -4,3 +4,4 @@ diskmg,Disk Manager,SystemAOB/system/diskmg/index.php
 usbdev,USB Mounting,SystemAOB/functions/usbMount.php
 fshortcut,Explorer Shortcuts,SystemAOB/functions/file_system/fileShortcutUI.php
 smbconf,Samba Config,SystemAOB/functions/samba_config/index.php
+hddsmart,Harddisk SMART,SystemAOB/functions/drive/smart.php

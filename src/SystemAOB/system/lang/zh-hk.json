@@ -13,6 +13,7 @@
 	"index/button/desktop":"啟動網頁桌面模式",
 	"index/button/extdesktop":"啟動擴展桌面",
 	"index/button/logout":"登出",
+
 	"listmenu/sidebar/music": "音樂",
 	"listmenu/sidebar/video": "影片",
 	"listmenu/sidebar/picture": "圖片",
@@ -27,6 +28,7 @@
 	"listmenu/powermenu/restartapache": "重啟網頁伺服器",
 	"listmenu/powermenu/reboot": "重啟主機",
 	"listmenu/powermenu/shutdown": "關機",
+
 	"filesystem/topbar/fileviewer": "ArOZβ 檔案管理員",
 	"filesystem/sidebar/": "ArOZβ 檔案管理員",
 	"filesystem/sidebar/noSelectedFile": "沒有已選取的檔案",
@@ -60,7 +62,7 @@
 	"filesystem/upload/files": "已選取的檔案",
 	"filesystem/upload/cancel": "取消",
 	"filesystem/upload/preview": "預覽選取檔案列表",
-	"filesystem/upload/upload": "確認上載",
+	"filesystem/upload/uploadconfirm": "確認上載",
 	"filesystem/upload/pending": "有待上載檔案列表",
 	"filesystem/openwith/openwith": "使用 … 開啟檔案",
 	"filesystem/openwith/tips": "請在下面的列表中選擇用以打開此檔案的模組：",
@@ -95,7 +97,7 @@
 	"filesystem/delete/reminder": "此檔案將會被刪除並且無法復原。你確定要刪除此檔案？",
 	"filesystem/delete/yes":"確認刪除",
 	"filesystem/delete/cancel":"取消",
-	"filesystem/help/help":"檔案管理員說明書",
+	"filesystem/help/helpmanual":"檔案管理員說明書",
 	"filesystem/help/tips":"以下為檔案管理員選單上的按鈕圖案及其功能的簡易解釋。",
 	"filesystem/help/back":"返回",
 	"filesystem/help/backdesc":"移動到上一層的資料夾。",
@@ -169,6 +171,11 @@
 	"filesystem/ongoingTasks/item":" 個檔案",
 	"filesystem/ongoingTasks/items":" 個檔案",
 	"filesystem/ongoingTasks/oprInto":" 到 ",
+	"filesystems/error/directoryNotExists":"無法存取要求的資料夾",
+	"filesystems/error/directoryNotExistsInfo":"你正嘗試存取不存在的資料夾路徑。這有可能是因為你沒有合適的存取權限。",
+	"filesystems/error/directoryGone":"此資料夾已被移動或刪除",
+	"filesystems/error/directoryGoneInfo":"你正在存取的資料夾已被移動或刪除。",
+
 	"fileproperties/contents/shortcut":"捷徑",
 	"fileproperties/contents/location":"檔案位置",
 	"fileproperties/contents/directPath":"完整路徑",
@@ -179,6 +186,7 @@
 	"fileproperties/contents/changeDefaultWebApp":"變更預設開啟應用程式",
 	"fileproperties/contents/shortcutTargetFullpath":"捷徑 指向完整路徑",
 	"fileproperties/contents/shortcutTarget":"捷徑指向資料夾",
+	
 	"systemsetting/index/title":"ArOZ 在線系統設定",
 	"systemsetting/index/titlebutton":"系統設定",
 	"systemsetting/index/host":"伺服器主機",

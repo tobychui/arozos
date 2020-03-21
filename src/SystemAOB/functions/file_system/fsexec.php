@@ -12,21 +12,21 @@ function binarySelectExecution ($binaryName, $command){
     	switch(trim($cpuMode)){
     	    case "armv7l": //raspberry pi 3B+
     	    case "armv6l": //Raspberry pi zero w
-    	            $commandString = "sudo ./" . $binaryName . "_armv6l.elf " . $command; 
+    	            $commandString = "./" . $binaryName . "_armv6l.elf " . $command; 
     	        break;
     	   case "aarch64": //Armbian with ARMv8 / arm64
-    	            $commandString = "sudo ./" . $binaryName . "_arm64.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_arm64.elf " . $command;
 				break;
     	   case "i686": //x86 32bit CPU
     	   case "i386": //x86 32bit CPU
-				$commandString = "sudo ./" . $binaryName . "_i386.elf " . $command;
+				$commandString = "./" . $binaryName . "_i386.elf " . $command;
 				break;
     	   case "x86_64": //x86-64 64bit CPU
-    	            $commandString = "sudo ./" . $binaryName . "_amd64.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_amd64.elf " . $command;
 				break;
     	   default:
     	       //No idea why uname -m not working. In that case, x86 32bit binary is used.
-    	            $commandString = "sudo ./" . $binaryName . "_i386.elf " . $command;
+    	            $commandString = "./" . $binaryName . "_i386.elf " . $command;
 				break;
 		}
 	    pclose(popen($commandString . " > null.txt 2>&1 &", 'r'));
@@ -39,6 +39,15 @@ function array_basename($arr,$ext){
 		array_push($result,basename($item,$ext));
 	}
 	return $result;
+}
+
+function removeUUIDFromLogs($uuid){
+    //UUID as unique ids, so it only exists in one of the two locations.
+    if (file_exists("log/done/" . $uuid . ".log")){
+        unlink("log/done/" . $uuid . ".log");
+    }else if (file_exists("log/error/" . $uuid . ".log")){
+        unlink("log/error/" . $uuid . ".log");
+    }
 }
 
 $acceptOprs = ["copy","copy_folder","move","move_folder","zip","unzip"];
@@ -129,8 +138,10 @@ if (isset($_GET['opr']) && $_GET['opr'] != ""){
 			array_push($results,[$id,"in-progress"]);
 		}else if (in_array($id,$done)){
 			array_push($results,[$id,"done"]);
+			removeUUIDFromLogs($id);
 		}else if (in_array($id,$error)){
 			array_push($results, [$id,"error"]);
+			removeUUIDFromLogs($id);
 		}else{
 			array_push($results, [$id,"null"]);
 		}

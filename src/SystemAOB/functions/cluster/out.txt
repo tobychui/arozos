@@ -2,12 +2,6 @@ IPv4: 192.168.0.107
 Subnet Mask: 255.255.255.0
 Gateway: 192.168.0.1
 
-IPv4: 192.168.0.105
-Subnet Mask: 255.255.255.0
-Gateway: 192.168.0.1
-
-Multiple Network Found. Auto-selecting network 1.
-Selected gateway: 192.168.0.1.
 Starting thread to connect : 192.168.0.1
 Starting thread to connect : 192.168.0.2
 Starting thread to connect : 192.168.0.3
@@ -265,55 +259,44 @@ Starting thread to connect : 192.168.0.254
 Still waiting 254 threads to end.
 Still waiting 253 threads to end.
 Still waiting 252 threads to end.
-Still waiting 251 threads to end.
-Still waiting 244 threads to end.
-Still waiting 225 threads to end.
-Still waiting 215 threads to end.
-Still waiting 214 threads to end.
-Still waiting 173 threads to end.
-Still waiting 172 threads to end.
+Still waiting 245 threads to end.
+Still waiting 242 threads to end.
+Still waiting 96 threads to end.
 Still waiting 0 threads to end.
 IP Scanning Done.
 The following IPs respond to ping
 Starting AOB connection on : 192.168.0.1
 Starting AOB connection on : 192.168.0.102
-Starting AOB connection on : 192.168.0.105
-Starting AOB connection on : 192.168.0.106
 Starting AOB connection on : 192.168.0.107
 Starting AOB connection on : 192.168.0.108
 Starting AOB connection on : 192.168.0.110
 Starting AOB connection on : 192.168.0.111
-Starting AOB connection on : 192.168.0.116
 Starting AOB connection on : 192.168.0.142
-Starting AOB connection on : 192.168.0.161
+Starting AOB connection on : 192.168.0.164
+Starting AOB connection on : 192.168.0.168
+Starting AOB connection on : 192.168.0.177
 Starting AOB connection on : 192.168.0.181
-Starting AOB connection on : 192.168.0.182
 Starting AOB connection on : 192.168.0.2
 Starting AOB connection on : 192.168.0.50
-Still waiting 15 threads to end.
-AOB not found on ip: 192.168.0.142:80
-AOB not found on ip: 192.168.0.102:80
 Still waiting 13 threads to end.
-AOB System Found on 192.168.0.116:80
+AOB System Found on 192.168.0.168:80
 AOB not found on ip: 192.168.0.1:80
-Still waiting 11 threads to end.
 AOB not found on ip: 192.168.0.108:80
+AOB not found on ip: 192.168.0.142:80
+AOB not found on ip: 192.168.0.164:80
+AOB not found on ip: 192.168.0.102:80
+Still waiting 7 threads to end.
 AOB not found on ip: 192.168.0.2:80
-Still waiting 9 threads to end.
+AOB not found on ip: 192.168.0.177:80
+Still waiting 5 threads to end.
 AOB not found on ip: 192.168.0.50:80
-Still waiting 8 threads to end.
-AOB not found on ip: 192.168.0.107:80
-AOB not found on ip: 192.168.0.106:80
-AOB not found on ip: 192.168.0.105:80
-AOB not found on ip: 192.168.0.182:80
 Still waiting 4 threads to end.
-AOB not found on ip: 192.168.0.161:80
-Still waiting 3 threads to end.
+AOB not found on ip: 192.168.0.107:80
 AOB not found on ip: 192.168.0.181:80
 Still waiting 2 threads to end.
-AOB not found on ip: 192.168.0.111:80
 AOB not found on ip: 192.168.0.110:80
+AOB not found on ip: 192.168.0.111:80
 Still waiting 0 threads to end.
 AOB System are located on these hosts: 
-found:192.168.0.116
+found:192.168.0.168
 DONE

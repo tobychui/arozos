@@ -3,5 +3,6 @@ clsls,Clusters List,SystemAOB/functions/cluster/index.php
 clrnl,Stationary Remote Clusters,SystemAOB/functions/cluster/remoteLocationManager.php
 clmap,Clusters Mapping,SystemAOB/functions/cluster/clusterMapper.php
 clscan,Cluster Scan,SystemAOB/functions/cluster/scanui.php
+aobws,WebSocket Server,SystemAOB/system/aobws/index.php
 shadowjwt,ShadowJWT,SystemAOB/system/jwt/index.php
 clconfig,Scanning Config,SystemAOB/functions/cluster/clusterSettingUI.php

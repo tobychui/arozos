@@ -605,7 +605,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 	<div id="helpInterface" class="ts info raised segment" style="position:fixed; top:10%;left:20%; right:20%;display:none;z-index:99;bottom:10%;">
 		<div class="ts container" style="height:100%;">
 			<div class="ts header">
-				<span localtext="filesystem/help/help">File Operation Icons</span>
+				<span localtext="filesystem/help/helpmanual">File Operation Icons</span>
 				<div class="sub header" localtext="filesystem/help/tips">List of icons on the menu bar and their meanings.</div>
 			</div>
 			<div style="width:100%;overflow-y:auto;height:70%;">
@@ -756,7 +756,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 			<div class="ts mini buttons">
 				<button class="ts basic negative button" onClick="closeUploadWindow();$('#uploadFileWindow').fadeOut('fast');" localtext="filesystem/upload/cancel">Cancel</button>
 				<button class="ts basic button" onClick="previewUplaodFileList();" localtext="filesystem/upload/preview">Preview File List</button>
-				<button class="ts basic positive button" id="uploadFilesBtn" localtext="filesystem/upload/upload">Upload</button>
+				<button class="ts basic positive button" id="uploadFilesBtn" localtext="filesystem/upload/uploadconfirm">Upload</button>
 			</div>
 			</div>
 			<div id="ulFileList" class="ts segment" style="display:none;">
@@ -1256,12 +1256,39 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 		}
 		
 	}
+
+	function checkDirectoryReplyValid(data){
+		if (typeof data === 'string' || data instanceof String){
+			//String is returned as reply. ERROR might have occured.
+			if (data.includes("ERROR")){
+				//Error occured. Show error message.
+				//console.log("[File Explorer] " + data);
+				return false;
+			}
+			return true;
+			
+		}
+		return true;
+	}
+
+	function showListFileError(){
+		$("#controls").hide();
+		$("#sortedFileList").html(`<div class="ts heading padded slate">
+			<span class="header"><i class="remove icon"></i>` + localize("filesystems/error/directoryGone",`Directory has been Moved or Deleted`) + `</span>
+			<span class="description">` + localize("filesystems/error/directoryGoneInfo",`The path you are trying to open no longer exists. It might have been moved or deleted.`) + `</span>
+		</div>`);
+	}
 	
 	function fileChangeDaemon(){
 	    //Monitor the filechange in the current directory. If there is a file change, update the current filelist
         $.ajax({
             url:"listdir.php?dir=" + currentPath,  
                 success:function(data) {
+					if (checkDirectoryReplyValid(data) == false){
+						//This directory is gone after this refresh.
+						showListFileError();
+						return;
+					}
                     if (!webworker){
                         //Web worker not found. Update check with the same thread
                          var identical = arraysEqual(data[1],files);
@@ -1471,7 +1498,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 				});
 				//console.log(firstItem);
 				//Scroll to that location
-				if (firstItem != -1){
+				if (firstItem !== -1 && firstItem !== undefined){
 					$('html, body').animate({scrollTop: $('#' + firstItem).offset().top - $(window).height() / 2}, 100);
 					$("#" + firstItem).addClass("selectionTipsBorder").delay(700).queue(function(next){
 						$(this).removeClass("selectionTipsBorder");
@@ -1868,13 +1895,193 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 			url:"listdir.php?dir=" + directory,  
 			success:function(data) {
 				//console.log(data);
-				PhraseFileList(data,oprCode,callbackAfterUpdate); 
+				if (checkDirectoryReplyValid(data) == false){
+					//This directory is not valid.
+					$("#sortedFileList").html("");
+					showListFileError();
+					/*
+					setTimeout(function(){
+						$("#sortedFileList").html(`<div class="ts heading padded slate">
+							<span class="header"><i class="remove icon"></i>` + localize("filesystems/error/directoryNotExists",`Directory Not Exists`) + `</span>
+							<span class="description">` + localize("filesystems/error/directoryNotExistsInfo",`The path you are trying to open do not exists or you do not have permission to access it.`) + `</span>
+						</div>`);
+					},1000);
+					*/
+
+				}else{
+					PhraseFileList(data,oprCode,callbackAfterUpdate); 
+				}
+				
 			}
 		  });
 		//Unlock all keypress events and leave multi selection mode
 		multiSelectMode = false;
 		ctrlDown = false;
 		shiftDown = false;
+	}
+
+	function dragObject(evt){
+		//This function define the action when a file or folder object being dragged out from the file explorer
+		
+		//Check the event target
+		$targetObject = $(evt.target)
+		if ($targetObject.hasClass("file") == false){
+			//User focused into the text inside the folder div
+			$targetObject = $(evt.target).parent();
+		}
+
+		//There might be more than 1 files in drag selection. Add them all to the list
+		var filePaths = [];
+		var fileNames = [];
+		if ($(".active.file.item").length > 0){
+			$(".active.file.item").each(function(){
+				var fileID = $(this).attr("fid");
+				var filepath = globalFilePath[fileID];
+				filePaths.push(filepath);
+				fileNames.push($(this).text());
+			});
+
+			//Check if the last clicked item already inside the list. If not, add it as well.
+			var fileID = $targetObject.attr("fid")
+			var filepath = globalFilePath[fileID];
+			if (!filePaths.includes(filepath)){
+				filePaths.push(filepath);
+				fileNames.push($targetObject.text());
+			}
+		}else{
+			var fileID = $targetObject.attr("fid")
+			var filepath = globalFilePath[fileID];
+			filePaths.push(filepath);
+			fileNames.push($targetObject.text());
+		}
+		
+		//Build file explorer relative paths
+		evt.dataTransfer.setData("ferfilepath", JSON.stringify(filePaths));
+		evt.dataTransfer.setData("ferfilename", JSON.stringify(fileNames));
+		evt.dataTransfer.setData("external",ExternalStorage);
+
+		//Build standard aor paths
+		var aorFilepaths = [];
+		for (var i =0; i < filePaths.length; i++){
+			//Replace the relative path from File Explorer to AOR to nothing
+			aorFilepaths.push(filePaths[i].replace("../../.././",""));
+		}
+		evt.dataTransfer.setData("filepath", JSON.stringify(aorFilepaths));
+		evt.dataTransfer.setData("filename", JSON.stringify(fileNames));
+	}
+
+	function allowDrop(evt){
+		//Allow dragdrop display on folder objects.
+		evt.preventDefault();
+		$(".selectionTipsBorder").removeClass("selectionTipsBorder");
+		$target = $(evt.target);
+		while($target.hasClass("file") == false){
+			$target = $target.parent();
+		}
+		$target.addClass('selectionTipsBorder');
+		
+	}
+
+	document.addEventListener('dragover',function(evt){
+		evt.preventDefault();
+		evt.stopPropagation();
+		if (evt.dataTransfer.getData("ferfilepath") !== ""){
+			//This is a file from another file explorer tab.
+			
+		}else{
+			//Try to open the upload interface if this windows if focused
+			if ($(parent.focusedWindow).parent().attr("id") == windowID && $("#controls").is(':visible')){
+				prepareUpload();
+			}
+			
+		}
+	},false);
+
+	document.addEventListener('drop',function(evt){
+		if ($(evt.explicitOriginalTarget).is("input")){
+			return;
+		}
+		evt.preventDefault();
+		evt.stopPropagation();
+		if (evt.dataTransfer.getData("ferfilepath") !== ""){
+			//This is a valid file for transfer between File Explorers
+			//console.log(evt.dataTransfer.getData("filepath"));
+			var rawfp = evt.dataTransfer.getData("ferfilepath");
+			var rawfn = evt.dataTransfer.getData("ferfilename");
+			var filepaths = JSON.parse(rawfp);
+			var filenames = JSON.parse(rawfn);
+			var extmode = (evt.dataTransfer.getData("external") == "true");
+			if (filepaths.length == 0 || filepaths === undefined){
+				//Something wrong with the drag in file. Ignore it
+				console.log("[File Explorer] File dragging error. Are you sure that is a valid file object from file explorer?");
+				return;
+			}
+			if (extmode == true || ExternalStorage == true){
+				//Involving external storage devices. Always use copy mode
+				cutting = false;
+			}else{
+				//Dragdrop in current directory is always in cut mode.
+				cutting = true;
+			}
+			paste(filepaths,currentPath,cutting);
+		}
+		
+	},false);
+
+	function dropObject(evt){
+		//Dropping file into folder or folder into folder.
+		evt.preventDefault();
+		evt.stopPropagation();
+		var target = $(evt.explicitOriginalTarget);
+		while(target.attr("fid") === undefined){
+			target = $(target).parent();
+		}
+		var targetFolderID = target.attr("fid");
+
+		if (targetFolderID === undefined){
+			targetFolderID = $(evt.explicitOriginalTarget).parent().attr("fid");
+		}
+
+		var targetFolderPath = globalFilePath[targetFolderID];
+		var rawfp = evt.dataTransfer.getData("ferfilepath");
+		var rawfn = evt.dataTransfer.getData("ferfilename");
+		if (rawfp == "" || rawfp === undefined){
+			//This is not a standard file explorer dragdrop.
+			console.log(evt, rawfp, rawfn);
+
+			//Check if the user drag and drop a file from his PC
+			let dt = evt.dataTransfer
+			let files = dt.files
+			if (files.length > 0){
+				//Direct drag drop file upload.
+				console.log(files);
+				//handleFileDragdropUpload(files);
+			}
+			
+		}else{
+			//Dragdrop from file explorer.
+			var filepaths = JSON.parse(rawfp);
+			var filnames = JSON.parse(rawfn);
+			var extmode = (evt.dataTransfer.getData("external") == "true");
+			if (filepaths.length == 0 || filepaths === undefined){
+				//Something wrong with the drag in file. Ignore it
+				console.log("[File Explorer] File dragging error. Are you sure that is a valid file object from file explorer?");
+				return;
+			}
+			if (extmode == true || ExternalStorage == true){
+				//Involving external storage devices. Always use copy mode
+				cutting = false;
+				if (targetFolderPath.split("/").shift()[1] == filepaths[0].split("/").shift()[1]){
+					//Try to match the storage* between two filepath. If true, that means they are drag drops between the same external storage.
+					cutting = true;
+				}
+			}else{
+				//Dragdrop in current directory is always in cut mode.
+				cutting = true;
+			}
+			paste(filepaths,targetFolderPath,cutting);
+		}
+		
 	}
 	
 	function PhraseFileList(json,ucode,callbackAfterUpdate = undefined){
@@ -1889,8 +2096,14 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 		AppendControls();
 		dirs = json[0];
 		files = json[1];
+		//Update 20-3-2020: Added dragdrop function to the file display div element
+		/*
 		var templatef = '<div id="%NUM%" class="item file" ondblclick="openFolder(%NUM%);" onClick="ItemClick(%NUM%);" style="overflow: hidden;overflow-wrap: break-word !important;" fid="%NUM%"><div style="display:inline-block !important;"><i class="folder outline icon"></i>%FILENAME%</div></div>';
 		var template = '<div id="%NUM%" class="item file" ondblclick="openClicked();" onClick="ItemClick(%NUM%);" style="overflow: hidden;overflow-wrap: break-word !important;" fid="%NUM%"><div style="display:inline-block !important;"><i class="%ICON% icon"></i>%FILENAME%</div></div>';
+		*/
+		var templatef = '<div id="%NUM%" class="item file" draggable="true" ondrop="dropObject(event)" ondragover="allowDrop(event)"  ondblclick="openFolder(%NUM%);" onClick="ItemClick(%NUM%);" style="overflow: hidden;overflow-wrap: break-word !important;" fid="%NUM%" ondragstart="dragObject(event)"><div style="display:inline-block !important;"><i class="folder outline icon"></i>%FILENAME%</div></div>';
+		var template = '<div id="%NUM%" class="item file" draggable="true" ondblclick="openClicked();" onClick="ItemClick(%NUM%);" style="overflow: hidden;overflow-wrap: break-word !important;" fid="%NUM%" ondragstart="dragObject(event)"><div style="display:inline-block !important;"><i class="%ICON% icon"></i>%FILENAME%</div></div>';
+		
 		var totalCount = 0;
 		if (currentPath != startingPath){
 			if (currentPath.includes("../../../../../../..")){
@@ -2117,7 +2330,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 	
 	function ItemClick(num){
 		//What to do when the user click on a file
-		
+		$(".selectionTipsBorder").removeClass("selectionTipsBorder");
 		if (ctrlDown == false && shiftDown == false){
 			if (multiSelectMode == true){
 				//Clear all the previous selected items
@@ -2132,7 +2345,8 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 				multiSelectMode = false;
 			}
 			//Select a single file / folder only
-			$('#'+lastClicked).removeClass("active");
+			//$('#'+lastClicked).removeClass("active");
+			$(".active").removeClass("active");
 			$('#'+num).addClass("active");
 			$('#thisFilePath').val(rtrp(globalFilePath[num]));
 			var ext = GetFileExt(globalFilePath[num]);
@@ -2808,7 +3022,8 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 		}
 	}
 	
-	function paste(){
+	//Finish the copy or paste function operation. Set targetPath if you do not want to paste in current directory.
+	function paste(sourcePaths="", targetPath="", cutMode=false){
 		if (PermissionMode == 0){
 			return;
 		}
@@ -2824,7 +3039,27 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 				}
 			}
 		}
+
+		if (sourcePaths != ""){
+			//Source path not empty. Replace source path with program input
+			var oldClipboard = clipboard;
+			if (sourcePaths.length > 1){
+				clipboard = sourcePaths;
+			}else if (sourcePaths.length == 1){
+				clipboard = sourcePaths[0];
+			}
+			
+			//Override the cutMode
+			cutting = cutMode;
+		}
+
+		
 		var finalPath = currentPath;
+		if (targetPath != ""){
+			//Target path not empty. Replace with desired target path.
+			finalPath = targetPath;
+		}
+		//console.log(clipboard,finalPath );
 		var cutted = cutting;
 		cutting = false;
 		if (clipboard == "" || clipboard == []){
@@ -2954,7 +3189,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 				This provide much better speed than PHP based file operations.
 			*/
 			if (clipboard.length > 1 && clipboard.constructor === Array){
-				var fileoprIDs = [];
+				let fileoprIDs = [];
 				for(var i = 0; i < clipboard.length;i++){
 					if (GetFileExt(GetFileNameFrompath(clipboard[i])).trim() == GetFileNameFrompath(clipboard[i])){
 						//If the paste target is a folder instead
@@ -2963,11 +3198,12 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 						let thisfile = clipboard[i];
 						if (cutted == true){
 							//Move operation
+							let localClipboard = clipboard;
 							$.get( "fsexec.php?opr=move_folder&from=" + thisfile + "&target=" + target, function(data) {
 								if (!data.includes("ERROR")){
 									fileoprIDs.push(data);
-									if (clipboard.length == fileoprIDs.length){
-										createFileOprListener(fileoprIDs,"move",clipboard, target);
+									if (localClipboard.length == fileoprIDs.length){
+										createFileOprListener(fileoprIDs,"move",localClipboard, target);
 										clipboard = "";
 									}
 								}else{
@@ -2978,16 +3214,17 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 							});
 						}else{
 							//Copy operation
+							let localClipboard = clipboard;
 							$.get( "fsexec.php?opr=copy_folder&from=" + thisfile + "&target=" + target, function(data) {
 								if (!data.includes("ERROR")){
 									fileoprIDs.push(data);
-									if (clipboard.length == fileoprIDs.length){
-										createFileOprListener(fileoprIDs,"copy",clipboard, target);
+									if (localClipboard.length == fileoprIDs.length){
+										createFileOprListener(fileoprIDs,"copy",localClipboard, target);
 										clipboard = "";
 									}
 								}else{
 									console.log("[File Explorer] " + data);
-									howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
+									ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 								}
 								
 							});
@@ -2998,30 +3235,32 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 						var target = finalPath + "/" + GetFileNameFrompath(clipboard[i]);
 						let thisfile = clipboard[i];
 						if (cutted == true){
+							let localClipboard = clipboard;
 							$.get( "fsexec.php?opr=move&from=" + thisfile + "&target=" + target, function(data) {
 								if (!data.includes("ERROR")){
 									fileoprIDs.push(data);
-									if (clipboard.length == fileoprIDs.length){
-										createFileOprListener(fileoprIDs,"move",clipboard, target);
+									if (localClipboard.length == fileoprIDs.length){
+										createFileOprListener(fileoprIDs,"move",localClipboard, target);
 										clipboard = "";
 									}
 								}else{
 									console.log("[File Explorer] " + data);
-									howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
+									ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 								}
 								
 							});
 						}else{		
+							let localClipboard = clipboard;
 							$.get( "fsexec.php?opr=copy&from=" + thisfile + "&target=" + target, function(data) {
 								if (!data.includes("ERROR")){
 									fileoprIDs.push(data);
-									if (clipboard.length == fileoprIDs.length){
-										createFileOprListener(fileoprIDs,"copy",clipboard, target);
+									if (localClipboard.length == fileoprIDs.length){
+										createFileOprListener(fileoprIDs,"copy",localClipboard, target);
 										clipboard = "";
 									}
 								}else{
 									console.log("[File Explorer] " + data);
-									howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
+									ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 								}
 								
 							});
@@ -3065,7 +3304,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 						for(var i=0; i < dirs.length; i++){
 							foldernames.push(GetFileNameFrompath(dirs[i]));
 						}
-						if (foldernames.includes(sourceFoldername)){
+						if (foldernames.includes(sourceFoldername) && targetPath==""){
 							duplicated = true;
 						}
                         console.log(isHex);
@@ -3091,7 +3330,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 								createFileOprListener([data],"copy",clipboard, target);
 							}else{
 								console.log("[File Explorer] " + data);
-								howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
+								ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -3107,7 +3346,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 								createFileOprListener([data],"move",clipboard, target);
 							}else{
 								console.log("[File Explorer] " + data);
-								howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
+								ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -3120,7 +3359,8 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 						for(var i=0; i < files.length; i++){
 							filenames.push(GetFileNameFrompath(files[i]));
 						}
-						if (filenames.includes(sourceFilename)){
+						if (filenames.includes(sourceFilename) && targetPath==""){
+							//If the filename is in currentlist and targetPath is empty
 							duplicated = true;
 						}
 
@@ -3145,7 +3385,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 								createFileOprListener([data],"copy",clipboard, target);
 							}else{
 								console.log("[File Explorer] " + data);
-								howNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
+								ShowNotice("<i class='paste icon'></i>" + localize("filesystem/popups/pasteError","Paste Error. Error Message:") +  " <br>" + data.replace("ERROR.",""));
 							}
 							
 						});
@@ -3154,6 +3394,11 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
 					
 				}
 			}
+		}
+
+		if (sourcePaths != ""){
+			//Restore the original clipboard value
+			clipboard = oldClipboard;
 		}
 		
 	}
