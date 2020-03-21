@@ -47,11 +47,24 @@ ArOZ Online System is only tested to install on Debian Jessie and Debian Buster.
   post_max_size = 2048M
   ```
   
-2. Edit /etc/sudoers, add the following line at the bottom of the file.
+2. If you are a noob and don't want to mess around with the sudoer settings, just edit /etc/sudoers, add the following line at the bottom of the file.
   ```
   www-data ALL=(ALL:ALL) NOPASSWD:ALL
   ```
   **(Only if you are using the system in local area network. Please adjust this to suit your needs if you are planning to access the system through the internet.)**
+  
+  If you are pros and want to have much better control of the system security, add the lines that fits your need according to the selections below.
+  
+  - Allow system to mount and unmount USB drives of your Raspberry Pi
+  ```
+  www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount
+  ```
+  - Allow system to be powered off via the Web UI
+  ```
+  www-data ALL=NOPASSWD: /sbin/halt, /sbin/reboot, /sbin/poweroff
+  ```
+  
+  TO BE ADDED
   
 3. Edit /etc/apache2/apache2.conf, add the following two lines to the bottom of the file
   ```
