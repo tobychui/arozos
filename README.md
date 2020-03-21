@@ -22,7 +22,7 @@ The following packages are required for the system to run on your Linux system.
 To install the package above, copy and paste the following lines into your ssh terminal line by line.
 ```
 #Add the following line if you are using a fresh install of Debian Buster
-sudo apt-get install unzip net-tools ntfs-3g -y
+sudo apt-get install unzip net-tools ntfs-3g dosfstools -y
 sudo apt-get update
 sudo apt-get install -y apache2
 sudo apt-get install -y php libapache2-mod-php php-cli php-common php-mbstring php-gd php-xml php-zip 
@@ -68,6 +68,11 @@ ArOZ Online System is only tested to install on Debian Jessie and Debian Buster.
   Allow system to access local area network IP address and WiFi network settings
   ```
   www-data ALL=NOPASSWD: /sbin/ifconfig, /sbin/ip
+  ```
+  
+  Allow system to format and create new partitions
+  ```
+  www-data ALL=NOPASSWD: /sbin/mkfs.ntfs, /sbin/mkfs.vfat
   ```
   
   TO BE ADDED
