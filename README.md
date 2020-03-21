@@ -51,6 +51,7 @@ ArOZ Online System is only tested to install on Debian Jessie and Debian Buster.
   ```
   www-data ALL=(ALL:ALL) NOPASSWD:ALL
   ```
+  (Only if you are using the system in local area network. Please adjust this to suit your needs if you are planning to access the system through the internet.)
   
 3. Edit /etc/apache2/apache2.conf, add the following two lines to the bottom of the file
   ```
