@@ -49,6 +49,7 @@ ArOZ Online 系統已經過測試可安裝在Debian Jessie和Debian Buster上。
   ```
   www-data ALL=(ALL:ALL) NOPASSWD:ALL
   ```
+  **（注：此行只適合使用者於內聯網存取本系統。如果你想從互聯網存取此系統，你需要自行更改此設定以保障系統安全性。）**
   
 3. 編輯 /etc/apache2/apache2.conf, 在檔案底部加上這兩行：
   ```
