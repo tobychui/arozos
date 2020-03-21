@@ -55,13 +55,19 @@ ArOZ Online System is only tested to install on Debian Jessie and Debian Buster.
   
   If you are pros and want to have much better control of the system security, add the lines that fits your need according to the selections below.
   
-  - Allow system to mount and unmount USB drives of your Raspberry Pi
+  Allow system to mount and unmount USB drives of your Raspberry Pi
   ```
   www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount
   ```
-  - Allow system to be powered off via the Web UI
+  
+  Allow system to be powered off via the Web UI
   ```
   www-data ALL=NOPASSWD: /sbin/halt, /sbin/reboot, /sbin/poweroff
+  ```
+  
+  Allow system to access local area network IP address and WiFi network settings
+  ```
+  www-data ALL=NOPASSWD: /sbin/ifconfig, /sbin/ip
   ```
   
   TO BE ADDED
