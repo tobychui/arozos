@@ -45,11 +45,34 @@ ArOZ Online 系統已經過測試可安裝在Debian Jessie和Debian Buster上。
   post_max_size = 2048M
   ```
   
-2. 編輯 /etc/sudoers, 並在檔案底部加上以下一行：
+2. 如果你對 Linux 權限設定不太熟悉，你可以直接使用 nano 打開 /etc/sudoers，並在檔案底部加上以下一行
   ```
-  www-data ALL=(ALL:ALL) NOPASSWD:ALL
+  www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount, /sbin/halt, /sbin/reboot, /sbin/poweroff, /sbin/ifconfig, /sbin/ip
   ```
-  **（注：此行只適合使用者於內聯網存取本系統。如果你想從互聯網存取此系統，你需要自行更改此設定以保障系統安全性。）**
+  **(此行只限於個人於內聯網中使用。如果你打算把此系統開放到互聯網，請自行根據下面的提示進行設定)**
+  
+  
+  充許使用者透過 ArOZ Online 系統載入及移除外置儲存裝置
+  ```
+  www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount
+  ```
+  
+  充許使用者透過網頁界面關閉、重啟伺服器
+  ```
+  www-data ALL=NOPASSWD: /sbin/halt, /sbin/reboot, /sbin/poweroff
+  ```
+  
+  充許 ArOZ Online 系統取得網絡及 WiFi 設定
+  ```
+  www-data ALL=NOPASSWD: /sbin/ifconfig, /sbin/ip
+  ```
+  
+  充許 ArOZ Online 系統新建新的檔案系統，包括 vfat 及 ntfs
+  ```
+  www-data ALL=NOPASSWD: /sbin/mkfs.ntfs, /sbin/mkfs.vfat
+  ```
+  
+  TO BE ADDED
   
 3. 編輯 /etc/apache2/apache2.conf, 在檔案底部加上這兩行：
   ```
