@@ -37,6 +37,22 @@ function getLineContain($content,$keyword){
 	return "";
 }
 
+function ubasename($file,$keepExt){
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        //No need special handling for windows.
+        return basename($file);
+    }
+    //Replace the build in basename function on Linux
+	$ufilepath = str_replace("\\","/",$file);
+	$ext = pathinfo($file, PATHINFO_EXTENSION);
+	$basename = array_pop(explode("/",$ufilepath));
+	if (!$keepExt){
+	   $basename = str_replace("." . $ext, "",$basename); 
+	}
+	
+    return $basename;
+}
+
 
 if (isset($_GET['username']) && $_GET['username'] != ""){
 	$username = $_GET['username'];
@@ -56,9 +72,9 @@ if (isset($_GET['username']) && $_GET['username'] != ""){
 		foreach ($files as $file){
 			$decodedFilename = "";
 			if (is_file($file) || is_dir($file)){
-				array_push($validfile,urlencode(basename($file)));
+				array_push($validfile,ubasename($file,true));
 				$fileDesktopPosition = getLineContain($filePositions,basename($file).",");
-				$decodedFilename = getDecodeFileName(basename($file));
+				$decodedFilename = getDecodeFileName(ubasename($file,true));
 				//The filename has to be encoded into base64 first before sending to the Desktop as some UTF issue is happening here
 				array_push($decodeFileList,$decodedFilename);
 				array_push($DesktopPos,$fileDesktopPosition);

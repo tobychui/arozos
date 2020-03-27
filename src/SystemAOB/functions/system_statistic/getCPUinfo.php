@@ -10,7 +10,7 @@ if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 	header('Content-Type: application/json');
 	echo json_encode($result);
 }else{
-    $temp = shell_exec('sudo cat /proc/cpuinfo');
+    $temp = shell_exec('cat /proc/cpuinfo');
 	$temp = str_replace(":","=",$temp);
 	$temp = str_replace("\t","",$temp);
 	$temp = str_replace("\n",",",$temp);

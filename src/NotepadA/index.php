@@ -1,5 +1,8 @@
-﻿<?php
-include '../auth.php';
+<?php
+include_once '../auth.php';
+if (!file_exists("tmp")){
+	mkdir("tmp",0777,true);
+}
 ?>
 <!DOCTYPE html>
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
@@ -391,7 +394,7 @@ function initNotepadA(){
 
 //Add a new editor window to the editor (?) -->ALL FILE PATH PASSED IN MUST BE FROM AOR OR /media/storage*
 function newEditor(filepath){
-    if (openedFilePath.includes(filepath)){
+     if (openedFilePath.includes(filepath)){
         //This page is already opened. Ignore this request and focus on the existing tab.
         $(".fileTab").each(function(){
             if ($(this).attr("filename").includes(filepath)){
@@ -403,14 +406,26 @@ function newEditor(filepath){
     }
 	let tabid = Math.round((new Date()).getTime());
 	var fileInternalIdentifier = "../../";
+	var external = false;
 	if (filepath.substring(0,14) == "/media/storage"){
 		//This file is stored in external stoarge path. Use real path instead.
 		fileInternalIdentifier = "";
+		external = true;
+	}else if (filepath.includes("SystemAOB/functions/extDiskAccess.php?file=")){
+		
+		//This file is opened using file explorer and it has attached an opener with the file.
+		filepath = filepath.replace("SystemAOB/functions/extDiskAccess.php?file=","");
+		external = true;
 	}
 	var tab = '<div class="fileTab" tabid="'+tabid+'" framematch="ca'+tabid+'" filename="' + fileInternalIdentifier + filepath +'">\
 					loading... <div class="closeBtn">⨯</div>\
 					</div>';
-	var frame = '<div style="position:fixed;width:100%;"><iframe id="ca'+tabid+'" class="editor" src="ace/editor.php?theme='+theme+'&filename=../../'+filepath+'&fontsize=' + fontsize + '" width="100%" frameBorder="0"></iframe></div>';
+	
+	var editorRelative = "../../";
+	if (external){
+		editorRelative = "";
+	}
+	var frame = '<div style="position:fixed;width:100%;"><iframe id="ca'+tabid+'" class="editor" src="ace/editor.php?theme='+theme+'&filename=' + editorRelative +filepath+'&fontsize=' + fontsize + '" width="100%" frameBorder="0"></iframe></div>';
 	$("#tabs").append(tab);
 	$("#codeArea").append(frame);
 	updateFrameAttr('ca' + tabid);

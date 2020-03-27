@@ -5,7 +5,12 @@ $configs = getConfig("encoding",true);
 putenv('LANG=en_US.UTF-8'); 
 //Check if the source file is valid
 if (!isset($_GET['source']) || !file_exists("../" . $_GET['source'])){
-	die("Error. Source file not defined or not found. " . $_GET['source'] . ' given.');
+	if (file_exists($_GET['source'])){
+		//File located in external storage
+		die("Error. You cannot compile in external storage. " . $_GET['source'] . ' given.');
+	}else{
+		die("Error. Source file not defined or not found. " . $_GET['source'] . ' given.');
+	}
 }
 
 //Check if the path is located inside AOR (Yes, AOR Only, not external media)

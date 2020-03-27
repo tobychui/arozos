@@ -22,6 +22,12 @@ if (!file_exists("uploads/")){
 <script src="../script/tocas/tocas.js"></script>
 <script src="../script/jquery.min.js"></script>
 <script src="../script/ao_module.js"></script>
+<style>
+body {
+	background: rgba(255,255,255,0.7);
+}
+
+</style>
 </head>
 <body><?php
 	function formatSizeUnits($bytes)

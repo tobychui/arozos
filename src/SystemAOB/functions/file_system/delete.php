@@ -41,7 +41,7 @@ function listFiles($dir){
 
     // prevent empty ordered elements
     if (count($ffs) < 1)
-        return;
+        return [];
 	
     foreach($ffs as $ff){
 		if (is_dir($dir . '/' . $ff)){

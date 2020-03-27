@@ -58,7 +58,7 @@
 	
 	if (inVDI){
 		//It is currently in Virtual Desktop Mode, make it semi-transparent!
-		$('body').css('background','rgba(255,255,255,0.7)');
+		//$('body').css('background','rgba(255,255,255,0.7)');
 		setInterval(function() {
 			GvolDisplay();
 		},1000);

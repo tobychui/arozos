@@ -28,7 +28,7 @@ if (file_exists("../personalization/sysconf/fsaccess.config")){
         body {
             padding-top: 2em;
             background-color: rgb(250, 250, 250);
-            overflow: scroll;
+            overflow-y: scroll;
         }
 		
 		.UMfilename.active{

@@ -1,5 +1,10 @@
 <?php
 include '../auth.php';
+
+//Patch for uploads folder not found exception during upload with Upload Manager
+if (!file_exists("uploads/")){
+	mkdir("uploads",0777,true);
+}
 ?>
 <!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -100,7 +105,15 @@ if (isset($_GET['filepath']) && $_GET['filepath'] != "" ){
 	foreach($playlists as $playlist){
 		if (is_dir($playlist)){
 			$videos = glob($playlist . '/*.mp4');
-			$playlistName = hex2bin(basename($playlist));
+			
+			//check if PHP was higher than 7.4, if true then not using inith filename
+			if(ctype_xdigit($playlist)){
+				$playlistName = hex2bin(basename($playlist));
+			}else{
+				$playlistName = basename($playlist);
+			}
+
+			
 			$box = str_replace("%PlayListName%",$playlistName,$templateA);
 			if (count($videos) != 0){
 				$box = str_replace("%PlayPlayList%","vidPlay.php?src=".$videos[0]."&playlist=".$playlist."",$box);

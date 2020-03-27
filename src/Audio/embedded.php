@@ -27,6 +27,10 @@ include '../auth.php';
 	background-color:rgba(255, 255, 255, 0.7) !important;
 	border:1px solid transparent;
 }
+body {
+	background: rgba(255,255,255,0.7);
+}
+
 </style>
 </head>
 <body>

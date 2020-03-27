@@ -18,16 +18,31 @@ if (isset($_GET['username']) && $_GET['username'] != ""){
 	}
 	$ext = pathinfo($filename, PATHINFO_EXTENSION);
 	$filenameonly = str_replace(".$ext","",$filename);
-	if (preg_match("/^[a-zA-Z0-9 ]*$/u", $filenameonly) == 1 || preg_match("/\p{Han}+/u", $filenameonly) || strpos($filenameonly,".")){
-		//There is non alphbet and numeric char inside this string
-		$encodedName = "inith" . bin2hex($filenameonly) . "." . $ext;
-	}else{
-		if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-			$encodedName = "inith" . bin2hex($filenameonly) . "." . $ext;
-		}else{
-			$encodedName = $filenameonly  . "." . $ext;
-		}	
-	}
+	
+	//Update 24-3-2020
+	//Since PHP7.4.4, there is no need to use bin2hex mode for filenaming. 
+	if (!defined('PHP_VERSION_ID')) {
+        $version = explode('.', PHP_VERSION);
+        define('PHP_VERSION_ID', ($version[0] * 10000 + $version[1] * 100 + $version[2]));
+    }
+    
+    if (PHP_VERSION_ID >= 70404){
+        //Use its original name as filename
+        $encodedName = $filenameonly  . "." . $ext;
+    }else{
+        //Use umfilename method
+    	if (preg_match("/^[a-zA-Z0-9 ]*$/u", $filenameonly) == 1 || preg_match("/\p{Han}+/u", $filenameonly) || strpos($filenameonly,".")){
+    		//There is non alphbet and numeric char inside this string
+    		$encodedName = "inith" . bin2hex($filenameonly) . "." . $ext;
+    	}else{
+    		if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+    			$encodedName = "inith" . bin2hex($filenameonly) . "." . $ext;
+    		}else{
+    			$encodedName = $filenameonly  . "." . $ext;
+    		}	
+    	}
+    }
+	
 	if (move_uploaded_file($_FILES['file']['tmp_name'], $path . $encodedName)){
 		echo $encodedName;
 	}else{

@@ -22,7 +22,7 @@ if (isset($_GET['md']) && isset($_GET['mpo'])&& isset($_GET['mpn'])){
 	
 }else if (isset($_GET['mpo'])){
 	//Umount the disk and do nothing
-	$out = shell_exec('sudo umount ' . '"' . $_GET['mpo'] . '"');
+	$out = shell_exec('umount ' . '"' . $_GET['mpo'] . '"');
 	echo 'sudo umount ' . '"' . $_GET['mpo'] . '"'. '<br>';
 	echo $out;
 	foreach ($out as $line){
@@ -39,7 +39,7 @@ if (isset($_GET['md']) && isset($_GET['mpo'])&& isset($_GET['mpn'])){
 	}
 	echo 'DONE';
 }else if (isset($_GET['lsblk'])){
-	exec("sudo lsblk",$out);
+	exec("lsblk",$out);
 	$result = [];
 	foreach ($out as $line){
 		array_push($result, $line);
@@ -47,7 +47,7 @@ if (isset($_GET['md']) && isset($_GET['mpo'])&& isset($_GET['mpn'])){
 	header('Content-Type: application/json');
 	echo json_encode($result);
 }else if (isset($_GET['blkid'])){
-	exec("sudo blkid",$out);
+	exec("blkid",$out);
 	$result = [];
 	foreach ($out as $line){
 		array_push($result, $line);

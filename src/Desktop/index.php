@@ -1,190 +1,197 @@
 <?php
 include_once '../auth.php';
+
+//Check which icons are replacable with the Desktop icon set
+$icons = glob("img/system_icon/files/*.png");
+$iconList = [];
+foreach($icons as $icon){
+	$iconName = basename($icon,".png");
+	$iconList[$iconName] = $icon;
+}
 ?>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>Virtual Desktop Interface</title>
     <link rel="stylesheet" href="../script/tocas/tocas.css">
-	<script src="../script/tocas/tocas.js"></script>
-	<script src="script/jquery-1.12.4.js"></script>
-	<script src="script/jquery-ui.js"></script>
-	<style>
-	
-	.selectedApp {
-		background:rgba(255,255,255,0.5) !important;
-		border-color: white;
-		border-top:1px dotted #fff;
-		border-bottom:1px dotted #fff;
-		border-left:1px dotted #fff;
-		border-right:1px dotted #fff;
-	}
-	
-	.launchIcon{
-		width:70px; 
-		height:auto;
-		position:fixed;
-		cursor: pointer;
-		text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;	
-		color: white; 
-		font-size: 90%;
-		word-break: break-all;
-		text-overflow: ellipsis;
-		-webkit-line
-		-clamp: 2; /* number of lines to show */
-		-webkit-box-orient: vertical;
-		line-height: 16px;
-		min-height:80px;
-		max-height:118px;
-		overflow-y:hidden;
-		overflow-x: hidden;
-		font-variant-numeric: tabular-nums lining-nums;
-		border: 1px solid transparent;
-		border-radius: 3px;
-	}
-	
-
-	.launchIcon:hover{
-		background:rgba(255,255,255,0.2);
-	}
-
-	.fileDescription {
-		width:200px;
-		/*height:50px;*/
-		position:fixed;
-		z-index:10;
-		background:rgba(255,255,255,0.8);
-		border-color: #abacad;
-		border: 1px solid;
-		padding: 10px;
-		box-shadow: 1px 1px #3a3a3a;
-		padding:2px;
-		word-wrap: break-word;
-	}
-
-	.non_selectable {
-		-webkit-user-select: none; /* Chrome/Safari */        
-		-moz-user-select: none; /* Firefox */
-		-ms-user-select: none; /* IE10+ */
-	}
-
-	.fileSelector {
-		position:fixed;
-		z-index:10;
-		background:rgba(52,114,229,0.4);
-		border:1px solid #3472e5;
-		border-width:1px;
-		border-style:solid;
-		border-color:#3472e5;
-	}
-
-	.leftClickMenu{
-		position:fixed;
-		z-index:99;
-	}
-	
-	#lcm {
-		padding-bottom:10px;
-	}
-	
-	#lcm .item{
-		height:auto;
-		padding-top:5px !important;
-		padding-bottom:5px !important;
-		font-size:90%;
-		border: 1px solid transparent;
-	}
-	
-	#rcm {
-		padding-bottom:5px;
-	}
-	
-	#rcm .item{
-		height:auto;
-		padding-top:5px !important;
-		padding-bottom:5px !important;
-		font-size:90%;
-		border: 1px solid transparent;
-	}
-	
-	.hovering{
-		background-color: rgb(226, 253, 255);
-		border: 1px solid rgb(89, 152, 255) !important;
-	}
-	
-	.selectedMenu{
-		background-color: rgb(226, 253, 255);
-		border: 1px solid rgb(89, 152, 255) !important;
-	}
-	
-	.chooseFolderDialog{
-		position:fixed;
-		z-index:103;
-		height:300;
-		width:240;
-		font-size:90%;
-		border: 1px solid transparent;
-		background-color:#f0f0f0 !important;
-		border-radius: 0px !important;
-		padding-top:1px;
-		overflow-y:hidden;
-	}
-	
-	.menubox{
-		padding-bottom: 2px;
-		padding-left: 16px;
-		padding-right: 16px;
-		padding-top: 1px;
-		height:auto;
-		color: rgb(90,90,90);
-		font-size:90%;
-		border: 1px solid transparent;
-		cursor: pointer;
-	}
-	
-	.displaybox{
-		padding-bottom: 2px;
-		padding-left: 16px;
-		padding-right: 16px;
-		padding-top: 1px;
-		height:auto;
-		color: rgb(90,90,90);
-		font-size:90%;
-		border: 1px solid transparent;
-		background-color:#dbdbdb;
-	}
-	
-	.menubox:hover{
-		background-color: rgb(226, 253, 255);
-		border: 1px solid rgb(89, 152, 255) !important;
-	}
-	
-	.renamebox{
-		background-color:#f0f0f0;
-		border: 1px solid #303030;
-		width:70px;
-		word-wrap: break-word;
-		position:absolute;
-		left:0px;
-		overflow-wrap: break-word;
-		overflow: hidden;
-	}
-	
-	.renameboxfolder{
-		background-color:#f0f0f0;
-		border: 1px solid #303030;
-		width:70px;
-		word-wrap: break-word;
-		position:absolute;
-		top:58px;
-		left:0px;
-		overflow-wrap: break-word;
-		overflow: hidden;
-	}
-	</style>
+	<script type="text/javascript" src="../script/tocas/tocas.js"></script>
+	<script type="text/javascript" src="script/jquery-1.12.4.js"></script>
+	<script type="text/javascript" src="script/jquery-ui.js"></script>
 </head>
-
 <body style="background-color:black;">
+	<style>
+		.selectedApp {
+			background:rgba(255,255,255,0.5) !important;
+			border-color: white;
+			border-top:1px dotted #fff;
+			border-bottom:1px dotted #fff;
+			border-left:1px dotted #fff;
+			border-right:1px dotted #fff;
+		}
+		
+		.launchIcon{
+			width:70px; 
+			height:auto;
+			position:fixed;
+			cursor: pointer;
+			text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;	
+			color: white; 
+			font-size: 90%;
+			word-break: break-all;
+			text-overflow: ellipsis;
+			-webkit-line
+			-clamp: 2; /* number of lines to show */
+			-webkit-box-orient: vertical;
+			line-height: 16px;
+			min-height:80px;
+			max-height:118px;
+			overflow-y:hidden;
+			overflow-x: hidden;
+			font-variant-numeric: tabular-nums lining-nums;
+			border: 1px solid transparent;
+			border-radius: 3px;
+		}
+		
+
+		.launchIcon:hover{
+			background:rgba(255,255,255,0.2);
+		}
+
+		.fileDescription {
+			width:200px;
+			/*height:50px;*/
+			position:fixed;
+			z-index:10;
+			background:rgba(255,255,255,0.8);
+			border-color: #abacad;
+			border: 1px solid;
+			padding: 10px;
+			box-shadow: 1px 1px #3a3a3a;
+			padding:2px;
+			word-wrap: break-word;
+		}
+
+		.non_selectable {
+			-webkit-user-select: none; /* Chrome/Safari */        
+			-moz-user-select: none; /* Firefox */
+			-ms-user-select: none; /* IE10+ */
+		}
+
+		.fileSelector {
+			position:fixed;
+			z-index:10;
+			background:rgba(52,114,229,0.4);
+			border:1px solid #3472e5;
+			border-width:1px;
+			border-style:solid;
+			border-color:#3472e5;
+		}
+
+		.leftClickMenu{
+			position:fixed;
+			z-index:99;
+		}
+		
+		#lcm {
+			padding-bottom:10px;
+		}
+		
+		#lcm .item{
+			height:auto;
+			padding-top:5px !important;
+			padding-bottom:5px !important;
+			font-size:90%;
+			border: 1px solid transparent;
+		}
+		
+		#rcm {
+			padding-bottom:5px;
+		}
+		
+		#rcm .item{
+			height:auto;
+			padding-top:5px !important;
+			padding-bottom:5px !important;
+			font-size:90%;
+			border: 1px solid transparent;
+		}
+		
+		.hovering{
+			background-color: rgb(226, 253, 255);
+			border: 1px solid rgb(89, 152, 255) !important;
+		}
+		
+		.selectedMenu{
+			background-color: rgb(226, 253, 255);
+			border: 1px solid rgb(89, 152, 255) !important;
+		}
+		
+		.chooseFolderDialog{
+			position:fixed;
+			z-index:103;
+			height:300;
+			width:240;
+			font-size:90%;
+			border: 1px solid transparent;
+			background-color:#f0f0f0 !important;
+			border-radius: 0px !important;
+			padding-top:1px;
+			overflow-y:hidden;
+		}
+		
+		.menubox{
+			padding-bottom: 2px;
+			padding-left: 16px;
+			padding-right: 16px;
+			padding-top: 1px;
+			height:auto;
+			color: rgb(90,90,90);
+			font-size:90%;
+			border: 1px solid transparent;
+			cursor: pointer;
+		}
+		
+		.displaybox{
+			padding-bottom: 2px;
+			padding-left: 16px;
+			padding-right: 16px;
+			padding-top: 1px;
+			height:auto;
+			color: rgb(90,90,90);
+			font-size:90%;
+			border: 1px solid transparent;
+			background-color:#dbdbdb;
+		}
+		
+		.menubox:hover{
+			background-color: rgb(226, 253, 255);
+			border: 1px solid rgb(89, 152, 255) !important;
+		}
+		
+		.renamebox{
+			background-color:#f0f0f0;
+			border: 1px solid #303030;
+			width:70px;
+			word-wrap: break-word;
+			position:absolute;
+			left:0px;
+			overflow-wrap: break-word;
+			overflow: hidden;
+		}
+		
+		.renameboxfolder{
+			background-color:#f0f0f0;
+			border: 1px solid #303030;
+			width:70px;
+			word-wrap: break-word;
+			position:absolute;
+			top:58px;
+			left:0px;
+			overflow-wrap: break-word;
+			overflow: hidden;
+		}
+	</style>
+
 <img id="dbg1" src="img/bg/init.jpg" style="position:fixed;background-position: center;
 		background-repeat: no-repeat;
 		background-size: cover;
@@ -259,8 +266,9 @@ My Host
 <div style="display:none;">
 	<input id="forceFocus" type="text" name="focusTool"></input>
 	<div id="setting_sessionUsername"><?php echo $_SESSION['login'];?></div>
+	<div id="usableIconSet"><?php echo json_encode($iconList); ?></div>
 </div>
-</body>
+
 
 <script>
 var bgNumber = 0;
@@ -302,8 +310,10 @@ var copyingFiles = 0;
 var bgfileformat = "jpg";
 var preventRefresh = false;
 var newItemList = [];
-var launchIconMaxHeight = 103;//Pixel
+var launchIconMaxHeight = 120;//Pixel
 var firstInit = true; //Indicate if this is the first time that the Desktop initiate
+var desktopIconSet = JSON.parse($("#usableIconSet").text().trim()); //Load icon set from img/systemicon/files/*.png
+
 
 initUserDesktop(showNotification,"<i class='checkmark icon'></i> Your Desktop is ready to use.");
 initLaunchIconEvents();
@@ -640,14 +650,14 @@ function createFolderIcon(foldername,pos,decodedname=""){
 			assignNextSlot(true);
 		}
 		setFileDesktopPositionFromFilename(foldername,nextSlot[0],nextSlot[1]);
-		var html = '<div class="launchIcon" style="left:'+nextSlot[0]+'px; top: '+nextSlot[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '"  uid="'+ foldername +'" foldername="'+displayName+'"><img class="ts image non_selectable" src="img/system_icon/folder.png" style="cursor: pointer;margin-top:-15px;" onload="adjustLaunchIconHeight(this);">'+displayName+'</div>';
+		var html = '<div class="launchIcon" style="left:'+nextSlot[0]+'px; top: '+nextSlot[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '"  uid="'+ foldername +'" foldername="'+displayName+'"><img class="ts image non_selectable" src="img/system_icon/folder.png" style="cursor: pointer;" onload="try{adjustLaunchIconHeight(this);}catch{}">'+displayName+'</div>';
 		assignNextSlot();
 		initLaunchIconEvents();		
 		addDraggingEvents();
 		addContextMenuEvents();
 		
 	}else{
-		var html = '<div class="launchIcon" style="left:'+pos[0]+'px; top: '+pos[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '"  uid="'+ foldername +'" foldername="'+displayName+'"><img class="ts image non_selectable" src="img/system_icon/folder.png" style="cursor: pointer;margin-top:-15px;" onload="adjustLaunchIconHeight(this);">'+displayName+'</div>';	
+		var html = '<div class="launchIcon" style="left:'+pos[0]+'px; top: '+pos[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '"  uid="'+ foldername +'" foldername="'+displayName+'"><img class="ts image non_selectable" src="img/system_icon/folder.png" style="cursor: pointer;" onload="try{adjustLaunchIconHeight(this);}catch{}">'+displayName+'</div>';	
 	}
 	$(html).appendTo("body");
 	initLaunchIconEvents();
@@ -663,7 +673,7 @@ function adjustLaunchIconHeight(object){
 		//This folder name require shortening
 		var displayText = target.text().trim();
 		var html = target.html().replace(displayText,"");
-		target.html(html + displayText.substring(0,displayText.length - 5) + "...");
+		target.html(html + displayText.substring(0,displayText.length - 2) + "...");
 	}
 }
 
@@ -671,6 +681,11 @@ function createDesktopIcon(filename,rawname,pos){
 	//Filename is the decoded filename under upload manager scheme
 	//while the rawname is the original filename stored on the system
 	var icon = getIconFromPath(filename);
+	var imageMode = false;
+	if (desktopIconSet[icon] !== undefined){
+		//This icon exists in our desktop image set. Use image mode instead.
+		imageMode = true;
+	}
 	//console.log(filename,rawname);
 	var targetType = "file";
 	var iconName = filename;
@@ -687,12 +702,20 @@ function createDesktopIcon(filename,rawname,pos){
 		setFileDesktopPositionFromFilename(rawname,newLocation[0],newLocation[1],undefined,undefined,true);
 		appendToCurrentFileLocationList(filename,newLocation);
 		assignNextSlot(true);
-		var html = '<div class="launchIcon" style="left:'+newLocation[0]+'px; top: '+newLocation[1]+'px;padding-top:10px;" align="center" path="'+path+'" targetType="'+targetType+'" filename="'+iconName+'" uid="'+rawname+'"><i class="big '+moduleIcon+' icon"></i><div>'+shortenedName+'</div></div>';
+		var html = '<div class="launchIcon" style="left:'+newLocation[0]+'px; top: '+newLocation[1]+'px;padding-top:10px;" align="center" path="'+path+'" targetType="'+targetType+'" filename="'+iconName+'" uid="'+rawname+'"><i class="big '+moduleIcon+' icon" style="font-size:270%;margin-top:13px;margin-bottom:10px;"></i><div>'+shortenedName+'</div></div>';
+		if (imageMode){
+			//Use image icon to replace tocas icon
+			html = '<div class="launchIcon" style="left:'+newLocation[0]+'px; top: '+newLocation[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '" filename="'+iconName+'" uid="'+rawname+'"><img class="ts image non_selectable" src="' + desktopIconSet[moduleIcon] + '" style="cursor: pointer;">'+shortenedName+'</div>';
+		}
 		initLaunchIconEvents();
 		addDraggingEvents();
 		addContextMenuEvents();
 	}else{
-		var html = '<div class="launchIcon" style="left:'+pos[0]+'px; top: '+pos[1]+'px;padding-top:10px;" align="center" path="'+path+'" targetType="'+targetType+'" filename="'+iconName+'" uid="'+rawname+'"><i class="big '+moduleIcon+' icon"></i><div>'+shortenedName+'</div></div>';
+		var html = '<div class="launchIcon" style="left:'+pos[0]+'px; top: '+pos[1]+'px;padding-top:10px;" align="center" path="'+path+'" targetType="'+targetType+'" filename="'+iconName+'" uid="'+rawname+'"><i class="big '+moduleIcon+' icon" style="font-size:270%;margin-top:13px;margin-bottom:10px;"></i><div>'+shortenedName+'</div></div>';
+		if (imageMode){
+			//Use image icon to replace tocas icon
+			html = '<div class="launchIcon" style="left:'+pos[0]+'px; top: '+pos[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '" filename="'+iconName+'" uid="'+rawname+'"><img class="ts image non_selectable" src="' + desktopIconSet[moduleIcon] + '" style="cursor: pointer;">'+shortenedName+'</div>';
+		}
 	}
 	$("body").append(html);
 	initLaunchIconEvents();
@@ -772,7 +795,7 @@ function createShortcutIcon(filename,position){
 			    var html = '<div class="launchIcon" style="left:'+position[0]+'px; top: '+position[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '" acceptFileExt="'+acceptFileType+'" uid="'+filename+'"><img class="ts image non_selectable" src="'+iconpath+'" style="cursor: pointer;width:68px;padding:8px;">'+iconName+'</div>';	
 		    }else if (targetType == "foldershrct"){
 		        //margin-top:-15px;
-		        var html = '<div class="launchIcon" style="left:'+position[0]+'px; top: '+position[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '" acceptFileExt="'+acceptFileType+'" uid="'+filename+'"><img class="ts image non_selectable" src="'+iconpath+'" style="cursor: pointer;width:68px;height:68px;margin-top:-15px;">'+iconName+'</div>';	
+		        var html = '<div class="launchIcon" style="left:'+position[0]+'px; top: '+position[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '" acceptFileExt="'+acceptFileType+'" uid="'+filename+'"><img class="ts image non_selectable" src="'+iconpath+'" style="cursor: pointer;width:68px;height:68px;">'+iconName+'</div>';	
 		    }else{
 			    var html = '<div class="launchIcon" style="left:'+position[0]+'px; top: '+position[1]+'px;" align="center" path="'+path+'" targetType="' + targetType + '" acceptFileExt="'+acceptFileType+'" uid="'+filename+'"><img class="ts image non_selectable" src="'+iconpath+'" style="cursor: pointer;width:68px;height:68px;">'+iconName+'</div>';	
 			}
@@ -3067,6 +3090,7 @@ function downloadURI(uri, name){
 	a.click();
 	document.body.removeChild(a);
 }
-
 </script>
+</body>
+
 </html>
