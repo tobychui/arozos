@@ -12,6 +12,9 @@ Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B.
 ## Getting Started
 These instructions will show you how to deploy a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. Read more on the [Full System Documentation](https://tobychui.github.io/ArOZ-Online-System/).
 
+### Docker
+Follow the instruction from this repo: https://github.com/Saren-Arterius/aroz-dockerize
+
 ### Prerequisites
 The following packages are required for the system to run on your Linux system.
 - apache2
