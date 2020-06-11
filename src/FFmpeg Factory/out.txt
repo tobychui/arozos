@@ -1,0 +1,1 @@
+-i "../Desktop/files/TC/convt/カントリーロード（Cover）.mp4" "../Desktop/files/TC/convt/カントリーロード（Cover）.flac"

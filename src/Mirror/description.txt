@@ -1,0 +1,1 @@
+The Mirror Module allow user to make their mirror into a smart mirror without installing anything!
