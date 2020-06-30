@@ -3,13 +3,13 @@
 <img src="https://img.shields.io/badge/License-Partially%20Open%20Source-blue"> <img src="https://img.shields.io/badge/Build-Community-brightgreen"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In-Hong%20Kong-blueviolet">
 
 # ArOZ Online 系統 / aCloud
-設計給 Raspberry Pi 3B + 或 4B 的網頁桌面環境個人雲平台。可以用作雲音樂和影片流，數據存儲，簡易辦公/文書處理，3D列印文件預覽，雲編程IDE等等喔！
+為 Raspberry Pi 3B + 或 4B 裝置度身訂造的網頁桌面環境個人雲平台。可以用作雲音樂和影片流，數據存儲，簡易辦公/文書處理，3D列印文件預覽，雲編程IDE等等喔！
 
 ## 快速開始
-本說明將向您展示如何在自己的Raspberry Pi或其他單片電腦的 Linux上安裝ArOZ Online系統。
+本說明將向您展示如何在自己的Raspberry Pi或其他運行 Linux 的單晶片電腦上安裝ArOZ Online系統。
 
 ### 系統要求
-要在Linux系統上運行該系統，需要以下軟件包。
+運行本系統需要安裝以下軟體。
 - apache2
 - libapache2-mod-xsendfile
 - php libapache2-mod-php php-cli php-common php-mbstring php-gd php xml php-zip
@@ -18,93 +18,112 @@
 - samba (可選)
 
 要安裝以上軟件包，請逐行複製以下行並將其貼上到ssh終端內。
-```
-#Add the following line if you are using a fresh install of Debian Buster
+```bash
+# 如果您使用新安裝的 Debian Buster 系統，請執行以下指令以安裝所需軟體。
 sudo apt-get install unzip net-tools ntfs-3g -y
 sudo apt-get update
 sudo apt-get install -y apache2
 sudo apt-get install -y php libapache2-mod-php php-cli php-common php-mbstring php-gd php xml php-zip 
 sudo apt-get install libapache2-mod-xsendfile
-#The lines below are optional. But it is recommended to install them for future uses
+# 以下指令安裝可選的軟體套件，並非必要，但安裝後能對將來更多用戶提供更好體驗。
 sudo apt-get install php-mysql
-#Use libav-tools instead of ffmpeg if you are still using Debian Jessie
+# 如果您的Debian版本仍為 Debian Jessie ，請以 libav-tools 取代 ffmpeg
 sudo apt-get install ffmpeg
 sudo apt-get install samba
 ```
 ### 預建映像檔案
 要將ArOZ Online System安裝到Raspberry pi，您可以使用Raspberry Pi 4B / 3B +的預構建映像檔案。您可以在下面的網址中找到該映像檔：
 
-還沒準備好喔！
+> 還沒準備好喔！
 
 ### 手動安裝
-ArOZ Online 系統已經過測試可安裝在Debian Jessie和Debian Buster上。在安裝ArOZ Online 系統之前，您需要先行調整設定。
 
-1. 編輯 php.ini以增加最大文件上傳大小設置。 php.ini文件通常可以在 /etc/php/{php-version}/apache2/php.ini 找到. 如下所示的更改這兩行：
-  ```
-  upload_max_filesize = 2048M
-  post_max_size = 2048M
-  ```
-  
-2. 如果你對 Linux 權限設定不太熟悉，你可以直接使用 nano 打開 /etc/sudoers，並在檔案底部加上以下一行
-  ```
-  www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount, /sbin/halt, /sbin/reboot, /sbin/poweroff, /sbin/ifconfig, /sbin/ip
-  ```
-  **(此行只限於個人於內聯網中使用。如果你打算把此系統開放到互聯網，請自行根據下面的提示進行設定)**
-  
-  
-  充許使用者透過 ArOZ Online 系統載入及移除外置儲存裝置
-  ```
-  www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount
-  ```
-  
-  充許使用者透過網頁界面關閉、重啟伺服器
-  ```
-  www-data ALL=NOPASSWD: /sbin/halt, /sbin/reboot, /sbin/poweroff
-  ```
-  
-  充許 ArOZ Online 系統取得網絡及 WiFi 設定
-  ```
-  www-data ALL=NOPASSWD: /sbin/ifconfig, /sbin/ip
-  ```
-  
-  充許 ArOZ Online 系統新建新的檔案系統，包括 vfat 及 ntfs
-  ```
-  www-data ALL=NOPASSWD: /sbin/mkfs.ntfs, /sbin/mkfs.vfat
-  ```
-  
-  TO BE ADDED
-  
-3. 編輯 /etc/apache2/apache2.conf, 在檔案底部加上這兩行：
-  ```
-  XSendFile on
-  XSendFilePath /media
-  ```
-  
-4. 在 /media/storage1 和 /media/storage2 新建兩個資料夾
-  ```
-  sudo mkdir /media/storage1 /media/storage2
-  ```
-接下來，您需要下載ArOZ在線系統並將其安裝到您的webroot（/ var / www / html /）。
-為此，您可以使用以下命令移動到網絡伺服器的根目錄：
-  ```
-  cd /var/www/html/
-  ```
+#### 概覽
 
-然後以 zip格式下載此源碼庫，將 "src" 文件夾解壓縮到 /var/www/html 然後將 "src" 命名為 "AOB"。
-如果你是在使用 Windows 作業系統，你可以下載並使用 WinSCP 來進行此操作. 否則，您可以使用git clone命令，類似於下面的示例。在使用git命令之前，請確保已安裝 git 軟件。如果你還沒安裝你可以用 ```sudo apt-get install git``` 來進行安裝。
+ArOZ Online 支援 Debian Jessie 和 Debian Buster 作為其底系統。在安裝ArOZ Online 系統之前，請先安裝[所需軟體套件](#系統要求)。
+
+#### 設定PHP
+
+ArOZ Online 不支援預設的 PHP 設定。
+
+更改 php.ini 的內容以增加最大文件上傳大小設定。在 Debian 系統中，`php.ini` 文件通常可以在 `/etc/php/{php-version}/apache2/php.ini` 找到。請依照以下來更改 `php.ini` 中的設定值。
 
   ```
-  git clone https://github.com/tobychui/ArOZ-Online-System/
-  sudo mv ArOZ-Online-System/src ./AOB
-  sudo rm -rf ./ArOZ-Online-System
-  
-  sudo mkdir -p "/etc/AOB"
-  sudo chmod 777 -R "/etc/AOB"
-  sudo chmod 777 -R ./AOB
-  sudo chown -R www-data ./
+upload_max_filesize = 2048M
+post_max_size = 2048M
   ```
+
+#### 設定權限
+
+部分功能需要特別的權限設定才能啟用。
+
+如果你對 Linux 權限設定不太熟悉，你可以直接使用 `nano` 打開 `/etc/sudoers`，並在檔案尾端加上以下一行。
+
+  ```
+www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount, /sbin/halt, /sbin/reboot, /sbin/poweroff, /sbin/ifconfig, /sbin/ip
+  ```
+  **(此行只限於個人內聯網中使用。如果你打算把此系統開放到互聯網，請自行根據下面的提示進行設定。)**
+
+- 允許使用者透過 ArOZ Online 系統載入及移除外置儲存裝置
+
+      www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount
   
-  使用你喜歡的瀏覽器打開： http://{Raspberry_Pi_IP_Address}/AOB/ 然後跟據屏幕上的指南設置新用戶。
+- 允許使用者透過網頁界面關閉、重啟伺服器
+
+      www-data ALL=NOPASSWD: /sbin/halt, /sbin/reboot, /sbin/poweroff
+  
+- 允許 ArOZ Online 系統存取網絡及 WiFi 設定
+
+      www-data ALL=NOPASSWD: /sbin/ifconfig, /sbin/ip
+  
+- 允許 ArOZ Online 系統建立新的 NTFS 或 FAT32 檔案系統
+
+      www-data ALL=NOPASSWD: /sbin/mkfs.ntfs, /sbin/mkfs.vfat
+
+> TO BE ADDED
+
+#### Apache 設定
+
+編輯 `/etc/apache2/apache2.conf`文件，在檔案尾端部加入以下兩行。
+
+  ```
+XSendFile on
+XSendFilePath /media
+  ```
+
+#### 建立目錄
+
+在 `/media/storage1` 和 `/media/storage2` 新建兩個目錄。
+
+  ```bash
+sudo mkdir /media/storage1 /media/storage2
+  ```
+#### 安裝 ArOZ Online 至網頁伺服器
+
+您需要下載ArOZ Online 系統並將其安裝到您網頁伺服器的根目錄（`/var/www/html/`）。
+您可以使用以下命令移動到網頁伺服器的根目錄。
+
+  ```bash
+cd /var/www/html/
+  ```
+
+然後以 zip 格式下載此源碼庫，將 `src` 文件夾解壓縮至 `/var/www/html` 然後將 `src`目錄更名為 `AOB`。
+在 Windows 作業系統中，您可以下載並使用 WinSCP 來進行此操作。否則，您可以使用 `git clone` 指令，可參考於下面的示例。在使用 `git` 命令之前，請確保已安裝 `git` 軟體。您可以執行 ```sudo apt-get install git``` 以安裝之。
+
+  ```bash
+git clone https://github.com/tobychui/ArOZ-Online-System/
+sudo mv ArOZ-Online-System/src ./AOB
+sudo rm -rf ./ArOZ-Online-System
+  
+sudo mkdir -p "/etc/AOB"
+sudo chmod 777 -R "/etc/AOB"
+sudo chmod 777 -R ./AOB
+sudo chown -R www-data ./
+  ```
+
+#### 首次登入
+
+使用你喜歡的瀏覽器打開：`http://{Raspberry_Pi_IP_Address}/AOB/`，然後跟據網頁上的指示建立新用戶。
 
 ## 系統截圖
 ![Image](img/screenshots/audio.png?raw=true)
@@ -163,6 +182,3 @@ TocasUI by Yami Odymel - https://tocas-ui.com/
 
 ## 支持本系統開發
 如果您真的想給我一些東西，歡迎隨時與我聯絡 :)
-
-
-
