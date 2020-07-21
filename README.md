@@ -4,6 +4,8 @@
 
 [中文說明](README-zh-HK.md)
 
+**Updates: As PHP (the lanuage itself) is deprecating, we are moving our system to Go (Or golang) in the coming months. Data migration guideline will be provided later. If you have any questions, feel free to create a new issue.**
+
 # ArOZ Online System / aCloud
 Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B. A place to start cloud music and video streaming, data storage, lightweight office work / text processing, 3D printing file previews, Cloud programming IDE and more!
 
