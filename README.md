@@ -4,18 +4,18 @@
 
 [中文說明](README-zh-HK.md)
 
-**Updates: As PHP (the lanuage itself) is deprecating, we are moving our system to Go (Or golang) in the coming months. Data migration guideline will be provided later. If you have any questions, feel free to create a new issue.**
+**Updates: As PHP (the language itself) is deprecating, we are translating our system to Go (Or golang) in the coming months. Data migration guidelines will be provided later. If you have any questions, feel free to create a new issue.**
 
 # ArOZ Online System / aCloud
-Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B. A place to start cloud music and video streaming, data storage, lightweight office work / text processing, 3D printing file previews, Cloud programming IDE and more!
+Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B. A place to start cloud music and video streaming, data storage, light-weight office work / text processing, 3D printing file previews, Cloud programming IDE and more!
 
-**WARNING! THIS SYSTEM IS STILL IN BETA PHRASE.**
+**WARNING! THIS SYSTEM IS STILL IN BETA EDITION.**
 
 ## Getting Started
 These instructions will guide you through the deployment of a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. Read more on the [Full System Documentation](https://tobychui.github.io/ArOZ-Online-System/).
 
 ### Docker
-Follow the instruction from this repo: https://github.com/Saren-Arterius/aroz-dockerize
+Follow the instructions from this repo: https://github.com/Saren-Arterius/aroz-dockerize
 
 ### Prerequisites
 The following packages are required for the system to run on your Linux system.
@@ -41,7 +41,7 @@ sudo apt-get install ffmpeg
 sudo apt-get install samba
 ```
 ### Prebuilt Image File
-To install ArOZ Online System to your Raspberry pi, you can use the prebuilt image file for Raspberry Pi 4B / 3B+. You can find the image in the link below:
+To install ArOZ Online System to your Raspberry Pi, you could use the prebuilt image file for Raspberry Pi 4B / 3B+. The image is in the link below:
 
 > WORK IN PROGRESS
 
@@ -49,7 +49,7 @@ To install ArOZ Online System to your Raspberry pi, you can use the prebuilt ima
 
 #### Overview
 
-ArOZ Online System is only tested on Debian Jessie and Debian Buster. Before installing the ArOZ Online System, you need to install necessary software package as shown in the [Prerequisites](#Prerequisites) section. 
+ArOZ Online System is only tested on Debian Jessie and Debian Buster. Before installing the ArOZ Online System, you need to install necessary software package as shown in the [Prerequisites](#Prerequisites) section.
 
 #### Configuring PHP
 
@@ -70,9 +70,9 @@ If you are not familiar with `sudoer` configuration syntax, open `/etc/sudoers` 
 ```
 www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g,  /usr/bin/ntfs-3g, /usr/bin/umount, /sbin/halt, /sbin/reboot, /sbin/poweroff, /sbin/ifconfig, /sbin/ip, /sbin/mkfs.ntfs, /sbin/mkfs.vfat
 ```
-**(Use the above settings only if you are hosting the system in your local area network. Please adjust this to suit your needs if you are allowing the access of the system from the internet.)**
+**(Use the above settings only if you are hosting the system in your local area network. Please adjust this to suit your needs if you are allowing the access of the system from the Internet.)**
 
-If you are familiar and want to have much better control of the system security, add the lines that fits your need according to the selections below.
+If you are familiar of the system security and want to have better control over it, add the lines that fits your need according to the selections below.
 
 - Allow the system to mount and unmount your USB drives
 
@@ -115,14 +115,14 @@ sudo mkdir /media/storage1 /media/storage2
 #### Installing ArOZ Online to webroot directory
 
 You will need to download and install the ArOZ Online System to your webroot (`/var/www/html/`).
-Navigate into the web root using the following command
+Navigate to the web root using the following command
 
   ```bash
 cd /var/www/html/
   ```
 
 And then download the repo as zip, unzip the `src` folder into `/var/www/html` and rename `src` to `AOB`.
-You can do this using WinSCP if you on Windows. Otherwise, you can use `git clone` command similar to the example below. Make sure you have installed `git` using ```sudo apt-get install git``` before running `git` command.
+This could be done using WinSCP if you are using Windows. Otherwise, use `git clone` command similar to the example below. Make sure the installation of `git` is completed by using ```sudo apt-get install git``` before running the `git` command.
 
   ```bash
 git clone https://github.com/tobychui/ArOZ-Online-System/
@@ -137,7 +137,7 @@ sudo chown -R www-data ./
 
 #### Testing
 
-Open your default browser and visit the http://{Raspberry_Pi_IP_Address}/AOB/ and follow the on scren guide for setting up a new user.
+Open your default browser and visit the http://{Raspberry_Pi_IP_Address}/AOB/ and follow the on-screen guide for setting up a new user.
 
 ## Preview / Screenshots
 ![Image](img/screenshots/audio.png?raw=true)
@@ -152,7 +152,7 @@ Open your default browser and visit the http://{Raspberry_Pi_IP_Address}/AOB/ an
 Click <a href="https://github.com/tobychui/ArOZ-Online-System/tree/master/img/screenshots">here</a> for more preview screenshots
 
 ## Versioning
-Different major change in versioning will lead to an upgrade to the codename. Here are a list of versions currently ArOZ Online System provides. 
+Different major change in versioning will lead to an upgrade to the codename. Here are a list of versions ArOZ Online System provides at the moment. 
 
 | Version Number | Code Name | Major Change | Type (Barebone / Pre-release / Full* ) |
 |----------------|-----------|--------------|---------------------------------------------|
@@ -200,4 +200,4 @@ TO BE ADDED
 
 ## Buy me a coffee
 Actually I don't drink coffee.
-Send me something that would make me feel interested if you really want to send me something :)
+Send me something that would make me feel interested if you really want to :)
