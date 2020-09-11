@@ -49,11 +49,11 @@ To install ArOZ Online System to your Raspberry Pi, you could use the prebuilt i
 
 #### Overview
 
-ArOZ Online System is only tested on Debian Jessie and Debian Buster. Before installing the ArOZ Online System, you need to install necessary software package as shown in the [Prerequisites](#Prerequisites) section.
+ArOZ Online System was on Debian Jessie and Debian Buster trials only. Before installing the ArOZ Online System, you need to install the necessary software packages as shown in the [Prerequisites](#Prerequisites) section.
 
 #### Configuring PHP
 
-ArOZ Online is not compatiable with the default PHP settings.
+ArOZ is not compatiable with the default PHP settings.
 
 Edit `php.ini` to increase the max file upload size setting. On Debian systems, the `php.ini` file can usually be found in `/etc/php/{php-version}/apache2/php.ini`. Change these two lines below as follows:
 ```
