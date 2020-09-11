@@ -122,7 +122,7 @@ cd /var/www/html/
   ```
 
 And then download the repo as zip, unzip the `src` folder into `/var/www/html` and rename `src` to `AOB`.
-This could be done using WinSCP if you are using Windows. Otherwise, use `git clone` command similar to the example below. Make sure the installation of `git` is completed by using ```sudo apt-get install git``` before running the `git` command.
+This could be done using WinSCP if you are using Windows. Otherwise, use `git clone` command similar to the example below. Make sure the installation of `git` is  being completed by using ```sudo apt-get install git``` before running the `git` command.
 
   ```bash
 git clone https://github.com/tobychui/ArOZ-Online-System/
