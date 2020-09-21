@@ -1,3 +1,0 @@
-Full Power Mode, Full power mode enable both wlan0 and wlan1 for high speed access and network IO for both online and offline purpose.,full_power.php
-WiFi Only Mode, Enable only wlan0 for ArOZ Online - Router connection only. AP will be disabled in this mode.,wlan0only.php
-AP Only Mode, Enable only wlan1 for ArOZ Online - Client connection only. NAT and Internet service will be disabled in this mode.,wlan1only.php

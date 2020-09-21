@@ -1,4 +1,0 @@
-paint brush,Personalization
-plgeneral,Desktop Module,SystemAOB/functions/personalization/desktop.php
-usrprefer,User Preference,SystemAOB/functions/personalization/userconfigUI.php
-advconfig,Advanced Configuration,SystemAOB/functions/personalization/sysconfigUI.php

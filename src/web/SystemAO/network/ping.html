@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+        .ts.items>.item>.image:not(.ts):not(.flexible) {
+            width: 60px;
+            !important
+        }
+    </style>
+</head>
+
+
+<body>
+    <br> NOT YET IMPLEMTENTED
+    <div class="ui container">
+        <p id="jitter">Jitter: testing.</p>
+        <p id="ping">Ping: testing.</p>
+    </div>
+
+    <script>
+        var timeDiffArr = [];
+        $(document).ready(function() {
+            for (i = 1000; i <= 10000; i += 1000) {
+                setTimeout(function() {
+                    measurePing();
+
+                }, i);
+                //
+            }
+            setTimeout(function() {
+                $("#ping").text("Ping: " + formatTime(average(timeDiffArr)));
+                $("#jitter").text("Jitter: " + formatTime(jitter(timeDiffArr)));
+            }, 11000);
+        });
+
+        function measurePing() {
+            setTimeout(function() {
+                var timeDiff = 0;
+                var startTime = new Date();
+                $.get("/SystemAO/network/getPing",
+                    function() {
+                        timeDiff = (new Date() - startTime);
+                        timeDiffArr.push(timeDiff);
+                    });
+            }, 1000);
+        }
+
+        function average(Arr) {
+            var sum = 0;
+            for (i = 0; i <= Arr.length - 1; i++) {
+                sum += Arr[i];
+            }
+            return Math.round(sum / Arr.length);
+        }
+
+        function jitter(Arr) {
+            var jitterArr = [];
+            for (i = 1; i <= Arr.length - 1; i++) {
+                jitterArr.push(Math.abs(Arr[i] - Arr[i - 1]));
+            }
+            return Math.round(average(jitterArr));
+        }
+
+        function formatTime(time) {
+            if (time < 1000) {
+                return time + "ms";
+            } else if (time < 60000) {
+                return Math.floor(time / 1000) + "s " + convert(time - Math.floor(time / 1000) * 1000);
+            } else if (time < 3600000) {
+                return Math.floor(time / 60000) + "m " + convert(time - Math.floor(time / 60000) * 60000);
+            } else if (time < 216000000) { //original was 216000000
+                return Math.floor(time / 3600000) + "h " + convert(time - Math.floor(time / 3600000) * 3600000);
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,73 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../../script/tocas/tocas.css">
+    <script type='text/javascript' src="../../../script/tocas/tocas.js"></script>
+    <script src="../../../script/jquery.min.js"></script>
+    <script src="/SystemAO/info/js/ua-parser.min.js"></script>
+    <title>ArOZ Online - Client Information</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+</head>
+
+<body style="background-color:#f9f9f9;">
+    <br>
+    <div class="ts container">
+        <div class="ts header">
+            Client Device Information
+            <div class="sub header">These are the information that your browser is telling the system.</div>
+            <table class="ts celled striped table">
+                <thead>
+                    <tr>
+                        <th colspan="3">
+                            Browser Information
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="collapsing">
+                            <i class="sticky note icon"></i> Cookie Enabled
+                        </td>
+                        <td id="cke"></td>
+                    </tr>
+                    <tr>
+                        <td class="collapsing">
+                            <i class="hashtag icon"></i> Operation system
+                        </td>
+                        <td id="os"></td>
+                    </tr>
+                    <tr>
+                        <td class="collapsing">
+                            <i class="hashtag icon"></i> Application Name
+                        </td>
+                        <td id="appname"></td>
+                    </tr>
+                    <tr>
+                        <td class="collapsing">
+                            <i class="browser icon"></i> Browser Engine
+                        </td>
+                        <td id="be"></td>
+                    </tr>
+                    <tr>
+                        <td class="collapsing">
+                            <i class="user circle icon"></i> User Agent
+                        </td>
+                        <td id="ua"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <br><br><br><br>
+    </div>
+    <script>
+        $("#cke").html(navigator.cookieEnabled);
+        $("#os").html($.ua.os.name);
+        $("#appname").html($.ua.browser.name);
+        $("#be").html($.ua.engine.name);
+        $("#ua").html(navigator.userAgent);
+    </script>
+</body>
+
+</html>

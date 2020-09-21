@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta name="theme-color" content="#232324">
+    <link rel="stylesheet" href="../script/tocas/tocas.css">
+	<script src="../script/tocas/tocas.js"></script>
+	<script src="../script/jquery.min.js"></script>
+	<script src="../script/ao_module.js"></script>
+	<style>
+	body{
+		padding:0px !important;
+		overflow: hidden;
+		height:100%;
+	}
+	html, body { height: 100%; width: 100%; margin: 0; }
+	.playerInterface{
+		background-color:rgba(226, 221, 220,0.95);
+		height:150px !important;
+		width:100%;
+	}
+	
+	#playerUI{
+	    margin-left:0px !important;
+		margin-right:0px !important;
+		width:100% !important;
+	}
+	.parkLeft{
+	    position:absolute !important;
+	    top:70px;
+	    left:5px;
+	    margin-left:-30px;
+	}
+	.rotateNinetyDegree{
+	    -webkit-transform: rotate(-90deg);
+        -moz-transform: rotate(-90deg);
+        -o-transform: rotate(-90deg);
+        -ms-transform: rotate(-90deg);
+        transform: rotate(-90deg);
+	}
+	.roundbtn{
+	    border-radius: 40px !important;
+	    box-shadow: 2px 2px 2px 2px #bfbfbf;
+	}
+	.playBtn{
+	    color:#4b75ff !important;
+	}
+	.playerControlWrapper{
+	    text-align="center";
+	    position:absolute;
+	    bottom:50px;
+	    width:100% !important;
+	}
+	.rightPaddedOprButtons{
+	    position:absolute;
+	    right:3px;
+	    top:3px;
+	}
+	.modeEnabled{
+	    background-color:#4b75ff !important;
+	    color:white !important;
+	    border: 1px solid #3d5fd1 !important;
+	}
+	#volControlOverlay{
+	    background-color: rgba(255,255,255,0.01);
+	    z-index:999;
+	    position:absolute;
+	    width:14px;
+	    height:120px;
+	    top:17px;
+	    left:28px;
+	}
+	.songlabel{
+		padding-right:3px;
+		position:absolute;
+		display:inline-box;
+		left:5px;
+		top:5px;
+		color:white;
+		height:22px;
+		text-overflow: ellipsis;
+		overflow: hidden; 
+		width: 100%; 
+		white-space: nowrap;
+	}
+	.durationDisplay{
+		position:absolute;
+		right:0px;
+		bottom:0px;
+		padding-right:5px;
+		padding-bottom:5px;
+		margin: 0px !important;
+	}
+	.bottomBackground{
+		background-color: rgba(48,48,48,0.95);
+		height:58px;
+		width:100%;
+	}
+	.sameDirFileList{
+		width:100%;
+		height:calc(100% - 220px) !important;
+		background-color:rgba(52,52,52,0.9);
+		overflow-y:auto;
+		overflow-x:hidden;
+	}
+	@supports ((-webkit-backdrop-filter: blur(2em)) or (backdrop-filter: blur(2em))) {
+		.sameDirFileList {
+			background-color:rgba(52,52,52,0.5);
+			-webkit-backdrop-filter: blur(2em);
+			backdrop-filter: blur(2em);
+		}
+	}
+
+	.listitem{
+		border-bottom: 1px solid #404040;
+		padding: 12px;
+		color:white;
+		font-size:120%;
+		cursor:pointer;
+	}
+	.listitem:hover{
+		background-color:#545454;
+	}
+	.listitem.selected{
+		background-color:#5e5e5e;
+	}
+	</style>
+</head>
+<body>
+	<div id="playerUI" class="playerInterface ts container">
+	    <div class="parkLeft">
+	        <div class="ts primary small progress rotateNinetyDegree" style="width:120px !important;">
+                <div id="volControl" class="bar" style="width: 60%;background-color:#ff4b4b;"></div>
+            </div>
+            
+	    </div>
+	    <div id="volControlOverlay"></div>
+		<div class="playerControlWrapper" align="center">
+		    <button class="ts huge icon button roundbtn playlistStepBtn" onClick="lastSong();"><i class="step backward icon"></i></button>
+		    <button class="ts massive icon button roundbtn playBtn" onClick="togglePlay(this);"><i class="pause icon"></i></button>
+		    <button class="ts huge icon button roundbtn playlistStepBtn" onClick="nextSong();"><i class="step forward icon"></i></button>
+		</div>
+		<div class="rightPaddedOprButtons">
+		    <button id="repeatModeBtn" class="ts icon button" style="margin-bottom:5px;" onClick="toggleRepeat(this);"><i class="retweet icon"></i></button><br>
+		    <button id="showListBtn" class="ts icon button" onClick="showRelatedFileList();"><i class="content icon"></i></button>
+			<!-- <button class="ts icon button"><i class="exchange icon"></i></button> -->
+		</div>
+		<!-- Adding in some labels for the progress bars and song information-->
+		<p class="rotateNinetyDegree" style="position:absolute;top:55px;left:5px;"><i class="minus icon"></i> Volume <i class="plus icon"></i></p>
+		<p class="durationDisplay">0:00 / 0:00</p>
+	</div>
+	
+	<div id="progressControl" class="ts attached small progress">
+		<div id="playbackProgress" class="bar" style="width: 0%;background-color: #4b75ff;"></div>
+	</div>
+	<div class="bottomBackground">
+		<!-- Song Title at the bottom black area-->
+		<div id="songtitle" class="songlabel">Loading Song Information...</div>
+		<div id="fileSize" style="position:absolute;bottom:5px;left:5px;color:white;">N/A</div>
+		<div style="position:absolute;right:3px;bottom:3px;color:white;"><i class='leaf icon'></i>AirMusic</div>
+	</div>
+	<!-- The sections below are for mobile interfaces -->
+	<div id="nearbyFilelist" class="sameDirFileList">
+		<div class="listitem" onClick="playThis(this);">N/A</div>
+	</div>
+	<!-- autoplay -->
+	<audio id="mainPlayer" style="display:none;" autoplay></audio>
+	
+	
+	<div style="display:none;">
+	<div id="meta_dirSongList"></div>
+	<div id="meta_playingSong"></div>
+	</div>
+	<script>
+	    //Define global variables
+	    var player = $("#mainPlayer")[0];
+		var mediaExchanging = false;
+		var listShown = true;
+		if (ao_module_virtualDesktop){
+			listShown = false;
+		}else{
+			$("#showListBtn").hide();
+		}
+	    player.volume = getCurrentGlobVol();
+		//Init ao_module window events
+		ao_module_setFixedWindowSize();
+
+		//Ignore all other input files.
+		playingFileInfo = ao_module_loadInputFiles()[0];
+		//Get the song title and meta data from server
+		var songInfo = [];
+		var songList = [];
+		$.get("../Music/getMeta?file=" + encodeURIComponent(playingFileInfo.filepath),function(data){
+			//console.log(data);
+			songList = data;
+			for (var i = 0; i < data.length; i++){
+				if (data[i][0] == playingFileInfo.filename){
+					songInfo = data[i];
+					//Set the audio element src
+					player.src = "../media?file=" + encodeURIComponent(data[i][1]);
+					//Update window title
+					ao_module_setWindowTitle(data[i][0]);
+				}
+			}
+			
+
+			//Load song title into the display area
+			updateDisplayInformation(songInfo[0],songInfo[3]);
+			
+			//Create the playlist for all the files in the same directory
+			createPlayList();
+			
+			//Initiate the current playSong in the songList
+			updatePlayingSongSelection();
+		});
+
+		//Get the song title from meta data
+		//var songInfo = JSON.parse($("#meta_playingSong").text().trim());
+		//var songList = JSON.parse($("#meta_dirSongList").text().trim());
+		//ao_module_setWindowTitle(ao_module_codec.decodeUmFilename(songInfo[0]));
+
+		//Define supporting function for trunc.
+		String.prototype.trunc = String.prototype.trunc ||
+		  function(n){
+			  return (this.length > n) ? this.substr(0, n-1) + '&hellip;' : this;
+		  };
+		//Setup listen events to global volume 
+		setInterval(function(){
+		        var globvol = getCurrentGlobVol();
+		    	updateVolControlDisplay(globvol);
+		    	player.volume = globvol;
+				if (player.paused == true){
+					//Check if anytime that the button UI is not in sync with the current playing status. Update it if found.
+					$(".playBtn").html("<i class='play icon'></i>");
+				}else{
+					$(".playBtn").html("<i class='pause icon'></i>");
+				}
+		},1000);
+		updateVolControlDisplay(getCurrentGlobVol());
+		//Add volume bar change event listener
+		$("#volControlOverlay").on("click",function(e){
+		    var x = e.pageX - $('#volControlOverlay').offset().left;
+            var y = e.pageY - $('#volControlOverlay').offset().top;
+            var height = $('#volControlOverlay').height();
+            var newvol = Math.round(((height - y) / height)*20)/20;
+            localStorage.setItem("global_volume",newvol);
+            player.volume = newvol;
+            updateVolControlDisplay(newvol);
+		});
+		//Also add draging bar for mouse operations
+		player.onended = function(){
+			if (!repeatMode){
+				$(".playBtn").html("<i class='play icon'></i>");
+			}
+		}
+		var dragging = false;
+		$("#volControlOverlay").on("mousedown",function(){
+		    dragging = true;
+		});
+		$("#volControlOverlay").on("mousemove",function(e){
+		    if (dragging){
+		        var y = e.pageY - $('#volControlOverlay').offset().top;
+                var height = $('#volControlOverlay').height();
+				var newvol = Math.round(((height - y) / height)*100)/100;
+				//console.log(newvol);
+                localStorage.setItem("global_volume",newvol);
+                player.volume = newvol;
+                updateVolControlDisplay(newvol);
+		    }
+		});
+		$("#volControlOverlay").on("mouseup",function(){
+		    if (dragging){
+		        dragging = false;
+		    }
+		});
+		$("body").on("mouseup",function(){
+		    if (dragging){
+		        dragging = false;
+		    }
+		});
+		
+		//Audio element custom UI listeners
+		$("#progressControl").on("click",function(e){
+			//Click on the progress control bar, update the audio playing location
+			var x = e.pageX - $('#progressControl').offset().left;
+			var w = $("#progressControl").width();
+			var alength = player.duration;
+			var targetPos = (x / w * alength);
+			player.currentTime = targetPos;
+		});
+		
+		player.addEventListener("timeupdate", function(){
+			var currentTime = player.currentTime;
+			var duration = player.duration;
+			var progressPercentage = currentTime / duration * 100 + "%";
+			$("#playbackProgress").css("width",progressPercentage);
+			if (!mediaExchanging){
+				updateDurationDisplay(currentTime,duration);
+			}
+			
+		});
+		
+		//Load repeat mode from storage
+		var repeatMode = false;
+		repeatMode = loadStorage("repeatModeEmbedded");
+		if (repeatMode != ""){
+		    repeatMode = (repeatMode == "true");
+		}
+		if (repeatMode){
+		    $("#repeatModeBtn").addClass("modeEnabled");
+			player.loop = true;
+		}
+		
+		
+		//End of startup seuqence
+		
+		function updatePlayingSongSelection(){
+			$(".listitem.selected").removeClass("selected");
+			$(".listitem").each(function(){
+				if ($(this).attr("filename") == songInfo[0]){
+					$(this).addClass("selected");
+				}
+			});
+			
+		}
+		
+		function showRelatedFileList(){
+			if (ao_module_virtualDesktop){
+				if (listShown){
+					ao_module_setWindowSize(360,240);
+					listShown = false;
+				}else{
+					ao_module_setWindowSize(360,520);
+					listShown = true;
+				}
+			}
+			
+		}
+		
+		function lastSong(){
+			//Switch to the next song in list
+			player.pause();
+			mediaExchanging = true;
+			$(".durationDisplay").html('<i class="clock icon"></i> Loading Media');
+			var nextSong = -1; //There is no next song in the current directory
+			for (var i =0; i < songList.length; i++){
+				if (songList[i][0] == songInfo[0]){
+					//Filename are the same
+					if (i-1 < 0){
+						//This is the last song in list
+						nextSong = songList[songList.length - 1]
+					}else{
+						//Play previous song
+						nextSong = songList[i-1]
+					}
+					
+				}
+			}
+			if (nextSong == -1){
+				//There is no more similar file with similar extensions or there are no other supported files in the same directory.
+				player.currentTime = 0;
+				updateDisplayInformation(ao_module_codec.decodeUmFilename(songInfo[0]),songInfo[3]);
+				player.play();
+				setTimeout(function(){
+					mediaExchanging = false;
+				},300);
+				return;
+			}
+			loadSongFromSongInfo(nextSong);
+			player.play();
+			setTimeout(function(){
+				mediaExchanging = false;
+			},300);
+			updatePlayingSongSelection();
+		}
+		
+		function createPlayList(){
+			$(".sameDirFileList").html("");
+			var template = '<div class="listitem" filename="{rawname}" onClick="playThis(this);"><i class="file audio outline icon"></i> {songname} ({filesize})</div>';
+			for (var i = 0; i < songList.length; i++){
+				var box  = template;
+				box = box.split("{rawname}").join(songList[i][0]);
+				box = box.split("{songname}").join(ao_module_codec.decodeUmFilename(songList[i][0]));
+				box = box.split("{filesize}").join(songList[i][3]);
+				//console.log(box);
+				$(".sameDirFileList").append(box);
+			}
+		
+		}
+		
+		function playThis(object){
+			var songName = $(object).attr("filename");
+			$(".listitem.selected").removeClass("selected");
+			$(object).addClass("selected");
+			for (var i =0; i < songList.length; i++){
+				if (songList[i][0] == songName){
+					//This is the song that the user request to play.
+					player.pause();
+					mediaExchanging = true;
+					$(".durationDisplay").html('<i class="clock icon"></i> Loading Media');
+					loadSongFromSongInfo(songList[i]);
+					player.play();
+					setTimeout(function(){
+						mediaExchanging = false;
+					},300);
+					break;
+				}
+			}
+		}
+		
+		function nextSong(){
+			//Switch to the next song in list
+			player.pause();
+			mediaExchanging = true;
+			$(".durationDisplay").html('<i class="clock icon"></i> Loading Media');
+			var nextSong = -1; //There is no next song in the current directory
+			for (var i =0; i < songList.length; i++){
+				if (songList[i][0] == songInfo[0]){
+					//Filename are the same
+					if (i+1 >= songList.length){
+						//This is the last song in list
+						nextSong = songList[0]
+					}else{
+						//Play next song
+						nextSong = songList[i+1]
+					}
+					
+				}
+			}
+			if (nextSong == -1){
+				//There is no more similar file with similar extensions or there are no other supported files in the same directory.
+				player.currentTime = 0;
+				updateDisplayInformation(ao_module_codec.decodeUmFilename(songInfo[0]), songInfo[3]);
+				player.play();
+				setTimeout(function(){
+					mediaExchanging = false;
+				},300);
+				return;
+			}
+			loadSongFromSongInfo(nextSong);
+			player.play();
+			setTimeout(function(){
+				mediaExchanging = false;
+			},300);
+			updatePlayingSongSelection();
+		}
+		
+		
+		function loadSongFromSongInfo(playSongInfo){
+			var songName = ao_module_codec.decodeUmFilename(playSongInfo[0]);
+			var songPath = filterExternalStoragePath(playSongInfo[1]);
+			var fileSize = playSongInfo[3];
+			$(player).attr('src',"/media?file=" + encodeURIComponent(songPath));
+			ao_module_setWindowTitle(songName);
+			songInfo = playSongInfo;
+			updateDisplayInformation(ao_module_codec.decodeUmFilename(songInfo[0]),songInfo[3]);
+		}
+		
+		function updateDisplayInformation(songname, filesize){
+			$("#songtitle").html("<i class='music icon'></i>" + songname)
+			$("#fileSize").html("<i class='file outline icon'></i> " + filesize);
+		}
+		
+		function filterExternalStoragePath(filepath){
+			return filepath;
+		}
+		
+		function updateDurationDisplay(pos,dur){
+			pos = secondsToHMS(pos);
+			dur = secondsToHMS(dur);
+			$(".durationDisplay").html('<i class="clock icon"></i>' + pos.trim() + " / " + dur.trim());
+		}
+		
+		function secondsToHMS(sec){
+			let totalSeconds = sec;
+			let hours = Math.floor(totalSeconds / 3600);
+			totalSeconds %= 3600;
+			let minutes = Math.floor(totalSeconds / 60);
+			let seconds = totalSeconds % 60;
+
+			if (hours > 0){
+				hours = String(hours).padStart(2, "0");
+			}else{
+				hours = 0;
+			}
+			seconds = Math.round(seconds);
+			minutes = String(minutes).padStart(2, "0");
+			seconds = String(seconds).padStart(2, "0");
+			if (hours != 0){
+				return hours + ":" + minutes + ":" + seconds;
+			}else{
+				return minutes + ":" + seconds;
+			}
+		}
+		function togglePlay(object){
+		    if (player.paused == true){
+		        player.play();
+		        $(object).html("<i class='pause icon'></i>");
+		    }else{
+		        player.pause();
+		        $(object).html("<i class='play icon'></i>");
+		    }
+		}
+		
+		function toggleRepeat(object){
+		    if ($(object).hasClass("modeEnabled")){
+		        $(object).removeClass("modeEnabled");
+		        repeatMode = false;
+		        setStorage("repeatModeEmbedded","false");
+				player.loop = false;
+		    }else{
+		        $(object).addClass("modeEnabled");
+		        repeatMode = true;
+		        setStorage("repeatModeEmbedded","true");player.loop = true;
+		    }
+		}
+		
+		function updateVolControlDisplay(percentage){
+		    var adjWidth = percentage * 100 + "%";
+		    $("#volControl").css("width",adjWidth);
+		    $("#volControl").attr("vol",percentage);
+		}
+		
+		function getCurrentGlobVol(){
+			//console.log(localStorage.getItem("global_volume"));
+			if (localStorage.getItem("global_volume") === null || localStorage.getItem("global_volume") == ""){
+				return 0;
+			}
+		    return parseFloat(localStorage.getItem("global_volume"));
+		}
+		
+		function setStorage(configName,configValue){
+			$.ajax({
+			type: 'GET',
+			url: "/system/file_system/preference",
+			data: {key: "Music/" + configName,value:configValue},
+			success: function(data){},
+			async:true
+			});
+			return true;
+		}
+		
+		function loadStorage(configName){
+			var result = "";
+			$.ajax({
+			type: 'GET',
+			url: "/system/file_system/preference",
+			data: {key: "Music/" + configName},
+			success: function(data){
+					if (data.error !== undefined){
+						result = "";
+					}else{
+						result = data;
+					}
+				},
+			error: function(data){result = "";},
+			async:false,
+			timeout: 3000
+			});
+			return result;
+		}
+		
+	</script>
+</body>
+</html>

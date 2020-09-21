@@ -1,0 +1,260 @@
+<html>
+    <head>
+        <title>Trash Bin</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:white;
+            }
+            .banner{
+                background-color:#4287f5;
+                height:50px;
+                padding:12px;
+                padding-left:20px;
+                padding-top:16px;
+            }
+
+            #opricon{
+                position:absolute;
+                top:0px;
+                right:0px;
+                width:80px;
+                height:80px;
+            }
+            .title{
+                color:white;
+                font-size:130%;
+            }
+            .content{
+                padding:12px;
+            }
+            
+            .info{
+                margin-top:3px;
+                width:80%;
+            }
+            
+        </style>
+    </head>
+    <body>
+        <span class="normalview">
+        <div class="ui menu">
+            <div class="header item">
+               <img class="ui middle aligned mini image" src="trashbin_img/small_icon.png" style="margin-right:8px; height:28px; width:28px;"></img> Trash Bin
+            </div>
+            <div class="right item">
+                <button class="ui negative small button" onclick="clearAll();">Delete All</button>
+            </div>
+        </div>
+        <div class="ui container">
+            <div class="ui segment">
+                <table class="ui celled table">
+                    <thead>
+                      <tr><th>Filename</th>
+                      <th>Delete Time</th>
+                      <th>Details</th>
+                      <th>Restore</th>
+                    </tr></thead>
+                    <tbody id="trashList">
+                     
+                  </table>
+            </div>
+        </div>
+        </span>
+        <div class="confirmRemove" style="display:none;">
+            <div class="banner">
+                <div class="title">Move <span id="fcount">0 File</span> to Trash Bin?</div>
+                <img id="opricon" src="trashbin_img/trashopr.png" class="ui image"></img>
+            </div>
+            <div class="content">
+                <div class="info">Deleting: <span id="filename"></span></div>
+                <div style="position:absolute; bottom:8px;right:4px;">
+                    <button class="ui small button" onclick="ao_module_close();">Cancel</button>
+                    <button class="ui primary small button" onclick="confirmDelete();">Confirm</button>
+                </div>
+            </div>
+        </div>
+        <div class="ui modal" style="overflow-y:auto; overflow-x:hidden;">
+            <i class="close icon"></i>
+            <div class="header" id="filename">
+                No File Selected
+            </div>
+            <div class="ui basic segment">
+                <table class="ui very basic celled table">
+                    <thead>
+                        <tr>
+                            <th>Property</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailList">
+                       
+                    </tbody>
+                </table>
+            </div>
+            <div class="actions">
+                <div class="ui icon blue button" onclick=" $('.ui.modal').modal('hide');">
+                 OK
+                </div>
+            </div>
+        </div>
+
+        <script>
+            var deletePendingFiles = ao_module_loadInputFiles();
+            var previousTrashbinFilelist = [];
+            if (deletePendingFiles != null && deletePendingFiles.length > 0){
+                //Handle trash treatment
+                console.log(deletePendingFiles);
+                ao_module_setFixedWindowSize();
+                ao_module_setWindowSize(400,200);
+                $(".normalview").hide();
+                $(".confirmRemove").show();
+
+                //Update graphical information
+                var displayname = deletePendingFiles[0].filename;
+                $("#fcount").text("1 File");
+                if (deletePendingFiles.length > 1){
+                    displayname = displayname + " and " + (deletePendingFiles.length - 1) + " more";
+                    $("#fcount").text(deletePendingFiles.length + " Files");
+                }
+                $("#filename").text(displayname);
+
+            }else{
+                initList();
+            }
+
+            //Initialize the trash list
+            function initList(){
+                $("#trashList").html("");
+                $.get("../../system/file_system/listTrash",function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        previousTrashbinFilelist = [];
+                        for (var i =0; i < data.length; i++){
+                            var thisFile = data[i];
+                            var filedata = encodeURIComponent(JSON.stringify(thisFile));
+                            $("#trashList").append(`<tr>
+                                <td>${thisFile.OriginalFilename}</td>
+                                <td>${thisFile.RemoveDate}</td>
+                                <td><button filedata="${filedata}" class="ui tiny button" onclick="showDetail(this);">Details</button></td>
+                                <td><button filedata="${filedata}" class="ui green tiny button" onclick="restore(this);">Restore</button></td>
+                            </tr>`);
+                            previousTrashbinFilelist.push(thisFile);
+                        }
+
+                        if (data.length == 0){
+                            $("#trashList").append(`<tr><td colspan="4"><i class="checkmark icon"></i> There are no files or folders in Trashbin.</td></tr>`);
+                        }
+                    }
+                });
+            }
+            
+
+            //Listen to the change of the trashbin
+            setInterval(function(){
+                $.get("../../system/file_system/listTrash",function(data){
+                    if (data.length != previousTrashbinFilelist.length){
+                        //Change of the trashbin file. Update the list
+                        initList();
+                    }
+                });
+            }, 30000);
+
+            function showDetail(object){
+                var filedata = JSON.parse(decodeURIComponent($(object).attr("filedata")));
+                $("#filename").text(filedata.OriginalFilename);
+                $("#detailList").html("");
+                var keyMapping = {
+                    "Filename": "Storage Filename",
+                    "Filepath": "Storage Filepath",
+                    "FileExt": "File Extension",
+                    "IsDir": "Is Directory",
+                    "Filesize": "File Size",
+                    "RemoveTimestamp": "Remove Timestamp",
+                    "RemoveDate": "Remove Datetime",
+                    "OriginalPath": "Original Path",
+                    "OriginalFilename": "Original Filename"
+                }
+                for (var [key, value] of Object.entries(filedata)) {
+                    console.log(key, value);
+                    var displayKey = keyMapping[key];
+                    if (key == "Filesize"){
+                        value = bytesToSize(value);
+                    }
+                    $("#detailList").append(`<tr>
+                            <td>
+                                ${displayKey}
+                            </td>
+                            <td>
+                                ${value}
+                            </td>
+                        </tr>`);
+                }
+                
+                $('.ui.modal').modal('show').css({"overflow-y":"auto","overflow-x": "hidden", "max-height":window.innerHeight - 30 + "px"});
+
+            }
+
+            function bytesToSize(bytes) {
+                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                if (bytes == 0) return '0 Byte';
+                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+            }
+
+            function clearAll(){
+                if (confirm("Confirm deleting ALL FILE PERMANENTLY?")){
+                    $.get("../../system/file_system/clearTrash",function(data){
+                        initList();
+                    });
+                }
+            }
+
+            function restore(obj){
+                var filedata = JSON.parse(decodeURIComponent($(obj).attr("filedata")));
+                var filepath = filedata.Filepath;
+                $.ajax({
+                    url: "../../system/file_system/restoreTrash",
+                    method: "POST",
+                    data: {"src" : filepath},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            initList();
+                            parent.refresh(undefined, true);
+                        }
+                    }
+                })
+            }
+
+            function confirmDelete(){
+                //Confirm delete of the files in the list
+                var deleteFileList = [];
+                for (var i =0; i <deletePendingFiles.length; i++){
+                    deleteFileList.push(deletePendingFiles[i].filepath);
+                }
+                $.ajax({
+                    url: "../../system/file_system/fileOpr",
+                    method:"POST",
+                    data: {opr: "recycle", src: JSON.stringify(deleteFileList)},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            console.log("Delete failed! " + data.error)
+                        }else{
+                            //Delete completed. Close this window
+                            parent.refresh(undefined, true);
+                            ao_module_close();
+                        }
+                    }
+                });
+            }
+        </script>
+    </body>
+</html>

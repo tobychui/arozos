@@ -1,8 +1,0 @@
-wifi,Network
-wifi,Network information,SystemAOB/functions/wifi/index.php
-anetwork,Available network,SystemAOB/functions/wifi/availablenetwork.php
-hardware,Hardware,SystemAOB/functions/wifi/hardware.php
-manage,Manage Wi-Fi network,SystemAOB/functions/wifi/manage.php
-ap,Access Point,SystemAOB/functions/wifi/accesspoint.php
-wpr,Power Saving,SystemAOB/functions/wifi/power.php
-iwsr,Network Detail,SystemAOB/functions/wifi/iwscan.php

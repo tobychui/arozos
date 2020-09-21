@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#4b75ff">
+    <!-- <link rel="stylesheet" href="../script/tocas/tocas.css"> -->
+    <script src="../script/tocas/tocas.js"></script>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <link rel="manifest" href="manifest.json">
+
+</head>
+
+<body style="background:rgba(34,34,34,1);overflow:hidden;">
+    <img id="img" style="max-height: 100vh;max-width: 100vw;">
+    <script>
+        //Get file playback info from hash
+        var playbackFile = ao_module_loadInputFiles();
+        //Only handle one file
+        playbackFile = playbackFile[0];
+
+        //Update title name
+        ao_module_setWindowTitle("Photo - " + playbackFile.filename);
+        setTimeout(function() {
+            updateImgSize();
+        }, 500);
+        //Setup img src
+        $("#img").attr("src", '../media?file=' + encodeURIComponent(playbackFile.filepath))
+
+        //realigin to center
+        $('img').on('load', function() {
+            updateImgSize();
+        });
+        $(window).on("resize ", function() {
+            updateImgSize();
+        });
+
+
+        function updateImgSize() {
+            $('#img').css("margin-top", (window.innerHeight - $("#img").height()) / 2);
+            $('#img').css("margin-left", (window.innerWidth - $("#img").width()) / 2);
+        }
+    </script>
+</body>
+
+</html>

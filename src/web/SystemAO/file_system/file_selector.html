@@ -1,0 +1,516 @@
+<html>
+    <head>
+        <title>File Selector</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <link rel="stylesheet" href="../../script/ao.css">
+        <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:white;
+            }
+            .navi{
+                padding:8px;
+                background-color:#fcfcfc;
+                border-bottom:2px solid #34b7eb;
+                position:fixed;
+                left:0px;
+                top:0px;
+                width:100%;
+                z-index:99;
+            }
+            .pusher{
+                margin-top:46px;
+                margin-left:200px;
+                width: calc(100% - 200px);
+            }
+
+            .pusher .fileListWrapper{
+                padding-left:20px;
+                padding-right:20px;
+            }
+            .navi .button{
+                box-shadow: 0 1px 1px 0px rgb(190, 190, 190) !important;
+            }
+            .list .item{
+                cursor:pointer;
+            }
+            .list .item:hover{
+                color:#c7c7c7 !important;
+            }
+            .extrapadding{
+                padding-left:6px !important;
+                padding-right:6px !important;
+            }
+            .fileObject{
+                overflow-wrap: break-word !important;
+                display: block !important;
+                padding:12px !important;
+                font-size:98%;
+            }
+            .fileObject .fileInfo{
+                display:inline-block !important;
+                word-break: break-all;
+                text-overflow: ellipsis !important;
+                overflow: hidden;
+                color:black;
+            }
+            .fileObject.selected{
+                background-color:#d2f2f7 !important;
+
+            }
+
+            .fileObject.item:hover{
+                background-color:#f2f2f2;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="navi">
+            <button id="sidebarToggleBtn" class="ts icon tiny button" onclick="ts('.sidebar').sidebar('toggle');"><i class="content icon"></i></button>
+            <button class="ts icon tiny button" onclick="backDir();"><i class="arrow left icon"></i></button>
+            <button class="ts icon tiny button" onclick="parentDir();"><i class="arrow up icon"></i></button>
+            <button class="ts icon tiny button" onclick="refresh();"><i class="refresh icon"></i></button>
+            <div  class="ts action fluid tiny input" style="width: calc(100% - 180px); float: right;">
+                <input id="addressbar" type="text" placeholder="" onchange="updatePath();">
+                <button class="ts positive icon button" onclick="confirmSelection();"><i class="checkmark icon"></i></button>
+            </div>
+            
+            <div id="newfilenameInput" style="width:100%; margin-top:12px;" align="right">
+                <div  class="ts fluid tiny input" style="width: calc(100% - 180px); float: right;">
+                    <input id="filename" type="text" placeholder="New Filename">
+                </div>
+            </div>
+        </div>
+        <div id="sidebar" class="ts left static visible overlapped sidebar" style="background-color:#f5f5f5 !important;z-index:90 !important; width:200px;">
+            <div id="sidebarPadder" style="height:46px;"></div>
+            <details class="ts accordion" open>
+                <summary>
+                    <i class="dropdown icon"></i> User
+                </summary>
+                <div class="content" >
+                    <div class="ts list" id="userlist">
+                    </div>
+                </div>
+            </details>
+            <details class="ts accordion" open>
+                <summary>
+                    <i class="dropdown icon"></i> Storage
+                </summary>
+                <div class="content">
+                    <div class="ts list" id="storagelist">
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="pusher">
+            <br>
+            <div class="fileListWrapper" style="min-height:300px; width:100%;">
+                <div id="folderList" class="ts segmented basic fluid list whiteTheme">
+                    <div class="fileObject">
+                        <span class="fileInfo"><i class="loading spinner icon" style="margin-right:12px;"></i>  Loading</span>
+                    </div>
+                </div>
+                <div id="fileList" class="ts segmented fluid list whiteTheme">
+                  
+                </div>
+                
+            </div>
+            <br><br>
+        </div>
+        <div id="waitloader" class="ts active dimmer" style="display:none; z-index:999;">
+            <div id="waitloadertext" class="ts indeterminate text loader">Waiting Response</div>
+        </div>
+        <script>
+            var multiSelect = false;
+            var type = "file";
+            var currentDir = "user:/";
+            var pathHistory = [];
+            var ctrlDown = false;
+            var shiftDown = false;
+            var lastClickedItemID = 0;
+            var listenerUUID = "";
+            var fileOptions = {};
+
+            initSelectorObject();
+            initRoots();
+            updateWindowResize();
+
+            function initSelectorObject(){
+                var initInfo = loadSelectorInfoFromHash();
+                //Load the initiation directory
+                listDir(initInfo.root);
+                //init global var
+                type = initInfo.type;
+                multiSelect = initInfo.allowMultiple;
+                listenerUUID = initInfo.listenerUUID;
+                if (initInfo.options != undefined){
+                    fileOptions = JSON.parse(JSON.stringify(initInfo.options));
+                }
+                
+                
+                //Load options and parse the UI
+                if (type == "new"){
+                    //Resize the top bar
+                    $("#sidebarPadder").css("height", "90px");
+                    $(".fileListWrapper").css("padding-top", "50px");
+                    if (typeof(fileOptions.defaultName) != "undefined"){
+                        $("#filename").val(fileOptions.defaultName);
+                    }else{
+                        $("#filename").val("newfile.txt");
+                    }
+
+                }else{
+                    $("#newfilenameInput").hide();
+                }
+
+               
+            
+            }
+
+            function confirmSelection(){
+                var files = [];
+                $(".selected.fileObject").each(function(){
+                    var filename = decodeURIComponent($(this).attr('filename'));
+                    var filepath = decodeURIComponent($(this).attr('filepath'));
+                    files.push({
+                        filename: filename,
+                        filepath: filepath
+                    });
+                });
+
+                //Check if currentdir end with "/". If not, append it
+                if(currentDir.substr(currentDir.length - 1, 1) != "/"){
+                    currentDir = currentDir + "/";
+                }
+
+                //Check for special cases
+                if (files.length == 0 && type == "folder"){
+                    //Select the current path as target instead
+                    currentPathname = currentDir.split("/").pop();
+                    if (currentPathname == ""){
+                        currentPathname = currentDir;
+                    }
+                    files.push({
+                        filename: currentPathname,
+                        filepath: currentDir
+                    });
+                }else if (files.length == 0 && type == "new"){
+                    //Push this new file into the return structure
+                    var newFilename = $("#filename").val();
+                    files.push({
+                        filename: newFilename,
+                        filepath: currentDir + newFilename
+                    });
+                }
+
+                if (ao_module_virtualDesktop){
+                    if (!ao_module_parentCallback(files)){
+                        alert("Selection Failed. Is parent window alive?")
+                    }else{
+                        parent.closeFwProcess(ao_module_windowID);
+                    }
+                }else{
+                    if (listenerUUID == ""){
+                        alert("Invalid listener UUID. Please re-open your file selector.")
+                        return;
+                    }
+                    var selectedFilesInJSON = JSON.stringify(files);
+                    localStorage.setItem(listenerUUID, selectedFilesInJSON);
+                    $("#waitloader").show();
+                    $(".pusher").css("overflow","hidden");
+                    setTimeout(function(){
+                        $("#waitloadertext").html("<i class='remove icon'></i> System is not responding. <br>Please close this window and retry.");
+                    },10000)
+                }
+            }   
+
+            //Handle on window close function
+            window.onbeforeunload = function(){
+                confirmSelection();
+            }
+
+            //Overwrite the ao_module close function
+            function ao_module_close(){
+                if (!ao_module_virtualDesktop){
+                    return;
+                }
+                if (!ao_module_parentCallback(files)){
+                        alert("Selection Failed. Is parent window alive?")
+                }else{
+                    parent.closeFwProcess(ao_module_windowID);
+                }
+            }
+
+            function updatePath(){
+                var newDir = $("#addressbar").val();
+                listDir(newDir);
+            }
+
+            function refresh(){
+                $("#fileList").html("");
+                $("#folderList").html("");
+                listDir(currentDir);
+            }
+
+            function loadSelectorInfoFromHash(){
+                if (window.location.hash.length == 0){
+                    return {
+                        root: "user:/",
+                        type: "file",
+                        allowMultiple: false
+                    }
+                }else{
+                    try{
+                        var selectInfo = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
+                        return selectInfo;
+                    }catch{
+                        //Error parsing the input. Use default settings
+                        return {
+                            root: "user:/",
+                            type: "file",
+                            allowMultiple: false
+                        }
+                    }
+                    
+                }
+            }
+
+            function listDir(dir){
+                currentDir = dir;
+                pathHistory.push(currentDir);
+                $("#addressbar").val(currentDir);
+                ao_module_setWindowTitle(`Open`);
+                $.get("../../system/file_system/listDir?dir=" + encodeURIComponent(dir),function(data){
+                    $("#folderList").html("");
+                    $("#fileList").html("");
+                    if (data === null){
+                        $("#folderList").hide();
+                        $("#fileList").hide();
+                        return;
+                    }else{
+                        $("#folderList").show();
+                        $("#fileList").show();
+                    }
+                    if (data.error !== undefined){
+                        //Load the index instead
+                        listDir("user:/");
+                    }else{
+                        var folders = [];
+                        var files = [];
+                        for (var i =0; i < data.length; i++){
+                            if (data[i].IsDir == true){
+                                folders.push(data[i]);
+                            }else{
+                                files.push(data[i]);
+                            }
+                        }  
+
+                        //Append folder first then files
+                        var count = 0;
+                        for (var i =0; i < folders.length; i++){
+                            var filename = folders[i].Filename;
+                            var filepath = folders[i].Filepath;
+                            var ext = filename.split(".").pop();
+                            var icon = ao_module_utils.getIconFromExt(ext);
+                            var isDir = folders[i].IsDir;
+                            if (isDir == true){
+                                icon = "folder";
+                            }
+                            var fileSize = folders[i].Displaysize;
+                            $("#folderList").append(`<div class="fileObject item" fid="${count}" ondblclick="openFolder(this);" onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
+                                <span class="fileInfo" ><i class="${icon} icon" style="margin-right:12px;"></i> ${filename}</span>
+                            </div>`);
+                            count++;
+                        }
+                        if (folders.length == 0){
+                            $("#folderList").hide();
+                        }
+
+                        for (var i =0; i < files.length; i++){
+                            var filename = files[i].Filename;
+                            var filepath = files[i].Filepath;
+                            var ext = filename.split(".").pop();
+                            var icon = ao_module_utils.getIconFromExt(ext);
+                            var isDir = files[i].IsDir;
+                            if (isDir == true){
+                                icon = "folder";
+                            }
+                            var fileSize = files[i].Displaysize;
+                            $("#fileList").append(`<div class="fileObject item" fid="${count}"  ondblclick="chooseThisFile(this);"  onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
+                                <span class="fileInfo"><i class="${icon} icon" style="margin-right:12px;"></i> ${filename}</span>
+                            </div>`);
+                            count++;
+                        }
+                        if (files.length == 0){
+                            $("#fileList").hide();
+                        }
+
+                        $('.pusher').scrollTop(0);
+                    }
+                });
+            }
+
+            //Open folder
+            function openFolder(object){
+                var filepath = $(object).attr("filepath");
+                filepath = decodeURIComponent(filepath);
+                listDir(filepath);
+            }
+
+            function selectThis(object,event){
+                //event.preventDefault();
+                //event.stopImmediatePropagation();
+                //Check if this object is in suitable selection type
+                if ($(object).attr("IsDir") == "true" && type == "file"){
+                    return;
+                }else if ($(object).attr("IsDir") == "false" && type == "folder"){
+                    return;
+                }else if (type == "new"){
+                    //Use this filename as the newfile name (aka overwrite mode)
+                    var newNewFilename = $(object).attr("filename");
+                    newNewFilename = decodeURIComponent(newNewFilename);
+                    $("#filename").val(newNewFilename);
+                    return;
+                }
+                if (multiSelect){
+                    if (ctrlDown){
+                        //Add this into selection list
+                        $(object).addClass("selected");
+                    }else if (shiftDown){
+                        var start = lastClickedItemID;
+                        var end = $(object).attr("fid");
+                        if (start > end){
+                            start = end;
+                            end = lastClickedItemID;
+                        }
+                        var fileObjects = $(".fileObject");
+                        for (var k = start; k <= end; k++){
+                            $(fileObjects[k]).addClass("selected");
+                        }
+                    }else{
+                        //Reset and add this into selection list
+                        $(".selected").removeClass("selected");
+                        $(object).addClass("selected");
+                    }
+                }else{
+                    $(".selected").removeClass("selected");
+                    $(object).addClass("selected");
+                }
+
+                //Update last selected id
+                lastClickedItemID = $(object).attr('fid');
+
+                //Update title
+                var objectCount = $(".selected").length;
+                var typeName = "object"
+                if (type == "file"){
+                    typeName = "file";
+                }else if (type == "folder"){
+                    typeName = "folder";
+                }
+                var desc = `${typeName} selected`;
+                if (objectCount > 1){
+                    desc = `${typeName + "s"} selected`;
+                }
+                ao_module_setWindowTitle(`Open (${objectCount} ${desc})`);
+            }
+
+            $(window).on("keydown",function(event){
+                if (event.which == 17){
+                    ctrlDown = true;
+                }else if (event.which == 16){
+                    shiftDown = true;
+                }
+            });
+
+            $(window).on("keyup",function(event){
+                if (event.which == 17){
+                    ctrlDown = false;
+                }else if (event.which == 16){
+                    shiftDown = false;
+                }
+            });
+
+            $(window).on("resize",function(){
+                updateWindowResize();
+            });
+
+            function updateWindowResize(){
+                if (window.innerWidth < 560){
+                    $("#sidebar").attr("class", "ts left overlapped sidebar");
+                    $(".pusher").css("margin-left", "0px").css("width","100%");
+                    $("#sidebarToggleBtn").show();
+                }else{
+                    $("#sidebar").attr("class", "ts left static visible overlapped sidebar");
+                    $(".pusher").css("margin-left", "200px").css("width","calc(100% - 200px)");
+                    $("#sidebarToggleBtn").hide();
+                }
+            }
+
+            function initAddressBarWidth(){
+                $("#addressbar").css("width",window.innerWidth - 220 + "px"); 
+            }
+
+            function chooseThisFile(object){
+                $(".selected").removeClass('selected');
+                $(object).addClass('selected');
+                confirmSelection();
+            }
+
+            function parentDir(){
+                if (currentDir.substring(currentDir.length - 1) == "/"){
+                    currentDir = currentDir.substring(0, currentDir.length - 1);
+                }
+                var tmp = currentDir.split("/");
+                tmp.pop();
+                var parentPath = tmp.join("/");
+                if (parentPath.length == 0){
+                    //Do nothing. Already at root dir
+                }else{
+                    listDir(parentPath);
+                }
+            }
+
+            function backDir(){
+                if (pathHistory.length > 1){
+                    pathHistory.pop();
+                    var targetPath = pathHistory.pop();
+                    listDir(targetPath);
+                }
+            }
+
+            //Initialize user shortcuts
+            function initRoots(){
+                $.get("../../system/file_system/listRoots",function(data){
+                    $("#storagelist").html("");
+                    for (var i =0; i < data.length; i++){
+                        $('#storagelist').append(`<div class="item extrapadding" filepath="${data[i]["RootPath"]}" onclick="openShortcut(this);"><i class="disk outline icon" style="margin-right:8px;"></i> ${data[i]["RootName"]} (${data[i]["RootPath"]})</div>`);
+                    }
+                });
+                $.get("../../system/file_system/listRoots?user=true",function(data){
+                    $("#userlist").html("");
+                    for (var i =0; i < data.length; i++){
+                        if (data[i].IsDir == true){
+                            $('#userlist').append(`<div class="item extrapadding" filepath="${data[i]["Filepath"]}" onclick="openShortcut(this);"><i class="folder icon" style="margin-right:8px;"></i> ${data[i]["Filename"]}</div>`);
+                        }
+                        
+                    }
+                });
+            }
+
+            function openShortcut(object){
+                var targetdir = $(object).attr("filepath");
+                targetdir = decodeURIComponent(targetdir);
+                listDir(targetdir);
+                if (window.innerWidth < 560){
+                    ts('.sidebar').sidebar('hide');
+                }
+            }
+        </script>
+    </body>
+</html>

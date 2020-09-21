@@ -1,0 +1,28 @@
+<html>
+    <head>
+        <title>ODF File Reader</title>
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:white;
+            }
+        </style>
+    </head>
+    <body> 
+        Fail to open file due to unknown error.
+        <script>
+            //Get the opening file and redirect
+            var files = ao_module_loadInputFiles();
+            console.log(files);
+            if (files.length == 1){
+                var file = files[0];
+                var openFilePath = "../../../../media?file=" + file.filepath;
+                window.location.href = "script/ViewerJS/#" + openFilePath;
+            }else if (files.length > 1){
+                //Opening multiple files. Open each of them in a new floatWindow except the first one
+
+            }
+        </script>
+    </body>
+</html>

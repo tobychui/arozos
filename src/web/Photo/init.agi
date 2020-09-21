@@ -1,0 +1,23 @@
+/*
+	Photo Module Register Script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Photo",
+	Desc: "The worst photo webapp",
+	Group: "Media",
+	IconPath: "Photo/img/module_icon.png",
+	Version: "0.0.1",
+	StartDir: "Photo/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Photo/index.html",
+	SupportEmb: true,
+	LaunchEmb: "Photo/embedded.html",
+	InitFWSize: [900, 550],
+	InitEmbSize: [900, 500],
+	SupportedExt: [".jpg",".jpeg",".gif",".png"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

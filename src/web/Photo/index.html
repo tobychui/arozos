@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html ng-app="App">
+
+<head>
+
+    <title>Photo</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="css/viewer.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <script type="text/javascript" src="js/viewer.min.js"></script>
+    <style>
+        section {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        section::after {
+            content: '';
+            flex-grow: 999999999;
+        }
+        
+        .galleydiv {
+            margin: 2px;
+            background-color: transparent;
+            position: relative;
+        }
+        
+        i {
+            display: block;
+        }
+        
+        .galleyimage {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            vertical-align: bottom;
+        }
+    </style>
+
+    <script src="js/angular.min.js"></script>
+</head>
+
+<body ng-controller="ImageLayout">
+    <div class="ui borderless main menu" id="menu">
+        <div class="header item" id="logoimg">
+            <img class="logo" src="img/module_icon.png">
+        </div>
+        <div class="header item" id="logotext">
+            Photo
+        </div>
+        <div class="item" id="searchBar">
+            <div class="ui fluid multiple search selection dropdown">
+                <input name="tags" type="hidden">
+                <i class="dropdown icon"></i>
+                <div class="default text">Search</div>
+                <div class="menu">
+                    <!--
+                    <div class="item" data-value="datetime:Aug"><i class="calendar icon"></i>Aug</div>
+                    <div class="item" data-value="datatime:2017"><i class="calendar icon"></i>2017</div>
+                    -->
+                </div>
+            </div>
+        </div>
+        <a href="#" class="ui right floated dropdown item" id="option">
+            Option <i class="dropdown icon"></i>
+            <div class="menu">
+                <div class="item"><i class="upload icon"></i>Upload image</div>
+                <div class="item">
+                    <i class="folder icon"></i>Switch folder
+                    <div class="left menu transition hidden" id="folderlist">
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div id="galley">
+        <section>
+            <div class="galleydiv" ng-repeat="img in imgs" style="width:{{img.Width*200/img.Height}}px;flex-grow:{{img.Width*200/img.Height}}">
+                <i style="padding-bottom:{{img.Height/img.Width*100}}%"></i>
+                <img class="galleyimage" src="/media/?file={{img.CacheURL}}" alt="{{img.Filename}}" data-original="/media/?file={{img.URL}}" alt="">
+            </div>
+        </section>
+    </div>
+
+    <a ng-click="reload()" id="reloadGalley"></a>
+</body>
+<script>
+    //Angular JS, DO NOT EDIT 
+    //For mainUI
+    //thanks for https://jsbin.com/tisaluy/8/edit?html,css,console,output
+    angular.module('App', [])
+
+    .controller('ImageLayout', ImageLayout)
+
+
+    function ImageLayout($scope, $http) {
+        if (get("folder") == undefined) {
+            folder = "user:/Photo/Photo/uploads/"
+        } else {
+            folder = get("folder")
+        }
+        var data = {
+            q: get("q"),
+            folder: folder
+        }
+        loader()
+        $http.post('/system/ajgi/interface?script=/Photo/backend/listFile.js', data).success(function(imgs) {
+            var err = typeof imgs.error;
+            if (err == "string") {
+                alert("Server error.");
+            } else {
+                $scope.imgs = imgs;
+            }
+            loader()
+        })
+        $scope.reload = function() {
+            location.reload();
+        }
+        setTimeout(function() {
+            var gallerys = new Viewer(document.getElementById('galley'), {
+                url: 'data-original',
+                title: [1, (image, imageData) => `${image.alt} (${imageData.naturalWidth} × ${imageData.naturalHeight})`]
+            });
+        }, 1000);
+
+        //load the searchbar again.
+        if (get("q") !== undefined) {
+            var quDP = get("q").split(",")
+            $('.ui.fluid.dropdown').dropdown('set selected', quDP);
+        }
+    }
+
+    //https://stackoverflow.com/questions/831030/how-to-get-get-request-parameters-in-javascript
+    function get(name) {
+
+        if (name = (new RegExp('[?&]' + encodeURIComponent(name) + '=([^&]*)')).exec(location.search)) {
+            return decodeURIComponent(name[1]);
+        }
+    }
+
+    //UI related
+    $('.ui.dropdown')
+        .dropdown({
+
+        });
+    $('.ui.fluid.multiple.search.selection.dropdown')
+        .dropdown({
+            allowAdditions: true,
+            apiSettings: {
+                // this url parses query server side and returns filtered results
+                url: 'search?q={query}'
+            },
+        });
+
+    updateSearchBarSize();
+    $(window).on("resize ", function() {
+        updateSearchBarSize();
+    });
+
+    function updateSearchBarSize() {
+        $('#searchBar').css("min-width", $("#menu").width() - ($("#logoimg").width() + $("#logotext").width() + 3 * $("#option").width()));
+        $('#searchBar').css("max-width", $("#menu").width() - ($("#logoimg").width() + $("#logotext").width() + 3 * $("#option").width()));
+    }
+
+    //for folderlist
+    $.getJSON("/system/ajgi/interface?script=/Photo/backend/listFolder.js", function(data) {
+        if (typeof data.error !== "string") {
+            $("#folderlist").append("<div class=\"item\" onclick=\"viewFolder(this)\" vPath=\"\">Unsorted</div>")
+            $.each(data, function(key, val) {
+                $("#folderlist").append("<div class=\"item\" onclick=\"viewFolder(this)\" vPath=\"" + val["VPath"] + "\">" + val["Foldername"] + "</div>")
+            });
+        } else {
+            alert("Server error.");
+        }
+
+    });
+    //for viewing folder
+    function viewFolder(div) {
+        var qVal = $('.ui.fluid.multiple.search.selection.dropdown').dropdown('get value');
+        if (qVal !== "") {
+            qVal = "&q=" + qVal;
+        }
+        if ($(div).attr("vpath") !== "") {
+            window.history.pushState("", "", "?folder=" + $(div).attr("vpath") + qVal);
+        } else {
+            window.history.pushState("", "", "?" + qVal);
+        }
+        $("#reloadGalley").click();
+    }
+
+    $(".ui.fluid.multiple.search.selection.dropdown").change(function() {
+        var qVal = $('.ui.fluid.multiple.search.selection.dropdown').dropdown('get value');
+        if (qVal !== "") {
+            qVal = "&q=" + qVal;
+        }
+        if (get("folder") !== undefined) {
+            window.history.pushState("", "", "?folder=" + get("folder") + qVal);
+        } else {
+            window.history.pushState("", "", "?" + qVal.substring(1));
+        }
+        $("#reloadGalley").click();
+    });
+
+    function loader() {
+        if ($("#loader").length > 0) {
+            $("#loader").remove();
+        } else {
+            $("#galley").append('<div id="loader" class="ui active inverted dimmer"><div class= "ui massive text loader"> Loading. This process may take a few minutes or more if you recently added some new photos.</div></div>');
+        }
+    }
+</script>
+
+</html>

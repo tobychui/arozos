@@ -1,0 +1,114 @@
+package main
+
+import (
+	"io/ioutil"
+	"net/http"
+)
+
+/*
+	MODULE UTIL HANDLER
+	This is a util module for doing basic registry works and < 20 line server side handling.
+
+	DO NOT USE THIS TO WRITE A NEW MODULE
+
+*/
+
+//Register the utilities here
+
+func util_init(){
+	//PDF Viewer
+	registerModule(moduleInfo{
+		Name: "PDF Reader",
+		Desc: "The browser build in PDF Reader",
+		Group: "Utilities",
+		IconPath: "SystemAO/utilities/img/pdfReader.png",
+		Version: "1.2",
+		SupportFW: false,
+		SupportEmb: true,
+		LaunchEmb: "SystemAO/utilities/pdfReader.html",
+		InitEmbSize: []int{1080, 580},
+		SupportedExt: []string{".pdf"},
+	})
+
+	//Open Documents Viewer
+	registerModule(moduleInfo{
+		Name: "OpenOffice Reader",
+		Desc: "Open OpenOffice files",
+		Group: "Utilities",
+		IconPath: "SystemAO/utilities/img/odfReader.png",
+		Version: "0.8",
+		SupportFW: false,
+		SupportEmb: true,
+		LaunchEmb: "SystemAO/utilities/odfReader.html",
+		InitEmbSize: []int{1080, 580},
+		SupportedExt: []string{".odt",".odp",".ods"},
+	})
+
+	/*
+		Notebook - The build in basic text editor
+	*/
+	//Open Documents Viewer
+	registerModule(moduleInfo{
+		Name: "Notebook",
+		Desc: "Basic Text Editor",
+		Group: "Utilities",
+		IconPath: "SystemAO/utilities/img/notebook.png",
+		Version: "1.0",
+		SupportFW: false,
+		SupportEmb: true,
+		LaunchEmb: "SystemAO/utilities/notebook.html",
+		InitEmbSize: []int{1080, 580},
+		SupportedExt: []string{".txt",".md"},
+	});
+	http.HandleFunc("/system/utils/notebook/save", system_util_handleNotebookSave);
+
+
+	/*
+		ArOZ Media Player - The basic video player
+	*/
+	//Open Documents Viewer
+	registerModule(moduleInfo{
+		Name: "ArOZ Media Player",
+		Desc: "Basic Video Player",
+		Group: "Utilities",
+		IconPath: "SystemAO/utilities/img/mediaPlayer.png",
+		Version: "1.0",
+		SupportFW: false,
+		SupportEmb: true,
+		LaunchEmb: "SystemAO/utilities/mediaPlayer.html",
+		InitEmbSize: []int{720, 480},
+		SupportedExt: []string{".mp4",".webm",".ogv"},
+	});
+
+}
+
+/*
+	Util functions
+	Please put the functions in the space below
+*/
+
+/*
+	Notebook function handlers
+	Handle save of new notebook text file
+*/
+
+func system_util_handleNotebookSave(w http.ResponseWriter, r *http.Request){
+	username, err := system_auth_getUserName(w,r)
+	if (err != nil){
+		sendErrorResponse(w, "User not logged in")
+		return;
+	}
+	filepath, _ := mv(r, "filepath", true)
+	newcontent, _ := mv(r, "content", true)
+	if (filepath == ""){
+		sendErrorResponse(w, "Undefined filepath given.")
+		return;
+	}
+	realpath, _ := virtualPathToRealPath(filepath, username)
+	err = ioutil.WriteFile(realpath, []byte(newcontent), 0755)
+	if (err != nil){
+		sendErrorResponse(w, err.Error())
+		return
+	}
+	sendOK(w);
+}

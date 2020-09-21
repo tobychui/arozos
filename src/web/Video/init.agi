@@ -1,0 +1,23 @@
+/*
+	Video Module Register Script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Video",
+	Desc: "The basic video player for ArOZ Online",
+	Group: "Media",
+	IconPath: "Video/img/module_icon.png",
+	Version: "0.0.6",
+	StartDir: "Video/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Video/index.html",
+	SupportEmb: true,
+	LaunchEmb: "Video/embedded.html",
+	InitFWSize: [585, 820],
+	InitEmbSize: [700, 470],
+	SupportedExt: [".webm",".mp4",".ogg"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

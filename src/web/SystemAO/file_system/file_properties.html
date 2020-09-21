@@ -1,0 +1,185 @@
+<html>
+    <head>
+        <title>File Properties</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                overflow:hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="ui container">
+            <h3 class="ui header">
+                File Properties
+                <div class="sub header">Basic File Information</div>
+            </h3>
+            <div class="ui divider"></div>
+            <div id="properties">
+
+            </div>
+        </div>
+        <div id="filesizeLoader" class="ui active dimmer">
+            <div class="ui indeterminate text loader">Calculating File Size</div>
+        </div>
+        <script>
+            //Initiate the view model
+            var files = ao_module_loadInputFiles();
+            var fileProperties = [];
+            if (files.length == 1){
+                //There are only 1 file to be shown
+                getFileProp(files[0], renderSingleObject);
+            }else if (files.length > 1){
+                for (var i =0; i < files.length; i++){
+                    getFileProp(files[i], function(data){
+                        fileProperties.push(data);
+                        if (fileProperties.length == files.length){
+                            renderMultipleObjects();
+                        }
+                    });
+                }
+            }
+
+            function getFileProp(vpath, callback){
+                $.ajax({
+                    url: "../../system/file_system/getProperties",
+                    data: {path: vpath},
+                    method: "POST",
+                    success: function(data){
+                        callback(data);
+                    }
+                })
+            }
+
+            function renderMultipleObjects(){
+                hideLoader();
+                var filesizeSum = sumProperties(fileProperties, "Filesize");
+                $("#properties").append(ui_getInput(fileProperties[0].VirtualDirname + "/", "Root Name"));
+                var filecount = 0;
+                var foldercount = 0;
+                for (var i =0; i < fileProperties.length; i++){
+                    if (fileProperties[i].IsDirectory){
+                        foldercount++;
+                    }else{
+                        filecount++;
+                    }
+                }
+                $("#properties").append(ui_getText("Multiple selections"));
+                $("#properties").append(ui_getText(filecount + " Files"));
+                $("#properties").append(ui_getText(foldercount + " Folders"));
+
+                //Append other properties as table
+                $("#properties").append(ui_getTable(
+                        [],
+                        [
+                            ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
+                            ["Storage Directory", fileProperties[0].StorageDirname + "/"],
+                            ["Total Size", bytesToSize(filesizeSum) + ` (${filesizeSum} bytes)`],
+                        ]
+                    ));
+
+                
+            }
+
+            function sumProperties(data, propName){
+                var sum = 0;
+                for (var i = 0; i < data.length; i++){
+                    sum += data[i][propName];
+                }
+                return sum;
+            }
+            
+            //Render one object property to the ui element
+            function renderSingleObject(data){
+                hideLoader();
+                if (data.error !== undefined){
+                    alert(data.error);
+                }else{
+                    //Append Filename
+                    var filesizeText = "File Size";
+                    if (data.IsDirectory){
+                        $("#properties").append(ui_getInput(data.Basename, "Folder Name"));
+                        filesizeText = "Folder Size";
+                    }else{
+                        $("#properties").append(ui_getInput(data.Basename, "File Name"));
+                    }
+                    
+                    //Append MIME Type
+                    $("#properties").append(ui_getText(data.MimeType));
+
+                    //Append other properties as table
+                    $("#properties").append(ui_getTable(
+                        [],
+                        [
+                            ["Virtual Path", data.VirtualPath],
+                            ["Storage Path", data.StoragePath],
+                            [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
+                            ["Permission", data.Permission],
+                            ["Last Modification", data.LastModTime],
+                            ["Is Directory", data.IsDirectory],
+                        ]
+                    ));
+                    
+                }
+                
+            }
+
+            function hideLoader(){
+                $("#filesizeLoader").hide();
+                $("body").css('overflow-y',"auto");
+            }
+
+            //Model rendering scripts
+            function ui_getInput(value, placeholder="", type="text"){
+                return `<div class="ui fluid small input">
+                            <input type="${type}" placeholder="${placeholder}" value="${value}" readonly="true">
+                        </div>`
+            }
+
+            function ui_getText(value, color="black"){
+                return `<p style="color:${color}; margin-bottom:0px;">${value}</p>`;
+            }
+
+            function ui_getDivider(){
+                return `<div class="ui divider"></div>`;
+            }
+
+            //head is a 1D array and table is 2D array
+            function ui_getTable(heads, table){
+                html =  `<table class="ui very basic fluid table">`;
+                if (heads.length > 0){
+                    html += `<thead><tr>`;
+                    for (var i =0; i < heads.length; i++){
+                        html += `<th>${heads[i]}</th>`;
+                    }
+                    html += `</tr></thead>`;
+                }
+                html += `<tbody>`;
+                for (var i =0; i < table.length; i++){
+                    html += `<tr>`;
+                    for (var j =0; j < table[i].length; j++){
+                        html += `<td style="word-break: break-all;">${table[i][j]}</td>`
+                    }
+                    html += `</tr>`;
+                }
+                
+                html += `</tbody>
+                        </table>`;
+                return html
+            }
+
+            function bytesToSize(bytes) {
+                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                if (bytes == 0) return '0 Byte';
+                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+            }
+        </script>
+    </body>
+</html>

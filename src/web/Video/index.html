@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <link rel="manifest" href="manifest.json">
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="script/semantic/semantic.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="script/DPlayer.min.js"></script>
+        <title>Video</title>
+        <style>
+            html, body{
+                background-color:rgba(250,250,250,0.95);
+                padding:0px !important;
+                margin: 0px;
+            }
+            #dplayer{
+                display:inline-block;
+                width:70%;
+                vertical-align: top;
+            }
+            .playerwrapper{
+                background-color:black;
+                width:100%;
+                margin-bottom:12px;
+            }
+
+            @media only screen and (max-width: 1900px) {
+                #dplayer{
+                    width:50%;
+                }
+            }
+
+            @media only screen and (max-width: 1500px) {
+                #dplayer{
+                    width:60%;
+                }
+            }
+
+            @media only screen and (max-width: 1024px) {
+                #dplayer{
+                    width:70%;
+                }
+            }
+
+            @media only screen and (max-width: 600px) {
+                #dplayer{
+                    width:100%;
+                }
+            }
+            .playing{
+                background-color:#ededed;
+            }
+
+            .videoObject{
+                padding:6px !important; 
+            }
+
+        </style>
+    </head>
+    <body>
+        <!-- Viewing Panel-->
+        <div class="playerwrapper" align="center">
+            <div id="dplayer" class="unstyled" align="left"></div>
+        </div>
+        <!-- PlayList-->
+        <div class="ui container">
+            <h3 class="ui header">
+                <span id="videoname">No Video Loaded</span>
+                <div class="sub header"><span id="playlistName">N/A</span> / <span id="ext">[no_mdeia]</span></div>
+            </h3>
+            <div class="ui segment">
+                <p><i class="expand icon"></i>Screen Size</p>
+                <button class="ui tiny button" onclick="setScreenSize('50%');">
+                    Small
+                </button>
+                <button class="ui tiny button" onclick="setScreenSize('70%');">
+                    Normal
+                </button>
+                <button class="ui tiny button" onclick="setScreenSize('100%');">
+                    Full Width
+                </button>
+                <div class="ui toggle checkbox" style="position:absolute;right:12px;bottom: 12px;">
+                    <input id="autoplayToggle" type="checkbox" name="autoplay" onchange="setAutoplay(this);">
+                    <label>Autoplay</label>
+                </div>
+
+            </div>
+            <div id="playList" class="ui fluid segment">
+                <p><i class="list icon"></i> PlayLists</p>
+                <select id="playListSelector" class="ui search fluid dropdown">
+                    <option value="">Select Playlist</option>
+                </select>
+                <br>
+                <p><i class="file icon"></i>PlayList Videos</p>
+                <div id="videolist" class="ui relaxed divided list">
+
+                </div>
+            </div>
+            <br><br><br>
+        </div>
+        
+        <script>
+            var playerObject;
+            var AllPlaylist = [];
+            var currentPlaylist = [];
+            var currentPlaying;
+            var unsortedVideoFiles = [];
+            var autoPlay = false;
+            var previousScreenSize = "70%";
+            $('.ui.dropdown').dropdown();
+            init();
+            initPlaylist();
+
+            autoPlay = (ao_module_storage.loadStorage("Video","autoplay") == "true");
+            if (autoPlay){
+                $("#autoplayToggle").attr("checked",true);
+            }
+
+            function init(){
+                //Removed set global volume and isolate two systems
+                /*var defaultVol = localStorage.getItem("global_volume");
+                if (defaultVol == null || defaultVol == "" || defaultVol == undefined){
+                    defaultVol = 0.4;
+                }
+                */
+                const dp = new DPlayer({
+                    container: document.getElementById('dplayer'),
+                    autoplay: false,
+                    //volume: parseFloat(defaultVol),
+                    video: {
+                        pic: 'img/thumbnail.png',
+                    }
+                });
+
+                playerObject = dp;
+
+                /*
+                dp.on("volumechange",function(){
+                    var newVol = dp.volume();
+                    if (localStorage){
+                        localStorage.setItem("global_volume",newVol);
+                    }
+                });
+                */
+                
+                //handle autoplay on end
+                dp.on('ended', function() {
+                    if (autoPlay){
+                        //Play next item in list
+                        var nextToPlay = 0;
+                        for (var i =0; i < currentPlaylist.length; i++){
+                            if (currentPlaylist[i].Filename == currentPlaying){
+                                nextToPlay = i + 1;
+                                if (nextToPlay >= currentPlaylist.length){
+                                    //last video. loop back to first esp
+                                    nextToPlay = 0;
+                                }
+                            }
+                        }
+
+                        //Play the selected item
+                        var nextPlayObject = currentPlaylist[nextToPlay];
+                        console.log(currentPlaylist[nextToPlay],nextToPlay);
+                        $("#videoname").text(nextPlayObject.Filename);
+                        $("#ext").text("[" + nextPlayObject.Ext + "]" );
+                        currentPlaying = nextPlayObject.Filename;
+                        playVideo("../media?file=" + encodeURIComponent(nextPlayObject.Filepath));
+                        $("#videolist").find(".search").val(nextPlayObject.Filename);
+                        $(".playing").removeClass("playing");
+                        $(".videoObject").each(function(){
+                            if ($(this).attr("filename") == nextPlayObject.Filename){
+                                $(this).addClass("playing");
+                            }
+                        });
+                    }
+                });
+
+                //Handle full screen
+                dp.on('fullscreen', function() {
+                    previousScreenSize = $("#dplayer").css("width");
+                    setScreenSize("100%");
+                });
+
+                dp.on('fullscreen_cancel', function() {
+                    setScreenSize(previousScreenSize);
+                });
+
+            }
+
+            function setAutoplay(obj){
+                autoPlay = obj.checked;
+                if (autoPlay){
+                    ao_module_storage.setStorage("Video","autoplay","true");
+                }else{
+                    ao_module_storage.setStorage("Video","autoplay","false");
+                }
+            }
+
+            $("#playListSelector").on("change",function(){
+                var selectedPlaylistName = $(this).val();
+                var thisPlaylistDevice = "";
+                $("#playListSelector").find(".playlistObject").each(function(){
+                    if ($(this).attr("value") == selectedPlaylistName){
+                        thisPlaylistDevice = $(this).attr("device");
+                    }
+                });
+
+                if (thisPlaylistDevice.length == 0){
+                    //Unsorted playlist
+                    console.log("Listing unsorted playlists");
+                    listUnsortedFiles();
+                }else{
+                    listPlayList(selectedPlaylistName);
+                }
+                //console.log(thisPlaylistDevice);
+            });
+
+            function setScreenSize(size){
+                $("#dplayer").css("width",size);
+            }   
+
+            function initPlaylist(){
+                $.ajax({
+                    url: "../system/ajgi/interface?script=Video/backend/buildPlaylist.js",
+                    success: function(data){
+                        console.log(data);
+                        //Initial playlist dropdown
+                        $("#playListSelector").html("");
+                        $("#playListSelector").append(`<option class="" value="">Select Playlist</option>`);
+                       for (var i = 0; i < data.length; i++){
+                           var thisDevice = data[i];
+                           var thisDeviceName = thisDevice.StorageName;
+                           var playlistInThisDevice = thisDevice.PlayLists;
+                           var unsortedVideoInThisDevice = thisDevice.UnsortedVideos;
+                           //Append playlist
+                           for (var j = 0; j < playlistInThisDevice.length; j++){
+                               var thisPlaylistName = playlistInThisDevice[j].Name;
+                               AllPlaylist.push(JSON.parse(JSON.stringify(playlistInThisDevice[j])));
+                               $("#playListSelector").append(`<option class="playlistObject" value="${thisPlaylistName}" device="${thisDeviceName}">${thisPlaylistName}</option>`);
+                           }
+                           for (var k = 0; k < unsortedVideoInThisDevice.length; k++){
+                                unsortedVideoFiles.push(JSON.parse(JSON.stringify(unsortedVideoInThisDevice[k])));
+                           }
+                           
+                       }
+                        //Append unsorted into playlist
+                       $("#playListSelector").append(`<option class="playlistObject" value="unsorted" device="">Unsorted Playlist</option>`);
+                        updateWindowEvents();
+                    }
+                });
+            }
+
+            function listUnsortedFiles(){
+                 //Append unsorted files
+                 $("#videolist").html("");
+                 currentPlaylist = unsortedVideoFiles;
+                 for (var k = 0; k < unsortedVideoFiles.length; k++){
+                    var thisVideoName = unsortedVideoFiles[k].Filename;
+                    var thisFilePath = unsortedVideoFiles[k].Filepath;
+                    var ext = unsortedVideoFiles[k].Ext;
+                    $("#videolist").append(`<div class="item videoObject" filename="${thisVideoName}" filepath="${thisFilePath}" ext="${ext}" playlist="Unsorted">
+                        <i class="file icon"></i>
+                        <div class="content">
+                            <a class="header" onclick="playThisFile(this);">${thisVideoName}</a>
+                            <div class="description">${thisFilePath} / [${ext}]</div>
+                        </div>
+                    </div>`);
+                }
+            }
+
+            function listPlayList(playlistName){
+                $("#videolist").html("");
+                var targetPlaylist;
+                for (var i =0; i < AllPlaylist.length; i++){
+                    if (AllPlaylist[i].Name == playlistName){
+                        targetPlaylist = AllPlaylist[i];
+                    }
+                }
+                currentPlaylist = targetPlaylist.Files;
+                //Parse the playlist
+                for (var i = 0; i < currentPlaylist.length; i++){
+                    var playListName = targetPlaylist.Name;
+                    var thisVideoName = currentPlaylist[i].Filename;
+                    var thisFilePath = currentPlaylist[i].Filepath;
+                    var ext = currentPlaylist[i].Ext;
+                    $("#videolist").append(`<div class="item videoObject" filename="${thisVideoName}" filepath="${thisFilePath}" ext="${ext}" playlist="${playListName}">
+                        <i class="file icon"></i>
+                        <div class="content">
+                            <a class="header" onclick="playThisFile(this);">${thisVideoName}</a>
+                            <div class="description">${thisFilePath} / [${ext}]</div>
+                        </div>
+                    </div>`);
+                }
+            }
+
+            function playThisFile(obj){
+                $(".playing").removeClass("playing");
+                var fileDescriptor = $(obj).parent().parent();
+                $("#videoname").text(fileDescriptor.attr("filename"));
+                $("#playlistName").text(fileDescriptor.attr("playlist"));
+                $("#ext").text("[" + fileDescriptor.attr("ext") + "]" );
+                currentPlaying = fileDescriptor.attr('filename');
+                playVideo("../media?file=" + encodeURIComponent(fileDescriptor.attr("filepath")));
+                $(fileDescriptor).addClass("playing");
+                window.scrollTo(0, 0); 
+            }
+
+            function playVideo(src){
+                playerObject.video.src = src;
+                playerObject.play()
+                updateWindowEvents();
+            }
+            
+            $(window).on("resize",function(){
+                updateWindowEvents();
+            });
+
+            function updateWindowEvents(){
+                $("#dplayer").css("max-height",window.innerHeight);
+            }
+        </script>
+    </body>
+</html>

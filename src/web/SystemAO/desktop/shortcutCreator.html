@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+	<meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script src="../../script/jquery.min.js"></script>
+	<script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <style>
+        .hidden{
+            display:none;
+        }
+    </style>
+</head>
+<body>
+    <br>
+    <div class="ui container">
+        <div class="ui ordered fluid steps">
+            <div id="stepOneState" class="active step">
+                <div class="content">
+                    <div class="title">Select Type</div>
+                    <div class="description">Choose a shortcut type</div>
+                </div>
+            </div>
+            <div id="stepTwoState" class="step">
+                <div class="content">
+                    <div class="title">Select Path</div>
+                    <div class="description">Fill shortcut target path</div>
+                </div>
+            </div>
+            <div id="stepThreeState" class="step">
+                <div class="content">
+                    <div class="title">Create</div>
+                    <div class="description">Generate shortcut</div>
+                </div>
+            </div>
+        </div>
+        <div id="stepOne" class="ui segment">
+            <p>Select a type of shortcut you want to create:</p>
+            <div class="ui selection fluid dropdown">
+                <input id="selectType" type="hidden" onchange="updateDesc();">
+                <i class="dropdown icon"></i>
+                <div class="default text">Shortcut Type</div>
+                <div class="menu">
+                    <div class="item" data-value="0">WebApp Module</div>
+                    <div class="item" data-value="1">Folder / Directory</div>
+                    <div class="item" data-value="2">Website URL</div>
+                </div>
+            </div>
+            <div id="typeExplain" class="ui segment" style="display:none;">
+                <div class="ui feed">
+                    <div class="event">
+                      <div class="label">
+                        <img id="typeIcon" src="">
+                      </div>
+                      <div class="content">
+                        <div id="typeName" class="summary">
+                           
+                        </div>
+                        <div id="typeExplainText" class="extra text">
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+            </div>
+            <br>
+            <button class="ui primary button" onclick="moveToStepTwo();">
+                Next
+            </button>
+            </button>
+            <button class="ui button">
+                Cancel
+            </button>
+        </div>
+
+        <div id="stepTwoModule" class="ui segment stageTwo hidden">
+            <p>Select a module to create the shortcut</p>
+            <select id="moduleList" class="ui search fluid dropdown" onchange="updateModuleInfo(this.value);">
+                <option value="">Select WebApp Module</option>
+            </select>
+            <small id="moduleInfo"></small>
+            <br><br>
+            <button class="ui primary button" onclick="createModuleShortcut();">
+                Next
+            </button>
+            </button>
+            <button class="ui button" onclick="backToStepOne();">
+                Back
+            </button>
+        </div>
+
+        <div id="stepTwoFolder" class="ui segment stageTwo hidden">
+            <p>Open or Enter a valid path for folder shortcut</p>
+            <div class="ui corner fluid labeled input">
+                <input id="shortcutname" type="text" placeholder="Folder Shortcut Name" value="Folder Shortcut">
+              </div>
+            <br>
+            <div class="ui action fluid input">
+                <input id="folderpath" type="text" value="" placeholder="e.g. user:/Desktop">
+                <button class="ui teal right labeled icon button" onclick="selectTargetFolder();">
+                  <i class="folder open icon"></i>
+                  Open
+                </button>
+            </div>
+            <br><br>
+            <button class="ui primary button" onclick="createFolderShortcut();">
+                Next
+            </button>
+            </button>
+            <button class="ui button" onclick="backToStepOne();">
+                Back
+            </button>
+        </div>
+
+        <div id="stepTwoURL" class="ui segment stageTwo hidden">
+            <p>Enter the shortcut name in the input below</p>
+            <div class="ui corner fluid labeled input">
+                <input id="urlshortcutname" type="text" placeholder="Website Name" value="My Website">
+              </div>
+            <br>
+            <p>Enter the target URL in the input below (including http:// or https://)</p>
+            <div class="ui icon fluid input">
+                <input id="urlShortcut" type="text" placeholder="Website URL">
+                <i class="globe icon"></i>
+              </div>
+            <br><br>
+            <button class="ui primary button" onclick="createURLShortcut();">
+                Next
+            </button>
+            </button>
+            <button class="ui button" onclick="backToStepOne();">
+                Back
+            </button>
+        </div>
+
+        <div id="stepThree" class="ui segment hidden">
+            <br>
+            <div style="width:100%;" align="center">
+                <h2 class="ui icon  header">
+                    <i class="green checkmark icon"></i>
+                    <div class="content">
+                        Shortcut Created
+                        <div class="sub header">Your shortcut has been created. You can now close this windows.</div>
+                    </div>
+                </h2>
+            </div>
+            <br>
+            <button class="ui positive button right floated" onclick="ao_module_close();">
+                OK
+            </button>
+            <br><br>
+           
+        </div>
+
+        <div id="stepThreeCrashed" class="ui segment hidden">
+            <br>
+            <div style="width:100%;" align="center">
+                <h2 class="ui icon  header">
+                    <i class="red remove icon"></i>
+                    <div class="content">
+                        Shortcut Creation Failed
+                        <div class="sub header" id="errmsg">Unable to create shortcut. Please try again later.</div>
+                    </div>
+                </h2>
+            </div>
+            <br>
+            <button class="ui negative button right floated" onclick="ao_module_close();">
+                Exit
+            </button>
+            <br><br>
+           
+        </div>
+    </div>
+    <script>
+        initModuleList();
+
+        function initModuleList(){
+            $.get("../../system/modules/list",function(data){
+                if (data.error !== undefined){
+                    alert(data.error);
+                }else{
+                    for (var i = 0 ;i < data.length; i++){
+                        var thisModule = data[i];
+                        var moduleInfoEncoded = encodeURIComponent(JSON.stringify(thisModule));
+                        $("#moduleList").append(`<option value="${moduleInfoEncoded}">${thisModule.Name}</option>`);
+                    }
+                    $('.ui.dropdown').dropdown();
+                }
+                
+            });
+        }
+
+        function updateModuleInfo(moduleInfo){
+            moduleInfo = JSON.parse(decodeURIComponent(moduleInfo));
+            $("#moduleInfo").html(`
+            <img class="ui avatar image" src="../../${moduleInfo.IconPath}">
+            <span>${moduleInfo.StartDir} (version: ${moduleInfo.Version})</span>`);
+        }
+
+        function createModuleShortcut(){
+            var moduleInfo =  JSON.parse(decodeURIComponent($("#moduleList").val()));
+            //Use the startup path for embeded > fw > default
+            generateShortcutFile("module",moduleInfo.Name, moduleInfo.Name, moduleInfo.IconPath);
+            $(".stageTwo").slideUp();
+            $("#stepTwoState").addClass("completed");
+            $("#stepThree").slideDown();
+        }
+
+        function backToStepOne(){
+            $("#stepTwoState").removeClass("completed");
+            $(".stageTwo").slideUp();
+            $("#stepOne").slideDown();
+        }
+
+        function generateShortcutFile(shortcutType, shortcutText, shortCutPath, shortcutIcon){
+            //Generate the shortcut file object
+            $.ajax({
+                url: "../../system/desktop/createShortcut",
+                data: {"stype": shortcutType, "stext": shortcutText, "spath": shortCutPath, "sicon":shortcutIcon },
+                method: "POST",
+                success: function(data){
+                    if (data.error !== undefined){
+                        $("#errmsg").text(data.error);
+                        $("#stepThreeCrashed").slideDown();
+                        $("#stepThree").hide();
+                    }else{
+                        console.log(data);
+                        //Refresh desktop
+                        parent.refresh();
+                    }
+                }
+            })
+        }
+
+        function createURLShortcut(){
+            var url = $("#urlShortcut").val();
+            var shortcutname = $("#urlshortcutname").val();
+            if (url == ""){
+                return;
+            }
+            var urlchunk = url.split("/");
+            var iconpath = urlchunk[0] + "//" + urlchunk[2] + "/favicon.ico";
+
+            generateShortcutFile("url",shortcutname, url, iconpath);
+            $(".stageTwo").slideUp();
+            $("#stepTwoState").addClass("completed");
+            $("#stepThree").slideDown();
+        }
+
+        function moveToStepTwo(){
+            var selection = $("#selectType").val();
+            if (selection == "0"){
+                $("#stepTwoModule").slideDown();
+            }else if (selection == "1"){
+                $("#stepTwoFolder").slideDown();
+            }else if (selection == "2"){
+                $("#stepTwoURL").slideDown();
+            }else{
+                return;
+            }
+
+            $("#stepOneState").addClass("completed");
+            $("#stepOne").slideUp();
+        }
+
+        function selectTargetFolder(){
+            ao_module_openFileSelector(fileSelected, "user:/Desktop", "folder",true);
+        }
+
+        function fileSelected(filedata){
+            console.log(filedata);
+            for (var i=0; i < filedata.length; i++){
+                var filename = filedata[i].filename;
+                var filepath = filedata[i].filepath;
+                $("#folderpath").val(filepath);
+                //Filter / and : from the filename
+                filename = filename.split(":").join("")
+                filename = filename.split("/").join("")
+                $("#shortcutname").val(filename);
+            }
+        }
+
+        function createFolderShortcut(){
+            var folderpath = $("#folderpath").val();
+            var shortcutname = $("#shortcutname").val();
+            if (folderpath == ""){
+                return;
+            }
+            if (shortcutname == ""){
+                shortcutname = folderpath.split("/").pop();
+                if (shortcutname == ""){
+                    shortcutname = folderpath.split("/")[0];
+                }
+            }
+
+            generateShortcutFile("folder",shortcutname, folderpath,"img/system/folder-shortcut.png");
+            $(".stageTwo").slideUp();
+            $("#stepTwoState").addClass("completed");
+            $("#stepThree").slideDown();
+        }
+
+        function updateDesc(){
+            var selection = $("#selectType").val();
+            var src = "";
+            var typeName = "";
+            var typeDesc = "";
+            if (selection == "0"){
+                src = "img/a-module.png";
+                typeName = "WebApp Modules";
+                typeDesc = "The webapp / modules loaded onto the ArOZ Online System. You can start the module by double clicking the shortcut or drag files onto it on Desktop.";
+
+            }else if (selection == "1"){
+                src = "img/Directory.png";
+                typeName = "Directory";
+                typeDesc = "A folder shortcut that redirect you to another folder when launched.";
+
+            }else if (selection == "2"){
+                src = "img/Weburl.png";
+                typeName = "Web URL";
+                typeDesc = "A website or web resources that can be opened via double click.";
+
+            }
+
+            $("#typeIcon").attr('src', src);
+            $("#typeName").text(typeName);
+            $("#typeExplainText").text(typeDesc);
+            $("#typeExplain").hide().slideDown();
+        }
+    </script>
+</body>
+</html>

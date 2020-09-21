@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <script src="../script/tocas/tocas.js"></script>
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="script/DPlayer.min.js"></script>
+        <link rel="manifest" href="manifest.json">
+        <style>
+            html, body{
+                height: 100% !important;
+            }
+            body{
+                background-color: black;
+                border: 0px;
+                padding: 0px;
+                margin: 0px;
+                overflow:hidden;
+            }
+            #dplayer{
+                height:100% !important; 
+            }
+        </style>
+    </head>
+    <body>
+        <div id="dplayer"></div>
+        <script>
+            //Load global vol from localStorage
+            var defaultVol = localStorage.getItem("global_volume");
+            if (defaultVol == null || defaultVol == "" || defaultVol == undefined){
+                defaultVol = 0.4;
+            }
+
+            //Get file playback info from hash
+            var playbackFile = ao_module_loadInputFiles();
+            //Only handle one file
+            playbackFile = playbackFile[0];
+
+            //Update title name
+            ao_module_setWindowTitle("Video - " + playbackFile.filename);
+            setTimeout(function(){
+                updatePlayerSize();
+            },500);
+            //Set player property
+            const dp = new DPlayer({
+                container: document.getElementById('dplayer'),
+                screenshot: true,
+                autoplay: true,
+                volume: parseFloat(defaultVol),
+                video: {
+                    url: '../media?file=' + encodeURIComponent(playbackFile.filepath)
+                },
+                contextmenu: [
+                    {
+                        text: 'Download',
+                        link: '../media?file=' + encodeURIComponent(playbackFile.filepath) + "&download=true",
+                    }
+                ],
+            });
+
+            
+            dp.on("volumechange",function(){
+                var newVol = dp.volume();
+                if (localStorage){
+                    localStorage.setItem("global_volume",newVol);
+                }
+            });
+            
+
+            $(window).on("resize",function(){
+                updatePlayerSize();
+            }); 
+
+            function updatePlayerSize(){
+                if ($("#dplayer").height() < window.innerHeight){
+                    var topm = (window.innerHeight - $("#dplayer").height()) / 2
+                    $("#dplayer").css("margin-top",topm);
+                    $("#dplayer").css("height","auto");
+                }
+            }
+        </script>
+    </body>
+</html>

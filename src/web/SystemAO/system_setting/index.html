@@ -1,0 +1,164 @@
+<html>
+    <head>
+        <title>System Setting</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            html{
+                overflow:hidden;
+                height:100%;
+            }
+            body{
+                background-color:#fcfcfc;
+                overflow:hidden !important;
+                height:100%;
+            }
+            #mainSideMenuDimmer{
+                width:100%;
+                height:100%;
+                position:fixed;
+                top:0px;
+                left:0px;
+                background-color: rgba(26,26,26,0.3);
+                z-index:99;
+            }
+            #mainSideMenu{
+                z-index:100;
+            }
+            #settingContentLoader{
+                overflow-x: hidden;
+                overflow-y:auto;
+                height: calc(100% - 60px);
+            }
+        </style>
+    </head>
+    <body>
+        <div id="mainSideMenu" class="ui left fixed vertical menu">
+            <div class="item">
+                <img class="ui image" src="img/banner.png">
+            </div>
+            
+        </div>
+        <div id="mainSideMenuDimmer" onclick="hideToolBar();"></div>
+        <div class="ui top attached tabular menu" style="overflow-x:auto;overflow-y:hidden;">
+            <a id="toolbarBtn" class="item" onclick="showToolBar();">
+                <i class="content icon"></i>
+            </a>
+        
+            <div class="right menu">
+                <div class="item">
+                    <div class="ui transparent icon input">
+                    <input id="searchInput" type="text" placeholder="Search Settings..." onkeydown="if (event.which == 13){ search(); }">
+                        <i class="search link icon" onclick="search();"></i>
+                    </div>
+                </div>
+            </div>
+          </div>
+          <div id="settingContentLoader" class="ui bottom attached segment">
+
+          </div>
+          </div>
+         
+          <script>
+              var currentSettingModuleList = [];
+              var loadViaSystemSetting = true; //Check for this parameter to see if launching in Setting Interface
+
+                //Initiation Functions
+                initMainSideMenu();
+                hideToolBar();
+                initSettingGroup("Info");
+                
+                function initMainSideMenu(){
+                    $.get("../../system/setting/list",function(data){
+                        for (var i =0; i < data.length; i++){
+                            var settingGroupName = data[i].Name;
+                            var groupUUID = data[i].Group;
+                            var iconPath = "../../" + data[i].IconPath;
+                            var toolTip = data[i].Desc;
+                            $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}"></img> ${settingGroupName}</a>`);
+                        }
+                    });
+                }
+
+                function initSettingGroup(group){
+                    $.get("../../system/setting/list?listGroup=" + group,function(data){
+                        if (data.error !== undefined){
+                            console.log(data.error);
+                        }else{
+                            currentSettingModuleList = data;
+                            initSettingModuleTabs();
+                            initSettingModules(0);
+                            
+                        }
+                    });
+                }
+
+              function menuClicked(object){
+                var group=$(object).attr("group");
+                initSettingGroup(group);
+                hideToolBar();
+              }
+
+              //Initiate the setting modules tabs
+              function initSettingModuleTabs(){
+                $(".settingTab").remove();
+                var moduleListInReverse = currentSettingModuleList.reverse();
+                for (var i =0; i < moduleListInReverse.length; i ++){
+                    var thisModuleInfo = moduleListInReverse[i];
+                    var stringifyModuleInfo = encodeURIComponent(JSON.stringify(thisModuleInfo));
+                    $("#toolbarBtn").after(`<a class="item settingTab" moduleInfo="${stringifyModuleInfo}" onclick="loadSettingModuleFromTab(this);">${thisModuleInfo.Name}</a>`);
+                }
+              }
+
+              function initSettingModules(index){
+                var targetObject = $(".settingTab")[index];
+                $(".settingTab.active").removeClass("active");
+                if (targetObject !== undefined){
+                    //Select this object
+                    $(targetObject).addClass("active");
+
+                    //Load this object into the tab
+                    var settingModuleInfo = JSON.parse(decodeURIComponent($(targetObject).attr("moduleInfo")));
+                    var settingStartDir = settingModuleInfo.StartDir;
+                    $("#settingContentLoader").html("");
+                    $("#settingContentLoader").load("../../" + settingStartDir);
+                }
+              }
+
+              function loadSettingModuleFromTab(object){
+                targetObject = $(object);
+                $(".settingTab.active").removeClass("active");
+                if (targetObject !== undefined){
+                    //Select this object
+                    $(targetObject).addClass("active");
+
+                    //Load this object into the tab
+                    var settingModuleInfo = JSON.parse(decodeURIComponent($(targetObject).attr("moduleInfo")));
+                    var settingStartDir = settingModuleInfo.StartDir;
+                    $("#settingContentLoader").html("");
+                    $("#settingContentLoader").load("../../" + settingStartDir);
+                }
+              }
+
+
+              function hideToolBar(){
+                  $("#mainSideMenuDimmer").fadeOut('fast');
+                  $("#mainSideMenu").animate({left: -1 * $("#mainSideMenu").width()},300);
+              }
+
+              function showToolBar(){
+                $("#mainSideMenuDimmer").fadeIn('fast');
+                $("#mainSideMenu").animate({left: "0px"},300);
+              }
+
+              function search(){
+                var keyword = $("#searchInput").val();
+                alert(keyword);
+              }
+          </script>
+    </body>
+</html>

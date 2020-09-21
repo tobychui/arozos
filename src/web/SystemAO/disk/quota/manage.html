@@ -1,0 +1,159 @@
+<html>
+    <head>
+        <title>Manage Storage Quota</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
+        <style>
+
+        </style>
+    </head>
+    <body>
+        <div class="ui container">
+            <div class="ui basic segment">
+                <div class="ui header">
+                    <i class="hdd icon"></i>
+                    <div class="content">
+                        Storage Quota Settings
+                        <div class="sub header">Limit each user groups storage quota</div>
+                    </div>
+                </div>
+            </div>
+            <div id="oprsucc" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i> Quota Updated</div>
+            <div id="oprfailed" style="display:none;" class="ui red inverted segment"><i class="remove icon"></i> Error occured while tring to update storage quota</div>
+            <div id="updateQuotaInterface" class="ui segment" style="display:none;">
+                <p>Group to be Updated: </p>
+                <div class="ui fluid tiny input">
+                    <input id="editingGroup" type="text" readonly="true" value="">
+                </div>
+                <br>
+                <p>New Quota: </p>
+                <div class="ui tiny input">
+                    <input id="newQuotaValue" type="number" value="15">
+                </div>
+                <div class="ui selection tiny dropdown">
+                    <input id="newquota" type="hidden" name="size">
+                    <i class="dropdown icon"></i>
+                    <div class="default text" >GB</div>
+                    <div class="menu">
+                        <div class="item" data-value="1">MB</div>
+                        <div class="item" data-value="1024">GB</div>
+                        <div class="item" data-value="1048576">TB</div>
+                    </div>
+                  </div>
+                  <div class="ui divider"></div>
+                  <div style="width:100%;" align="right">
+                    <button class="ui button" onclick="$('#updateQuotaInterface').transition('fade down');">Cancel</button>
+                    <button class="ui primary button" onclick="confirmUpdate();"><i class="checkmark icon"></i> Confirm</button>
+                  </div>
+            </div>
+            <table class="ui celled striped table">
+                <thead>
+                    <tr>
+                        <th colspan="3">
+                        Current Storage Quota
+                        </th>
+                    </tr>
+                    <tr>
+                        <th>User Group</th>
+                        <th>Storage Quota</th>
+                        <th>Edit Quota</th>
+                    </tr>
+                </thead>
+                <tbody id="quotaTable">
+                    <tr>
+                    <td colspan="3">Initializing Storage Quota Table</td>
+                    </tr>
+                    
+                </tbody>
+              </table>
+              <p><i class="info circle icon"></i> All users in the given group will have the same storage quota. If you want to create a special storage quota for a given user, please create a new group.</p>
+        </div>
+        <script>
+            var usergroup = "";
+            $('.ui.dropdown').dropdown();
+
+            initQuotaTable();
+            function initQuotaTable(){
+                $("#quotaTable").html("Loading...");
+                $.get("../../system/disk/quota/listQuota",function(data){
+                    $("#quotaTable").html("");
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        for (const [key, value] of Object.entries(data)) {
+                            var quota = "Read Only";
+                            if (value == -1){
+                                quota = "Unlimited";
+                            }else if (value > 0){
+                                quota = formatBytes(value);
+                            }
+
+                            var updateButton = `<button class="ui teal tiny button" group="${key}" onclick="updateGroupQuota(this);">Update</button>`;
+                            if (key == "administrator"){
+                                updateButton = "";
+                            }
+                            $("#quotaTable").append(`<tr>
+                                <td class="collapsing">
+                                    <i class="user icon"></i> ${key}
+                                </td>
+                                <td>${quota}</td>
+                                <td class="right aligned collapsing">${updateButton}</td>
+                            </tr>`);
+                        }
+                    }
+                });
+            }
+
+            function confirmUpdate(){
+                var targetUsergroup = usergroup;
+                var quotaMultipler = $("#newquota").val();
+                if (quotaMultipler == ""){
+                    quotaMultipler = 1024;
+                }
+                var quotaNumeric = $("#newQuotaValue").val();
+                var actualQuota = quotaNumeric * quotaMultipler;
+                $.ajax({
+                    url: "../../../system/disk/quota/setQuota",
+                    data: {"groupname": targetUsergroup, "quota":actualQuota},
+                    method: "POST",
+                    success: function(data){
+                        $('#updateQuotaInterface').transition('fade down');
+                        if (data.error !== undefined){
+                            $("#oprfailed").text(data.error);
+                            $("#oprfailed").slideDown("fast").delay(3000).slideUp("fast");
+                        }else{
+                            initQuotaTable();
+                            $("#oprsucc").slideDown("fast").delay(3000).slideUp("fast");
+                        }
+                    }
+                });
+
+            }
+
+            function updateGroupQuota(object){
+                var groupname = $(object).attr("group");
+                $("#editingGroup").val(groupname);
+                usergroup = groupname;
+                if ($("#updateQuotaInterface").is(":hidden")){
+                    $("#updateQuotaInterface").transition('fade down');
+                }
+                
+            }
+
+            function formatBytes(bytes, decimals = 2) {
+                if (bytes === 0) return '0 Bytes';
+
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            }
+        </script>  
+    </body>
+</html>

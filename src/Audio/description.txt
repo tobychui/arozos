@@ -1,1 +1,0 @@
-The Audio function allow you to stream music or other audio files directly from your host to your mobile devices through Wifi Direct or local area netwrok. Powered by ArOZ Online ALPHA.

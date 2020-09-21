@@ -1,0 +1,30 @@
+/*
+ * jsCalendar theme
+ * Micro v1.2.1
+ * 
+ * 
+ * MIT License
+ * 
+ * Copyright (c) 2019 Grammatopoulos Athanasios-Vasileios
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * 
+ */
+
+.jsCalendar.micro-theme thead .jsCalendar-title{height:20px;line-height:20px}.jsCalendar.micro-theme thead .jsCalendar-title-name{font-size:14px;padding:0 5px}.jsCalendar.micro-theme thead .jsCalendar-nav-left,.jsCalendar.micro-theme thead .jsCalendar-nav-right{font-size:12px;height:20px;line-height:20px;margin:0;width:20px}.jsCalendar.micro-theme tbody td,.jsCalendar.micro-theme thead .jsCalendar-week-days th{height:20px;line-height:20px;margin:0;width:20px}.jsCalendar.micro-theme.classic-theme thead .jsCalendar-week-days th{width:23px}.jsCalendar.micro-theme.classic-theme tbody td,.jsCalendar.micro-theme.classic-theme thead .jsCalendar-week-days th{margin:-1px 0 0 -1px}

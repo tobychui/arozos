@@ -1,0 +1,159 @@
+<html>
+    <head>
+        <title>User Account</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    </head>
+    <body>
+        <div class="ui container">
+            <div class="ui basic segment">
+                <div class="ui header">
+                    <i class="user circle icon"></i>
+                        <div class="content">
+                        My Account
+                        <div class="sub header">Manage your account information and password</div>
+                    </div>
+                </div>
+            </div>
+            <div class="ui stackable grid">
+                <div class="six wide column">
+                    <div class="ui card">
+                        <div class="image">
+                            <img id="profileIcon" src="../users/img/noprofileicon.png">
+                        </div>
+                        <div class="content">
+                            <a id="username" class="header"></a>
+                            <div class="meta">
+                            <span id="usergroup" class="date"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="ten wide column">
+                    <h4 class="ui header">
+                        Change Profile Picture
+                    </h4>
+                    <button class="ui button" onclick="handleProfilePic();">Upload</button>
+                    <div class="ui divider"></div>
+                    <h4 class="ui header">
+                        Change Password
+                    </h4>
+                    <form class="ui form" onsubmit="handleSubmit(event);">
+                        <div class="field">
+                            <label>Old Password</label>
+                            <input id="opw" type="password"  placeholder="Old Password">
+                        </div>
+                        <div class="field">
+                            <label>New password</label>
+                            <input id="npw" type="password" placeholder="New Password">
+                        </div>
+                        <div class="field">
+                            <label>Confirm New Password</label>
+                            <input id="cpw" type="password" placeholder="Confirm New Password">
+                        </div>
+                        <button class="ui button" type="submit">Update</button>
+                    </form>
+                    <div id="msgbox" class="ui message" style="display:none;">
+                        <i class="close icon"></i>
+                        <div class="header">
+                            Welcome back!
+                        </div>
+                        <p class="message">This is a special notification which you can dismiss if you're bored with it.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            //Initiate user information
+            $.get("../../system/users/userinfo",function(data){
+                if (data.error !== undefined){
+                    //Not logged in?
+
+                }else{
+                    if (data.Icondata == ""){
+                        $("#profileIcon").attr('src', "../users/img/noprofileicon.png");
+                    }else{
+                        $("#profileIcon").attr('src', data.Icondata);
+                    }
+                    
+                    $("#username").text(data.Username);
+                    $("#usergroup").text(data.Usergroup);
+                }
+                
+            });
+
+            //Handle change password form submit
+            function handleSubmit(event){
+                event.preventDefault();
+                //Check if new password and confirm matches
+                var oldPassword = $("#opw").val();
+                var newPassword = $("#npw").val();
+                var confirmPassword = $("#cpw").val();
+                if (newPassword != confirmPassword){
+                    $("#cpw").parent().addClass("error");
+                    return;
+                }else{
+                    $("#cpw").parent().removeClass("error");
+                }
+
+                //OK to proceed.
+                $.ajax({
+                    url: "../../system/users/userinfo",
+                    method: "POST",
+                    data: {opr: "changepw", oldpw: oldPassword, newpw: newPassword},
+                    success: function(data){
+                        if (data.error != undefined){
+                            msgbox("Update Failed", data.error);
+                        }else{
+                            //Updated suceed.
+                            msgbox("Update Succeed", "Your password has been updated.");
+                        }
+                    }
+                });
+
+            }
+
+            function handleProfilePic(){
+                ao_module_selectFiles(function(files){
+                    if (FileReader && files && files.length) {
+                        var fr = new FileReader();
+                        fr.onload = function () {
+                            //Update the database for the new image
+                            var fullImageDatapath = fr.result;
+                            $.ajax({
+                                url: "../../system/users/userinfo",
+                                method: "POST",
+                                data: {opr: "changeprofilepic", picdata: fullImageDatapath},
+                                success: function(data){
+                                    if (data.error !== undefined){
+                                        console.log(data.error);
+                                    }else{
+                                        //Load the image into the src div
+                                        document.getElementById("profileIcon").src = fullImageDatapath;
+                                    }
+                                    
+                                }
+                            })
+                        }
+                        fr.readAsDataURL(files[0]);
+                    }
+                },"file", ".png",false);
+            }
+
+            function msgbox(header, message){
+                $("#msgbox").fadeIn('fast');
+                $("#msgbox").find(".header").text(header);
+                $("#msgbox").find(".message").text(message);
+            }
+
+            //Hook close msgbox event
+            $('.message .close')
+            .on('click', function() {
+                $(this).parent().fadeOut('fast');
+            });
+        </script>
+    </body>
+</html>

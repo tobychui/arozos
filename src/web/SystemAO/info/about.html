@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<head>
+    <title>System Info</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui segment" style="text-align:left">
+            <h3>ArOZ Online System</h3>
+            <p style="margin-top:-12px;">System Version: <span id="vcode"></span></p>
+            <p style="margin-top:-12px;">System UUID: <span id="sysuuid"></span></p>
+            <img src="../info/img/banner.png" class="ui fluid image"></img>
+            <br>
+            <p>Developed under ArOZ Project feat. IMUS Laboratory<br>
+               Initiated by Toby Chui since 2016, special thanks to Alan Yeung, AceSaad and others who help with this project.</p>
+            <div class="ui divider"></div>
+            <a href="mailto:imuslab@gmail.com" target="_blank"><i class="mail outline icon"></i>imuslab@gmail.com</a>
+            /
+            <a href="http://imuslab.com"><i class="home icon"></i>http://imuslab.com</a>
+        </div>
+        <p>The ArOZ Online System is CopyRight imuslab. Contact us at imuslab@gmail.com for licensing or issues.</p>
+        <br>
+    </div>
+</body>
+<script>
+    $.get("../../system/id/requestInfo",function(data){
+        $("#sysuuid").text(data.SystemUUID);
+        $("#vcode").text(data.Build + " v" + data.Version);
+    });
+
+
+</script>
+</html>

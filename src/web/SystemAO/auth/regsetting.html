@@ -1,0 +1,230 @@
+<html>
+    <head>
+        <title>Register Settings</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <style>
+
+        </style>
+    </head>
+    <body>
+        <div class="ui container">
+            <div class="ui basic segment">
+                <div class="ui header">
+                    <i class="registered icon"></i>
+                    <div class="content">
+                        Public Account Registry Settings
+                      <div class="sub header">Setup the public account registry on the current host system</div>
+                    </div>
+                  </div>
+            </div> 
+            <div class="ui red segment">
+                <h3><i class="exclamation icon"></i> Warning</h3>
+                <p>Allow public register flags (public_reg) has been enable on this host. Hence, you can setup an interface for public to register an user account on this host.
+                    Note that this setting interface will change the behavior of the system account creation process and might lead to security issues if this is not configured properly.<br>
+                    Please seek network security professionals for consultation before releasing access to public for registering. </p>
+            </div>
+            <div id="updateSuccessMsg" class="ui green segment" style="display:none">
+                <i class="checkmark icon"></i> Settings Updated
+            </div>
+            <div class="field">
+                <div class="ui toggle checkbox">
+                    <input id="apr" type="checkbox" tabindex="0" onchange="toggleRegistrySettings(this.checked);">
+                    <label>Allow Public Registry</label>
+                </div>
+            </div>
+            <div class="ui divider"></div>
+            <form id="registerSettings" class="ui form" style="display:none;" onsubmit="formsubmit(event);">
+                <div class="field">
+                    <div class="ui toggle checkbox">
+                        <input id="eivc" type="checkbox" tabindex="0" onchange="toggleInvideCode(this.checked);">
+                        <label>Enable Invitation Code</label>
+                    </div>
+                </div>
+                <div id="ivc" class="field" style="display:none;">
+                    <label>Invitation Code</label>
+                    <input type="text" name="invitecode" placeholder="Invitation Code">
+                    <small>Only user with invitation code can register</small>
+                </div>
+                <div class="field">
+                    <div  class="ui selection dropdown">
+                        <input id="usergroup" type="hidden" name="group" onchange="updateSelectedGroup(this.value);">
+                        <i class="dropdown icon"></i>
+                        <div class="default text">Default Group</div>
+                        <div id="grouplist" class="menu">
+                           
+                        </div>
+                    </div>
+                    <small>Not recommend using administrator as the default user group unless under very specific conditions.</small>
+                </div>
+                
+            </form>
+            <button class="ui primary button" onclick="formsubmit(event);">Apply</button>
+            <div id="loader" class="ui inverted active dimmer" style="display:none;">
+                <div class="ui text loader">Updating Configuration</div>
+            </div>
+            <br><br>
+        </div>
+        <script>
+            var selectedGroup = "";
+
+            $(document).ready(function(){
+                $.ajax({
+                    url: "../../public/register/settings",
+                    success: function(data){
+                        if (data.AllowPublicRegister == true){
+                            $("#apr")[0].checked = true;
+                        }else{
+                            $("#apr")[0].checked = false;
+                        }
+                        if (data.EnableInvitationCode == true){
+                            $("#eivc")[0].checked = true;
+                        }else{
+                            $("#eivc")[0].checked = false;
+                        }
+
+                        if ($("#eivc")[0].checked == true){
+                            toggleInvideCode(true);
+                        }
+
+                        if ($("#apr")[0].checked == true){
+                            toggleRegistrySettings(true);
+                        }
+
+                        if (data.InvitationCode !== ""){
+                            $("#ivc").find("input").val(data.InvitationCode);
+                        }
+
+                        initUserGroupList(data.DefaultUserGroup);
+                    },
+                    error: function(){
+                        window.location.reload();
+                    }
+                });
+                
+            });
+
+            function toggleInvideCode(visable){
+                if (visable){
+                    $("#ivc").slideDown("fast");
+                    if ($("#ivc").find("input").val() == ""){
+                        $("#ivc").find("input").val(makeid(16));
+                    }
+                }else{
+                    $("#ivc").slideUp("fast");
+                }
+            }
+
+            function initUserGroupList(defaultvalue=""){
+                $.get("../../system/permission/listgroup",function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        for (var i =0; i < data.length; i++){
+                            $("#grouplist").append(`<div class="item" value="${data[i]}">${data[i]}</div>`);
+                        }
+                    }
+
+                    $('.ui.dropdown').dropdown();
+                    if (defaultvalue != ""){
+                        console.log(defaultvalue);
+                        $('.ui.dropdown').dropdown('set selected', defaultvalue);
+                    }
+                })
+            }
+
+            function makeid(length) {
+                var result           = '';
+                var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                var charactersLength = characters.length;
+                for ( var i = 0; i < length; i++ ) {
+                    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+                }
+                return result;
+            }
+
+
+            function updateSelectedGroup(newSelectedGroup){
+                selectedGroup = newSelectedGroup;
+                if (selectedGroup == "administrator"){
+                    //Dangerous! Add warning label
+                    $("#usergroup").parent().addClass("error");
+                }else{
+                    $("#usergroup").parent().removeClass("error");
+                }
+            }
+
+            function toggleRegistrySettings(allowRegistry){
+                if (allowRegistry){
+                    $("#registerSettings").slideDown("fast");
+                }else{
+                    $("#registerSettings").slideUp("fast");
+                }
+            }
+
+            function formsubmit(e){
+                e.preventDefault();
+                //Parse the form data
+                var dataObject = {};
+                if ($("#apr")[0].checked == false){
+                    dataObject = {
+                        apr: false,
+                        eivc: false,
+                        icode: "",
+                        group: ""
+                    }
+                }else{
+                    var usergroup = $("#usergroup").val();
+                    if (usergroup == "administrator"){
+                        if (!confirm("Are you confirm you want to use adminstrator as the default group?")){
+                            return;
+                        }
+                    }
+                    var ivc = $("#eivc")[0].checked;
+                    if (!ivc){
+                        var invitationCode = "";
+                    }else{
+                        var invitationCode = $("#ivc").find("input").val();
+                    }
+                    dataObject = {
+                        apr: true,
+                        eivc: ivc,
+                        icode: invitationCode,
+                        group: usergroup
+                    }
+
+                }
+
+                //Ready to send the config to server
+                $("#loader").show();
+                console.log(dataObject);
+                $.ajax({
+                    url: "../../public/register/settings",
+                    method:"POST",
+                    data: {opr: "write", config: JSON.stringify(dataObject)},
+                    success: function(data){
+                        $("#loader").hide();
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            $("#updateSuccessMsg").slideDown("fast").delay(3000).slideUp("fast");
+                        }
+                        
+                    },
+                    error: function(data){
+                        $("#loader").hide();
+                        alert("Failed to update settings!")
+                    },
+                    timeout:15000
+                })
+            }
+
+            
+            
+           
+        </script>
+    </body>
+</html>

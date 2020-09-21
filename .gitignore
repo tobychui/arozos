@@ -1,1 +1,10 @@
 */Thumbs.db
+src/aroz_online.exe
+src/aroz_online
+src/localhost.crt
+src/localhost.key
+src/system/dev.uuid
+src/system/storage.json
+src/subservice/*
+src/*.go_disabled
+src/system/ao.db

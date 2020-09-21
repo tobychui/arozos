@@ -1,6 +1,0 @@
-user outline,Users
-acs,User Accounts,regi.php
-profpic,User Profile Icon,SystemAOB/functions/personalization/profilePic.php
-uid,Device UUID,SystemAOB/functions/info/uuid.php
-keyman,Key Manager,SystemAOB/functions/cluster/keyManager.php
-auth,Auth Cache,SystemAOB/functions/info/authcache.php

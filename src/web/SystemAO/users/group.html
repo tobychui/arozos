@@ -1,0 +1,119 @@
+<html>
+    <head>
+        <title>Group List</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+    </head>
+    <body>
+        <div class="ui container">
+            <div class="ui basic segment">
+                <div class="ui header">
+                    <i class="users icon"></i>
+                        <div class="content">
+                        Group Permissions
+                        <div class="sub header">Manage group permission and access right</div>
+                    </div>
+                </div>
+                <button class="ui primary small button" onclick="newgroupInterface();">
+                    <i class="add icon"></i>New Group
+                </button>
+                <button id="editGroupButton" class="ui small disabled button">
+                    Edit
+                </button>
+            </div>
+
+            <table class="ui very basic celled table">
+                <thead>
+                    <tr>
+                        <th>Group Name</th>
+                        <th>Access Permission</th>
+                        <th>Select</th>
+                    </tr>
+                </thead>
+                <tbody id="groupList" >
+                    <tr>
+                        <td>administrator</td>
+                        <td>All Modules (Administrator)</td>
+                        <td>
+                            <div class="ui checkbox">
+                                <input type="radio" name="selectUser" onchange="enableEdit(this);">
+                                <label></label>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+              </table>
+        </div>
+        <script>
+            var groupPermissionInfo = [];
+
+            loadGroupList();
+            function loadGroupList(){
+                $.get("../../system/permission/listgroup?showper=true",function(data){
+                   $("#groupList").html("");
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        for (const [key, value] of Object.entries(data)) {
+                            var accessPermission = "No Module Accessible";
+                            if (value.length == 1 && value[0] == "*"){
+                                accessPermission = "All Modules (Administrator)";
+                            }else{
+                                accessPermission = '<div class="ui bulleted list">';
+                                for (var i =0; i < value.length; i++){
+                                    accessPermission += '<div class="item">' + value[i] + '</div>';
+                                }
+                                accessPermission += '</div>'
+                                //console.log(accessPermission);
+                            }
+                            $("#groupList").append(`
+                            <tr>
+                                <td>${key}</td>
+                                <td>${accessPermission}</td>
+                                <td>
+                                    <div class="ui checkbox">
+                                        <input type="radio" name="selectUser" value="${key}" onchange="enableEdit(this);">
+                                        <label></label>
+                                    </div>
+                                </td>
+                            </tr>
+                            `);
+                        }
+                        groupPermissionInfo = data;
+                    }
+
+                    
+                });
+            }
+
+
+            function enableEdit(obj){
+                console.log($(obj).val());
+                $("#editGroupButton").removeClass('disabled');
+            }
+
+            function newgroupInterface(){
+                ao_module_newfw({
+                    url: "SystemAO/users/newgroup.html",
+                    width: 560,
+                    height: 768,
+                    appicon: "SystemAO/users/img/group_white.png",
+                    title: "Create User Group",
+                    parent: ao_module_windowID,
+                    callback: "confirmCreateHandler"
+                });
+            }
+
+            //Finished adding group. Update grouplist
+            function confirmCreateHandler(data){
+                if (data){
+                    loadGroupList();
+                }
+            }
+        </script>
+    </body>
+</html>

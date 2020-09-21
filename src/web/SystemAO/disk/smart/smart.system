@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=0.6, maximum-scale=0.6"/>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<script type='text/javascript' charset='utf-8'>
+		// Hides mobile browser's address bar when page is done loading.
+		window.addEventListener('load', function(e) {
+			setTimeout(function() { window.scrollTo(0, 1); }, 1);
+		}, false);
+	</script>
+	<title>ArOZ Onlineβ</title>
+	<link rel="stylesheet" href="../../../script/tocas/tocas.css">
+	<script src="../../../script/tocas/tocas.js"></script>
+	<script src="../../../script/jquery.min.js"></script>
+	<!--<script src="../../../script/ao_module.js"></script>-->
+	<style>
+
+	</style>
+</head>
+<body style="background-color: rgba(255, 255, 255,0.9)">
+    	<div class="ts relaxed separated mini compact buttons">
+		<button onclick="showSMART(this)" class="ts button">Health Info</button>
+		<button onclick="shortTest(this)"class="ts button">S.M.A.R.T Test</button>
+	</div>
+	<div class="ts divider"></div>
+		<div class="ts bottom attached vertical menu" id="mainmenu">
+{{html_result}}
+		</div>
+
+
+
+
+	
+
+	
+<div id="mainmenumsg" style="display:none;">
+    <p>Location: <span id="location"></span></p>
+    <p>Temperature: <span id="temperature"></span></p>
+    <p>Serial Number: <span id="serial_number"></span></p>
+    <p>Firmware Version: <span id="firmware_version"></span></p>
+    <p>SMART Support: <span id="smart"></span></p>
+</div>
+
+<div>
+</div>
+
+<!-- use for displaying dialog , for VDI user , use VDI module instead -->
+<div class="ts modals dimmer">
+    <dialog id="modal" class="ts basic modal" style="background-color: white;color: black!important" open>
+        <div class="content" id="modaldata">
+        </div>
+		<div class="actions">
+			<div class="ts fluid separated stackable buttons">
+				<button class="ts info button">Close</button>
+			</div>
+		</div>
+</div>
+
+<div id="msgbox" class="ts bottom right snackbar">
+    <div class="content">
+        Your request is processing now.
+    </div>
+</div>
+
+<br><br>
+<script>
+ts('.secondary.menu .item').tab();
+
+var lastSelectedObject="";
+
+function showSMART(){
+	if($("div[active='true']").length == 0){
+		msg("Nothing selected");
+	}else{
+		showDialog("table.system?disk=" + $("div[active='true']").attr("diskid") ,300,300);
+	}
+}
+
+function shortTest(){
+	if($("div[active='true']").length == 0){
+		msg("Nothing selected");
+	}else{
+		showDialog("dotest.system?disk=" + $("div[active='true']").attr("diskid") ,300,300);
+	}
+}
+
+function selected(object){
+	if (lastSelectedObject != ""){
+		$(lastSelectedObject).css("border-style","solid");
+		$(lastSelectedObject).css("border-width","0px");
+		$(lastSelectedObject).css("border-color","#ffffff");
+		$(lastSelectedObject).css("background-color","#ffffff");
+		$(lastSelectedObject).removeAttr("style");
+		$(lastSelectedObject).removeAttr("active");
+		$(lastSelectedObject).children("div[class='ts comments']").children("div[class='comment']").children("div[class='avatar']").children("i[name='arrow']").attr("class","large chevron down icon")
+	}
+	$(object).css("border-style","solid");
+	$(object).css("border-width","1px");
+	$(object).css("border-color","#5998ff");
+	$(object).css("background-color","#e2fdff");
+	$(object).attr("active","true");
+	$(object).attr("active","true");
+	$(object).children("div[class='ts comments']").children("div[class='comment']").children("div[class='avatar']").children("i[name='arrow']").attr("class","large chevron up icon")
+	$("#mainmenumsg").appendTo(object);
+	$("#mainmenumsg").show();
+	$("#location").text($(object).attr("location"));
+	$("#temperature").text($(object).attr("temperature"));
+	$("#serial_number").text($(object).attr("serial_number"));
+    $("#firmware_version").text($(object).attr("firmware_version"));
+    $("#smart").text($(object).attr("smart"));
+	
+    lastSelectedObject = object;
+
+}
+
+
+
+
+function msg(content) {
+		ts('.snackbar').snackbar({
+			content: content,
+			actionEmphasis: 'negative',
+		});
+}
+
+
+function showDialog(href,x,y){
+	$( "#modaldata" ).html("");
+	if (loadViaSystemSetting !== undefined && loadViaSystemSetting == true){
+		href = "../disk/smart/" + href;
+	}
+	$( "#modaldata" ).load( href );
+	ts('#modal').modal({
+		approve: '.info',
+		onApprove: function() {
+			try {
+				clearInterval(timer);
+			}catch(err) {}
+		}
+	}).modal("show")
+}
+</script>
+</body>
+</html>

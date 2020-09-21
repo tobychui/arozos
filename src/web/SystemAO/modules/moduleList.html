@@ -1,0 +1,97 @@
+<html>
+    <head>
+        <title>Module List</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+    </head>
+    <body>
+        <div class="ui container">
+            <table class="ui basic celled structured table">
+                <thead>
+                  <tr>
+                      <th rowspan="2">Module</th>
+                      <th rowspan="2">Group</th>
+                      <th rowspan="2">Supported Extensions</th>
+                      <th colspan="3">Supported Mode</th>
+                  </tr>
+                  <tr>
+                    <th>Default</th>
+                    <th>FloatWindow</th>
+                    <th>Embedded</th>
+                  </tr>
+                </thead>
+                <tbody id="moduleList">
+                  
+                </tbody>
+              </table>
+        </div>
+        <script>
+            initModuleList();
+
+            function initModuleList(){
+                $("#moduleList").html("");
+                $.ajax({
+                    url: "../../system/modules/list",
+                    success: function(data){
+                        console.log(data);
+                        for (var i =0; i < data.length; i++){
+                            var thisModule = data[i];
+                            var iconURL = "../../img/system/service.png";
+                            if (thisModule.IconPath !== ""){
+                                iconURL = "../../" + thisModule.IconPath;
+                            }
+                            var supportMode = ['<i class="large red remove icon"></i>', '<i class="large red remove icon"></i>', '<i class="large red remove icon"></i>'];
+                            var group = "Unknown";
+                            if (thisModule.Group != ""){
+                                group = thisModule.Group;
+                            }
+                            if (thisModule.StartDir != ""){
+                                supportMode[0] = '<i class="large green checkmark icon"></i>';
+                            }
+                            if (thisModule.SupportFW == true){
+                                supportMode[1] = '<i class="large green checkmark icon"></i>';
+                            }
+                            if (thisModule.SupportEmb == true){
+                                supportMode[2] = '<i class="large green checkmark icon"></i>';
+                            }
+                            var supportedExt = "N/A";
+                            if (thisModule.SupportedExt !== null){
+                                supportedExt = thisModule.SupportedExt.join("<br>");
+                            }
+                            $("#moduleList").append(`<tr>
+                                <td>
+                                    <h4 class="ui image header">
+                                        <img src="${iconURL}" class="ui mini rounded image">
+                                        <div class="content">
+                                            ${thisModule.Name}
+                                            <div class="sub header">Version: ${thisModule.Version} </div>
+                                        </div>
+                                    </h4>
+                                </td>
+                                <td>
+                                ${group}
+                                </td>
+                                <td>
+                                ${supportedExt}
+                                </td>
+                                <td>
+                                ${supportMode[0]}
+                                </td>
+                                <td>
+                                ${supportMode[1]}
+                                </td>
+                                <td>
+                                ${supportMode[2]}
+                                </td>
+                            </tr>`);
+                        }
+                    }
+                });
+            }
+        </script>
+    </body>
+</html>

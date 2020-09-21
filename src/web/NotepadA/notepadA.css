@@ -1,0 +1,250 @@
+
+.npa.menu{
+    padding-left:0px;
+    padding-right:12px;
+    color:white;
+    margin-bottom:6px;
+}
+.npa.menu .item{
+    display:inline-block;
+    vertical-align: middle;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top:4px;
+    padding-bottom:4px;
+    border-right: 1px solid #383838;
+}
+.npa.menu .item.selectable{
+    cursor:pointer;
+}
+.npa.menu .item.selectable:hover{
+    background-color: rgba(250,250,250,0.2);
+}
+.bottommenu{
+    padding:2px;
+    padding-left:8px;
+    background-color: #49a2eb;
+    color: white;
+    position:fixed;
+    bottom:0px;
+    left:0px;
+    width:100%;
+}
+/*
+    Bottom bar items css
+*/
+.bottommenu .item{
+    cursor:pointer;
+    display: inline-block;
+    padding-left:6px;
+    padding-right:6px;
+}
+.bottommenu .item:hover{
+    background-color: rgba(250,250,250,0.1);
+}
+.bottommenu .rightpadded{
+    position:absolute;
+    right:12px;
+    bottom:3px;
+}
+.extrapadding{
+    padding-left:12px;
+}
+.padding{
+    width:12px;
+}
+
+/*
+    Main code area and directory listing
+
+*/
+
+#directoryList{
+    width:240px;
+    position:absolute;
+    top:34px;
+    left:0px;
+    height:calc(100% - 54px);
+    overflow-y:auto;
+    background-color:#292929;
+
+}
+#directoryList .item{
+    color:white;
+    padding:2px;
+    padding-left:12px;
+    font-size:80%;
+    cursor:pointer;
+}  
+
+
+#directoryList .item:hover{
+    background-color: rgba(250,250,250,0.05);
+}  
+
+#directoryList .title.item{
+    background-color:#3b3b3b;
+    color:white;
+}  
+#directoryList .banner{
+    font-size:80%;
+    padding:8px;
+    padding-left:12px;
+    color:rgba(255, 255, 255, 0.747);
+}  
+
+#directoryList .subgroup .item{
+    color:white;
+    padding:2px;
+    padding-left:32px;
+    font-size:80%;
+    cursor:pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+} 
+
+#directoryList .subgroup .dirlist{
+    color:white;
+    padding-left:10px;
+    
+}
+#directoryList .subgroup .dirlist .subitem{
+    font-size:80%;
+    padding:3px;
+    padding-left:32px;
+    cursor:pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dirlist .subitem:hover{
+    background-color: rgba(250,250,250,0.05);
+}
+
+#directoryList .subgroup .item.selected{
+    background-color: rgba(250,250,250,0.05);
+}  
+
+
+#codeArea .codeBoard{
+    height: 100%;
+    width:100%;
+}
+
+#codeArea .codeBoard.splitMode{
+    height: calc(100% - 6px);
+    width:50%;
+}
+
+#codeArea .codeBoard.splitMode.right{
+    position:absolute;
+    top:0px;
+    right:0px;
+}
+
+#codeArea .codeBoard.splitMode.left{
+    position:absolute;
+    top:0px;
+    left:0px;
+}
+
+#codeArea .editor{
+    height: calc(100% - 32px);
+}
+
+#codeArea{
+    width: calc(100% - 240px);
+    position:absolute;
+    top:34px;
+    right:0px;
+    height:calc(100% - 52px)
+}
+
+#codeArea .codeBoard .tabs{
+    width:100%;
+    overflow-x:auto;
+    min-height:32px;
+}
+
+#codeArea .codeBoard .tabs .item{
+    padding:6px;
+    padding-left: 8px;
+    padding-right: 3px;
+    background-color: #2d2d2d;
+    color: #969696;
+    font-size:80%;
+    cursor:pointer;
+    display:inline-block;
+}
+
+#codeArea .codeBoard .tabs .item .closebtn{
+    margin-left:12px;
+    float: right;
+    display:block;
+}
+
+#codeArea .codeBoard .tabs .item.selected{
+    background-color: #1e1e1e;
+    color: white;
+    cursor:pointer;
+}
+
+/*
+    Context Menu Styling
+
+*/
+.contextMenu{
+    background-color:#3c3c3c;
+    box-shadow: 2px 3px 13px 0px rgba(0,0,0,0.39);
+    position:fixed;
+    top:100px;
+    left:100px;
+    z-index:999;
+    width:220px;
+    display:none;
+    color:white;
+}
+
+.contextMenu .item{
+    padding:4px;
+    padding-left:18px;
+    padding-right:8px;
+    font-size:88%;
+    cursor:pointer;
+}
+
+.contextMenu .item .tips{
+    float: right;
+    display:block;
+}
+
+.contextMenu .divider{
+    border-bottom: 1px solid #6f6f6f;
+    padding-top:4px;
+    margin-bottom:4px;
+    margin-left:12px;
+    margin-right:12px;
+}
+
+.contextMenu .item:hover{
+    background-color: #094771;
+}
+
+.editorcover{
+    width:100%;
+    height:100%;
+    position:absolute;
+    left:0px;
+    top:32px;
+    background-color:#1e1e1e;
+    border-right: 1px solid black;
+}
+
+#contextMenu .item.disabled{
+    /*
+    background-color: rgba(250,250,250,0.1) !important;
+    */
+    
+}

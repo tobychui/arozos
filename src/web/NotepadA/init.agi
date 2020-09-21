@@ -1,0 +1,28 @@
+/*
+	NotepadA Module Registration Information
+	
+	Do not try to call any AJGI users / filepath functions in this script.
+*/
+
+//Create database for this module
+newDBTableIfNotExists("NotepadA")
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "NotepadA",
+	Desc: "The best code editor on ArOZ Online",
+	Group: "Office",
+	IconPath: "NotepadA/img/module_icon.png",
+	Version: "1.2",
+	StartDir: "NotepadA/index.html",
+	SupportFW: true,
+	LaunchFWDir: "NotepadA/index.html",
+	SupportEmb: true,
+	LaunchEmb: "NotepadA/embedded.html",
+	InitFWSize: [1024, 768],
+	InitEmbSize: [360, 200],
+	SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

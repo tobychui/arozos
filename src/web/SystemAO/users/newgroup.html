@@ -1,0 +1,195 @@
+<html>
+    <head>
+        <title>Create Group</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <link rel="stylesheet" href="../../script/ao.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:white;
+            }
+            .themebackground{
+                background-color:#4287f5 !important;
+                color:white !important;
+                background-image: url("/img/public/slate.png") !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+            }
+            .required{
+                color:red;
+            }
+            .actionbtns{
+                text-align:right;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ts heading fluid padded slate themebackground" >
+            <span class="header">
+            <i class="users icon"></i> Create Users Group</span>
+            <span class="description">Fill in the following group information to proceed.</span>
+        </div>
+        <br>
+        <div class="ts container">
+            <div class="ts horizontal form">
+                <div class="field">
+                    <label>Group Name <span class="required">*</span></label>
+                    <input id="groupname" type="text">
+                </div>
+                <div class="field">
+                    <label>Allow Access <span class="required">*</span></label>
+                    <select id="allowAccessList">
+                        <option value="*">*All Modules</option>
+                    </select>
+                    <small>"All Modules" will allow this user group to have access to all modules currently installed on the system. But modules added in the future will not be included automatically.</small>
+                </div>
+                <div style="height:40px;">
+                    <button class="ts primary small right floated button" onclick="addPermission()"><i class="add icon"></i> Add Permission</button>
+                </div>
+                <div class="ts divider"></div>
+                <table class="ts celled striped  table">
+                    <thead>
+                        <tr>
+                            <th >#</th>
+                            <th>Module Name</th>
+                            <th>Remove Access</th>
+                        </tr>
+                    </thead>
+                    <tbody id="selectedModuleList">
+                       
+                    </tbody>
+                </table>
+                <div class="ts divider"></div>
+                <div align="right">
+                    <button class="ts primary button" onclick="createGroup();">Create</button>
+                    <button id="cancelbtn" class="ts button" onclick="cancel();">Cancel</button>
+                </div>
+                <div id="errorbox" class="ts inverted negative segment" style="display:none;">
+                    <p></p>
+                </div>
+            </div>
+            <br><br>
+        </div>
+        <script>
+            var selectedModules = [];
+            var moduleList = [];
+            //Init functions
+            initModuleList();
+
+            function createGroup(){
+                var groupname = $("#groupname").val();
+                if (groupname == ""){
+                    $("#groupname").parent().removeClass("success").addClass("error");
+                    return
+                }else{
+                    $("#groupname").parent().removeClass("error").addClass("success");
+                }
+
+                //Continue to create usergroup
+                targetModuleList = [];
+                for (var i =0; i < selectedModules.length; i++){
+                    targetModuleList.push(selectedModules[i].Name);
+                }
+
+                //Send Request to server side
+                $.ajax({
+                    url: "../../system/permission/newgroup",
+                    data: {
+                        "groupname": groupname, 
+                        "permission": JSON.stringify(targetModuleList)
+                    },
+                    traditional: true,
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            $("#errorbox").slideDown();
+                            $("#errorbox").find("p").text(data.error);
+                        }else{
+                            ao_module_parentCallback(true);
+                            ao_module_close();
+                        }
+                    }
+                })
+            }
+
+            function initModuleList(){
+                $.get("../../system/modules/list",function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        for (var i =0; i < data.length; i++){
+                            if (data[i].StartDir !== ""){
+                                $("#allowAccessList").append(`<option value="${data[i].Name}" icon="${data[i].IconPath}">${data[i].Name}</option>`);
+                            }else{
+                                //Utlities modules. Always allow access
+
+                            }
+                        }
+                        moduleList = data;
+                    }
+                });
+            }
+
+            function addPermission(){
+                var thisModule = $("#allowAccessList").val();
+                if (thisModule == "*"){
+                    for (var i =0; i < moduleList.length; i++){
+                        if (!selectedModules.includes(moduleList[i])){
+                            selectedModules.push(moduleList[i]);
+                        }
+                    }
+                }else{
+                     //Look for the correct module to add to list
+                    for (var i =0; i < moduleList.length; i++){
+                        if (moduleList[i].Name == thisModule){
+                            //console.log(moduleList[i]);
+                            if (!selectedModules.includes(moduleList[i])){
+                                selectedModules.push(moduleList[i]);
+                            }
+                        }
+                    }
+                }
+                renderSelectedModuleList();
+            }
+
+            function removePermission(object){
+                var moduleName = $(object).attr("name");
+                for (var i =0; i < selectedModules.length; i++){
+                    if (selectedModules[i].Name == moduleName){
+                        selectedModules.splice(i, 1);
+                    }
+                }
+                
+                renderSelectedModuleList();
+            }
+
+            renderSelectedModuleList();
+            function renderSelectedModuleList(){
+                $("#selectedModuleList").html("");
+                for (var i = 0; i < selectedModules.length; i++){
+                    $("#selectedModuleList").append(`<tr>
+                            <td class="collapsing"><img class="ts mini image" src="../../${selectedModules[i].IconPath}"/></td>
+                            <td>${selectedModules[i].Name}</td>
+                            <td><button name="${selectedModules[i].Name}" class="ts negative mini button" onclick="removePermission(this);"><i class="remove icon"></i> Remove</button></td>
+                        </tr>`);
+                }
+                if (selectedModules.length == 0){
+                    $("#selectedModuleList").append(`<tr>
+                        <td class="collapsing"><img class="ts mini image" src="img/nomodule.png"></img></td>
+                        <td>No Module Selected</td>
+                        <td></td>
+                       </tr>`);
+                }
+            }
+
+            function cancel(){
+                ao_module_close();
+            }
+            
+        </script>
+    </body>
+</html>

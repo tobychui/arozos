@@ -1,0 +1,218 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>ArOZ Online - Login</title>
+    <link rel="stylesheet" href="script/tocas/tocas.css">
+    <link rel="stylesheet" href="script/ao.css">
+    <script type="application/javascript" src="script/tocas/tocas.js"></script>
+    <script type="application/javascript" src="script/jquery.min.js"></script>
+    <style>
+    @media only screen and (max-height: 1000px) {
+        .leftPictureFrame {
+        height:auto !important;
+        }
+    }
+
+    .leftPictureFrame{
+        position:fixed;
+        top:0px;
+        left:0px;
+        min-width:calc(100% - 500px);
+        min-height:100%;
+        background-color:#faf7eb;
+        background-image:url("img/public/auth_bg.jpg");
+        -webkit-background-size: cover;
+        -moz-background-size: cover;
+        -o-background-size: cover;
+        background-size: cover;
+        background-repeat: no-repeat, no-repeat;
+        background-position:bottom left;
+    }
+
+    .rightLoginFrame{
+        position:fixed;
+        top:0;
+        right:0;
+        height:100%;
+        width:500px;
+        background-color:white;
+        z-index:100%;
+        padding-left: 30px;
+        padding-right: 20px;
+    }
+
+    .fullHeightImage{
+        height:100% !important;
+        position:relative;
+        left:-20px;
+        
+    }
+
+    .bottombar{
+        position:absolute;
+        bottom:1em;
+        left:0;
+        padding-left: 20px;
+        width:100%;
+    }
+
+    #animationFrame{
+        position:absolute;
+        bottom:0px;
+        width:100%;
+    }
+
+    .textbox{
+        margin-bottom:15px;
+    }
+
+    .loginbtn{
+        background-color: #0d0d0d !important;
+        color:white !important;
+        margin-top:4em;
+    }
+
+    </style>
+    </head>
+    <body>
+        <div class="leftPictureFrame">
+            
+        </div>
+        <div id="loginInterface" class="rightLoginFrame">
+            <br><br><br>
+            <img class="ts medium image" src="data:image/png;base64, {{service_logo}}">
+
+            <div class="ts borderless basic segment">
+                <p><i class="key icon"></i> Login with your ArOZ Online username and password</p>
+                <br>
+                <div class="ts fluid input textbox">
+                    <input id="username" type="text" placeholder="Username">
+                </div>
+                <div class="ts fluid input textbox">
+                    <input id="magic" type="password" placeholder="Password">
+                </div>
+
+                <div class="ts checkbox">
+                    <input id="rmbme" type="checkbox">
+                    <label for="rmbme">Remember Me</label>
+                </div>
+                
+                <br>
+                <button id="loginbtn" class="ts button loginbtn" style="background-color:#00b5ad !important;">Login</button><br>
+                <p id="signup" style="display:none;">No account? <a style="cursor:pointer" href="public/register"> Sign Up now</a></p>
+                <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span id="errmsg">Error. Incorrect username or password.</span></p>
+               
+            </div>
+           
+            <div class="bottombar">
+                © ArOZ Online System (Go Edition) .feat <a href="http://imuslab.com">imuslab</a><br>
+                <i class="disk outline icon"></i> <span id="serverAddr"></span>  ⇄  <i class="laptop icon"></i> <span id="clientAddr"></span>
+            </div>
+        </div>
+        
+    <script>
+        var redirectionAddress = "{{redirection_addr}}";
+        var systemUserCount = "{{usercount}}" - 0; //Magic way to convert string to int :)
+        var isMobile = false; //initiate as false
+        // device detection
+        if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent) 
+            || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(navigator.userAgent.substr(0,4))) { 
+            isMobile = true;
+        }  
+
+        if (isMobile){
+            //Full screen the login panel
+            $("#loginInterface").css("width","100%");
+        }
+
+        if (systemUserCount == 0){
+            //There are no user in this system yet. Rediect to user setup
+            window.location.href = "/user.system";
+        }
+
+        $(document).ready(function(){
+            //Update the target endpoint IP and this client IP through server reflection
+            $.get("system/auth/reflectIP",function(data){
+                //Get the client IP by seeing the reflection from server
+                if (data != ""){
+                    $("#clientAddr").text(data);
+                }else{
+                    $("#clientAddr").text("Unknown");
+                }
+                var serverAddr = location.host;
+                serverAddr = serverAddr.split(":")[0];
+                $("#serverAddr").text(serverAddr);
+            });
+
+            //Check if the user already logged in
+            $.get("system/auth/checkLogin",function(data){
+                if (data.trim() == "true"){
+                    //User already logged in. Redirect to target page.
+                    if (redirectionAddress == ""){
+                        //Redirect back to index
+                        window.location.href = "/";
+                    }else{
+                        console.log(data);
+                        //window.location.href = redirectionAddress;
+                    }
+                    
+                }
+            });
+
+            //Check if the system is open for registry
+            $.get("system/auth/checkPublicRegister",function(data){
+                if (data == true){
+                    $("#signup").show();
+                }else{
+                    $("#signup").remove();
+                }
+            })
+        });
+
+        //Event handlers for buttons
+        $("#loginbtn").on("click",function(){
+            login();
+        });
+
+        $("input").on("keydown",function(event){
+            if (event.keyCode === 13) {
+                event.preventDefault();
+                if ($(this).attr("id") == "magic"){
+                    login();
+                }else{
+                    //Fuocus to password field
+                    $("#magic").focus();
+                }
+                
+            }
+        });
+
+        //Login system with the given username and password
+        function login(){
+            var username = $("#username").val();
+            var magic = $("#magic").val();
+            var rmbme = document.getElementById("rmbme").checked;
+            $("input").addClass('disabled');
+            $.post("/system/auth/login", {"username": username, "password": magic, "rmbme": rmbme}).done(function(data){
+                if (data.includes("Error")){
+                    //Something went wrong during the login
+                    $("#errmsg").text(data);
+                    $("#errmsg").parent().slideDown('fast').delay(5000).slideUp('fast');
+                }else{
+                    //Login succeed
+                    if (redirectionAddress == ""){
+                        //Redirect back to index
+                        window.location.href = "/";
+                    }else{
+                        window.location.href = redirectionAddress;
+                    }
+                }
+                $("input").removeClass('disabled');
+            });
+
+        }
+    </script>
+    </body>
+</html>

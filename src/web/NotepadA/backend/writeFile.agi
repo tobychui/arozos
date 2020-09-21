@@ -1,0 +1,18 @@
+//NotepadA File writing API
+//Required paramters: filepath, content
+
+if (typeof filepath == "undefined" || typeof content == "undefined"){
+    //Missing paramters
+    sendJSONResp(JSON.stringify({
+        error: "Invalid filename or contents"
+    }));
+}else{
+    //OK. Write to target directory
+    if (writeFile(filepath, content)){
+        sendResp("OK");
+    }else{
+        sendJSONResp(JSON.stringify({
+            error: "Unable to write to file: " + filepath
+        }));
+    }
+}
