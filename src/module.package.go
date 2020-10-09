@@ -23,8 +23,18 @@ func module_package_init(){
 
 //Install the given package if not exists. Set mustComply to true for "panic on failed to install"
 func module_package_installIfNotExists(pkgname string, mustComply bool) error{
+	//Clear the pkgname
+	pkgname = strings.ReplaceAll(pkgname, "&","")
+	pkgname = strings.ReplaceAll(pkgname, "|","")
+	
 	if runtime.GOOS == "windows" {
-		return errors.New("Windows not supported")
+		//Check if the command already exists in windows path paramters.
+		cmd := exec.Command("where", pkgname, "2>", "nul")
+		_, err := cmd.CombinedOutput()
+		if err != nil{
+			return errors.New("Package " + pkgname + " not found in Windows %PATH%.")
+		}
+		return nil
 	}
 
 	if (*allow_package_autoInstall == false){

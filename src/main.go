@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,7 +11,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"fmt"
 
 	bolt "github.com/boltdb/bolt"
 	mdns "github.com/grandcat/zeroconf"
@@ -35,14 +35,14 @@ var startingUp = true //Indicate if the system is undergoing startup process
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"             //System build flag, this can be either {development / production / stable}
-var internal_version = "0.0.420"              //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][1-9]\
+var internal_version = "0.0.450"              //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
 var deviceUUID string                         //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"              //Vendor of the system
 var deviceModel = "AR100"                     //Hardware Model of the system
 var iconVendor = "img/vendor/vendor_icon.png" //Vendor icon location
 var iconSystem = "img/vendor/system_icon.png" //System icon location
 
-// =========== RUNTTIME RELATED ================
+// =========== RUNTTIME RELATED ================S
 var max_upload_size int64 = 8192 << 20                         //Maxmium upload size, default 8GB
 var sudo_mode bool = (os.Geteuid() == 0 || os.Geteuid() == -1) //Check if the program is launched as sudo mode or -1 on windows
 
@@ -55,6 +55,7 @@ var system_uuid = flag.String("uuid", "", "System UUID for clustering and distri
 var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving")
 var tls_cert = flag.String("cert", "localhost.crt", "TLS certificate file (.crt)")
 var tls_key = flag.String("key", "localhost.key", "TLS key file (.key)")
+var allow_upnp = flag.Bool("allow_upnp", false, "Enable uPNP service, recommended for host under NAT router")
 
 //Flags related to files and uploads
 var max_upload = flag.Int("max_upload_size", 8192, "Maxmium upload size in MB. Must not exceed the available ram on your system")
@@ -92,6 +93,12 @@ func SetupCloseHandler() {
 		log.Println("\r- Shutting down database")
 		system_db_closeDatabase(sysdb)
 
+		//Shutdown uPNP service if enabled
+		if *allow_upnp{
+			log.Println("\r- Shutting down uPNP connection")
+			network_upnp_close();
+		}
+
 		//Cleaning up tmp files
 		log.Println("\r- Cleaning up tmp folder")
 		os.RemoveAll(*tmp_directory)
@@ -122,14 +129,14 @@ func mdlwr(h http.Handler) http.Handler {
 
 			//Append the redirection addr into the template
 			imgsrc := "./web/" + iconSystem
-			if (!fileExists(imgsrc)){
-				imgsrc = "./web/img/public/auth_icon.png";
+			if !fileExists(imgsrc) {
+				imgsrc = "./web/img/public/auth_icon.png"
 			}
-			imageBase64, _ := LoadImageAsBase64(imgsrc);
+			imageBase64, _ := LoadImageAsBase64(imgsrc)
 			parsedPage, err := template_load("web/login.system", map[string]interface{}{
 				"redirection_addr": red,
 				"usercount":        strconv.Itoa(system_auth_getUserCounts()),
-				"service_logo":		imageBase64,
+				"service_logo":     imageBase64,
 			})
 			if err != nil {
 				panic("Error. Unable to parse login page. Is web directory data exists?")
@@ -200,11 +207,11 @@ func main() {
 	flag.Parse()
 
 	//Handle version printing
-	if (*show_version){
+	if *show_version {
 		fmt.Println("ArOZ Online " + build_version + " Revision " + internal_version)
 		fmt.Println("CopyRight tobychui and other co-developers, Licensed to " + deviceVendor)
 		fmt.Println("THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.")
-		os.Exit(0);
+		os.Exit(0)
 	}
 
 	//Handle flag assignments
@@ -226,6 +233,11 @@ func main() {
 	//Print copyRight information
 	log.Println("ArOZ Online(C) 2020 " + deviceVendor + ".")
 	log.Println("ArOZ Online " + build_version + " Revision " + internal_version)
+
+	//Handle uPNP setup
+	if *allow_upnp{
+		network_upnp_init()
+	}
 
 	//Initiate the main system database
 	sysdb = system_db_service_init("system/ao.db")

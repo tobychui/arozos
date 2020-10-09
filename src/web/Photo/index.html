@@ -53,7 +53,7 @@
             Photo
         </div>
         <div class="item" id="searchBar">
-            <div class="ui fluid multiple search selection dropdown">
+            <div class="ui fluid multiple search selection dropdown" id="search">
                 <input name="tags" type="hidden">
                 <i class="dropdown icon"></i>
                 <div class="default text">Search</div>
@@ -116,19 +116,19 @@
             } else {
                 $scope.imgs = imgs;
             }
-            loader()
+            setTimeout(function() {
+                var gallerys = new Viewer(document.getElementById('galley'), {
+                    url: 'data-original',
+                    title: [1, (image, imageData) => `${image.alt} (${imageData.naturalWidth} × ${imageData.naturalHeight})`]
+                });
+                loader();
+            }, 1000);
+
         })
         $scope.reload = function() {
-            location.reload();
-        }
-        setTimeout(function() {
-            var gallerys = new Viewer(document.getElementById('galley'), {
-                url: 'data-original',
-                title: [1, (image, imageData) => `${image.alt} (${imageData.naturalWidth} × ${imageData.naturalHeight})`]
-            });
-        }, 1000);
-
-        //load the searchbar again.
+                location.reload();
+            }
+            //load the searchbar again.
         if (get("q") !== undefined) {
             var quDP = get("q").split(",")
             $('.ui.fluid.dropdown').dropdown('set selected', quDP);
@@ -148,14 +148,32 @@
         .dropdown({
 
         });
-    $('.ui.fluid.multiple.search.selection.dropdown')
-        .dropdown({
-            allowAdditions: true,
-            apiSettings: {
-                // this url parses query server side and returns filtered results
-                url: 'search?q={query}'
-            },
-        });
+
+    $('.ui.fluid.multiple.search.selection.dropdown').dropdown({
+        apiSettings: {
+            responseAsync: function(settings, callback) {
+                var result;
+                var response = {
+                    success: true
+                }
+                $.ajax({
+                    url: "/system/ajgi/interface?script=/Photo//backend/search.js",
+                    type: "post",
+                    dataType: "json",
+                    data: {
+                        "q": $("#search > .sizer").first().text()
+                    },
+                    success: function(ret) {
+                        result = ret;
+                    },
+                    complete: function() {
+                        response.results = result;
+                        callback(response); // Important to call the callback!
+                    }
+                });
+            }
+        }
+    });
 
     updateSearchBarSize();
     $(window).on("resize ", function() {

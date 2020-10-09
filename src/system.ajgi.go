@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"os/exec"
+	"encoding/csv"
 
 	"github.com/robertkrimen/otto"
 )
@@ -22,9 +24,13 @@ import (
 */
 
 type agiLibInterface func(*otto.Otto, string) //Define the lib loader interface for AGI Libraries
+type agiPkgInterface struct{
+	InitRoot string					//The initialization of the root for the module that request this package
+}
 var (
 	systemOnlyTable = []string{"auth", "permission"}
 	ajgiUsableLibs  = map[string]agiLibInterface{}
+	ajgiUsablePkgs = map[string][]agiPkgInterface{}
 )
 
 func system_ajgi_init() {
@@ -41,7 +47,7 @@ func system_ajgi_init() {
 		vm := otto.New()
 
 		//Only allow non user based operations
-		system_ajgi_injectArOZLibs(vm)
+		system_ajgi_injectArOZLibs(vm, script)
 
 		_, err := vm.Run(scriptContent)
 		if err != nil {
@@ -144,7 +150,7 @@ func system_ajgi_injectUserFunctions(vm *otto.Otto, username string) {
 }
 
 //Inject aroz online custom functions into the virtual machine
-func system_ajgi_injectArOZLibs(vm *otto.Otto) {
+func system_ajgi_injectArOZLibs(vm *otto.Otto, scriptFile string) {
 	//Define VM global variables
 	vm.Set("BUILD_VERSION", build_version)
 	vm.Set("INTERNVAL_VERSION", internal_version)
@@ -277,35 +283,118 @@ func system_ajgi_injectArOZLibs(vm *otto.Otto) {
 
 	//Package request --> Install linux package if not exists
 	vm.Set("requirepkg", func(call otto.FunctionCall) otto.Value {
-		moduleName, err := call.Argument(0).ToString()
+		packageName, err := call.Argument(0).ToString()
 		if err != nil {
 			system_ajgi_raiseError(err)
-			reply, _ := vm.ToValue(false)
-			return reply
+			return  otto.FalseValue();
 		}
 		requireComply, err := call.Argument(1).ToBoolean()
 		if err != nil {
 			system_ajgi_raiseError(err)
-			reply, _ := vm.ToValue(false)
-			return reply
+			return  otto.FalseValue();
+		}
+
+		scriptRoot := system_ajgi_getScriptRoot(scriptFile);
+
+		//Check if this module already get registered. 
+		alreadyRegistered := false;
+		for _, pkgRequest := range ajgiUsablePkgs[strings.ToLower(packageName)]{
+			if (pkgRequest.InitRoot == scriptRoot){
+				alreadyRegistered = true
+				break;
+			}
+		}
+
+		if (!alreadyRegistered){
+			//Register this packge to this script and allow the module to call this package
+			ajgiUsablePkgs[strings.ToLower(packageName)] = append(ajgiUsablePkgs[strings.ToLower(packageName)], agiPkgInterface{
+				InitRoot: scriptRoot,
+			})
 		}
 
 		//Try to install the package via apt
-		err = module_package_installIfNotExists(moduleName, requireComply)
+		err = module_package_installIfNotExists(packageName, requireComply)
 		if err != nil {
 			system_ajgi_raiseError(err)
-			reply, _ := vm.ToValue(false)
-			return reply
+			return  otto.FalseValue();
 		}
 
-		return otto.Value{}
+		return otto.TrueValue()
+	})
+
+	//Exec required pkg with permission control
+	vm.Set("execpkg", func(call otto.FunctionCall) otto.Value {
+		//Check if the pkg is already registered
+		scriptRoot := system_ajgi_getScriptRoot(scriptFile);
+		packageName, err := call.Argument(0).ToString()
+		if err != nil {
+			system_ajgi_raiseError(err)
+			return otto.FalseValue();
+		}
+
+		if val, ok := ajgiUsablePkgs[packageName]; ok {
+			//Package already registered by at least one module. Check if this script root registered
+			thisModuleRegistered := false
+			for _, registeredPkgInterface := range val{
+				if (registeredPkgInterface.InitRoot == scriptRoot){
+					//This package registered this command. Allow access
+					thisModuleRegistered = true
+				}
+			}
+
+			if (!thisModuleRegistered){
+				system_ajgi_raiseError(errors.New("Package request not registered: " + packageName))
+				return  otto.FalseValue();
+			}
+
+		}else{
+			system_ajgi_raiseError(errors.New("Package request not registered: " + packageName))
+			return  otto.FalseValue();
+		}
+
+		//Ok. Allow paramter to be loaded
+		execParamters, _ := call.Argument(1).ToString()
+
+		// Split input paramters into []string
+		r := csv.NewReader(strings.NewReader(execParamters))
+		r.Comma = ' ' // space
+		fields, err := r.Read()
+		if err != nil {
+			system_ajgi_raiseError(err)
+			return  otto.FalseValue();
+		}
+
+		//Run os.Exec on the given commands
+		cmd := exec.Command(packageName, fields...)
+		out, err := cmd.CombinedOutput()
+		if err != nil{
+			log.Println(string(out));
+			system_ajgi_raiseError(err)
+			return  otto.FalseValue();
+		}
+
+
+		reply, _ := vm.ToValue(string(out))
+		return reply
 	})
 }
 
+//Return the script root of the current executing script
+func system_ajgi_getScriptRoot(scriptFile string) string{
+	//Get the script root from the script path
+	webRootAbs, _ := filepath.Abs("./web/")
+	webRootAbs = filepath.ToSlash(filepath.Clean(webRootAbs) + "/")
+	scriptFileAbs, _ := filepath.Abs(scriptFile);
+	scriptFileAbs = filepath.ToSlash(filepath.Clean(scriptFileAbs))
+	scriptRoot := strings.Replace(scriptFileAbs, webRootAbs, "",  1)
+	scriptRoot = strings.Split(scriptRoot, "/")[0]
+	return scriptRoot;
+}
+
 func system_ajgi_raiseError(err error) {
-	log.Println("[agi] " + err.Error())
+	log.Println("[Runtime Error (AGI Engine)] " + err.Error())
+
 	//To be implemented
-	log.Println(err)
 }
 
 //Check if this table is restricted table. Return true if the access is valid
@@ -345,7 +434,7 @@ func system_ajgi_interface(w http.ResponseWriter, r *http.Request) {
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
-	system_ajgi_injectArOZLibs(vm)
+	system_ajgi_injectArOZLibs(vm, "./web/" + scriptFile)
 	system_ajgi_injectUserFunctions(vm, username)
 
 	//Detect cotent type

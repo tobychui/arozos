@@ -87,7 +87,7 @@ func system_setting_getSettingGroups() []settingGroup {
 		settingGroup{
 			Name:     "Date & Time",
 			Group:    "Time",
-			IconPath: "SystemAO/system_setting/img/about.png",
+			IconPath: "SystemAO/system_setting/img/time.png",
 			Desc:     "Modify System Timezone and date",
 		},
 		settingGroup{

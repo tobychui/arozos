@@ -2531,10 +2531,36 @@
                 target = $(target).parent();
             }
 
+            //Parse the standard filename / filepath data
             var filename = $(target).attr("filename");
             var filepath = $(target).attr('filepath');
             ev.dataTransfer.setData("filename", filename);
             ev.dataTransfer.setData("filepath", filepath);
+
+            //Parse multifile selection filedata
+            var filelist = [];
+            if ($(".launchIconWrapper.selected").length > 0){
+                if (ctrlHold || $(".launchIconWrapper.selected").length > 1){
+                    //Include all objects selected
+                    $(".launchIconWrapper.selected").each(function(){
+                        var fd = $(this).parent().attr("filedata");
+                        fd = JSON.parse(decodeURIComponent(fd));
+                        filelist.push({
+                            filename: fd.Filename,
+                            filepath: fd.Filepath
+                        });
+                    });
+                }else{
+                    //Only push the one selected
+                    filelist.push({
+                        filename: filename,
+                        filepath: filepath
+                    });
+                }
+            }
+            
+            console.log(filelist);
+            ev.dataTransfer.setData("filedata", JSON.stringify(filelist));
             //Record the start drop relative position of the icon object
             var dx = ev.pageX - $(target).offset().left;
             var dy = ev.pageY - $(target).offset().top;

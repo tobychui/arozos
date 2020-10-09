@@ -2,12 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os/exec"
 	"runtime"
-	"strconv"
 	"time"
 )
 
@@ -260,34 +258,32 @@ func system_disk_smart_init() {
 
 	}
 	//Register all the required API
-	http.HandleFunc("/SystemAO/disk/smart/smart.system", ShowIndex)
-	http.HandleFunc("/SystemAO/disk/smart/log.system", Showlog)
-	http.HandleFunc("/SystemAO/disk/smart/table.system", ShowTable)
-	http.HandleFunc("/SystemAO/disk/smart/dotest.system", doDiskTest)
-	http.HandleFunc("/SystemAO/disk/smart/readInfo", checkDiskTestStatus)
+	http.HandleFunc("/SystemAO/disk/smart/getSMART", GetSMART)
+	http.HandleFunc("/SystemAO/disk/smart/getSMARTTable", checkDiskTable)
+	http.HandleFunc("/SystemAO/disk/smart/getLogInfo", checkDiskTestStatus)
 
 	//Only allow SMART under sudo moude
-	if (sudo_mode){
+	if sudo_mode {
 		//Register as a system setting
 		registerSetting(settingModule{
-			Name:     "Disk SMART",
-			Desc:     "HardDisk Health Checking",
-			IconPath: "SystemAO/disk/smart/img/small_icon.png",
-			Group:    "Disk",
-			StartDir: "SystemAO/disk/smart/smart.system",
+			Name:         "Disk SMART",
+			Desc:         "HardDisk Health Checking",
+			IconPath:     "SystemAO/disk/smart/img/small_icon.png",
+			Group:        "Disk",
+			StartDir:     "SystemAO/disk/smart/smart.html",
 			RequireAdmin: true,
 		})
 
 		registerSetting(settingModule{
-			Name:     "SMART Log",
-			Desc:     "HardDisk Health Log",
-			IconPath: "SystemAO/disk/smart/img/small_icon.png",
-			Group:    "Disk",
-			StartDir: "SystemAO/disk/smart/log.system",
+			Name:         "SMART Log",
+			Desc:         "HardDisk Health Log",
+			IconPath:     "SystemAO/disk/smart/img/small_icon.png",
+			Group:        "Disk",
+			StartDir:     "SystemAO/disk/smart/log.html",
 			RequireAdmin: true,
 		})
 	}
-	
+
 }
 
 // ReadSMART xxx
@@ -327,162 +323,38 @@ func ReadSMART() []SMART {
 	return SMARTInformation
 }
 
-// ShowIndex is use for reading disk smart
-func ShowIndex(w http.ResponseWriter, r *http.Request) {
+func GetSMART(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
 	if system_auth_chkauth(w, r) == false {
 		redirectToLoginPage(w, r)
 		return
 	}
-	//create HTML element
-	MainHTML := ""
-	for _, info := range ReadSMART() {
-		//FOR MAIN TAB
-		temperatureF := fmt.Sprintf("%.2f", 1.8*float64(info.DriveSmart.Temperature.Current)+32)
-		SMARTAval := ""
-		if len(info.DriveSmart.AtaSmartAttributes.Table) == 0 {
-			SMARTAval = "No"
-		} else {
-			SMARTAval = "Yes"
-		}
-		MainHTML += "<div class=\"item\" ondblclick=\"showSMART()\" onClick=\"selected(this);\" diskid=\"" + info.Port + "\" location=\"" + "This Device" + "\" temperature=\"" + strconv.Itoa(info.DriveSmart.Temperature.Current) + "°C | " + temperatureF + "°F" + "\" serial_number=\"" + info.DriveSmart.SerialNumber + "\" firmware_version=\"" + info.DriveSmart.FirmwareVersion + "\" smart=\"" + SMARTAval + "\">"
-		MainHTML += "<div class=\"ts comments\">"
-		MainHTML += "<div class=\"comment\" style=\"cursor:pointer;width:98vw\">"
-		MainHTML += "<div class=\"avatar\"><i class=\"big disk outline icon\"></i></div>"
-		MainHTML += "<div class=\"avatar\" style=\"position:absolute; right:60px;top:12px;\"><i  name=\"arrow\" class=\"large chevron down icon\"></i></div>"
-		MainHTML += "<div class=\"content\">"
-		MainHTML += "<p class=\"author\">" + info.Port + "</p>"
-		MainHTML += "<div class=\"text\">" + info.DriveSmart.ModelName + " , " + disksizeConvert(info.DriveSmart.UserCapacity.Bytes) + "</div>"
-		MainHTML += "</div>"
-		MainHTML += "</div>"
-		MainHTML += "</div>"
-		MainHTML += "</div>"
-
-	}
-	//check if MainHTML is empty
-	if MainHTML == "" {
-		MainHTML += "<div class=\"item\">"
-		MainHTML += "<div class=\"ts comments\">"
-		MainHTML += "<div class=\"comment\" style=\"cursor:pointer;width:98vw\">"
-		MainHTML += "<div class=\"avatar\"><i class=\"big caution sign icon\"></i></div>"
-		MainHTML += "<div class=\"content\">"
-		MainHTML += "<p class=\"author\">No disk was found on this system</p>"
-		MainHTML += "<div class=\"text\">Please make sure your disk installed correctly</div>"
-		MainHTML += "</div>"
-		MainHTML += "</div>"
-		MainHTML += "</div>"
-		MainHTML += "</div>"
-	}
-
-	//push assembled data to page
-	parsedPage, err := template_load("web/SystemAO/disk/smart/smart.system", map[string]interface{}{
-		"html_result": string(MainHTML),
-	})
-
-	if err != nil {
-		log.Println("Error. Unable to parse smart page.")
-	}
-
+	jsonText, _ := json.Marshal(ReadSMART())
 	//send!
-	sendTextResponse(w, parsedPage)
+	sendJSONResponse(w, string(jsonText))
 }
 
-// Showlog xxx
-func Showlog(w http.ResponseWriter, r *http.Request) {
-	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
-		return
-	}
-	//create HTML element
-	LogHTML := ""
-	for _, info := range ReadSMART() {
-		// FOR LOG TAB
-		for _, logInfo := range info.DriveSmart.AtaSmartSelfTestLog.Standard.Table {
-			LogHTML += "<tr>"
-			LogHTML += "<td class=\"collapsing\">" + info.DriveSmart.ModelName + "</td>"
-			LogHTML += "<td>" + info.DriveSmart.SerialNumber + "</td>"
-			LogHTML += "<td>" + info.Port + "</td>"
-			LogHTML += "<td>" + logInfo.Type.String + " - " + logInfo.Status.String + "</td>"
-			LogHTML += "</tr>"
-		}
-	}
-
-	//push assembled data to page
-	parsedPage, err := template_load("web/SystemAO/disk/smart/log.system", map[string]interface{}{
-		"log_result": string(LogHTML),
-	})
-
-	if err != nil {
-		log.Println("Error. Unable to parse smart page.")
-	}
-
-	//send!
-	sendTextResponse(w, parsedPage)
-}
-
-// ShowTable xxx
-func ShowTable(w http.ResponseWriter, r *http.Request) {
+func checkDiskTable(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
 	if system_auth_chkauth(w, r) == false {
 		redirectToLoginPage(w, r)
 		return
 	}
 	disks, ok := r.URL.Query()["disk"]
-
 	if !ok || len(disks[0]) < 1 {
 		log.Println("Parameter DISK not found.")
 		return
 	}
-	//create HTML element
-	HTML := ""
+
+	DiskStatus := new(DeviceSMART)
 	for _, info := range ReadSMART() {
 		if info.Port == disks[0] {
-			HTML = ""
-			for _, column := range info.DriveSmart.AtaSmartAttributes.Table {
-				HTML += "<tr><td>" + strconv.Itoa(column.ID) + "</td><td>" + column.Name + "</td><td>" + strconv.Itoa(column.Value) + "</td><td>" + strconv.Itoa(column.Worst) + "</td><td>" + strconv.Itoa(column.Raw.Value) + "</td></tr>"
-			}
+			DiskStatus = info.DriveSmart
 		}
 	}
-
-	//push assembled data to page
-	parsedPage, err := template_load("web/SystemAO/disk/smart/table.system", map[string]interface{}{
-		"html_result": HTML,
-		"disk":        disks[0],
-	})
-
-	if err != nil {
-		log.Println("Error. Unable to parse smart page.")
-	}
-
+	JSONStr, _ := json.Marshal(DiskStatus.AtaSmartAttributes.Table)
 	//send!
-	sendTextResponse(w, parsedPage)
-}
-
-// ShowTable xxx
-func doDiskTest(w http.ResponseWriter, r *http.Request) {
-	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
-		return
-	}
-	disks, ok := r.URL.Query()["disk"]
-	if !ok || len(disks[0]) < 1 {
-		log.Println("Parameter DISK not found.")
-		return
-	}
-
-	//push assembled data to page
-	parsedPage, err := template_load("web/SystemAO/disk/smart/dotest.system", map[string]interface{}{
-		"disk": disks[0],
-	})
-
-	if err != nil {
-		log.Println("Error. Unable to parse smart page.")
-	}
-
-	//send!
-	sendTextResponse(w, parsedPage)
+	sendJSONResponse(w, string(JSONStr))
 }
 
 func checkDiskTestStatus(w http.ResponseWriter, r *http.Request) {
@@ -505,22 +377,5 @@ func checkDiskTestStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	JSONStr, _ := json.Marshal(DiskTestStatus.AtaSmartData.SelfTest.Status)
 	//send!
-	sendTextResponse(w, string(JSONStr))
-}
-
-func disksizeConvert(b int64) string {
-	const unit = 1000
-	if b == 0 {
-		return "Unknown"
-	}
-	if b < unit {
-		return fmt.Sprintf("%d B", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB",
-		float64(b)/float64(div), "kMGTPE"[exp])
+	sendJSONResponse(w, string(JSONStr))
 }

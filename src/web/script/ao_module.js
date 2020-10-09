@@ -137,6 +137,7 @@ function ao_module_openPath(path){
     }
 }
 
+
 /*
     ao_module_newfw(launchConfig) => Create a new floatWindow object from the given paramters
 
@@ -293,7 +294,9 @@ function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined
         method: "POST",
         data: data,
         success: function(data){
-            callback(data);
+            if (typeof(callback) != "undefined"){
+                callback(data);
+            }
         },
         error: function(){
             if (typeof failedcallback != "undefined"){
@@ -347,7 +350,6 @@ class ao_module_storage {
 
 class ao_module_paths{
     //Decode or Encode real path into virtual paths in the current user space
-
 
 }
 
@@ -578,17 +580,10 @@ class ao_module_utils{
 	
 	//Get the drop file properties {filepath: xxx, filename: xxx} from file drop events from file exploere
 	static getDropFileInfo(dropEvent){
-		if (dropEvent.dataTransfer.getData("filepath") !== ""){
-			var rawfp = dropEvent.dataTransfer.getData("filepath");
-			var rawfn = dropEvent.dataTransfer.getData("filename");
-			var filepaths = JSON.parse(rawfp);
-			var filenames = JSON.parse(rawfn);
-			var files = [];
-			for(var i =0; i < filepaths.length; i++){
-				let newfo = {"filepath":filepaths[i], "filename":filenames[i]};
-				files.push(newfo);
-			}
-			return files;
+		if (dropEvent.dataTransfer.getData("filedata") !== ""){
+			var filelist = dropEvent.dataTransfer.getData("filedata");
+			filelist = JSON.parse(filelist);
+			return filelist;
 		}
     }
     

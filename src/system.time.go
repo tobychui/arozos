@@ -51,7 +51,7 @@ func system_time_init() {
 	registerSetting(settingModule{
 		Name:         "System Time",
 		Desc:         "Current Time in the System Host",
-		IconPath:     "SystemAO/disk/smart/img/small_icon.png",
+		IconPath:     "SystemAO/disk/smart/img/small_3icon.png",
 		Group:        "Time",
 		StartDir:     "SystemAO/time/currenttime.html",
 		RequireAdmin: true,

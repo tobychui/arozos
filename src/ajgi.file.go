@@ -1,11 +1,12 @@
 package main
 
 import (
-	"log"
-	"path/filepath"
-	"io/ioutil"
-	"os"
 	"errors"
+	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
+
 	"github.com/robertkrimen/otto"
 )
 
@@ -288,20 +289,20 @@ func ajgi_filelib_initFileLibFunctions(vm *otto.Otto, username string) {
 	//Make directory command
 	vm.Set("_filelib_mkdir", func(call otto.FunctionCall) otto.Value {
 		vdir, err := call.Argument(0).ToString()
-		if err != nil{
+		if err != nil {
 			return otto.FalseValue()
 		}
 
 		//Translate the path to realpath
 		rdir, err := virtualPathToRealPath(vdir, username)
-		if err != nil{
+		if err != nil {
 			log.Println(err.Error())
 			return otto.FalseValue()
 		}
 
 		//Create the directory at rdir location
 		err = os.MkdirAll(rdir, 0755)
-		if err != nil{
+		if err != nil {
 			log.Println(err.Error())
 			return otto.FalseValue()
 		}
@@ -316,7 +317,6 @@ func ajgi_filelib_initFileLibFunctions(vm *otto.Otto, username string) {
 	})
 
 	//Other file operations, wip
-
 
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`

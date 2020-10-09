@@ -2,85 +2,9 @@
 
 This is the go implementation of ArOZ Online Web Desktop environment, perfect for Linux server usage.
 
-## IMPORTANT NOTES
-The current version of ArOZ Online System is migrating to Golang and the architecture might not be stable.
-Please use this with your own risk. And, we are surely we will change the structure of this system really soon.
-This is for front end development / endpoint dev only.
+## Development Notes
 
-## Installation
-Require GO 1.11 or above
-
-Run the following the command to build the system
-
-```
-go build
-```
-(Yes, it is that simple)
-
-## Start the ArOZ Online Platform
-
-### Supported Startup Paramters
-The following startup paramters are supported.
-```
-  -allow_pkg_install
-        Allow the system to install package using Advanced Package Tool (aka apt or apt-get) (default true)
-  -beta_scan
-        Allow compatibility to ArOZ Online Beta Clusters
-  -cert string
-        TLS certificate file (.crt) (default "localhost.crt")
-  -demo_mode
-        Run the system in demo mode. All directories and database are read only.
-  -disable_ip_resolver
-        Disable IP resolving if the system is running under reverse proxy environment
-  -enable_hwman
-        Enable hardware management functions in system (default true)
-  -hostname string
-        Default name for this host (default "My ArOZ")
-  -iobuf int
-        Amount of buffer memory for IO operations (default 1024)
-  -key string
-        TLS key file (.key) (default "localhost.key")
-  -max_upload_size int
-        Maxmium upload size in MB. Must not exceed the available ram on your system (default 8192)
-  -port int
-        Listening port (default 8080)
-  -public_reg
-        Enable public register interface for account creation
-  -root string
-        User root directories (default "./files/")
-  -storage_config string
-        File location of the storage config file (default "./system/storage.json")
-  -tls
-        Enable TLS on HTTP serving
-  -tmp string
-        Temporary storage, can be access via tmp:/. A tmp/ folder will be created in this path. Recommend fast storage devices like SSD (default "./")
-  -upload_buf int
-        Upload buffer memory in MB. Any file larger than this size will be buffered to disk (slower). (default 25)
-  -uuid string
-        System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.
-  -version
-        Show system build version
-```
-
-Example
-```
-//Starting aroz online with standard web port
-./aroz_online -port 80
-
-//Start aroz online in demo mode
-./aroz_online -demo_mode=true
-
-//Use https instead of http 
-./aroz_online -tls=true -key mykey.key -cert mycert.crt
-
-//Change max upload size to 25MB
-./aroz_online -max_upload_size 25
-
-```
-
-### Storage.json
-This file define the storage devices to be mounted into aroz online system. See src/system/storage.json.example for template.
-
+WIP
 
 ## ArOZ JavaScript Gateway Interface / Plugin Loader
 The ArOZ AJGI / AGI interface provide a javascript programmable interface for ArOZ Online users to create 
@@ -189,4 +113,32 @@ if not exist ".\config" mkdir ".\config"
 syncthing.exe -home=".\config" -no-browser -gui-address=127.0.0.1%2
 ```
 
+## System Endpoints
+
+### Authentication Related
+- "/system/auth/login"
+	- username (POST)
+	- password (POST)
+- "/system/auth/logout"
+- "/system/auth/checkLogin"
+- "/system/auth/register"
+	- username (POST)
+	- password (POST)
+	- group (POST)
+- "/system/auth/unregister"
+	- username (POST)
+- "/system/auth/reflectIP"
+	- port (GET, Optional)
+
+### Media Delivery Related
+- "/media"
+	- file (GET, URL Encoded)
+
+## No-auth Access Location
+The following paths are specially configured to be accessable without login.
+
+- "/img/public/*"
+- "/script/*"
+- "/login.system"
+- "/user.system" ***(Only when there are no user in the system)***
 
