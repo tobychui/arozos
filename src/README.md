@@ -113,32 +113,49 @@ if not exist ".\config" mkdir ".\config"
 syncthing.exe -home=".\config" -no-browser -gui-address=127.0.0.1%2
 ```
 
-## System Endpoints
+## Systemd support
+To enable systemd in your host that support aroz online system, create a bash script at your aroz online root named "start.sh"
+and fill it up with your prefered startup paratmers. The most basic one is as follow:
 
-### Authentication Related
-- "/system/auth/login"
-	- username (POST)
-	- password (POST)
-- "/system/auth/logout"
-- "/system/auth/checkLogin"
-- "/system/auth/register"
-	- username (POST)
-	- password (POST)
-	- group (POST)
-- "/system/auth/unregister"
-	- username (POST)
-- "/system/auth/reflectIP"
-	- port (GET, Optional)
+```
+#/bin/bash
+sudo ./aroz_online_linux_amd64
 
-### Media Delivery Related
-- "/media"
-	- file (GET, URL Encoded)
+```
 
-## No-auth Access Location
-The following paths are specially configured to be accessable without login.
+And then you can create a new file called "aroz-online.service" in /etc/systemd/system with the following contents (Assume your aroz online root is at /home/pi/aroz_online)
 
-- "/img/public/*"
-- "/script/*"
-- "/login.system"
-- "/user.system" ***(Only when there are no user in the system)***
+```
+[Unit]
+Description=ArOZ Online Cloud Desktop Service.
 
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/aroz_online/
+ExecStart=/bin/bash /home/pi/aroz_online/start.sh
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Finally to enable the service, use the following systemd commnads
+
+```
+#Enable the script during the startup process
+sudo systemctl enable aroz-online.service
+
+#Start the service now
+sudo systemctl start aroz-online.service
+
+#Show the status of the service
+systemctl status aroz-online.service
+
+
+#Disable the service if you no longer want it to start during boot
+sudo systemctl disable aroz-online.service
+```
+
+See more on how to use systemd over here: https://www.digitalocean.com/community/tutorials/how-to-use-systemctl-to-manage-systemd-services-and-units

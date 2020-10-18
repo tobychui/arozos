@@ -347,12 +347,6 @@ class ao_module_storage {
     }
 }
 
-
-class ao_module_paths{
-    //Decode or Encode real path into virtual paths in the current user space
-
-}
-
 class ao_module_codec{
 	//Decode umfilename into standard filename in utf-8, which umfilename usually start with "inith"
 	//Example: ao_module_codec.decodeUmFilename(umfilename_here);

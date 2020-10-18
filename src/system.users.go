@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"encoding/json"
+	"github.com/satori/go.uuid"
 )
 
 /*
@@ -15,6 +16,7 @@ import (
 
 func system_user_init(){
 	http.HandleFunc("/system/users/list", system_user_handleList)
+	http.HandleFunc("/system/users/editUser", system_user_handleUserEdit)
 	http.HandleFunc("/system/users/userinfo", system_user_handleUserInfo)
 
 	//Register setting interface for module configuration
@@ -37,6 +39,83 @@ func system_user_init(){
 	})
 }
 
+//User edit handle. For admin to change settings for a user
+func system_user_handleUserEdit(w http.ResponseWriter, r *http.Request){
+	//Require admin access
+	if !system_permission_checkUserIsAdmin(w,r){
+        sendErrorResponse(w, "Permission denied")
+	}
+	
+	opr, _ := mv(r, "opr", true)
+	username, _ := mv(r, "username", true)
+	if !system_user_userExists(username){
+		sendErrorResponse(w, "User not exists")
+		return
+	}
+
+	if opr == ""{
+		//List this user information
+		type returnValue struct{
+			Username string;
+			Icondata string;
+			Usergroup string;
+		}
+		iconData := getUserIcon(username)
+		userGroup, err := system_permission_getUserGroups(username)
+		if (err != nil){
+			sendErrorResponse(w, "Unable to get user group")
+			return;
+		}
+		jsonString, _ := json.Marshal(returnValue{
+			Username: username,
+			Icondata: iconData,
+			Usergroup: userGroup,
+		})
+
+		sendJSONResponse(w, string(jsonString))
+	}else if opr == "updateUserGroup"{
+		//Update the target user's group
+		newgroup, err := mv(r, "newgroup", true)
+		if err != nil{
+			sendErrorResponse(w, "New Group not defined");
+			return
+		}
+
+		//Check if new group exists
+		if !system_permission_groupExists(newgroup){
+			sendErrorResponse(w, "Group not exists")
+			return
+		}
+
+		//OK to proceed
+		err = system_db_write(sysdb, "auth", "group/" + username, newgroup)
+		if err != nil{
+			sendErrorResponse(w, err.Error())
+			return
+		}
+		sendOK(w)
+	}else if opr == "resetPassword"{
+		//Reset password for this user
+		//Generate a random password for this user
+		tmppassword := uuid.NewV4().String()
+		hashedPassword := system_auth_hash(tmppassword);
+    	err := system_db_write(sysdb, "auth", "passhash/" + username, hashedPassword)
+		if err != nil{
+			sendErrorResponse(w, err.Error())
+			return
+		}
+		//Finish. Send back the reseted password
+		sendJSONResponse(w, "\"" + tmppassword + "\"")
+
+	}else{
+		sendErrorResponse(w, "Not supported opr")
+		return
+	}
+
+	
+}
+
+//User Info handler. Handle user's editing for his / her own profile
 func system_user_handleUserInfo(w http.ResponseWriter, r *http.Request){
 	username, err := system_auth_getUserName(w,r);
 	if (err != nil){
@@ -111,6 +190,11 @@ func getUserIcon(username string) string{
 func setUserIcon(username string, base64data string){
 	system_db_write(sysdb, "auth","profilepic/" + username, []byte(base64data))
 	return
+}
+
+func system_user_userExists(username string) bool{
+	//Implement alternative interface for checking user exists
+	return system_auth_userExists(username);
 }
 
 func system_user_handleList(w http.ResponseWriter, r *http.Request){

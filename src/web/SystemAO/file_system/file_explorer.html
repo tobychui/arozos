@@ -2614,7 +2614,7 @@
                     for (var i =0; i < files.length; i++){
                         uploadFile(files[i]);
                     }
-                      
+                    
                 }else{
                     //File transfer within system
                     console.log(event);
@@ -2673,7 +2673,7 @@
                     //Upload process ended
                     if (uploadCurrentPath == currentPath){
                         $(".uploadTask").each(function(){
-                        if ($(this).attr("taskID") == taskUUID){
+                            if ($(this).attr("taskID") == taskUUID){
                                 //Update this progress bar to completed
                                 $(this).find(".bar").css("width","100%");
                                 $(this).find(".progress").attr("class","ts tiny positive progress");
@@ -2686,6 +2686,16 @@
                     var resp = JSON.parse(e.target.response);
                     if (resp.error !== undefined){
                         msgbox("caution",resp.error);
+                        //Something went wrong. Set the color to red
+                        $(".uploadTask").each(function(){
+                            if ($(this).attr("taskID") == taskUUID){
+                                //Update this progress bar to completed
+                                $(this).find(".bar").css("width","100%");
+                                $(this).find(".progress").attr("class","ts tiny negative progress");
+                                $(this).find(".uploadTaskRemoveIcon").show();
+                                $(this).addClass("ended");
+                            }
+                        });
                     }
                     uploadingFileCount--;
                 }else if (xhr.readyState == 4 && xhr.status != 200) {

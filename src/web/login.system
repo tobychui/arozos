@@ -101,7 +101,11 @@
                 
                 <br>
                 <button id="loginbtn" class="ts button loginbtn" style="background-color:#00b5ad !important;">Login</button><br>
-                <p id="signup" style="display:none;">No account? <a style="cursor:pointer" href="public/register"> Sign Up now</a></p>
+                <div class="ts breadcrumb" style="margin-top:12px;">
+                    <a iclass="section signup" style="cursor:pointer; display:none;" href="public/register">Sign Up</a>
+                    <div class="divider signup"> / </div>
+                    <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
+                </div>
                 <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span id="errmsg">Error. Incorrect username or password.</span></p>
                
             </div>
@@ -148,7 +152,8 @@
 
             //Check if the user already logged in
             $.get("system/auth/checkLogin",function(data){
-                if (data.trim() == "true"){
+                try{
+                    if (data === true || data.trim() == "true"){
                     //User already logged in. Redirect to target page.
                     if (redirectionAddress == ""){
                         //Redirect back to index
@@ -157,16 +162,20 @@
                         console.log(data);
                         //window.location.href = redirectionAddress;
                     }
-                    
                 }
+                }catch(ex){
+                    //Assume not logged in
+                    console.log(data);
+                }
+                
             });
 
             //Check if the system is open for registry
             $.get("system/auth/checkPublicRegister",function(data){
                 if (data == true){
-                    $("#signup").show();
+                    $(".signup").show();
                 }else{
-                    $("#signup").remove();
+                    $(".signup").remove();
                 }
             })
         });

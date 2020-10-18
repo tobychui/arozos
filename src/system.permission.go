@@ -163,7 +163,7 @@ func system_permission_removeUserGroupHandler(w http.ResponseWriter, r *http.Req
 
 	//Remove the group from database
 	if system_permission_groupExists(groupname) {
-		//This group do not exists. Continue to create
+		//This group exits. Continue removal
 		err := system_db_delete(sysdb, "permission", "group/"+groupname)
 		if err != nil {
 			sendErrorResponse(w, err.Error())
@@ -205,9 +205,6 @@ func system_permission_createUserGroupHandler(w http.ResponseWriter, r *http.Req
 	sendOK(w)
 }
 
-func system_permission_editUserGroupHandler(w http.ResponseWriter, r *http.Request) {
-
-}
 
 func system_permission_getGroupAccessList(groupname string) []string {
 	moduleList := []string{}

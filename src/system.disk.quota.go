@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	//"log"
+	"log"
 )
 
 /*
@@ -98,8 +98,40 @@ func system_disk_quota_getQuotaFromGroupname(groupname string) (int64, error) {
 	return groupQuota, nil
 }
 
-//Check if the given size can fit into the user remaining quota
+//Check if the given size can fit into the user remaining quota, return true if the file fit user quota
 func system_disk_quota_validateQuota(username string, filesize int64) bool {
+	remaining, _, _, err := system_disk_quota_quotaInfo(username)
+	if err != nil{
+		log.Println("Upload failed for user: " + username + " " + err.Error())
+		return false
+	}
+	//log.Println(remaining, filesize, err)
+	if remaining == -1{
+		//Unlimited quota. Always return true
+		return true
+	}else if (remaining == 0){
+		//Read only account. Always return false
+		return false
+	}else if (remaining >= filesize ){
+		//This file fits in the user's remaining space
+		return true
+	}else{
+		return false
+	}
+	return false
+}
+
+//Check if the given path apply quota limitation
+func system_disk_quota_checkIfQuotaApply(path string, username string) bool{
+	targetStoargeDevice, err := system_storage_getStorageByPath(path, username);
+	if (err != nil){
+		return false
+	}
+	if targetStoargeDevice.Hierarchy == "user"{
+		//User Hierarchy Storage Device, count as user's private storage
+		return true
+	}
+	//Not user's private storage. Calculate as public one
 	return false
 }
 

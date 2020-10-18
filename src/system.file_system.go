@@ -145,12 +145,21 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
+	//Check if the filesize < user storage remaining quota
+	if system_disk_quota_checkIfQuotaApply(destFilepath, username) && !system_disk_quota_validateQuota(username, handler.Size){
+		//File too big to fit in user quota
+		sendErrorResponse(w, "Storage Quota Fulled")
+		return
+	}	
+
 	//Prepare the file to be created (uploaded)
 	destination, err := os.Create(destFilepath)
 	if err != nil {
 		sendErrorResponse(w, err.Error())
 		return
 	}
+
+	
 
 	//Move the file to destination file location
 	go func(r *http.Request, file multipart.File, destination *os.File){

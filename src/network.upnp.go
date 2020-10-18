@@ -13,12 +13,14 @@ import (
 */
 
 var (
-	uPNP_connection_object *upnp.IGD
+	UPnP_connection_object *upnp.IGD	//UPnP conenction object
+	UPnP_externalIP string				//Storage of external IP address
+	UPnP_requiredPorts []int			//All the required ports will be recored
 )
 
 func network_upnp_init(){
 	//Create uPNP forwarding in the NAT router
-	log.Println("Discovering uPNP router in Local Area Network...")
+	log.Println("Discovering UPnP router in Local Area Network...")
 	d, err := upnp.Discover()
     if err != nil {
         log.Fatal(err)
@@ -30,14 +32,14 @@ func network_upnp_init(){
         log.Fatal(err)
     }
 	log.Println("Creating uPNP services with external IP: ", ip)
+	UPnP_externalIP = ip
+	UPnP_connection_object = d;
 
-    // forward a port
-    err = d.Forward(uint16(*listen_port), *host_name)
-    if err != nil {
-        log.Fatal(err)
+	//Require the port that is running ArOZ Online Host
+	err = network_upnp_requirePort(*listen_port, *host_name);
+	if (err != nil){
+		panic(err);
 	}
-	
-	uPNP_connection_object = d;
 
 	//Display a tip to let user know how to use uPNP when they are outside
 	var connectionEndpoint string = "http://" + ip
@@ -49,9 +51,24 @@ func network_upnp_init(){
 	log.Println("Access your host with the following address when you are outside: " + connectionEndpoint )
 }
 
+func network_upnp_requirePort(portNumber int, ruleName string) error{
+	// forward a port
+	err := UPnP_connection_object.Forward(uint16(portNumber), ruleName)
+	if err != nil {
+		return err
+	}
+
+	UPnP_requiredPorts = append(UPnP_requiredPorts, portNumber)
+	return nil
+}
+
 func network_upnp_close(){
-	err := uPNP_connection_object.Clear(uint16(*listen_port))
-    if err != nil {
-        log.Fatal(err)
-    }
+	//Shutdown the default UPnP Object
+	for _, portNumber := range UPnP_requiredPorts{
+		err := UPnP_connection_object.Clear(uint16(portNumber))
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	
 }

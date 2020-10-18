@@ -95,7 +95,7 @@ func showTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func ConvertWinTZtoLinuxTZ(WinTZ string) string {
-	file, _ := ioutil.ReadFile("./web/SystemAO/time/wintz.json")
+	file, _ := ioutil.ReadFile("./system/time/wintz.json")
 	WinTZLinuxTz := WindowsTimeZoneStruct{}
 	json.Unmarshal([]byte(file), &WinTZLinuxTz)
 	for _, data := range WinTZLinuxTz.SupplementalData.WindowsZones.MapTimezones.MapZone {

@@ -3,6 +3,9 @@ if (newDBTableIfNotExists("testdb")){
 	if (writeDBItem("testdb","message","Hello World")){
 		//Test suceed. Set Response message to the message
 		sendResp("Database access return value: " + readDBItem("testdb","message"));
+		//Delete the entry
+		
+		console.log("Delete entry:" + deleteDBItem("testdb","message"))
 		//Drop the table after testing
 		dropDBTable("testdb");
 		console.log("Testdb table dropped");

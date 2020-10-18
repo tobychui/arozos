@@ -809,6 +809,7 @@
                         //Continue session
                     } else {
                         //Session timeout. Redirect to system index
+                        loggingOut = true;
                         window.location.href = "index.html";
                     }
                     $("#connectionLost").hide();
@@ -1596,6 +1597,10 @@
                 //Ignore right mouse down
                 return;
             }
+            if ($(object).css('display') == 'none'){
+                //This windows do not allow resizing. 
+                return;
+            }
             var fw = $(object).parent().parent().parent();
             var maxedAlready = $(fw).attr('max');
             MoveFloatWindowToTop(fw);
@@ -2122,6 +2127,10 @@
                 var unallocatedFiles = [];
                 let remainingSlots = JSON.parse(JSON.stringify(slots));
                 desktopFileList = [];
+                if (data === null){
+                    //No files on desktop
+                    return;
+                }
                 for (var i = 0; i < data.length; i++) {
                     var thisFile = data[i];
                     desktopFileList.push(JSON.parse(JSON.stringify(thisFile.Filename)));
@@ -2485,7 +2494,7 @@
                     ondragover="allowDrop(event)" 
                     ondrop="drop(event)" 
                     ondragstart="drag(event)" 
-                    onclick="iconClicked(this,event);" 
+                    onmousedown="iconClicked(this,event);" 
                     ondblclick="iconDoubleClicked(this,event);" 
                     ontouchstart="iconClicked(this,event); doubleTouchHandler(this, event,openViaTouch);"
                     filename="${properties.filename}" 
@@ -2557,10 +2566,20 @@
                         filepath: filepath
                     });
                 }
+            }else{
+                //There is no selected item on desktop. Use the drag drop one
+                filelist.push({
+                    filename: filename,
+                    filepath: filepath
+                });
             }
             
-            console.log(filelist);
+            //console.log(filelist);
             ev.dataTransfer.setData("filedata", JSON.stringify(filelist));
+            console.log(filelist);
+            //Set a flag on the drag events that these files are from Desktop GUI
+            ev.dataTransfer.setData("desktopflag", "true");
+
             //Record the start drop relative position of the icon object
             var dx = ev.pageX - $(target).offset().left;
             var dy = ev.pageY - $(target).offset().top;
@@ -2663,9 +2682,136 @@
                         
                     }
                 }else if (sourceFilelist.length > 0 && Array.isArray(sourceFilelist)){
-                    //Drag drop from file explorer to desktop. Assign location and do file transfer
-                    alert("Transfering file from file explorer to desktop. WIP")
-                
+                    //Drag drop multiple files from desktop or file explorer to desktop
+                    var desktopFlag = ev.dataTransfer.getData("desktopflag"); 
+                    if (desktopFlag == "" || desktopFlag === undefined || desktopFlag == null){
+                        //This is a file drag drop from not desktop to desktop
+                        alert("Transfering file from file explorer to desktop. WIP")
+                    }else{
+                        //This is a file drag event from desktop, but more than one files.
+                        //Pin the final location for the drag drop object
+                        var sourceObject = getObjectFromPath(sourceFilepath);
+                        var dx = startDragRelatuve[0];
+                        var dy = startDragRelatuve[1];
+                        var targetLocation = findClosestGrid((ev.clientX - dx), (ev.clientY - dy));
+                        var closestLocation = targetLocation[0];
+                        var duplicateObject = getObjectFromLocation(closestLocation[0]  + iconOffsetXY[0], closestLocation[1]  + iconOffsetXY[1]);
+                        if (duplicateObject !== undefined) {
+                            //There are already object there. Do nothing
+                            console.log("Drop location duplicated!")
+                            return;
+                        }
+
+                        //Get other objects that is not the one drag dropped
+                        var iconOffset = {};
+                        for (var i =0; i < sourceFilelist.length; i++){
+                            var thisFile = sourceFilelist[i];
+                            if (thisFile.filepath != sourceFilepath){
+                                //Calculate the x y offset of this icon to the drag drop one
+                                var thisIconObject = getObjectFromPath(thisFile.filepath);
+                                iconOffset[thisFile.filepath] = {
+                                    dx: $(sourceObject).offset().left - $(thisIconObject).offset().left,
+                                    dy: $(sourceObject).offset().top - $(thisIconObject).offset().top
+                                }
+                                //console.log(thisFile.filename, iconOffset[thisFile.filepath]);
+                            }
+                        }
+
+                        //Move the drag drop object to the desiged location
+                        $(sourceObject).css({
+                            left: closestLocation[0] + iconOffsetXY[0],
+                            top: closestLocation[1] + iconOffsetXY[1]
+                        });
+
+                        //Save the drag item location
+                        $.ajax({
+                            url: "system/desktop/files",
+                            method: "POST",
+                            data: {"set": sourceFilename, "x": targetLocation[1][0], "y": targetLocation[1][1]},
+                            success: function(data) {
+                                //console.log(data);
+                            }
+                        });
+
+                        //Move all the relative files to the main object
+                        var relocatePendingObjects = [];
+                        for (const [filepath, offset] of Object.entries(iconOffset)) {
+                            let thisIconObject = getObjectFromPath(filepath);
+                            let caluclatedLocation = [$(sourceObject).offset().left - offset.dx, $(sourceObject).offset().top - offset.dy];
+                            let finalIconLocation = findClosestGrid(caluclatedLocation[0], caluclatedLocation[1]);
+                            //Check for duplication
+                            /*
+                            var duplicateObject = getObjectFromLocation(finalIconLocation[0][0]  + iconOffsetXY[0], finalIconLocation[0][1] + iconOffsetXY[1]);
+                            if (duplicateObject !== undefined) {
+                                //There are already object there. Relocate this object later
+                                relocatePendingObjects.push(duplicateObject)
+                            }
+                            */
+                        
+                            //Move this icon to designed location
+                            $(thisIconObject).css({
+                                left: finalIconLocation[0][0] + iconOffsetXY[0],
+                                top: finalIconLocation[0][1] + iconOffsetXY[1]
+                            });
+
+                            let thisIconFileData = JSON.parse(decodeURIComponent($(thisIconObject).attr("filedata")));
+                            
+                            //Record this in database
+                            $.ajax({
+                                url: "system/desktop/files",
+                                method: "POST",
+                                data: {"set": thisIconFileData.Filename, "x": finalIconLocation[1][0], "y": finalIconLocation[1][1]},
+                                success: function(data) {
+                                    //console.log(data);
+                                }
+                            });
+                            
+                        }
+
+                        //Get duplication objects
+                        for (const [filepath, offset] of Object.entries(iconOffset)) {
+                            let thisIconObject = getObjectFromPath(filepath);
+                            //Check for duplication
+                            var iconLocation = [$(thisIconObject).offset().left, $(thisIconObject).offset().top];
+                            $(".launchIcon").each(function(){
+                                if ($(this).offset().left == iconLocation[0] && $(this).offset().top == iconLocation[1]){
+                                    //This icon is at the target icon location
+                                    if ($(this).attr("filepath") != filepath){
+                                        relocatePendingObjects.push($(this));
+                                    }
+                                }
+                            });
+                        }
+
+
+                        //Relocate objects that is in the way of moving
+                        for (var i = 0; i < relocatePendingObjects.length; i++){
+                            var thisObject = relocatePendingObjects[i];
+                            console.log(thisObject);
+                            var thisX = $(thisObject).offset().left;
+                            var thisY = $(thisObject).offset().top;
+                            var nextEmptyGrid = findClostestEmptyGridLocation(thisX, thisY);
+                            
+                            //Move this file to the next empty grid location
+                            $(thisObject).css({
+                                left: nextEmptyGrid[0][0] + iconOffsetXY[0],
+                                top: nextEmptyGrid[0][1] + iconOffsetXY[1]
+                            });
+
+                            //Save move record to db
+                            let thisIconFileData = JSON.parse(decodeURIComponent($(thisObject).attr("filedata")));
+                            $.ajax({
+                                url: "system/desktop/files",
+                                method: "POST",
+                                data: {"set": thisIconFileData.Filename, "x": nextEmptyGrid[1][0], "y": nextEmptyGrid[1][1]},
+                                success: function(data) {
+                                    //console.log(data);
+                                }
+                            });
+
+                        }
+                    }
+                    
                 }else{
                     //Dropping a file onto other place on desktop
                     var sourceObject = getObjectFromPath(sourceFilepath);
@@ -2677,6 +2823,7 @@
                     var duplicateObject = getObjectFromLocation(closestLocation[0], closestLocation[1]);
                     if (duplicateObject !== undefined) {
                         //There are already object there. Do nothing
+                        console.log("Drop location duplicated!")
                         return;
                     }
                     var closestGridIndex = targetLocation[1];
@@ -2804,9 +2951,61 @@
 
         //Similar function to getObjectFromLocation but using grid coordinate instead of pixel coordinate
         function getObjectFromGridLocation(gx, gy){
-            var pos = desktopGrids[gx][gy];
+            var pos = JSON.parse(JSON.stringify(desktopGrids[gx][gy]));
+            pos[0] = pos[0] + iconOffsetXY[0];
+            pos[1] = pos[1] + iconOffsetXY[1];
             return getObjectFromLocation(pos[0],pos[1]);
         }
+
+        //Find the clostest empty grid, prioirty given to y first then x
+        function findClostestEmptyGridLocation(x, y){
+            //Reduce icon offset to the x y on screen coordinate
+            x = x - iconOffsetXY[0];
+            y = y - iconOffsetXY[1];
+            //Get the grid index from absolute coordinate
+            var currentGridLocation = getGridIndexFromLocation(x,y);
+            console.log(currentGridLocation);
+            //Search for the next empty location
+            var targetLocation = [[-1,-1],[-1,-1]];
+            for (var i = currentGridLocation[0]; i < desktopGrids.length; i++){
+                var yStart = 0;
+                if (i == currentGridLocation[0]){
+                    yStart = currentGridLocation[1];
+                }
+                for (k = yStart; k < desktopGrids[i].length; k++){
+                    var thisLocation = JSON.parse(JSON.stringify(desktopGrids[i][k]));
+                    var offsetedLocation = [thisLocation[0], thisLocation[1]];
+                    var possibleDuplication = getObjectFromGridLocation(i,k);
+                    //console.log( [i,k], offsetedLocation, possibleDuplication)
+                    if (possibleDuplication === undefined){
+                        //This is an empty slot
+                        targetLocation = [offsetedLocation, [i,k]];
+                        return targetLocation;
+                    }
+                }
+            }
+            return targetLocation;
+        }
+
+        function getGridIndexFromLocation(x,y){
+            var gridIndex = [-1,-1];
+            for (var i = 0; i < desktopGrids.length; i++){
+                var thisXAxis = desktopGrids[i];
+                if (thisXAxis[0][0] == x){
+                    //This x matches. Match y
+                    gridIndex[0] = i;
+                    for (var k = 0; k < thisXAxis.length; k++){
+                        var thisYAxis = thisXAxis[k];
+                        if (thisYAxis[1] == y){
+                            gridIndex[1] = k;
+                            return gridIndex;
+                        }
+                    }
+                }
+            }
+            return gridIndex;
+        }
+
 
         //Set allow overshoot to allow drop point to get closest grid with x / y > cursor posx /y
         function findClosestGrid(x, y, allowOvershoot = true) {
@@ -2859,14 +3058,29 @@
 
         function iconClicked(object, evt) {
             //Clicked on a launch icon.
-            if (!ctrlHold) {
-                //Singple selection mode. Remove all previous selections
-                $(".launchIconWrapper.selected").removeClass("selected");
+            var alreadyHighlighted = $(object).find(".launchIconWrapper").hasClass("selected");
+            if (alreadyHighlighted){
+                //Already selected
+                if (ctrlHold) {
+                    //Selection
+                    $(object).find(".launchIconWrapper").removeClass("selected");
+                }
+            }else{
+                //Not selected yet
+                if (ctrlHold) {
+                    //Add this into selection
+                    $(object).find(".launchIconWrapper").addClass("selected");
+                }else{
+                    //Remove all others and select this
+                    $(".launchIconWrapper.selected").removeClass("selected");
+                    $(object).find(".launchIconWrapper").addClass("selected");
+                }
+                
+
             }
-            $(object).find(".launchIconWrapper").addClass("selected");
         }
 
-        function iconDoubleClicked(object, evt) {
+        function iconDoubleClicked(object, evt=undefined) {
             //Double click on a launch icon, tries to open it
             var filedata = ao_module_utils.attrToObject($(object).attr("filedata"));
             //console.log(filedata);
@@ -3016,7 +3230,19 @@
                         }
                     }
                 });
-                
+            }else if (event.which == "13"){
+                //Enter key
+                if (!renameMode){
+                    //Open selected object by emulating double click
+                    $(".launchIconWrapper.selected").each(function(){
+                        var object = $(this).parent();
+                        iconDoubleClicked(object);
+                    });
+                    
+                }else if (renameMode){
+                    console.log("WIP");
+                }
+            
             }else{
                 console.log(event.which);
             }
@@ -3253,7 +3479,7 @@
                         }
                     }
                 });
-            console.log(filelist);
+            //console.log(filelist);
             hideAllContextMenus();
         }
 
@@ -3691,7 +3917,19 @@
                 return
             }
 
-            alert("Restart function WIP");
+            if (confirm("Confirm Restart?")){
+                $.ajax({
+                    url: "system/power/restart",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }
+                    },
+                    error: function(){
+
+                    }
+                });
+            }
         }
 
         function shutdown(){
@@ -3699,7 +3937,23 @@
                 return
             }
 
-            alert("Shutdown function WIP");
+            if (confirm("Confirm Poweroff?")){
+                $.ajax({
+                    url: "system/power/shutdown",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Shutdown suceed
+                        }
+                    },
+                    error: function(){
+                        //Shutdown suceed
+                    }
+                });
+            }
+
+           
         }
 
         function uploadFile(file, callback=undefined) {

@@ -35,7 +35,7 @@ var startingUp = true //Indicate if the system is undergoing startup process
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"             //System build flag, this can be either {development / production / stable}
-var internal_version = "0.0.450"              //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
+var internal_version = "0.0.480"              //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
 var deviceUUID string                         //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"              //Vendor of the system
 var deviceModel = "AR100"                     //Hardware Model of the system
@@ -142,6 +142,9 @@ func mdlwr(h http.Handler) http.Handler {
 				panic("Error. Unable to parse login page. Is web directory data exists?")
 			}
 			sendTextResponse(w, parsedPage)
+		}else if r.URL.Path == "/reset.system" && system_auth_getUserCounts() > 0{
+			//Password restart page. Allow access only when user number > 0
+			system_resetpw_handlePasswordReset(w,r);
 		} else if r.URL.Path == "/user.system" && system_auth_getUserCounts() == 0 {
 			//Serve user management page. This only allows serving of such page when the total usercount = 0 (aka System Initiation)
 			h.ServeHTTP(w, r)
@@ -251,6 +254,7 @@ func main() {
 	system_fs_service_init()         //Initiate file system API
 	system_setting_init()            //Initiate system setting API
 	system_ajgi_init()               //Initiate system plugin interface
+	system_resetpw_init()			 //Password reset service
 
 	//Handle System Hardware Mangement Interfaces
 	hardware_power_init()
@@ -261,6 +265,9 @@ func main() {
 
 	//Handle system core modules initiation
 	desktop_init()
+	if *allow_hardware_management{
+		system_power_init();
+	}
 
 	//Handle System Utils Services Inits
 	system_disk_space_init() //Handle Disk space listener

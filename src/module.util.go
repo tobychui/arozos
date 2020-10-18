@@ -80,6 +80,38 @@ func util_init(){
 		SupportedExt: []string{".mp4",".webm",".ogv"},
 	});
 
+	/*
+		STL File Viewer - Plotted from ArOZ Online Beta
+	*/
+	registerModule(moduleInfo{
+		Name: "STL Viewer",
+		Desc: "3D Model Viewer for STL Files",
+		Group: "Utilities",
+		IconPath: "SystemAO/utilities/img/stlViewer.png",
+		Version: "1.0",
+		SupportFW: false,
+		SupportEmb: true,
+		LaunchEmb: "SystemAO/utilities/stlViewer.html",
+		InitEmbSize: []int{720, 480},
+		SupportedExt: []string{".stl"},
+	});
+
+	/*
+		Gcode File Viewer - Plotted from ArOZ Online Beta
+	*/
+	registerModule(moduleInfo{
+		Name: "Gcode Viewer",
+		Desc: "Gcode Toolpath Viewer",
+		Group: "Utilities",
+		IconPath: "SystemAO/utilities/img/gcodeViewer.png",
+		Version: "1.0",
+		SupportFW: false,
+		SupportEmb: true,
+		LaunchEmb: "SystemAO/utilities/gcodeViewer.html",
+		InitEmbSize: []int{720, 480},
+		SupportedExt: []string{".gcode",".gco"},
+	});
+
 }
 
 /*

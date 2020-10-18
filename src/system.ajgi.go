@@ -261,6 +261,46 @@ func system_ajgi_injectArOZLibs(vm *otto.Otto, scriptFile string) {
 		return reply
 	})
 
+	//listDBTable(tablename) => Return key values array
+	vm.Set("listDBTable", func(call otto.FunctionCall) otto.Value {
+		tableName, _ := call.Argument(0).ToString()
+		returnValue := map[string]string{}
+		reply, _ := vm.ToValue(nil)
+		if system_agji_filterDBTableAccessRequest(tableName) {
+			entries := system_db_listTable(sysdb, tableName)
+			for _, keypairs := range entries{
+				//Decode the string 
+				result := ""
+				json.Unmarshal(keypairs[1], &result);
+				returnValue[string(keypairs[0])] = result
+			}
+			r, err := vm.ToValue(returnValue)
+			if err != nil{
+				return otto.NullValue()
+			}
+			return r
+		}
+		return reply
+	})
+
+	//deleteDBItem(tablename, key) => Return true if success, false if failed
+	vm.Set("deleteDBItem", func(call otto.FunctionCall) otto.Value {
+		tableName, _ := call.Argument(0).ToString()
+		keyString, _ := call.Argument(1).ToString()
+		if system_agji_filterDBTableAccessRequest(tableName){
+			err := system_db_delete(sysdb, tableName, keyString)
+			if err != nil{
+				return otto.FalseValue()
+			}
+		}else{
+			//Permission denied
+			return otto.FalseValue()
+		}
+		
+		return otto.TrueValue()
+	})
+
+
 	//Module registry
 	vm.Set("registerModule", func(call otto.FunctionCall) otto.Value {
 		jsonModuleConfig, err := call.Argument(0).ToString()

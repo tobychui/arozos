@@ -21,6 +21,9 @@
                 <button class="ui primary small button" onclick="showNewUserUI();">
                     <i class="add icon"></i>Create
                 </button>
+                <button id="editbtn" class="ui small disabled button" onclick="showEditUI();">
+                    <i class="edit icon"></i>Edit
+                </button>
                 <button id="editUserButton" class="ui small negative disabled right floated button" onclick="removeUser();">
                     Remove
                 </button>
@@ -86,12 +89,25 @@
             }
 
             function showNewUserUI(){
-                parent.newFloatWindow({
+                ao_module_newfw({
                     url: "user.system",
                     width: 530,
                     height: 740,
                     appicon: "SystemAO/users/img/user_white.png",
                     title: "Create New User",
+                    callback: "finishCreateHandler",
+                    parent: ao_module_windowID
+                });
+            }
+
+            function showEditUI(){
+                var username = $("input[name='selectUser']:checked").val();
+                ao_module_newfw({
+                    url:"SystemAO/users/editUser.html#" + encodeURIComponent(username),
+                    width: 530,
+                    height: 740,
+                    appicon: "SystemAO/users/img/user_white.png",
+                    title: "Edit User",
                     callback: "finishCreateHandler",
                     parent: ao_module_windowID
                 });
@@ -124,6 +140,7 @@
 
             function enableEdit(){
                 $("#editUserButton").removeClass("disabled");
+                $("#editbtn").removeClass("disabled");
             }
         </script>
     </body>

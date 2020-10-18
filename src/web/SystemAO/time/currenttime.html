@@ -59,8 +59,8 @@
         d = new Date();
         updateTime();
         updateTimeFromServer();
-        uT = setInterval(updateTime, 1000);
-        uTfS = setInterval(updateTimeFromServer, 10000);
+        var uT = setInterval(updateTime, 1000);
+        var uTfS = setInterval(updateTimeFromServer, 10000);
     }, 1000 - new Date().getMilliseconds());
 
 
@@ -84,6 +84,10 @@
             }
             updateAdditionalCalander();
         });
+        if ($("#currenttime").length == 0) {
+            clearInterval(uT);
+            clearInterval(uTfs);
+        }
     }
 
     function formatTime(time) {

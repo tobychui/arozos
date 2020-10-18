@@ -145,8 +145,8 @@ func system_storage_loadConfig(){
 
 }
 
-func system_storage_getAccessMode(rPath string, username string) string{
 
+func system_storage_getAccessMode(rPath string, username string) string{
 	//Check if the system is running in demo mode. If yes, all paths are read only.
 	if (*demo_mode){
 		return "readonly"
@@ -169,6 +169,36 @@ func system_storage_getAccessMode(rPath string, username string) string{
 	}
 
 	return ""
+}
+
+//Return the corrisponding storage device register that handle this real path
+func system_storage_getStorageByPath(rPath string, username string) (storageDevice, error){
+	vPath, err := realpathToVirtualpath(rPath, username)
+	if err != nil{
+		return storageDevice{}, err
+	}
+	pathInfo := strings.Split(vPath, "/")
+	//Find the corrisponding name of the storage device using UUID
+	targetUUID := pathInfo[0][:len(pathInfo[0]) -1]
+	for _, dev := range storages{
+		if (dev.Uuid == targetUUID){
+			return dev, nil
+		}
+	}
+
+	return storageDevice{
+		Name: "User",
+		Uuid: "user",
+		Path: *root_directory,
+		Access: "self",
+		Hierarchy: "user",
+		Automount: true,
+		Filesystem: "system",
+		Mountdev: "",
+		Mountpt: "",
+		Freespace: int64(-1),
+		Disksize: int64(-1),
+	}, nil
 }
 
 //Get the storage root name (e.g. User or S1) from realPath
@@ -234,8 +264,4 @@ func system_storage_getUserDirectory(username string) []string{
 		}
 	}
 	return userpaths;
-}
-
-func system_storage_getStorageDeviceList() []storageDevice{
-	return nil;
 }

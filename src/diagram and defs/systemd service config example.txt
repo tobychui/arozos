@@ -1,0 +1,13 @@
+[Unit]
+Description=ArOZ Online Cloud Desktop Service.
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/aroz_online/
+ExecStart=/bin/bash /home/pi/aroz_online/start.sh
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

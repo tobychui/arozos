@@ -66,8 +66,6 @@ func system_id_generateSystemUUID(){
 		}
 		deviceUUID = string(thisuuid)
 	}
-
-	 
 }
 
 func system_id_getSystemUUID() string{

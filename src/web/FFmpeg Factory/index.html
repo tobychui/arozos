@@ -2,6 +2,7 @@
 <head>
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+<link rel="stylesheet" href="../script/tocas/tocas.css">
 <link rel="stylesheet" href="../script/semantic/semantic.css">
 <script src="jquery.min.js"></script>
 <script src="../script/semantic/semantic.js"></script>
@@ -36,7 +37,7 @@
     }
     .selectableMenuItems.enabled:hover{
         background-color:#f0f0f0;
-        border-bottom:2px solid #53bae2;
+
     }
     .convertionList{
         width:100%;
@@ -51,13 +52,12 @@
         padding-left: 22px !important;
 		border:1px solid transparent;
     }
+   
+    .selectable.item{
+        padding:8x !important;
+    }
     .selectable:hover{
         background-color:#f0f0f0;
-		border:1px solid #999999 !important;
-    }
-    .selectable.item{
-        padding:3px;
-        border: 1px solid transparent;
     }
     .content{
         overflow-y: auto;
@@ -91,7 +91,7 @@
 	.converting{
 		background-color:#d3e4ff;
 	}
-	.convertDone{
+	.done{
 		background-color:#d1ffd3;
 	}
 	#settingMenu{
@@ -103,6 +103,12 @@
 	}
     .mainArea{
         margin-top:0px !important;
+    }
+    .ts.progress{
+        margin-bottom:18px !important;
+    }
+    .ts.blue.progress .bar{
+        background-color: #2185d0 !important;
     }
 
 </style>
@@ -193,8 +199,9 @@
         
        
     </div>
-    <div id="settingDimmer" class="ui dimmer"></div>
+    
 </div>
+<div id="settingDimmer" class="ui dimmer"></div>
 <div id="settingMenu" style="z-index:1001;">
     <div class="ui raised segment">
         <div class="ui header">
@@ -210,7 +217,7 @@
                     <option>3</option>
                     <option>4</option>
                     <option>8</option>
-                    <option>ALL</option>
+                    <option>16</option>
                 </select>
             </div>
             <div class="item" style="font-size: 90%;"><small>Do not use "ALL" options unless your host is a dual CPU Xeon Server</small></div>
@@ -237,10 +244,13 @@
     var selectFormatPending = false;        //Files selected and waiting to select a target format
     var targetConversionFormat = "";        //The target conversion format
     var selectedCommand = "";               //The target selected command template
+    var selectedMediaType = "";
 
     //Conversion related settings
     var simFileCount = 1;
     var allowCodecCopy = false;
+    var queueStarted = false;
+    
 
 
     if (ao_module_virtualDesktop){
@@ -250,7 +260,6 @@
     $(document).ready(function(){
         $("#settingMenu").hide();
         $('.ui.dropdown').dropdown();
-        initUserSettings();
         //Initialize the conversion types
         //<div class="item selectable"><i class="file video outline icon"></i></div>
         $.ajax({
@@ -260,9 +269,10 @@
             success: function(data){
                 for (var [key, value] of Object.entries(data)) {
                     value = encodeURIComponent(value);
-                    $("#v2v").append(`<div class="item selectable" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                    $("#v2v").append(`<div class="item selectable" mediatype="video" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
                 }
                 $('.ui.accordion').accordion();
+                initUserSettings();
             }
         });
 
@@ -273,9 +283,10 @@
             success: function(data){
                 for (var [key, value] of Object.entries(data)) {
                     value = encodeURIComponent(value);
-                    $("#v2a").append(`<div class="item selectable" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                    $("#v2a").append(`<div class="item selectable" mediatype="music" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
                 }
                 $('.ui.accordion').accordion();
+                initUserSettings();
             }
         });
 
@@ -286,7 +297,7 @@
             success: function(data){
                 for (var [key, value] of Object.entries(data)) {
                     value = encodeURIComponent(value);
-                    $("#i2i").append(`<div class="item selectable" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                    $("#i2i").append(`<div class="item selectable" mediatype="image" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
                 }
                 $('.ui.accordion').accordion();
             }
@@ -299,7 +310,7 @@
             success: function(data){
                 for (var [key, value] of Object.entries(data)) {
                     value = encodeURIComponent(value);
-                    $("#other").append(`<div class="item selectable" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                    $("#other").append(`<div class="item selectable" mediatype="other" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
                 }
                 $('.ui.accordion').accordion();
             }
@@ -320,6 +331,9 @@
     function drop(event){
         event.preventDefault();
         var files = ao_module_utils.getDropFileInfo(event);
+        if(files.length == 0){
+            return;
+        }
         selectFormatPending = true;
         fileSelected(files);
     }
@@ -359,8 +373,6 @@
             }
             updateCodeCopyDisableList();
         });
-       
-       
     }
 
     function updateCodeCopyDisableList(){
@@ -406,10 +418,11 @@
             //format alraedy selected. Append to conversion list
             for (var i =0; i < data.length; i++){
                 var thisFile = convertPendingFiles[i];
-                addTaskToList(thisFile.filename, thisFile.filepath, targetConversionFormat, selectedCommand);
+                addTaskToList(thisFile.filename, thisFile.filepath, targetConversionFormat, selectedCommand, selectedMediaType);
             }
             targetConversionFormat="";
             selectedCommand="";
+            selectedMediaType="";
         }
        
     }
@@ -427,7 +440,7 @@
     //Remove task from the task list
     function removeTask(obj){
         var taskObject = $(obj).parent().parent().parent();
-        msgbox("Task Removed", $(taskObject).attr("filepath"));
+        //msgbox("Task Removed", $(taskObject).attr("filepath"));
         $(taskObject).remove();
     }
 
@@ -437,18 +450,19 @@
         $("#actionOK").find(".message").text(message);
     }
 
-    function addTaskToList(filename, filepath, targetFormat, command){
+    function addTaskToList(filename, filepath, targetFormat, command, mtype){
         //Get the file extension of the filename
         var srcFormat = filename.split(".").pop();
         srcFormat = srcFormat.toUpperCase();
-        $("#convertPendingList").append(`<div class="item filelist" filepath="${filepath}" command="${command}" onclick="selectThisTask(this);">
+        console.log(filename, filepath, targetFormat, command, mtype);
+        $("#convertPendingList").append(`<div class="item filelist ready" mtype="${mtype}" filepath="${filepath}" command="${command}" onclick="selectThisTask(this);">
                     <i class="large file outline middle aligned icon"></i>
                     <div class="content">
                         <div class="header">${filename} [${srcFormat} <i class="right arrow icon"></i>${targetFormat}]</div>
-                        <div class="description" style="margin-top:8px;"><a onclick="startTask(this);"><i class="exchange icon"></i> Start Convert</a> / <a onclick="removeTask(this);"><i class="trash icon"></i> Remove</a>
+                        <div class="description" style="margin-top:8px;"><a onclick="startTask(this, event);" class="startTaskButton"><i class="exchange icon"></i> Start Convert</a> / <a onclick="removeTask(this);"><i class="trash icon"></i> Remove</a>
                         </div>
                     </div>
-                    <div class="ui black active tiny progress" style="margin-top:8px;">
+                    <div class="ts black active tiny progress" style="margin-top:8px;">
                         <div class="bar" style="width:0%; min-width:0px;"></div>
                     </div>
                 </div>`);
@@ -457,6 +471,7 @@
     function selectViaFormat(obj){
         targetConversionFormat = $(obj).attr("conv");
         selectedCommand = $(obj).attr("command");
+        selectedMediaType = $(obj).attr("mediatype");
         ao_module_openFileSelector(fileSelected, "user:/Desktop", "file",true);
     }
 
@@ -470,11 +485,12 @@
             //Get the target format and command
             var format = $(obj).attr("conv");
             var command = $(obj).attr("command");
+            var mtype = $(obj).attr("mediatype");
 
             //Append the files item to list
             for (var i =0; i < convertPendingFiles.length; i++){
                 var thisFile = convertPendingFiles[i];
-                addTaskToList(thisFile.filename, thisFile.filepath, format, command);
+                addTaskToList(thisFile.filename, thisFile.filepath, format, command, mtype);
             }
 
             selectFormatPending = false;
@@ -498,6 +514,109 @@
     })
     function resizeWindowEvents(){
         $(".sidebar").css("height",window.innerHeight - $(".topMenu").height());
+    }
+
+    //Bind the queue listening events
+    setInterval(function(){
+        if (queueStarted){
+            //Check next queue
+            if ($(".filelist.converting").length < simFileCount){
+                //Convert next item
+                if ($(".filelist.ready").length > 0){
+                    $($(".filelist.ready")[0]).find(".startTaskButton")[0].click();
+                }else{
+                    //Conversion finished
+                    console.log("Conversion finished");
+                    queueStarted = false;
+                }
+            }
+        }
+    }, 1000);
+    function startQueue(){
+        //Start the queue with the given task number on the fly
+        queueStarted = true;
+    }
+
+    function stopQueue(){
+        queueStarted = false;
+    }
+
+    function startTask(taskObject, event){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        //Travel back to the task object itself
+        taskObject = $(taskObject).parent().parent().parent();
+        
+        //Try to validate conversion type
+        var mediaType = {
+            "music": ["m4a","flac","mp3","wav","ogg","aac","wma"],
+            "video": ["mp4","avi","webm","mkv","wmv","mov","m4v","rmvb"],
+            "image": ["png","jpg","jpeg","gif","tif","tiff"]
+        }
+
+        var srcExt = $(taskObject).attr("filepath").split(".").pop();
+        var targetType = $(taskObject).attr("mtype");
+        var srcType = "unknown";
+
+       //Check which type of media is src
+       if (mediaType["music"].includes(srcExt)){
+            srcType = "music";
+       }else if (mediaType["video"].includes(srcExt)){
+            srcType = "video";
+       }else if (mediaType["image"].includes(srcExt)){
+            srcType = "image";
+       }
+
+       //Allow video -> (video or audio), music -> music and image -> image
+        var requireConversionConfirm = true;
+        if (srcType == "video" && targetType == "video"){
+            requireConversionConfirm = false
+        }else if (srcType == "video" && targetType == "music"){
+            requireConversionConfirm = false
+        }else if (srcType == "music" && targetType == "music"){
+            requireConversionConfirm = false
+        }else if (srcType == "image" && targetType == "image"){
+            requireConversionConfirm = false
+        }else if (targetType == "other"){
+            //Just trust the user, they know what they are doing
+            requireConversionConfirm = false
+        }
+
+        if (requireConversionConfirm){
+            if (!confirm("We are not sure if the conversion media type is valid. Continue anyway?")){
+                return
+            }
+        }
+
+        //OK! Convert this file
+        var filepath = $(taskObject).attr("filepath");
+        var command = $(taskObject).attr("command");
+
+        //Update the progress bar
+        $(taskObject).find(".tiny.progress").attr("class","ts blue queried indeterminate tiny progress");
+        $(taskObject).find(".bar").css("width","100%");
+        $(taskObject).removeClass("ready").addClass("converting");
+
+        //Hide the control buttons
+        $(taskObject).find(".description").html("<span><i class='loading spinner icon'></i> Converting...</span>");
+        ao_module_agirun("FFmpeg Factory/backend/convert.js",{
+            filepath: filepath,
+            command: command
+        },function(data){
+            if (data.error !== undefined){
+                //Conversion failed
+                console.log(data.error);
+                $(taskObject).find(".tiny.progress").attr("class","ui red tiny progress");
+                $(taskObject).find(".bar").css("width","100%");
+                $(taskObject).removeClass("converting").addClass("done");
+                $(taskObject).find(".description").html(`<span><i class='remove icon'></i> ${data.error}</span>`);
+            }else{
+                $(taskObject).find(".tiny.progress").attr("class","ui green tiny progress");
+                $(taskObject).find(".bar").css("width","100%");
+                $(taskObject).removeClass("converting").addClass("done");
+                $(taskObject).find(".description").html(`<span><i class='checkmark icon'></i> Completed</span>`);
+            }
+        });
     }
 
 </script>

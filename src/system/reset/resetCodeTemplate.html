@@ -1,0 +1,71 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>ArOZ Online - Reset Password</title>
+    <link rel="stylesheet" href="script/semantic/semantic.css">
+    <link rel="stylesheet" href="script/ao.css">
+    <script type="application/javascript" src="script/jquery.min.js"></script>
+    <script type="application/javascript" src="script/semantic/semantic.js"></script>
+    <style>
+        
+    </style>
+    </head>
+    <body> 
+    <br><br><br>
+    <div class="ui container" align="center">
+        <div class="ui yellow segment" style="max-width:400px;" align="left">
+            <div class="imageRight" align="center">
+                <img class="ui small image" src="data:image/png;base64, {{vendor_logo}}"></img>
+            </div>
+            <br>
+            <div class="ui text container">
+                <p>Reset your account password on {{host_name}}</p>
+            </div>
+            <br>
+            <form class="ui form" onsubmit="handleFormSubmit(event, this);">
+                <div class="field">
+                    <label>Username</label>
+                    <input type="text" name="username" placeholder="Username">
+                </div>
+                <div class="field">
+                    <label>Password Reset Key</label>
+                    <input type="text" name="resetkey" placeholder="Password Reset Key">
+                    <small>Please seek for administrator assistant to obtain a Password Reset Key</small>
+                </div>
+                <button id="submitbtn" class="ui blue button" type="submit">Continue</button>
+            </form>
+            <div id="errmsg" class="ui red inverted segment" style="display:none;">
+                <i class="remove icon"></i> <span id="errtext">Internal Server Error</span>
+            </div>  
+            <br>
+            <p>Back to <a href="../index.html">Login</a></p>
+        </div>
+    </div>
+        
+    <script>
+        function handleFormSubmit(event, object){
+            event.preventDefault();
+            var username = object.username.value;
+            var rkey = object.resetkey.value;
+            $.ajax({
+                url: "system/reset/validateResetKey",
+                data: {username: username, rkey: rkey},
+                method: "POST",
+                success: function(data){
+                    if (data.error !== undefined){
+                        $("#errtext").text(data.error);
+                        $("#errmsg").show();
+                    }else{
+                        //OK
+                        $("#errmsg").hide();
+                        //Put the key and username to get paramters
+                        window.location.href = location.protocol + '//' + location.host + location.pathname + "?acc=" + encodeURIComponent(username) + "&rkey=" + rkey
+                    }
+                }
+            });
+        }
+    </script>
+    </body>
+</html>
