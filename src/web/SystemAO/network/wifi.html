@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <title>WiFi Settings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+     
+    </style>
+</head>
+<body>
+    <div class="ui container">
+        <div class="ui horizontal segments">
+            <div class="ui segment">
+                <h4 class="ui header">
+                    <i class="signal icon"></i>
+                    <div class="content">
+                        <span id="SSID">Loading...</span>
+                        <div class="sub header">WiFi SSID</div>
+                    </div>
+                </h4>
+            </div>
+            <div class="ui segment">
+                <h4 class="ui header">
+                    <i class="globe icon"></i>
+                    <div class="content">
+                        <span id="Interface">Loading...</span>
+                        <div class="sub header">Interface</div>
+                    </div>
+                </h4>
+            </div>
+        </div>
+        <div>
+            <table class="ui very basic celled table">
+            <thead>
+                <tr>
+                    <th>Wifi Access Points</th>
+                    <th>Signal Level (Quality)</th>
+                    <th>Physical Address</th>
+                    <th>Connect</th>
+                    <th>Remove</th>
+                </tr>
+            </thead>
+            <div class="ui container">
+                <button class="ui small button" onclick="initWiFiScan();"><i class="refresh icon"></i> Rescan</button>
+            </div>
+            <tbody id="wifilist">
+                <tr>
+                    <td><i class="loading spinner icon"></i> Scanning Nearby WiFi Access Points</td>
+                </tr>
+            </tbody>
+            </table>
+        </div>
+    <br><br><br>
+    </div>
+    <!-- WiFi Connection Interface-->
+    <div class="ui modal">
+        <i class="close icon"></i>
+        <div class="header">
+            <span id="wifiName"></span>
+        </div>
+        <div class="image content">
+            <div class="ui mini image">
+            <img id="wifiImage" src="">
+            </div>
+            <div class="description" style="min-width:400px;">
+            <div class="ui header">Credential Required</div>
+                <div class="ui labeled fluid input" style="margin-top:12px;">
+                    <div class="ui teal label">
+                        SSID
+                    </div>
+                    <input type="text" value="" id="ssid" readonly=true>
+                </div>
+        
+                <div class="ui labeled action fluid input" style="margin-top:12px;">
+                    <div class="ui teal label">
+                        Password
+                    </div>
+                    <input type="password" id="pwd">
+                    <button class="ui icon black button"  onmousedown="showPassword();" onmouseup="hidePassword();" ontouchstart="showPassword();" ontouchend="hidePassword();">
+                        <i class="eye icon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="actions">
+            <div class="ui black deny button">
+            Cancel
+            </div>
+            <div class="ui positive right labeled icon button" onclick="confirmConnection();">
+            Connect
+            <i class="checkmark icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        //Delete all previous modal if exists
+        //Funny bug of Semantic ui
+        for (var i =1; i < $(".ui.modal").length; i++){
+            $($(".ui.modal")[i]).remove();
+        }
+        initWiFiScan();
+        function initWiFiScan(){
+            $("#wifilist").html(` <tr>
+                <td><i class="loading spinner icon"></i> Scanning Nearby WiFi Access Points</td>
+            </tr>`);
+            $.get("../../system/network/scanWifi",function(data){
+                if (data.error != undefined){
+                    console.log(data.error);
+                    //Unknown error. Rescan later
+                    setTimeout(function(){
+                        initWiFiScan();
+                    },3000);
+                }else{
+                    $("#wifilist").html("");
+                    for (var i = 0; i < data.length; i++){
+                        var thisWiFi = data[i];
+                        var signalLevel = thisWiFi.SignalLevel.split(" ").shift();
+                        var signalIcon = "signal_0.svg"
+                        var warninglevel = 0;
+                        try{
+                            signalLevel = parseInt(signalLevel);
+                            if (signalLevel > -50){
+                                signalIcon = "signal_5.svg";
+                            }else if (signalLevel > -60){
+                                signalIcon = "signal_4.svg";
+                            }else if (signalLevel > -70){
+                                signalIcon = "signal_3.svg";
+                            }else if (signalLevel > -80){
+                                signalIcon = "signal_2.svg";
+                                warninglevel = 1;
+                            }else{
+                                signalIcon = "signal_1.svg";
+                                warninglevel = 2;
+                            }
+                        }catch(ex){
+                             
+                        }
+
+                        //This WiFi might be too week to connect
+                        classname = "";
+                        if (warninglevel == 0){
+                            classname = "positive";
+                        }
+
+                        //Only add remove button if the WiFi is connected before
+                        removeHTML = "";
+                        if (thisWiFi.ConnectedBefore){
+                            removeHTML = `<a href="#">Remove</a>`;
+                        }
+
+                        //Check if this WiFi has been connected. If yes, hide the connect button
+                        var connBtn = ` <td class="selectable" conncetedBefore="${thisWiFi.ConnectedBefore}" image="${signalIcon}" targetESSID="${thisWiFi.ESSID}" onclick="connectThis(this, event);">
+                            <a href="#">Connect</a>
+                        </td>`;
+                        if (thisWiFi.ESSID == $("#SSID").text().trim()){
+                            connBtn = `<td conncetedBefore="${thisWiFi.ConnectedBefore}">
+                            <i class="checkmark icon"></i> Connected
+                        </td>`;
+                        }
+
+                        $("#wifilist").append(`<tr class="${classname}">
+                        <td>
+                            <h4 class="ui image header">
+                                <img src="../network/img/${signalIcon}" class="ui mini rounded image">
+                                <div class="content">
+                                    ${thisWiFi.ESSID}
+                                    <div class="sub header"> ${thisWiFi.Frequency} (Channel ${thisWiFi.Channel})
+                                </div>
+                                </div>
+                            </h4>
+                        </td>
+                        <td>
+                            ${thisWiFi.SignalLevel} ( ${thisWiFi.Quality})
+                        </td>
+                        <td>
+                            ${thisWiFi.Address}
+                        </td>
+                        ${connBtn}
+                        <td class="selectable"  image="${signalIcon}" targetESSID="${thisWiFi.ESSID}" onclick="removeThis(this, event);">
+                            ${removeHTML}
+                        </td>
+                    </tr>`);
+                    }
+                   
+                }   
+            });
+        }
+
+        function removeThis(obj, event){
+            event.preventDefault();
+            targetSSID = $(obj).attr("targetESSID");
+            $.ajax({
+                url: "../../system/network/removeWifi",
+                data: {ESSID: targetSSID},
+                success: function(data){
+                    if (data.error !== undefined){
+                        alert(data.error)
+                    }else{
+                        resetInterface();
+                    }
+                }
+            });
+        }
+
+        function resetInterface(obj=undefined){
+            $("#wifilist .selectable").removeClass("disabled");
+            if (obj !== undefined){
+                $(obj).html(`<a href="#">Connect</a>`);
+            }
+            initWiFiScan();
+        }
+
+        function connectThis(obj, event){
+            $("#pwd").val("");
+            targetSSID = $(obj).attr("targetESSID");
+            event.preventDefault();
+            //Create DOM elements
+            $("#wifiName").text(targetSSID);
+            $("#wifiImage").attr('src',"../network/img/" + $(obj).attr("image"));
+            $("#ssid").val(targetSSID);
+            
+            //Check if this is connected before. If yes, send out AP switch request
+            if ($(obj).attr("conncetedBefore") == "true"){
+                var ESSID = $(obj).attr("targetESSID");
+                $("#wifilist .selectable").addClass("disabled");
+                $(obj).html(`<div class="ui active centered inline loader"></div>`);
+                $.ajax({
+                    url: "../../system/network/connectWifi",
+                    data: {"ESSID": ESSID, "ConnType":"switch"},
+                    method: "POST",
+                    success: function(data){
+                        console.log(data);
+                        initWifiInfo();
+                        resetInterface(obj);
+                    },
+                    error: function(){
+                        $("#wifilist .selectable").removeClass("disabled");
+                        resetInterface(obj);
+                    },
+                    timeout: 30000
+                });
+            }else{
+                $('.ui.modal').modal('show');
+            }
+        }
+
+        function confirmConnection(){
+            var ESSID = $("#ssid").val();
+            var PWD = $("#pwd").val();
+            $("#wifilist .selectable").addClass("disabled");
+            $.ajax({
+                url: "../../system/network/connectWifi",
+                data: {"ESSID": ESSID, "pwd": PWD},
+                method: "POST",
+                success: function(data){
+                    console.log(data);
+                    initWifiInfo();
+                    resetInterface();
+                },
+                error: function(){
+                    $("#wifilist .selectable").removeClass("disabled");
+                    resetInterface();
+                },
+                timeout: 30000
+            });
+        }
+
+        function showPassword(){
+            $("#pwd").attr("type","text");
+        }
+
+        function hidePassword(){
+            $("#pwd").attr("type","password");
+        }
+
+        //Also init WiFi view in this interface
+        initWifiInfo();
+        function initWifiInfo(){
+            $.ajax({
+                url: "../../system/network/wifiinfo",
+                method:"GET",
+                success: function(data){
+                    if (data.error !== undefined){
+                        $("#SSID").text("Access Failed");
+                        $("#Interface").text("loopback");
+                    }else{
+                        $("#SSID").text(data.ESSID);
+                        $("#Interface").text(data.Interface);
+                    }
+                }
+            });
+        }
+    </script>
+   
+</body>
+
+</html>

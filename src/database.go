@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"github.com/boltdb/bolt"
 	"errors"
+
+	//database "imuslab.com/aroz_online/mod/database"
 )
 
 /*
@@ -35,6 +37,10 @@ func system_db_service_init(dbfile string) *bolt.DB{
 	if (err != nil){
 		log.Fatal(err)
 	}
+
+	//Create a testing db object
+	//dbObject, _ := database.NewDatabase(dbfile, false)
+	//log.Println(dbObject);
 
 	log.Println("ArOZ Online Key-value Database Service Loaded");
 	return db;

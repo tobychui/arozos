@@ -75,7 +75,7 @@
         startup();
 
         function startup() {
-            $.getJSON("/SystemAO/disk/smart/getSMART", function(data) {
+            $.getJSON("../../system/disk/smart/getSMART", function(data) {
                 $("#mainmenu").html("");
                 if ($(data).length == 0) {
                     msg("No harddisk detected.");

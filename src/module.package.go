@@ -55,7 +55,9 @@ func module_package_installIfNotExists(pkgname string, mustComply bool) error{
 		//Package not installed. Install if now if running in sudo mode
 		log.Println("Installing package " + pkgname + "...")
 		cmd := exec.Command("apt-get", "install", "-y", pkgname)
-		out, err := cmd.CombinedOutput()
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
 		if err != nil{
 			if (mustComply){
 				//Panic and terminate server process

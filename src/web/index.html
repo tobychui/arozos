@@ -121,7 +121,7 @@
         .launchIconText.medium {
             margin-top: -2px;
             font-size: 90%;
-            line-height: 105%;
+            line-height: 1.4em;
         }
         
         .launchIconText.big {
@@ -575,6 +575,14 @@
            background-color:#fafafa;
         }
 
+        .item.module{
+            cursor:pointer;
+        }
+
+        .item.module:hover{
+            background-color:#f5f5f5 !important;
+        }
+
         /*
                 Z-index layering
                 Layer -1 : Background Images
@@ -589,6 +597,12 @@
                 Layer 115: Notification Bar
             */
     </style>
+    <script>
+        //Force redirection if it is on mobile
+        if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
+            window.location.href = "m.index.html";
+        }
+    </script>
 </head>
 
 <body style="background-color:black;">

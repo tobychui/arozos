@@ -24,8 +24,8 @@ type NICS struct {
 //InitShowSysInformation xxx
 func network_info_service_init() {
 	log.Println("Starting network service")
-	http.HandleFunc("/SystemAO/network/getNICinfo", network_info_getNICInfo)
-	http.HandleFunc("/SystemAO/network/getPing", network_info_getPing)
+	http.HandleFunc("/system/network/getNICinfo", network_info_getNICInfo)
+	http.HandleFunc("/system/network/getPing", network_info_getPing)
 
 	//Register as a system setting
 	registerSetting(settingModule{

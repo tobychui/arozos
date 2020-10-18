@@ -1,0 +1,563 @@
+<html>
+    <head>
+        <title>ArOZ Online Mobile</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="script/semantic/semantic.css">
+        <link rel="stylesheet" href="script/ao.css">
+        <script type="text/javascript" src="script/jquery.min.js"></script>
+        <script type="text/javascript" src="script/semantic/semantic.js"></script>
+        <script type="text/javascript" src="script/ao_module.js"></script>
+        <style>
+            .themeColor{
+                background-color:#1c1c1c;
+            }
+
+            .taskBar{
+                position:fixed;
+                top:0px;
+                left:0px;
+                width:30px;
+                height:100%;
+                overflow: visible !important;
+                z-index:999;
+            }
+            #mainFrame{
+                width: calc(100% - 30px);
+                position:fixed;
+                top:0px;
+                right:0px;
+                overflow: hidden;
+
+            }
+            .toggleTaskBar{
+                position:absolute;
+                bottom:0px;
+                right:0px;
+                margin-right:-40px;
+                width:40px;
+                height:120px;
+                border-radius: 0px 10px 10px 0px;
+            }
+
+            #listMenu{
+                z-index:1000;
+                position:fixed;
+                top:0px;
+                left:0px;
+                width:100%;
+                height:100%;
+                padding:12px;
+                background-color: #fcffff;
+                box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
+            }
+            #listMenu .searchBar {
+                width: 100%;
+                border-bottom: 2px solid #34b7eb;
+            }
+            
+            #listMenu .listItemWrapper {
+                overflow: hidden;
+            }
+
+            #listMenu .listItemWrapper .groups {
+                background-color: #f5f5f5;
+                width: 120px;
+                height: calc(100% - 40px);
+                display: inline-block;
+                overflow-y: auto;
+                padding-top: 8px;
+            }
+            
+            #listMenu .listItemWrapper .groups .item {
+                padding-left: 7px;
+                padding-bottom: 6px;
+                padding-top: 6px;
+                cursor: pointer;
+            }
+            
+            #listMenu .listItemWrapper .groups .item.selected {
+                color: #34b7eb;
+            }
+            
+            #listMenu .listItemWrapper .groups .item:hover {
+                background-color: #dedede;
+            }
+
+            #listMenuItem{
+                width: calc(100% - 130px) !important;
+                float: right;
+                overflow-y: auto;
+                height: calc(100% - 40px) !important;
+            }
+
+            #listMenuItem img{
+                width: 50px;
+            }
+
+            .module.item{
+                padding:8px;
+            }
+
+            .hideListMenuButton{
+                position: absolute;
+                bottom:22px;
+                left:32px;
+                cursor:pointer;
+            }
+
+            .hideListMenuButton img{
+                left:12px;
+                width:50px;
+            }
+
+            .listMenuLauncher{
+                position:absolute;
+                bottom:12px;
+                left:12px;
+                cursor:pointer;
+            }
+            
+            .blurred{
+                filter: blur(3px);
+            }
+
+            #backdrop {
+                background-repeat: no-repeat;
+                background-size: cover;
+                background-position: center;
+                background-image: url('img/desktop/bg/init.jpg');
+                width: 100%;
+                height: 100%;
+                overflow-x: hidden;
+                pointer-events: none;
+            }
+
+            #windowButtonWrapper{
+                padding-top:6px;
+            }
+
+            .floatWindowButton{
+                padding: 5px;
+            }
+
+            .floatWindowButton .minimizedIcon{
+                width: 20px;
+                height:20px;
+            }
+
+            .floatWindowButton .normalElements{
+                padding:8px;
+                border-bottom: 1px solid #4a4a4a;
+                cursor:pointer;
+                vertical-align:middle;
+            }
+
+            .floatWindowButton .normalizedIcon{
+                width:40;
+                height:40px;
+                margin-right:12px;
+            }
+
+            .normalElements .windowTitle{
+                display:inline-block;
+                width:200px !important;
+                vertical-align:middle;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;  
+            }
+
+        </style>
+    </head>
+    <body>
+        <div class="taskBar themeColor" >
+            <div class="toggleTaskBar themeColor" shown="false" onclick="toggleTaskBar(this);">
+                <img class="ui image sidebararrow" style="margin-top:8px;" src="img/mobile/keyboard_arrow_right-white-48dp.svg"></img>
+            </div>
+            <div class="listMenuLauncher" onclick="showListMenu();">
+                <img src="img/mobile/apps-white-48dp.svg"/>
+            </div>
+            <div id="windowButtonWrapper" fwid="123456" parent="" callback="">
+                <div class="floatWindowButton">
+                    <div class="minimizedElements">
+                        <img class="minimizedIcon" src="SystemAO/file_system/img/small_icon.png">
+                    </div>
+                    <div class="normalElements" style="display:none;">
+                        <img class="ui normalizedIcon middle aligned image" src="SystemAO/file_system/img/small_icon.png">
+                        <span class="windowTitle" style="color:white;">File Explorer - Desktop asdasdas asdasdas asd asdas</span>
+                        <button></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="listMenu" style="left:-100%;">
+            <div class="searchBar" onkeydown="searchModule(event);">
+                <div class="ui icon fluid input" style="border-radius: 0px !important;">
+                    <input id="searchBar" type="text" placeholder="Search">
+                    <i class="search icon"></i>
+                </div>
+            </div>
+            <dib class="listItemWrapper">
+                <div class="groups">
+                    <div id="searchResults" class="item" style="display:none;">Search Results</div>
+                    <div class="item groupType selected" group="All">All</div>
+                    <div class="item groupType" group="Media">Media</div>
+                    <div class="item groupType" group="Office">Office</div>
+                    <div class="item groupType" group="Download">Download</div>
+                    <div class="item groupType" group="Files">Files</div>
+                    <div class="item groupType" group="Internet">Internet</div>
+                    <div class="item groupType" group="System Settings">System Settings</div>
+                    <div class="item groupType" group="System Tools">System Tools</div>
+                    <div class="item groupType" group="Utilities">Utilities</div>
+                    <div class="item groupType" group="Other">Other</div>
+                    <div class="hideListMenuButton" onclick="closeListMenu();">
+                        <img class="ui image" src="img/mobile/cancel-black-48dp.svg"></img>
+                        <p>Close Menu</p>
+                    </div>
+                </div>
+                <div id="listMenuItem" class="items" align="left">
+    
+                </div>
+            </div>
+        </div>
+
+        <div id="mainFrame">
+            <div id="backdrop">
+                
+            </div>
+            <div id="windowWrapper">
+
+            </div>
+        </div>
+       
+
+        <script>
+            var isDesktopMode = true;   //Try to emulate Desktop mode
+            var moduleInstalled = [];   //List of installed modules on the system
+            var desktopThemeList = [];  //List of themes installed, same as desktop theme
+
+            //initiation Functions
+            initModuleList();
+            bindGroupTypeEvents();
+            initBackdropImage();
+
+            //Bind background click
+            $("#mainFrame").on("click", function(evt){
+                if ($(this).hasClass("blurred") && $(".taskBar").find(".toggleTaskBar").attr("shown") == "true"){
+                    //hide the taskbar
+                    hideTaskBar();
+                }
+            });
+
+            //Initialize background image
+            function initBackdropImage(){
+                $.get("system/desktop/theme", function(data) {
+                    //Return a list of theme stored on the system
+                    desktopThemeList = data;
+                    $.get("system/desktop/theme?get=true", function(data) {
+                        //Get the user theme settings
+                        changeDesktopTheme(data);
+                    });
+                });
+            }
+
+            function changeDesktopTheme(themename){
+                //Match the given theme to the themename
+                for (var i =0; i < desktopThemeList.length ; i++){
+                    if (desktopThemeList[i].Theme == themename){
+                        var targetImage = desktopThemeList[i].Bglist[0];
+                        $("#backdrop").css("background-image", `url(img/desktop/bg/${themename}/${targetImage})`)
+                    }
+                }
+            }
+         
+
+            //Sidebar
+            function toggleTaskBar(obj){
+                if ($(obj).attr("shown") == "true"){
+                    hideTaskBar();
+                }else{
+                    showTaskBar();
+                }
+            }
+
+            function hideTaskBar(){
+                //Hide the taskBar
+                $(".taskBar").animate({
+                    width: "30px"
+                },300, "swing");
+                $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_right-white-48dp.svg");
+                $(".taskBar").find(".toggleTaskBar").attr("shown","false");
+                $("#mainFrame").removeClass("blurred");
+
+                //Minimize all fwbuttons
+                $(".floatWindowButton").each(function(){
+                    $(this).find(".minimizedElements").show();
+                    $(this).find(".normalElements").hide();
+                });
+            }
+
+            function showTaskBar(){
+                //Show the taskbar
+                $(".taskBar").animate({
+                    width: "300px"
+                }, 300, "swing", function(){
+                    //Switch all fwbuttons to normal size
+                    $(".floatWindowButton").each(function(){
+                        $(this).find(".minimizedElements").hide();
+                        $(this).find(".normalElements").show();
+                     });
+                });
+                $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_left-white-48dp.svg");
+                $(".taskBar").find(".toggleTaskBar").attr("shown","true");
+                $("#mainFrame").addClass("blurred");
+
+               
+            }
+
+            //List all modules
+            function initModuleList(){
+                $.ajax({
+                    url: "system/modules/list",
+                    success: function(data) {
+                        moduleInstalled = data;
+                        listModulesType("All");
+                    }
+                });
+            }
+
+            //ListMenu group classification events
+            function bindGroupTypeEvents(){
+                $(".groupType").on("click",function(evt){
+                    //Clear all serach results
+                    $("#searchResults").slideUp('fast');
+                    listModulesType($(this).attr("group"));
+                    $(".groupType.selected").removeClass("selected");
+                    $(this).addClass("selected");
+                    /*
+                    var classificationObject = this;
+                    if ($(this).attr("group") == "All"){
+                        $('.item.module').show();
+                    } else if ($(this).attr("group") == "Other"){
+                        var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilties"];
+                        $('.item.module').each(function(){
+                            if (excludeList.includes($(this).attr("group")) == false){
+                                $(this).show();
+                            }else{
+                                $(this).hide();
+                            }
+                        });
+                    }else{
+                        $('.item.module').each(function(){
+                            if ($(this).attr("group") == $(classificationObject).attr("group")){
+                                $(this).show();
+                            }else{
+                                $(this).hide();
+                            }
+                        });
+                    }
+                    */
+                   
+                });
+            }
+
+            function searchModule(event) {
+                if (event.which == 13) {
+                    var keyword = $("#searchBar").val().toLowerCase();
+                    var results = [];
+                    var lessAccurateResults = [];
+                    $(".groupType.selected").removeClass("selected");
+                    $("#searchResults").addClass("selected").slideDown('fast');
+                    //Load all search results
+                    for (var i = 0; i < moduleInstalled.length; i++) {
+                        var thisModule = moduleInstalled[i];
+                        var pathInfo = thisModule["StartDir"].split("/");
+                        for (var j = 0; j < pathInfo.length; j++) {
+                            pathInfo[j] = pathInfo[j].toLowerCase();
+                        }
+                        if (thisModule["Name"].toLowerCase().includes(keyword)) {
+                            results.push(thisModule);
+                        } else if (pathInfo.includes(keyword.toLowerCase()) || pathInfo.includes(keyword.split(" ").join("_").toLowerCase())) {
+                            lessAccurateResults.push(thisModule);
+                        }
+                    }
+                    results = results.concat(lessAccurateResults);
+                    //Append the results to list
+                    $("#listMenuItem").html("");
+                    for (var i = 0; i < results.length; i++) {
+                        generateListMenuItem(results[i]);
+                    }
+
+                    if (results.length == 0) {
+                        //Append a custom no results div to the content
+                        $("#listMenuItem").append(`<div class="item module"><span><img class="ui middle aligned tiny image" src="img/system/not found.png" style="padding-right: 12px;">No Results</span></div>`);
+                    }
+                }
+            }
+           
+
+            function listModulesType(groupType) {
+                var listingItems = [];
+                if (groupType == "All") {
+                    //List all of the items
+                    for (var i = 0; i < moduleInstalled.length; i++) {
+                        if (moduleInstalled[i]["StartDir"] != "") {
+                            listingItems.push(moduleInstalled[i]);
+                        }
+                    }
+                } else if (groupType == "Other") {
+                    var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilties"];
+                    //List the Other groups
+                    for (var i = 0; i < moduleInstalled.length; i++) {
+                        if (excludeList.includes(moduleInstalled[i]["Group"]) == false && moduleInstalled[i]["StartDir"] != "") {
+                            listingItems.push(moduleInstalled[i]);
+                        }
+                    }
+                } else {
+                    //List the given group
+                    for (var i = 0; i < moduleInstalled.length; i++) {
+                        if (moduleInstalled[i]["Group"] == groupType && moduleInstalled[i]["StartDir"] != "") {
+                            listingItems.push(moduleInstalled[i]);
+                        }
+                    }
+                }
+
+                //List the item to the listmenu
+                $("#listMenuItem").html("");
+                for (var i = 0; i < listingItems.length; i++) {
+                    var thisModule = listingItems[i];
+                    generateListMenuItem(thisModule);
+                }
+                if (listingItems.length == 0) {
+                    $("#listMenuItem").html(`<div class="item module"><span><img class="ui middle aligned tiny image" src="img/system/not found.png" style="padding-right: 12px;">No WebApp found</span></div>`)
+                }
+            }
+
+            function generateListMenuItem(thisModule) {
+                var icon = thisModule["IconPath"];
+                if (icon == "") {
+                    //Use default system icon
+                    icon = "img/system/service.png";
+                }
+                var name = thisModule["Name"];
+                var startdir = thisModule["StartDir"];
+                var group = thisModule["Group"];
+                var fwsupport = "false";
+                if (thisModule["SupportFW"]) {
+                    fwsupport = "true";
+                }
+                $("#listMenuItem").append(`<div class="item module" module="${name}" startdir="${startdir}" fw="${fwsupport}" group="${group}" onclick="openModuleFromMenu(this);">
+                    <span>
+                        <img class="ui middle aligned tiny image" src="${icon}" style="padding-right: 12px;"></img>
+                        ${name}
+                    </span>
+                </div>`);
+            }
+
+            function closeListMenu(callback = undefined){
+                $("#listMenu").animate({
+                    left: window.innerWidth * -1
+                },300,"swing", function(){
+                    $(".taskBar").animate({
+                        width: "300px",
+                    },300,"swing", function(){
+                        if (typeof callback != "undefined"){
+                            callback();
+                        }
+                    });
+                    
+                });
+            }
+
+            function showListMenu(callback = undefined){
+                if ($(".taskBar").find(".toggleTaskBar").attr("shown") == "false"){
+                    $(".taskBar").find(".toggleTaskBar").attr("shown", "true");
+                    $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_left-white-48dp.svg");
+                    $("#mainFrame").addClass("blurred");
+                }
+                $(".taskBar").animate({
+                    width: window.innerWidth,
+                },300, "swing", function(){
+                    $("#listMenu").animate({
+                        left: 0
+                    },300,"swing", function(){
+                        if (typeof callback != "undefined"){
+                            callback();
+                        }
+                    });
+                })
+               
+            }
+
+
+            function openModule(moduleName) {
+                $.get("system/modules/getLaunchPara?module=" + moduleName, function(data) {
+                    if (data.error !== undefined) {
+                        //Something went wrong.
+                        console.log("Unable to open module " + moduleName);
+                        if (data.error == "Not logged in."){
+                            //Session expired
+                            window.location.href = "login.system";
+                        }
+                    } else {
+                        //Launch the given module
+                        var url = data["StartDir"];
+                        var size = [undefined, undefined];
+                        var icon = "img/system/favicon.png";
+                        if (data["IconPath"] != "") {
+                            icon = data["IconPath"];
+                        }
+                        var title = data["Name"];
+                        //Check if the module support fw mode. If yes, launch with fwmode url. IF not, launch to index
+                        if (data["SupportFW"] == true) {
+                            if (data["LaunchFWDir"] != null) {
+                                url = data["LaunchFWDir"];
+                            }
+                            if (data["InitFWSize"] != null) {
+                                size = data["InitFWSize"];
+                            }
+                        }
+
+                        //Launch the given module
+                        newFloatWindow({
+                            url: url,
+                            width: size[0],
+                            height: size[1],
+                            appicon: icon,
+                            title: title
+                        });
+
+                        closeListMenu(function(){
+                            hideTaskBar();
+                        });
+                        
+                    }
+                });
+            }
+
+            function openModuleFromMenu(object) {
+                var moduleName = $(object).attr("module");
+                openModule(moduleName);
+            }
+
+            //In mobile interface, there will be some option ignored by default
+            function newFloatWindow(options){
+                console.log(options);
+            }  
+
+            ///Functions realted to window resize and auto scaling
+            function updateWindowDimensions(){
+                $("#backdrop").css({
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                });
+            }
+            updateWindowDimensions();
+            $(window).on("resize", function(data){
+                updateWindowDimensions();
+            })
+        </script>
+    </body>
+</html>

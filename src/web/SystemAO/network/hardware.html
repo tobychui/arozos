@@ -28,7 +28,7 @@
     <script>
         var template = '<div class="item"><div class="image"><img style="height:64px;width:auto" src="/SystemAO/network/img/%image%.png"></div><div class="content"><p class="header">%interfacename%</p><div class="description">%data%</div></div></div>';
 
-        $.getJSON("/SystemAO/network/getNICinfo", function(result) {
+        $.getJSON("/system/network/getNICinfo", function(result) {
             $.each(result, function(i, field) {
                 $("#wifi").append(template.replace("%image%", "Unknown").replace("%interfacename%", field["Name"]).replace("%data%", "MAC Address : " + field["HardwareAddr"] + "<br>IPv4 Address : " + field["IPv4Addr"] + "<br>IPv6 Address : " + field["IPv6Addr"]));
             });

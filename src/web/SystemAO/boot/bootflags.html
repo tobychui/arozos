@@ -1,0 +1,152 @@
+<html>
+    <head>
+        <title>Boot Flags Settings</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <style>
+
+        </style>
+    </head>
+    <body>
+        <div class="ui container">
+            <div class="ui red segment">
+                <h3 class="ui header">
+                    System Boot Configuration
+                    <div class="sub header">Manage boot flags and system launching paramters (Expert Only)</div>
+                </h3>
+                <p>Warning! The configuration setup in this page will directly modify the system boot script. 
+                    This might results in system fail to boot or reduced system performance on incompatible hardware platforms. </p>
+            </div>
+            <form id="setupform" class="ui form" onsubmit="handleFormSubmit(event, this);">
+                <div class="field">
+                    <label>Host Name</label>
+                    <input class="config" type="text" name="Hostname" placeholder="My ArOZ">
+                </div>
+                <div class="field">
+                    <label>Listening Port</label>
+                    <input class="config" type="number" name="ListenPort" placeholder="8080">
+                </div>
+                <div class="field">
+                    <label>Max Upload Size (MB)</label>
+                    <input class="config" type="number" name="MaxUpload" placeholder="8192">
+                </div>
+                <div class="field">
+                    <label>File Upload Buffer (MB)</label>
+                    <input class="config" type="number" name="UploadBuffer" placeholder="25">
+                </div>
+                <div class="field">
+                    <label>File IO Buffer (MB)</label>
+                    <input class="config" type="number" name="FileIOBuf" placeholder="1024">
+                </div>
+                <div class="field">
+                    <div class="ui toggle checkbox">
+                      <input class="config" type="checkbox" name="AllowHardwareMan" tabindex="0">
+                      <label>Enable Hardware Management Interfaces</label>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui toggle checkbox">
+                      <input class="config" type="checkbox" name="AllowPackageAutoInstall" tabindex="0">
+                      <label>Allow Package Auto Installation</label>
+                      <small>Option will be ignored on Windows Hosts</small>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="ui toggle checkbox">
+                      <input class="config" type="checkbox" name="DisableIPResolve" tabindex="0">
+                      <label>Disable IP Resolver</label>
+                      <small>Not trying to analysis Client IP address, useful when the server is host under NAT or Reverse Proxy</small>
+                    </div>
+                </div>
+                <div class="ui divider"></div>
+                <p>To continue updating your boot configuration, please check the checkbox below</p>
+                <div class="field">
+                    <div class="ui checkbox">
+                    <input type="checkbox" tabindex="0" onchange="toggleConfirmBtn(this.checked)">
+                    <label>I know exactly what I am doing</label>
+                    <small>I also understand the risk related to changing boot configuration.</small>
+                    </div>
+                </div>
+                <button id="confirmbtn" class="ui red disabled button" type="submit">Write to Boot File</button>
+            </form>
+            <div id="succmsg" class="ui green message transition" style="display:none;">
+                <div class="header">
+                    <i class="checkmark icon"></i> Boot Configuration Updated
+                </div>
+                <ul class="list">
+                    <p>You need to reboot your host device or restart the aroz online system via SSH for the settings to take effect.</p>
+                </ul>
+            </div>
+            <br><br>
+        </div>
+        <script>
+
+            function handleFormSubmit(event, obj){
+                event.preventDefault();
+                var result = {};
+                $(obj).find(".config").each(function(){
+                    var name = $(this).attr("name");
+                    var value = $(this).val();
+                    if ($(this).attr('type') == "checkbox"){
+                        value =  $(this)[0].checked
+                    }else if ($(this).attr('type') == "number"){
+                        value = parseInt(value);
+                    }
+                    result[name] = value;
+                });
+                $.ajax({
+                    url: "../../system/boot/generateBootConfig",
+                    data: {config: JSON.stringify(result)},
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Update suceed
+                            $("#succmsg").slideDown("fast");
+                        }
+                    },
+                    error: function(){
+
+                    },
+                    timeout: 10000
+                })
+            }
+
+            initCurrentSettingList();
+            function initCurrentSettingList(){
+                $.get("../../system/boot/getCurrentBootConfig",function(data){
+                    if (data.IsWindows == true){
+                        $($("#setupform")[0].AllowPackageAutoInstall).parent().addClass("disabled");
+                        $($("#setupform")[0].AllowPackageAutoInstall).attr("hidden","true");
+                    }
+                    
+                    var settings = JSON.parse(JSON.stringify(data));
+                    delete(settings.IsWindows);
+                    $("#setupform input").each(function(){
+                        var thisname = $(this).attr("name");
+                        if (settings[thisname] !== null){
+                            if ($(this).attr("type") == "text" || $(this).attr("type") == "number"){
+                                $(this).val(settings[thisname]);
+                            }else if ($(this).attr("type") == "checkbox"){
+                                if (settings[thisname] == true){
+                                    this.checked = true;
+                                }else{
+                                    this.checked = false;
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+
+            function toggleConfirmBtn(value){
+                if (value == true){
+                    $("#confirmbtn").removeClass("disabled");
+                }else{
+                    $("#confirmbtn").addClass("disabled");
+                }
+            }
+        </script>
+    </body>
+</html>

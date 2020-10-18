@@ -71,7 +71,7 @@
     }
 
     function updateTimeFromServer() {
-        $.getJSON("/SystemAO/time/getTime", function(data) {
+        $.getJSON("/system/time/getTime", function(data) {
             options.timeZone = data["timezone"];
             d = new Date(data["time"]);
             console.log(d);

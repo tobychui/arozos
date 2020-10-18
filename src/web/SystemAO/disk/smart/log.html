@@ -59,7 +59,7 @@
 
     <br><br>
     <script>
-        $.getJSON("/SystemAO/disk/smart/getSMART", function(data) {
+        $.getJSON("../../system/disk/smart/getSMART", function(data) {
             if ($(data).length == 0) {
                 msg("No harddisk detected.");
                 LogHTML = "";
