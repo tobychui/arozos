@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=0.8, maximum-scale=0.8"/>
+<html>
+<head>
+<meta charset="utf-8"> 
+<title>arozos Documentation</title>
+<!-- Tocas UI：CSS 與元件 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.css">
+<!-- Tocas JS：模塊與 JavaScript 函式 -->
+<script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
+<link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+<script src="showdown.min.js"></script>
+<style>
+
+p,div,span,h1,h2,h3,h4,h5{
+	font-family: 'Raleway', sans-serif;
+}
+
+.specialpadding{
+	margin-top:0px !important;
+	padding-left:20px;
+}
+.rightPadded{
+	position:absolute !important;
+	right:10px;
+	width:55px;
+}
+img{
+	max-width:100%;
+}
+.selectable{
+	cursor:pointer;
+	padding:5px;
+	padding-left:10px !important;
+	margin:0px !important;
+}
+.selectable:hover{
+	background-color:#f2f2f2;
+}
+pre{
+	background-color: #1c1c1c;
+	color: white;
+	padding: 10px;
+	overflow-x: auto;
+}
+</style>
+</head>
+<body>
+<div class="ts demo left sidebar" style="width:400px !important;">
+    <div class="ts header">
+        ArOZ Online System Documentation
+		<div id="lang" class="sub header" href="index.html"></div>
+    </div>
+    <div class="ts top attached tabbed menu">
+    <a id="doclist" class="active item" onClick="toggleMode('doclist');"><i class="bookmark icon"></i></a>
+	<a id="starlist" class="item" onClick="toggleMode('stars');"><i class="star icon"></i></a>
+	</div>
+	<div id="pageContent" class="ts active bottom attached tab segment">
+		
+	</div>
+	<div style="width:100%;" align="right">
+		<a href="index.html">Exit <i class="log out icon"></i></a>
+	</div>
+	
+</div>
+<div class="pusher">
+<br><br>
+<div class="ts container">
+<div class="ts basic segment">
+<div class="ts icon buttons">
+    <button id="backbtn" class="ts basic button" onClick="lastPage();"><i class="arrow left icon"></i></button>
+	<button id="nextbtn" class="ts basic button" onClick="reloadAllDocs();"><i class="refresh icon"></i></button>
+    <button id="nextbtn" class="ts basic button" onClick="nextPage();"><i class="arrow right icon"></i></button>
+	<button id="nextbtn" class="ts basic button" onClick="toggleList();"><i class="content icon"></i></button>
+	<div class="ts specialpadding header"><i class="bookmark icon"></i><span id="readerTitle">Welcome to ArOZ Online Documentation Reader</span></div>
+</div>
+<button id="starBtn" class="ts rightPadded warning button" onClick="starThisPage();" title="Save this page"><i class="empty star icon"></i></button>
+</div>
+<div class="ts divider"></div>
+<div id="docLoader" class="ts basic segment">
+</div>
+<div class="ts divider"></div>
+<div class="ts basic segment">
+ArOZ Documentation Reader v1.1
+</div>
+<br><br><br><br>
+</div>
+</div>
+<script>
+var currentRenderPage = 0;
+var searchingPage = 0; 
+var lang = window.location.hash.replace("#",""); //get lang id
+var docs = []; //All documents will be loaded into memory as the reader loads, but not rendered yet
+var docsTitles = [];
+var baseFolder = "lang/" + lang + "/";
+var sidebarMode = "index"; //Either index or stars
+var staredPages = [];
+initLoad();
+$("#lang").text("Language: " + lang);
+//Check if there are stared pages. If yes, load them
+if (localStorage.getItem(lang) !== null) {
+	staredPages = JSON.parse(localStorage.getItem(lang));
+}
+
+function starThisPage(){
+	for (var i =0; i < staredPages.length; i++){
+		if (staredPages[i][0] == currentRenderPage){
+			//This page is already started. Remove the star
+			staredPages.splice(i,1);
+			$("#starBtn").find("i").addClass("empty");
+			$("#starBtn").removeClass("primary");
+			localStorage.setItem(lang,JSON.stringify(staredPages));
+			if (sidebarMode == "stars"){
+				renderStarList();
+			}
+			return;
+		}
+		
+	}
+	//This page is not stared yet. Add it to list
+	staredPages.push([currentRenderPage,docsTitles[currentRenderPage]]);
+	console.log("[Page Saved] " + staredPages);
+	$("#starBtn").find("i").removeClass("empty");
+	$("#starBtn").addClass("primary");
+	localStorage.setItem(lang,JSON.stringify(staredPages));
+	if (sidebarMode == "stars"){
+		renderStarList();
+	}
+}
+
+function updateStartedIcon(){
+	for (var i =0; i < staredPages.length; i++){
+		if (staredPages[i][0] == currentRenderPage){
+			$("#starBtn").find("i").removeClass("empty");
+			$("#starBtn").addClass("primary");
+			return;
+		}
+	}
+	$("#starBtn").find("i").addClass("empty");
+	$("#starBtn").removeClass("primary");
+}
+
+function toggleMode(mode){
+	if (mode == "stars"){
+		$("#doclist").removeClass("active");
+		$("#starlist").addClass("active");
+		renderStarList();
+		sidebarMode = "stars";
+	}else{
+		$("#starlist").removeClass("active");
+		$("#doclist").addClass("active");
+		renderDocsList();
+		sidebarMode = "index";
+	}
+}
+
+function renderStarList(){
+	$("#pageContent").html("");
+	for (var i = 0; i < staredPages.length; i++){
+		var page = staredPages[i][0];
+		var title = staredPages[i][1];
+		$("#pageContent").append('<p class="selectable" onClick="redirectDoc(' + page + ');"><i class="bookmark icon"></i> ' + title + '</p>');
+	}
+	if (staredPages.length == 0){
+		$("#pageContent").append('<p class=""><i class="remove icon"></i> No bookmark</p>');
+	}
+}
+
+function toggleList(){
+	ts('.left.sidebar:not(.inverted)').sidebar({
+		dimPage: true,
+		scrollLock: true
+	}).sidebar('toggle');
+}
+
+function redirectDoc(indexID){
+	currentRenderPage = indexID;
+	readDoc();
+	toggleList();
+}
+
+function renderDocsList(){
+	$("#pageContent").html("");
+	for (var i =0; i < docsTitles.length; i++){
+		$("#pageContent").append('<p class="selectable" onClick="redirectDoc(' + i + ');"><i class="book icon"></i> ' + docsTitles[i] + '</p>');
+	}
+}
+
+function reloadAllDocs(){
+	docs = [];
+	searchingPage = 0;
+	initLoad();
+	docsTitles=[];
+}
+
+function loadAllDocs(){
+	$.ajax({
+		type: 'get',
+		timeout: 5000,
+		url: baseFolder + searchingPage + ".md",
+		success: function(data, textStatus, XMLHttpRequest){
+			data = data.split("\r\n").join("\n");
+			docs.push(data.split("\n"));
+			//console.log(data.split("\n"));
+			searchingPage++;
+			loadAllDocs();
+		},
+		error:function (xhr, ajaxOptions, thrownError){
+			//End of documentation
+			//console.log(docs);
+			readDoc(); //Start rendering
+			parseDocList(); //Update the doc list
+			renderDocsList(); //Render the documentation list
+		}
+	});
+}
+
+function nextPage(){
+	currentRenderPage = currentRenderPage + 1;
+	if (currentRenderPage >= docs.length){
+		//No more pages
+		currentRenderPage = currentRenderPage - 1;
+		return;
+	}
+	readDoc();
+}
+
+
+function lastPage(){
+	currentRenderPage = currentRenderPage - 1;
+	if (currentRenderPage < 0){
+		//No more pages
+		currentRenderPage = currentRenderPage + 1;
+		return;
+	}
+	readDoc();
+}
+
+function readDoc(){
+	let pageInfo = Array.from(docs[currentRenderPage]);
+	var metaTag = JSON.parse(pageInfo.shift());
+	document.title = metaTag[0];
+	$("#readerTitle").text(metaTag[0]);
+	$("#docLoader").html("");
+	pageInfo = pageInfo.join("\n");
+	$("#docLoader").append(md2html(pageInfo));
+	updateStartedIcon();
+}
+
+function parseDocList(){
+	for (var i =0; i < docs.length; i++){
+		let pageInfo = Array.from(docs[i]);
+		var metaTag = JSON.parse(pageInfo.shift());
+		docsTitles.push(metaTag[0]);
+	}
+}
+
+function md2html(input){
+	var converter = new showdown.Converter();
+	return converter.makeHtml(input);
+}
+
+//Initiate the loading interface
+function initLoad(){
+	$("#docLoader").html('<div align="center" style="width:100%;">\
+		<br><br>\
+		<i class="big spinner loading icon stillLoading"></i><br>\
+		<p class="loadFailMsg">Loading...</p>\
+		<br><br>\
+	</div>');
+	setTimeout(chkLoadFail,15000);
+	loadAllDocs();
+}
+
+//Check if the load failed using setTimeout
+function chkLoadFail(){
+	if ($(".stillLoading").length > 0){
+		//Something screwed up during loading of JSON based documentation. Ask for refresh
+		$(".stillLoading").removeClass("spinner").removeClass("loading").addClass("remove");
+		$(".loadFailMsg").text("Seems something went wrong. Try refreshing the page?");
+	}
+}
+
+
+</script>
+</body>
+</html>
