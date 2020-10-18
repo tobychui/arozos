@@ -10,6 +10,8 @@ import (
     "log"
     "encoding/json"
     "encoding/hex"
+
+    //"imuslab.com/aroz_online/mod/auth"
 )
 
 /*
@@ -72,6 +74,10 @@ func system_auth_service_init(){
         http.HandleFunc("/public/register", system_auth_serveRegisterInterface);
         http.HandleFunc("/public/register/settings", system_auth_handleRegisterInterfaceUpdate);
     }
+
+    //Test code for OOP migration
+    //agent := userauth.NewAuthenticationAgent([]byte("helloworld"))
+    //log.Println(agent);
 }
 
 func system_auth_checkPublicRegister(w http.ResponseWriter, r *http.Request){

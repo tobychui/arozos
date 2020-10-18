@@ -258,9 +258,9 @@ func system_disk_smart_init() {
 
 	}
 	//Register all the required API
-	http.HandleFunc("/SystemAO/disk/smart/getSMART", GetSMART)
-	http.HandleFunc("/SystemAO/disk/smart/getSMARTTable", checkDiskTable)
-	http.HandleFunc("/SystemAO/disk/smart/getLogInfo", checkDiskTestStatus)
+	http.HandleFunc("/system/disk/smart/getSMART", GetSMART)
+	http.HandleFunc("/system/disk/smart/getSMARTTable", checkDiskTable)
+	http.HandleFunc("/system/disk/smart/getLogInfo", checkDiskTestStatus)
 
 	//Only allow SMART under sudo moude
 	if sudo_mode {

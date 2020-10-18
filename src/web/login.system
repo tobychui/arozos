@@ -102,7 +102,7 @@
                 <br>
                 <button id="loginbtn" class="ts button loginbtn" style="background-color:#00b5ad !important;">Login</button><br>
                 <div class="ts breadcrumb" style="margin-top:12px;">
-                    <a iclass="section signup" style="cursor:pointer; display:none;" href="public/register">Sign Up</a>
+                    <a class="section signup" style="cursor:pointer; display:none;" href="public/register">Sign Up</a>
                     <div class="divider signup"> / </div>
                     <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
                 </div>
@@ -148,6 +148,12 @@
                 var serverAddr = location.host;
                 serverAddr = serverAddr.split(":")[0];
                 $("#serverAddr").text(serverAddr);
+                $.getJSON("/SystemAO/network/getIPLocation",function(location){
+                    if(location.Country !== "" && location.Country !== "ZZ"){
+                        //const regionName = new Intl.DisplayNames(['en'], { type: 'region' });
+                        $("#clientAddr").append(" (" + location.Country + ")");
+                    }
+                });
             });
 
             //Check if the user already logged in

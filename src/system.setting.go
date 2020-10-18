@@ -52,7 +52,7 @@ func system_setting_getSettingGroups() []settingGroup {
 			Name:     "Host Information",
 			Group:    "Info",
 			IconPath: "SystemAO/system_setting/img/info.png",
-			Desc:     "View basic system information",
+			Desc:     "Config and info about the Server Host",
 		},
 		settingGroup{
 			Name:     "Devices & IoT",
@@ -89,6 +89,12 @@ func system_setting_getSettingGroups() []settingGroup {
 			Group:    "Time",
 			IconPath: "SystemAO/system_setting/img/time.png",
 			Desc:     "Modify System Timezone and date",
+		},
+		settingGroup{
+			Name:     "Developer Options",
+			Group:    "Advance",
+			IconPath: "SystemAO/system_setting/img/advance.png",
+			Desc:     "Advance configs for developers",
 		},
 		settingGroup{
 			Name:     "About ArOZ",

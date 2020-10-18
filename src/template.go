@@ -24,6 +24,11 @@ func template_load(filename string, replacement map[string]interface{}) (string,
 	return string(s), nil
 }
 
+func template_apply(templateString string, replacement map[string]interface{}) string{
+	t := fasttemplate.New(templateString, "{{", "}}")
+	s := t.ExecuteString(replacement)
+	return string(s)
+}
 /*
 	Custom tempalte loaders
 

@@ -19,11 +19,6 @@ import (
 /*
 	System Paramters
 */
-//System configuration format. You can override with a file named "sysconf.json" placed in root
-type sysconf struct {
-	Port     int
-	Hostname string
-}
 
 //=========== SYSTEM PARAMTERS  ==============
 var sysdb *bolt.DB                            //System database
@@ -34,8 +29,8 @@ var mDNS *mdns.Server
 var startingUp = true //Indicate if the system is undergoing startup process
 
 // =========== SYSTEM BUILD INFORMATION ==============
-var build_version = "development"             //System build flag, this can be either {development / production / stable}
-var internal_version = "0.0.480"              //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
+var build_version = "production"             //System build flag, this can be either {development / production / stable}
+var internal_version = "0.0.510"              //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
 var deviceUUID string                         //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"              //Vendor of the system
 var deviceModel = "AR100"                     //Hardware Model of the system
@@ -56,6 +51,8 @@ var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving")
 var tls_cert = flag.String("cert", "localhost.crt", "TLS certificate file (.crt)")
 var tls_key = flag.String("key", "localhost.key", "TLS key file (.key)")
 var allow_upnp = flag.Bool("allow_upnp", false, "Enable uPNP service, recommended for host under NAT router")
+var wpa_supplicant_path = flag.String("wpa_supplicant_config", "/etc/wpa_supplicant/wpa_supplicant.conf", "Path for the wpa_supplicant config")
+var wan_interface_name = flag.String("wlan_interface_name","wlan0","The default wireless interface for connecting to an AP")
 
 //Flags related to files and uploads
 var max_upload = flag.Int("max_upload_size", 8192, "Maxmium upload size in MB. Must not exceed the available ram on your system")
@@ -94,9 +91,9 @@ func SetupCloseHandler() {
 		system_db_closeDatabase(sysdb)
 
 		//Shutdown uPNP service if enabled
-		if *allow_upnp{
+		if *allow_upnp {
 			log.Println("\r- Shutting down uPNP connection")
-			network_upnp_close();
+			network_upnp_close()
 		}
 
 		//Cleaning up tmp files
@@ -142,9 +139,9 @@ func mdlwr(h http.Handler) http.Handler {
 				panic("Error. Unable to parse login page. Is web directory data exists?")
 			}
 			sendTextResponse(w, parsedPage)
-		}else if r.URL.Path == "/reset.system" && system_auth_getUserCounts() > 0{
+		} else if r.URL.Path == "/reset.system" && system_auth_getUserCounts() > 0 {
 			//Password restart page. Allow access only when user number > 0
-			system_resetpw_handlePasswordReset(w,r);
+			system_resetpw_handlePasswordReset(w, r)
 		} else if r.URL.Path == "/user.system" && system_auth_getUserCounts() == 0 {
 			//Serve user management page. This only allows serving of such page when the total usercount = 0 (aka System Initiation)
 			h.ServeHTTP(w, r)
@@ -238,7 +235,7 @@ func main() {
 	log.Println("ArOZ Online " + build_version + " Revision " + internal_version)
 
 	//Handle uPNP setup
-	if *allow_upnp{
+	if *allow_upnp {
 		network_upnp_init()
 	}
 
@@ -254,7 +251,7 @@ func main() {
 	system_fs_service_init()         //Initiate file system API
 	system_setting_init()            //Initiate system setting API
 	system_ajgi_init()               //Initiate system plugin interface
-	system_resetpw_init()			 //Password reset service
+	system_resetpw_init()            //Password reset service
 
 	//Handle System Hardware Mangement Interfaces
 	hardware_power_init()
@@ -265,8 +262,8 @@ func main() {
 
 	//Handle system core modules initiation
 	desktop_init()
-	if *allow_hardware_management{
-		system_power_init();
+	if *allow_hardware_management {
+		system_power_init()
 	}
 
 	//Handle System Utils Services Inits
@@ -274,9 +271,12 @@ func main() {
 	system_disk_quota_init() //Handle disk quota managements
 	system_disk_smart_init() //Handle SMART
 
-	system_info_serviec_init()  //Display system configuration
-	network_info_service_init() //Network aka NIC information
-	system_dev_init()           //Device Reflection Services
+	system_info_serviec_init()         //Display system configuration
+	network_info_service_init()        //Network aka NIC information
+	network_ipToCountry_service_init() // IP to country services
+	network_wifi_init()					//WiFi Connection Utilities
+
+	system_dev_init() //Device Reflection Services
 
 	//Handle System Clustering and Scanning
 	system_id_init()    //Init system about information
@@ -287,9 +287,11 @@ func main() {
 
 	//Handle other system modules initiation
 	mediaServer_init()           //Handle media delivery, see mediaServer.go
+	system_boot_init()			//Handle System boot configuration 
 	system_module_service_init() //Handler module services
-	module_package_init()        //Handler module for package installations
+
 	//Place the modules init() function you want to build with the system here
+	module_package_init()        //Handler module for package installations
 	module_Music_init() //Music Player
 	//module_Video_init() //Video Player
 	//module_Photo_init() //Photo

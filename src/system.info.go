@@ -50,22 +50,22 @@ func system_info_serviec_init() {
 		*/
 
 		//this features only working on windows, so display on win at now
-		http.HandleFunc("/SystemAO/info/getCPUinfo", getCPUinfo)
-		http.HandleFunc("/SystemAO/info/ifconfig", ifconfig)
-		http.HandleFunc("/SystemAO/info/getDriveStat", getDriveStat)
-		http.HandleFunc("/SystemAO/info/usbPorts", getUSB)
-		http.HandleFunc("/SystemAO/info/getRAMinfo", getRAMinfo)
+		http.HandleFunc("/system/info/getCPUinfo", getCPUinfo)
+		http.HandleFunc("/system/info/ifconfig", ifconfig)
+		http.HandleFunc("/system/info/getDriveStat", getDriveStat)
+		http.HandleFunc("/system/info/usbPorts", getUSB)
+		http.HandleFunc("/system/info/getRAMinfo", getRAMinfo)
 
 	} else if runtime.GOOS == "linux" {
 		//this features only working on windows, so display on win at now
-		http.HandleFunc("/SystemAO/info/getCPUinfo", getCPUinfoLinux)
-		http.HandleFunc("/SystemAO/info/ifconfig", ifconfigLinux)
-		http.HandleFunc("/SystemAO/info/getDriveStat", getDriveStatLinux)
-		http.HandleFunc("/SystemAO/info/usbPorts", getUSBLinux)
-		http.HandleFunc("/SystemAO/info/getRAMinfo", getRAMinfoLinux)
+		http.HandleFunc("/system/info/getCPUinfo", getCPUinfoLinux)
+		http.HandleFunc("/system/info/ifconfig", ifconfigLinux)
+		http.HandleFunc("/system/info/getDriveStat", getDriveStatLinux)
+		http.HandleFunc("/system/info/usbPorts", getUSBLinux)
+		http.HandleFunc("/system/info/getRAMinfo", getRAMinfoLinux)
 	}
 
-	http.HandleFunc("/SystemAO/info/getArOZInfo", getArOZInfo)
+	http.HandleFunc("/system/info/getArOZInfo", getArOZInfo)
 	//Register as a system setting
 	registerSetting(settingModule{
 		Name:     "Host Info",

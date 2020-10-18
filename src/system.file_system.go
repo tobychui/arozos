@@ -1771,4 +1771,26 @@ func system_fs_handleFileWrite(w http.ResponseWriter, r *http.Request){
 
 }
 
+//Check if the given filepath is and must inside the given directory path.
+//You can pass both as relative
+func system_fs_checkFileInDirectory(filesourcepath string, directory string) bool{
+	filepathAbs, err := filepath.Abs(filesourcepath)
+	if err != nil{
+		return false
+	}
+
+	directoryAbs, err := filepath.Abs(directory)
+	if err != nil{
+		return false
+	}
+
+	//Check if the filepathabs contain directoryAbs
+	if strings.Contains(filepathAbs, directoryAbs){
+		return true
+	}else{
+		return false
+	}
+
+}
+
 

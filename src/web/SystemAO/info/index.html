@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html ng-app="App">
-
 <head>
-
     <title>System Info</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
@@ -10,9 +8,6 @@
     <link rel="stylesheet" href="css/viewer.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <script type="text/javascript" src="../../script/ao_module.js"></script>
-
-
 </head>
 
 <body>
@@ -28,8 +23,8 @@
             
         </div>
     </div>
-    <br>
     <div class="ui container">
+        <br>
         <h3 class="ui header">Specifications</h3>
         <div class="ui grid">
             <div class="six wide column">
@@ -98,35 +93,35 @@
     });
 
     function initSystemInfo() {
-        $.getJSON("/SystemAO/info/getArOZInfo", function(data) {
+        $.getJSON("../../system/info/getArOZInfo", function(data) {
             $("#modelname").html(data["DeviceModel"]);
             $("#icon").attr("src", "/SystemAO/info/" + data["VendorIcon"]);
             $("#build").html(data["BuildVersion"]);
             $("#manufacturer").html(data["DeviceVendor"]);
         });
-        $.getJSON("/SystemAO/info/getCPUinfo", function(data) {
+        $.getJSON("../../system/info/getCPUinfo", function(data) {
             $("#model").html(data["Model"]);
             $("#freq").html(data["Freq"] + "MHz");
             $("#instruction").html(data["Instruction"]);
             $("#hardware").html(data["Hardware"]);
             $("#revision").html(data["Revision"]);
         });
-        $.get("/SystemAO/info/getRAMinfo", function(data) {
+        $.get("../../system/info/getRAMinfo", function(data) {
             $("#ram").html(humanFileSize(data, true));
         });
-        $.getJSON("/SystemAO/info/ifconfig", function(data) {
+        $.getJSON("../../system/info/ifconfig", function(data) {
             $("#nic").html("");
             $(data).each(function(index, item) {
                 $("#nic").append(item + "<br>");
             });
         });
-        $.getJSON("/SystemAO/info/getDriveStat", function(data) {
+        $.getJSON("../../system/info/getDriveStat", function(data) {
             $("#drive").html("");
             $(data).each(function(index, item) {
                 $("#drive").append(item["DriveLetter"] + " (" + item["FileSystem"] + ") " + humanFileSize(item["FreeSpace"], true) + "<br>");
             });
         });
-        $.getJSON("/SystemAO/info/usbPorts", function(data) {
+        $.getJSON("../../system/info/usbPorts", function(data) {
             $("#usb").html("");
             $(data).each(function(index, item) {
                 $("#usb").append(item + "<br>");

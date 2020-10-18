@@ -56,7 +56,7 @@ func system_time_init() {
 		StartDir:     "SystemAO/time/currenttime.html",
 		RequireAdmin: true,
 	})
-	http.HandleFunc("/SystemAO/time/getTime", showTime)
+	http.HandleFunc("/system/time/getTime", showTime)
 
 }
 func showTime(w http.ResponseWriter, r *http.Request) {

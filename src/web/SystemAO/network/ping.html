@@ -43,7 +43,7 @@
             setTimeout(function() {
                 var timeDiff = 0;
                 var startTime = new Date();
-                $.get("/SystemAO/network/getPing",
+                $.get("/system/network/getPing",
                     function() {
                         timeDiff = (new Date() - startTime);
                         timeDiffArr.push(timeDiff);

@@ -1,4 +1,4 @@
-module imuslab.com/cloud/aroz_online
+module imuslab.com/aroz_online
 
 go 1.13
 
@@ -7,8 +7,8 @@ require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/cssivision/reverseproxy v0.0.1
 	github.com/disintegration/imaging v1.6.2
+	github.com/frankban/quicktest v1.10.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.1.0
-	github.com/golang/gddo v0.0.0-20200519224240-a4ebd2f7e574 // indirect
 	github.com/gorilla/sessions v1.2.0
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/klauspost/compress v1.10.6 // indirect
