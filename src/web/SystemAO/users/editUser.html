@@ -1,0 +1,168 @@
+<html>
+    <head>
+        <title>Edit User</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <link rel="stylesheet" href="../../script/ao.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:white;
+            }
+            .themebackground{
+                background-color:#4287f5 !important;
+                color:white !important;
+                background-image: url("/img/public/slate.png") !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+                height:100px;
+                border: 0px solid transparent !important;
+                padding:24px !important;
+            }
+            .required{
+                color:red;
+            }
+            .actionbtns{
+                text-align:right;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ui fluid attached segment themebackground" >
+            <h24 class="ui inverted header">
+                <i class="edit icon"></i>
+                <div class="content">
+                    Edit User
+                <div class="sub header">Edit user profile and permissions</div>
+                </div>
+            </h4>
+        </div>
+        <div class="ui container">
+            <div id="confirmUpdate" class="ui green inverted segment" style="display:none; margin-top:12px;">
+                <i class="checkmark icon"></i> Profile Updated
+            </div>
+            <h4>User Profile & Permission</h4>
+            <form class="ui form" onsubmit="handleUserProfileUpdate(event);">
+                <div class="field">
+                  <label>Username</label>
+                  <input id="username" type="text" name="username" placeholder="Username" readonly=true>
+                </div>
+                <div class="field">
+                    <label>Permission Group</label>
+                    <select id="grouplist" class="ui dropdown">
+                       
+                    </select>
+                </div>
+                <br>
+                <button class="ui primary button" type="submit">Update</button>
+                <div class="ui divider"></div>
+                <h4>Password & Security</h4>
+                <p>Reset Password</p>
+                <button class="ui red button" onclick="restartPassword();">RESET PASSWORD</button>
+                <p>A temporary password will be generated once reset is requested. Administrator should provide the user with the password reset link generated below for the user to reset their password.</p>
+                <div id="tmppwui" class="ui green segment" style="margin-top:12px; display:none;">
+                    <p><i class="checkmark icon"></i> Password Reset Link Generated</p>
+                    <div class="ui labeled fluid input">
+                        <label for="tmpw" class="ui label"><i class="key icon"></i></label>
+                        <input id="tmppw" type="text" placeholder="Temporary Password" id="tmpw">
+                      </div>
+                      <small>Please provide the password reset link listed above to the user and request user to update their password through the password reset tool.</small>
+                </div>
+       
+            </div>
+        <script>
+            var currentEditingUsername = "";
+            var userdata;
+            //Get username from window hash
+            if (window.location.hash.length > 0){
+                var username = window.location.hash.substring(1);
+                username = decodeURIComponent(username);
+                $("#username").val(username);
+                currentEditingUsername = username;
+            }
+            
+            initContents();
+            function initContents(){
+                //Update the table contents
+                $.ajax({
+                    url: "../../system/users/editUser",
+                    data: {username: currentEditingUsername},
+                    method:"POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            userdata = data;
+                            //console.log(userdata);
+                            //Initialize group list
+                            $.ajax({
+                                url: "../../system/permission/listgroup",
+                                success: function(data){
+                                    $("#grouplist").html("");
+                                    if (data.error !== undefined){
+                                        alert(data.error)
+                                    }else{
+                                        for (var i = 0; i < data.length; i++){
+                                            $("#grouplist").append(`<option value="${data[i]}">${data[i]}</option>`);
+                                        }
+                                        $('.ui.dropdown').dropdown();
+
+                                        $('#grouplist').dropdown('set selected', userdata.Usergroup);
+                                    }
+                                    
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
+            function restartPassword(){
+                var username = $("#username").val();
+                $.ajax({
+                    url: "../../system/users/editUser",
+                    data: {opr: "resetPassword", username: username},
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Update suceed
+                            initContents();
+                            $("#confirmUpdate").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
+                            console.log(data);
+                            $("#tmppw").val(location.protocol + '//' + location.host + "/reset.system?acc=" + username +  "&rkey=" + data);
+                            $("#tmppwui").slideDown('fast');
+                        }
+                    }
+                });
+            }
+
+            function handleUserProfileUpdate(e){
+                e.preventDefault();
+                //Get all the value from the form
+                var username = $("#username").val();
+                var permissionGroup = $("#grouplist")[0].value;
+                $.ajax({
+                    url: "../../system/users/editUser",
+                    data: {opr: "updateUserGroup", newgroup: permissionGroup, username: username},
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Update suceed
+                            initContents();
+                            $("#confirmUpdate").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
+                        }
+                    }
+                });
+            }
+
+           
+        </script>
+    </body>
+</html>

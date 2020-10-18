@@ -1,1 +1,0 @@
-The Video function allow you to stream movies or video files directly from your host to your mobile devices through Wifi Direct or local area netwrok. Powered by ArOZ Online ALPHA.

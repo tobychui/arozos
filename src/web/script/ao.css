@@ -1,0 +1,144 @@
+@font-face {
+    font-family: 'TaipeiSansTCBeta-Regular';
+    src: url('/script/font/TaipeiSansTCBeta-Regular.ttf');
+}
+
+h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
+
+.ts.primary.button{
+    background-color:#4287f5;
+    border: 1px solid transparent;
+}
+.ts.primary.button:hover{
+    background-color:#3570cf !important;
+}
+
+/* floatWindow CSS */
+
+.floatWindow{
+    position:fixed;
+    width:1024px;
+    height:520px;
+    left:0px;
+    top:0px;
+}
+
+.floatWindow .controls .title{
+    color:white;
+    display: inline-block;
+    position:absolute;
+    left:30px;
+    top:3px;
+    max-width:70%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.floatWindow .controls .moduleicon{
+    height:75%;
+    width:auto;
+    margin-top:4px;
+    margin-left:8px;
+    display: inline-block;
+}
+
+.floatWindow .controls{
+    position:absolute;
+    top:0px;
+    left:0px;
+    width:100%;
+    height:22px;
+    padding-bottom:2px;
+    user-select: none;
+}
+
+
+
+.floatWindow .iframewrapper{
+    position:absolute;
+    top: 22px;
+    width:100%;
+    height: calc(100% - 22px);
+    border-left: 3px solid #191c21;
+    border-right: 3px solid #191c21;
+    border-bottom: 3px solid #191c21;
+}
+.floatWindow .iframewrapper .iframecover{
+    position:absolute;
+    top:0px;
+    left:0px;
+    width:100%;
+    height:100%;
+    display:none;
+}
+
+
+.floatWindow .iframewrapper iframe{
+    height:100%;
+    width:100%;
+    overflow:hidden;
+    position:absolute;
+    top:0px;
+    left:0px;
+}
+
+@supports (backdrop-filter: none) {
+    .floatWindow .controls {
+        background-color:rgba(25, 28, 33, 0.85);
+        backdrop-filter: blur(3px);
+    }
+
+    .floatWindow .iframewrapper{
+        border-left: 3px solid rgba(25, 28, 33, 0.85);
+        border-right: 3px solid rgba(25, 28, 33, 0.85);
+        border-bottom: 3px solid rgba(25, 28, 33, 0.85);
+        backdrop-filter: blur(3px);
+    }
+}
+
+.floatWindow .fwcontrol{
+    position:absolute;
+    top:0px;
+    right:5px;
+    display: inline-block;
+}
+
+.floatWindow .fwcontrol .buttons{
+    vertical-align: top;
+    padding-top:2px;
+    padding-bottom:2px;
+    padding-left:6px;
+    padding-right:6px;
+    display: inline-block;
+    height:23px !important;
+    
+    color:white;
+    cursor: pointer;
+}
+
+.floatWindow .fwcontrol .buttons img{
+    width:18px;
+    height:auto;
+}
+
+.floatWindow .fwcontrol .buttons:hover{
+    background-color: rgba(142,232,225,0.3);
+}
+
+.floatWindow .fwcontrol .buttons.close:hover{
+    background-color: rgba(232,142,142,0.7);
+}
+
+.floatWindow .iframewrapper.widthHover{
+    cursor:w-resize;
+}
+.floatWindow .iframewrapper.rightCorner{
+    cursor:se-resize;
+}
+.floatWindow .iframewrapper.leftCorner{
+    cursor:sw-resize;
+}
+.floatWindow .iframewrapper.heighHover{
+    cursor:s-resize;
+}

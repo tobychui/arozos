@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=0.6, maximum-scale=0.6" />
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <script type='text/javascript' charset='utf-8'>
+        // Hides mobile browser's address bar when page is done loading.
+        window.addEventListener('load', function(e) {
+            setTimeout(function() {
+                window.scrollTo(0, 1);
+            }, 1);
+        }, false);
+    </script>
+    <title>ArOZ Onlineβ</title>
+    <link rel="stylesheet" href="../../../script/tocas/tocas.css">
+    <script src="../../../script/tocas/tocas.js"></script>
+    <script src="../../../script/jquery.min.js"></script>
+    <!--<script src="../../../script/ao_module.js"></script>-->
+    <style>
+
+    </style>
+</head>
+
+<body style="background-color: rgba(255, 255, 255,0.9)">
+    <table class="ts celled striped table">
+        <thead>
+            <tr>
+                <th>Disk</th>
+                <th>Serial Number</th>
+                <th>Position</th>
+                <th>Event</th>
+            </tr>
+        </thead>
+        <tbody id="log_result">
+        </tbody>
+    </table>
+    <div>
+    </div>
+
+    <!-- use for displaying dialog , for VDI user , use VDI module instead -->
+    <div class="ts modals dimmer">
+        <dialog id="modal" class="ts basic modal" style="background-color: white;color: black!important" open>
+            <div class="content" id="modaldata">
+            </div>
+            <div class="actions">
+                <div class="ts fluid separated stackable buttons">
+                    <button class="ts info button">Close</button>
+                </div>
+            </div>
+    </div>
+
+    <div id="msgbox" class="ts bottom right snackbar">
+        <div class="content">
+            Your request is processing now.
+        </div>
+    </div>
+
+    <br><br>
+    <script>
+        $.getJSON("/SystemAO/disk/smart/getSMART", function(data) {
+            if ($(data).length == 0) {
+                msg("No harddisk detected.");
+                LogHTML = "";
+                LogHTML += "<tr>"
+                LogHTML += "<td><i class=\"big caution sign icon\"></i>No log was founded on this server.</td>"
+                LogHTML += "</tr>"
+                $("#log_result").append(LogHTML);
+            }
+            $.each(data, function(id, disk) {
+                if (disk.SMART.ata_smart_self_test_log.standard.table == null) {
+                    msg("No LOG available");
+                }
+                LogHTML = "";
+                $.each(disk.SMART.ata_smart_self_test_log.standard.table, function(index, value) {
+                    LogHTML += "<tr>"
+                    LogHTML += "<td class=\"collapsing\">" + disk.SMART.ModelName + "</td>"
+                    LogHTML += "<td>" + disk.SMART.SerialNumber + "</td>"
+                    LogHTML += "<td>" + disk.Port + "</td>"
+                    LogHTML += "<td>" + value.Type.String + " - " + value.Status.String + "</td>"
+                    LogHTML += "</tr>"
+                });
+                $("#log_result").append(LogHTML);
+            });
+        });
+
+        function msg(content) {
+            ts('.snackbar').snackbar({
+                content: content,
+                actionEmphasis: 'negative',
+            });
+        }
+
+
+        function showDialog(href, x, y) {
+            $("#modaldata").html("");
+            if (loadViaSystemSetting !== undefined && loadViaSystemSetting == true) {
+                href = "../disk/smart/" + href;
+            }
+            $("#modaldata").load(href);
+            ts('#modal').modal({
+                approve: '.info',
+                onApprove: function() {
+                    try {
+                        clearInterval(timer);
+                    } catch (err) {}
+                }
+            }).modal("show")
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,218 @@
+<html>
+    <head>
+        <title>File Operation</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            .banner{
+                background-color:#4287f5;
+                height:50px;
+                padding:12px;
+                padding-left:20px;
+                padding-top:16px;
+            }
+
+            #opricon{
+                position:absolute;
+                top:0px;
+                right:0px;
+                width:80px;
+                height:80px;
+            }
+            .title{
+                color:white;
+                font-size:130%;
+            }
+            .content{
+                padding:12px;
+            }
+            .info{
+                margin-top:3px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="banner">
+            <div class="title">Moving 1 File</div>
+            <img id="opricon" src="" class="ui image"></img>
+        </div>
+        <div class="content">
+            <div class="info">From: <span id="src"></span></div>
+            <div class="info">To: <span id="dest"></span></div>
+            <div class="info">Size remaining: <span id="remaining"> <i class="loading spinner icon"></i> Calculating</span></div>
+            <div class="ui active small progress" style="margin-top:18px;">
+                <div id="progressbar" class="bar" style="width:100%; background-color:#4287f5;"></div>
+            </div>
+        </div>
+        
+        <script>
+            /*
+                ArOZ Online File Operation Listener
+                Usage: Pass in the following JSON object as hash with encodeURIComponent after JSON stringify
+                {
+                    opr: {move / copy / zip / unzip / download / zipAndDown},
+                    src: {filelist, allow multiple files},
+                    dest: {filepath},
+                    
+                    //Optional paramters
+                    overwriteMode: {skip / overwrite / keep},
+                    callbackWindowID: {floatWindow ID},
+                    callbackFunction: {target Window Function Name as String}
+                }
+
+                **For download opr, it will first buffer into the browser memory.
+                It is not recommended for files > 2GB (Firefox Limit)
+
+                Example callbackFunction: "refreshList()" (string)
+
+            */
+            var operationConfig = null;
+            var opr = "";
+
+            //Initalized floatWindow events
+            ao_module_setFixedWindowSize();
+            ao_module_setWindowSize(400,220);
+
+            init();
+            function init(){
+                console.log("Checking launch parameters...");
+                if (window.location.hash.length > 0 && ao_module_virtualDesktop){
+                    //OK to proceed
+                    try{
+                        operationConfig = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
+                        
+                        //Check if there are any missing paratmers
+                        configValid = true;
+                        if (typeof operationConfig.opr == "undefined"){ configValid = false; }
+                        if (typeof operationConfig.src == "undefined"){ configValid = false; }
+                        if (typeof operationConfig.dest == "undefined"){ configValid = false; }
+                        
+                        if (!configValid){
+                            console.log("Invalid file operation config. Please see the file_operation.html source code for the correct config json object.")
+                            ao_module_close();
+                            return;
+                        }
+
+                        //Parse the missing argument if there are any
+                        if (typeof operationConfig.overwriteMode == "undefined"){
+                            operationConfig.overwriteMode = "skip";
+                        }
+
+                        //Update the display information
+                        $("#src").text(operationConfig.src);
+                        $("#dest").text(operationConfig.dest);
+                        opr = operationConfig.opr;
+                        updateTitle(operationConfig.src.length, operationConfig.opr);
+
+                        //Check which type of the oprs is about. And assign the related functions to start
+                        if (operationConfig.opr == "move"){
+                            $("#opricon").attr("src","img/move.gif");
+                            cut(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
+                           
+                        }else if (operationConfig.opr == "copy"){
+                            $("#opricon").attr("src","img/copy.gif");
+                            copy(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
+                        }
+
+
+                    }catch{
+                        //Failed
+                        console.log("Argument parse error");
+                    }
+
+                }else{
+                    alert("Invalid use of File Operation Listener.")
+                    ao_module_close();
+                }
+            }
+
+            function cut(srcList, dest, overwriteMode){
+                $.ajax({
+                    type: 'POST',
+                    url: `../../system/file_system/fileOpr`,
+                    data: {opr: "move" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode},
+                    success: function(data){
+                        handleFinish(data);
+                    }
+                });
+            }
+
+            function copy(srcList, dest, overwriteMode){
+                $.ajax({
+                    type: 'POST',
+                    url: `../../system/file_system/fileOpr`,
+                    data: {opr: "copy" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode },
+                    success: function(data){
+                        handleFinish(data);
+                    }
+                });
+            }
+
+            function updateTitle(fileNumber, opr){
+                var title = "";
+                if (opr == "move"){
+                    title = "Moving ";
+                }else if (opr == "copy"){
+                    title = "Copying ";
+                }else if (opr == "zip"){
+                    title = "Zipping";
+                }else if (opr == "download"){
+                    title = "Downloading ";
+                }else if (opr == "unzip"){
+                    title = "Unzipping ";
+                }
+
+                title += fileNumber + " ";
+                if (fileNumber == 1){
+                    title += " File";
+                }else{
+                    title += " Files";
+                }
+
+                $(".title").text(title);
+            }
+
+            function handleFinish(data){
+                if (data.error !== undefined){
+                    $("#progressbar").css("background-color","#db2828");
+                    $("#progressbar").parent().removeClass('active');
+                    $(".title").html(`<i class="remove icon"></i>` + data.error);
+                }else{
+                    $("#progressbar").css("background-color","#21ba45");
+                    $("#progressbar").parent().removeClass('active');
+                    
+                    if (opr == "move" || opr == "copy" || opr == "zip" || opr == "unzip"){
+                        //Action completed. close window.
+                        setTimeout(function(){
+                            //Do callback if exists
+                            if (operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
+                                var callbackWindowObject = parent.getFloatWindowByID(operationConfig.callbackWindowID)
+                                var windowObject = $(callbackWindowObject).find("iframe")[0];
+                                console.log(windowObject.contentWindow, operationConfig.callbackFunction);
+                                windowObject.contentWindow.eval(operationConfig.callbackFunction);
+                            }
+                            ao_module_close();
+                        }, 1000);
+                    }else if (opr == "download"){
+                        //Create download from buffer
+
+                    }else if (opr == "zipAndDown"){
+                        //Download
+
+                    }
+                }
+                console.log(data);
+            }
+
+
+          
+        </script>
+    </body>
+</html>

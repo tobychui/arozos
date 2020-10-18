@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <title>WIFI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+        .ts.items>.item>.image:not(.ts):not(.flexible) {
+            width: 60px;
+            !important
+        }
+    </style>
+</head>
+
+
+<body>
+    <br>
+    <div class="ui container">
+        <div class="ui divided items" id="wifi">
+        </div>
+    </div>
+
+    <script>
+        var template = '<div class="item"><div class="image"><img style="height:64px;width:auto" src="/SystemAO/network/img/%image%.png"></div><div class="content"><p class="header">%interfacename%</p><div class="description">%data%</div></div></div>';
+
+        $.getJSON("/SystemAO/network/getNICinfo", function(result) {
+            $.each(result, function(i, field) {
+                $("#wifi").append(template.replace("%image%", "Unknown").replace("%interfacename%", field["Name"]).replace("%data%", "MAC Address : " + field["HardwareAddr"] + "<br>IPv4 Address : " + field["IPv4Addr"] + "<br>IPv6 Address : " + field["IPv6Addr"]));
+            });
+        });
+    </script>
+</body>
+
+</html>

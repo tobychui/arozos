@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <title>Current Time</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+</head>
+
+
+<body>
+    <div class="ui segment">
+        <h3 class="ui header">Current system time:</h3>
+        <p id="currenttime"></p>
+        <p style="font-size:10px" id="lagging"></p>
+        <div class="ui accordion">
+            <div class="title">
+                <i class="dropdown icon"></i> More Calandar
+            </div>
+            <div class="content">
+                <div class="ui two column grid" id="additionalCalendar">
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+<script>
+    $('.ui.accordion')
+        .accordion();
+
+    //Init variable
+    var d = new Date();
+    var ClienttimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var options = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        timeZoneName: 'long',
+        //timeZone: timeZone,
+        hour12: true
+    };
+
+    //Startup
+    if (typeof uT !== "undefined") {
+        clearInterval(uT);
+    }
+    if (typeof uTfs !== "undefined") {
+        clearInterval(uTfs);
+    }
+    setTimeout(function() {
+        d = new Date();
+        updateTime();
+        updateTimeFromServer();
+        var uT = setInterval(updateTime, 1000);
+        var uTfS = setInterval(updateTimeFromServer, 10000);
+    }, 1000 - new Date().getMilliseconds());
+
+
+    function updateTime() {
+        d.setSeconds(d.getSeconds() + 1);
+        var formattedDate = new Intl.DateTimeFormat(navigator.language, options).format(d);
+        $("#currenttime").text(formattedDate);
+    }
+
+    function updateTimeFromServer() {
+        $.getJSON("/SystemAO/time/getTime", function(data) {
+            options.timeZone = data["timezone"];
+            d = new Date(data["time"]);
+            console.log(d);
+            var timeDiff = new Date() - d;
+            console.log(timeDiff);
+            if (timeDiff > 0) {
+                $("#lagging").text("Server is lagging " + formatTime(timeDiff) + " behind.");
+            } else {
+                $("#lagging").text("Server is " + formatTime(timeDiff) + " faster than your computer.")
+            }
+            updateAdditionalCalander();
+        });
+        if ($("#currenttime").length == 0) {
+            clearInterval(uT);
+            clearInterval(uTfs);
+        }
+    }
+
+    function formatTime(time) {
+        if (time < 1000) {
+            return time + "ms";
+        } else if (time < 60000) {
+            return Math.floor(time / 1000) + "s " + convert(time - Math.floor(time / 1000) * 1000);
+        } else if (timediff < 3600000) {
+            return Math.floor(time / 60000) + "m " + convert(time - Math.floor(time / 60000) * 60000);
+        } else if (timediff < 216000000) { //original was 216000000
+            return Math.floor(time / 3600000) + "h " + convert(time - Math.floor(time / 3600000) * 3600000);
+        }
+    }
+
+    /* Additional Calendar */
+    //Data followed by https://github.com/unicode-org/cldr/blob/2dd06669d833823e26872f249aa304bc9d9d2a90/common/bcp47/calendar.xml
+    function updateAdditionalCalander() {
+        var AddOption = {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+        };
+        var lang = navigator.language;
+        var additionalCalendarList = ["buddhist", "chinese", "coptic", "dangi", "ethioaa", "ethiopic", "gregory", "hebrew", "indian", "islamic", "islamic-umalqura", "islamic-tbla", "islamic-civil", "islamic-rgsa", "iso8601", "japanese", "persian", "roc"];
+        var additionalCalendarDList = ["Thai Buddhist calendar", "Traditional Chinese calendar", "Coptic calendar", "Traditional Korean calendar", "Ethiopic calendar, Amete Alem", "Ethiopic calendar, Amete Mihret", "Gregorian calendar", "Traditional Hebrew calendar", "Indian calendar", "Islamic calendar", "Islamic calendar, Umm al-Qura", "Islamic calendar, tabular (astronomical epoch)", "Islamic calendar, tabular (civil epoch)", "Islamic calendar, Saudi Arabia sighting", "ISO calendar", "Japanese Imperial calendar", "Persian calendar", "Republic of China calendar"];
+        var htmlstr = "";
+        for (i = 0; i < additionalCalendarList.length; i++) {
+            var formattedDate = new Intl.DateTimeFormat(lang + "-u-ca-" + additionalCalendarList[i], AddOption).format(d);
+            htmlstr += '<div class="column">' + additionalCalendarDList[i] + ": " + '</div>'
+            htmlstr += '<div class="column">' + formattedDate + '</div>'
+        }
+        $("#additionalCalendar").html(htmlstr);
+    }
+</script>
+
+</html>

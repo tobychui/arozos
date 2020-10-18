@@ -1,1 +1,0 @@
-This is a demo module of ArOZ Online Beta System for dummy / experimental purpose.

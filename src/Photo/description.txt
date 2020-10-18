@@ -1,1 +1,0 @@
-The Photo function allow you to view and share image directly from your host to your mobile devices through Wifi Direct or local area netwrok. Powered by ArOZ Online ALPHA.

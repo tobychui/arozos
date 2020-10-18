@@ -1,0 +1,138 @@
+package main
+
+import (
+	"net/http"
+	"path/filepath"
+	"encoding/json"
+	"log"
+)
+
+func module_Video_init(){
+	http.HandleFunc("/Video/buildPlaylist", module_ArdPlayer_buildPlaylist)
+
+	//Register module
+	registerModule(moduleInfo{
+		Name: "Video",
+		Desc: "The basic video player for ArOZ Online",
+		Group: "Media",
+		IconPath: "Video/img/module_icon.png",
+		Version: "0.0.4",
+		StartDir: "Video/index.html",
+		SupportFW: true,
+		LaunchFWDir: "Video/index.html",
+		SupportEmb: true,
+		LaunchEmb: "Video/embedded.html",
+		InitFWSize: []int{585, 820},
+		InitEmbSize: []int{700, 470},
+		SupportedExt: []string{".webm",".mp4",".ogg"},
+	})
+}
+
+//Scan all the attached storage devices and generate a global playlist
+func module_ArdPlayer_buildPlaylist(w http.ResponseWriter, r *http.Request){
+	username, err := system_auth_getUserName(w,r);
+	if (err != nil){
+		sendErrorResponse(w,"User not logged in")
+		return;
+	}
+	
+	type videoFile struct{
+		Filename string
+		Filepath string
+		Ext string
+	}
+
+	type playList struct{
+		Name string
+		Files []videoFile
+	}
+
+	type viewPoint struct{
+		StorageName string
+		PlayLists []playList
+		UnsortedVideos []videoFile
+	}
+
+	results := []viewPoint{}
+	for _, dev := range storages{
+		//Get the base dir of this storage device
+		scanBaseDir := ""
+		devicePath := dev.Path;
+		if (devicePath[len(devicePath)-1:] != "/"){
+			devicePath = devicePath + "/"
+		}
+		if (dev.Hierarchy == "users"){
+			scanBaseDir = devicePath + username + "/Video"
+		}else if (dev.Hierarchy == "public"){
+			scanBaseDir = devicePath
+		}
+
+		if (scanBaseDir == "" || !fileExists(scanBaseDir)){
+			//This directory has no supported hierarchy or root folder not exists
+			continue;
+		}
+		//log.Println(scanBaseDir)
+
+		//Scan this directory for folders or video files and build a playlist out of it
+		
+		supportExt := []string{".mp4",".webm",".ogg"}
+		objs, _ := system_fs_specialGlob(scanBaseDir)
+		//Declare a new ViewPort for this device
+		thisViewPort := new(viewPoint)
+		allPlayLists := []playList{}
+		unsortedFiles := []videoFile{}
+		for _, file := range objs{
+			if (IsDir(file)){
+				//This is a playlist. List all its contents
+				filesInside := []string{}
+				filesInPlaylist, _ := system_fs_specialGlob(file + "/")
+				for _, videoInList := range filesInPlaylist{
+					if (system_fs_matchFileExt(videoInList, supportExt)){
+						filesInside = append(filesInside, videoInList)
+					}
+				}
+				if (len(filesInside) > 0){
+					//This is a valid playlist
+					thisPlayList := new(playList)
+					thisPlayList.Name = filepath.Base(file)
+					videosInPlaylist := []videoFile{}
+					for _, videoInPlaylist := range filesInside{
+						thisVideoFile := new(videoFile)
+						thisVideoFile.Filename = filepath.Base(videoInPlaylist)
+						thisVideoFile.Filepath, _ = realpathToVirtualpath(videoInPlaylist, username)
+						thisVideoFile.Ext = filepath.Ext(videoInPlaylist)
+						videosInPlaylist = append(videosInPlaylist, *thisVideoFile)
+					}
+					thisPlayList.Files = videosInPlaylist;
+					allPlayLists = append(allPlayLists, *thisPlayList)
+				}
+			}else if (system_fs_matchFileExt(file, supportExt)){
+				//This is an unsorted video file
+				vpath, _ := realpathToVirtualpath(file, username)
+				thisVideoFile := &videoFile{
+					Filename: filepath.Base(file),
+					Filepath: vpath,
+					Ext: filepath.Ext(file),
+				}
+				unsortedFiles = append(unsortedFiles, *thisVideoFile)
+			}
+		}
+
+		//Build the required objects from information
+		thisViewPort.PlayLists = allPlayLists
+		thisViewPort.UnsortedVideos = unsortedFiles
+		thisViewPort.StorageName = dev.Name
+		results = append(results,*thisViewPort)
+	}
+
+	//Format the results as JSON string and output
+	jsonString, err := json.Marshal(results);
+	if (err != nil){
+		log.Println("[ArdPlayer] Unable to parse playlist")
+		sendErrorResponse(w, "Unable to parse playlist.")
+		return
+	}
+	sendJSONResponse(w, string(jsonString))
+	return;
+
+}

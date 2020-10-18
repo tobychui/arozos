@@ -1,199 +1,194 @@
 ![Image](img/banner.png?raw=true)
 
-<img src="https://img.shields.io/badge/License-Partially%20Open%20Source-blue"> <img src="https://img.shields.io/badge/Build-Community-brightgreen"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In-Hong%20Kong-blueviolet">
+<img src="https://img.shields.io/badge/License-Open%20Source-blue"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In%20Hong%20Kong-香港開發-blueviolet">
 
-[中文說明](README-zh-HK.md)
+## IMPORTANT NOTES
+The current version of ArOZ Online System is migrating to Golang and the architecture might not be stable.
+Please use this with your own risk. And, we are surely we will change the structure of this system really soon.
+This is for front end development / endpoint dev only.
 
-**Updates: As PHP (the lanuage itself) is deprecating, we are moving our system to Go (Or golang) in the coming months. Data migration guideline will be provided later. If you have any questions, feel free to create a new issue.**
+## Installation
+Require GO 1.14 or above
 
-# ArOZ Online System / aCloud
-Personal Cloud Platform with Web Desktop Environment for Raspberry Pi 3B+ or 4B. A place to start cloud music and video streaming, data storage, lightweight office work / text processing, 3D printing file previews, Cloud programming IDE and more!
-
-**WARNING! THIS SYSTEM IS STILL IN BETA PHRASE.**
-
-## Getting Started
-These instructions will guide you through the deployment of a copy of ArOZ Online System on your own Raspberry Pi or other low power, Linux running SBCs for community review and testing purposes. Read more on the [Full System Documentation](https://tobychui.github.io/ArOZ-Online-System/).
-
-### Docker
-Follow the instruction from this repo: https://github.com/Saren-Arterius/aroz-dockerize
-
-### Prerequisites
-The following packages are required for the system to run on your Linux system.
-- apache2
-- libapache2-mod-xsendfile
-- php libapache2-mod-php php-cli php-common php-mbstring php-gd php xml php-zip
-- php-mysql (Optional)
-- libav-tools / ffmpeg (Optional)
-- samba (Optional)
-
-To install the package above, copy and paste the following lines into your ssh terminal line by line.
-```bash
-# Add the following line if you are using a fresh install of Debian Buster
-sudo apt-get install unzip net-tools ntfs-3g dosfstools -y
-sudo apt-get update
-sudo apt-get install -y apache2
-sudo apt-get install -y php libapache2-mod-php php-cli php-common php-mbstring php-gd php-xml php-zip 
-sudo apt-get install libapache2-mod-xsendfile
-# The lines below are optional. But it is recommended to install them for future uses
-sudo apt-get install php-mysql
-# Use libav-tools instead of ffmpeg if you are still using Debian Jessie
-sudo apt-get install ffmpeg
-sudo apt-get install samba
-```
-### Prebuilt Image File
-To install ArOZ Online System to your Raspberry pi, you can use the prebuilt image file for Raspberry Pi 4B / 3B+. You can find the image in the link below:
-
-> WORK IN PROGRESS
-
-### Manual Installation
-
-#### Overview
-
-ArOZ Online System is only tested on Debian Jessie and Debian Buster. Before installing the ArOZ Online System, you need to install necessary software package as shown in the [Prerequisites](#Prerequisites) section. 
-
-#### Configuring PHP
-
-ArOZ Online is not compatiable with the default PHP settings.
-
-Edit `php.ini` to increase the max file upload size setting. On Debian systems, the `php.ini` file can usually be found in `/etc/php/{php-version}/apache2/php.ini`. Change these two lines below as follows:
-```
-upload_max_filesize = 2048M
-post_max_size = 2048M
-```
-
-#### Configuring Permissions
-
-Certain features of ArOZ Online System requires explicit authorization through configuration files.
-
-If you are not familiar with `sudoer` configuration syntax, open `/etc/sudoers` with `nano` and add the following to the end of file.
+Run the following the command to build the system
 
 ```
-www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g,  /usr/bin/ntfs-3g, /usr/bin/umount, /sbin/halt, /sbin/reboot, /sbin/poweroff, /sbin/ifconfig, /sbin/ip, /sbin/mkfs.ntfs, /sbin/mkfs.vfat
+go build
 ```
-**(Use the above settings only if you are hosting the system in your local area network. Please adjust this to suit your needs if you are allowing the access of the system from the internet.)**
+(Yes, it is that simple)
 
-If you are familiar and want to have much better control of the system security, add the lines that fits your need according to the selections below.
+## Start the ArOZ Online Platform
 
-- Allow the system to mount and unmount your USB drives
+### Supported Startup Paramters
+The following startup paramters are supported.
+```
+  -allow_pkg_install
+        Allow the system to install package using Advanced Package Tool (aka apt or apt-get) (default true)
+  -beta_scan
+        Allow compatibility to ArOZ Online Beta Clusters
+  -cert string
+        TLS certificate file (.crt) (default "localhost.crt")
+  -demo_mode
+        Run the system in demo mode. All directories and database are read only.
+  -disable_ip_resolver
+        Disable IP resolving if the system is running under reverse proxy environment
+  -enable_hwman
+        Enable hardware management functions in system (default true)
+  -hostname string
+        Default name for this host (default "My ArOZ")
+  -iobuf int
+        Amount of buffer memory for IO operations (default 1024)
+  -key string
+        TLS key file (.key) (default "localhost.key")
+  -max_upload_size int
+        Maxmium upload size in MB. Must not exceed the available ram on your system (default 8192)
+  -port int
+        Listening port (default 8080)
+  -public_reg
+        Enable public register interface for account creation
+  -root string
+        User root directories (default "./files/")
+  -storage_config string
+        File location of the storage config file (default "./system/storage.json")
+  -tls
+        Enable TLS on HTTP serving
+  -tmp string
+        Temporary storage, can be access via tmp:/. A tmp/ folder will be created in this path. Recommend fast storage devices like SSD (default "./")
+  -upload_buf int
+        Upload buffer memory in MB. Any file larger than this size will be buffered to disk (slower). (default 25)
+  -uuid string
+        System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.
+  -version
+        Show system build version
+```
 
-      www-data ALL=NOPASSWD: /usr/bin/mount, /sbin/mount.ntfs-3g, /usr/bin/umount
-  
-- Allow system to be powered off via the Web UI
+Example
+```
+//Starting aroz online with standard web port
+./aroz_online -port 80
 
-  ```
-  www-data ALL=NOPASSWD: /sbin/halt, /sbin/reboot, /sbin/poweroff
-  ```
+//Start aroz online in demo mode
+./aroz_online -demo_mode=true
 
-- Allow system to access local area network IP address and WiFi network settings
-    ```
-    www-data ALL=NOPASSWD: /sbin/ifconfig, /sbin/ip
-    ```
+//Use https instead of http 
+./aroz_online -tls=true -key mykey.key -cert mycert.crt
 
-- Allow system to format and erase partitions
-    ```
-    www-data ALL=NOPASSWD: /sbin/mkfs.ntfs, /sbin/mkfs.vfat
-    ```
+//Change max upload size to 25MB
+./aroz_online -max_upload_size 25
 
-> TO BE ADDED
+```
 
-#### Apache Settings
+### Storage.json
+This file define the storage devices to be mounted into aroz online system. See src/system/storage.json.example for template.
 
-Edit `/etc/apache2/apache2.conf`, add the following two lines to the end of file
 
-  ```
-XSendFile on
-XSendFilePath /media
-  ```
+## ArOZ JavaScript Gateway Interface / Plugin Loader
+The ArOZ AJGI / AGI interface provide a javascript programmable interface for ArOZ Online users to create 
+plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
+(also named the module root). See more details in the [AJGI Documentation](AJGI Documentation.md).
 
-#### Creating directories
+## Subservice Logics and Configuration
+To intergrate other binary based web server to the subservice interface,
+you can create a folder inside the "./subservice/your_service" where your binary
+executable should be named identically with the containing directory.
+For example, you have a module that provides web ui named "demo.exe",
+then your should put the demo.exe into "./subservice/demo/demo.exe".
 
-Create directory at /media/storage1 and /media/storage2
+In the case of Linux environment, the subservice routine will first if the 
+module is installed via apt-get by checking with the "whereis" program.
+If the package is not found in the apt list, the binary of the program will be searched
+under the subservice directory.
 
-  ```bash
-sudo mkdir /media/storage1 /media/storage2
-  ```
-#### Installing ArOZ Online to webroot directory
+Please follow the naming convention given in the build.sh template.
+For example, the corrisponding platform will search for the corrisponding binary excutable filename:
+```
+demo_linux_amd64	=> Linux AMD64
+demo_linux_arm		=> Linux ARMv6l / v7l
+demo_linux_arm64	=> Linux ARM64
+demo_macOS_amd64	=> MacOS AMD64 (Not tested)
+```
 
-You will need to download and install the ArOZ Online System to your webroot (`/var/www/html/`).
-Navigate into the web root using the following command
+### Startup Flags
+During the tartup of the subservice, two paramters will be passed in. Here are the examples
+```
+demo.exe -info
+demo.exe -port 12810
+```
 
-  ```bash
-cd /var/www/html/
-  ```
+In the case of reciving the "info" flag, the program should print the JSON string with correct module information
+as stated in the struct below.
+```
+//Struct for storing module information
+type serviecInfo struct{
+	Name string				//Name of this module. e.g. "Audio"
+	Desc string				//Description for this module
+	Group string			//Group of the module, e.g. "system" / "media" etc
+	IconPath string			//Module icon image path e.g. "Audio/img/function_icon.png"
+	Version string			//Version of the module. Format: [0-9]*.[0-9][0-9].[0-9]
+	StartDir string 		//Default starting dir, e.g. "Audio/index.html"
+	SupportFW bool 			//Support floatWindow. If yes, floatWindow dir will be loaded
+	LaunchFWDir string 		//This link will be launched instead of 'StartDir' if fw mode
+	SupportEmb bool			//Support embedded mode
+	LaunchEmb string 		//This link will be launched instead of StartDir / Fw if a file is opened with this module
+	InitFWSize []int 		//Floatwindow init size. [0] => Width, [1] => Height
+	InitEmbSize []int		//Embedded mode init size. [0] => Width, [1] => Height
+	SupportedExt []string 	//Supported File Extensions. e.g. ".mp3", ".flac", ".wav"
+}
 
-And then download the repo as zip, unzip the `src` folder into `/var/www/html` and rename `src` to `AOB`.
-You can do this using WinSCP if you on Windows. Otherwise, you can use `git clone` command similar to the example below. Make sure you have installed `git` using ```sudo apt-get install git``` before running `git` command.
+//Example Usage when reciving the -info flag
+infoObject := serviecInfo{
+		Name: "Demo Subservice",
+		Desc: "A simple subservice code for showing how subservice works in ArOZ Online",			
+		Group: "Development",
+		IconPath: "demo/icon.png",
+		Version: "0.0.1",
+		//You can define any path before the actualy html file. This directory (in this case demo/ ) will be the reverse proxy endpoint for this module
+		StartDir: "demo/home.html",			
+		SupportFW: true, 
+		LaunchFWDir: "demo/home.html",
+		SupportEmb: true,
+		LaunchEmb: "demo/embedded.html",
+		InitFWSize: []int{720, 480},
+		InitEmbSize: []int{720, 480},
+		SupportedExt: []string{".txt",".md"},
+	}
+	
+jsonString, _ := json.Marshal(info);
+fmt.Println(string(infoObject))
+os.Exit(0);
+```
 
-  ```bash
-git clone https://github.com/tobychui/ArOZ-Online-System/
-sudo mv ArOZ-Online-System/src ./AOB
-sudo rm -rf ./ArOZ-Online-System
-  
-sudo mkdir -p "/etc/AOB"
-sudo chmod 777 -R "/etc/AOB"
-sudo chmod 777 -R ./AOB
-sudo chown -R www-data ./
-  ```
+When reciving the port flag, the program should start the web ui at the given port. The following is an example for 
+the implementation of such functionality.
 
-#### Testing
+```
+var port = flag.String("port", ":80", "The default listening endpoint for this subservice")
+flag.Parse()
+err := http.ListenAndServe(*port, nil)
+if err != nil {
+	log.Fatal(err)
+}
+```
 
-Open your default browser and visit the http://{Raspberry_Pi_IP_Address}/AOB/ and follow the on scren guide for setting up a new user.
 
-## Preview / Screenshots
-![Image](img/screenshots/audio.png?raw=true)
-![Image](img/screenshots/photo.png?raw=true)
-![Image](img/screenshots/video.png?raw=true)
-![Image](img/screenshots/listmenu.png?raw=true)
-![Image](img/screenshots/fileexp.png?raw=true)
-![Image](img/screenshots/async-fileopr.png?raw=true)
-![Image](img/screenshots/diskman.png?raw=true)
-![Image](img/screenshots/settings.png?raw=true)
+### Subservice Exec Settings
+In default, subservice routine will create a reverse proxy with URL rewrite build in that serve your web ui launched
+from the binary executable. If you do not need a reverse proxy connection, want a custom launch script or else, you can 
+use the following setting files.
 
-Click <a href="https://github.com/tobychui/ArOZ-Online-System/tree/master/img/screenshots">here</a> for more preview screenshots
+```
+.noproxy		=> Do not start a proxy to the given port
+.startscript	=> Send the launch parameter to the "start.bat" or "start.sh" file instead of the binary executable
+.suspended		=> Do not load this subservice during startup. But the user can enable it via the setting interface
+```
 
-## Versioning
-Different major change in versioning will lead to an upgrade to the codename. Here are a list of versions currently ArOZ Online System provides. 
+Here is an example "start.bat" used in integrating Syncthing into ArOZ Online System with ".startscript" file placed next
+to the syncthing.exe file.
+```
+if not exist ".\config" mkdir ".\config"
+syncthing.exe -home=".\config" -no-browser -gui-address=127.0.0.1%2
+```
 
-| Version Number | Code Name | Major Change | Type (Barebone / Pre-release / Full* ) |
-|----------------|-----------|--------------|---------------------------------------------|
-| Before Beta 1.1.4     | Aloplex                  | N/A          | Full                         |
-| Before Beta 1.2.8     | Sempervivum Tectorum     | N/A          | Full                         |
-| Beta 12-06-2019       | aCloud                   | Init Release | Pre-release                  |
-
-*Full versions are only available for internal developers or testers for testing purposes only.
-
-## Author
-### Developers
-(Blame them if you encounter any bugs within the system)
-* tobychui - Project initiator / System Developer / Core Modules designer and programmer
-* <a href="https://github.com/yeungalan">yeungalan</a> - Module maintainer / Network Setting Module developer
-
-### Beta Testers
-(Find them if you want to know how to use a specific function in the system)
-* <a href="https://github.com/aceisace">aceisace</a>
-* <a href="https://github.com/RubMing">RubMing</a>
-
-## License
-Build-in Multimedia Modules (Audio / Photo / Video) - MIT License
-
-Desktop Module (Desktop) and its utilities - *All Right Reserved*, MIT License ONLY on Raspberry Pi and other ARMv6, v7 or ARM64 based SBC for non-commercial purposes.
-
-All core scripts and binary files under root (./) and System Script Folder (SystemAOB/*) - tobychui feat. ArOZ Online Project, All Right Reserved.
-
-All other files or modules that is not covered by the license above - See the module's license for more information.
-
-THIS SOFTWARE IS ONLY FOR PERSONAL AND NON COMMERCIAL USE ONLY. RE-SELL ,DISTRIBUTE OR CLAIM THIS AS YOUR OWN WORK IS PROHIBITED
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-*Please seek for author approval if you want to deploy this system for purposes other than personal (e.g. home NAS, private media server, automation control in your room etc) and educational (e.g. school projects, course demos etc)*
-
-## Acknowledgments
-Special thanks for the following projects which bring insights to this project.
-
-TocasUI by Yami Odymel - https://tocas-ui.com/ 
-
-Threejs by Mrdoob - https://threejs.org/
 
 ## Q&A
 TO BE ADDED

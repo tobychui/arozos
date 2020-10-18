@@ -1,0 +1,624 @@
+<html>
+<head>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+<link rel="stylesheet" href="../script/tocas/tocas.css">
+<link rel="stylesheet" href="../script/semantic/semantic.css">
+<script src="jquery.min.js"></script>
+<script src="../script/semantic/semantic.js"></script>
+<script src="../script/ao_module.js"></script>
+<title>FFmpeg Factory</title>
+<style>
+    .FFmpegStatus{
+        padding:8px;
+        border-bottom:1px solid #999999;
+    }
+    body{
+        padding-top:0px !important;
+        background-color:white;
+        overflow:hidden;
+    }
+    @supports (backdrop-filter: none) {
+		body {
+			background: rgba(255, 255, 255, 0.9);
+			backdrop-filter: blur(8px);
+		}
+	}
+    .topMenu{
+        padding-top:0px !important; 
+        border-bottom: 1px solid #999999;
+        overflow-x: auto;
+    }
+    .selectableMenuItems{
+        padding: 8px;
+        display:inline-block !important;
+        cursor:pointer;
+        border-bottom:2px solid transparent;
+    }
+    .selectableMenuItems.enabled:hover{
+        background-color:#f0f0f0;
+
+    }
+    .convertionList{
+        width:100%;
+        height: 100%;
+        padding-left:8px;
+        border-right: 1px solid #cfcfcf;
+        overflow-y:auto;
+    }
+
+    .selectable{
+        cursor:pointer;
+        padding-left: 22px !important;
+		border:1px solid transparent;
+    }
+   
+    .selectable.item{
+        padding:8x !important;
+    }
+    .selectable:hover{
+        background-color:#f0f0f0;
+    }
+    .content{
+        overflow-y: auto;
+    }
+    .filelist{
+        padding: 12px !important;
+        padding-bottom:0px !important;
+        margin-right:20px;
+        border: 1px solid transparent !important;
+        cursor: pointer;
+    }
+    .filelist:hover{
+        background-color:#f0fbff;
+		border:1px solid #48b8e5 !important;
+    }
+    .selectedFile{
+        background-color:#e0f7ff;
+		border:1px solid #48b8e5 !important;
+    }
+    .selectedConvertTarget{
+        background-color:#f0f0f0;
+		border:1px solid #999999 !important;
+    }
+    .status{
+        display:inline;
+    }
+    .selectableMenuItems.disabled{
+        color: #a3a3a3;
+        cursor: not-allowed !important;
+    }
+	.converting{
+		background-color:#d3e4ff;
+	}
+	.done{
+		background-color:#d1ffd3;
+	}
+	#settingMenu{
+	    position:fixed;
+	    left:30px;
+	    right:30px;
+	    top:30px;
+	    max-height:80%;
+	}
+    .mainArea{
+        margin-top:0px !important;
+    }
+    .ts.progress{
+        margin-bottom:18px !important;
+    }
+    .ts.blue.progress .bar{
+        background-color: #2185d0 !important;
+    }
+
+</style>
+</head>
+<body>
+<div id="headerNav" class="ui secondary attached mini menu">
+    <a class="item" href="../"><i class="caret left icon"></i></a>
+    <div class="item">
+        <img class="ui avatar image" src="./img/small_icon.png">
+        <span>FFmpeg Factory</span>
+    </div>
+</div>
+<div class="topMenu">
+    <div id="addFileBtn" class="selectableMenuItems enabled" onClick="openFileSelection(this);"><i class="plus icon"></i>Add Files</div>
+    <div class="selectableMenuItems enabled" onClick="openFileLocation(this);"><i class="folder open icon"></i>Browse File Location</div>
+    <div class="selectableMenuItems enabled" onClick="startQueue(this);"><i class="play icon"></i>Start Queue</div>
+    <div class="selectableMenuItems enabled" onClick="stopQueue(this);"><i class="stop icon"></i>Stop Queue</div>
+    <!-- <div class="selectableMenuItems enabled" onClick="viewCommand(this);"><i class="code icon"></i>View Command</div> -->
+    <div class="selectableMenuItems enabled" onClick="showSettingMenu(this);"><i class="setting icon"></i>Settings</div>
+</div>
+<div class="ui stackable grid mainArea">
+    <div class="four wide column sidebar">
+        <div class="convertionList" >
+           
+            <div class="ui fluid accordion">
+                <div class="title">
+                    <i class="dropdown icon"></i>
+                    <i class="play icon"></i>
+                    Video
+                </div>
+                <div class="content fileFormatSelector">
+                    <div id="v2v" class="ui relaxed divided list">
+                    </div>
+                </div>
+          
+                <div class="title">
+                    <i class="dropdown icon"></i>
+                    <i class="music icon"></i>
+                    Music
+                </div>
+                <div class="content fileFormatSelector">
+                    <div id="v2a" class="ui relaxed divided list">
+                    </div>
+                </div>
+           
+                <div class="title">
+                    <i class="dropdown icon"></i>
+                    <i class="file image icon"></i>
+                    Pictures
+                </div>
+                <div class="content fileFormatSelector">
+                    <div id="i2i" class="ui relaxed divided list">
+                    </div>
+                </div>
+           
+                <div class="title">
+                    <i class="dropdown icon"></i>
+                    <i class="exchange icon"></i>
+                    Others
+                </div>
+                <div class="content fileFormatSelector">
+                    <div id="other" class="ui relaxed divided list">
+					</div>
+                </div>
+            </div>
+            <br>
+        </div>
+    </div>
+    <div class="twelve wide column" ondrop="drop(event)" ondragover="allowdrag(event)" style="padding-right:22px;">
+        <div id="actionOK" class="ui positive message transition" style="display:none;">
+            <div class="header">
+                You are eligible for a reward
+            </div>
+            <p class="message"></p>
+        </div>
+        <div id="convertPendingList" class="ui relaxed divided list" style="margin-top:0px !important;">
+
+        </div>
+        <div id="askSelectDimmer" class="ui dimmer" style="margin-top:14px; margin-left:-14px;">
+            <div class="content">
+                <h4 class="ui inverted icon header">
+                    <i class="arrow left icon"></i>
+                    Select a Target Conversion Format <br>
+                    On the list over there
+                </h4>
+            </div>
+        </div>
+        
+       
+    </div>
+    
+</div>
+<div id="settingDimmer" class="ui dimmer"></div>
+<div id="settingMenu" style="z-index:1001;">
+    <div class="ui raised segment">
+        <div class="ui header">
+            <i class="setting icon"></i>Conversion Settings
+            <div class="sub header">Please adjust the following settings according to your Host devices specification.</div>
+        </div>
+        <div class="ui list">
+            <div class="item"><i class="caret right icon"></i>Simultaneous Conversion File Counts</div>
+            <div class="item">
+                <select id="simFileCount" class="ui basic tiny dropdown" onChange="updateSimFiles(this);">
+                    <option>1</option>
+                    <option>2</option>
+                    <option>3</option>
+                    <option>4</option>
+                    <option>8</option>
+                    <option>16</option>
+                </select>
+            </div>
+            <div class="item" style="font-size: 90%;"><small>Do not use "ALL" options unless your host is a dual CPU Xeon Server</small></div>
+            <div class="item"><i class="caret right icon"></i>Allow Codec Copy Options (FFmpeg Expert Only)</div>
+            <div class="item" onChange="">
+                <select id="allowCodecCopy" class="ui basic tiny dropdown" onChange="updateAllowCodecCopy(this);">
+                    <option>false</option>
+                    <option>true</option>
+                </select>
+            </div>
+              <div class="item" style="font-size: 90%;"><small>Codec Copy Error might crash the system. Please use with your own risk.</small></div>
+        </div>
+        <br><br>
+        <ins><i class="save icon"></i>All changes will be saved automatically in server database.</ins>
+        <br> <br>
+        <button class="ui blue button" onClick="hideSettingMenu();">Close</button>
+    </div>
+    
+</div>
+<br><br><br><br>
+<script>
+    //Global variables
+    var convertPendingFiles = [];           //Files pending to be converted
+    var selectFormatPending = false;        //Files selected and waiting to select a target format
+    var targetConversionFormat = "";        //The target conversion format
+    var selectedCommand = "";               //The target selected command template
+    var selectedMediaType = "";
+
+    //Conversion related settings
+    var simFileCount = 1;
+    var allowCodecCopy = false;
+    var queueStarted = false;
+    
+
+
+    if (ao_module_virtualDesktop){
+        $("#headerNav").hide();
+    }
+
+    $(document).ready(function(){
+        $("#settingMenu").hide();
+        $('.ui.dropdown').dropdown();
+        //Initialize the conversion types
+        //<div class="item selectable"><i class="file video outline icon"></i></div>
+        $.ajax({
+            url: "config/v2v.json", 
+            method: "GET",
+            dataType: "json",
+            success: function(data){
+                for (var [key, value] of Object.entries(data)) {
+                    value = encodeURIComponent(value);
+                    $("#v2v").append(`<div class="item selectable" mediatype="video" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                }
+                $('.ui.accordion').accordion();
+                initUserSettings();
+            }
+        });
+
+        $.ajax({
+            url: "config/v2a.json", 
+            method: "GET",
+            dataType: "json",
+            success: function(data){
+                for (var [key, value] of Object.entries(data)) {
+                    value = encodeURIComponent(value);
+                    $("#v2a").append(`<div class="item selectable" mediatype="music" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                }
+                $('.ui.accordion').accordion();
+                initUserSettings();
+            }
+        });
+
+        $.ajax({
+            url: "config/i2i.json", 
+            method: "GET",
+            dataType: "json",
+            success: function(data){
+                for (var [key, value] of Object.entries(data)) {
+                    value = encodeURIComponent(value);
+                    $("#i2i").append(`<div class="item selectable" mediatype="image" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                }
+                $('.ui.accordion').accordion();
+            }
+        });
+
+        $.ajax({
+            url: "config/other.json", 
+            method: "GET",
+            dataType: "json",
+            success: function(data){
+                for (var [key, value] of Object.entries(data)) {
+                    value = encodeURIComponent(value);
+                    $("#other").append(`<div class="item selectable" mediatype="other" conv="${key}" command="${value}" onclick="selectThis(this, event);" ondblclick="selectViaFormat(this);"><i class="file video outline icon"></i> ${key}</div>`);
+                }
+                $('.ui.accordion').accordion();
+            }
+        });
+    });
+
+    //Open files to convert
+    function openFileSelection(obj){
+        if ($(obj).hasClass("disabled") == false){
+            //Require format selection after select
+            selectFormatPending = true;
+            ao_module_openFileSelector(fileSelected, "user:/Desktop", "file",true);
+        }
+        
+    }
+
+    //Catch drop events on ths main area
+    function drop(event){
+        event.preventDefault();
+        var files = ao_module_utils.getDropFileInfo(event);
+        if(files.length == 0){
+            return;
+        }
+        selectFormatPending = true;
+        fileSelected(files);
+    }
+
+    function allowdrag(ev) {
+        ev.preventDefault();
+        return true;
+    }
+
+
+    //Update the number of simultanous file conversion
+    function updateSimFiles(obj){
+        var fileNumber = obj.value;
+        saveStorage("simconv",fileNumber);
+        simFileCount = fileNumber;
+    }
+
+    function updateAllowCodecCopy(obj){
+        var newValue = obj.value;
+        allowCodecCopy = (newValue == "true");
+        saveStorage("codecCopy",newValue);
+        updateCodeCopyDisableList();
+    }
+
+    function initUserSettings(){
+        readStorage("simconv", function(data){
+            if (data != ""){
+                simFileCount = parseInt(data);
+                $('#simFileCount').dropdown('set selected', data);
+            }
+        });
+
+        readStorage("codecCopy", function(data){
+            if (data != ""){
+                allowCodecCopy = (data == "true");
+                $('#allowCodecCopy').dropdown('set selected', data);
+            }
+            updateCodeCopyDisableList();
+        });
+    }
+
+    function updateCodeCopyDisableList(){
+        //console.log(allowCodecCopy);
+        if (allowCodecCopy == false){
+            $(".item.selectable").each(function(){
+                if ($(this).text().includes("codec copy")){
+                    $(this).addClass("disabled");
+                }
+            });
+        }else{
+            $(".item.selectable.disabled").each(function(){
+                $(this).removeClass("disabled");
+            });
+        }
+    }
+
+
+    function saveStorage(key, value, callback = undefined){
+        ao_module_agirun("FFmpeg Factory/backend/writeConfig.js", {
+            key: key,
+            value: value
+        }, callback)
+    }
+
+    function readStorage(key, callback = undefined){
+        ao_module_agirun("FFmpeg Factory/backend/readConfig.js", {key: key}, callback)
+    }
+
+    function selectThisTask(obj){
+        $(".selectedFile").removeClass("selectedFile");
+        $(obj).addClass("selectedFile")
+    }
+
+    //File selected using openFileSelected
+    function fileSelected(data){
+        convertPendingFiles = data;
+        if (selectFormatPending == true){
+            //Format not yet selected. Ask user to choose a target format
+            $("#askSelectDimmer").addClass('active');
+            $(".selectableMenuItems").addClass("disabled")
+        }else{
+            //format alraedy selected. Append to conversion list
+            for (var i =0; i < data.length; i++){
+                var thisFile = convertPendingFiles[i];
+                addTaskToList(thisFile.filename, thisFile.filepath, targetConversionFormat, selectedCommand, selectedMediaType);
+            }
+            targetConversionFormat="";
+            selectedCommand="";
+            selectedMediaType="";
+        }
+       
+    }
+
+    function showSettingMenu(){
+        $("#settingDimmer").addClass("active");
+        $("#settingMenu").transition('scale');
+    }
+
+    function hideSettingMenu(){
+        $("#settingDimmer").removeClass("active");
+        $("#settingMenu").transition('scale');
+    }
+
+    //Remove task from the task list
+    function removeTask(obj){
+        var taskObject = $(obj).parent().parent().parent();
+        //msgbox("Task Removed", $(taskObject).attr("filepath"));
+        $(taskObject).remove();
+    }
+
+    function msgbox(title, message){
+        $("#actionOK").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
+        $("#actionOK").find(".header").text(title);
+        $("#actionOK").find(".message").text(message);
+    }
+
+    function addTaskToList(filename, filepath, targetFormat, command, mtype){
+        //Get the file extension of the filename
+        var srcFormat = filename.split(".").pop();
+        srcFormat = srcFormat.toUpperCase();
+        console.log(filename, filepath, targetFormat, command, mtype);
+        $("#convertPendingList").append(`<div class="item filelist ready" mtype="${mtype}" filepath="${filepath}" command="${command}" onclick="selectThisTask(this);">
+                    <i class="large file outline middle aligned icon"></i>
+                    <div class="content">
+                        <div class="header">${filename} [${srcFormat} <i class="right arrow icon"></i>${targetFormat}]</div>
+                        <div class="description" style="margin-top:8px;"><a onclick="startTask(this, event);" class="startTaskButton"><i class="exchange icon"></i> Start Convert</a> / <a onclick="removeTask(this);"><i class="trash icon"></i> Remove</a>
+                        </div>
+                    </div>
+                    <div class="ts black active tiny progress" style="margin-top:8px;">
+                        <div class="bar" style="width:0%; min-width:0px;"></div>
+                    </div>
+                </div>`);
+    }
+
+    function selectViaFormat(obj){
+        targetConversionFormat = $(obj).attr("conv");
+        selectedCommand = $(obj).attr("command");
+        selectedMediaType = $(obj).attr("mediatype");
+        ao_module_openFileSelector(fileSelected, "user:/Desktop", "file",true);
+    }
+
+    function selectThis(obj){
+        //A format has been selected
+        if (selectFormatPending){
+            //Unset the blocking
+            $("#askSelectDimmer").removeClass('active');
+            $(".selectableMenuItems").removeClass("disabled")
+
+            //Get the target format and command
+            var format = $(obj).attr("conv");
+            var command = $(obj).attr("command");
+            var mtype = $(obj).attr("mediatype");
+
+            //Append the files item to list
+            for (var i =0; i < convertPendingFiles.length; i++){
+                var thisFile = convertPendingFiles[i];
+                addTaskToList(thisFile.filename, thisFile.filepath, format, command, mtype);
+            }
+
+            selectFormatPending = false;
+        }
+    }
+
+    function openFileLocation(){
+        if ($(".selectedFile").length > 0){
+            var filepath = $(".selectedFile").attr("filepath");
+            filepath = filepath.split("/");
+            filepath.pop();
+            filepath = filepath.join("/")
+            ao_module_openPath(filepath);
+        }
+    }
+
+    //Handle window resize events
+    resizeWindowEvents()
+    $(window).on("resize",function(){
+        resizeWindowEvents();
+    })
+    function resizeWindowEvents(){
+        $(".sidebar").css("height",window.innerHeight - $(".topMenu").height());
+    }
+
+    //Bind the queue listening events
+    setInterval(function(){
+        if (queueStarted){
+            //Check next queue
+            if ($(".filelist.converting").length < simFileCount){
+                //Convert next item
+                if ($(".filelist.ready").length > 0){
+                    $($(".filelist.ready")[0]).find(".startTaskButton")[0].click();
+                }else{
+                    //Conversion finished
+                    console.log("Conversion finished");
+                    queueStarted = false;
+                }
+            }
+        }
+    }, 1000);
+    function startQueue(){
+        //Start the queue with the given task number on the fly
+        queueStarted = true;
+    }
+
+    function stopQueue(){
+        queueStarted = false;
+    }
+
+    function startTask(taskObject, event){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        //Travel back to the task object itself
+        taskObject = $(taskObject).parent().parent().parent();
+        
+        //Try to validate conversion type
+        var mediaType = {
+            "music": ["m4a","flac","mp3","wav","ogg","aac","wma"],
+            "video": ["mp4","avi","webm","mkv","wmv","mov","m4v","rmvb"],
+            "image": ["png","jpg","jpeg","gif","tif","tiff"]
+        }
+
+        var srcExt = $(taskObject).attr("filepath").split(".").pop();
+        var targetType = $(taskObject).attr("mtype");
+        var srcType = "unknown";
+
+       //Check which type of media is src
+       if (mediaType["music"].includes(srcExt)){
+            srcType = "music";
+       }else if (mediaType["video"].includes(srcExt)){
+            srcType = "video";
+       }else if (mediaType["image"].includes(srcExt)){
+            srcType = "image";
+       }
+
+       //Allow video -> (video or audio), music -> music and image -> image
+        var requireConversionConfirm = true;
+        if (srcType == "video" && targetType == "video"){
+            requireConversionConfirm = false
+        }else if (srcType == "video" && targetType == "music"){
+            requireConversionConfirm = false
+        }else if (srcType == "music" && targetType == "music"){
+            requireConversionConfirm = false
+        }else if (srcType == "image" && targetType == "image"){
+            requireConversionConfirm = false
+        }else if (targetType == "other"){
+            //Just trust the user, they know what they are doing
+            requireConversionConfirm = false
+        }
+
+        if (requireConversionConfirm){
+            if (!confirm("We are not sure if the conversion media type is valid. Continue anyway?")){
+                return
+            }
+        }
+
+        //OK! Convert this file
+        var filepath = $(taskObject).attr("filepath");
+        var command = $(taskObject).attr("command");
+
+        //Update the progress bar
+        $(taskObject).find(".tiny.progress").attr("class","ts blue queried indeterminate tiny progress");
+        $(taskObject).find(".bar").css("width","100%");
+        $(taskObject).removeClass("ready").addClass("converting");
+
+        //Hide the control buttons
+        $(taskObject).find(".description").html("<span><i class='loading spinner icon'></i> Converting...</span>");
+        ao_module_agirun("FFmpeg Factory/backend/convert.js",{
+            filepath: filepath,
+            command: command
+        },function(data){
+            if (data.error !== undefined){
+                //Conversion failed
+                console.log(data.error);
+                $(taskObject).find(".tiny.progress").attr("class","ui red tiny progress");
+                $(taskObject).find(".bar").css("width","100%");
+                $(taskObject).removeClass("converting").addClass("done");
+                $(taskObject).find(".description").html(`<span><i class='remove icon'></i> ${data.error}</span>`);
+            }else{
+                $(taskObject).find(".tiny.progress").attr("class","ui green tiny progress");
+                $(taskObject).find(".bar").css("width","100%");
+                $(taskObject).removeClass("converting").addClass("done");
+                $(taskObject).find(".description").html(`<span><i class='checkmark icon'></i> Completed</span>`);
+            }
+        });
+    }
+
+</script>
+</body>
+</html> 

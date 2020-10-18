@@ -1,4 +1,0 @@
-﻿Intel(R) Ethernet Connection I217-V,,False,True
-Software Loopback Interface 1,,False,True
-Microsoft ISATAP Adapter,,False,True
-Teredo Tunneling Pseudo-Interface,,False,False

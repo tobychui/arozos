@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+	<meta charset="UTF-8">
+	<link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+	<script src="../../script/semantic/semantic.min.js"></script>
+	<script src="../../script/jquery.min.js"></script>
+	<script src="../../script/ao_module.js"></script>
+	<title>ArOZ Media Player</title>
+	<style>
+		html, body{
+			height:100%;
+			width:100%;
+			padding: 0px;
+			margin:0px;
+		}
+		body{
+			background-color:rgba(10,10,10,1);
+			overflow:hidden;
+		}
+		video{
+			height:100%;
+			width:100%;
+		}
+		.videoWrapper{
+			width:100%;
+			height:calc(100%);
+		}
+		.playerMenu{
+			height:28px;
+			width: 100%;
+			padding:3px;
+			color:white;
+			position:absolute;
+
+		}
+
+		#videocover{
+			width:100%;
+			height:100%;
+			top:0px;
+			left:0px;
+			position:absolute;
+			z-index:99;
+			display:none;
+		}
+		.blur{
+			filter: blur(2px);
+		}
+	</style>
+</head>
+<body>
+	<div class="playerMenu">
+		<div style="cursor:pointer;" onclick="showMenu();">
+			<i class="large content icon"></i>
+		</div>
+	</div>
+	<dib id="videocover" onclick="hideMenu();"></dib>
+	<div class="videoWrapper">
+		<video id="player" autoplay controls></video>
+	</div>
+	<div id="mainmenu" class="ui left fixed inverted vertical menu" style="overflow-y:auto; width:220px;">
+		<div id="playerIcon" class="item">
+			<img class="ui mini middle aligned image" src="img/mediaPlayer.png" style="margin-right:12px;">
+			<span>ArOZ Media Player</span>
+		</div>
+		
+		<a class="item" onclick="hideMenu();"><i class="caret left icon"></i> Hide Menu</a>
+		</div>
+	</div>	
+	<script>
+		var fileList = ao_module_loadInputFiles();
+		var vid = document.getElementById("player");
+		var currentPlaying = 0;
+		var targetVol = 0.7;
+		if (localStorage.getItem("global_volume") !== null && localStorage.getItem("global_volume") !== undefined){
+			targetVol = localStorage.getItem("global_volume");
+		}
+		
+		if (fileList !== null){
+			playFile(fileList[0]);
+			ao_module_setWindowTitle(fileList[0].filename);
+		}
+
+		$(".file.item").remove();
+		fileList = fileList.reverse();
+		for (var i =0; i < fileList.length; i++){
+			$("#playerIcon").after(`<a class="file item" onclick="playFileByID(${i});">${fileList[i].filename}</a>`);
+
+		}
+
+		function playFileByID(id){
+			playFile(fileList[id]);
+			ao_module_setWindowTitle(fileList[id].filename);
+			hideMenu();
+		}
+
+		function showMenu(){
+			$('.menu').show();
+			$('#videocover').show();
+			$(".videoWrapper").addClass("blur");
+		}
+
+		function playFile(fileObject){
+			$("#player").attr('src',"../../media?file=" + encodeURIComponent(fileObject.filepath));
+			vid.volume = parseFloat(targetVol);
+		}
+
+		function hideMenu(){
+			$('.menu').hide();
+			$('#videocover').hide();
+			$(".videoWrapper").removeClass("blur");
+		}
+
+		hideMenu();
+		
+	</script>
+</body>
+</html>

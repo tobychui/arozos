@@ -1,0 +1,63 @@
+package main
+
+import (
+	"net/http"
+	"encoding/json"
+)
+
+func module_notepadA_init(){
+	http.HandleFunc("/NotepadA/store", module_notepadA_handleStorage)
+
+	//Create database for this module
+	system_db_newTable(sysdb, "NotepadA")
+
+	//Register this module to system
+	registerModule(moduleInfo{
+		Name: "NotepadA",
+		Desc: "The best code editor on ArOZ Online",
+		Group: "Office",
+		IconPath: "NotepadA/img/module_icon.png",
+		Version: "1.2",
+		StartDir: "NotepadA/index.html",
+		SupportFW: true,
+		LaunchFWDir: "NotepadA/index.html",
+		SupportEmb: true,
+		LaunchEmb: "NotepadA/embedded.html",
+		InitFWSize: []int{1024, 768},
+		InitEmbSize: []int{360, 200},
+		SupportedExt: []string{".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"},
+	})
+}
+
+func module_notepadA_handleStorage(w http.ResponseWriter, r *http.Request){
+	username, err := system_auth_getUserName(w,r);
+	if (err != nil){
+		sendErrorResponse(w,"User not logged in")
+		return;
+	}
+	opr, _ := mv(r, "opr", true)
+	key, _ := mv(r, "key", true)
+	value, _ := mv(r, "value", true)
+
+	userKey := username + "/" + key;
+	if (opr == "get"){
+		returnString := "";
+		err := system_db_read(sysdb, "NotepadA", userKey, &returnString)
+		if (err != nil){
+			sendErrorResponse(w, err.Error())
+			return
+		}
+		jsonstring, _ := json.Marshal(returnString)
+		sendJSONResponse(w, string(jsonstring));
+		return
+	}else if (opr == "set"){
+		err := system_db_write(sysdb, "NotepadA", userKey, value)
+		if (err != nil){
+			sendErrorResponse(w, err.Error())
+			return
+		}
+		sendOK(w);
+	}
+	
+}
+

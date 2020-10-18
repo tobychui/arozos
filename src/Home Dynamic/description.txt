@@ -1,1 +1,0 @@
-Homdynm is a simple UI for controlling devices run on Home Dynamic Protocol. 

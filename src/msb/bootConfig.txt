@@ -1,3 +1,0 @@
-bootTarget=index.php
-displayName=ArOZ Online Beta
-description=The new ArOZ Online multimedia streaming and online services

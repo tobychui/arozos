@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html ng-app="App">
+
+<head>
+
+    <title>System Info</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="css/viewer.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+
+
+</head>
+
+<body>
+    <div class="ui vertical masthead left aligned segment">
+        <div class="ui container">
+            <div>
+                <h1 id="modelname"></h1>
+            </div>
+            <div>
+                <div style="display:inline-block;" id="build"></div>
+                <div style="float:right !important;" id="manufacturer"></div>
+            </div>
+            
+        </div>
+    </div>
+    <br>
+    <div class="ui container">
+        <h3 class="ui header">Specifications</h3>
+        <div class="ui grid">
+            <div class="six wide column">
+                Model :
+            </div>
+            <div class="ten wide column" id="model">
+                Loading...
+            </div>
+            <div class="six wide column">
+                Frequency :
+            </div>
+            <div class="ten wide column" id="freq">
+                Loading...
+            </div>
+            <div class="six wide column">
+                Instruction :
+            </div>
+            <div class="ten wide column" id="instruction">
+                Loading...
+            </div>
+            <div class="six wide column">
+                Hardware :
+            </div>
+            <div class="ten wide column" id="hardware">
+                Loading...
+            </div>
+            <div class="six wide column">
+                Revision :
+            </div>
+            <div class="ten wide column" id="revision">
+                Loading...
+            </div>
+            <div class="six wide column">
+                Memory :
+            </div>
+            <div class="ten wide column" id="ram">
+                Loading...
+            </div>
+            <div class="six wide column">
+                NIC :
+            </div>
+            <div class="ten wide column" id="nic">
+                Loading...
+            </div>
+            <div class="six wide column">
+                Drive :
+            </div>
+            <div class="ten wide column" id="drive">
+                Loading...
+            </div>
+            <div class="six wide column">
+                USB :
+            </div>
+            <div class="ten wide column" id="usb">
+                Loading...
+            </div>
+        </div>
+    </div>
+    <div class="ui divider"></div>
+    <img class="ui small image" id="icon"></img>
+    <br>
+</body>
+<script>
+    $(document).ready(function() {
+        initSystemInfo();
+    });
+
+    function initSystemInfo() {
+        $.getJSON("/SystemAO/info/getArOZInfo", function(data) {
+            $("#modelname").html(data["DeviceModel"]);
+            $("#icon").attr("src", "/SystemAO/info/" + data["VendorIcon"]);
+            $("#build").html(data["BuildVersion"]);
+            $("#manufacturer").html(data["DeviceVendor"]);
+        });
+        $.getJSON("/SystemAO/info/getCPUinfo", function(data) {
+            $("#model").html(data["Model"]);
+            $("#freq").html(data["Freq"] + "MHz");
+            $("#instruction").html(data["Instruction"]);
+            $("#hardware").html(data["Hardware"]);
+            $("#revision").html(data["Revision"]);
+        });
+        $.get("/SystemAO/info/getRAMinfo", function(data) {
+            $("#ram").html(humanFileSize(data, true));
+        });
+        $.getJSON("/SystemAO/info/ifconfig", function(data) {
+            $("#nic").html("");
+            $(data).each(function(index, item) {
+                $("#nic").append(item + "<br>");
+            });
+        });
+        $.getJSON("/SystemAO/info/getDriveStat", function(data) {
+            $("#drive").html("");
+            $(data).each(function(index, item) {
+                $("#drive").append(item["DriveLetter"] + " (" + item["FileSystem"] + ") " + humanFileSize(item["FreeSpace"], true) + "<br>");
+            });
+        });
+        $.getJSON("/SystemAO/info/usbPorts", function(data) {
+            $("#usb").html("");
+            $(data).each(function(index, item) {
+                $("#usb").append(item + "<br>");
+            });
+        });
+    }
+    //https://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable-string/10420404
+    function humanFileSize(bytes, si) {
+        var thresh = si ? 1000 : 1024;
+        if (Math.abs(bytes) < thresh) {
+            return bytes + ' B';
+        }
+        var units = si ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+        var u = -1;
+        do {
+            bytes /= thresh;
+            ++u;
+        } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+        return bytes.toFixed(1) + ' ' + units[u];
+    }
+</script>
+
+</html>

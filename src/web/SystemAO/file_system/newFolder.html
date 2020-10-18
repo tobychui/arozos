@@ -1,0 +1,111 @@
+<html>
+    <head>
+        <title>New Folder Creation Utility</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <link rel="stylesheet" href="../../script/ao.css">
+        <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:#fafafa;
+            }
+            .themebackground{
+                background-color:#f2f2f2 !important;
+                color:#2e2e2e !important;
+            }
+            .toolicon{
+                position:absolute;
+                top:30px;
+                left:30px;
+                height:60px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ts heading fluid slate themebackground" style="padding-left:120px; margin-bottom:12px;">
+            <span class="header">New Folder</span>
+            <span class="description">Create a new folder with the given name.</span>
+        </div>
+        <img class="toolicon" src="img/new folder.png"></img>
+        <div class="ts container">
+            <div class="ts horizontal form">
+                <div class="field">
+                    <label>Folder Name</label>
+                    <input id="fname" type="text" onkeyup="checkvalid(event);">
+                    <small id="tips"></small>
+                </div>
+            </div><br><br>
+            <div align="right" style="width:100%;">
+                <button class="ts button" onclick="ao_module_close();">Cancel</button>
+                <button id="createBtn" class="ts primary button" onclick="createFolder();">Create</button>
+            </div>
+        </div>
+        <script>
+            var existingFilelist = ao_module_loadInputFiles();
+            var filenameList = [];
+            var pathInfo = existingFilelist[0].filepath.split("/");
+            pathInfo.pop();
+            var vsrc = pathInfo.join("/") + "/";
+            var format = /[`!@#$%^&*_+\-=\[\]{};':"\\|,.<>\/?~]/;
+            for (var i =0; i < existingFilelist.length; i++){
+                filenameList.push(existingFilelist[i].filename);
+            }
+            ao_module_setFixedWindowSize();
+            //Generate a default new folder name for this
+            var newFolderName = "New Folder";
+            var counter = 1;
+            while (filenameList.includes(newFolderName)){
+                newFolderName = `New Folder (${counter})`;
+                counter++;
+            }
+
+            //Update the default value
+            $("#fname").val(newFolderName);
+
+            function checkvalid(event){
+                var fname = $("#fname").val();
+                if (filenameList.includes(fname)){
+                    $("#fname").parent().addClass("error");
+                    $("#fname").parent().removeClass("warning");
+                    $("#tips").text("A folder with the same name already exists.");
+                    $("#createBtn").addClass('disabled');
+                }else if (format.test(fname)){
+                    $("#fname").parent().addClass("warning");
+                    $("#fname").parent().removeClass("error");
+                    $("#tips").text("Do not use special characters like & # * [ ] / or \\ in the folder name.");
+                    $("#createBtn").addClass('disabled');
+                }else if (fname.trim() == ""){
+                    $("#fname").parent().removeClass("error");
+                    $("#fname").parent().removeClass("warning");
+                    $("#createBtn").addClass('disabled');
+                }else{
+                    $("#fname").parent().removeClass("warning");
+                    $("#fname").parent().removeClass("error");
+                    $("#createBtn").removeClass('disabled');
+                }
+
+                if (event.which == 13){
+                    //Enter key
+                    createFolder();
+                }
+            }
+
+            function createFolder(){
+                var foldername = $("#fname").val().trim();
+                //Create a folder via file system api
+                $.post("../../system/file_system/newItem",{type: "folder", src: vsrc, filename: foldername}).done(function(data){
+                    if (data.error !== undefined){
+                        console.log(data.error);
+                    }else{
+                        parent.refresh();
+                        ao_module_close();
+                    }
+                });
+            }
+
+        </script>
+    </body>
+</html>
