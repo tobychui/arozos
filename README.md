@@ -1,7 +1,6 @@
 ![Image](img/banner.png?raw=true)
 
-<img src="https://img.shields.io/badge/License-Partially%20Open%20Source-blue"> <img src="https://img.shields.io/badge/Build-Community-brightgreen"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In-Hong%20Kong-blueviolet">
-
+<img src="https://img.shields.io/badge/License-Open%20Source-blue"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In%20Hong%20Kong-香港開發-blueviolet">
 
 ## IMPORTANT NOTES
 The current version of ArOZ Online System is migrating to Golang and the architecture might not be stable.
@@ -9,7 +8,7 @@ Please use this with your own risk. And, we are surely we will change the struct
 This is for front end development / endpoint dev only.
 
 ## Installation
-Require GO 1.11 or above
+Require GO 1.14 or above
 
 Run the following the command to build the system
 
