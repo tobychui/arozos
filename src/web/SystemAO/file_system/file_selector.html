@@ -172,6 +172,10 @@
             
             }
 
+            function cancelSelection(){
+                localStorage.setItem(listenerUUID, JSON.stringify("&&selection_canceled&&"));
+            }
+
             function confirmSelection(){
                 var files = [];
                 $(".selected.fileObject").each(function(){
@@ -229,9 +233,9 @@
                 }
             }   
 
-            //Handle on window close function
+            //Handle on window close function, cancel current selection
             window.onbeforeunload = function(){
-                confirmSelection();
+                cancelSelection();
             }
 
             //Overwrite the ao_module close function

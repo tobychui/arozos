@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <title>Unit Test</title>
+        <style>
+            body{
+                background-color:white;
+            }
+
+            .success{
+                color: #20c942;
+            }
+
+            .failed{
+                color: #eb4034;
+            }
+        </style>
+    </head>
+    <body>
+	<br><br>
+		<div class="ui text container">
+			<h3>AGI Unit Testing Module</h3>
+            <button class="ui button" onclick="runtest();">Run Unit Test</button>
+            <div class="ui divider"></div>
+            <p>Test Results</p>
+            <table class="ui celled table">
+                <thead>
+                  <tr><th>Script</th>
+                  <th>Results</th>
+                  <th>Status</th>
+                </tr></thead>
+                <tbody id="results">
+                 
+                </tbody>
+              </table>
+		</div>
+        <br><br>
+       <script>
+			function runtest(){
+				$("#results").html("");
+				//Get a list of test to be run
+				ao_module_agirun("UnitTest/list.agi",{}, function(data){
+                    data.forEach(test => {
+                        let scriptname = test.split("/").pop();
+                        ao_module_agirun(test, {foo: "Hello", bar: "World"}, function(data){
+                            //Success callback
+                            $("#results").append(`<tr class="positive">
+                                <td data-label="">${scriptname}</td>
+                                <td data-label="">${JSON.stringify(data)}</td>
+                                <td data-label="">Success</td>
+                            </tr>`);
+                        }, function(){
+                            $("#results").append(`<tr class="negative">
+                                <td data-label="">${scriptname}</td>
+                                <td data-label=""></td>
+                                <td data-label="">Failed</td>
+                            </tr>`);
+                        }, 10000);
+                    });
+				})
+			}
+	   </script>
+    </body>
+</html>

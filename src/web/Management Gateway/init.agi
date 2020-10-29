@@ -1,0 +1,23 @@
+/*
+	arozos Management Gateway for business
+	
+	This is a regsitration script for initializing the management gateway
+	as an interface module for administrator users
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+	Name: "Management Gateway",
+	Desc: "System Management Interface for changing users, groups, services and toggle of system functions.",
+	Group: "Interface Module",
+	IconPath: "Management Gateway/img/small_icon.png",
+	Version: "1.0",
+	StartDir: "Management Gateway/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Management Gateway/index.html",
+	InitFWSize: [1080, 580],
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

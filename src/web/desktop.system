@@ -1,0 +1,4126 @@
+<html>
+
+<head>
+    <title>ArOZ Online Desktop</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="script/tocas/tocas.css">
+    <link rel="stylesheet" href="script/ao.css">
+    <link rel="stylesheet" href="SystemAO/desktop/script/jsCalendar/source/jsCalendar.css">
+    <script type="text/javascript" src="script/tocas/tocas.js"></script>
+    <script type="text/javascript" src="script/jquery.min.js"></script>
+    <script type="text/javascript" src="script/ao_module.js"></script>
+    <script type="text/javascript" src="SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
+    <style>
+        body {
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+            background-image: url('img/desktop/bg/init.jpg');
+            width: 100%;
+            height: 100%;
+        }
+        
+        .backgroundFrame {
+            height: 100%;
+            min-width: 100%;
+            background-repeat: no-repeat;
+            background-size: cover;
+            border: 0px solid transparent;
+            background-position: center;
+            position: absolute;
+            opacity: 0;
+            top: 0;
+            left: 0;
+            -webkit-transition: opacity 2s ease-in-out;
+            -moz-transition: opacity 2s ease-in-out;
+            -o-transition: opacity 2s ease-in-out;
+            transition: opacity 2s ease-in-out;
+        }
+        
+        .background-wrapper {
+            border: 0px solid transparent;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            left: 0px;
+            top: 0px;
+            user-select: none;
+            -moz-user-select: none;
+            -webkit-user-drag: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+        }
+        
+        .showBackground {
+            opacity: 1;
+        }
+        
+        .icon-wrapper {
+            height: 100%;
+            width: 100%;
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            padding: 5px;
+        }
+        
+        .launchIcon {
+            position: fixed;
+            cursor: pointer;
+            padding: 2px;
+        }
+        
+        .launchIconImage.small {
+            width: 48px;
+            height: 48px;
+        }
+        
+        .launchIconImage.medium {
+            width: 68px;
+            height: 68px;
+        }
+        
+        .launchIconImage.big {
+            width: 82px;
+            height: 82px;
+        }
+        
+        .launchIconWrapper {
+            height: 100%;
+            width: 100%;
+            border-radius: 3px;
+        }
+        
+        .launchIconWrapper.selected {
+            background: rgba(250, 250, 250, 0.4) !important;
+        }
+        
+        .launchIconText {
+            color: white;
+            text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+            text-align: center;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            word-break: break-all;
+            width: 100%;
+            font-variant-numeric: tabular-nums lining-nums;
+        }
+        
+        .launchIconWrapper:hover {
+            background: rgba(250, 250, 250, 0.2);
+        }
+        
+        .launchIconText.small {
+            margin-top: -3px;
+            font-size: 80%;
+            line-height: 100%;
+        }
+        
+        .launchIconText.medium {
+            margin-top: -2px;
+            font-size: 90%;
+            line-height: 1.4em;
+        }
+        
+        .launchIconText.big {
+            margin-top: -6px;
+            font-size: 120%;
+            line-height: 110%;
+        }
+        
+        .navimenu {
+            position: fixed;
+            z-index: 110;
+            width: 100%;
+            height: 36px;
+            left: 0px;
+            bottom: 0px;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        
+        .themeColor {
+            background-color: rgba(14,14,14,0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .themeColorSolid{
+            background-color: rgba(14,14,14,0.9);
+            backdrop-filter: blur(4px);
+        }
+        
+        .navimenu .item {
+            height: 36px;
+            display: inline-block;
+            vertical-align: top;
+        }
+        
+        .navimenu .item.padding {
+            display: inline-block;
+            width: 12px;
+        }
+        
+        .navimenu .item.clickable:hover {
+            background-color: rgba(250, 250, 250, 0.2);
+            cursor: pointer;
+        }
+        /* Floatwindow control button related css*/
+        
+        .navimenu .item.floatWindowButton {
+            padding: 8px;
+            padding-top: 10px;
+            vertical-align: top;
+            width: 200px;
+            overflow: hidden;
+            font-size: 90%;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            word-break: break-all;
+            color: white;
+        }
+        
+        .navimenu .item.floatWindowButton .floatWindowAppIcon {
+            height: 20px;
+            margin-top: -2px;
+            margin-right: 8px;
+            display: inline-block;
+        }
+        
+        .navimenu .item.floatWindowButton .floatWindowTitle {
+            display: inline;
+            color: white;
+            padding-top: 5px;
+            vertical-align: top;
+        }
+        
+        .navimenu .item.floatWindowButton.hideText {
+            width: 36px;
+        }
+        
+        .navimenu .item.floatWindowButton.hideText .floatWindowTitle {
+            display: none;
+        }
+        
+        .navimenu .item.floatWindowButton.hideText .floatWindowAppIcon {
+            margin-right: 0px;
+        }
+        
+        #fwdragpanel {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0px;
+            left: 0px;
+            z-index: 100;
+            display: none;
+        }
+        
+        #stackedWindowList {
+            position: fixed;
+            z-index: 112;
+            left: 0px;
+            bottom: 36px;
+            width: 300px;
+            padding-bottom: 4px;
+            display: none;
+        }
+        
+        #stackedWindowList .item {
+            padding: 6px;
+            display: inline-block;
+            color: white;
+            width: 100%;
+        }
+        
+        #stackedWindowList .item img {
+            display: inline-block;
+            vertical-align: bottom;
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            margin-top: 0px;
+            margin-left: 4px;
+        }
+        
+        #stackedWindowList .item span {
+            overflow: hidden;
+            word-break: break-all;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: calc(100% - 4px);
+        }
+        
+        #stackedWindowList .item.clickable:hover {
+            background-color: rgba(250, 250, 250, 0.2);
+            cursor: pointer;
+        }
+        
+        #stackedWindowList .item .closebtn {
+            position: absolute;
+            right: 0px;
+            top: 8px;
+        }
+        
+        #stackedWindowList .item .closebtn>img {
+            height: 15px;
+            width: 15px;
+        }
+        
+        #listMenu {
+            position: fixed;
+            bottom: 36px;
+            left: 0px;
+            height: 500px;
+            width: 400px;
+            background-color: #fcffff;
+            box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
+            z-index: 113;
+        }
+        
+        #listMenu .searchBar {
+            width: 100%;
+            border-bottom: 2px solid #34b7eb;
+        }
+        
+        #listMenu .listItemWrapper {
+            overflow: hidden;
+        }
+        
+        #listMenu .listItemWrapper .groups {
+            background-color: #f5f5f5;
+            width: 120px;
+            height: 457px;
+            display: inline-block;
+            overflow-y: auto;
+            padding-top: 8px;
+        }
+        
+        #listMenu .listItemWrapper .groups .item {
+            padding-left: 7px;
+            padding-bottom: 6px;
+            padding-top: 6px;
+            cursor: pointer;
+        }
+        
+        #listMenu .listItemWrapper .groups .item.selected {
+            color: #34b7eb;
+        }
+        
+        #listMenu .listItemWrapper .groups .item:hover {
+            background-color: #dedede;
+        }
+        
+        #listMenu .listItemWrapper .items {
+            height: 457px;
+            width: calc(100% - 120px - 5px);
+            display: inline-block;
+            overflow-y: auto;
+            padding-top: 8px;
+            box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.5);
+            vertical-align: top;
+        }
+        
+        #listMenu .listItemWrapper .items .item {
+            padding-left: 12px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            cursor: pointer;
+        }
+        
+        #listMenu .listItemWrapper .items .item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        #listMenu .listItemWrapper .items .item img {
+            width: 26px;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+        
+        #listMenu .poweroption {
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            padding: 6px;
+            padding-left: 7px;
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        #listMenu .poweroption:hover {
+            background-color: #dedede;
+        }
+        
+        #contextmenu {
+            position: fixed;
+            z-index: 1000;
+            left: 20px;
+            top: 20px;
+        }
+        
+        #contextmenu .item {
+            padding: 0.6em 1em !important;
+        }
+        
+        #subcontextmenu .item {
+            padding: 0.6em 1em !important;
+        }
+        
+        #selectionPanel {
+            background-color: rgba(39, 108, 227, 0.3);
+            border: 1px solid #276ce3;
+            position: fixed;
+            height: 100px;
+            width: 100px;
+            display: none;
+        }
+        
+        .renameInput {
+            background-color: white;
+            border: 1px solid black;
+            width: 100%;
+            position: absolute;
+        }
+        
+        .renameInput.big {
+            bottom: 0px;
+            left: 0px;
+            font-size: 16px;
+            line-height: 1;
+        }
+        
+        .renameInput.medium {
+            bottom: 8px;
+            left: 0px;
+            height: 32px;
+            font-size: 12px;
+            line-height: 1;
+        }
+        
+        .renameInput.small {
+            bottom: 3px;
+            left: 0px;
+            height: 24px;
+            font-size: 11px;
+            line-height: 1;
+        }
+
+        #statusbar{
+            position:absolute;
+            z-index:0;
+            width:100%;
+            height:28px;
+            background-color: rgba(0,0,0,0.9);
+            color:white;
+            backdrop-filter: blur(4px);
+            text-align:center;
+            display: table;
+        }
+
+        .statusbarpadding{
+            padding:4px;
+        }
+
+        .hostname{
+            display: table-cell; 
+            text-align:left; 
+            width:100px; 
+            pointer-events:none;
+            padding-left:18px;
+            user-select: none;
+        }
+
+        .quicktools{
+            display: table-cell; 
+            text-align:right; 
+            width:45px;
+            
+        }
+
+        .qtwrapper{
+            padding:4px;
+            padding-right: 8px;
+            cursor:pointer;
+        }
+
+        .qtwrapper:hover{
+            background-color: rgba(240,240,240,0.2);
+            
+        }
+
+        .notificationbar{
+            position: absolute;
+            top:28px;
+            width:100%;
+            height: calc(100% - 28px);
+            z-index:114;
+        }
+
+        .notificationbar .content{
+            background-color:white;
+            margin-top:6px;
+            margin-left: auto;
+            margin-right: auto;
+            width:30%;
+            min-width:650px;
+            height:400px;
+            z-index:115;
+            padding: 3px;
+            border-radius: 5px;
+        }
+
+        .notificationbar .cover{
+            backdrop-filter: blur(2px);
+            position:absolute;
+            top:0px;
+            left:0px;
+            width:100%;
+            height: calc(100%);
+        }
+
+        @supports not (backdrop-filter: blur(2px)) {
+            .notificationbar .cover{
+                /*
+                //Replaced with Javascript implementation on Firefox
+                background-color: rgba(24,24,24,0.3);
+                */
+            }
+            
+            #bgwrapper{
+                transition: all 0.5s ease;
+            }
+
+            #iconwrapper{
+                transition: all 0.5s ease;
+            }
+
+            #navimenu{
+                transition: all 0.5s ease;
+            }
+
+
+        }
+
+        .notification .title{
+            font-weight:bold;
+            font-size:120%;
+        }
+
+        .notification .notifycontent{
+            margin-top:-12px;
+        }
+
+        .notificationbar .clearall{
+            position:absolute;
+            top:0px;
+            right:4px;
+            cursor:pointer;
+        }
+
+        .nonotification{
+            opacity: 0.3;
+            pointer-events:none;
+            position:absolute;
+            margin-top:9em;
+            width:100%;
+            user-select: none;
+        }
+
+        .notification.object .closebtn{
+            position:absolute;
+            top:3px;
+            right:3px;
+            cursor:pointer;
+        }
+
+        .notification.object{
+            padding-left:7px;
+            border-left: 3px solid transparent;
+            cursor:pointer;
+        }
+
+        .notification.object:hover{
+            border-left: 3px solid #83D8FF;
+        }
+
+        .blured{
+            filter: blur(2px);
+        }
+
+        #quickAccessPanel{
+            background-color:white;
+            position:absolute;
+            top:28px;
+            right:4px;
+            z-index:114;
+            width:300px;
+            border-radius: 10px;
+            border-top-right-radius: 0px;
+            border-top-left-radius: 0px;
+            border: 1px solid #ebebeb;
+            padding-top:8px;
+            padding-bottom:8px;
+        }
+
+        #quickAccessPanel .item{
+            padding-left:12px;
+            padding-right:12px;
+            padding-top:6px;
+            padding-bottom:2px;
+            cursor:pointer;
+            border-left: 3px solid transparent;
+        }
+
+        #quickAccessPanel .item:hover{
+           background-color:#fafafa;
+        }
+
+        .item.module{
+            cursor:pointer;
+        }
+
+        .item.module:hover{
+            background-color:#f5f5f5 !important;
+        }
+
+        /*
+                Z-index layering
+                Layer -1 : Background Images
+                Layer 0 - 99: Not focused tab
+                Layer 100: Focused tab drag drop layer
+                Layer 101: Focused Tab
+                ...
+                Layer 110: Navigation Bar
+                Layer 112: Stacked Window List
+                Layer 113: List Menu
+                Layer 114: Notification Bar background bluring layer
+                Layer 115: Notification Bar
+            */
+    </style>
+    <script>
+        //Force redirection if it is on mobile
+        if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
+            window.location.href = "mobile.system";
+        }
+    </script>
+</head>
+
+<body style="background-color:black;">
+    <!-- Background frames-->
+    <div id="bgwrapper" class="background-wrapper" allowdrop="true" ondrop="drop(event)" ondragstart="return false;" onclick="event.preventDefault(); hideAllContextMenus();" ondblclick="event.preventDefault();event.stopImmediatePropagation();" ondragover="allowDrop(event);"
+        align="center" draggable="false">
+    </div>
+    <!-- Top Status Bar -->
+    <div id="statusbar" align="center">
+        <div class="hostname statusbarpadding">
+            Welcome
+        </div>
+        <div class="clock statusbarpadding" style="display: table-cell; cursor:pointer; user-select: none;" onclick="toggleNotification();">
+            ArOZ Online Desktop
+        </div>
+        <div class="quicktools" onclick="showToolPanel();">
+            <div class="qtwrapper">
+                <i class="content icon"></i>
+            </div>
+        </div>
+    </div>
+    <!-- Calendar and Notification -->
+    <div class="notificationbar" style="display:none;">
+        <div class="content">
+            <div id="notificationlist" style="width: calc(100% - 302px); padding:8px; margin-top:5px; padding-top:22px; overflow-y:auto; overflow-x:hidden; height: calc(100% - 12px);">
+                <div class="nonotification">
+                    <h4 class="ts center aligned icon header">
+                        <i class="bell icon"></i>No Notification
+                    </h4>
+                </div>
+                <a class="clearall" onclick="clearAllNotification();">Clear All</a>
+            </div>
+            <div style="position:absolute; right:3px; top:3px; padding-top:8px;">
+                <div class="ts header" style="padding-left:22px;">
+                    <div id="dayofweek" class="sub header"></div>
+                    <span id="largedate" style="font-size:120%;"></span>
+                </div>
+                <div class="auto-jsCalendar blue"></div>
+            </div>
+        </div>
+        <div class="cover" onclick='toggleNotification("hide");'>
+
+        </div>
+    </div>
+    <!-- Desktop icons-->
+    <div id="iconwrapper">
+        
+    </div>
+    
+    <!-- Navigation Menu-->
+    <div id="navimenu" class="navimenu themeColor">
+        <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" >
+            <img style="height:36px;" src="img/desktop/system_icon/list.png"></img>
+        </div>
+        <div class="item padding system"></div>
+    </div>
+
+    <!-- floatWindow dragging panel-->
+    <div id="fwdragpanel"></div>
+
+    <!-- Selection panel-->
+    <div id="selectionPanel"></div>
+
+    <!-- Stacked windows listing container-->
+    <div id="stackedWindowList" class="themeColor"></div>
+
+    <!-- List menu -->
+    <div id="listMenu" class="" style="display:none;">
+        <div class="searchBar" onkeydown="searchModule(event);">
+            <div class="ts icon fluid input" style="border-radius: 0px !important;">
+                <input id="searchBar" type="text" placeholder="Search">
+                <i class="search icon"></i>
+            </div>
+        </div>
+        <dib class="listItemWrapper">
+            <div class="groups">
+                <div id="searchResults" class="item" style="display:none;">Search Results</div>
+                <div class="item groupType selected" group="All">All</div>
+                <div class="item groupType" group="Media">Media</div>
+                <div class="item groupType" group="Office">Office</div>
+                <div class="item groupType" group="Download">Download</div>
+                <div class="item groupType" group="Files">Files</div>
+                <div class="item groupType" group="Internet">Internet</div>
+                <div class="item groupType" group="System Settings">System Settings</div>
+                <div class="item groupType" group="System Tools">System Tools</div>
+                <div class="item groupType" group="Utilities">Utilities</div>
+                <div class="item groupType" group="Other">Other</div>
+                <div class="poweroption">
+                    <img style="width:18px; vertical-align: top; margin-right:4px;" src="img/system/power.svg"></img> Exit
+                </div>
+            </div>
+            <div id="listMenuItem" class="items">
+
+            </div>
+        </dib>
+
+    </div>
+
+    <div id="contextmenu" class="ts tiny contextmenu visible" style="display:none;">
+
+    </div>
+
+    <div id="subcontextmenu" class="ts tiny contextmenu visible" style="display:none;">
+
+    </div>
+
+    <!-- Disconnected. Reconnecting interface -->
+    <div id="connectionLost" class="ts active dimmer" style="display:none; z-index:999;">
+        <div class="ts text indeterminate loader">Connection Lost<br>
+            Reconnecting...</div>
+    </div>
+
+    <div id="quickAccessPanel" style="display:none;">
+        <div class="ts small single line items">
+            <div class="item">
+                <div class="ts mini image">
+                    <img class="usericon" src="img/desktop/system_icon/user.svg">
+                </div>
+                <div class="content">
+                    <div id="username" class="header">User</div>
+                    <div class="meta">
+                        <div id="usergroups">@Users</div>
+                    </div>
+                </div>
+                <div class="actions">
+                    <div class="ts button" onclick="logout(); hideToolPanel();">
+                        <i class="log out icon"></i> Logout
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="item" style="padding-bottom:12px;">
+            <i class="volume up icon"></i> System Global Volume
+            <div class="ts fluid small progress" style="margin-top:8px; cursor:pointer;" onclick="updateVolume(this,event);">
+                <div id="volumebar" class="bar" style="width: 0%; background-color:#52C9FF;  cursor:pointer;"></div>
+            </div>
+        </div>
+        <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();">
+            <i class="setting icon"></i> System Settings
+            <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
+        </div>
+        <div class="item" onclick="fullscreen(); hideToolPanel();">
+            <i class="maximize icon"></i> Toggle Fullscreen
+        </div>
+        <div class="ts divider"></div>
+        <!-- 
+            <div class="item" onclick="logout(); hideToolPanel();">
+                <i class="log out icon"></i> Logout
+            </div>
+        -->
+        <div class="item hardware" onclick="restart(); hideToolPanel();">
+            <i class="repeat icon"></i> Restart
+        </div>
+        <div class="item hardware" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();">
+            <i class="power icon"></i> Power Off
+        </div>
+    </div>
+
+    <script>
+        /*
+        ArOZ Online Desktop Interface
+
+        This script maintain the usability of the desktop environment.
+        This is not identical to the previous Desktop environment used in ArOZ Online BETA.
+        */
+
+        //System environment variables
+        var isDesktopMode = true;
+        var loggingOut = false;
+
+        //Desktop background related
+        var desktopThemeList = []; //Storing the list of background installed
+        var currentBackgroundList = []; //Current list of background files
+        var currentUserTheme = ""; //The theme for current user. 
+        var backgroundCrossfadeInterval = 30000; //Time between the crossfade of each background image
+        var nextSlideshowIndex = 0; //The next background image index to be shown
+
+        //Desktop icon realted
+        var desktopIconSize = "medium"; //Size of desktop icons. Allow {small / medium / big}
+        var desktopIconPack = "default"; //Desktop icon pack to be used. Located under desktop/file_icon/{pack-name}
+        var desktopGrids = []; //Reference virtual grid for icons on desktop
+        var iconSize = []; //Defined the icon size for the desktop icons
+        var desktopFileList = []; //Temperature storage of desktop filenames
+        var startDragRelatuve = []; //Relative location of where the icon being start dragging
+        var iconOffsetXY = [0,20];  //Pixel to offset for the icon location
+
+        //Float window related
+        var focusedWindow;
+        const maxWindowCount = 100;
+        var movingWindow = false;
+        var resizingWindow = false;
+        var resizingEdgeID = 0; //Resizing edge. {0, 1, 2, 3, 4, 5} => None, Right, Right Bottom Corner, Bottom, Left Bottom Corner, Left 
+        var stackedFloatWindowListShwon = false;
+
+        //Laucnh icon related
+        var multiSelecting = false;
+        var multiSelectionStartPoint = [-1, -1];
+        var clickDownOffset = [-1, -1];
+        var renameMode = false;
+        var operationTargetLaunchIcon;
+
+        //Document key bindings
+        var ctrlHold = false;
+        var shiftHold = false;
+
+        //ListMenu Related Paramters
+        var moduleInstalled = [];
+        var listMenuShown = false;
+
+        //Context Menu variables
+        var menuStartLocation = [0, 0];
+
+        //Others
+        var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var hostInfo = {};
+        var userInfo = {};
+        var hardwareman = false;
+        var downloadMode = false;
+
+        //Initiation functions
+        initDesktopTheme();
+        initDesktopHostInfo();
+        initDesktopUserInfo();
+        initBackgroundSwitchingAnimation();
+        //initDesktopFiles();               //Will be called in initDesktopIconPreference() -> refresh()
+        initModuleList();
+        initDesktopIconPreference()
+        hookFloatWindowEvents();
+        hookLaunchMenuEvents();
+
+        //Login cookie expire check
+        setInterval(function() {
+            $.ajax({
+                url: 'system/auth/checkLogin',
+                success: function(data) {
+                    if (data == true) {
+                        //Continue session
+                    } else {
+                        //Session timeout. Redirect to system index
+                        loggingOut = true;
+                        window.location.href = "index.html";
+                    }
+                    $("#connectionLost").hide();
+                    document.title = "ArOZ Online Desktop";
+                },
+                error: function(evt) {
+                    //Server closed or freezed?
+                    $("#connectionLost").show();
+                    document.title = "Reconnecting...";
+                },
+                timeout: 15000
+            });
+        }, 15000);
+
+        //Keep the clock updated
+        setInterval(function(){
+            updateClockTime();
+        },5000);
+        updateClockTime();
+        function updateClockTime(){
+            var d = new Date();
+            var display = monthNames[d.getMonth()] + " " + d.getDate() + " " + zeropad(d.getHours(),2) + ":" + zeropad(d.getMinutes(),2);
+            $(".clock").text(display);
+            var largedate = monthNames[d.getMonth()] + " " + d.getDate() + " " + d.getFullYear() 
+            $("#largedate").text(largedate);
+            var dow = daysNames[d.getDay()];
+            $("#dayofweek").text(dow);
+        }
+
+        function zeropad(n, width, z) {
+            z = z || '0';
+            n = n + '';
+            return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+        }
+
+        function showToolPanel(){
+            $("#quickAccessPanel").slideToggle("fast");
+        }
+        function hideToolPanel(){
+            $("#quickAccessPanel").slideUp("fast");
+        }
+
+        function initDesktopUserInfo(){
+            $.get("system/desktop/user", function(data){
+                if (data.error !== undefined){
+                    alert(data.error);
+                }else{
+                    userInfo = data;
+                    if (data.IsAdmin == false){
+                        //Hide the power buttons
+                        $(".hardware").hide();
+                    }
+
+                    //Update the user tag
+                    $("#username").text(userInfo.Username);
+                    $("#usergroups").text("@" + userInfo.UserGroups.join("/"));
+                    $("#usergroups").attr("title",userInfo.UserGroups.join(" / "));
+                    if (data.UserIcon !== ""){
+                        $(".usericon").attr("src",data.UserIcon);
+                    }
+                }
+            });
+        }
+
+        function initDesktopHostInfo(){
+            //Load the data into variable
+            $.get("system/desktop/host",function(data){
+                hostInfo = data;
+                
+                //Update the ui element as well
+                $(".hostname").text(hostInfo.Hostname);
+            });
+
+            //Setup volume bar
+            var currentGlobalVol = localStorage.getItem("global_volume");
+            if (currentGlobalVol != null && currentGlobalVol != undefined && currentGlobalVol != ""){
+                $("#volumebar").css("width", currentGlobalVol * 100 + "%");
+            }else{
+                currentGlobalVol = 0;
+                localStorage.setItem("global_volume",currentGlobalVol);
+            }
+
+            //Check if hardware management mode is enabled. Hide buttons if needed
+            $.get("system/power/accessCheck",function(data){
+                if (data == true){
+                    //Hardware management mode is on
+                    hardwareman = true;
+                }else{
+                    //Hardware management mode is off
+                    $(".item.hardware").hide();
+                    hardwareman = false;
+                }   
+            });
+
+        }
+
+        function toggleNotification(action=undefined){
+            var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+            if (typeof action == "undefined"){
+                $(".notificationbar").stop().finish().fadeToggle("fast", function(){
+                    if ($(this).is(":visible")){
+                        if (isFirefox){
+                            $("#bgwrapper").addClass("blured");
+                            $("#iconwrapper").addClass("blured");
+                            $("#navimenu").addClass("blured");
+                            $(".floatWindow").addClass("blured");
+                            $("#listMenu").addClass("blured");
+                        }
+                    }else{
+                        if (isFirefox){
+                            $("#bgwrapper").removeClass("blured");
+                            $("#iconwrapper").removeClass("blured");
+                            $("#navimenu").removeClass("blured");
+                            $(".floatWindow").removeClass("blured");
+                            $("#listMenu").removeClass("blured");
+                        }
+                    }
+                });
+            }else{
+                if (action == "hide"){
+                    $(".notificationbar").stop().finish().fadeOut("fast");
+                    if (isFirefox){
+                        $("#bgwrapper").removeClass("blured");
+                        $("#iconwrapper").removeClass("blured");
+                        $("#navimenu").removeClass("blured");
+                        $(".floatWindow").removeClass("blured");
+                        $("#listMenu").removeClass("blured");
+                    }
+                  
+                }else if (action == "show"){
+                    $(".notificationbar").stop().finish().fadeIn("fast");
+                    if (isFirefox){
+                        $("#bgwrapper").addClass("blured");
+                        $("#iconwrapper").addClass("blured");
+                        $("#navimenu").addClass("blured");
+                        $(".floatWindow").addClass("blured");
+                        $("#listMenu").addClass("blured");
+                    }
+                }
+            }
+        }
+
+        // ===================== LIST MENU EVENTS FUNCTIONS ===============
+
+        function toggleListMenu() {
+            $("#listMenu").stop().finish().animate({
+                height: "toggle"
+            }, 300, function() {
+                if ($("#listMenu").offset().top == 0) {
+                    listMenuShown = false;
+                } else {
+                    listMenuShown = true;
+                }
+            });
+        }
+
+        function initDesktopIconPreference() {
+            getStorage("iconsize", function(catergory) {
+                if (["small", "medium", "big"].includes(catergory)) {
+                    desktopIconSize = catergory;
+                }
+                refresh();
+                hideAllContextMenus();
+            });
+        }
+
+        function hideListMenu() {
+            if (listMenuShown) {
+                $("#listMenu").animate({
+                    height: "hide"
+                }, 300);
+                listMenuShown = false;
+            }
+        }
+
+        function initModuleList() {
+            $.ajax({
+                url: "system/modules/list",
+                success: function(data) {
+                    moduleInstalled = data;
+                    listModulesType("All");
+
+                    //Hide the system setting button if access is denied
+                    var allowSettingAccess = false;
+                    moduleInstalled.forEach(thismod => {
+                        if (thismod.Name == "System Setting"){
+                            allowSettingAccess = true;
+                        }
+                    });
+                    if (!allowSettingAccess){
+                        $("#settingButton").hide();
+                    }
+                }
+            });
+        }
+
+        function hookLaunchMenuEvents(){
+            $(".groupType").on("click touchstart",function(){
+                moduleTypeButtonClicked(this);
+            });
+            $(".poweroption").on("click touchstart",function(){
+                logout();
+            });
+        }
+
+        function moduleTypeButtonClicked(object) {
+            var groupType = $(object).attr("group");
+            listModulesType(groupType);
+            $(".groupType.selected").removeClass("selected");
+            $(object).addClass("selected");
+            $("#searchResults").slideUp('fast');
+            $("#searchBar").val("");
+        }
+
+        function listModulesType(groupType) {
+            var listingItems = [];
+            if (groupType == "All") {
+                //List all of the items
+                for (var i = 0; i < moduleInstalled.length; i++) {
+                    if (moduleInstalled[i]["StartDir"] != "") {
+                        listingItems.push(moduleInstalled[i]);
+                    }
+                }
+            } else if (groupType == "Other") {
+                var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilties"];
+                //List the Other groups
+                for (var i = 0; i < moduleInstalled.length; i++) {
+                    if (excludeList.includes(moduleInstalled[i]["Group"]) == false && moduleInstalled[i]["StartDir"] != "") {
+                        listingItems.push(moduleInstalled[i]);
+                    }
+                }
+            } else {
+                //List the given group
+                for (var i = 0; i < moduleInstalled.length; i++) {
+                    if (moduleInstalled[i]["Group"] == groupType && moduleInstalled[i]["StartDir"] != "") {
+                        listingItems.push(moduleInstalled[i]);
+                    }
+                }
+            }
+
+            //List the item to the listmenu
+            $("#listMenuItem").html("");
+            for (var i = 0; i < listingItems.length; i++) {
+                var thisModule = listingItems[i];
+                generateListMenuItem(thisModule);
+            }
+            if (listingItems.length == 0) {
+                $("#listMenuItem").html(`<div class="item module"><span><img src="img/system/not found.png">No WebApp found</span></div>`)
+            }
+        }
+
+        //Given a module information and generate a selectable item in the list menu
+        function generateListMenuItem(thisModule) {
+            var icon = thisModule["IconPath"];
+            if (icon == "") {
+                //Use default system icon
+                icon = "img/system/service.png";
+            }
+            var name = thisModule["Name"];
+            var startdir = thisModule["StartDir"];
+            var fwsupport = "false";
+            if (thisModule["SupportFW"]) {
+                fwsupport = "true";
+            }
+            $("#listMenuItem").append(`<div class="item module" module="${name}" startdir="${startdir}" fw="${fwsupport}" onclick="openModuleFromMenu(this);" ontouchstart="openModuleFromMenu(this);">
+                        <span>
+                            <img src="${icon}"></img>
+                            ${name}
+                        </span>
+                    </div>`);
+        }
+
+        function searchModule(event) {
+            if (event.which == 13) {
+                var keyword = $("#searchBar").val().toLowerCase();
+                var results = [];
+                var lessAccurateResults = [];
+                $(".groupType.selected").removeClass("selected");
+                $("#searchResults").addClass("selected").slideDown('fast');
+                //Load all search results
+                for (var i = 0; i < moduleInstalled.length; i++) {
+                    var thisModule = moduleInstalled[i];
+                    var pathInfo = thisModule["StartDir"].split("/");
+                    for (var j = 0; j < pathInfo.length; j++) {
+                        pathInfo[j] = pathInfo[j].toLowerCase();
+                    }
+                    if (thisModule["Name"].toLowerCase().includes(keyword)) {
+                        results.push(thisModule);
+                    } else if (pathInfo.includes(keyword.toLowerCase()) || pathInfo.includes(keyword.split(" ").join("_").toLowerCase())) {
+                        lessAccurateResults.push(thisModule);
+                    }
+                }
+                results = results.concat(lessAccurateResults);
+                //Append the results to list
+                $("#listMenuItem").html("");
+                for (var i = 0; i < results.length; i++) {
+                    generateListMenuItem(results[i]);
+                }
+
+                if (results.length == 0) {
+                    //Append a custom no results div to the content
+                    $("#listMenuItem").append(` <div class="item">
+                        <span>
+                            <img src="img/system/not found.png"></img>
+                            No Result
+                        </span>
+                    </div>`);
+                }
+            }
+        }
+
+        function openModuleFromMenu(object) {
+            var moduleName = $(object).attr("module");
+            openModule(moduleName);
+        }
+
+        function openModule(moduleName, callback=undefined) {
+            $.get("system/modules/getLaunchPara?module=" + moduleName, function(data) {
+                if (data.error !== undefined) {
+                    //Something went wrong.
+                    console.log("Unable to open module " + moduleName);
+                    if (data.error == "Not logged in."){
+                        //Session expired
+                        window.location.href = "login.system";
+                    }
+                } else {
+                    //Launch the given module
+                    var url = data["StartDir"];
+                    var size = [undefined, undefined];
+                    var icon = "img/system/favicon.png";
+                    if (data["IconPath"] != "") {
+                        icon = data["IconPath"];
+                    }
+                    var title = data["Name"];
+                    //Check if the module support fw mode. If yes, launch with fwmode url. IF not, launch to index
+                    if (data["SupportFW"] == true) {
+                        if (data["LaunchFWDir"] != null) {
+                            url = data["LaunchFWDir"];
+                        }
+                        if (data["InitFWSize"] != null) {
+                            size = data["InitFWSize"];
+                        }
+                    }
+
+                    //Launch the given module
+                    var uuid = newFloatWindow({
+                        url: url,
+                        width: size[0],
+                        height: size[1],
+                        appicon: icon,
+                        title: title
+                    });
+
+                    if (callback !== undefined){
+                        callback();
+                    }
+                    hideListMenu();
+                }
+            });
+        }
+
+
+        // ===================== FLOAT WINDOWS EVENTS =====================
+
+        function hookFloatWindowEvents() {
+            //Handle floatWindow mouse drag events
+            $(".fwdragger").off("mousedown").on("mousedown", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                fwdown($(this).parent(), evt);
+            });
+            $(".fwdragger").off("mousemove").on("mousemove", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                fwmove($(this).parent(), evt);
+            });
+            $(".fwdragger").off("mouseup").on("mouseup", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                fwup($(this).parent(), evt);
+            });
+
+            $(".fwdragger").off("touchstart").on("touchstart", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                fwdown($(this).parent(), evt);
+            });
+            $(".fwdragger").off("touchmove").on("touchmove", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                fwmove($(this).parent(), evt);
+            });
+            $(".fwdragger").off("touchend").on("touchend", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                fwup($(this).parent(), evt);
+            });
+
+            $(".fwdragger").off("dblclick").on("dblclick", function(evt) {
+                //Activate full screen
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                //Emulate keypress on maximize btn
+                toggleMax($(this).parent().find(".maxToogleButton").parent()[0], evt);
+            });
+
+            //Floatwindow operations for touch devices
+            $(".maxtoggle").off("touchstart").on("touchstart",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                toggleMax(this, evt);
+            });
+
+            $(".mintoggle").off("touchstart").on("touchstart",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                min(this, evt);
+            });
+
+            $(".closetoggle").off("touchstart").on("touchstart",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                closeFloatWindow(this,evt);
+            });
+
+            //floatWindow events for mouse
+            $(".maxtoggle").off("mousedown").on("mousedown",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                toggleMax(this, evt);
+            });
+
+            $(".mintoggle").off("mousedown").on("mousedown",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                min(this, evt);
+            });
+
+            $(".closetoggle").off("mousedown").on("mousedown",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                closeFloatWindow(this,evt);
+            });
+
+            //Float Window events for resizing
+            $(".iframewrapper").off("mousedown").on("mousedown", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                if ($(this).parent().hasClass("fixedsize")) {
+                    return false;
+                }
+                resizeDown($(this).parent(), evt);
+            });
+
+            $(".iframewrapper").off("mousemove").on("mousemove", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                if (resizingWindow == true) {
+                    //Resizeing Move
+                    resizeMove($(this).parent(), evt);
+                } else {
+                    //Dragdropping move
+                    fwmove($(this).parent(), evt);
+                }
+
+            });
+
+            $(".iframewrapper").off("mouseup").on("mouseup", function(evt) {
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                resizeUp($(this).parent(), evt);
+            });
+
+
+            $(".iframewrapper").off("mouseover").on("mouseover", function(evt) {
+                var object = $(this).parent();
+                if ($(object).hasClass("fixedsize")) {
+                    return false;
+                }
+                var dx = event.pageX - $(object).find(".iframewrapper").offset().left;
+                var dy = event.pageY - $(object).offset().top;
+                if (dx < 10 && dy > $(object).height() - 10) {
+                    //Left Bottom Corner
+                    $(".iframewrapper").attr("class", "iframewrapper leftCorner");
+                } else if (dx > $(object).width() - 10 && dy > $(object).height() - 10) {
+                    //Right Bottom Corner
+                    $(".iframewrapper").attr("class", "iframewrapper rightCorner");
+                } else if (dx < 10) {
+                    //Dragging left edge
+                    $(".iframewrapper").attr("class", "iframewrapper widthHover");
+                } else if (dx > $(object).width() - 10) {
+                    //Dragging right edge
+                    $(".iframewrapper").attr("class", "iframewrapper widthHover");
+                } else if (dy > $(object).height() - 10) {
+                    //Bottom Edge
+                    $(".iframewrapper").attr("class", "iframewrapper heighHover");
+                } else {
+                    //???
+                    $(".iframewrapper").attr("class", "iframewrapper");
+                }
+            });
+
+            //Hook events on the floatWindow button
+            $(".floatWindowButton").off("click touchstart").on("click touchstart", function(event) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                $("#stackedWindowList").css("left", $(this).offset().left);
+                //Generate the stackedWindowList
+                var windowIdList = JSON.parse(decodeURIComponent($(this).attr("windowidgroup")));
+                if (windowIdList.length == 1) {
+                    //There are only one window in this group. Show it anyway
+                    var targetFW = getFloatWindowByID(windowIdList[0]);
+                    $(targetFW).fadeIn(100);
+                    MoveFloatWindowToTop(targetFW);
+                    stackedFloatWindowListShwon = false;
+                    $("#stackedWindowList").hide();
+                } else {
+                    //Get icon for each windows and build the list objects
+                    $("#stackedWindowList").html("");
+                    for (var i = 0; i < windowIdList.length; i++) {
+                        var iconURL = getFloatWindowIconByID(windowIdList[i]);
+                        var title = getFloatWindowTitleByID(windowIdList[i]);
+                        $("#stackedWindowList").append(`<div class="item clickable" windowId="${windowIdList[i]}" onclick="bringFloatWindowToFrontByFWB(this,event);"  ontouchstart="bringFloatWindowToFrontByFWB(this,event);"><span><img src="${iconURL}"></img>${title}</span><div class="closebtn" onclick="closeFWviaFWB(this,event);"><img src="img/system/close.png"></img></div></div>`);
+                    }
+                    $("#stackedWindowList").show();
+                    stackedFloatWindowListShwon = true;
+                }
+
+            });
+        }
+
+        var tapedTwiceTouch = false;
+        var timeoutObject;
+        var tappingTarget = undefined;
+        function doubleTouchHandler(object, event, callback) {
+            if(!tapedTwiceTouch) {
+                tapedTwiceTouch = true;
+                tappingTarget = object;
+                timeoutObject = setTimeout( function() { tapedTwiceTouch = false; }, 300 );
+                return false;
+            }
+            if (tappingTarget == object){
+                //Double click on the same icon
+                event.preventDefault();
+                callback(object, event);
+                tappingTarget = undefined;
+            }else{
+                //Although it touch twice within 300ms, but it is on different target
+                //Update the tab target instead.
+                tappingTarget = object;
+                tapedTwiceTouch = true;
+                clearTimeout(timeoutObject);
+                timeoutObject = setTimeout( function() { tapedTwiceTouch = false; }, 300 );
+            }
+           
+        }
+
+        function openViaTouch(object, event){
+            iconDoubleClicked(object,event);
+        }
+
+        //Handle focus through floatWindow taskbar button
+        function bringFloatWindowToFrontByFWB(object, event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var targetWFID = $(object).attr("windowId");
+            var targetFW = getFloatWindowByID(targetWFID);
+            $(targetFW).fadeIn(100);
+            MoveFloatWindowToTop(targetFW);
+            stackedFloatWindowListShwon = false;
+            $("#stackedWindowList").hide();
+        }
+
+        function closeFWviaFWB(object, event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var targetWFID = $(object).parent().attr("windowId");
+            var targetFW = getFloatWindowByID(targetWFID);
+            closeFloatWindow(targetFW.find(".close"), event);
+            $(object).parent().remove();
+            if ($("#stackedWindowList").find(".item").length == 0) {
+                //There are no more things in this tab. Close this list as well.
+                stackedFloatWindowListShwon = false;
+                $("#stackedWindowList").hide();
+            }
+        }
+
+
+        //Handle floatWindow resize events
+        let resizingWindowTarget;
+        function resizeDown(object, event) {
+            //Mouse down, start resizing
+            resizingWindow = true;
+            resizingWindowTarget = object;
+            MoveFloatWindowToTop(object);
+            $("#fwdragpanel").show();
+            $(object).find(".iframecover").show();
+
+            //Check which edge is the user dragging
+            var dx = event.pageX - $(object).find(".iframewrapper").offset().left;
+            var dy = event.pageY - $(object).offset().top;
+
+            if (dx < 10 && dy > $(object).height() - 10) {
+                //Left Bottom Corner
+                resizingEdgeID = 4;
+                $(object).find(".iframewrapper").css('cursor', 'sw-resize');
+            } else if (dx > $(object).width() - 10 && dy > $(object).height() - 10) {
+                //Right Bottom Corner
+                resizingEdgeID = 2;
+                $(object).find(".iframewrapper").css('cursor', 'se-resize');
+            } else if (dx < 10) {
+                //Dragging left edge
+                resizingEdgeID = 5;
+                $(object).find(".iframewrapper").css('cursor', 'w-resize');
+            } else if (dx > $(object).width() - 10) {
+                //Dragging right edge
+                resizingEdgeID = 1;
+                $(object).find(".iframewrapper").css('cursor', 'w-resize');
+            } else if (dy > $(object).height() - 10) {
+                //Bottom Edge
+                resizingEdgeID = 3;
+                $(object).find(".iframewrapper").css('cursor', 's-resize');
+            }
+        }
+
+        function resizeMove(object, event) {
+            var posX = event.pageX;
+            var posY = event.pageY;
+            if (resizingWindow == true && resizingEdgeID != 0) {
+                if (resizingEdgeID == 1) {
+                    //Width = posX - floatWindow width + 2 (for border width)
+                    var newWidth = posX - $(object).offset().left + 2;
+                    $(object).css("width", newWidth);
+                } else if (resizingEdgeID == 2) {
+                    var newWidth = posX - $(object).offset().left + 2;
+                    var newHeight = posY - $(object).offset().top + 2;
+                    $(object).css({
+                        width: newWidth,
+                        height: newHeight
+                    });
+                } else if (resizingEdgeID == 3) {
+                    var newHeight = posY - $(object).offset().top + 2;
+                    $(object).css("height", newHeight);
+                } else if (resizingEdgeID == 4) {
+                    var newWidth = $(object).offset().left - posX + $(object).width();
+                    var newHeight = posY - $(object).offset().top + 2;
+                    $(object).css({
+                        width: newWidth,
+                        height: newHeight,
+                        left: posX
+                    });
+                } else if (resizingEdgeID == 5) {
+                    var newWidth = $(object).offset().left - posX + $(object).width();
+                    $(object).css({
+                        width: newWidth,
+                        left: posX
+                    });
+                }
+            }
+        }
+
+        function resizeUp(object, event) {
+            resizingWindow = false;
+            resizingEdgeID = 0;
+            $("#fwdragpanel").hide();
+            $(object).find(".iframecover").hide();
+            $(object).find(".iframewrapper").css('cursor', '');
+            //Force minmium width and height on any floatWindow objects
+            if ($(object).width() < 120) {
+                $(object).css("width", "120px");
+            }
+            if ($(object).height() < 120) {
+                $(object).css("height", "120px");
+            }
+            resizingWindowTarget = undefined;
+        }
+
+        //Hook body mousemove assistant events
+        $("body").on("mousemove", function(evt) {
+            if (focusedWindow !== undefined && movingWindow == true) {
+                fwmove(focusedWindow, evt);
+            } else if (focusedWindow !== undefined && resizingWindow == true) {
+                resizeMove(focusedWindow, evt);
+            } else if (multiSelecting == true) {
+                movingMultiSelectionArea(evt);
+            }
+        });
+
+        //Hook body clicke vents
+        $("body").on("click", function(evt) {
+            if (stackedFloatWindowListShwon == true) {
+                //Hide the stacked Float Window list if it is shown
+                $("#stackedWindowList").hide();
+                stackedFloatWindowListShwon = false;
+            }
+        });
+
+        //Convert touch events to click events
+        function mapEventFromTouch(event){
+            if (typeof event.originalEvent == "undefined"){
+                //Mouse click / down / up events
+                return event;
+            }
+            try{
+                //Touch events
+                if (typeof event.pageX == "undefined"){
+                    event.pageX = event.originalEvent.touches[0].pageX;
+                }
+                if (typeof event.pageY == "undefined"){
+                    event.pageY = event.originalEvent.touches[0].pageY;
+                }
+                return event;
+            }catch{
+                return event;
+            }
+           
+        }
+
+        //Please pass in the floatWindow object instead of the dragger
+        function fwdown(object, event) {
+            event = mapEventFromTouch(event);
+
+            //Move the window to the top layer
+            MoveFloatWindowToTop(object);
+            //Show the background drag panel
+            $("#fwdragpanel").show();
+            
+            //Get the relative click offset of the down event
+            clickDownOffset = [event.pageX - $(object).offset().left, event.pageY - $(object).offset().top];
+            movingWindow = true;
+            $(object).find(".iframecover").show();
+        } 
+
+        function fwmove(object, event) {
+            event = mapEventFromTouch(event);
+            if (movingWindow == true) {
+                //Check if the object is maximized. If yes, minimized it
+                if ($(object).attr("max") == "true") {
+                    var originalSize = JSON.parse(decodeURIComponent($(object).attr("orgsize")));
+                    $(object).attr("max", "false");
+                    $(object).attr("orgsize", "");
+                    //Calculate new left right offsets
+                    var clickRatio = event.pageX / window.innerWidth;
+                    var newLeft = event.pageX - (clickRatio * originalSize[0]);
+                    originalSize
+                    $(object).css({
+                        width: originalSize[0],
+                        height: originalSize[1],
+                        left: newLeft,
+                        top: event.Y - 2
+                    });
+                    clickDownOffset[0] = clickRatio * originalSize[0];
+                    clickDownOffset[1] = 2;
+                    //Restore the maximize icon
+                    $(object).find(".maxToogleButton").attr('src', "img/system/max.png")
+                }
+
+                $(object).css("left", event.pageX - clickDownOffset[0]);
+                $(object).css("top", event.pageY - clickDownOffset[1]);
+            }
+
+
+        }
+
+        function fwup(object, event) {
+            event = mapEventFromTouch(event);
+            if (movingWindow) {
+                $("#fwdragpanel").hide();
+                $(object).find(".iframecover").hide();
+                movingWindow = false;
+
+                //Check if the window location is drag to the edge of the screen. If yes, toggle half screen fullscreen
+                //Not need to check for if max because it must be minimized during drag move
+                var dockMode = false;
+                if (event.pageX < 10) {
+                    //Dock to left
+                    var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
+                    $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
+                    $(object).css({
+                        width: "50%",
+                        height: "calc(100% - 36px)",
+                        left: "0px",
+                        top: "0px"
+                    });
+                    $(object).attr("max", "true");
+                    $(object).find(".maxToogleButton").attr('src', "img/system/restore.png");
+                } else if (event.pageX > window.innerWidth - 10) {
+                    //Dock to right
+                    var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
+                    $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
+                    $(object).css({
+                        width: "50%",
+                        height: "calc(100% - 36px)",
+                        left: (window.innerWidth / 2) + "px",
+                        top: "0px"
+                    });
+                    $(object).attr("max", "true");
+                    $(object).find(".maxToogleButton").attr('src', "img/system/restore.png");
+                }
+            }
+
+        }
+
+        //Handle floatWindow min, max and close
+        function min(object, event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (event.type == "mousedown" && event.which != 1) {
+                //Ignore right mouse down
+                return;
+            }
+            var fw = $(object).parent().parent().parent();
+            $(fw).fadeOut(100);
+        }
+
+        function toggleMax(object, event) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            event = mapEventFromTouch(event);
+            if (event.type == "mousedown" && event.which != 1) {
+                //Ignore right mouse down
+                return;
+            }
+            if ($(object).css('display') == 'none'){
+                //This windows do not allow resizing. 
+                return;
+            }
+            var fw = $(object).parent().parent().parent();
+            var maxedAlready = $(fw).attr('max');
+            MoveFloatWindowToTop(fw);
+            if (maxedAlready == "true") {
+                //Resize to original
+                console.log($(fw));
+                var originalSize = JSON.parse(decodeURIComponent($(fw).attr("orgsize")));
+                $(fw).attr("max", "false");
+                $(fw).attr("orgsize", "");
+                $(fw).css({
+                    width: originalSize[0],
+                    height: originalSize[1],
+                    left: originalSize[2],
+                    top: originalSize[3]
+                });
+                $(fw).find(".maxToogleButton").attr('src', "img/system/max.png")
+            } else {
+                //Maxmize
+                var originalSize = [$(fw).width(), $(fw).height(), $(fw).offset().left, $(fw).offset().top];
+                $(fw).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
+                $(fw).css({
+                    width: "100%",
+                    height: "calc(100% - 36px)",
+                    left: "0px",
+                    top: "0px"
+                });
+                $(fw).attr("max", "true");
+                $(fw).find(".maxToogleButton").attr('src', "img/system/restore.png")
+            }
+        }
+
+        function closeFloatWindow(object, event) {
+            if (event.type == "mousedown" && event.which != 1) {
+                //Ignore right mouse down on close buttons
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if ($(object).is("img")) {
+                object = $(object).panret();
+            }
+            var fw = $(object).parent().parent().parent();
+            var contentWindow = $(fw).find("iframe")[0].contentWindow;
+            try {
+                if (contentWindow.ao_module_close === undefined) {
+                    //This module do not use ao_module wrapper. Close it directly.
+                    closeFwProcess($(fw).attr("windowId"));
+                } else {
+                    //Pass the closing events to the window itself
+                    contentWindow.ao_module_close();
+                }
+            } catch (ex) {
+                //Problems of closing floatWindow. Force closing.
+                closeFwProcess($(fw).attr("windowId"));
+            }
+
+            //Find the btn object that contains the windowID
+            var closingWindowID = $(fw).attr("windowId");
+            resizeAllFloatWindowButtons();
+        }
+
+        function findFloatWindowButtonWithID(windowID) {
+            var targetButtonObject;
+            $(".floatWindowButton").each(function() {
+                var originalIDlist = JSON.parse(decodeURIComponent($(this).attr('windowIDGroup')));
+                originalIDlist = originalIDlist.map(String);
+                if (originalIDlist.includes(windowID)) {
+                    targetButtonObject = $(this);
+                }
+            });
+            return targetButtonObject;
+        }
+
+        function closeFwProcess(windowID) {
+            //Close the floatwindow process
+            $(".floatWindow").each(function() {
+                if ($(this).attr("windowId") == windowID) {
+                    $(this).remove();
+                }
+            });
+
+            //Remove the button from menu as well
+            var targetTab = findFloatWindowButtonWithID(windowID);
+            var originalIDlist = JSON.parse(decodeURIComponent($(targetTab).attr('windowIDGroup')));
+            originalIDlist = originalIDlist.map(String);
+            if (originalIDlist.length > 1) {
+                //There are more than 1 floatWindow in this tab.
+                var newIDList = [];
+                for (var i = 0; i < originalIDlist.length; i++) {
+                    if (originalIDlist[i] != windowID) {
+                        newIDList.push(originalIDlist[i]);
+                    }
+                }
+                newIDListAttr = encodeURIComponent(JSON.stringify(newIDList));
+                //console.log("Newlist",newIDList);
+                $(targetTab).attr("windowIDGroup", newIDListAttr);
+            } else {
+                //This is the only floatWindow in this tab. Remove the tab itself.
+                $(targetTab).remove();
+            }
+        }
+
+        function MoveFloatWindowToTop(object) {
+            var windowID = $(object).attr("windowId");
+            var windowZindex = $(object).css("z-index");
+            //Shift down all floatWindows that has z-index higher than this window by 2
+            if (windowID == $(focusedWindow).attr("windowId")) {
+                //This window already at the top
+                return;
+            }
+
+            //Move the previous focused window to layer 100 first
+            $(focusedWindow).css("z-index", 100);
+            $(".floatWindow").each(function() {
+                var thisWindowZIndex = $(this).css("z-index");
+                if (parseInt(thisWindowZIndex) > parseInt(windowZindex)) {
+                    if ($(this).attr("windowId") != windowID) {
+                        $(this).css("z-index", thisWindowZIndex - 1);
+                        //console.log($(this).attr("windowId"), $(this).css("z-index"));
+                    }
+                }
+            });
+            //Move target object to top
+            $(object).css("z-index", 101);
+            focusedWindow = $(object);
+
+            //Check if this div is hidden. If not, fade it in.
+            if ($(object).is(":hidden")) {
+                $(object).fadeIn(100);
+            }
+
+        }
+
+        function newFloatWindow(config, callback=undefined) {
+            //Check if the number of floatWindow already reaching its maxmium
+            if ($(".floatWindow").length > maxWindowCount){
+                console.log("Max number of floatWindow reached.")
+                return;
+            }
+            //Generate new floatwindow startup config from object
+            var url = defaultOrKey(config, "about:blank", "url");
+            var uuid = defaultOrKey(config, (new Date()).getTime(), "uid");
+            var width = defaultOrKey(config, 854, "width");
+            var height = defaultOrKey(config, 480, "height");
+            var moduleIcon = defaultOrKey(config, "img/system/favicon.png", "appicon");
+            var title = defaultOrKey(config, "New floatWindow", "title");
+            var left = defaultOrKey(config, 100, "left");
+            var top = defaultOrKey(config, 100, "top");
+            var parentWindowID = defaultOrKey(config, "", "parent");
+            var callbackFunctionName = defaultOrKey(config, "", "callback");
+            var bgcolor = defaultOrKey(config, "", "background-color");
+
+            //Encode function name
+            callbackFunctionName = encodeURIComponent(callbackFunctionName);
+
+            //Validate paramters
+            if (width > window.innerWidth) {
+                width = window.innerWidth;
+            }
+            if (height > window.innerHeight) {
+                height = window.innerHeight;
+            }
+            if (left + width > window.innerWidth) {
+                left = 0;
+            }
+            if (top + height > window.innerHeight) {
+                top = 0;
+            }
+
+            //Check if the location already cotain any window
+            while (floatWindowLocationDuplicated(left, top)) {
+                left += 30;
+                top += 30;
+            }
+
+            //Check if the opening require a overwrite on background color
+            var backgroundStyle = "";
+            if (bgcolor !== ""){
+                backgroundStyle = `background-color: ${bgcolor};`;
+            }
+            //Append the floatWindow into the body
+            $("body").append(`<div class="floatWindow" windowId="${uuid}" parent="${parentWindowID}" callback="${callbackFunctionName}" style="z-index:0; width:${width}px; height:${height}px; left:${left}px; top:${top}px;${backgroundStyle}">
+                                    <div class="controls fwdragger themeColorSolid">
+                                        <img class="moduleicon" src="${moduleIcon}"></img>
+                                        <div class="title">${title}</div>
+                                        <div class="fwcontrol">
+                                            <div class="buttons mintoggle">
+                                                <img src="img/system/min.png"></img>
+                                            </div>
+                                            <div class="buttons maxtoggle">
+                                                <img class="maxToogleButton" src="img/system/max.png"></img>
+                                            </div>
+                                            <div class="buttons closetoggle close">
+                                                <img src="img/system/close.png"></img>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="iframewrapper">
+                                        <iframe src="${url}" allowfullscreen="true"></iframe>
+                                        <div class="iframecover"></div>
+                                    </div>
+                                </div>`);
+            var newWindowObject = getFloatWindowByID(uuid);
+            //console.log(newWindowObject);
+            MoveFloatWindowToTop(newWindowObject);
+
+            //Append window to taskbar
+            var groupInfo = url.split("/");
+            var group = "";
+            if (groupInfo.length == 1) {
+                group = groupInfo[0];
+            } else {
+                groupInfo.pop();
+                group = groupInfo.join("/");
+            }
+
+            //File system windows require special grouping based on their filename
+            if (url.includes("SystemAO/file_system/")){
+                group = url.split("/").pop().split(".").join("_");
+            }else if (url.includes("SystemAO/utilities/")){
+                group = url.split("/").pop().split(".").join("_");
+                if (group.includes("#")){
+                    group = group.split("#")[0];
+                }
+            }
+
+            //Check if the group already exists.
+            var groupExists = false;
+            var targetGroupingTab;
+            $(".floatWindowButton").each(function() {
+                if ($(this).attr("group") == group) {
+                    groupExists = true;
+                    targetGroupingTab = $(this);
+                }
+            });
+
+            //Check if the group is System Explorer and held special treatment if yes
+            if (group.split("/").shift() == "SystemAO") {
+                if (url.includes("file_explorer.html") && groupExists) {
+                    //File Manager. Group them
+                    group = "file_explorer";
+                }else if (url.includes("utilities") && groupExists){
+                    //Allow grouping
+
+                } else {
+                    //Do not group anything from SystemAO other than file explorer
+                    groupExists = false;
+                }
+            }
+
+            if (groupExists == false) {
+                //Append the item to taskbar
+                var windowIDGroup = encodeURIComponent(JSON.stringify([uuid]));
+                var floatWindowButtonObject = ` <div class="item clickable floatWindowButton onscreen" group="${group}" windowIDGroup="${windowIDGroup}">
+                                                        <img class="floatWindowAppIcon" src="${moduleIcon}"></img>
+                                                        <p class="floatWindowTitle">${title}</p>
+                                                    </div>`;
+                $(".navimenu").append(floatWindowButtonObject);
+            } else {
+                //Group already exists. Add tab into that group.
+                var originalIDlist = JSON.parse(decodeURIComponent($(targetGroupingTab).attr('windowIDGroup')));
+                originalIDlist.push(uuid);
+                //Encode and put the group list back to the object
+                var newIDList = encodeURIComponent(JSON.stringify(originalIDlist));
+                $(targetGroupingTab).attr("windowIDGroup", newIDList);
+            }
+            hookFloatWindowEvents();
+            resizeAllFloatWindowButtons();
+
+            if (callback !== undefined){
+                callback(uuid);
+            }
+        }
+
+        function resizeAllFloatWindowButtons() {
+            var fwbTotalWidth = $(".floatWindowButton").length * 200;
+            if (fwbTotalWidth > window.innerWidth * 0.7) {
+                $(".floatWindowButton").addClass("hideText");
+            } else {
+                $(".floatWindowButton").removeClass("hideText");
+            }
+        }
+
+
+        function floatWindowLocationDuplicated(left, top) {
+            var duplicated = false;
+            $(".floatWindow").each(function() {
+                if ($(this).offset().left == left && $(this).offset().top == top) {
+                    duplicated = true;
+                }
+            });
+            return duplicated;
+        }
+
+        function defaultOrKey(object, defaultvalue, key) {
+            if (object[key] !== undefined) {
+                return object[key];
+            }
+            return defaultvalue;
+        }
+
+        function getFloatWindowByID(id) {
+            var targetWindow = undefined;
+            $(".floatWindow").each(function() {
+                if ($(this).attr("windowId") == id) {
+                    targetWindow = $(this);
+                }
+            });
+            return targetWindow;
+        }
+        
+        function getFloatWindowIconByID(id) {
+            var targetIconURL = "img/system/favicon.png";
+            $(".floatWindow").each(function() {
+                if ($(this).attr("windowId") == id) {
+                    //This window ID matched the target fw
+                    targetIconURL = $(this).find(".moduleicon").attr('src');
+                }
+            });
+            return targetIconURL;
+        }
+
+        function getFloatWindowTitleByID(id) {
+            var title = "";
+            $(".floatWindow").each(function() {
+                if ($(this).attr("windowId") == id) {
+                    //This window ID matched the target fw
+                    title = $(this).find(".title").text();
+                }
+            });
+            return title;
+        }
+
+        function setFloatWindowResizePolicy(targetFWId, resizble = true) {
+            var targetfw = getFloatWindowByID(targetFWId);
+            if (resizble) {
+                $(targetfw).find(".maxtoggle").show();
+                $(targetfw).removeClass("fixedsize");
+            } else {
+                $(targetfw).find(".maxtoggle").hide();
+                $(targetfw).addClass("fixedsize");
+            }
+        }
+
+        function setFloatWindowSize(targetFWId, newWidth, newHeight) {
+            var targetfw = getFloatWindowByID(targetFWId);
+            $(targetfw).css({
+                height: newHeight,
+                width: newWidth
+            });
+        }
+
+        function setFloatWindowTitle(targetFWId, newTitle) {
+            var targetfw = getFloatWindowByID(targetFWId);
+            $(targetfw).find(".title").text(newTitle);
+        }
+
+        function openFileWithModule(moduleLaunchInfo, openFileList) {
+            var url = moduleLaunchInfo["StartDir"];
+            var size = [undefined, undefined];
+            var title = moduleLaunchInfo["Name"];
+            var icon = "img/system/favicon.png";
+            if (moduleLaunchInfo["IconPath"] != "") {
+                icon = moduleLaunchInfo["IconPath"];
+            }
+            //Use floatWindow if exists
+            if (moduleLaunchInfo["SupportFW"] == true && moduleLaunchInfo["LaunchFWDir"] != "") {
+                url = moduleLaunchInfo["LaunchFWDir"];
+                if (moduleLaunchInfo["InitFWSize"] !== null) {
+                    size = moduleLaunchInfo["InitFWSize"]
+                }
+            }
+            //Use embedded mode if exists
+            if (moduleLaunchInfo["SupportEmb"] == true && moduleLaunchInfo["LaunchEmb"] != "") {
+                url = moduleLaunchInfo["LaunchEmb"];
+                if (moduleLaunchInfo["InitEmbSize"] !== null) {
+                    size = moduleLaunchInfo["InitEmbSize"]
+                }
+            }
+
+            var openParamter = encodeURIComponent(JSON.stringify(openFileList));
+
+            //Add launch files info and launch floatWindow
+            parent.newFloatWindow({
+                url: url + "#" + openParamter,
+                width: size[0],
+                height: size[1],
+                appicon: icon,
+                title: title
+            });
+        }
+
+        //====================== DESKTOP THEME RELATED FUNCTIONS =====================
+
+        //Initiate desktop theme list and user current theme
+        function initDesktopTheme() {
+            $.get("system/desktop/theme", function(data) {
+                //Return a list of theme stored on the system
+                desktopThemeList = data;
+                $.get("system/desktop/theme?get=true", function(data) {
+                    //Get the user theme settings
+                    changeDesktopTheme(data);
+                });
+            });
+        }
+
+        function setDesktopTheme(themeName) {
+            $.get("system/desktop/theme?set=" + themeName, function(data) {
+                //Get the user theme settings
+                changeDesktopTheme(themeName);
+                if (data.includes("Error")) {
+                    console.log(data);
+                }
+            });
+        }
+
+        //Actiave background cross fade changing animation
+        function initBackgroundSwitchingAnimation() {
+            setInterval(function() {
+                $("body").css("background-image", "none").css({
+                    'background-color': '#000000'
+                });
+                $(".showBackground").removeClass("showBackground");
+                $($(".backgroundFrame")[nextSlideshowIndex]).addClass("showBackground");
+                nextSlideshowIndex++;
+                if (nextSlideshowIndex > currentBackgroundList.length - 1) {
+                    nextSlideshowIndex = 0;
+                }
+            }, backgroundCrossfadeInterval);
+        }
+
+        //Function for changing the desktop theme
+        function changeDesktopTheme(targetThemeName) {
+            currentUserTheme = targetThemeName;
+            for (var i = 0; i < desktopThemeList.length; i++) {
+                var thisTheme = desktopThemeList[i];
+                if (thisTheme["Theme"] == targetThemeName) {
+                    //Use this config as the target theme
+                    currentBackgroundList = thisTheme["Bglist"];
+                    break;
+                }
+            }
+            //Initiate the background image.
+            $("#bgwrapper").html("");
+            for (var i = 0; i < currentBackgroundList.length; i++) {
+                var id = "dbg" + i;
+                var thisImage = "img/desktop/bg/" + currentUserTheme + "/" + currentBackgroundList[i];
+                $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
+            }
+            setTimeout(function() {
+                $("#dbg0").addClass("showBackground");
+            }, 300);
+
+            if (currentBackgroundList.length == 1) {
+                //There are only 1 background in this pack. Make the next slice be 0 as well.
+                nextSlideshowIndex = 0;
+            } else {
+                nextSlideshowIndex = 1;
+            }
+
+        }
+
+        $("#bgwrapper").on("click", function(evt) {
+            evt.preventDefault();
+        });
+
+        //================== DESKTOP FILE LOCATION FUNCTIONS ====================
+        function initDesktopFiles(optionObject = {}, callback = undefined) {
+            $.get("system/desktop/listDesktop", function(data) {
+                //Prase optionObject
+                var noflash = false;
+                if (typeof optionObject.noflash !== "undefined"){
+                    noflash = optionObject.noflash;
+                }
+                if (noflash){
+                    //Only clean out those object that not exists in the new filelist
+                    var existsingFilepaths = [];
+                    if (data != null){
+                        for (var i =0; i < data.length; i++){
+                            existsingFilepaths.push(data[i].Filepath);
+                        }
+                    }else{
+                        //Nothing on desktop
+                    }
+                   
+                    //console.log(existsingFilepaths);
+                    //If the launchIcon path is not in the latest list, remove it from desktop
+                    $(".launchIcon").each(function(){
+                        if (existsingFilepaths.includes($(this).attr("filepath")) == false){
+                           $(this).remove();
+                        }
+                    });
+                }else{
+                    //Cleanup all previous icons
+                    $("#iconwrapper").html("");
+                }
+                //Allocate new items location
+                var iheight = 106;
+                var iwidth = 70;
+                var padding = 16;
+                if (desktopIconSize == "small") {
+                    iheight = 82;
+                    iwidth = 50;
+                } else if (desktopIconSize == "medium") {
+                    iheight = 106;
+                    iwidth = 70;
+                } else if (desktopIconSize == "big") {
+                    iheight = 124;
+                    iwidth = 84;
+                }
+
+                iconSize = [iwidth, iheight];
+                var screenHeight = window.innerHeight;
+                var screenWidth = window.innerWidth;
+
+                var vc = Math.floor((screenHeight - 20 - padding) / iheight);
+                var hc = Math.floor((screenWidth - padding) / iwidth);
+
+                var slots = []; //A 2D array for storing relative to absolute locations
+                for (var j = 0; j < hc; j++) {
+                    var thisLocationList = [];
+                    for (var i = 0; i < vc; i++) {
+                        var thisLocation = [j * iwidth + padding, i * iheight + padding];
+                        thisLocationList.push(thisLocation);
+                    }
+                    slots.push(thisLocationList);
+                }
+                //Store the root position (0,0) in rootPosition
+                let rootPosition = JSON.parse(JSON.stringify(slots[0][0]));
+                desktopGrids = JSON.parse(JSON.stringify(slots));
+
+                //Assign items to desktop
+                var unallocatedFiles = [];
+                let remainingSlots = JSON.parse(JSON.stringify(slots));
+                desktopFileList = [];
+                if (data === null){
+                    //No files on desktop
+                    return;
+                }
+                for (var i = 0; i < data.length; i++) {
+                    var thisFile = data[i];
+                    desktopFileList.push(JSON.parse(JSON.stringify(thisFile.Filename)));
+                    //Get icon from the icon list
+                    var location = [thisFile.IconX, thisFile.IconY];
+                    if (location[0] == -1 && location[1] == -1) {
+                        //This file is not located. Push it into unallocatedFileList
+                        unallocatedFiles.push(thisFile);
+                    } else if (location[0] >= slots.length || location[1] >= slots[0].length) {
+                        //This file is outside of the screen area. Set to be be unallocatedFiles as well
+                        unallocatedFiles.push(thisFile);
+                    } else {
+                        //This file is already located. Push it location into occupiedSlots
+                        //var screenX = location[0] * iwidth + padding/2;
+                        //var screenY = location[1] * iheight + padding/2;
+                        var screenLocation = slots[location[0]][location[1]];
+
+                        //Remove this object from remaining slots
+                        remainingSlots[location[0]][location[1]] = undefined;
+                        //console.log(thisFile, screenLocation[0], screenLocation[1], iheight, iwidth);
+                        appendIconAtLocation(thisFile, screenLocation[0], screenLocation[1], iheight, iwidth, noflash);
+                    }
+                }
+
+                //Foreach remaining files, assign a location for it.
+                var walk = [slots.length, slots[0].length];
+                var current = [0, 0];
+                for (var i = 0; i < unallocatedFiles.length; i++) {
+                    var thisFile = unallocatedFiles[i];
+                    try{
+                        while (typeof(remainingSlots[current[0]][current[1]]) == "undefined") {
+                            //This slot is not usabled. Next slot.
+                            current[1] += 1;
+                            if (current[1] >= walk[1]) {
+                                current[1] = 0;
+                                current[0] += 1;
+                            }
+
+                            if (typeof(remainingSlots[current[0]]) == "undefined"){
+                                //Not enough space to fit the item. Move it to 0 0 instead
+                                current = [-1,-1];
+                                console.log(current);
+                                break;
+                            }
+                            
+                        }
+                    }catch{
+                        //Something went wrong while assigning positions. Set at root location
+                        current = [-1,-1];
+                    }
+                    
+                    //Append the icon to screen
+                    if (current[0] == -1 && current[1] == -1){
+                        //Screen overflow. Stack the file at (0,0)
+                        screenLocation = [rootPosition[0], rootPosition[1]];
+                        console.log(screenLocation);
+                    }else{
+                        screenLocation = remainingSlots[current[0]][current[1]];
+                        remainingSlots[current[0]][current[1]] = undefined;
+                    }
+                    
+                    appendIconAtLocation(thisFile, screenLocation[0], screenLocation[1], iheight, iwidth, noflash);
+
+                    //Save the icon location to server
+                    $.ajax({
+                        url: "system/desktop/files",
+                        method: "POST",
+                        data: {"set": thisFile.Filename, "x": current[0], "y": current[1]},
+                        success: function(data) {
+                            if (data.includes("Error")) {
+                                console.log(data);
+                            }
+                        }
+                    });
+                    
+                }
+
+                if (callback !== undefined) {
+                    console.log(callback);
+                    callback();
+                }
+            });
+        }
+
+        //Handle desktop file multi selection and dragging
+        $("#bgwrapper").on("mousedown", function(evt) {
+            initMultiSelection(evt);
+        });
+        $("#bgwrapper").on("touchstart", function(evt) {
+            initMultiSelection(evt);
+        });
+
+        $("body").on("mouseup", function(evt) {
+            mainWindowMouseup(evt);
+
+        });
+        $("body").on("touchend", function(evt) {
+            mainWindowMouseup(evt);
+        });
+
+        $("#selectionPanel").on("mouseup", function(event) {
+
+        });
+
+        function mainWindowMouseup(event) {
+            if (event.pageX == multiSelectionStartPoint[0] && event.pageY == multiSelectionStartPoint[1]) {
+                //Pressdown and up at the same location
+                $(".launchIconWrapper.selected").removeClass("selected");
+                endMultiSelection(event);
+            } else {
+                //Press down and up at different location
+                endMultiSelection(event);
+            }
+
+            if (resizingWindow){
+                //Resizing floatWindow out of the window bound (aka someone don't know how to resize a window correctly)
+                resizingWindow = false;
+                resizingEdgeID = 0;
+                $("#fwdragpanel").hide();
+                $(resizingWindowTarget).find(".iframecover").hide();
+                $(resizingWindowTarget).find(".iframewrapper").css('cursor', '');
+            }
+            
+        }
+
+        function initMultiSelection(event) {
+            event.preventDefault();
+            multiSelecting = true;
+            hideAllContextMenus();
+            $("#selectionPanel").css({
+                left: event.pageX,
+                top: event.pageY,
+                width: 0,
+                height: 0
+            });
+            $("#selectionPanel").show();
+            multiSelectionStartPoint = [event.pageX, event.pageY];
+        }
+
+        function movingMultiSelectionArea(event) {
+            event.preventDefault();
+            var sx = multiSelectionStartPoint[0];
+            var sy = multiSelectionStartPoint[1];
+            var ex = event.pageX;
+            var ey = event.pageY;
+
+            var newleft = sx;
+            if (ex < sx) {
+                newleft = ex;
+            }
+
+            var newtop = sy;
+            if (ey < sy) {
+                newtop = ey;
+            }
+
+            var newWidth = Math.abs(sx - ex);
+            var newHeight = Math.abs(sy - ey);
+            $("#selectionPanel").css({
+                left: newleft,
+                top: newtop,
+                width: newWidth,
+                height: newHeight
+            });
+
+            //Select all the launch icon selected
+            selectAllLaunchIconInRange(newleft, newleft + newWidth, newtop, newtop + newHeight);
+        }
+
+        function endMultiSelection(event) {
+            event.preventDefault();
+            multiSelecting = false;
+            multiSelectionStartPoint = [-1, -1];
+            $("#selectionPanel").hide();
+        }
+
+        function selectAllLaunchIconInRange(minX, maxX, minY, maxY) {
+            //Select launch icons from its center point
+            var xOffset = iconSize[0] / 2;
+            var yOffset = iconSize[1] / 2;
+            $(".launchIconWrapper.selected").removeClass("selected");
+            $(".launchIcon").each(function() {
+                //Calculate center point for this icon
+                var thisX = $(this).offset().left + xOffset;
+                var thisY = $(this).offset().top + yOffset;
+                if (thisX > minX && thisX < maxX) {
+                    if (thisY > minY && thisY < maxY) {
+                        $(this).find(".launchIconWrapper").addClass("selected");
+                    }
+                }
+            });
+        }
+
+        function redrawDesktopGrids() {
+            var iheight = 106;
+            var iwidth = 70;
+            var padding = 16;
+            if (desktopIconSize == "small") {
+                iheight = 82;
+                iwidth = 50;
+            } else if (desktopIconSize == "medium") {
+                iheight = 106;
+                iwidth = 70;
+            } else if (desktopIconSize == "big") {
+                iheight = 124;
+                iwidth = 84;
+            }
+
+            iconSize = [iwidth, iheight];
+            var screenHeight = window.innerHeight;
+            var screenWidth = window.innerWidth;
+
+            var vc = Math.floor((screenHeight - 20 - padding) / iheight);
+            var hc = Math.floor((screenWidth - padding) / iwidth);
+
+            var slots = []; //A 2D array for storing relative to absolute locations
+            for (var j = 0; j < hc; j++) {
+                var thisLocationList = [];
+                for (var i = 0; i < vc; i++) {
+                    var thisLocation = [j * iwidth + padding, i * iheight + padding];
+                    thisLocationList.push(thisLocation);
+                }
+                slots.push(thisLocationList);
+            }
+
+            desktopGrids = JSON.parse(JSON.stringify(slots));
+        }
+
+        function appendIconAtLocation(filedata, screenX, screenY, iheight, iwidth, updateMode=false) {
+            //Get the icon from extension
+            var icon = ao_module_utils.getIconFromExt(filedata.Ext.substring(1, filedata.Ext.length));
+            var imagePath = "img/desktop/files_icon/" + desktopIconPack + "/" + icon + ".png";
+            //Handle special icon types here
+            var size = desktopIconSize;
+            var filename = JSON.parse(JSON.stringify(filedata.Filename));
+            var filepath = JSON.parse(JSON.stringify(filedata.Filepath));
+            var isDir = JSON.parse(JSON.stringify(filedata.IsDir));
+            var maxlength = 12;
+            var type = "file";
+            let shortenedName = filename;
+            screenX += iconOffsetXY[0];
+            screenY += iconOffsetXY[1];
+            if (isDir) {
+                //Folder objects
+                icon = "folder outline";
+                imagePath = "img/desktop/system_icon/folder.png";
+                type = "folder";
+            } else if (isDir == false && icon == "folder outline") {
+                icon = "file outline";
+                imagePath = "img/desktop/files_icon/" + desktopIconPack + "/file outline.png";
+                type = "file";
+            } else if (filedata.Ext == ".exe" || filedata.Ext == ".elf") {
+                //Executable objects
+                imagePath = "img/desktop/system_icon/script.png";
+                type = "executable";
+            } else if (filedata.Ext == ".shortcut") {
+                //Shortcut
+                var shortcutImage = filedata.ShortcutImage;
+                shortenedName = JSON.parse(JSON.stringify(filedata.ShortcutName));
+                imagePath = shortcutImage;
+                type = "shortcut";
+            }
+            //Check if filename is english only.
+            if (/^[a-zA-Z\d .-=+]+$/.test(filename)) {
+                maxlength = 20;
+            }
+
+            if (type != "shortcut" && filename.length > maxlength) {
+                shortenedName = filename.substring(0, 12) + "...";
+            }
+            var compressedFiledata = ao_module_utils.objectToAttr(filedata);
+            if (updateMode){
+                //Update the content that already exists for the same filepath object
+                var updateObject = undefined;
+                $(".launchIcon").each(function(){
+                    if ($(this).attr("filedata") == compressedFiledata){
+                        updateObject = $(this);
+                    }
+                });
+
+                if (updateObject !== undefined){
+                    //Check if content identical. If yes, skip rewrite
+                    if (updateObject.attr("filedata") == compressedFiledata){
+                        //Identical. Skipping
+                    }else{
+                        //Update its contents
+                        updateObject.attr("type", type);
+                        updateObject.attr("filename", filename);
+                        updateObject.attr("filepath", filepath);
+                        updateObject.attr("filedata", compressedFiledata);
+                        updateObject.css("width", iwidth + "px");
+                        updateObject.css("height", iheight + "px");
+                        updateObject.css("left", screenX + "px");
+                        updateObject.css("top", screenY + "px");
+                    }
+                }else{
+                    //No exists. Append to wrapper
+                    appendDesktopIcon($("#iconwrapper"),{
+                        type: type,
+                        filename: filename,
+                        filepath: filepath,
+                        compressedFiledata: compressedFiledata,
+                        iwidth: iwidth,
+                        iheight: iheight,
+                        screenX: screenX,
+                        screenY: screenY,
+                        size: size,
+                        imagePath: imagePath,
+                        shortenedName: shortenedName,
+                    });
+                }
+
+            }else{
+                //Append into the desktop
+                appendDesktopIcon($("#iconwrapper"),{
+                    type: type,
+                    filename: filename,
+                    filepath: filepath,
+                    compressedFiledata: compressedFiledata,
+                    iwidth: iwidth,
+                    iheight: iheight,
+                    screenX: screenX,
+                    screenY: screenY,
+                    size: size,
+                    imagePath: imagePath,
+                    shortenedName: shortenedName,
+                });
+            }
+           
+        }
+
+        /*
+            Main function to append desktop icon to desktop
+            Usage: Pass in the target (as jquery object, usually $("#iconwrapper")) and properties with the following object
+            properties = {
+                type: "",
+                filename: "",
+                filepath: "",
+                compressedFiledata: "",
+                iwidth: "",
+                iheight: "",
+                screenX: "",
+                screenY: "",
+                size: "",
+                imagePath: "",
+                shortenedName: "",
+            }
+
+            Where the enmty string is the value that require filling in
+        */
+
+        function appendDesktopIcon(target, properties){
+            var htmlType = "div";
+            var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            if (properties.type == "file" && isChrome){
+                htmlType = "a";
+            }
+            var thisIcon = $(`<${htmlType} href="javascript:void(0);" class="launchIcon" 
+                    type="${properties.type}" 
+                    draggable="true" 
+                    ondragover="allowDrop(event)" 
+                    ondrop="drop(event)" 
+                    ondragstart="drag(event)" 
+                    onmousedown="iconClicked(this,event);" 
+                    ondblclick="iconDoubleClicked(this,event);" 
+                    ontouchstart="iconClicked(this,event); doubleTouchHandler(this, event,openViaTouch);"
+                    filename="${properties.filename}" 
+                    filepath="${properties.filepath}" 
+                    filedata="${properties.compressedFiledata}" 
+                    style="width:${properties.iwidth}px; height:${properties.iheight}px;left:${properties.screenX}px; top:${properties.screenY}px;">
+                    <span class="launchIconWrapper"><img class="launchIconImage ${properties.size}" src="${properties.imagePath}" draggable="false"></img>
+                        <p class="launchIconText ${properties.size} ">${properties.shortenedName}</p></span>
+                    </${htmlType}>`);
+
+            $(target).append(thisIcon);
+            
+            if (properties.type == "file" && isChrome){
+                console.log(isChrome);
+                let thisFilepath = properties.filepath;
+                $(thisIcon)[0].addEventListener("dragstart",function(evt){
+                //var filecontent = toDataUrl("media/?file=" + thisFilepath);
+                //var fileBase64 = window.btoa(filecontent);
+                var targetMime = "plain/text";
+                    $.ajax({
+                        url: "media/getMime/?file=" + encodeURIComponent(properties.filepath),
+                        success: function(data){
+                            if (data.error !== undefined){
+                                targetMime = "text/directory";
+                            }else{
+                                targetMime = data;
+                            }
+                        },
+                        async: false
+                    });
+                evt.dataTransfer.setData("DownloadURL",targetMime+":"+ properties.filename +":"+ location.protocol + "//" + location.hostname + ":" + location.port + "/media/?file=" + encodeURIComponent(properties.filepath));
+                //evt.dataTransfer.setData("DownloadURL","video/mp4"+":"+"test.mp4"+":"+"data:"+"video/mp4"+";base64,"+fileBase64);
+                },false);
+            }
+        }
+
+        // ========================== LAUNCH ICON OPERATIONS ================
+
+        //This function start all the launchicon related events
+        function drag(ev) {
+            var target = ev.target;
+            if (!($(ev.target).is("div") || $(ev.target).is("a"))) {
+                target = $(target).parent();
+            }
+
+            //Parse the standard filename / filepath data
+            var filename = $(target).attr("filename");
+            var filepath = $(target).attr('filepath');
+            ev.dataTransfer.setData("filename", filename);
+            ev.dataTransfer.setData("filepath", filepath);
+
+            //Parse multifile selection filedata
+            var filelist = [];
+            if ($(".launchIconWrapper.selected").length > 0){
+                if (ctrlHold || $(".launchIconWrapper.selected").length > 1){
+                    //Include all objects selected
+                    $(".launchIconWrapper.selected").each(function(){
+                        var fd = $(this).parent().attr("filedata");
+                        fd = JSON.parse(decodeURIComponent(fd));
+                        filelist.push({
+                            filename: fd.Filename,
+                            filepath: fd.Filepath
+                        });
+                    });
+                }else{
+                    //Only push the one selected
+                    filelist.push({
+                        filename: filename,
+                        filepath: filepath
+                    });
+                }
+            }else{
+                //There is no selected item on desktop. Use the drag drop one
+                filelist.push({
+                    filename: filename,
+                    filepath: filepath
+                });
+            }
+            
+            //console.log(filelist);
+            ev.dataTransfer.setData("filedata", JSON.stringify(filelist));
+            console.log(filelist);
+            //Set a flag on the drag events that these files are from Desktop GUI
+            ev.dataTransfer.setData("desktopflag", "true");
+
+            //Record the start drop relative position of the icon object
+            var dx = ev.pageX - $(target).offset().left;
+            var dy = ev.pageY - $(target).offset().top;
+            startDragRelatuve = [dx, dy];
+            ev.stopPropagation();
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
+            var target = $(ev.target);
+            if (!(target.is("div") || target.is("a"))) {
+                target = $(target).parent();
+            }
+            if (target.hasClass("launchIconWrapper")) {
+                target = target.parent();
+            }
+            var thisFilepath = $(target).attr("filepath");
+            if (thisFilepath == ev.dataTransfer.getData("filepath")) {
+                //Drag and drop on the same item. Ignore it
+                return;
+            }
+            var sourceFilename = ev.dataTransfer.getData("filename");
+            var sourceFilepath = ev.dataTransfer.getData("filepath");
+            //To handle multiple file transfer from file explorer
+            var sourceFilelist = ev.dataTransfer.getData("filedata"); 
+            console.log(target)
+            console.log(sourceFilename);
+            console.log(sourceFilepath);
+            if (sourceFilelist !== ""){
+                sourceFilelist = JSON.parse(sourceFilelist);
+            }
+            console.log(sourceFilelist);
+
+
+            //Drop opererations
+            if (target.attr("id") == "bgwrapper") {
+                if (sourceFilename == "" && sourceFilepath == "" && ev.dataTransfer.files.length > 0){
+                    //Drag drop from external source. Upload to desktop
+                    //Assign the locations for the objects
+                    var files = ev.dataTransfer.files;
+                    var gridMaxX = desktopGrids.length;
+                    var gridMaxY = desktopGrids[0].length;
+                    var targetLocation = findClosestGrid((ev.clientX), (ev.clientY), false);
+                    var targetGridLocation = targetLocation[1];
+                    var locations = [];
+
+                    for (var k =0; k < files.length; k++){
+                        var thisLocation = JSON.parse(JSON.stringify(targetGridLocation));
+                        //Add k to y axis of the list.
+                        thisLocation[1] += k;
+                        if (thisLocation[1] >= gridMaxY){
+                                thisLocation[0]++;
+                                thisLocation[1] = 0;
+                        }
+                        if (thisLocation[1] >= gridMaxY && thisLocation[0] >= gridMaxX){
+                            //Desktop full. Force put to 0 0 
+                            thisLocation[0] = 0;
+                            thisLocation[1] = 0;
+                            break;
+                        }
+                        while (getObjectFromGridLocation(thisLocation[0], thisLocation[1]) !== undefined){
+                            thisLocation[1] += 1;
+                            if (thisLocation[1] >= gridMaxY){
+                                //Over the screen. Shift to the row on the right
+                                thisLocation[0]++;
+                                thisLocation[1] = 0;
+                            }
+
+                            if (thisLocation[1] >= gridMaxY && thisLocation[0] >= gridMaxX){
+                                //Desktop full. Force put to 0 0 
+                                thisLocation[0] = 0;
+                                thisLocation[1] = 0;
+                                break;
+                            }
+                        }
+                        locations.push(thisLocation)
+                    }
+
+                    console.log(locations, ev.dataTransfer.files);
+
+                    //Register file locations
+                    for (var j =0; j < locations.length; j++){
+                        let thisFile = files[j];
+                        let thisFilename = files[j].name;
+                        let x = parseInt(locations[j][0]);
+                        let y = parseInt(locations[j][1]);
+                        uploadFile(thisFile,function(){
+                            console.log("Uploader callback");
+                            $.ajax({
+                                url: "system/desktop/files",
+                                method: "POST",
+                                data: {"set": thisFilename, "x": x, "y": y},
+                                success: function(data) {
+                                    //Refresh the desktop
+                                    refresh(undefined, true);
+                                }
+                            });
+                        });
+                        
+                    }
+                }else if (sourceFilelist.length > 0 && Array.isArray(sourceFilelist)){
+                    //Drag drop multiple files from desktop or file explorer to desktop
+                    var desktopFlag = ev.dataTransfer.getData("desktopflag"); 
+                    if (desktopFlag == "" || desktopFlag === undefined || desktopFlag == null){
+                        //This is a file drag drop from not desktop to desktop
+                        alert("Transfering file from file explorer to desktop. WIP")
+                    }else{
+                        //This is a file drag event from desktop, but more than one files.
+                        //Pin the final location for the drag drop object
+                        var sourceObject = getObjectFromPath(sourceFilepath);
+                        var dx = startDragRelatuve[0];
+                        var dy = startDragRelatuve[1];
+                        var targetLocation = findClosestGrid((ev.clientX - dx), (ev.clientY - dy));
+                        var closestLocation = targetLocation[0];
+                        var duplicateObject = getObjectFromLocation(closestLocation[0]  + iconOffsetXY[0], closestLocation[1]  + iconOffsetXY[1]);
+                        if (duplicateObject !== undefined) {
+                            //There are already object there. Do nothing
+                            console.log("Drop location duplicated!")
+                            return;
+                        }
+
+                        //Get other objects that is not the one drag dropped
+                        var iconOffset = {};
+                        for (var i =0; i < sourceFilelist.length; i++){
+                            var thisFile = sourceFilelist[i];
+                            if (thisFile.filepath != sourceFilepath){
+                                //Calculate the x y offset of this icon to the drag drop one
+                                var thisIconObject = getObjectFromPath(thisFile.filepath);
+                                iconOffset[thisFile.filepath] = {
+                                    dx: $(sourceObject).offset().left - $(thisIconObject).offset().left,
+                                    dy: $(sourceObject).offset().top - $(thisIconObject).offset().top
+                                }
+                                //console.log(thisFile.filename, iconOffset[thisFile.filepath]);
+                            }
+                        }
+
+                        //Move the drag drop object to the desiged location
+                        $(sourceObject).css({
+                            left: closestLocation[0] + iconOffsetXY[0],
+                            top: closestLocation[1] + iconOffsetXY[1]
+                        });
+
+                        //Save the drag item location
+                        $.ajax({
+                            url: "system/desktop/files",
+                            method: "POST",
+                            data: {"set": sourceFilename, "x": targetLocation[1][0], "y": targetLocation[1][1]},
+                            success: function(data) {
+                                //console.log(data);
+                            }
+                        });
+
+                        //Move all the relative files to the main object
+                        var relocatePendingObjects = [];
+                        for (const [filepath, offset] of Object.entries(iconOffset)) {
+                            let thisIconObject = getObjectFromPath(filepath);
+                            let caluclatedLocation = [$(sourceObject).offset().left - offset.dx, $(sourceObject).offset().top - offset.dy];
+                            let finalIconLocation = findClosestGrid(caluclatedLocation[0], caluclatedLocation[1]);
+                            //Check for duplication
+                            /*
+                            var duplicateObject = getObjectFromLocation(finalIconLocation[0][0]  + iconOffsetXY[0], finalIconLocation[0][1] + iconOffsetXY[1]);
+                            if (duplicateObject !== undefined) {
+                                //There are already object there. Relocate this object later
+                                relocatePendingObjects.push(duplicateObject)
+                            }
+                            */
+                        
+                            //Move this icon to designed location
+                            $(thisIconObject).css({
+                                left: finalIconLocation[0][0] + iconOffsetXY[0],
+                                top: finalIconLocation[0][1] + iconOffsetXY[1]
+                            });
+
+                            let thisIconFileData = JSON.parse(decodeURIComponent($(thisIconObject).attr("filedata")));
+                            
+                            //Record this in database
+                            $.ajax({
+                                url: "system/desktop/files",
+                                method: "POST",
+                                data: {"set": thisIconFileData.Filename, "x": finalIconLocation[1][0], "y": finalIconLocation[1][1]},
+                                success: function(data) {
+                                    //console.log(data);
+                                }
+                            });
+                            
+                        }
+
+                        //Get duplication objects
+                        for (const [filepath, offset] of Object.entries(iconOffset)) {
+                            let thisIconObject = getObjectFromPath(filepath);
+                            //Check for duplication
+                            var iconLocation = [$(thisIconObject).offset().left, $(thisIconObject).offset().top];
+                            $(".launchIcon").each(function(){
+                                if ($(this).offset().left == iconLocation[0] && $(this).offset().top == iconLocation[1]){
+                                    //This icon is at the target icon location
+                                    if ($(this).attr("filepath") != filepath){
+                                        relocatePendingObjects.push($(this));
+                                    }
+                                }
+                            });
+                        }
+
+
+                        //Relocate objects that is in the way of moving
+                        for (var i = 0; i < relocatePendingObjects.length; i++){
+                            var thisObject = relocatePendingObjects[i];
+                            console.log(thisObject);
+                            var thisX = $(thisObject).offset().left;
+                            var thisY = $(thisObject).offset().top;
+                            var nextEmptyGrid = findClostestEmptyGridLocation(thisX, thisY);
+                            
+                            //Move this file to the next empty grid location
+                            $(thisObject).css({
+                                left: nextEmptyGrid[0][0] + iconOffsetXY[0],
+                                top: nextEmptyGrid[0][1] + iconOffsetXY[1]
+                            });
+
+                            //Save move record to db
+                            let thisIconFileData = JSON.parse(decodeURIComponent($(thisObject).attr("filedata")));
+                            $.ajax({
+                                url: "system/desktop/files",
+                                method: "POST",
+                                data: {"set": thisIconFileData.Filename, "x": nextEmptyGrid[1][0], "y": nextEmptyGrid[1][1]},
+                                success: function(data) {
+                                    //console.log(data);
+                                }
+                            });
+
+                        }
+                    }
+                    
+                }else{
+                    //Dropping a file onto other place on desktop
+                    var sourceObject = getObjectFromPath(sourceFilepath);
+                    var dx = startDragRelatuve[0];
+                    var dy = startDragRelatuve[1];
+                    var targetLocation = findClosestGrid((ev.clientX - dx), (ev.clientY - dy));
+                    var closestLocation = targetLocation[0];
+                    //Check if there are objects already at that location
+                    var duplicateObject = getObjectFromLocation(closestLocation[0], closestLocation[1]);
+                    if (duplicateObject !== undefined) {
+                        //There are already object there. Do nothing
+                        console.log("Drop location duplicated!")
+                        return;
+                    }
+                    var closestGridIndex = targetLocation[1];
+                    $(sourceObject).css({
+                        left: closestLocation[0] + iconOffsetXY[0],
+                        top: closestLocation[1] + iconOffsetXY[1]
+                    });
+                    $.ajax({
+                        url: "system/desktop/files",
+                        method: "POST",
+                        data: {"set": sourceFilename, "x": closestGridIndex[0], "y": closestGridIndex[1]},
+                        success: function(data) {
+                            //console.log(data);
+                        }
+                    });
+                }
+            } else if (target.attr("type") == "folder") {
+                //Move this file or folder into the target folder
+                //WIP
+
+            } else if (target.attr("type") == "shortcut") {
+                //Opening with the shortcut
+                //Check shortcut type
+                let shortcutData = JSON.parse(decodeURIComponent($(target).attr("filedata")));
+                var shortcutType = shortcutData["ShortcutType"];
+                if (shortcutType == "module") {
+                    //Open the source file with this module
+                    let openFileList = [];
+                    if ($(".launchiconwrapper.selected").length > 0 && !Array.isArray(sourceFilelist)) {
+                        $(".launchiconwrapper.selected").each(function() {
+                            let thisFileData = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                            openFileList.push({
+                                filename: thisFileData["Filename"],
+                                filepath: thisFileData["Filepath"]
+                            });
+                        });
+                    }else if (sourceFilelist.length > 0 && Array.isArray(sourceFilelist)){
+                        //Open file that is transfered from file explorer.
+                        openFileList = sourceFilelist;
+                        console.log(openFileList);
+                    } else {
+                        //Only pass in the current selected file.
+                        openFileList.push({
+                            filename: sourceFilename,
+                            filepath: sourceFilepath
+                        });
+                    }
+
+                    var shortcutModule = getModuleFromShortcutInfo(shortcutData);
+                    //console.log(openFileList);
+                    if (shortcutModule === undefined){
+                        //This shortcut module is not found on this server
+                        return;
+                    }
+                    openFileWithModule(shortcutModule, openFileList);
+                } else if (shortcutType == "folder") {
+                    //Move the source file into this folder
+
+                }
+
+            } else {
+                console.log("Unknown reaction type: ", target.attr("type"));
+            }
+        }
+
+        function getModuleFromShortcutInfo(shortcutInfo) {
+            var ShortcutPath = shortcutInfo["ShortcutPath"];
+            if (ShortcutPath.includes("/") == false) {
+                //Legacy defination. Append /index.html at the back.
+                ShortcutPath = ShortcutPath + "/index.html";
+            }
+
+            //Try to match it with the module installed
+            for (var i = 0; i < moduleInstalled.length; i++) {
+                if (moduleInstalled[i]["StartDir"] == ShortcutPath || moduleInstalled[i]["Name"] == shortcutInfo["ShortcutName"]) {
+                    //This is the correct module to be loaded
+                    return moduleInstalled[i];
+                }
+            }
+        }
+
+        function setIconDesktopLocation(sourceFilename, gridIndexX, gridIndexY, callback = undefined) {
+            $.ajax({
+                url: "system/desktop/files",
+                method: "POST",
+                data: {"set": sourceFilename, "x": gridIndexX, "y": gridIndexY},
+                success: function(data) {
+                    if (data.error !== undefined) {
+                        console.log(data.error);
+                    } else {
+                        if (callback !== undefined) {
+                            callback();
+                        }
+                    }
+                }
+            });
+        }
+
+        //THIS FUNCTION IS NEEDED. DO NOT DELETE ALLOWDROP FUNCTION
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        //Pass in the object fullpath and return the icon object onscreen
+        function getObjectFromPath(path) {
+            var object;
+            $(".launchIcon").each(function() {
+                if ($(this).attr("filepath") == path) {
+                    object = $(this);
+                }
+            });
+            return object;
+        }
+
+        //Pass in the coordinate and check if there is another object at the same location
+        function getObjectFromLocation(x, y) {
+            var object;
+            $(".launchIcon").each(function() {
+                if ($(this).position().left == x && $(this).position().top == y) {
+                    object = $(this);
+                }
+            });
+            return object;
+        }
+
+        //Similar function to getObjectFromLocation but using grid coordinate instead of pixel coordinate
+        function getObjectFromGridLocation(gx, gy){
+            var pos = JSON.parse(JSON.stringify(desktopGrids[gx][gy]));
+            pos[0] = pos[0] + iconOffsetXY[0];
+            pos[1] = pos[1] + iconOffsetXY[1];
+            return getObjectFromLocation(pos[0],pos[1]);
+        }
+
+        //Find the clostest empty grid, prioirty given to y first then x
+        function findClostestEmptyGridLocation(x, y){
+            //Reduce icon offset to the x y on screen coordinate
+            x = x - iconOffsetXY[0];
+            y = y - iconOffsetXY[1];
+            //Get the grid index from absolute coordinate
+            var currentGridLocation = getGridIndexFromLocation(x,y);
+            console.log(currentGridLocation);
+            //Search for the next empty location
+            var targetLocation = [[-1,-1],[-1,-1]];
+            for (var i = currentGridLocation[0]; i < desktopGrids.length; i++){
+                var yStart = 0;
+                if (i == currentGridLocation[0]){
+                    yStart = currentGridLocation[1];
+                }
+                for (k = yStart; k < desktopGrids[i].length; k++){
+                    var thisLocation = JSON.parse(JSON.stringify(desktopGrids[i][k]));
+                    var offsetedLocation = [thisLocation[0], thisLocation[1]];
+                    var possibleDuplication = getObjectFromGridLocation(i,k);
+                    //console.log( [i,k], offsetedLocation, possibleDuplication)
+                    if (possibleDuplication === undefined){
+                        //This is an empty slot
+                        targetLocation = [offsetedLocation, [i,k]];
+                        return targetLocation;
+                    }
+                }
+            }
+            return targetLocation;
+        }
+
+        function getGridIndexFromLocation(x,y){
+            var gridIndex = [-1,-1];
+            for (var i = 0; i < desktopGrids.length; i++){
+                var thisXAxis = desktopGrids[i];
+                if (thisXAxis[0][0] == x){
+                    //This x matches. Match y
+                    gridIndex[0] = i;
+                    for (var k = 0; k < thisXAxis.length; k++){
+                        var thisYAxis = thisXAxis[k];
+                        if (thisYAxis[1] == y){
+                            gridIndex[1] = k;
+                            return gridIndex;
+                        }
+                    }
+                }
+            }
+            return gridIndex;
+        }
+
+
+        //Set allow overshoot to allow drop point to get closest grid with x / y > cursor posx /y
+        function findClosestGrid(x, y, allowOvershoot = true) {
+            var minDx = window.innerWidth;
+            var minDy = window.innerHeight;
+            var finalLocation = [-1, -1];
+            var gridLocation = [-1, -1];
+            for (var i = 0; i < desktopGrids.length; i++) {
+                for (var j = 0; j < desktopGrids[0].length; j++) {
+                    var thisGridLocation = desktopGrids[i][j];
+                    var dx = x - thisGridLocation[0];
+                    var dy = y - thisGridLocation[1];
+                    if (allowOvershoot) {
+                        if (Math.abs(dx) < minDx) {
+                            minDx = Math.abs(x - thisGridLocation[0]);
+                            finalLocation[0] = thisGridLocation[0];
+                            gridLocation[0] = i;
+                        }
+                        if (Math.abs(dy) < minDy) {
+                            minDy = Math.abs(y - thisGridLocation[1]);
+                            finalLocation[1] = thisGridLocation[1];
+                            gridLocation[1] = j;
+                        }
+                    } else {
+                        if (dx < minDx && dx > 0) {
+                            minDx = Math.abs(x - thisGridLocation[0]);
+                            finalLocation[0] = thisGridLocation[0];
+                            gridLocation[0] = i;
+                        }
+                        if (dy < minDy && dy > 0) {
+                            minDy = Math.abs(y - thisGridLocation[1]);
+                            finalLocation[1] = thisGridLocation[1];
+                            gridLocation[1] = j;
+                        }
+                    }
+
+                }
+            }
+            return [finalLocation, gridLocation];
+        }
+
+        //Ask for confirmation before window close
+        function myConfirmation() {
+            if (!loggingOut){
+                return 'Your data might not been saved. Are you sure you want to quit?';
+            }
+        }
+
+        window.onbeforeunload = myConfirmation;
+
+        function iconClicked(object, evt) {
+            //Clicked on a launch icon.
+            var alreadyHighlighted = $(object).find(".launchIconWrapper").hasClass("selected");
+            if (alreadyHighlighted){
+                //Already selected
+                if (ctrlHold) {
+                    //Selection
+                    $(object).find(".launchIconWrapper").removeClass("selected");
+                }
+            }else{
+                //Not selected yet
+                if (ctrlHold) {
+                    //Add this into selection
+                    $(object).find(".launchIconWrapper").addClass("selected");
+                }else{
+                    //Remove all others and select this
+                    $(".launchIconWrapper.selected").removeClass("selected");
+                    $(object).find(".launchIconWrapper").addClass("selected");
+                }
+                
+
+            }
+        }
+
+        function iconDoubleClicked(object, evt=undefined) {
+            //Double click on a launch icon, tries to open it
+            var filedata = ao_module_utils.attrToObject($(object).attr("filedata"));
+            //console.log(filedata);
+            if (filedata.IsDir) {
+                //This is a directory. Open with file explorer
+                newFloatWindow({
+                    url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(filedata.Filepath),
+                    appicon: "SystemAO/file_system/img/small_icon.png",
+                    width: 1080,
+                    height: 580,
+                    title: "File Manager"
+                });
+            } else if (filedata.IsShortcut) {
+                //This is a shortcut. Open the target endpoint
+                var stype = filedata["ShortcutType"];
+                if (stype == "module") {
+                    //Open the target module
+                    openModule(filedata.ShortcutPath);
+                } else if (stype == "folder") {
+                    //Open the target folder
+                    openFolder(filedata.ShortcutPath)
+                }else if (stype == "url"){
+                    //Open the target webpage in a new tab
+                    window.open(filedata.ShortcutPath);
+                }else{
+                    console.log(filedata);
+                }
+            } else {
+                //This is a file. Open it with default opener
+                $.ajax({
+                    url: "system/modules/getDefault",
+                    method: "GET",
+                    data: {
+                        opr: "launch",
+                        ext: filedata.Ext,
+                        mode: "launch"
+                    },
+                    success: function(data) {
+                        if (data.error !== undefined) {
+                            //No default opener assigned 
+                            var url = "SystemAO/file_system/defaultOpener.html";
+                            var icon = "SystemAO/file_system/img/opener.png";
+                            var title = "Select an opener WebApp: "
+                            var openFileList = [];
+                            var openFileObject = {
+                                filepath: filedata.Filepath,
+                                filename: filedata.Filename
+                            }
+                            openFileList.push(openFileObject);
+                            var openParamter = encodeURIComponent(JSON.stringify(openFileObject));
+                            parent.newFloatWindow({
+                                url: url + "#" + openParamter,
+                                width: 320,
+                                height: 510,
+                                appicon: icon,
+                                title: title
+                            });
+                        } else {
+                            //Assigned. Launch with given paramter
+                            var url = data["StartDir"];
+                            var size = [undefined, undefined];
+                            var title = data["Name"];
+                            var icon = "img/system/favicon.png";
+                            if (data["IconPath"] != "") {
+                                icon = data["IconPath"];
+                            }
+                            //Use floatWindow if exists
+                            if (data["SupportFW"] == true && data["LaunchFWDir"] != "") {
+                                url = data["LaunchFWDir"];
+                                if (data["InitFWSize"] !== null) {
+                                    size = data["InitFWSize"]
+                                }
+                            }
+                            //Use embedded mode if exists
+                            if (data["SupportEmb"] == true && data["LaunchEmb"] != "") {
+                                url = data["LaunchEmb"];
+                                if (data["InitEmbSize"] !== null) {
+                                    size = data["InitEmbSize"]
+                                }
+                            }
+
+                            //Build open File Hash Data Format
+                            var openFileList = [];
+                            var openFileObject = {
+                                filepath: filedata.Filepath,
+                                filename: filedata.Filename
+                            }
+                            openFileList.push(openFileObject);
+                            var openParamter = encodeURIComponent(JSON.stringify(openFileList));
+
+                            //Add launch files info and launch floatWindow
+                            newFloatWindow({
+                                url: url + "#" + openParamter,
+                                width: size[0],
+                                height: size[1],
+                                appicon: icon,
+                                title: title
+                            });
+                        }
+                    }
+                })
+            }
+        }
+
+        $(window).on("resize", function(event) {
+                redrawDesktopGrids();
+                resizeAllFloatWindowButtons();
+            })
+            // ======================= DOCUMENT KEY BINDING =====================
+        $(document).keydown(function(event) {
+            if (event.which == "17") {
+                //Pressdown of Ctrl key
+                ctrlHold = true;
+            } else if (event.which == "16") {
+                //Pressdown of Shift key
+                shiftHold = true;
+            }else if (event.which == "27"){
+                //Cancel all floatwindow events and key events
+                $("#fwdragpanel").hide();
+                $(".floatWindow").find(".iframecover").hide();
+                movingWindow = false;
+                resizingWindow = false;
+                resizingEdgeID = 0;
+                multiSelecting = false;
+                ctrlHold = false;
+                shiftHold = false;
+            }else if (event.which == "46"){
+                //Delete key
+                var deleteFilelist = [];
+                $(".launchIconWrapper.selected").each(function(){
+                    var fileObject = $(this).parent();
+                    var fd = JSON.parse(decodeURIComponent((fileObject).attr("filedata")));
+                    deleteFilelist.push(fd.Filepath);
+                });
+
+                //Prase the filelist and pass to trash module
+                console.log(deleteFilelist);
+                $.ajax({
+                    url: "system/file_system/fileOpr",
+                    method:"POST",
+                    data: {opr: "recycle", src: JSON.stringify(deleteFilelist)},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            refresh(undefined, true);
+                        }
+                    }
+                });
+            }else if (event.which == "13"){
+                //Enter key
+                if (!renameMode){
+                    //Open selected object by emulating double click
+                    $(".launchIconWrapper.selected").each(function(){
+                        var object = $(this).parent();
+                        iconDoubleClicked(object);
+                    });
+                    
+                }else if (renameMode){
+                    console.log("WIP");
+                }
+            
+            }else{
+                console.log(event.which);
+            }
+        });
+
+        $(document).keyup(function(event) {
+            if (event.which == "17") {
+                ctrlHold = false;
+            } else if (event.which == "16") {
+                shiftHold = false;
+            }
+        });
+
+        $("#bgwrapper").on("mouseup", function(event) {
+            //Deselect all selected icons
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            mainWindowMouseup(event);
+
+        });
+
+        function openFolder(virtualPath){
+            newFloatWindow({
+                url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(virtualPath),
+                appicon: "SystemAO/file_system/img/small_icon.png",
+                width:1080,
+                height:580,
+                title: "File Manager"
+            });
+        }
+
+        function logout() {
+            loggingOut = true;
+            if (confirm("Exiting Session. Confirm?")){
+                $.get("system/auth/logout", function() {
+                    window.location.href = "/";
+                });
+            }
+            hideAllContextMenus();
+        }
+
+        // ======================= CONTEXT MENU =============================
+
+        window.addEventListener("contextmenu",
+            function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var clickTarget = $(e.target);
+                hideAllContextMenus();
+                showMenu = false;
+                $("#contextmenu").html("");
+                if (clickTarget.hasClass("launchIcon") || clickTarget.hasClass("launchIconImage") || clickTarget.hasClass("launchIconText")) {
+                    //Click on an object on destkop
+                    if (clickTarget.hasClass("launchIcon") == false) {
+                        clickTarget = $(clickTarget).parent().parent();
+                    }
+                    if (!ctrlHold && !$(clickTarget).find(".launchIconWrapper").hasClass("selected")){
+                        $(".launchIconWrapper.selected").removeClass("selected");
+                    }
+                    //Select this object
+                    $(clickTarget).find(".launchIconWrapper").addClass("selected");
+                    var objectType = $(clickTarget).attr("type");
+                    operationTargetLaunchIcon = $(clickTarget);
+                    //Check if selected more than one object
+                    if ($(".launchIconWrapper.selected").length > 1){
+                            //When the user selected more than one item on desktop
+                            addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
+                            addContextMenuItem($("#contextmenu"), 'Open With', "<i class='caret right icon'></i>", "handleOpenWith", true);
+                            addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
+                            addContextMenuSeperator($("#contextmenu"));
+                            addContextMenuItem($("#contextmenu"), 'Download in Zip', "<i class='download icon'></i>", "downloadFile", false);
+                            addContextMenuItem($("#contextmenu"), 'Make a Copy', "<i class='copy icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                            addContextMenuSeperator($("#contextmenu"));
+                            addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
+
+                    }else{
+                        //When the user only selected one item
+                        if (objectType == "file") {
+                            addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
+                            addContextMenuItem($("#contextmenu"), 'Open With', "<i class='caret right icon'></i>", "handleOpenWith", true);
+                            addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
+                            addContextMenuSeperator($("#contextmenu"));
+                            addContextMenuItem($("#contextmenu"), 'Download', "<i class='download icon'></i>", "downloadFile", false);
+                            addContextMenuItem($("#contextmenu"), 'Make a Copy', "<i class='copy icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), 'Rename', undefined, "handleRename", false);
+                            addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                            addContextMenuSeperator($("#contextmenu"));
+                            addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
+
+                        } else if (objectType == "folder") {
+                            addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
+                            addContextMenuItem($("#contextmenu"), 'Zip here', "<i class='zip icon'></i>", "handleZipFolder", false);
+                            addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
+                            addContextMenuSeperator($("#contextmenu"));
+                            addContextMenuItem($("#contextmenu"), 'Download as Zip', "<i class='download icon'></i>", "downloadFile", false);
+                            addContextMenuItem($("#contextmenu"), 'Make a Copy', "<i class='caret right icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), 'Rename', undefined, "handleRename", false);
+                            addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                            addContextMenuSeperator($("#contextmenu"));
+                            addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
+                        } else if (objectType == "shortcut") {
+
+                        }
+                    }
+                    showMenu = true;
+
+                } else if (clickTarget.hasClass("backgroundFrame")) {
+                    //Click on the background. Load background context menu.
+                    addContextMenuItem($("#contextmenu"), 'New', "<i class='caret right icon'></i>", "newitemmenu", true);
+                    addContextMenuItem($("#contextmenu"), 'Refresh', "<i class='refresh icon'></i>", "handleMenuRefresh", false);
+                    addContextMenuItem($("#contextmenu"), 'Open File Manager', undefined, "openfm", false);
+                    addContextMenuItem($("#contextmenu"), 'Get File from URL', "<i class='download icon'></i>", "downloadURL", false);
+                    addContextMenuItem($("#contextmenu"), 'Personalization', "<i class='paint brush icon'></i>", "personalization", false);
+                    addContextMenuItem($("#contextmenu"), 'Background', "<i class='caret right icon'></i>", "background", true);
+                    addContextMenuItem($("#contextmenu"), 'Icon Size', "<i class='caret right icon'></i>", "listIconsize", true);
+                    addContextMenuItem($("#contextmenu"), 'Toggle FullScreen', "<i class='maximize icon'></i>", "fullscreen", false);
+                    addContextMenuItem($("#contextmenu"), 'Exit', undefined, "logout", false);
+                    showMenu = true;
+                }else if (clickTarget.hasClass("fwdragger")){
+                    //Click on the floatWindow object 
+
+                    showMenu = true;
+                }
+
+                if (showMenu){
+                    //Toggle context menu
+                    $("#contextmenu").show();
+                    var startX = e.pageX;
+                    var startY = e.pageY;
+                    if (e.pageX > window.innerWidth / 2){
+                        startX = e.pageX - $("#contextmenu").width();
+                    }
+                    if (e.pageY > window.innerHeight / 2){
+                        startY = e.pageY -  $("#contextmenu").height();
+                    }
+                    $("#contextmenu").css({
+                        left: startX,
+                        top: startY
+                    });
+                    menuStartLocation = [e.pageX, e.pageY];
+                }
+                
+            }, true);
+
+        function handleMenuRefresh() {
+            //This function is here to remove the object and event passed in from menu pressed object
+            refresh();
+        }
+
+        function newshortcut(){
+            //Show the new shortcut creation tool
+            newFloatWindow({
+                url: "SystemAO/desktop/shortcutCreator.html",
+                appicon: "img/desktop/system_icon/shortcut.png",
+                width:815,
+                height:485,
+                title: "New Shortcut"
+            });
+            hideAllContextMenus();
+        }
+
+        function openIconViaMenu(target, event){
+            $(".launchIconWrapper.selected").each(function(){
+                iconObject = $(this).parent();
+                //Emulate a doubleclick on icon
+                iconDoubleClicked(iconObject, event);
+            });
+            hideAllContextMenus();
+           
+        }
+
+        function downloadFile(target, event){
+            if ( $(".launchIconWrapper.selected").length == 1){
+                //Download this file directly
+                var rawfiledata = $(".launchIconWrapper.selected").parent().attr("filedata");
+                var filedata = JSON.parse(decodeURIComponent(rawfiledata));
+                var filepath = filedata.Filepath;
+                //Resolve the link to media download link
+                var downloadLink = "media?file=" + filepath + "&download=true";
+                window.open(downloadLink)
+
+            }else if ($(".launchIconWrapper.selected").length > 1){
+                //Create a zip file using the fs api
+                var filelist = [];
+                $(".launchIconWrapper.selected").each(function(){
+                    var filedata = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                    var filepath = filedata.Filepath;
+                    filelist.push(filepath);
+                });
+
+                $.ajax({
+                    url: "system/file_system/zipHandler",
+                    data: {opr: "tmpzip", src: JSON.stringify(filelist), dest: ""},
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Zip completed.
+                            window.open("media?file=" + data + "&download=true");
+                        }
+                    }
+                });
+            }
+            
+            hideAllContextMenus();
+        }
+
+        function handleZipFolder(){
+            var filelist = [];
+            var filename = "desktop_" + new Date().getTime() + ".zip"
+            if ($(".launchIconWrapper.selected").length == 1){
+                filename = $(".launchIconWrapper.selected").parent().attr('filename') + ".zip";
+            }
+
+            $(".launchIconWrapper.selected").each(function(){
+                var filedata = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                var filepath = filedata.Filepath;
+                if (filedata.IsDir == true){
+                    filelist.push(filepath);
+                }
+            });
+            $.ajax({
+                    url: "system/file_system/zipHandler",
+                    data: {opr: "zip", src: JSON.stringify(filelist), dest: "user:/Desktop/" + filename},
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Zip completed.
+                            console.log(data);
+                        }
+                    }
+                });
+            //console.log(filelist);
+            hideAllContextMenus();
+        }
+
+        function handleOpenWith(target, event){
+            $("#subcontextmenu").html("");
+            $.get("system/modules/list",function(data){
+                if (data.error !== undefined){
+                    alert(data.error);
+                }else{
+                    var supportedModuleCount = 0;
+                    var openWithTargets = [];
+                    for (var i =0; i < data.length; i++){
+                        var thisModule = data[i];
+                        if (thisModule.SupportEmb == true){
+                            addContextMenuItem($("#subcontextmenu"), thisModule.Name, "", "openSelectedWith", false);
+                        }
+                        
+                    }
+                }
+
+                showSubContextMenu(target);
+            });
+        }
+
+        function openObjectProperty(target, object){
+           var filelist = [];
+           $(".launchIconWrapper.selected").each(function(){
+               var filepath = $(this).parent().attr("filepath");
+               filelist.push(filepath);
+           });
+           
+           var hashPassthrough = encodeURIComponent(JSON.stringify(filelist));
+            newFloatWindow({
+                url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
+                width: 340,
+                height: 480,
+                appicon: "SystemAO/file_system/img/properties.png",
+                title: "File Properties",
+            });
+
+            hideAllContextMenus();
+        }
+
+        function openSelectedWith(target, event){
+            var targetModulename = $(target).text().trim();
+            var openFileList = [];
+            $(".selected.launchIconWrapper").each(function(){
+                var thisFiledata = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+               openFileList.push({
+                   filename: thisFiledata.Filename,
+                   filepath: thisFiledata.Filepath
+               });
+            });
+
+            //Find the launch info of the module
+            var targetModuleInfo = undefined;
+            for (var i =0; i < moduleInstalled.length; i++){
+                if (moduleInstalled[i].Name == targetModulename){
+                    targetModuleInfo = JSON.parse(JSON.stringify(moduleInstalled[i]));
+                }
+            }
+
+           //Open the files with the given module
+            openFileWithModule(targetModuleInfo, openFileList);
+
+            hideAllContextMenus();
+
+        }
+
+        function getModuleInfoFromName(moduleName){
+            for (var i = 0; i < moduleInstalled.length; i++){
+                if (moduleInstalled[i].Name == moduleName){
+                    return moduleInstalled[i];
+                }
+            }
+
+            return false
+        }
+
+
+
+        function addContextMenuItem(target, keyword, hotkey = undefined, functionName, containSubMenu = false) {
+            var itemClass = "item";
+            if (containSubMenu) {
+                itemClass = "item submenu";
+            }
+            if (hotkey !== undefined) {
+                target.append(`<div class="${itemClass}" onclick="${functionName}(this,event);">
+                        ${keyword}
+                        <span class="description">${hotkey}</span>
+                    </div>`);
+            } else {
+                target.append(`<div class="${itemClass}"  onclick="${functionName}(this,event);">
+                        ${keyword}
+                    </div>`);
+            }
+        }
+
+        function listIconsize(target, event) {
+            $("#subcontextmenu").html("");
+            var smallCheckmark = undefined;
+            var mediumCheckmark = undefined;
+            var bigCheckmark = undefined;
+            if (desktopIconSize == "small") {
+                smallCheckmark = "<i class='checkmark icon'></i>";
+            }
+            if (desktopIconSize == "medium") {
+                mediumCheckmark = "<i class='checkmark icon'></i>";
+            }
+
+            if (desktopIconSize == "big") {
+                bigCheckmark = "<i class='checkmark icon'></i>";
+            }
+            addContextMenuItem($("#subcontextmenu"), "Small", smallCheckmark, "setDesktopIconSize", false);
+            addContextMenuItem($("#subcontextmenu"), "Medium", mediumCheckmark, "setDesktopIconSize", false);
+            addContextMenuItem($("#subcontextmenu"), "Big", bigCheckmark, "setDesktopIconSize", false);
+            showSubContextMenu(target);
+        }
+
+        function setDesktopIconSize(target, evt) {
+            var targetSize = $(target).text().trim().toLowerCase();
+            if (["small", "medium", "big"].includes(targetSize)) {
+                desktopIconSize = targetSize;
+            }
+            refresh();
+            setStorage("iconsize", desktopIconSize);
+            hideAllContextMenus();
+        }
+
+        function addContextMenuSeperator(target) {
+            $(target).append(`<div class="divider"></div>`);
+        }
+
+        function downloadURL() {
+            alert("WIP");
+            hideAllContextMenus();
+        }
+
+        function background(target, evt) {
+            $("#subcontextmenu").html('<div class="item"><i class="loading spinning icon"></i> Loading</div>');
+            $.get("system/desktop/theme", function(data) {
+                $("#subcontextmenu").html("");
+                for (var i = 0; i < data.length; i++) {
+                    if (currentUserTheme == data[i].Theme) {
+                        addContextMenuItem($("#subcontextmenu"), data[i].Theme, "<i class='checkmark icon'></i>", "setTheme", false);
+                    } else {
+                        addContextMenuItem($("#subcontextmenu"), data[i].Theme, undefined, "setTheme", false);
+                    }
+
+                }
+            });
+            showSubContextMenu(target);
+        }
+
+        //Set theme from button click
+        function setTheme(target, evt) {
+            var theme = $(target).text().trim();
+            setDesktopTheme(theme);
+            hideAllContextMenus();
+        }
+
+        function personalization() {
+            alert("WIP");
+            hideAllContextMenus();
+        }
+
+        //New folder on the menu start location
+        function newfolder(object, event) {
+            var closestLocation = findClosestGrid(menuStartLocation[0], menuStartLocation[1], false);
+            let closestPixelLocation = closestLocation[0];
+            let closestGridIndexLocation = closestLocation[1];
+            //Generate new foldername
+            var newFolderName = "New Folder";
+            var counter = 1;
+            while (desktopFileList.includes(newFolderName)) {
+                newFolderName = `New Folder(${counter})`;
+                counter++;
+            }
+
+            //Check if there are already another object at that locaton
+            var duplicateObject = getObjectFromLocation(closestPixelLocation[0], closestPixelLocation[1]);
+            var createObjectLocation = true;
+            if (duplicateObject !== undefined) {
+                //Ignore create position. Let it settle on next new slot.
+                createObjectLocation = false;
+            }
+
+            //Create the folder
+            $.post("system/file_system/newItem", {
+                type: "folder",
+                src: "user:/Desktop/",
+                filename: newFolderName
+            }).done(function(data) {
+                if (data.error !== undefined) {
+                    console.log(data.error);
+                } else {
+                    if (createObjectLocation) {
+                        setIconDesktopLocation(newFolderName, closestGridIndexLocation[0], closestGridIndexLocation[1], function() {
+                            //After set Desktop icon, refresh the page 
+                            refresh(function() {
+                                //After refresh the page, highlight the new folder and set it to rename mode
+                                var targetFolderObject = getObjectFromLocation(closestPixelLocation[0], closestPixelLocation[1]);
+                                console.log(targetFolderObject);
+                            });
+                        });
+                    }
+                }
+            });
+
+            /*
+            //Open new folder creation window
+            var existsingFileList = [];
+            for (var i =0; i < desktopFileList.length; i++){
+                existsingFileList.push({
+                    filename: desktopFileList[i],
+                    filepath: "user:/Desktop/" + desktopFileList[i]
+                });
+            }
+            newFloatWindow({
+                url: "SystemAO/file_system/newFolder.html#" + encodeURIComponent(JSON.stringify(existsingFileList)),
+                appicon: "SystemAO/file_system/img/new folder.png",
+                width:560,
+                height:340,
+                title: "New Folder"
+            });
+            */
+            hideAllContextMenus();
+        }
+
+        function enableRenameOnLaunchIconObject(object) {
+            renameMode = true;
+            $(".launchIcon").attr("draggable", "false");
+            var originalName = $(object).find(".launchIconText").text().trim();
+            $(object).find(".launchIconText").hide();
+            $(object).append(`<textarea class="renameInput ${desktopIconSize}" type="text" ondragstart="return false;" maxlength="32">${originalName}</textarea>`);
+        }
+
+        function exitRenameMode() {
+            if (renameMode) {
+                $(".launchIcon").attr("draggable", "true");
+                $(".launchIcon").find(".launchIconText").show();
+
+                //Update the folder to textarea content
+
+                $(".renameInput").each(function() {
+                    if ($(this).text() == "") {
+                        //Ignore this update
+                    } else {
+                        var newFoldername = $(this).text();
+                        alert("Update this object name to " + newFoldername)
+                    }
+                });
+            }
+        }
+
+        //Handle basic desktop file operations
+        function handleFileDelete(object, event){
+            var deleteFileList = [];
+            $(".launchIconWrapper.selected").each(function(){
+                var filedata = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                deleteFileList.push(filedata.Filepath);
+            });
+            console.log(deleteFileList);
+            $.ajax({
+                url: "system/file_system/fileOpr",
+                method:"POST",
+                data: {opr: "recycle", src: JSON.stringify(deleteFileList)},
+                success: function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                       refresh(undefined, true);
+                    }
+                }
+            });
+            hideAllContextMenus();
+        }
+
+        //New item menus.
+        function newitemmenu(target, event) {
+            $("#subcontextmenu").html("");
+            //Append the new folder option first
+            addContextMenuItem($("#subcontextmenu"), 'Folder', "<i class='folder icon'></i>", "newfolder", true);
+            addContextMenuItem($("#subcontextmenu"), 'Shortcut', "<i class='external icon'></i>", "newshortcut", true);
+            addContextMenuSeperator($("#subcontextmenu"));
+            $.get("system/file_system/newItem", function(data) {
+                for (var i = 0; i < data.length; i++) {
+                    var thisNewFile = data[i];
+                    var icon = ao_module_utils.getIconFromExt(thisNewFile.Ext);
+                    addContextMenuItem($("#subcontextmenu"), `<i class="${icon} icon" ext="${thisNewFile.Ext}"></i> ${thisNewFile.Desc}`, undefined, "newitem");
+                }
+                //Show sub-context menu
+                showSubContextMenu(target);
+            });
+
+            
+        }
+
+        function showSubContextMenu(target) {
+            $("#subcontextmenu").show();
+            var targetLeft = $("#contextmenu").offset().left + $("#contextmenu").width() + 2;
+            var targetTop = $(target).offset().top - 1;
+            if (targetLeft +  $("#subcontextmenu").width() > window.innerWidth){
+                //Overflow. Swtich to the left side of the menu
+                targetLeft = $("#contextmenu").offset().left - $("#subcontextmenu").width() - 2;
+            }
+            $("#subcontextmenu").css({
+                left: targetLeft,
+                top: targetTop
+            });
+            
+        }
+
+        function newitem(object, event) {
+            var extension = $(object).find("i").attr("ext");
+            alert(extension);
+        }
+
+        function updateVolume(object, event){
+            var width = $(object).width();
+            var left = $(object).offset().left;
+            var clickRel = event.clientX - left;
+            var percentage = clickRel / width * 100;
+            if (percentage < 0){
+                percentage = 0;
+            }else if (percentage > 100){
+                percentage = 100;
+            }
+            //Update the global volume
+            $(object).find(".bar").css("width",percentage + "%");
+            localStorage.setItem("global_volume", clickRel / width);
+        }
+
+
+
+        function refresh(callback = undefined, noflash=false) {
+            //Refresh desktop contents
+            let launchOption = {};
+            if (noflash){
+                launchOption = {
+                    noflash: true
+                };
+            }else{
+                $(".launchIcon").remove();
+            }
+            if (callback == undefined) {
+                initDesktopFiles(launchOption);
+            } else {
+                initDesktopFiles(launchOption, callback);
+            }
+
+            hideAllContextMenus();
+        }
+
+
+        function openfm() {
+            //Open file explorer on desktop
+            newFloatWindow({
+                url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent("user:/Desktop/"),
+                appicon: "SystemAO/file_system/img/small_icon.png",
+                width: 1080,
+                height: 580,
+                title: "File Manager"
+            });
+            hideAllContextMenus();
+        }
+
+        /*
+            Notification and Notification bar related functions
+
+            Usage:
+            title -> The title of the notification
+            content -> The content of the notification
+            icon (optional) -> The icon of the notification
+            windowOpenOption (optional) -> The window opening option for user onclick redirection
+        */
+
+        function sendNotification(title, content, icon="notice circle", windowOpenOption=null){
+            if (content.length > 100){
+                shortenContent = content.substring(0,100) + "...";
+            }else{
+                shortenContent = content;
+            }
+            onClickOpenWindowOption = encodeURIComponent(JSON.parse(windowOpenOption));
+            $("#notificationlist").append(` <div class="notification object" originalcontent="${content}" redirect="${onClickOpenWindowOption}" onclick="openNotification(this);">
+                    <p class="title"><i class="${icon} icon"></i> ${title}</p>
+                    <p class="notifycontent">${shortenContent}</p>
+                    <div class="closebtn" onclick="event.stopImmediatePropagation(); closeThisNotification(this);"><i class="remove icon"></i></div>
+                    <div class="ts divider"></div>
+                </div>`);
+            $(".nonotification").hide();
+            
+        }
+
+        function openNotification(obj){
+            newWindowOpeningOption = JSON.parse(decodeURIComponent($(obj).attr("redirect")));
+            if (newWindowOpeningOption == null){
+                //Ignore
+
+            }else{
+                //Start a floatWindow to the given target
+                newFloatWindow(newWindowOpeningOption);
+            }
+
+            //Clear the notiication
+            closeThisNotification($(obj).find(".closebtn"));
+
+        }
+
+        function closeThisNotification(obj){
+            $(obj).parent().slideUp("fast",function(data){
+                $(this).remove();
+                if ($(".notification.object").length == 0){
+                    $(".nonotification").show();
+                }
+            });
+
+
+        }
+
+        function clearAllNotification(){
+            $(".notification.object").slideUp('fast',function(data){
+                $(this).remove();
+                $(".nonotification").show();
+            });
+        }
+
+        function hideAllContextMenus() {
+            $("#subcontextmenu").hide();
+            $("#contextmenu").hide()
+        }
+
+        function restart(){
+            if (!hardwareman){
+                return
+            }
+
+            if (confirm("Confirm Restart?")){
+                $.ajax({
+                    url: "system/power/restart",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }
+                    },
+                    error: function(){
+
+                    }
+                });
+            }
+        }
+
+        function shutdown(){
+            if (!hardwareman){
+                return
+            }
+
+            if (confirm("Confirm Poweroff?")){
+                $.ajax({
+                    url: "system/power/shutdown",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Shutdown suceed
+                        }
+                    },
+                    error: function(){
+                        //Shutdown suceed
+                    }
+                });
+            }
+
+           
+        }
+
+        function uploadFile(file, callback=undefined) {
+            let url = 'system/file_system/upload'
+            let uploadCurrentPath = "user:/Desktop/";
+            let formData = new FormData()
+            let xhr = new XMLHttpRequest()
+            formData.append('file', file);
+            formData.append('path', uploadCurrentPath);
+
+            xhr.open('POST', url, true)
+            xhr.upload.addEventListener("progress", function(e) {
+                console.log((e.loaded * 100.0 / e.total) || 100)
+            })
+
+            xhr.addEventListener('readystatechange', function(e) {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    if (callback !== undefined){
+                        callback(e.target.response);
+                    }
+                }
+                else if (xhr.readyState == 4 && xhr.status != 200) {
+                    console.log("Upload failed :" + xhr.status);
+                }
+            })
+            xhr.send(formData);
+        }
+
+        function setStorage(key, value, callback = undefined) {
+            $.get("system/desktop/preference?preference=" + key + "&value=" + value, function(data) {
+                if (data.error !== undefined) {
+                    console.log(data.error);
+                } else {
+                    if (callback !== undefined) {
+                        callback();
+                    }
+
+                }
+            });
+        }
+
+        function getStorage(key, callback) {
+            $.get("system/desktop/preference?preference=" + key, callback);
+        }
+
+        function showSystemSettings(){
+            var hasAccessToSetting = false;
+            moduleInstalled.forEach(thismod => {
+                if (thismod.Name == "System Setting"){
+                    openModule("System Setting");
+                }
+            })
+        }
+
+        function fullscreen() {
+            //Opening full screen will lead to hidden of all iframe for unknown reasons
+            var isInFullScreen = (document.fullscreenElement && document.fullscreenElement !== null) ||
+                (document.webkitFullscreenElement && document.webkitFullscreenElement !== null) ||
+                (document.mozFullScreenElement && document.mozFullScreenElement !== null) ||
+                (document.msFullscreenElement && document.msFullscreenElement !== null);
+            var elem = document.documentElement;
+            if (!isInFullScreen) {
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.mozRequestFullScreen) { /* Firefox */
+                    elem.mozRequestFullScreen();
+                } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) { /* IE/Edge */
+                    elem.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+
+            hideAllContextMenus();
+        }
+    </script>
+</body>
+
+</html>

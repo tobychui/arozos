@@ -421,7 +421,8 @@
 			</div>
 		</div>
 	</div>
-	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;" onClick="loadUploadInterface();">
+	<!-- 
+	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;" onClick="">
 		<div class="ts header">
 			<i class="upload icon whiteFont"></i>
 			<div class="content whiteFont">
@@ -429,6 +430,7 @@
 			</div>
 		</div>
 	</div>
+	-->
 	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;border-top: 2px solid #4a4a4a;">
 		<div class="ts header">
 			<i class="setting tiny icon whiteFont"></i>
@@ -934,7 +936,10 @@
 				-1\
 			</div>\
 			</div>');
-		$.ajax("listSong?listSong=search:" + keyword).done(function(data){
+
+		ao_module_agirun("Music/functions/listSong.js", {
+			listSong: "search:" + keyword
+		}, function(data){
 			currentPath = "";
 			var template = '<div class="mainList item" filepath={filepath} id={id} rawname={rawname}>\
 			<div class="ts header selectable" style="margin:0px !important;" onClick="playSong(this);">\
@@ -1817,8 +1822,10 @@
         </div>\
     </div>';
         $("#interfaceTitle").text("Storage");
-        $("#AMmenuIcon").attr("class","folder open icon large whiteFont");
-	    $.get("listSong?listdir=root",function(data){
+		$("#AMmenuIcon").attr("class","folder open icon large whiteFont");
+		ao_module_agirun("Music/functions/listSong.js", {
+			listdir: "root",
+		},function(data){
 	        $("#mainList").html("");
 	        for (var i =0; i < data.length; i++){
 	            var folderName = data[i][0];
@@ -1842,7 +1849,7 @@
 	                fileinfo = "[" + fileCount + " files, " + folderCount  +" folders]"
 	            }
 	            box = replaceAll("{fileinfo}",fileinfo,box);
-	            rootPaths.push(folderPath);
+				rootPaths.push(folderPath);
 	            $("#mainList").append(box);
 	        }
 	        $("#interfaceDetails").text("[" + data.length + " folders]");
@@ -1930,13 +1937,14 @@
             loadFolderView();
             return;
         }
-        currentPath = targetPath.replace("/./","/");
+		currentPath = targetPath.split("/./").join("/");
+		currentPath = currentPath.split("//").join("/");
 	    $("#interfaceTitle").text(ao_module_codec.decodeHexFoldername(targetPath.substring(0,targetPath.length -1).split("/").pop()));
-	    var parentDir = currentPath.split("/");
+		var parentDir = currentPath.split("/");
 	    parentDir.pop();parentDir.pop();
 	    parentDir = (parentDir.join("/") + "/");
 	    //console.log(currentPath);
-	    var backbtn;
+		var backbtn;
 	    if (rootPaths.includes(currentPath) == false){
 	        //We are currently not at root
 	        backbtn = backbtnTemplate;
@@ -1950,7 +1958,9 @@
 	    }
 	    
 	    //Request the server for a list of folders and file in this directory
-	    $.get("listSong?listdir=" + encodeURIComponent(targetPath),function(data){
+		ao_module_agirun("Music/functions/listSong.js", {
+			listdir: targetPath.split("//").join("/"),
+		},function(data){
 	        $("#mainList").html("");
 	        $("#mainList").append(backbtn);
             if (Array.isArray(data)){
@@ -2088,61 +2098,7 @@
 		});
 	}
 	
-	function loadUploadInterface(){
-         var folderTemplate = '<div class="mainList item folders" filepath={filepath} tag="folder" id={id} onClick="selectFolder(this);">\
-            <div class="ts header selectable" style="margin:0px !important;">\
-                <i class="folder open icon whiteFont" style="overflow:hidden;"></i>\
-                <div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">\
-                    {foldername}\
-                    <div class="sub header fileinfo" style="color: #c7c7c7;">{fileinfo}</div>\
-                </div>\
-            </div>\
-            <div class="mainList rightFunctionBar" type="folder" align="center">\
-                <i class="chevron right icon" style="top:30%;"></i>\
-            </div>\
-        </div>';
-	     currentPath = "";
-	     $("#interfaceTitle").text("Upload");
-         $("#AMmenuIcon").attr("class","upload icon large whiteFont")
-         $("#mainList").html("");
-         var iframe = '<div class="mainList item" style="padding:0px !important;"><iframe width="100%" height="260px" src="../Upload%20Manager/upload_interface_min.php?target=AirMusic&filetype=mp3,ogg,wav,flac,aac"></iframe>\
-         <div style="padding: 12px;"><p class="whiteFont" id="currentUploadPath">Current Upload Directory: uploads/</p></div></div>';
-         $("#mainList").append(iframe);
-         $.get("listSong?listdir=root",function(data){
-             for (var i =0; i < data.length; i++){
-	            var folderName = data[i][0];
-	            var folderPath = data[i][1];
-	            var fileCount = data[i][2];
-	            var folderCount = data[i][3];
-	            var box = folderTemplate;
-	            box = replaceAll("{filepath}",folderPath,box);
-	            box = replaceAll("{id}",i + 1,box);
-	            if (folderPath.includes("/media")){
-	                //This is from external storage devices. List its number as well.
-	                var tmp = folderPath.split("/");
-	                var extStoragePath = "/" + tmp[1] + "/" + tmp[2];
-	                box = replaceAll("{foldername}",folderName + " ( " + extStoragePath + " )",box);
-	            }else{
-	                //This is directory inside normal folders. 
-	                box = replaceAll("{foldername}",folderName,box);
-	            }
-	            var fileinfo = "[" + fileCount + " files]"
-	            if (folderCount > 0){
-	                fileinfo = "[" + fileCount + " files, " + folderCount  +" folders]"
-	            }
-	            box = replaceAll("{fileinfo}",fileinfo,box);
-	            $("#mainList").append(box);
-             }
-         });
-         $.get("listSong?listfolder=uploads/",function(data){
-             var fileList = data[1];
-             currentUploadTargetFileList = Array.from(fileList);
-             currentUploadTargetFilepath = "uploads/";
-             monitorFileChangeForUpload();
-         });
-        
-         hideLeftMenu();
-	}
+
 	
 	function monitorFileChangeForUpload(){
 	    if ($("#interfaceTitle").text() == "Upload"){
@@ -2156,56 +2112,6 @@
 	    }
 	}
 	
-	var currentUploadTargetFileList = [];
-	var currentUploadTargetFilepath;
-	function selectFolder(object){
-	      var backbtnTemplate = '<div class="mainList item extrapadding folders" filepath={filepath} onClick="selectFolder(this);">\
-            <div class="ts header selectable" style="margin:0px !important;">\
-                <i class="angle left icon whiteFont" style="overflow:hidden;"></i>\
-                <div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">\
-                    ../\
-                </div>\
-            </div>\
-        </div>';
-        var folderTemplate = '<div class="mainList item folders" filepath={filepath} tag="folder" onClick="selectFolder(this);">\
-            <div class="ts header selectable" style="margin:0px !important;">\
-                <i class="folder open icon whiteFont" style="overflow:hidden;"></i>\
-                <div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">\
-                    {foldername}\
-                    <div class="sub header fileinfo" style="color: #c7c7c7;">Click here to upload into this directory.</div>\
-                </div>\
-            </div>\
-            <div class="mainList rightFunctionBar" type="folder" align="center">\
-                <i class="chevron right icon" style="top:30%;"></i>\
-            </div>\
-        </div>';
-	    var filepath = $(object).attr("filepath");
-	    currentUploadTargetFilepath = filepath;
-	    if (filepath == "/" || filepath == ""){
-	        //Reload upload interface
-	        loadUploadInterface();
-	        return;
-	    }
-	    var parentPath = filepath.split("/");
-	    parentPath.pop();parentPath.pop();
-	    parentPath = parentPath.join("/") + "/";
-	    $("#currentUploadPath").text("Current Upload Directory: " + filepath);
-	    $.get("listSong?listfolder=" + filepath,function(data){
-	        var folders = data[0];
-	        var fileList = data[1];
-	        $("#mainList").find(".mainList.item.folders").each(function(){
-	            $(this).remove();
-	        });
-	        var bb = replaceAll("{filepath}",parentPath,backbtnTemplate);
-	        $("#mainList").append(bb);
-	        for (var i=0; i <folders.length; i++){
-	            var box = folderTemplate;
-	            box = replaceAll("{filepath}",folders[i][1] + "/",box);
-	            box = replaceAll("{foldername}",ao_module_codec.decodeHexFoldername(folders[i][0]),box);
-	            $("#mainList").append(box);
-	        }
-	    });
-	}
 	
 	function hideShowMoreMenu(){
 	    $(".showMoreMenus").fadeOut('fast');
@@ -2256,6 +2162,7 @@
 		if (filepath.substring(0, 12) == "/media?file="){
 			filepath = filepath.substring(12);
 		}
+		
 	    $.ajax("getFileInfo?filepath=" + filepath).done(function(data){
     	    $("#showFileInfo").find(".filename").text(ao_module_codec.decodeUmFilename(data[0]));
     		$("#showFileInfo").find(".rawname").text(data[0]);
@@ -2350,8 +2257,11 @@
     </div>';
     
         $("#interfaceTitle").text("Music");
-        $("#AMmenuIcon").attr("class","music icon large whiteFont")
-	    $.get("listSong?listSong=" + type,function(data){
+		$("#AMmenuIcon").attr("class","music icon large whiteFont")
+		
+		ao_module_agirun("Music/functions/listSong.js", {
+			listSong: type,
+		},function(data){
 	        //Initialize the song list
 	        displayList = data;
 	        if (playingList == []){
@@ -2377,7 +2287,9 @@
 	        $("#mainList").append("<br><br><br><br><br><br><br>");
 	        $("#interfaceDetails").text("[" + i + " songs]");
 	        highLightPlayingMusic();
-	    });
+	    }, function(){
+			alert("Failed to access listSong API with type: " + type)
+		});
 	    hideLeftMenu();
 	}
 	
@@ -2409,7 +2321,9 @@
 	}
 	
 	function showFileInformation(){
-		$.ajax("getFileInfo?filepath=" + playingFileDetail[1]).done(function(data){
+		ao_module_agirun("Music/functions/getFileInfo.js", {
+			filepath: playingFileDetail[1],
+		},function(data){
 			//console.log(data);
 			$("#settingInterface").hide();
 			$("#filepropInterface").show();

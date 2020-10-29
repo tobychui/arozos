@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"log"
 	"errors"
+
+	auth "imuslab.com/aroz_online/mod/auth"
 )
 
 /*
@@ -21,12 +23,12 @@ func system_resetpw_init(){
 func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Request){
 	username, err := mv(r, "username", true)
 	if err != nil{
-		sendErrorResponse(w, "Internal Server Error")
+		sendErrorResponse(w, "Invalid username or key")
 		return
 	}
 	rkey, err := mv(r, "rkey", true)
 	if err != nil{
-		sendErrorResponse(w, "Internal Server Error")
+		sendErrorResponse(w, "Invalid username or key")
 		return
 	}
 
@@ -56,7 +58,7 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request){
 	}
 
 	//Check user exists
-	if !system_auth_userExists(username){
+	if !authAgent.UserExists(username){
 		sendErrorResponse(w, "Username not exists")
 		return
 	}
@@ -69,8 +71,8 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request){
 	}
 
 	//OK to procced
-	newHashedPassword := system_auth_hash(newpw)
-	err = system_db_write(sysdb, "auth", "passhash/" + username, newHashedPassword)
+	newHashedPassword := auth.Hash(newpw)
+	err = sysdb.Write("auth", "passhash/" + username, newHashedPassword)
 	if err != nil{
 		sendErrorResponse(w, err.Error())
 		return
@@ -83,13 +85,13 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request){
 func system_resetpw_validateResetKey(username string, key string) error{
 	//Get current password from db
 	passwordInDB := ""
-	err := system_db_read(sysdb, "auth", "passhash/" + username, &passwordInDB)
+	err := sysdb.Read("auth", "passhash/" + username, &passwordInDB)
 	if err != nil{
 		return err
 	}
 
 	//Get hashed user key
-	hashedKey := system_auth_hash(key)
+	hashedKey := auth.Hash(key)
 	if (passwordInDB != hashedKey){
 		return errors.New("Invalid Password Reset Key")
 	}

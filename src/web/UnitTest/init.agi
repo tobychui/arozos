@@ -1,0 +1,17 @@
+/*
+	Unit Testing Module for AGI 
+
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Unit Tester",
+	Group: "Development",
+	IconPath: "UnitTest/img/small_icon.png",
+	Version: "1.0",
+	StartDir: "UnitTest/index.html"
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

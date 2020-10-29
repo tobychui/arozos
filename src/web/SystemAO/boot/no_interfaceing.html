@@ -1,0 +1,48 @@
+<html>
+    <head>
+        <title>No Access Interface</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script type="application/javascript" src="../../script/jquery.min.js"></script>
+        <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+       <style>
+            #game{
+                border: 1px solid black;
+
+            }
+        </style>
+    </head>
+    <body>
+        <br><br>
+        <div class="ui text container">
+            <div class="ui segment">
+                <h2 class="ui header">
+                    <i class="remove icon"></i>
+                    <div class="content">
+                        Oops. Something wrong happend to your account.
+                        <div class="sub header">No worry, your data are still here.</div>
+                    </div>
+                </h2>
+            </div>
+            <p>
+                You are seeing this message because the administrator of this system has removed all your interfacing module. 
+                This could be a results of accidentally removing the permission groups you are in. 
+                Please contact technical support and show them this page.
+            </p>
+            <p>In the mean time, have some break and play some snakes?</p>
+            <div class="ui divider"></div>
+            <div align="center" style="width:100%;">
+                <canvas width="400" height="400" id="game"></canvas>
+            </div>
+            <br><br>
+            <div class="ui divider"></div>
+            ERROR: INVALID-INTERFACE-MODULE-SETTINGS
+        </div>
+        
+        <script>
+            //Basic snake game, minified version of https://gist.github.com/straker/ff00b4b49669ad3dec890306d348adc4
+            var canvas=document.getElementById("game"),context=canvas.getContext("2d"),grid=16,count=0,snake={x:160,y:160,dx:grid,dy:0,cells:[],maxCells:4},apple={x:320,y:320};function getRandomInt(e,n){return Math.floor(Math.random()*(n-e))+e}function loop(){requestAnimationFrame(loop),++count<4||(count=0,context.clearRect(0,0,canvas.width,canvas.height),snake.x+=snake.dx,snake.y+=snake.dy,snake.x<0?snake.x=canvas.width-grid:snake.x>=canvas.width&&(snake.x=0),snake.y<0?snake.y=canvas.height-grid:snake.y>=canvas.height&&(snake.y=0),snake.cells.unshift({x:snake.x,y:snake.y}),snake.cells.length>snake.maxCells&&snake.cells.pop(),context.fillStyle="#4287f5",context.fillRect(apple.x,apple.y,grid-1,grid-1),context.fillStyle="#cccccc",snake.cells.forEach(function(e,n){context.fillRect(e.x,e.y,grid-1,grid-1),e.x===apple.x&&e.y===apple.y&&(snake.maxCells++,apple.x=getRandomInt(0,25)*grid,apple.y=getRandomInt(0,25)*grid);for(var a=n+1;a<snake.cells.length;a++)e.x===snake.cells[a].x&&e.y===snake.cells[a].y&&(snake.x=160,snake.y=160,snake.cells=[],snake.maxCells=4,snake.dx=grid,snake.dy=0,apple.x=getRandomInt(0,25)*grid,apple.y=getRandomInt(0,25)*grid)}))}document.addEventListener("keydown",function(e){37===e.which&&0===snake.dx?(snake.dx=-grid,snake.dy=0):38===e.which&&0===snake.dy?(snake.dy=-grid,snake.dx=0):39===e.which&&0===snake.dx?(snake.dx=grid,snake.dy=0):40===e.which&&0===snake.dy&&(snake.dy=grid,snake.dx=0)}),requestAnimationFrame(loop);
+        </script>
+    </body>
+</html>

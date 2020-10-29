@@ -15,7 +15,7 @@ import (
 	This module handles cross cluster scanning, responses and more that related
 	to functions that identifiy this as a ArOZ Online device
 */
-func system_id_init(){
+func SystemIDInit(){
 	//Initialize device UUID if not exists
 	system_id_generateSystemUUID();
 
@@ -80,7 +80,7 @@ func system_id_getSystemUUID() string{
 
 func system_id_handleRequest(w http.ResponseWriter, r *http.Request){
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
+	if authAgent.CheckAuth(r) == false {
 		sendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -96,7 +96,8 @@ func system_id_handleRequest(w http.ResponseWriter, r *http.Request){
 		VendorIcon string;
 	}
 
-	thisDevIP := network_info_GetOutboundIP().String()
+	//thisDevIP := network_info_GetOutboundIP().String()
+	thisDevIP := ""
 
 	jsonString, _ := json.Marshal(returnStruct{
 		SystemUUID: system_id_getSystemUUID(),
@@ -140,14 +141,11 @@ func system_id_serveVersonNumber(w http.ResponseWriter, r *http.Request){
 
 func system_id_getDriveStates(w http.ResponseWriter, r *http.Request){
 	results := [][]string{}
-	for _, store := range storages{
-		results = append(results, []string{
-				store.Uuid,
-				store.Name,
-				"-1B/-1B",
-			})
-	}
-
+	results = append(results, []string{
+		"user",
+		"User",
+		"-1B/-1B",
+	})
 	jsonString, _ := json.Marshal(results)
 	sendJSONResponse(w, string(jsonString))
 }

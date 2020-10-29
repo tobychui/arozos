@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+	<specVersion>
+		<major>1</major>
+		<minor>0</minor>
+	</specVersion>
+	<device>
+		<deviceType>urn:schemas-upnp-org:device:Printer:1</deviceType>
+		<friendlyName>{{hostname}} ({{modelname}})</friendlyName>
+		<manufacturer>{{vendor}}</manufacturer>
+		<manufacturerURL>{{vendorurl}}</manufacturerURL>
+		<modelDescription>{{modeldesc}}</modelDescription>
+		<modelName>{{modelname}}</modelName>
+		<modelNumber>{{modelname}}</modelNumber>
+		<modelURL>http://imuslab.com/aroz-online/model/{{modelname}}</modelURL>
+		<modelType>ArOZ Online</modelType>
+		<serialNumber>NA</serialNumber>
+		<UDN>uuid:{{uuid}}</UDN>
+		<serviceList>
+			<service>
+				<URLBase>{{urlbase}}</URLBase>
+				<serviceType>urn:schemas-test-com:service:Aroz:1</serviceType>
+				<serviceId>urn:aroz-com:serviceId:aroz1</serviceId>
+				<controlURL>/aroz</controlURL>
+				<eventSubURL>/aroz</eventSubURL>
+				<SCPDURL>/dummy.xml</SCPDURL>
+			</service>
+		</serviceList>
+		<presentationURL>{{urlbase}}/</presentationURL>
+	</device>
+</root>

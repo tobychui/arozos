@@ -1,0 +1,24 @@
+/*
+	Video Module Register Script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Music",
+	Desc: "The best music player in ArOZ Online",
+	Group: "Media",
+	IconPath: "Music/img/module_icon.png",
+	Version: "0.1.0",
+	StartDir: "Music/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Music/index.html",
+	SupportEmb: true,
+	LaunchEmb: "Music/embedded.html",
+	InitFWSize: [475, 700],
+	InitEmbSize: [360, 240],
+	SupportedExt: [".mp3",".flac",".wav",".ogg",".aac",".webm",".mp4"]
+}
+
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

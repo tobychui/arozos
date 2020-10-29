@@ -1,0 +1,78 @@
+
+package auth // import "imuslab.com/aroz_online/mod/auth"
+
+
+FUNCTIONS
+
+func Hash(raw string) string
+    Hash the given raw string into sha512 hash
+
+
+TYPES
+
+type AuthAgent struct {
+	SessionName             string
+	AllowRegister           bool
+	SessionStore            *sessions.CookieStore
+	Database                *db.Database
+	LoginRedirectionHandler func(http.ResponseWriter, *http.Request)
+}
+
+func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, allowReg bool, loginRedirectionHandler func(http.ResponseWriter, *http.Request)) *AuthAgent
+    Constructor
+
+func (a *AuthAgent) CheckAllowRegister(w http.ResponseWriter, r *http.Request)
+    Check if this host allow public registry. Return true / false in JSON
+
+func (a *AuthAgent) CheckAuth(r *http.Request) bool
+    Check authentication from request header's session value
+
+func (a *AuthAgent) CheckLogin(w http.ResponseWriter, r *http.Request)
+    Check if the user has logged in, return true / false in JSON
+
+func (a *AuthAgent) CreateUserAccount(newusername string, password string, group []string) error
+    Create user account
+
+func (a *AuthAgent) GetUserCounts() int
+    Get the number of users in the system
+
+func (a *AuthAgent) GetUserName(w http.ResponseWriter, r *http.Request) (string, error)
+    Get the current session username from request
+
+func (a *AuthAgent) HandleCheckAuth(w http.ResponseWriter, r *http.Request, handler func(http.ResponseWriter, *http.Request))
+    This function will handle an http request and redirect to the given login
+    address if not logged in
+
+func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request)
+    Handle login request, require POST username and password
+
+func (a *AuthAgent) HandleLogout(w http.ResponseWriter, r *http.Request)
+    Handle logout, reply OK after logged out. WILL NOT DO REDIRECTION
+
+func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request)
+    Handle new user register. Require POST username, password, group.
+
+func (a *AuthAgent) HandleUnregister(w http.ResponseWriter, r *http.Request)
+    Handle de-register of users. Require POST username. THIS FUNCTION WILL NOT
+    CHECK FOR PERMISSION. PLEASE USE WITH PERMISSION HANDLER
+
+func (a *AuthAgent) ListUsers() []string
+    List all username within the system
+
+func (a *AuthAgent) RegisterPublicAPIs(ep AuthEndpoints)
+    Register APIs that requires public access
+
+func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Request) bool
+    Update the session expire time given the request header.
+
+func (a *AuthAgent) UserExists(username string) bool
+    Check if the given username exists
+
+type AuthEndpoints struct {
+	Login              string
+	Logout             string
+	Register           string
+	CheckLoggedIn      string
+	CheckAllowRegister string
+}
+

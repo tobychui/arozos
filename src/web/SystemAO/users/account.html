@@ -80,7 +80,8 @@
                     }
                     
                     $("#username").text(data.Username);
-                    $("#usergroup").text(data.Usergroup);
+                    console.log(data.Usergroup);
+                    $("#usergroup").text(data.Usergroup.join("/"));
                 }
                 
             });

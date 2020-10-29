@@ -27,6 +27,7 @@
     .topMenu{
         padding-top:0px !important; 
         border-bottom: 1px solid #999999;
+        height: 40px;
         overflow-x: auto;
     }
     .selectableMenuItems{
@@ -94,6 +95,9 @@
 	.done{
 		background-color:#d1ffd3;
 	}
+    .failed{
+        background-color: #ffd1d1;
+    }
 	#settingMenu{
 	    position:fixed;
 	    left:30px;
@@ -109,6 +113,10 @@
     }
     .ts.blue.progress .bar{
         background-color: #2185d0 !important;
+    }
+
+    #convertPendingList{
+        overflow-y: scroll;
     }
 
 </style>
@@ -514,6 +522,7 @@
     })
     function resizeWindowEvents(){
         $(".sidebar").css("height",window.innerHeight - $(".topMenu").height());
+        $("#convertPendingList").css("height", window.innerHeight - 60);
     }
 
     //Bind the queue listening events
@@ -608,14 +617,21 @@
                 console.log(data.error);
                 $(taskObject).find(".tiny.progress").attr("class","ui red tiny progress");
                 $(taskObject).find(".bar").css("width","100%");
-                $(taskObject).removeClass("converting").addClass("done");
-                $(taskObject).find(".description").html(`<span><i class='remove icon'></i> ${data.error}</span>`);
+                $(taskObject).removeClass("converting").addClass("failed");
+                $(taskObject).find(".description").html(`<span><i class='remove icon'></i> ${data.error}</span> / <a onclick="removeTask(this);"><i class="trash icon"></i> Remove From List</a>`);
             }else{
                 $(taskObject).find(".tiny.progress").attr("class","ui green tiny progress");
                 $(taskObject).find(".bar").css("width","100%");
                 $(taskObject).removeClass("converting").addClass("done");
                 $(taskObject).find(".description").html(`<span><i class='checkmark icon'></i> Completed</span>`);
             }
+            $(taskObject).find(".description").html('<a onclick="removeTask(this);"><i class="checkmark icon"></i> OK</a>');
+        }, function(){
+            //Failed callback
+            $(taskObject).find(".tiny.progress").attr("class","ui red tiny progress");
+            $(taskObject).find(".bar").css("width","100%");
+            $(taskObject).removeClass("converting").addClass("failed");
+            $(taskObject).find(".description").html(`<a onclick="removeTask(this);"><i class="remove icon"></i> Remove</a>`);
         });
     }
 

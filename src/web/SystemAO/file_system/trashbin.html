@@ -72,7 +72,7 @@
                 <img id="opricon" src="trashbin_img/trashopr.png" class="ui image"></img>
             </div>
             <div class="content">
-                <div class="info">Deleting: <span id="filename"></span></div>
+                <div class="info">Deleting: <span class="filename"></span></div>
                 <div style="position:absolute; bottom:8px;right:4px;">
                     <button class="ui small button" onclick="ao_module_close();">Cancel</button>
                     <button class="ui primary small button" onclick="confirmDelete();">Confirm</button>
@@ -81,7 +81,7 @@
         </div>
         <div class="ui modal" style="overflow-y:auto; overflow-x:hidden;">
             <i class="close icon"></i>
-            <div class="header" id="filename">
+            <div class="header filename">
                 No File Selected
             </div>
             <div class="ui basic segment">
@@ -122,7 +122,7 @@
                     displayname = displayname + " and " + (deletePendingFiles.length - 1) + " more";
                     $("#fcount").text(deletePendingFiles.length + " Files");
                 }
-                $("#filename").text(displayname);
+                $(".filename").text(displayname);
 
             }else{
                 initList();
@@ -168,7 +168,7 @@
 
             function showDetail(object){
                 var filedata = JSON.parse(decodeURIComponent($(object).attr("filedata")));
-                $("#filename").text(filedata.OriginalFilename);
+                $(".filename").text(filedata.OriginalFilename);
                 $("#detailList").html("");
                 var keyMapping = {
                     "Filename": "Storage Filename",

@@ -99,6 +99,7 @@ function ao_module_setWindowTitle(newTitle){
 //Close the current window
 function ao_module_close(){
     if (!ao_module_virtualDesktop){
+        window.close('','_parent','');
         window.location.href = ao_root + "SystemAO/closeTabInsturction.html";
         return;
     }
@@ -235,11 +236,19 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
                 //File ready!
                 var selectedFiles = JSON.parse(localStorage.getItem(listenerUUID));
                 console.log("Removing Localstorage Item " + listenerUUID);
+                
                 localStorage.removeItem(listenerUUID); 
                 setTimeout(function(){
                     localStorage.removeItem(listenerUUID); 
                 },500);
-                callback(selectedFiles);
+                if(selectedFiles == "&&selection_canceled&&"){
+                    //Selection canceled. Returm empty array
+                    callback([]);
+                }else{
+                    //Files Selected
+                    callback(selectedFiles);
+                }
+                
                 clearInterval(ao_module_fileSelectionListener);
                 ao_module_fileSelectorWindow.close();
             }
@@ -288,7 +297,7 @@ function ao_module_parentCallback(data){
 }
 
 
-function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined){
+function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined, timeout=0){
     $.ajax({
         url: ao_root + "system/ajgi/interface?script=" + scriptpath,
         method: "POST",
@@ -302,8 +311,38 @@ function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined
             if (typeof failedcallback != "undefined"){
                 failedcallback();
             }
-        }
+        },
+        timeout: timeout
     });
+}
+
+function ao_module_uploadFile(file, targetPath, callback=undefined, progressCallback=undefined, failedcallback=undefined) {
+    let url = ao_root + '/system/file_system/upload'
+    let formData = new FormData()
+    let xhr = new XMLHttpRequest()
+    formData.append('file', file);
+    formData.append('path', targetPath);
+
+    xhr.open('POST', url, true)
+    xhr.upload.addEventListener("progress", function(e) {
+        if (progressCallback !== undefined){
+            progressCallback((e.loaded * 100.0 / e.total) || 100);
+        }
+    })
+
+    xhr.addEventListener('readystatechange', function(e) {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            if (callback !== undefined){
+                callback(e.target.response);
+            }
+        }
+        else if (xhr.readyState == 4 && xhr.status != 200) {
+            if (failedcallback !== undefined){
+                failedcallback(xhr.status);
+            }
+        }
+    })
+    xhr.send(formData);
 }
 
 
@@ -500,6 +539,16 @@ class ao_module_utils{
     //Get a random id for a new floatWindow, use with var uid = ao_module_utils.getRandomUID();
     static getRandomUID(){
         return new Date().getTime();
+    }
+
+    static stringToBlob(text, mimetype="text/plain"){
+        var blob = new Blob([text], { type: mimetype });
+        return blob
+    }
+
+    static blobToFile(blob, filename, mimetype="text/plain"){
+        var file = new File([blob], filename, {type: mimetype});
+        return file
     }
     
     //Get the icon of a file with given extension (ext), use with ao_module_utils.getIconFromExt("ext");

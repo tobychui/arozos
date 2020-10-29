@@ -1,0 +1,142 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>{{host_name}} - Register</title>
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script type="application/javascript" src="../../script/jquery.min.js"></script>
+        <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <style>
+        .imageRight{
+            width:100%;
+        }
+    </style>
+    </head>
+    <body>
+        <br><br><br>
+        <div class="ui container" align="center">
+            <div class="ui teal segment" style="max-width:400px;" align="left">
+                <div class="imageRight" align="center">
+                    <img class="ui small image" src="data:image/png;base64, {{vendor_logo}}"></img>
+                </div>
+                <br>
+                <div class="ui text container">
+                    <p>Register your account on {{host_name}}</p>
+                </div>
+                <br>
+                <form class="ui form" onsubmit="handleFormSubmit(event, this);">
+                    <div class="field">
+                        <label>Email</label>
+                        <input id="emailfield" type="text" name="email" placeholder="Email">
+                    </div>
+                    <div class="field">
+                        <label>Username</label>
+                        <input type="text" name="username" placeholder="Username">
+                    </div>
+                    <div class="field">
+                        <label>Password</label>
+                        <input type="password" name="password" placeholder="Password">
+                    </div>
+                    <div id="cpw" class="field">
+                        <label>Confirm Password</label>
+                        <input type="password" name="confirmpw" placeholder="Confirm Password">
+                        <small style="display:none; color:#b33a38;">Password does not match</small>
+                    </div>
+                    <div class="field">
+                        <div class="ui checkbox">
+                        <input type="checkbox" tabindex="0" onchange="toggleSignupBox(this.checked)">
+                        <label>I agree to the <a href="../../SystemAO/vendor/public/termsAndConditions.html" target="_blank">Terms and Conditions</a></label>
+                        </div>
+                    </div>
+                    <button id="submitbtn" class="ui disabled button" type="submit">Sign Up</button>
+                </form>
+                <div id="errmsg" class="ui red inverted segment" style="display:none;">
+                    <i class="remove icon"></i> Internal Server Error
+                </div>  
+                <br>
+                <p>Back to <a href="../../">Login</a></p>
+            </div>
+        </div>
+
+        <div class="ui basic modal">
+            <div class="ui icon header">
+                <i class="green checkmark icon"></i>
+                Account Created
+            </div>
+            <div class="content" align="center">
+                <p>You will be redirected to login interface in 3 secounds...</p>
+            </div>
+            <div class="actions">
+                <a class="ui green ok inverted button" href="../../">
+                    Redirect NOW
+                </a>
+            </div>
+        </div>
+
+        <script>
+            function toggleSignupBox(toggle){
+                if (toggle){
+                    $("#submitbtn").removeClass('disabled')
+                }else{
+                    $("#submitbtn").addClass('disabled')
+                }
+            }
+
+            function handleFormSubmit(e, form){
+                e.preventDefault();
+                if (form.password.value != form.confirmpw.value){
+                    //Password not match
+                    $("#cpw").addClass("error");
+                    $("#cpw").find("small").show();
+                    return;
+                }else{
+                    $("#cpw").removeClass("error");
+                    $("#cpw").find("small").hide();
+                }
+
+                //Check if the user has actually entered an emadil
+                if (!ValidateEmail(form.email.value)){
+                    $("#emailfield").parent().addClass("error");
+                    return;
+                }
+
+                $.ajax({
+                    url: "./handleRegister.system",
+                    data: {
+                        "email":form.email.value,
+                        "username": form.username.value,
+                        "password": form.password.value,
+                    },
+                    method: "POST",
+                    success: function(data){
+                        console.log(data);
+                        if (data.error !== undefined){
+                            $("#errmsg").html(`<i class="remove icon"></i> ${data.error}`);
+                            $("#errmsg").stop().finish().slideDown("fast").delay(5000).slideUp("fast");
+                        }else{
+                            //Register succeed
+                            $('.ui.modal').modal("show");
+                            setTimeout(function(){
+                                window.location.href = "../../";
+                            },3000);
+                            
+                        }
+                    },
+                    error: function(xhr){
+                        alert("Register failed due to Internal Server Error")
+                    },
+                    timeout: 15000
+                })
+            }
+
+            function ValidateEmail(email){
+                if (/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test(email)){
+                    return true
+                }else{
+                    return false
+                }
+            }
+        </script>
+    </body>
+</html>

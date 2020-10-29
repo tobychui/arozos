@@ -19,14 +19,16 @@ import (
 
 type Database struct{
 	Db *bolt.DB
+	Tables map[string]string
 	ReadOnly bool
 }
 
 func NewDatabase(dbfile string, readOnlyMode bool) (*Database, error){
 	db, err := bolt.Open(dbfile, 0600, nil)
-	log.Println("ArOZ Online Key-value Database Service Loaded");
+	log.Println("Key-value Database Service Started: " + dbfile);
 	return &Database{
 		Db: db,
+		Tables: map[string]string{},
 		ReadOnly: readOnlyMode,
 	}, err
 }
@@ -38,11 +40,32 @@ func NewDatabase(dbfile string, readOnlyMode bool) (*Database, error){
 	err := sysdb.DropTable("MyTable")
 */
 
+func (d *Database)UpdateReadWriteMode(readOnly bool){
+	d.ReadOnly = readOnly;
+}
+
+//Dump the whole db into a log file
+func (d *Database)Dump(filename string) ([]string, error){
+	results := []string{}
+	for _, tableName := range d.Tables{
+		entries, err := d.ListTable(tableName)
+		if err != nil{
+			return []string{}, err
+		}
+		for _, keypairs := range entries{
+			results = append(results, string(keypairs[0]) + ":" + string(keypairs[1]) + "\n");
+		}
+	}
+
+	return results, nil
+}
+
+//Create a new table
 func (d *Database)NewTable(tableName string) error{
 	if d.ReadOnly == true{
 		return errors.New("Operation rejected in ReadOnly mode")
 	}
-
+	
 	err := d.Db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(tableName))
 		if err != nil {
@@ -50,9 +73,12 @@ func (d *Database)NewTable(tableName string) error{
 		}
 		return nil
 	})
+
+	d.Tables[tableName] = ""
 	return err
 }
 
+//Drop the given table
 func (d *Database)DropTable(tableName string) error{
 	if d.ReadOnly == true{
 		return errors.New("Operation rejected in ReadOnly mode")
@@ -115,6 +141,28 @@ func (d *Database)Read(tableName string, key string, assignee interface{}) error
 		return nil
 	})
 	return err
+}
+
+func (d *Database)KeyExists(tableName string, key string) bool{
+	resultIsNil := false
+	err := d.Db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(tableName))
+		v := b.Get([]byte(key))
+		if v == nil{
+			resultIsNil = true
+		}
+		return nil
+	})
+
+	if err != nil{
+		return false
+	}else{
+		if (resultIsNil){
+			return false
+		}else{
+			return true
+		}
+	}
 }
 
 /*

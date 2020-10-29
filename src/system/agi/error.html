@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<head>
+    <title>Interpretation Error</title>
+    <meta charset="UTF-8">
+	<style>
+		body{
+			padding: 3em;
+		}
+		.wrapper{
+			margin: 12x;
+			border: 1px solid black;
+			width: 100%;
+		}
+		.title{
+			font-size: 120%;
+			padding: 12px;
+			background-color: #4287f5;
+			color: white;
+		}
+		
+		.content{
+			padding: 20px;
+		}
+		
+		.footer{
+			padding: 8px;
+			padding-left: 12px;
+			font-size: 80%;
+			color: white;
+			background-color: #4b4d82;
+		}
+	</style>
+</head>
+<body>
+	<div class="wrapper">
+		<div class="title">
+			⚠ {{error_msg}}
+		</div>
+		<div class="content">
+			<p>AGI Script Path: {{script_filepath}}</p>
+			<p>Execution Timestamp: {{timestamp}}</p>
+			<p>Platform Version: {{major_version}} rev {{minor_version}}</p>
+		</div>
+		<div class="footer">
+			ArOZ Online JavaScript Gateway Interface rev_{{agi_version}}
+		</div>
+	</div>
+</body>
+</html>

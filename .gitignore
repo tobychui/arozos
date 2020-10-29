@@ -8,3 +8,5 @@ src/system/storage.json
 src/subservice/*
 src/*.go_disabled
 src/system/ao.db
+*/aofs.db
+release/

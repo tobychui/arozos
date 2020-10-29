@@ -11,31 +11,53 @@ import (
 	"io/ioutil"
 	"strings"
 	"os"
+
+	prout "imuslab.com/aroz_online/mod/prouter"
 )
 
-var (
-	moduleName = "Desktop"
-	version = "0.0.1"
-)
 //Desktop script initiation
-func desktop_init(){
+func DesktopInit(){
 	log.Println("Starting Desktop Services")
 
-	//Register all the required API
-	http.HandleFunc("/system/desktop/listDesktop", desktop_listFiles);
-	http.HandleFunc("/system/desktop/theme", desktop_theme_handler);
-	http.HandleFunc("/system/desktop/files", desktop_fileLocation_handler);
-	http.HandleFunc("/system/desktop/host", desktop_hostdetailHandler);
-	http.HandleFunc("/system/desktop/preference", desktop_preference_handler);
-	http.HandleFunc("/system/desktop/createShortcut", desktop_shortcutHandler);
+	router := prout.NewModuleRouter(prout.RouterOption{
+		ModuleName: "Desktop", 
+		AdminOnly: false, 
+		UserHandler: userHandler, 
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request){
+			sendErrorResponse(w, "Permission Denied");
+		},
+	});
 
-	desktop_initDBstructure();
+	//Register all the required API
+	router.HandleFunc("/system/desktop/listDesktop", desktop_listFiles);
+	router.HandleFunc("/system/desktop/theme",desktop_theme_handler);
+	router.HandleFunc("/system/desktop/files",desktop_fileLocation_handler);
+	router.HandleFunc("/system/desktop/host", desktop_hostdetailHandler);
+	router.HandleFunc("/system/desktop/user",desktop_handleUserInfo);
+	router.HandleFunc("/system/desktop/preference", desktop_preference_handler);
+	router.HandleFunc("/system/desktop/createShortcut",desktop_shortcutHandler);
+
+	//Initialize desktop database
+	err := sysdb.NewTable("desktop")
+	if (err != nil){
+		log.Fatal(err)
+		os.Exit(1);
+	}
+
+	//Register Desktop Module
+	registerModule(moduleInfo{
+		Name: "Desktop",
+		Desc: "The Web Desktop experience for everyone",
+		Group: "Interface Module",
+		IconPath: "img/desktop/desktop.png",
+		Version: internal_version,
+		StartDir: "",
+		SupportFW: false,
+		LaunchFWDir: "",
+		SupportEmb: false,
+	})
 }
 
-
-/*
-	List all the files and folders on desktop and return as a json
-*/
 
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -46,17 +68,14 @@ func desktop_init(){
 */
 func desktop_initUserFolderStructure(username string){
 	//Call to filesystem for creating user file struture at root dir
-	system_file_initUserRoot(username);
+	userinfo, _ := userHandler.GetUserInfoFromUsername(username);
+	homedir, err := userinfo.GetHomeDirectory()
+	if err != nil{
+		log.Println(err);
+	}
+	os.MkdirAll(homedir + "Desktop", 0755)
 }
 
-//Create the database table for storing desktop objects
-func desktop_initDBstructure(){
-	err := system_db_newTable(sysdb, "desktop")
-	if (err != nil){
-		log.Fatal(err)
-		os.Exit(1);
-	}
-}
 
 //Return the information about the host
 func desktop_hostdetailHandler(w http.ResponseWriter, r *http.Request){
@@ -85,17 +104,14 @@ func desktop_hostdetailHandler(w http.ResponseWriter, r *http.Request){
 
 func desktop_listFiles(w http.ResponseWriter, r *http.Request){
 	//Check if the user directory already exists
-	username, err := system_auth_getUserName(w,r)
-	if (err != nil){
-		//user not logged in. Redirect to login page.
-		sendErrorResponse(w, "User not logged in")
-		return;
-	}
+	userinfo, _ := userHandler.GetUserInfoFromRequest(w,r);
+	username := userinfo.Username
+
 	//Initiate the user folder structure. Do nothing if the structure already exists.
 	desktop_initUserFolderStructure(username)
 
 	//List all files inside the user desktop directory
-	userDesktopRealpath, _ := virtualPathToRealPath("user:/Desktop/", username);
+	userDesktopRealpath, _ := userinfo.VirtualPathToRealPath("user:/Desktop/");
 	files, err := filepath.Glob(userDesktopRealpath + "/*")
 	if (err != nil){
 		log.Fatal("Error. Desktop unable to load user files for :" + username)
@@ -126,7 +142,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request){
 		}
 		this = filepath.ToSlash(this)
 		thisFileObject := new(desktopObject)
-		thisFileObject.Filepath, _ = realpathToVirtualpath(this,username);
+		thisFileObject.Filepath, _ = userinfo.RealPathToVirtualPath(this);
 		thisFileObject.Filename = filepath.Base(this)
 		thisFileObject.Ext = filepath.Ext(this)
 		thisFileObject.IsDir = IsDir(this)
@@ -148,7 +164,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request){
 		}
 		thisFileObject.IsShortcut = isShortcut
 		//Check the file location
-		username, _ := system_auth_getUserName(w,r)
+		username, _ := authAgent.GetUserName(w,r)
 		x, y, _ := getDesktopLocatioFromPath(thisFileObject.Filename, username)
 		//This file already have a location on desktop
 		thisFileObject.IconX = x;
@@ -166,7 +182,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request){
 func getDesktopLocatioFromPath(filename string, username string)(int, int, error){
 	//As path include username, there is no different if there are username in the key
 	locationdata := ""
-	err := system_db_read(sysdb, "desktop",  username + "/filelocation/" + filename, &locationdata);
+	err := sysdb.Read("desktop",  username + "/filelocation/" + filename, &locationdata);
 	if (err != nil){
 		//The file location is not set. Return error
 		return -1, -1, errors.New("This file do not have a location registry")
@@ -187,7 +203,8 @@ func getDesktopLocatioFromPath(filename string, username string)(int, int, error
 //Set the icon location of a given filepath
 func setDesktopLocationFromPath(filename string, username string, x int, y int) error{
 	//You cannot directly set path of others people's deskop. Hence, fullpath needed to be parsed from auth username
-	desktoppath, _ := virtualPathToRealPath("user:/Desktop/",username);
+	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
+	desktoppath, _ := userinfo.VirtualPathToRealPath("user:/Desktop/");
 	path := desktoppath + filename;
 	type iconLocation struct{
 		X int;
@@ -212,13 +229,54 @@ func setDesktopLocationFromPath(filename string, username string, x int, y int) 
 
 	//log.Println(key,string(jsonstring))
 	//Write result to database
-	system_db_write(sysdb, "desktop" , username + "/filelocation/" + filename, string(jsonstring));
+	sysdb.Write("desktop" , username + "/filelocation/" + filename, string(jsonstring));
 	return nil;
 }	
 
 func delDesktopLocationFromPath(filename string, username string){
 	//Delete a file icon location from db
-	system_db_removeValue(sysdb, "desktop/" + username + "/filelocation/" + filename);
+	sysdb.Delete("desktop",  username + "/filelocation/" + filename);
+}
+
+//Return the user information to the client
+func desktop_handleUserInfo(w http.ResponseWriter, r *http.Request){
+	userinfo, err := userHandler.GetUserInfoFromRequest(w,r)
+	if err != nil{
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	type returnStruct struct{
+		Username string
+		UserIcon string
+		UserGroups []string
+		IsAdmin bool
+		StorageQuotaTotal int64
+		StorageQuotaLeft int64
+
+	}
+
+	//Calculate the storage quota left
+	remainingQuota := userinfo.StorageQuota.TotalStorageQuota - userinfo.StorageQuota.UsedStorageQuota;
+	if (userinfo.StorageQuota.TotalStorageQuota == -1){
+		remainingQuota = -1;
+	}
+
+	//Get the list of user permission group names
+	pgs := []string{}
+	for _, pg := range userinfo.GetUserPermissionGroup(){
+		pgs = append(pgs, pg.Name)
+	}
+
+	jsonString, _ := json.Marshal(returnStruct{
+		Username: userinfo.Username,
+		UserIcon: userinfo.GetUserIcon(),
+		IsAdmin: userinfo.IsAdmin(),
+		UserGroups: pgs,
+		StorageQuotaTotal: userinfo.StorageQuota.GetUserStorageQuota(),
+		StorageQuotaLeft: remainingQuota,
+	});
+	sendJSONResponse(w, string(jsonString))
 }
 
 //Icon handling function for web endpoint
@@ -245,7 +303,7 @@ func desktop_fileLocation_handler(w http.ResponseWriter, r *http.Request){
 		}
 		
 		//Set location of icon from path
-		username, _ := system_auth_getUserName(w,r)
+		username, _ := authAgent.GetUserName(w,r)
 		err = setDesktopLocationFromPath(path, username, x, y);
 		if (err != nil){
 			sendErrorResponse(w,err.Error());
@@ -253,7 +311,7 @@ func desktop_fileLocation_handler(w http.ResponseWriter, r *http.Request){
 		}
 		sendJSONResponse(w,string("\"OK\""));
 	}else if (get != ""){
-		username, _ := system_auth_getUserName(w,r)
+		username, _ := authAgent.GetUserName(w,r)
 		x, y, _ := getDesktopLocatioFromPath(get, username)
 		result := []int{x, y}
 		json_string, _ := json.Marshal(result);
@@ -267,10 +325,9 @@ func desktop_fileLocation_handler(w http.ResponseWriter, r *http.Request){
 ////////////////////////////////   END OF DESKTOP FILE ICON HANDLER ///////////////////////////////////////////////////
 
 func desktop_theme_handler(w http.ResponseWriter, r *http.Request){
-	username, err := system_auth_getUserName(w,r)
+	username, err := authAgent.GetUserName(w,r)
 	if (err != nil){
-		//user not logged in. Redirect to login page.
-		redirectToLoginPage(w,r)
+		sendErrorResponse(w, "User not logged in")
 		return;
 	}
 
@@ -327,7 +384,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request){
 	}else if (getUserTheme == "true"){
 		//Get the user's theme from database
 		result := ""
-		system_db_read(sysdb, "desktop", username + "/theme", &result);
+		sysdb.Read("desktop", username + "/theme", &result);
 		if (result == ""){
 			//This user has not set a theme yet. Use default 
 			sendJSONResponse(w,string("\"default\""))
@@ -339,7 +396,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request){
 		}
 	}else if (targetTheme != ""){
 		//Set the current user theme
-		system_db_write(sysdb, "desktop", username + "/theme", targetTheme);
+		sysdb.Write("desktop", username + "/theme", targetTheme);
 		sendJSONResponse(w,"\"OK\"")
 		return;
 	}
@@ -349,10 +406,10 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request){
 func desktop_preference_handler(w http.ResponseWriter, r *http.Request){
 	preferenceType, _ := mv(r,"preference",false);
 	value, _ := mv(r, "value",false);
-	username, err := system_auth_getUserName(w,r)
+	username, err := authAgent.GetUserName(w,r)
 	if (err != nil){
 		//user not logged in. Redirect to login page.
-		redirectToLoginPage(w,r)
+		sendErrorResponse(w, "User not logged in")
 		return;
 	}
 	if (preferenceType == "" && value == ""){
@@ -362,13 +419,13 @@ func desktop_preference_handler(w http.ResponseWriter, r *http.Request){
 	}else if (preferenceType != "" && value == ""){
 		//Getting config from the key.
 		result := ""
-		system_db_read(sysdb, "desktop",  username + "/preference/" + preferenceType, &result);
+		sysdb.Read("desktop",  username + "/preference/" + preferenceType, &result);
 		jsonString, _ := json.Marshal(result);
 		sendJSONResponse(w,string(jsonString));
 		return;
 	}else if (preferenceType != "" && value != ""){
 		//Setting config from the key
-		system_db_write(sysdb, "desktop",  username + "/preference/" + preferenceType, value);
+		sysdb.Write("desktop",  username + "/preference/" + preferenceType, value);
 		sendJSONResponse(w,"\"OK\"");
 		return;
 	}else{
@@ -381,12 +438,15 @@ func desktop_preference_handler(w http.ResponseWriter, r *http.Request){
 }
 
 func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request){
-	username, err := system_auth_getUserName(w,r)
+	username, err := authAgent.GetUserName(w,r)
+	
 	if (err != nil){
 		//user not logged in. Redirect to login page.
 		sendErrorResponse(w, "User not logged in")
 		return;
 	}
+
+	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 
 
 	shortcutType, err := mv(r, "stype", true)
@@ -414,7 +474,7 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request){
 	}
 
 	//OK to proceed. Generate a shortcut on the user desktop
-	userDesktopPath, _ := virtualPathToRealPath("user:/Desktop", username)
+	userDesktopPath, _ := userinfo.VirtualPathToRealPath("user:/Desktop")
 	if !fileExists(userDesktopPath){
 		os.MkdirAll(userDesktopPath, 0755)
 	}

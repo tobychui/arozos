@@ -1,0 +1,311 @@
+<html>
+    <head>
+        <title>Edit Group</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <link rel="stylesheet" href="../../script/ao.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:white;
+            }
+            .themebackground{
+                background-color:#4287f5 !important;
+                color:white !important;
+                background-image: url("/img/public/slate.png") !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+            }
+            .required{
+                color:red;
+            }
+            .actionbtns{
+                text-align:right;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ts heading fluid padded slate themebackground" >
+            <span class="header">
+            <i class="users icon"></i> Edit Users Group</span>
+            <span class="description">Fill in the following group information to proceed.</span>
+        </div>
+        <br>
+        <div class="ui container">
+            <div id="confirmUpdate" class="ui green inverted segment" style="display:none; margin-top:12px;">
+                <i class="checkmark icon"></i> Group Permissions Updated
+            </div>
+            <div class="ui horizontal form">
+                <div class="field">
+                    <label>Group Name <span class="required">(READ ONLY)</span></label>
+                    <input id="groupname" class="disabled" type="text" readonly="true">
+                </div>
+                <div class="two fields">
+                    <div class="field">
+                        <label>Default Storage Quota <span class="required">*</span></label>
+                        <input id="quota" type="text" value="15">
+                    </div>
+                    <div class="field">
+                        <label>Unit <span class="required">*</span></label>
+                        <select class="ui fluid search dropdown" id="unit">
+                            <option value="1">Bytes</option>
+                            <option value="1024">KB</option>
+                            <option value="1048576">MB</option>
+                            <option value="1073741824">GB</option>
+                            <option value="1099511627776">TB</option>
+                            <option value="1125899906842624">PB</option>
+                          </select>
+                    </div>
+                  </div>
+                <div class="field">
+                    <label>Default Interface Module <span class="required">*</span></label>
+                    <div class="ui fluid selection dropdown">
+                        <input type="hidden" name="dim">
+                        <i class="dropdown icon"></i>
+                        <div class="default text">Select Interface Module</div>
+                        <div class="menu" id="interfaceModuleList">
+                            
+                        </div>
+                      </div>
+                    <small>The module that the user land once they logged in. Default Desktop</small>
+                </div>
+                <div class="field">
+                    <label>Allow Access <span class="required">*</span></label>
+                    <select id="allowAccessList" multiple="" class="ui fluid dropdown">
+                        
+                    </select>
+                    <small>Allow this user group to access the selected modules and their APIs.</small>
+                </div>
+                <div class="field">
+                    <div class="ui checkbox">
+                        <input id="setAsAdmin" type="checkbox" tabindex="0" class="">
+                        <label>Assign Administrator Privileges to Group</label>
+                    </div>
+                </div>
+                <div class="ui divider"></div>
+                <table class="ts celled striped table">
+                    <thead>
+                        <tr>
+                            <th >#</th>
+                            <th>Module Name</th>
+                        </tr>
+                    </thead>
+                    <tbody id="selectedModuleList">
+                       
+                    </tbody>
+                </table>
+                <div class="ui divider"></div>
+                <div align="right">
+                    <button class="ui primary button" onclick="updateGroup();">Update</button>
+                    <button id="cancelbtn" class="ui button" onclick="cancel();">Close</button>
+                </div>
+                <div id="errorbox" class="ui inverted red segment" style="display:none;">
+                    <p><i class="remove icon"></i><span class="errormessage"></span></p>
+                </div>
+            </div>
+            <br><br>
+        </div>
+        <script>
+            var selectedModules = [];
+            var moduleList = [];
+            if (window.location.hash.length == 0){
+                //Invalid use of editor
+                window.location.href = "../closeTabInsturction.html";
+            }
+            var targetUserGroup = window.location.hash.substr(1);
+            var originalGroupData;
+
+            function bytesToSize(bytes) {
+                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
+                if (bytes == 0) return '0 Byte';
+                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                return [bytes / Math.pow(1024, i), sizes[i]];
+            }
+
+            //Init functions
+            initModuleList(function(){
+                //Set the contents of the selector to the current group one
+                $('.ui.checkbox').checkbox();
+                $.ajax({
+                    url: "../../system/permission/editgroup?list=true",
+                    data: {groupname: targetUserGroup},
+                    success: function(data){
+                        console.log(data);
+                        originalGroupData = data;
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            $("#groupname").val(data.Name);
+                            $("#interfaceModuleList").parent().dropdown("set selected",data.DefaultInterfaceModule);
+                            
+                            //Set accessable module list
+                            if (data.AccessibleModules.length > 0 && data.AccessibleModules[0] == "*"){
+                                $("#allowAccessList").parent().hide();
+                                $("#allowAccessList").parent().after("<p>This account has been set to have all permissions to all modules</p>");
+                                selectedModules = moduleList;
+                                renderSelectedModuleList();
+                            }else{
+                                $("#allowAccessList").dropdown("set selected",data.AccessibleModules);
+                            }
+
+                            //Set storage quota
+                            var defaultStorage = bytesToSize(data.DefaultStorageQuota);
+                            if (data.DefaultStorageQuota == -1){
+                                defaultStorage[0] = -1;
+                            }
+                            if (data.Quota == -1){
+                                $("#quota").val(-1);
+                            }else{
+                                $("#quota").val(defaultStorage[0]);
+                                $("#unit").dropdown("set selected",defaultStorage[1])
+                            }
+
+                            //Check admin checkbox
+                            if (data.IsAdmin == true){
+                                $("#setAsAdmin").parent().checkbox("check");
+                            }else{
+                                $("#setAsAdmin").parent().checkbox("uncheck");
+                            }
+                        }
+                    }
+                })
+            });
+            $(".ui.dropdown").dropdown();
+            $("#unit").dropdown("set selected","GB");
+
+            function updateGroup(){
+                var groupname = originalGroupData.Name;
+
+                //Continue to create usergroup
+                targetModuleList = [];
+                if (originalGroupData.AccessibleModules[0] == "*"){
+                    //Continue to use * as the accessable modules
+                    targetModuleList = originalGroupData.AccessibleModules;
+                }else{
+                    for (var i =0; i < selectedModules.length; i++){
+                        targetModuleList.push(selectedModules[i].Name);
+                    }
+                }
+
+                var defaultStorageSize = parseFloat($("#quota").val()) * $("#unit").val();
+                if (isNaN(defaultStorageSize)){
+                    $("#quota").parent().addClass("error");
+                    return
+                }else{
+                    $("#quota").parent().removeClass("error");
+                }
+
+                if ($("#quota").val() == -1){
+                    defaultStorageSize = -1;
+                }
+
+                var interfaceModule = $("#interfaceModuleList").parent().dropdown("get value");
+                if (interfaceModule == ""){
+                    interfaceModule = "Desktop";
+                }
+                
+                //Send Request to server side
+                $.ajax({
+                    url: "../../system/permission/editgroup",
+                    data: {
+                        "groupname": groupname, 
+                        "permission": JSON.stringify(targetModuleList),
+                        "isAdmin": $("#setAsAdmin").is(":checked"),
+                        "defaultQuota": defaultStorageSize,
+                        "interfaceModule": interfaceModule,
+                    },
+                    traditional: true,
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined){
+                            $("#errorbox").slideDown("fast");
+                            $("#errorbox").find(".errormessage").text(data.error);
+                        }else{
+                            $("#confirmUpdate").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
+                            ao_module_parentCallback(true);
+                            window.scrollTo(0,0);
+                            //ao_module_close();
+                        }
+                    }
+                })
+            }
+
+            function initModuleList(callback=undefined){
+                $("#interfaceModuleList").html("");
+                var firstInterfaceModule = null;
+                $.get("../../system/modules/list",function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        for (var i =0; i < data.length; i++){
+                            if (data[i].StartDir !== "" && data[i].Group != "Interface Module"){
+                                $("#allowAccessList").append(`<option value="${data[i].Name}" icon="${data[i].IconPath}">${data[i].Name}</option>`);
+                            }else if (data[i].Group == "Interface Module"){
+                                //Add to interface module list
+                                $("#interfaceModuleList").append(`
+                                <div class="item" data-value="${data[i].Name}">
+                                    <img class="ui mini avatar image" style="border-radius: 0px !important;" src="../../${data[i].IconPath}">
+                                    ${data[i].Name}
+                                </div>
+                                `);
+
+                                if (firstInterfaceModule == null){
+                                    firstInterfaceModule = data[i].Name;
+                                }
+                            }else{
+                                //Utlities modules. Always allow access
+
+                            }
+                        }
+                        //Select the first interface modules
+                        $("#interfaceModuleList").parent().dropdown();
+                        $("#interfaceModuleList").parent().dropdown("set selected",firstInterfaceModule);
+                        moduleList = data;
+
+                        if (callback !== undefined){
+                            //Handle callback events
+                            callback();
+                        }
+                    }
+                });
+
+                $("#allowAccessList").on("change", function(e){
+                    var currentSelected = $(this).val();
+                    selectedModules = [];
+                    moduleList.forEach(mod => {
+                        if (currentSelected.includes(mod.Name)){
+                            selectedModules.push(mod);
+                        }
+                    });
+                    renderSelectedModuleList();
+                });
+            }
+
+            renderSelectedModuleList();
+            function renderSelectedModuleList(){
+                $("#selectedModuleList").html("");
+                for (var i = 0; i < selectedModules.length; i++){
+                    $("#selectedModuleList").append(`<tr>
+                            <td class="collapsing"><img class="ui mini image" src="../../${selectedModules[i].IconPath}"/></td>
+                            <td>${selectedModules[i].Name}</td>
+                        </tr>`);
+                }
+                if (selectedModules.length == 0){
+                    $("#selectedModuleList").append(`<tr>
+                        <td class="collapsing"><img class="ui mini image" src="img/nomodule.png"></img></td>
+                        <td>No Module Selected</td>
+                       </tr>`);
+                }
+            }
+
+            function cancel(){
+                ao_module_close();
+            }
+            
+        </script>
+    </body>
+</html>

@@ -69,7 +69,6 @@
     }
 
     .loginbtn{
-        background-color: #0d0d0d !important;
         color:white !important;
         margin-top:4em;
     }
@@ -100,9 +99,9 @@
                 </div>
                 
                 <br>
-                <button id="loginbtn" class="ts button loginbtn" style="background-color:#00b5ad !important;">Login</button><br>
+                <button id="loginbtn" class="ts button loginbtn" style="background-color:#a59d87 !important;">Login</button><br>
                 <div class="ts breadcrumb" style="margin-top:12px;">
-                    <a class="section signup" style="cursor:pointer; display:none;" href="public/register">Sign Up</a>
+                    <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
                     <div class="divider signup"> / </div>
                     <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
                 </div>
@@ -112,7 +111,7 @@
            
             <div class="bottombar">
                 © ArOZ Online System (Go Edition) .feat <a href="http://imuslab.com">imuslab</a><br>
-                <i class="disk outline icon"></i> <span id="serverAddr"></span>  ⇄  <i class="laptop icon"></i> <span id="clientAddr"></span>
+                <i class="disk outline icon"></i> Request Time: <span id="requestTime"></span>
             </div>
         </div>
         
@@ -137,25 +136,14 @@
         }
 
         $(document).ready(function(){
-            //Update the target endpoint IP and this client IP through server reflection
-            $.get("system/auth/reflectIP",function(data){
-                //Get the client IP by seeing the reflection from server
-                if (data != ""){
-                    $("#clientAddr").text(data);
-                }else{
-                    $("#clientAddr").text("Unknown");
-                }
-                var serverAddr = location.host;
-                serverAddr = serverAddr.split(":")[0];
-                $("#serverAddr").text(serverAddr);
-                $.getJSON("/SystemAO/network/getIPLocation",function(location){
-                    if(location.Country !== "" && location.Country !== "ZZ"){
-                        //const regionName = new Intl.DisplayNames(['en'], { type: 'region' });
-                        $("#clientAddr").append(" (" + location.Country + ")");
-                    }
-                });
-            });
-
+            var currentdate = new Date(); 
+            var datetime = currentdate.getDate() + "/"
+                + (currentdate.getMonth()+1)  + "/" 
+                + currentdate.getFullYear() + " "  
+                + currentdate.getHours() + ":"  
+                + currentdate.getMinutes() + ":" 
+                + currentdate.getSeconds();
+            $("#requestTime").text(datetime);
             //Check if the user already logged in
             $.get("system/auth/checkLogin",function(data){
                 try{
@@ -177,7 +165,7 @@
             });
 
             //Check if the system is open for registry
-            $.get("system/auth/checkPublicRegister",function(data){
+            $.get("public/register/checkPublicRegister",function(data){
                 if (data == true){
                     $(".signup").show();
                 }else{
@@ -211,9 +199,9 @@
             var rmbme = document.getElementById("rmbme").checked;
             $("input").addClass('disabled');
             $.post("/system/auth/login", {"username": username, "password": magic, "rmbme": rmbme}).done(function(data){
-                if (data.includes("Error")){
+                if (data.error !== undefined){
                     //Something went wrong during the login
-                    $("#errmsg").text(data);
+                    $("#errmsg").text(data.error);
                     $("#errmsg").parent().slideDown('fast').delay(5000).slideUp('fast');
                 }else{
                     //Login succeed

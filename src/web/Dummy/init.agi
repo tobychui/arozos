@@ -8,7 +8,7 @@
 //Define the launchInfo for the module
 var moduleLaunchInfo = {
     Name: "Dummy",
-	Group: "Development",
+	Group: "Interface Module",
 	IconPath: "Dummy/img/small_icon.png",
 	Version: "0.1",
 	StartDir: "Dummy/index.html"

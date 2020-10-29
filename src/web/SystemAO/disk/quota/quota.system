@@ -60,6 +60,9 @@
                     return "rgb(" + r + "," + g + "," + b + ")";
                 };
                 $.get("../../../system/disk/quota/quotaDist",function(list){
+                    if (list == null){
+                        return;
+                    }
                     //Create the corret data structure for the pie chart
                     data = {};
                     var dataset = [];

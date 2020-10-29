@@ -1,18 +1,25 @@
 //NotepadA File writing API
 //Required paramters: filepath, content
-
-if (typeof filepath == "undefined" || typeof content == "undefined"){
-    //Missing paramters
+var success = requirelib("filelib");
+if (!success){
     sendJSONResp(JSON.stringify({
-        error: "Invalid filename or contents"
+        error: "Unable to access filelib"
     }));
 }else{
-    //OK. Write to target directory
-    if (writeFile(filepath, content)){
-        sendResp("OK");
-    }else{
+    if (typeof filepath == "undefined" || typeof content == "undefined"){
+        //Missing paramters
         sendJSONResp(JSON.stringify({
-            error: "Unable to write to file: " + filepath
+            error: "Invalid filename or contents"
         }));
+    }else{
+        //OK. Write to target directory
+        if (filelib.writeFile(filepath, content)){
+            sendResp("OK");
+        }else{
+            sendJSONResp(JSON.stringify({
+                error: "Unable to write to file: " + filepath
+            }));
+        }
     }
+
 }

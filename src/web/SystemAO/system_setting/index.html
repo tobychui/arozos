@@ -79,7 +79,7 @@
                             var groupUUID = data[i].Group;
                             var iconPath = "../../" + data[i].IconPath;
                             var toolTip = data[i].Desc;
-                            $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}"></img> ${settingGroupName}</a>`);
+                            $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}" style="padding: 2px;"></img> ${settingGroupName}</a>`);
                         }
                     });
                 }
@@ -159,6 +159,7 @@
                 var keyword = $("#searchInput").val();
                 alert(keyword);
               }
+
           </script>
     </body>
 </html>

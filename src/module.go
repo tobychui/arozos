@@ -6,6 +6,7 @@ import (
 	"strings"
 	//"path/filepath"
 	"log"
+	"sort"
 	"os"
 )
 
@@ -32,14 +33,38 @@ type moduleInfo struct{
 	SupportedExt []string 	//Supported File Extensions. e.g. ".mp3", ".flac", ".wav"
 }
 
+//Register endpoint. Provide moduleInfo datastructure or unparsed json
 func registerModule(module moduleInfo){
 	loadedModule = append(loadedModule, module);
 }
 
-func system_module_service_init(){
-	http.HandleFunc("/system/modules/list", system_module_listLoadedModules)
-	http.HandleFunc("/system/modules/getDefault", system_module_handleDefaultLauncher)
-	http.HandleFunc("/system/modules/getLaunchPara", system_module_getLaunchParameter)
+func ModuleSortList(){
+	sort.Slice(loadedModule, func(i, j int) bool {
+		return loadedModule[i].Name < loadedModule[j].Name
+	})
+}
+
+func registerModuleFromJSON(jsonstring string) error{
+	var thisModuleInfo moduleInfo
+	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
+	if err != nil{
+		return err
+	}
+	registerModule(thisModuleInfo)
+	return nil
+}
+
+func ModuleServiceInit(){
+	//Pass through the endpoint to authAgent
+	http.HandleFunc("/system/modules/list", func(w http.ResponseWriter, r *http.Request){
+		authAgent.HandleCheckAuth(w,r,system_module_listLoadedModules)
+	})
+	http.HandleFunc("/system/modules/getDefault", func(w http.ResponseWriter, r *http.Request){
+		authAgent.HandleCheckAuth(w,r,system_module_handleDefaultLauncher)
+	})
+	http.HandleFunc("/system/modules/getLaunchPara", func(w http.ResponseWriter, r *http.Request){
+		authAgent.HandleCheckAuth(w,r,system_module_getLaunchParameter)
+	})
 
 	//Register setting interface for module configuration
 	registerSetting(settingModule{
@@ -58,32 +83,37 @@ func system_module_service_init(){
 		StartDir: "SystemAO/modules/defaultOpener.html",
 	})
 
-	registerSetting(settingModule{
-		Name: "Subservices",
-		Desc: "Launch and kill subservices",
-		IconPath: "SystemAO/modules/img/small_icon.png",
-		Group: "Module",
-		StartDir: "SystemAO/modules/subservices.html",
-		RequireAdmin: true,
-	})
-
+	if !*disable_subservices {
+		registerSetting(settingModule{
+			Name: "Subservices",
+			Desc: "Launch and kill subservices",
+			IconPath: "SystemAO/modules/img/small_icon.png",
+			Group: "Module",
+			StartDir: "SystemAO/modules/subservices.html",
+			RequireAdmin: true,
+		})
+	}
+	
 	system_module_createDBTable();
 }
 
 func system_module_createDBTable(){
-	err := system_db_newTable(sysdb, "module")
+	err := sysdb.NewTable("module")
 	if (err != nil){
 		log.Fatal(err);
 		os.Exit(0);
 	}
 }
 
-func system_module_getLaunchParameter(w http.ResponseWriter, r *http.Request){
-	if (system_auth_chkauth(w,r) == false){
-		sendErrorResponse(w, "Not logged in.")
-		return;
+func system_module_getModuleNameList() []string{
+	result := []string{}
+	for _, module := range loadedModule{
+		result = append(result, module.Name)
 	}
+	return result;
+}
 
+func system_module_getLaunchParameter(w http.ResponseWriter, r *http.Request){
 	moduleName,_ := mv(r, "module", false)
 	if (moduleName == ""){
 		sendErrorResponse(w, "Missing paramter 'module'.")
@@ -113,11 +143,7 @@ func system_module_getLaunchParameter(w http.ResponseWriter, r *http.Request){
 }
 
 func system_module_handleDefaultLauncher(w http.ResponseWriter, r *http.Request){
-	username, err := system_auth_getUserName(w,r);
-	if (err != nil){
-		sendErrorResponse(w, "User not logged in")
-		return;
-	}
+	username, _ := authAgent.GetUserName(w,r);
 	opr, _ := mv(r, "opr", false) //Operation, accept {get, set, launch}
 	ext, _ := mv(r, "ext", false)
 	moduleName, _ := mv (r, "module", false)
@@ -126,7 +152,7 @@ func system_module_handleDefaultLauncher(w http.ResponseWriter, r *http.Request)
 	if (opr == "get"){
 		//Get the opener for this file type
 		value := ""
-		err := system_db_read(sysdb, "module", "default/" + username + "/" + ext, &value)
+		err := sysdb.Read("module", "default/" + username + "/" + ext, &value)
 		if (err != nil){
 			sendErrorResponse(w, "No default opener")
 			return;
@@ -137,7 +163,7 @@ func system_module_handleDefaultLauncher(w http.ResponseWriter, r *http.Request)
 	}else if (opr == "launch"){
 		//Get launch paramter for this extension
 		value := ""
-		err := system_db_read(sysdb, "module", "default/" + username + "/" + ext, &value)
+		err := sysdb.Read("module", "default/" + username + "/" + ext, &value)
 		if (err != nil){
 			sendErrorResponse(w, "No default opener")
 			return;
@@ -178,7 +204,7 @@ func system_module_handleDefaultLauncher(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		if (moduleValid){
-			system_db_write(sysdb, "module", "default/" + username + "/" + ext, moduleName );
+			sysdb.Write("module", "default/" + username + "/" + ext, moduleName );
 			sendJSONResponse(w,"\"OK\"")
 		}else{
 			sendErrorResponse(w, "Given module not exists.")
@@ -186,7 +212,7 @@ func system_module_handleDefaultLauncher(w http.ResponseWriter, r *http.Request)
 		
 	}else if (opr == "list"){
 		//List all the values that belongs to default opener
-		dbDump := system_db_listTable(sysdb, "module")
+		dbDump, _ := sysdb.ListTable("module")
 		results := [][]string{}
 		for _, entry := range dbDump{
 			key := string(entry[0]);
@@ -212,21 +238,29 @@ func system_module_handleDefaultLauncher(w http.ResponseWriter, r *http.Request)
 }
 
 func system_module_listLoadedModules(w http.ResponseWriter, r *http.Request){
-	username, err := system_auth_getUserName(w,r);
-	if err != nil{
-		sendErrorResponse(w, "Not logged in.")
-		return;
-	}
+	userinfo, _ := userHandler.GetUserInfoFromRequest(w,r)
 
 	///Parse a list of modules where the user has permission to access
 	userAccessableModules := []moduleInfo{}
 	for _, thisModule := range loadedModule{
 		thisModuleName := thisModule.Name
-		if (system_permission_checkUserHasAccessToModule(username, thisModuleName)){
+		if (userinfo.GetModuleAccessPermission(thisModuleName)){
+			userAccessableModules = append(userAccessableModules, thisModule)
+		}else if (thisModule.Group == "Utilities"){
+			//Always allow utilties to be loaded
 			userAccessableModules = append(userAccessableModules, thisModule)
 		}
 	}
 	//Return the loaded modules as a list of JSON string
 	jsonString, _ := json.Marshal(userAccessableModules)
 	sendJSONResponse(w,string(jsonString));
+}
+
+func system_module_getModuleInfoByID(moduleid string) *moduleInfo{
+	for _, module := range loadedModule{
+		if (module.Name == moduleid){
+			return &module
+		}
+	}
+	return nil
 }

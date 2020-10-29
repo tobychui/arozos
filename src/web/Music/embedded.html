@@ -192,6 +192,31 @@
 		//Get the song title and meta data from server
 		var songInfo = [];
 		var songList = [];
+
+		ao_module_agirun("Music/functions/getMeta.js", {
+			file: encodeURIComponent(playingFileInfo.filepath)
+		}, function(data){
+			songList = data;
+			for (var i = 0; i < data.length; i++){
+				if (data[i][0] == playingFileInfo.filename){
+					songInfo = data[i];
+					//Set the audio element src
+					player.src = "../media?file=" + encodeURIComponent(data[i][1]);
+					//Update window title
+					ao_module_setWindowTitle(data[i][0]);
+				}
+			}
+			
+			//Load song title into the display area
+			updateDisplayInformation(songInfo[0],songInfo[3]);
+			
+			//Create the playlist for all the files in the same directory
+			createPlayList();
+			
+			//Initiate the current playSong in the songList
+			updatePlayingSongSelection();
+		})
+		/*
 		$.get("../Music/getMeta?file=" + encodeURIComponent(playingFileInfo.filepath),function(data){
 			//console.log(data);
 			songList = data;
@@ -215,6 +240,7 @@
 			//Initiate the current playSong in the songList
 			updatePlayingSongSelection();
 		});
+		*/
 
 		//Get the song title from meta data
 		//var songInfo = JSON.parse($("#meta_playingSong").text().trim());

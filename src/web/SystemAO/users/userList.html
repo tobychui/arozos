@@ -34,7 +34,6 @@
                     <tr>
                         <th>Username</th>
                         <th>Permission Group</th>
-                        <th>Status</th>
                         <th>Select</th>
                     </tr>
                 </thead>
@@ -68,14 +67,11 @@
                                     </h4>
                                 </td>
                                 <td>
-                                    ${group}
-                                </td>
-                                <td>
-                                    ${accountStatus}
+                                    ${group.join("/")}
                                 </td>
                                 <td>
                                     <div class="ui checkbox">
-                                        <input type="radio" name="selectUser" value="${username}" onchange="enableEdit();">
+                                        <input type="radio" name="selectUser" value="${username}" self="${data[i][3]}" onchange="enableEdit(this);">
                                         <label></label>
                                     </div>
                                 </td>
@@ -117,7 +113,7 @@
                 var username = $("input[name='selectUser']:checked").val();
                 if (confirm("Remove " + username + " from the system PERMANENTLY?")){
                     $.ajax({
-                        url: "../../system/auth/unregister",
+                        url: "../../system/users/removeUser",
                         data: {username: username},
                         method: "POST",
                         success: function(data){
@@ -138,9 +134,15 @@
                 }
             }
 
-            function enableEdit(){
-                $("#editUserButton").removeClass("disabled");
-                $("#editbtn").removeClass("disabled");
+            function enableEdit(object){
+                if ($(object).attr("self") != "true"){
+                    $("#editUserButton").removeClass("disabled");
+                    $("#editbtn").removeClass("disabled");
+                }else{
+                    $("#editUserButton").addClass("disabled");
+                    $("#editbtn").removeClass("disabled");
+                }
+               
             }
         </script>
     </body>

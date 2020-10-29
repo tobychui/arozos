@@ -21,7 +21,7 @@
                 <button class="ui primary small button" onclick="newgroupInterface();">
                     <i class="add icon"></i>New Group
                 </button>
-                <button id="editGroupButton" class="ui small disabled button">
+                <button id="editGroupButton" class="ui small disabled button" onclick="openEditWindow();">
                     Edit
                 </button>
                 <button id="removeGroupButton" class="ui small negative disabled right floated button" onclick="removeGroup();">
@@ -34,6 +34,8 @@
                     <tr>
                         <th>Group Name</th>
                         <th>Access Permission</th>
+                        <th>Admin Privileges</th>
+                        <th>Default Storage Quota</th>
                         <th>Select</th>
                     </tr>
                 </thead>
@@ -59,25 +61,44 @@
             function loadGroupList(){
                 $.get("../../system/permission/listgroup?showper=true",function(data){
                    $("#groupList").html("");
+                   $("#editGroupButton").addClass("disabled");
+                   $("#removeGroupButton").addClass('disabled');
                     if (data.error !== undefined){
                         alert(data.error);
                     }else{
                         for (const [key, value] of Object.entries(data)) {
+                            //Check for module list
                             var accessPermission = "No Module Accessible";
-                            if (value.length == 1 && value[0] == "*"){
+                            if (value[0].includes("*")){
                                 accessPermission = "All Modules (Administrator)";
                             }else{
                                 accessPermission = '<div class="ui bulleted list">';
-                                for (var i =0; i < value.length; i++){
-                                    accessPermission += '<div class="item">' + value[i] + '</div>';
+                                for (var i =0; i < value[0].length; i++){
+                                    accessPermission += '<div class="item">' + value[0][i] + '</div>';
                                 }
                                 accessPermission += '</div>'
-                                //console.log(accessPermission);
                             }
+
+                            //Check for admin permission
+                            var isAdminIcon = "<i class='red remove icon'></i>"
+                            if (value[1] == true){
+                                isAdminIcon = "<i class='green checkmark icon'></i>"
+                            }
+
+                            //Check for storage quota
+                            var quota = bytesToSize(value[2]);
+                            if (value[2] == 0){
+                                quota = "Read Only";
+                            }else if (value[2] == -1){
+                                quota = "Unlimited";
+                            }
+
                             $("#groupList").append(`
                             <tr>
                                 <td>${key}</td>
                                 <td>${accessPermission}</td>
+                                <td>${isAdminIcon}</td>
+                                <td>${quota}</td>
                                 <td>
                                     <div class="ui checkbox">
                                         <input type="radio" name="selectUser" value="${key}" onchange="enableEdit(this);">
@@ -92,6 +113,25 @@
 
                     
                 });
+            }
+
+            function openEditWindow(){
+                ao_module_newfw({
+                    url: "SystemAO/users/editgroup.html#" + currentSelectedGroup,
+                    width: 560,
+                    height: 768,
+                    appicon: "SystemAO/users/img/group_white.png",
+                    title: "Edit User Group",
+                    parent: ao_module_windowID,
+                    callback: "confirmCreateHandler"
+                });
+            }
+
+            function bytesToSize(bytes) {
+                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                if (bytes == 0) return '0 Byte';
+                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
             }
 
 

@@ -112,6 +112,23 @@ func util_init(){
 		SupportedExt: []string{".gcode",".gco"},
 	});
 
+
+	/*
+		Basic Timer
+	*/
+	registerModule(moduleInfo{
+		Name: "Timer",
+		Desc: "Basic Timer Utility",
+		Group: "Utilities",
+		IconPath: "SystemAO/utilities/img/timer.png",
+		StartDir: "SystemAO/utilities/timer.html",
+		Version: "1.0",
+		SupportFW: true,
+		SupportEmb: false,
+		LaunchFWDir: "SystemAO/utilities/timer.html",
+		InitFWSize: []int{380,190},
+	});
+
 }
 
 /*
@@ -125,18 +142,19 @@ func util_init(){
 */
 
 func system_util_handleNotebookSave(w http.ResponseWriter, r *http.Request){
-	username, err := system_auth_getUserName(w,r)
+	username, err := authAgent.GetUserName(w,r)
 	if (err != nil){
 		sendErrorResponse(w, "User not logged in")
 		return;
 	}
+	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 	filepath, _ := mv(r, "filepath", true)
 	newcontent, _ := mv(r, "content", true)
 	if (filepath == ""){
 		sendErrorResponse(w, "Undefined filepath given.")
 		return;
 	}
-	realpath, _ := virtualPathToRealPath(filepath, username)
+	realpath, _ := userinfo.VirtualPathToRealPath(filepath)
 	err = ioutil.WriteFile(realpath, []byte(newcontent), 0755)
 	if (err != nil){
 		sendErrorResponse(w, err.Error())

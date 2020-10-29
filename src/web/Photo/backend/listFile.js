@@ -24,7 +24,6 @@ if (!loadedfile) {
 //Get all the files filesize on desktop
 //folder = "user:/Photo/Photo/uploads/"
 folder = JSON.parse(POST_data)["folder"];
-//console.log("Folder name:" + folder);
 var fileList = filelib.glob(folder + "*.*");
 var results = [];
 for (var i = 0; i < fileList.length; i++) {
@@ -47,14 +46,25 @@ for (var i = 0; i < fileList.length; i++) {
 
 
             results.push({
-                URL: folder + filename,
-                Filename: filename,
+                src: "/media/?file=" + folder + filename,
+                caption: filename,
                 Size: bytesToSize(fileSize),
-                CacheURL: thumbnailsPath,
-                Height: dimension[1],
-                Width: dimension[0]
+                thumbnail: "/media/?file=" + thumbnailsPath,
+                thumbnailHeight: dimension[1],
+                thumbnailWidth: dimension[0]
             });
         }
     }
+}
+
+if (results.length == 0) {
+    results.push({
+        src: "/Photo/img/desktop_icon.png",
+        caption: "There is nothing inside here",
+        Size: 0,
+        thumbnail: "/Photo/img/desktop_icon.png",
+        thumbnailHeight: 128,
+        thumbnailWidth: 128
+    });
 }
 sendJSONResp(JSON.stringify(results));

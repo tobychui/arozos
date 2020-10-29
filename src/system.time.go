@@ -54,14 +54,13 @@ func system_time_init() {
 		IconPath:     "SystemAO/disk/smart/img/small_3icon.png",
 		Group:        "Time",
 		StartDir:     "SystemAO/time/currenttime.html",
-		RequireAdmin: true,
 	})
 	http.HandleFunc("/system/time/getTime", showTime)
 
 }
 func showTime(w http.ResponseWriter, r *http.Request) {
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 

@@ -1,0 +1,106 @@
+<html>
+    <head>
+        <title>Interface Selector</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script type="application/javascript" src="../../script/jquery.min.js"></script>
+        <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+       <style>
+           .interfaceModule{
+               cursor: pointer;
+               border: 2px solid transparent !important;
+               height: 120px;
+           }
+           .interfaceModule:hover{
+                border: 2px solid #407ded !important;
+                background-color: #d1e1ff;
+           }
+           a{
+               cursor: pointer;
+           }
+        </style>
+    </head>
+    <body>
+        <br><br>
+        <div class="ui text container">
+            <h2>Please choose a service to start</h2>
+            <div class="ui divider"></div>
+            <div id="serviceList" class="ui segment">
+                
+            </div>
+            <div id="remember" class="ui checkbox">
+                <input type="checkbox" name="remember">
+                <label>Remember option on this browser</label>
+            </div>
+
+            <div class="ui divider"></div>
+            <p>or <a onclick="logout();">Logout</a></p>
+        </div>
+        <script>
+            var interfaceModules = [];
+         $(".ui.checkbox").checkbox();
+          $.get("../../system/users/interfaceinfo", function(data){
+              $("#serviceList").html("");
+              interfaceModules = data;
+              for (var i = 0; i < data.length; i++){
+                  $("#serviceList").append(`<div class="ui segment interfaceModule" name="${data[i].Name}" path="${data[i].StartDir}" onclick="startModule(this);">
+                    <div class="ui grid">
+                        <div class="four wide column" align="right">
+                            <img src="../../${data[i].IconPath}" class="ui tiny image">
+                        </div>
+                        <div class="twelve wide column">
+                            <h2 class="ui header">
+                                ${data[i].Name}
+                                <div class="sub header">${data[i].Desc}</div>
+                            </h2>
+                        </div>
+                    </div>
+                </div>`);
+              }
+              useDefaultIfExists();
+          });
+
+        function useDefaultIfExists(){
+            var defaultModule = localStorage.getItem("default-interface-module");
+            if (defaultModule !== undefined && defaultModule !== null && defaultModule !== ""){
+                //Get its path
+                interfaceModules.forEach(mod => {
+                    if (mod.Name == defaultModule){
+                        var targetPath = mod.StartDir;
+                        if (targetPath == ""){
+                            //Redirect to desktop
+                            window.location.href = "../../desktop.system";
+                        }else{
+                            //Redirect to module
+                            window.location.href = "../../" + targetPath;
+                        }
+                    }
+                });
+            }
+        }
+
+        function startModule(object){
+            var path = $(object).attr("path");
+            var name = $(object).attr("name");
+            if ($("#remember").checkbox("is checked")){
+                localStorage.setItem("default-interface-module",name)
+            }
+            if (path == ""){
+                //Redirect to desktop
+                window.location.href = "../../desktop.system";
+            }else{
+                //Redirect to module
+                window.location.href = "../../" + path;
+            }
+            
+        }
+
+        function logout() {
+            $.get("../../system/auth/logout", function() {
+                window.location.href = "/";
+            });
+        }
+        </script>
+    </body>
+</html>

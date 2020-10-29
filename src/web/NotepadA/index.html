@@ -162,6 +162,9 @@
                 });
 
                 getStorage("splitmode",function(splitSetting){
+                    if (splitSetting.error !== undefined){
+                        return;
+                    }
                     splitSetting = splitSetting.trim();
                      if (splitSetting == "true"){
                         splitMode = true;
@@ -624,8 +627,94 @@
                 }
 
                 //Get the file
+                ao_module_agirun("NotepadA/backend/read.agi",{
+                    file: filepath
+                }, function(filecontent){
+                    //Get the target Opening Editor
+                    let targetOpeningEditor;
+                    for (var i = 0; i < editors.length; i++){
+                        if (editors[i].uuid == focusedEditor){
+                            targetOpeningEditor = editors[i];
+                        }
+                    }
+                    if (typeof targetOpeningEditor === undefined){
+                        console.log("Error when trying to get editor info")
+                        return;
+                    }
+                    //Load the editor instances
+                    var editor = targetOpeningEditor.editor;
+                    var editorUUID = targetOpeningEditor.uuid;
+                    var models = targetOpeningEditor.model;
+                    var states = targetOpeningEditor.state;
+                    var currentTabUUID = targetOpeningEditor.currentTabUUID;
+                    var targetTabMenu =  targetOpeningEditor.tabsMenu;
+
+                    //Save the current editor status into the data
+                    var currentState = editor.saveViewState();
+                    var currentModel = editor.getModel();
+                    states[currentTabUUID] = currentState;
+                    models[currentTabUUID] = currentModel;
+                    
+                    //Create a tab for this file
+                    var tabUUID = new Date().getTime();
+                    var filename = filepath.split("/").pop();
+                    $(targetTabMenu).find(".item.selected").removeClass("selected");
+                    $(targetTabMenu).append(`<div class="item selected" uuid="${tabUUID}"  editorUUID="${editorUUID}"><i class="code file icon"></i> ${filename} <div class="closebtn"><i class="remove icon"></i></i></div></div>`);
+
+                    //Add this tab into the open editor list
+                    $("#openeditors .item").removeClass("selected");
+                    $("#openeditors").append(`<div class="item selected" uuid="${tabUUID}" editorUUID="${editorUUID}"><div class="closebtn" style="display:inline-block;"><i class="remove icon"></i></div> <i class="code file icon"></i> ${filename} </div>`);
+
+                    //Update the current tag information
+                    targetOpeningEditor.currentTabUUID = tabUUID
+
+                    //Push the current tab into the array of tabs
+                    targetOpeningEditor.tabs.push({
+                        filename: filename,
+                        filepath: filepath,
+                        tabUUID: tabUUID,
+                        saveHash: filecontent.hashCode()
+                    });
+
+                        //Update title if nonVDI or update floatWindow title if under fdi
+                    if (ao_module_virtualDesktop){
+                        ao_module_setWindowTitle("NotepadA - " + filename);
+                    }else{
+                        document.title = "NotepadA - " + filename;
+                    }
+
+
+                    //Check if model is loaded before
+                    var model;
+                    if (loadedModels[filepath] === undefined){
+                            //Set the editor value and do model auto lanuage detection
+                        model = monaco.editor.createModel(
+                            filecontent,
+                            undefined,
+                            monaco.Uri.file("../media?file=" + encodeURIComponent(filepath))
+                        )
+                        loadedModels[filepath] = model;
+                    }else{
+                        //Load the already loaded model
+                        model = loadedModels[filepath];
+                    }
+                    editor.setModel(model)
+
+                    //Bind tab events
+                    bindTabItemEvents();
+
+                    //Update file info tab
+                    var tabInfo = getFocusedTabInfo();
+                    updateFileStatusDisplay(tabInfo.filepath);
+
+                    //Hide the editorCover
+                    var ca = getCodeAreaFromEditorUUID(editorUUID);
+                    $(ca).find(".editorcover").hide();
+                });
+
+                /*
                 $.ajax({
-                    url: "../media?file=" + encodeURIComponent(filepath),
+                    url: "../media/?file=" + encodeURIComponent(filepath) + "#" + Date.now(),
                     success: function(filecontent){
                         //Get the target Opening Editor
                         let targetOpeningEditor;
@@ -709,6 +798,7 @@
                         $(ca).find(".editorcover").hide();
                     }
                 });
+                */
             }
 
             function hash(s){

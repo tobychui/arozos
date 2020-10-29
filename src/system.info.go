@@ -34,7 +34,7 @@ type ArOZInfoS struct {
 }
 
 //InitShowSysInformation xxx
-func system_info_serviec_init() {
+func SystemInfoInit() {
 	log.Println("Operation System: " + runtime.GOOS)
 	log.Println("System Architecture: " + runtime.GOARCH)
 	if runtime.GOOS == "windows" {
@@ -79,8 +79,8 @@ func system_info_serviec_init() {
 
 func ifconfigLinux(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -109,8 +109,8 @@ func ifconfigLinux(w http.ResponseWriter, r *http.Request) {
 
 func getDriveStatLinux(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -159,8 +159,8 @@ func getDriveStatLinux(w http.ResponseWriter, r *http.Request) {
 
 func getUSBLinux(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -197,8 +197,8 @@ func systemInfoFilterFilterGrepResults(result string, sep string) string {
 
 func getCPUinfoLinux(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -299,8 +299,8 @@ func getRAMinfoLinux(w http.ResponseWriter, r *http.Request) {
 
 func getCPUinfo(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 	CPUInfo := CPUInfoS{
@@ -321,8 +321,8 @@ func getCPUinfo(w http.ResponseWriter, r *http.Request) {
 
 func ifconfig(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 	var arr []string
@@ -340,8 +340,8 @@ func ifconfig(w http.ResponseWriter, r *http.Request) {
 
 func getDriveStat(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 	var DeviceID []string = wmicGetinfo("logicaldisk", "DeviceID")
@@ -368,8 +368,8 @@ func getDriveStat(w http.ResponseWriter, r *http.Request) {
 
 func getUSB(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 	var arr []string
@@ -387,8 +387,8 @@ func getUSB(w http.ResponseWriter, r *http.Request) {
 
 func getRAMinfo(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 	var RAMsize int = 0
@@ -407,8 +407,8 @@ func getRAMinfo(w http.ResponseWriter, r *http.Request) {
 
 func getArOZInfo(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
-	if system_auth_chkauth(w, r) == false {
-		redirectToLoginPage(w, r)
+	if authAgent.CheckAuth(r) == false {
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 

@@ -29,9 +29,3 @@ func template_apply(templateString string, replacement map[string]interface{}) s
 	s := t.ExecuteString(replacement)
 	return string(s)
 }
-/*
-	Custom tempalte loaders
-
-	Please add your page custom template in the space below
-*/
-

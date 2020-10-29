@@ -13,6 +13,7 @@ require (
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/klauspost/compress v1.10.6 // indirect
 	github.com/klauspost/pgzip v1.2.4 // indirect
+	github.com/koron/go-ssdp v0.0.0-20191105050749-2e1c40ed0b5d
 	github.com/mholt/archiver/v3 v3.3.0
 	github.com/miekg/dns v1.1.29 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

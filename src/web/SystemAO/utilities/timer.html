@@ -1,0 +1,212 @@
+<html>
+    <head>
+        <title>Timer</title>
+        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                padding-top:40px;
+                padding-bottom:50px;
+                background-color:#f2f2f2;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ts container" style="position:absolute;left:0;right:0;width:100%;" align="center">
+            <div class="ts grid">
+                <div class="five wide column">
+                    <div class="ts statistic">
+                        <div id="hour" class="value">00</div>
+                        <div class="label">Hours</div>
+                    </div><br>
+                    <div class="ts icon tiny buttons">
+                        <button class="ts button" onClick="adjustValue('hour',-1);"><i class="minus icon"></i></button>
+                        <button class="ts button" onClick="resetTimer('hour');"><i class="undo icon"></i></button>
+                        <button class="ts button"onClick="adjustValue('hour',1);"><i class="plus icon"></i></button>
+                    </div>
+                </div>
+                <div class="five wide column">
+                    <div class="ts statistic">
+                        <div id="min" class="value">00</div>
+                        <div class="label">Minutes</div>
+                    </div><br>
+                     <div class="ts icon tiny buttons">
+                        <button class="ts button" onClick="adjustValue('min',-1);"><i class="minus icon"></i></button>
+                        <button class="ts button" onClick="resetTimer('min');"><i class="undo icon"></i></button>
+                        <button class="ts button"onClick="adjustValue('min',1);"><i class="plus icon"></i></button>
+                    </div>
+                </div>
+                <div class="five wide column">
+                    <div class="ts statistic">
+                        <div id="sec" class="value">00</div>
+                        <div class="label">Seconds</div>
+                    </div><br>
+                     <div class="ts icon tiny buttons">
+                        <button class="ts button" onClick="adjustValue('sec',-1);"><i class="minus icon"></i></button>
+                        <button class="ts button" onClick="resetTimer('sec');"><i class="undo icon"></i></button>
+                        <button class="ts button"onClick="adjustValue('sec',1);"><i class="plus icon"></i></button>
+                    </div>
+                </div>
+                <div class="one wide column">
+                    <button id="startbtn" class="ts positive tiny icon button" onClick="startCountDown();" style="position:fixed;top:3px;right:3px;">
+                        <i class="play icon"></i>
+                    </button>
+                    <button id="pausebtn" class="ts basic tiny icon button disabled" onClick="pauseCountDown();" style="position:fixed;top:40px;right:3px;">
+                        <i class="pause icon"></i>
+                    </button>
+                    <button id="stopalarm" class="ts negative tiny icon button disabled" onClick="stopAlarm();" style="position:fixed;top:80px;right:3px;">
+                        <i class="volume down icon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <script>
+            //Init the timer window
+            ao_module_setFixedWindowSize();
+            ao_module_setWindowSize(380,190);
+            ao_module_setWindowTitle("Countdown Timer - Ready");
+            if (ao_module_windowID == false){
+                $("body").append("<div style='position:fixed;bottom:10px;left:10px;'>[Warning] Seems you are not opening this module under virtual desktop mode. Some functions might be limited or not fully supported.</div>");
+            }
+            //Global variable
+            var countingDown = false;
+            var counter;
+            setInterval(timerTick,1000);
+            var alarmStartTime = 0;
+            var volIncreaseInterval;
+            var audio;
+             
+            //Handle button pressed
+            function adjustValue(target,offset){
+                if ($("#" + target).length == 0){
+                    return;
+                }
+                var currentSec = parseInt($("#" + target).text());
+                if (target == "sec" || target == "min"){
+                    if (currentSec == 0 && offset < 0){
+                        currentSec = 60;
+                    }else if (currentSec == 59 && offset > 0){
+                        currentSec = -1;
+                    }
+                    currentSec += offset;
+                    updateCounterValue(target,currentSec);
+                }else{
+                    //This logic loop controls the hour counter
+                    if (currentSec == 0 && offset < 0){
+                        currentSec = 24;
+                    }else if (currentSec == 23 && offset > 0){
+                        currentSec = -1;
+                    }
+                    currentSec += offset;
+                    updateCounterValue(target,currentSec);
+                }
+                
+            }
+            
+            function resetTimer(target){
+                $("#" + target).text("00");
+            }
+            
+            function updateCounterValue(target,num){
+                
+                $("#" + target).text(fillZero(num));
+            }
+            
+            function fillZero(value){
+                if (value < 10){
+                    return "0" + value;
+                }else{
+                    return value + "";
+                }
+            }
+            
+            function startCountDown(){
+                countingDown = true;
+                ao_module_setWindowTitle("Countdown Timer - Counting");
+            }
+            
+            function pauseCountDown(){
+                 countingDown = false;
+                 ao_module_setWindowTitle("Countdown Timer - Ready");
+            }
+            
+            function resetAllTimer(){
+                updateCounterValue("sec",0);
+                updateCounterValue("min",0);
+                updateCounterValue("hour",0);
+            }
+            
+            //Looping functions for timer ticks
+            function timerTick(){
+                //This function should be running every 1 second
+                if (countingDown == true){
+                    $("#startbtn").addClass("disabled");
+                    $("#pausebtn").removeClass("disabled");
+                    var sec = parseInt($("#sec").text());
+                    var min = parseInt($("#min").text());
+                    var hour = parseInt($("#hour").text());
+                    //console.log("Coutning down");
+                    if (sec > 0){
+                        sec = sec - 1;
+                    }else if (sec == 0){
+                        sec = 59;
+                        if (min > 0){
+                            min = min -1;
+                        }else if (min == 0){
+                            min = 59;
+                            if (hour > 0){
+                                hour = hour -1;
+                            }else if (hour == 0){
+                                countingDown = false;
+                                //parent.msgbox("Timeout!","Timer Notification");
+                                startTimeoutEvents();
+                                resetAllTimer();
+                                return;
+                            }
+                        }
+                    }
+                    updateCounterValue("sec",sec);
+                    updateCounterValue("min",min);
+                    updateCounterValue("hour",hour);
+                    
+                }else{
+                    $("#startbtn").removeClass("disabled");
+                    $("#pausebtn").addClass("disabled");
+                    
+                }
+            }
+            
+            function startTimeoutEvents(){
+                if (alarmStartTime != 0){
+                    stopAlarm();
+                }
+                audio = new Audio('sound/timer_alarm.mp3');
+                audio.volume = 0.1;
+                audio.play();
+                alarmStartTime = time();
+                volIncreaseInterval = setInterval( increaseVolumeALittleBit, 5000);
+                $("#stopalarm").removeClass("disabled");
+                ao_module_setWindowTitle("Countdown Timer - Time Out!");
+            }
+            
+            function stopAlarm(){
+                $("#stopalarm").addClass("disabled");
+                clearInterval(volIncreaseInterval);
+                audio.pause();
+                audio.currentTime = 0;
+                ao_module_setWindowTitle("Countdown Timer - Ready");
+                alarmStartTime = 0;
+            }
+            
+            function increaseVolumeALittleBit(){
+                audio.volume += 0.05;
+                console.log("[Timer] Alarm volume increased to: " + audio.volume);
+            }
+            
+            function time(){
+                return Math.floor(Date.now() / 1000);    
+            }
+        </script>
+    </body>
+</html>

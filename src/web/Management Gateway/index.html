@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <title>Management Gateway</title>
+        <style>
+            body{
+                background-color:white;
+                overflow: hidden;
+                padding: 0px !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ui inverted blue attached menu">
+            <a class="item" onclick="window.location.reload();">
+                <img src="img/white_icon.png">
+            </a>
+            <div class="item" style="margin-left: -12px; border: 1px solid transparent !important; ">
+                <span style="font-weight: bold; font-size: 150%; margin-right: 12px; margin-top:-16px;">arozos</span><span style="margin-top:18px; margin-left: -60px; font-size: 80%;">Management Gateway</span> 
+            </div>
+            <div class="right menu">
+                <a class="item nondesktop" href="../SystemAO/boot/interface_selector.html">
+                    <i class="exchange icon"></i> Switch Services
+                 </a>
+                <a class="item nondesktop" onclick="logout();">
+                   <i class="logout icon"></i> Logout
+                </a>
+            </div>
+           
+        </div>
+        <iframe src="../SystemAO/system_setting/" id="mainframe" style="width:100%; height: calc(100% - 53px); border: 1px solid white !important;"></iframe>
+        <script>
+
+            if (ao_module_virtualDesktop){
+                $(".nondesktop").hide();
+            }
+
+            function logout() {
+                if (confirm("Exiting Session. Confirm?")){
+                    $.get("../system/auth/logout", function() {
+                        window.location.href = "/";
+                    });
+                }
+            }
+        </script>
+    </body>
+</html>

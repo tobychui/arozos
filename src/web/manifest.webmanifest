@@ -1,0 +1,18 @@
+{
+    "name": "ArOZ Gateway",
+    "short_name": "A-Gateway",
+    "start_url": "./m.index.html",
+    "display": "standalone",
+    "background_color": "#171717",
+    "description": "Connecting your ArOZ with one shortcut",
+    "icons": [{
+        "src": "img/public/pwa/192.png",
+        "sizes": "192x192",
+        "type": "image/png" 
+    },
+    {
+        "src": "img/public/pwa/512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+    }]
+}

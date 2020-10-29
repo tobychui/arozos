@@ -68,6 +68,9 @@ function scanPathForVideo(thisDir, thisStorageName){
     
 }
 
+//Craete the user Video folder
+filelib.mkdir("user:/Video");
+
 //Scan the user root path
 if (filelib.fileExists("user:/Video")){
     scanPathForVideo("user:/", "User")

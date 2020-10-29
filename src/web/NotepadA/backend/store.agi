@@ -1,7 +1,7 @@
 //AGI script for saving and getting data from system core database
 if (opr == "set"){
     if (typeof key !== 'undefined' && typeof value !== 'undefined'){
-        if (!writeDBItem("NotepadA",key, value)){
+        if (!writeDBItem("NotepadA",USERNAME + "/" + key, value)){
             sendJSONResp(JSON.stringify({
                 error: "Failed to write to database"
             }));
@@ -9,7 +9,7 @@ if (opr == "set"){
     }
 }else if (opr == "get"){
     if (typeof key !== 'undefined'){
-        var content = readDBItem("NotepadA",key);
+        var content = readDBItem("NotepadA",USERNAME + "/" + key);
         if (content == false){
             sendJSONResp(JSON.stringify({
                 error: "Unable to read database"

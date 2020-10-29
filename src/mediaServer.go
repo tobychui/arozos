@@ -7,6 +7,8 @@ import (
 	"log"
 	"strings"
 	"errors"
+
+	fs "imuslab.com/aroz_online/mod/filesystem"
 )
 
 /*
@@ -29,10 +31,12 @@ func mediaServer_init(){
 
 //This function validate the incoming media request and return the real path for the targed file
 func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (string, error){
-	username, err := system_auth_getUserName(w,r);
+	username, err := authAgent.GetUserName(w,r);
 	if (err != nil){
 		return "", errors.New("User not logged in");
 	}
+
+	userinfo, _ := userHandler.GetUserInfoFromUsername(username);
 
 	//Validate url valid
 	if (strings.Count(r.URL.String(), "?") > 1){
@@ -46,7 +50,7 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 	}
 
 	//Translate the virtual directory to realpath
-	realFilepath, err := virtualPathToRealPath(targetfile, username);
+	realFilepath, err := userinfo.VirtualPathToRealPath(targetfile);
 	if (fileExists(realFilepath) && IsDir(realFilepath)){
 		return "", errors.New("Given path is not a file.")
 	}
@@ -61,7 +65,7 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 
 		originalURL := r.URL.String();
 		//Must be pre-processed with system special URI Decode function to handle edge cases
-		originalURL = system_fs_specialURIDecode(originalURL);
+		originalURL = fs.DecodeURI(originalURL);
 		if (strings.Contains(originalURL, "&download=true")){
 			originalURL = strings.ReplaceAll(originalURL, "&download=true", "")
 		}else if (strings.Contains(originalURL, "download=true")){
@@ -72,7 +76,7 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 		}
 		urlInfo := strings.Split(originalURL, "file=")
 		possibleVirtualFilePath := urlInfo[len(urlInfo) - 1]
-		possibleRealpath, err := virtualPathToRealPath(possibleVirtualFilePath, username);
+		possibleRealpath, err := userinfo.VirtualPathToRealPath(possibleVirtualFilePath);
 		if (err != nil){
 			log.Println("Error when trying to serve file in compatibility mode", err.Error());
 			return "", errors.New("Error when trying to serve file in compatibility mode");
@@ -97,7 +101,7 @@ func serveMediaMime(w http.ResponseWriter, r *http.Request){
 	}
 	mime := "text/directory"
 	if !IsDir(realFilepath){
-		m, _, err := system_fs_getMime(realFilepath)
+		m, _, err := fs.GetMime(realFilepath)
 		if (err != nil){
 			mime = ""
 		}
