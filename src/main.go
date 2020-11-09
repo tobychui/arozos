@@ -26,16 +26,14 @@ import (
 //=========== SYSTEM PARAMTERS  ==============
 var sysdb *db.Database        //System database
 var authAgent *auth.AuthAgent //System authentication agent
-var loadedModule []moduleInfo //System laoded modules
 var permissionHandler *permission.PermissionHandler
 var userHandler *user.UserHandler         //User Handler
-var runningSubServices []subService       //System loaded subservices
 var packageManager *apt.AptPackageManager //Manager for package auto installation
 var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                     //System build flag, this can be either {development / production / stable}
-var internal_version = "0.1.101"                      //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
+var internal_version = "0.1.104"                      //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
 var deviceUUID string                                 //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                      //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"            //Vendor contact information
@@ -75,11 +73,12 @@ var enable_dir_listing = flag.Bool("dir_list", true, "Enable directory listing")
 
 //Flags related to compatibility
 var enable_beta_scanning_support = flag.Bool("beta_scan", false, "Allow compatibility to ArOZ Online Beta Clusters")
-var enable_console = flag.Bool("console",false, "Enable the debugging console.")
+var enable_console = flag.Bool("console", false, "Enable the debugging console.")
 
 //Flags related to running on Cloud Environment or public domain
 var allow_public_registry = flag.Bool("public_reg", false, "Enable public register interface for account creation")
 var allow_hardware_management = flag.Bool("enable_hwman", true, "Enable hardware management functions in system")
+var allow_autologin = flag.Bool("allow_autologin", true, "Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot")
 var demo_mode = flag.Bool("demo_mode", false, "Run the system in demo mode. All directories and database are read only.")
 var allow_package_autoInstall = flag.Bool("allow_pkg_install", true, "Allow the system to install package using Advanced Package Tool (aka apt or apt-get)")
 var disable_ip_resolve_services = flag.Bool("disable_ip_resolver", false, "Disable IP resolving if the system is running under reverse proxy environment")
@@ -96,6 +95,10 @@ func SetupCloseHandler() {
 }
 
 func executeShutdownSequence() {
+	//Shutdown authAgent
+	log.Println("\r- Shutting down auth gateway")
+	authAgent.Close()
+
 	//Shutdown file system handler db
 	log.Println("\r- Shutting down fsdb")
 	CloseAllStorages()
@@ -108,23 +111,8 @@ func executeShutdownSequence() {
 	log.Println("\r- Shutting down database")
 	sysdb.Close()
 
-	//Shutdown uPNP service if enabled
-	if *allow_upnp {
-		log.Println("\r- Shutting down uPNP connection")
-		UPNP.Close()
-	}
-
-	//Shutdown SSDP service if enabled
-	if *allow_ssdp {
-		log.Println("\r- Shutting down SSDP connection")
-		SSDP.Close()
-	}
-
-	//Shutdown MDNS if enabled
-	if *allow_mdns {
-		log.Println("\r- Shutting down MDNS service")
-		MDNS.Close()
-	}
+	//Shutdown network services
+	StopNetworkServices()
 
 	//Cleaning up tmp files
 	log.Println("\r- Cleaning up tmp folder")
@@ -190,14 +178,13 @@ func main() {
 		}
 	}()
 
-	if *enable_console == true{
+	if *enable_console == true {
 		//Startup interactive shell for debug and basic controls
 		Console := console.NewConsole(consoleCommandHandler)
 		Console.ListenAndHandle()
-	}else{
+	} else {
 		//Just do a blocking loop here
-		select{}
+		select {}
 	}
-
 
 }

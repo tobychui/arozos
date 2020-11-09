@@ -18,6 +18,7 @@ import (
 	auth "imuslab.com/aroz_online/mod/auth"
 	user "imuslab.com/aroz_online/mod/user"
 	prout "imuslab.com/aroz_online/mod/prouter"
+	module "imuslab.com/aroz_online/mod/modules"
 )
 
 func UserSystemInit(){
@@ -270,9 +271,9 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request){
 
 	interfacingModules := userinfo.GetInterfaceModules();
 
-	interfaceModuleInfos := []moduleInfo{}
+	interfaceModuleInfos := []module.ModuleInfo{}
 	for _, im := range interfacingModules{
-		interfaceModuleInfos = append(interfaceModuleInfos, *system_module_getModuleInfoByID(im))
+		interfaceModuleInfos = append(interfaceModuleInfos, *moduleHandler.GetModuleInfoByID(im))
 	}
 
 	jsonString, _ := json.Marshal(interfaceModuleInfos);

@@ -13,6 +13,7 @@ import (
 	"os"
 
 	prout "imuslab.com/aroz_online/mod/prouter"
+	module "imuslab.com/aroz_online/mod/modules"
 )
 
 //Desktop script initiation
@@ -45,7 +46,7 @@ func DesktopInit(){
 	}
 
 	//Register Desktop Module
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "Desktop",
 		Desc: "The Web Desktop experience for everyone",
 		Group: "Interface Module",

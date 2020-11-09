@@ -15,9 +15,9 @@ func AGIInit(){
 	gw, err := agi.NewGateway(agi.AgiSysInfo{
 		BuildVersion: build_version,
 		InternalVersion: internal_version,
-		LoadedModule: system_module_getModuleNameList(),
+		LoadedModule: moduleHandler.GetModuleNameList(),
 		ReservedTables: []string{"auth","permisson","desktop"},
-		ModuleRegisterParser: registerModuleFromJSON,
+		ModuleRegisterParser: moduleHandler.RegisterModuleFromJSON,
 		PackageManager: packageManager,
 		UserHandler: userHandler,
 		StartupRoot: "./web",
@@ -28,11 +28,48 @@ func AGIInit(){
 	}
 
 
-	//Register handler endpoint
+	//Register user request handler endpoint
 	http.HandleFunc("/system/ajgi/interface", func(w http.ResponseWriter, r *http.Request){
 		//Require login check
-		authAgent.HandleCheckAuth(w,r, gw.InterfaceHandler)
+		authAgent.HandleCheckAuth(w,r,  func(w http.ResponseWriter, r *http.Request){
+			//API Call from actual human users
+			thisuser, _ := gw.Option.UserHandler.GetUserInfoFromRequest(w,r);
+			gw.InterfaceHandler(w,r, thisuser)
+		})
 	})
+
+	//Register external API request handler endpoint
+	http.HandleFunc("/api/ajgi/interface", func(w http.ResponseWriter, r *http.Request){
+		//Check if token exists
+		token, err := mv(r, "token", true)
+		if err != nil{
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("401 - Unauthorized (token is empty)"))
+			return
+		}
+
+		log.Println(token)
+		//Validate Token
+		if authAgent.TokenValid(token) == true {
+			//Valid
+			thisUsername, err := gw.Option.UserHandler.GetAuthAgent().GetTokenOwner(token);
+			if err != nil{
+				log.Println(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - Internal Server Error"))
+				return
+			}
+			thisuser, _ := gw.Option.UserHandler.GetUserInfoFromUsername(thisUsername)
+			gw.APIHandler(w,r, thisuser)
+		}else{
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("401 - Unauthorized (Invalid / expired token)"))
+			return
+		}
+			
+	
+	})
+
 
 	AGIGateway = gw
 }

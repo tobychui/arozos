@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"fmt"
 	"encoding/json"
 
 	reg "imuslab.com/aroz_online/mod/auth/register"
@@ -61,6 +62,46 @@ func RegisterSystemInit(){
 	
 	//Handle toggle
 	adminrouter.HandleFunc("/system/register/setAllowRegistry",register_handleToggleRegistry);
+	
+	//Get a list of email registered in the system
+	adminrouter.HandleFunc("/system/register/listUserEmails",register_handleEmailListing);
+
+	//Clear User record that has no longer use this service
+	adminrouter.HandleFunc("/system/register/cleanUserRegisterInfo",register_handleRegisterCleaning);
+}
+
+func register_handleRegisterCleaning(w http.ResponseWriter, r *http.Request){
+	//Get all user emails from the registerHandler
+	registerHandler.CleanRegisters();
+	sendOK(w);
+}
+
+func register_handleEmailListing(w http.ResponseWriter, r *http.Request){
+	//Get all user emails from the registerHandler
+	userRegisterInfos := registerHandler.ListAllUserEmails();
+
+	useCSV, _ := mv(r, "csv", false)
+	if useCSV == "true"{
+		//Prase as csv
+		csvString := "Username,Email,Still Registered\n"
+		for _, v := range userRegisterInfos{
+			registered := "false"
+			s, _ := v[2].(bool)
+			if s == true{
+				registered = "true"
+			}
+			csvString += fmt.Sprintf("%v", v[0]) + "," + fmt.Sprintf("%v", v[1]) + "," + registered + "\n"
+		}
+
+		w.Header().Set("Content-Disposition", "attachment; filename=registerInfo.csv")
+		w.Header().Set("Content-Type", "text/csv")
+		w.Write([]byte(csvString))
+	}else{
+		//Prase as json
+		jsonString, _ := json.Marshal(userRegisterInfos);
+		sendJSONResponse(w, string(jsonString));
+	}
+
 
 }
 

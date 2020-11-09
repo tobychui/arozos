@@ -1,0 +1,50 @@
+<html>
+    <head>
+        <title>Invalid Autologin Token</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script type="application/javascript" src="../../script/jquery.min.js"></script>
+        <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+       <style>
+            #game{
+                border: 1px solid black;
+
+            }
+        </style>
+    </head>
+    <body>
+        <br><br>
+        <div class="ui text container">
+            <div class="ui stackable grid">
+                <div class="eight wide column" style="margin-top:8rem;">
+                    <h2 class="ui header">
+                        <i class="remove icon"></i>
+                        <div class="content">
+                            Invalid Auto-Login Token
+                            <div class="sub header">The given token cannot be validated.<br>That is all we know.</div>
+                        </div>
+                    </h2>
+                </div>
+                <div class="eight wide column">
+                    <div id="errorpic" class="ui text container">
+                        <img class="ui image" src="/img/public/errors/error.png">
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <div class="ui divider"></div>
+            ERROR: INVALID-AUTOLOGIN-TOKEN
+        </div>
+        <script>
+            $(window).on("resize", function(){
+                if (window.innerHeight > window.innerWidth){
+                    $("#errorpic").attr("align","center");
+                }else{
+                    $("#errorpic").attr("align","left");
+                }
+            })
+        </script>
+    </body>
+</html>

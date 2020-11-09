@@ -39,9 +39,9 @@
                 position:absolute;
                 bottom:0px;
                 right:0px;
-                margin-right:-40px;
-                width:40px;
-                height:120px;
+                margin-right:-20px;
+                width:30px;
+                height:90px;
                 border-radius: 0px 10px 10px 0px;
             }
 
@@ -181,10 +181,26 @@
                 height: 100%;
             }
 
-            .floatWindowWrapper{
-                height:100%;
+            #windowWrapper{
+                height: 100%;
                 width: 100%;
+                position: absolute;
+                top:0px;
+                right:0px;
             }
+
+            .floatWindowWrapper{
+                width: 100%;
+                height: 100%;
+            }
+
+            .floatWindow{
+                width: 100%;
+                height: 100%;
+                position: absolute;
+            }
+
+
 
             .fwtab iframe{
                 border: 0px solid transparent;
@@ -196,10 +212,10 @@
     <body>
         <div class="taskBar themeColor" >
             <div class="toggleTaskBar themeColor" shown="false" onclick="toggleTaskBar(this);">
-                <img class="ui image sidebararrow" style="margin-top:8px;" src="img/mobile/keyboard_arrow_right-white-48dp.svg"></img>
+                <img class="ui image sidebararrow" style="margin-top:8px; margin-left: -10px;" src="img/mobile/keyboard_arrow_right-white-48dp.svg"></img>
             </div>
             <div class="listMenuLauncher" onclick="showListMenu();">
-                <img src="img/mobile/apps-white-48dp.svg"/>
+                <img src="img/mobile/apps-white-48dp.svg" style="width: 30px;"/>
             </div>
             <div id="windowButtonWrapper">
                
@@ -508,7 +524,7 @@
             var xDown = null;                                                        
             var yDown = null;
             var swipeTarget = null;
-
+            var targetType = "fw";
             function getTouches(evt) {
             return evt.touches ||             // browser API
                     evt.originalEvent.touches; // jQuery
@@ -516,16 +532,24 @@
 
             function handleTouchStart(evt) {
                 const firstTouch = getTouches(evt)[0];
-                swipeTarget = getFloatWindowObjectFromPath(evt.path);
+                if ($(evt.target).hasClass("taskBar")){
+                        swipeTarget = evt.target;
+                        targetType = "taskbar"
+                }else{
+                    swipeTarget = getFloatWindowObjectFromPath(evt.path);
+                }
+                
                 xDown = firstTouch.clientX; 
                 yDown = firstTouch.clientY;
             };
 
             function getFloatWindowObjectFromPath(path){
                 var targetObject = undefined;
+                targetType = undefined
                 path.forEach(object => {
                     if ($(object).hasClass("floatWindowButton")){
                         targetObject = object
+                        targetType = "fw"
                     }
                 })
 
@@ -546,12 +570,26 @@
                 if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
                     if ( xDiff > 0 ) {
                         /* left swipe */ 
-                        if (swipeTarget !== undefined){
+                        if (swipeTarget !== undefined && targetType == "fw"){
                             closeFloatWindow($(swipeTarget).attr("windowId"));
+                        }else if (swipeTarget !== undefined && targetType == "taskbar"){
+                            hideTaskBar();
                         }
                     } else {
                         /* right swipe */
-
+                        if (swipeTarget !== undefined && targetType == "fw"){
+                            //Allow left or right swipe to remove fw
+                            closeFloatWindow($(swipeTarget).attr("windowId"));
+                        }else  if (swipeTarget !== undefined && targetType == "taskbar"){
+                            //Right swipe on taskbar
+                            if ($(swipeTarget).find(".toggleTaskBar").attr("shown") == "true"){
+                                //Already shown. Toggle list menu
+                                showListMenu();
+                            }else{
+                                showTaskBar();
+                            }
+                            
+                        }
                     }                       
                 } else {
                     if ( yDiff > 0 ) {
@@ -664,10 +702,10 @@
                 var parent = options.parent || "";
                 var callback = options.callback || "";
                 //Create a new iframe
-                $("#windowWrapper").append(` <div id="windowWrapper">
-                <div class="floatWindowWrapper" windowId="${windowID}" parent="${parent}" callback="${callback}">
+                $("#windowWrapper").append(` <div class="floatWindowWrapper" windowId="${windowID}">
+                <div class="floatWindow" windowId="${windowID}" parent="${parent}" callback="${callback}">
                     <div class="fwtab">
-                        <iframe src="${options.url}" style="width: 100%;"></iframe>
+                        <iframe src="${options.url}" style="width: 100%; height: 100%;"></iframe>
                     </div>
                 </div>
                 </div>`);
@@ -719,8 +757,19 @@
                 return targetObejct;
             }
 
-            function MoveFloatWindowToTop(){
-                //Disabled in mobile mode
+            function MoveFloatWindowToTop(targetfw){
+                //Check if this windows is already topped
+                if ($(targetfw).is(":visible")){
+                    //Already topped
+                    return;
+                }
+
+                $(".floatWindowWrapper").each(function(){
+                    $(this).fadeOut("fast");
+                });
+
+                console.log(targetfw);
+                $(targetfw).parent().fadeIn("fast");
             }
 
             function focusTab(object){

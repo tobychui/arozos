@@ -7,6 +7,7 @@
         <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/forge-sha256.min.js"></script>
         <script>
              window.mobilecheck = function() {
                 var check = false;
@@ -199,10 +200,17 @@
             .fileObject.darkTheme:hover{
                 background-color:#17161f !important;
             }
+            .fileObject.darkTheme:hover span{
+                background-color:#17161f !important;
+            }
             .fileObject.whiteTheme:hover{
                 background-color:#f2f2f2 !important;
             }
             .fileObject.darkTheme.selected{
+                background-color:#100f16 !important;
+                
+            }
+            .fileObject.darkTheme.selected span{
                 background-color:#100f16 !important;
                 
             }
@@ -538,6 +546,10 @@
             .um.filename{
                 color: #69aaff !important;
             }
+
+            .dropdown.inverted{
+                background-color: #17161f !important;
+            }
         </style>
     </head>
     <body class="whiteTheme">
@@ -578,10 +590,17 @@
                     <div class="section whiteTheme selectable">Desktop</div>
                 </div>
                 <div class="rightAlign">
+                    <select id="sortingMethodSelector" title="Sorting Method" class="ts basic borderless mini dropdown" onchange="updateSortingMethods();" autocomplete="off">
+                        <option value="default">Ascending</option>
+                        <option value="reverse">Descending</option>
+                        <option value="smallToLarge">Smallest</option>
+                        <option value="largeToSmall"> Largest</option>
+                        <option value="mostRecent">Most Recent</option>
+                        <option value="leastRecent">Least Recent</option>
+                    </select>
                     <button class="ts icon tiny button standard whiteTheme"  title="Search"><i class="search icon"></i></button>
                     <button class="ts icon tiny button standard whiteTheme videmode" mode="grid" title="Block View" onclick="changeViewMode(this);"><i class="block layout icon"></i></button>
                     <button class="ts icon tiny button standard whiteTheme videmode" mode="list" title="List View" onclick="changeViewMode(this);"><i class="align justify icon"></i></button>
-                    <!-- <button class="ts icon tiny button whiteTheme videmode" mode="details" title="Details View"><i class="list icon"></i></button> -->
                 </div>
              </div>
              <div class="mobilePathDisplayWrapper">
@@ -833,8 +852,11 @@
             <div class="item" onclick="openViaButton();">
                 <i class="folder open icon"></i>  Open
             </div>
-            <div class="item" onclick="openWith();">
+            <div class="item fileonly" onclick="openWith();">
                 <i class="external icon"></i> Open With
+            </div>
+            <div class="item folderonly" onclick="openSelectedFolderInNewWindow();">
+                <i class="external icon"></i> Open In New Window
             </div>
             <div class="item" onclick="copy();">
                 <i class="copy icon"></i> Copy
@@ -877,7 +899,7 @@
         <!-- Upload Progress Bars-->
         <div id="uploadTab" class="ts segment whiteTheme" style="display:none;">
             <div class="statusBar whiteTheme">
-                <i class="upload icon"></i> Uploading <span id="uploadCount">0</span> Files
+                <i class="upload icon"></i><span id="uploadCount">0</span> Files / <i class="wait icon"></i> <span id="waitingCount">0</span> Files
                 <div class="hideUploadButton" onclick="toggleUploadList();">
                     <i class="caret down icon"></i>
                 </div>
@@ -893,35 +915,38 @@
 
            
         <script>
-            var directorySidebarWidth = 250; //Width of the sidebar
-            var sideBarShown = true; //Indicate if sidebar is shown
-            var rootDirs = [];  //Storage location for rootDirs
-            var currentTheme = "whiteTheme"; //Default theme
-            var viewMode = "list"; //Viewmode, support {list, grid, detail}
-            var sortMode = "default"; //Sortmode, support {default, reverse, smallToLarge, largeToSmall}
-            var currentPath = "user:/"
-            var viewHistory = []; //View history
-            var isMobile = window.mobilecheck();
-            var isChromium = window.chrome;
-            var enableBetaFilename = true; //Enable beta filename conversion from "inith..." to "normal"
-            var currentFilelist = []; //The current file list in the currentPath
-             
+            let directorySidebarWidth = 250; //Width of the sidebar
+            let sideBarShown = true; //Indicate if sidebar is shown
+            let rootDirs = [];  //Storage location for rootDirs
+            let currentTheme = "whiteTheme"; //Default theme
+            let viewMode = "list"; //Viewmode, support {list, grid, detail}
+            let sortMode = "default"; //Sortmode, support {default, reverse, smallToLarge, largeToSmall, mostRecent, leastRecent}
+            let currentPath = "user:/"
+            let viewHistory = []; //View history
+            let isMobile = window.mobilecheck();
+            let isChromium = window.chrome;
+            let enableBetaFilename = true; //Enable beta filename conversion from "inith..." to "normal"
+            let currentFilelist = []; //The current file list in the currentPath
+            let currentPathHash = "";   //The folder content hash
+
             //File operations
-            var clipboard = []; //System clipboard
-            var cutMode = false; //If set to true, this is cut mode. Else copy mode
-            var useLocalstorage = lscheck();
-            var overwriteMode = "keep"; //Overwrite mode, support {skip, overwrite, keep}
+            let clipboard = []; //System clipboard
+            let cutMode = false; //If set to true, this is cut mode. Else copy mode
+            let useLocalstorage = lscheck();
+            let overwriteMode = "keep"; //Overwrite mode, support {skip, overwrite, keep}
 
             //Keypress listeners
-            var ctrlHold = false;
-            var shiftHold = false;
+            let ctrlHold = false;
+            let shiftHold = false;
 
             //Upload related
-            var uploadingFileCount = 0;
-            
+            let uploadingFileCount = 0;
+            let maxConcurrentUpload = 2; //Maxmium number of oncurrent upload
+            let uploadPendingList = []; //Upload pending queue for mass upoad
+
             //System Information
-            var systemUUID = "";
-            var systemIP = "";
+            let systemUUID = "";
+            let systemIP = "";
 
             //Intiiation functions
             initRootDirs();
@@ -992,6 +1017,26 @@
                 //Initialized directory views
                 listDirectory(currentPath);
             });
+            
+            //Create a timer to check change in current folder
+            setInterval(function(){
+                getDirHash(function(hash){
+                    if (hash.error !== undefined){
+                        //Something went wrong. Ignore this request
+                        console.log(hash.error)
+                    }else{
+                        //Check if the hash match with the last hash.
+                        if (hash != currentPathHash){
+                            //console.log(currentPathHash, hash);
+                            refreshList();
+                            currentPathHash = hash;
+                        }
+                    }
+                });
+            }, 5000)
+
+
+            //END OF INIT FUNCTIONS
 
             //Get the system ID and ip address from the system id services
             function initSystemInfo(){
@@ -1014,7 +1059,7 @@
                         $("#userroot").html("");
                         for (var i =0; i < data.length; i++){
                             var thisRootObject = data[i];
-                            if (thisRootObject.IsDir == true){
+                            if (thisRootObject.IsDir == true && !(thisRootObject.Filename == ".cache" || thisRootObject.Filename == ".trash")){
                                 //Files will not be listed in the root directory list
                                 var icon = getUserRootIcons(thisRootObject.Filename);
                                 var displayName = thisRootObject.Filename;
@@ -1086,7 +1131,7 @@
             }
 
             // ============================== FOLDER LISTING FUNCTIONS ====================
-            function listDirectory(path){
+            function listDirectory(path, callback=undefined){
                 //Always pad slash to the end of path
                 if (path.substring(path.length - 1) != "/"){
                     path = path + "/";
@@ -1113,6 +1158,14 @@
                 }else{
                     $("#backbtn").removeClass("disabled");
                 }
+
+                //Add loading screen to the folderlists and fileList
+                $("#fileList").html("");
+                $("#folderList").html(`<div style="height: 100px;">
+                    <div class="ts active inverted dimmer">
+                        <div class="ts text loader">Loading</div>
+                    </div>
+                </div>`);
 
                 $.ajax({
                     url: "../../system/file_system/listDir",
@@ -1203,6 +1256,7 @@
                                 </div>`);
                             }
                         }
+
                         if (folders.length == 0){
                             $("#folderList").hide();
                         }else{
@@ -1238,7 +1292,12 @@
                                     }
                                     filename = ao_module_codec.decodeUmFilename(filename);
                                 }
-                                $("#fileList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);"  fileID="${fl + i}"  filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);"  type="file" filesize="${filesize}" displaysize="${Displaysize}"><span style="display:inline-block !important;word-break: break-all;text-overflow: ellipsis !important;overflow: hidden;" class="${textclass}"><i class="${icon} icon" style="margin-right:12px;"></i>  ${displayName}</span></div>`);
+                                $("#fileList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);"  fileID="${fl + i}"  filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);"  type="file" filesize="${filesize}" displaysize="${Displaysize}">
+                                    <span style="display:inline-block !important;word-break: break-all;text-overflow: ellipsis !important;overflow: hidden;" class="${textclass}">
+                                        <i class="${icon} icon" style="margin-right:12px;"></i>  
+                                        ${displayName}
+                                    </span>
+                                </div>`);
                             }else if (viewMode == "grid"){
                                 var imagePath = "../../../img/desktop/files_icon/default/" + icon + ".png";
                                 var displayName = JSON.parse(JSON.stringify(filename));
@@ -1258,10 +1317,10 @@
                                 $("#fileList").append(`
                                 <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" fileID="${fl + i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="file" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:20em;  margin-top:0px !important;  overflow:hidden;">
                                     <div class="image">
-                                        <img draggable="true"ondragstart="disableDrag(event);" src="${imagePath}">
+                                        <img draggable="true"ondragstart="disableDrag(event);" style="height: 148px; width: 148px;" src="${imagePath}">
                                     </div>
                                     <div class="content">
-                                        <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis;">${displayName}</div>
+                                        <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis; font-size: 100%">${displayName}</div>
                                         <div class="meta ${currentTheme}">
                                             <div>.${ext}</div>
                                         </div>
@@ -1280,8 +1339,56 @@
                         }
 
                         bindFileObjectEvents();
+                        currentFilelist.sort();
+                        //Update the filelist hash
+                        currentPathHash = forge_sha256(currentFilelist.join(","));
+                        if (callback !== undefined){
+                            callback();
+                        }
+
+                        //If viewmode is grid, load file thumbnails
+                        if (viewMode == "grid"){
+                            startThumbnailLoader();
+                        }
                     }
                 });
+            }
+
+            function startThumbnailLoader(){
+                let path = currentPath;
+                let protocol = "wss://";
+                if (location.protocol !== 'https:') {
+                    protocol = "ws://";
+                }
+                let socket = new WebSocket(protocol + window.location.hostname + ":" + window.location.port + "/system/file_system/handleCacheRender?folder=" + path);
+
+                socket.onopen = function(e) {
+
+                };
+
+                socket.onmessage = function(event) {
+                    //Find the correct file in the current directory and place its image
+                    if (path == currentPath){
+                        var thumbData = JSON.parse(event.data);
+                        $(".fileObject").each(function(){
+                            if (thumbData[1].length > 0){
+                                if ($(this).attr("filename") == thumbData[0]){
+                                    $(this).find("img").attr("src","data:image/jpg;base64," + thumbData[1]);
+                                }
+                            }
+                          
+                        });
+                    }
+                    
+                };
+
+                socket.onclose = function(event) {
+                    //Transfer ended
+                };
+
+                socket.onerror = function(error) {
+                    console.log(error);
+                };
             }
 
             //Make an div not draggable
@@ -1319,6 +1426,12 @@
             var lastClickedFileID = 0;
             function bindFileObjectEvents(){
                 $(".fileObject").off("click").on('click',function(evt){
+                    if (isMobile){
+                        //If on mobile, click means open
+                        openthis(this,evt);
+                        return
+                    }
+
                     if (ctrlHold == true){
                         if ($(this).hasClass("selected")){
                             $(this).removeClass("selected");
@@ -1377,6 +1490,17 @@
                             top: evt.pageY - $("#contextmenu").height() + "px"
                         });
                     }
+                    //Check if this is folder or file. Replace the suitable selections
+                    if ($(this).attr("type") == "folder"){
+                        //Use folder mode
+                        $("#contextmenu").find(".folderonly").show();
+                        $("#contextmenu").find(".fileonly").hide();
+                    }else{ 
+                        //Use file mode
+                        $("#contextmenu").find(".folderonly").hide();
+                        $("#contextmenu").find(".fileonly").show();
+                    }
+
                     $("#contextmenu").addClass("visible");
                     //Handle CSS offset of the contextmenu
                     if ($("#contextmenu").offset().top < 0){
@@ -1434,13 +1558,30 @@
                     //There are parent path. Get it from currentPath
                     pathInfo = currentPath.split("/");
                     pathInfo.pop();
-                    pathInfo.pop();
+                    var parentFolderName = pathInfo.pop();
                     parentPath = pathInfo.join("/") + "/"
                     
                     //List the parentDir
-                    listDirectory(parentPath);
+                    listDirectory(parentPath, function(){
+                        focusFileObject(parentFolderName);
+                    });
+                   
                 }
 
+            }
+
+            //Move the page focus to the given fileobject
+            function focusFileObject(targetFileName){
+                $(".fileObject").each(function(){
+                    if ($(this).attr("filename") == targetFileName){
+                        console.log($(this));
+                        $(this).addClass("selected");
+                        //Trying to vertically align the directory from its parent list
+                        $("#folderView").stop().finish().animate({
+                            scrollTop: $(this).offset().top - $("#folderView").offset().top - (window.innerHeight - $("#navibar").height())/2 + $(this).height()
+                        }, 300);
+                    }
+                });
             }
 
             function rootDir(){
@@ -1463,6 +1604,16 @@
                 }
             }
 
+            function getDirHash(callback){
+                $.ajax({
+                    url: "../../system/file_system/listDirHash",
+                    data: {dir: currentPath},
+                    success: function(data){
+                        callback(data);
+                    }
+                })
+            }
+
             //=================================== FILE OPERATIONS ========================
 
             function refreshList(){
@@ -1470,6 +1621,8 @@
                 ctrlHold = false;
                 listDirectory(currentPath);
             }
+
+           
 
             let renameFileObjects = [];
             function rename(){
@@ -1969,13 +2122,20 @@
                 }else if (objType == "folder"){
                     //Open this folder
                     var folderPath = $(object).attr('filepath');
-                    listDirectory(folderPath);
+                    listDirectory(folderPath, function(){
+                        //Scroll to top of the list
+                        $("#folderView").stop().finish().animate({
+                            scrollTop: 0
+                        }, 300);
+
+                        if ($(object).hasClass('dir') && isMobile){
+                            toggleSidebar();
+                        }
+                    });
                 }
 
                 //Check if this opened in sidebar and in mobile mode. Close sidebar if yes
-                if ($(object).hasClass('dir') && isMobile){
-                    toggleSidebar();
-                }
+               
             }
 
             //Download the selected files.
@@ -2393,14 +2553,35 @@
                 }
             }
 
+            function openSelectedFolderInNewWindow(){
+                $(".fileObject.selected").each(function(){
+                    if ($(this).attr("type") == "folder"){
+                        console.log($(this).attr('filepath'));
+                        openPathInNewWindow([$(this).attr('filepath')]);
+                    }
+                })
+            }
+
             //Always open the first object locally, and open others in new floatWindows
-            function openFolderInNewWindow(path){
-                if (path.length > 0){
-                    listDirectory(path[0]);
-                    for (var i = 1; i < path.length; i++){
-                        newFloatWindow(location.href.replace(location.hash,"") + "#" + path[i])
+            function openFolderInNewWindow(paths){
+                if (paths.length > 0){
+                    listDirectory(paths[0]);
+                    for (var i = 1; i < paths.length; i++){
+                        //newFloatWindow(location.href.replace(location.hash,"") + "#" + path[i])
+                        openPathInNewWindow(paths[i]);
                     }
                 }
+            }
+
+            function openPathInNewWindow(path){
+                ao_module_newfw({
+                    url: window.location.pathname + "#" + path,
+                    appicon: "SystemAO/file_system/img/small_icon.png",
+                    title: "File Manager",
+                    width: 1080,
+                    height: 580,
+                    parent: ao_module_windowID,
+                });
             }
 
             //Preference setting and loading functions.
@@ -2525,12 +2706,14 @@
                     currentTheme = "whiteTheme";
                     $("#darkthemebtn").attr("class","moon icon");
                     $("#darkthemebtn").parent().addClass("inverted");
+                    $(".dropdown").removeClass("inverted");
                     setPreference("file_explorer/theme","whiteTheme");
                 }else{
                     $(".whiteTheme").removeClass("whiteTheme").addClass("darkTheme");
                     currentTheme = "darkTheme";
                     $("#darkthemebtn").attr("class","sun icon");
                     $("#darkthemebtn").parent().removeClass("inverted");
+                    $(".dropdown").addClass("inverted");
                     setPreference("file_explorer/theme","darkTheme");
                 }
                
@@ -2605,21 +2788,119 @@
                 event.preventDefault();
                 console.log(event, event.target)
                 //Check if this is file upload or file move / copy function
-
                 let dt = event.dataTransfer
                 let files = dt.files
                 if (files.length > 0){
                     //Upload file via dragdrop
                     msgbox("upload","Upload Started");
-                    for (var i =0; i < files.length; i++){
-                        uploadFile(files[i]);
+                    let items = event.dataTransfer.items;
+                    for (let i=0; i<items.length; i++) {
+                        let item = items[i].webkitGetAsEntry();
+                        if (item) {
+                            recursiveScanFilesUpload(item);
+                        }
                     }
                     
                 }else{
                     //File transfer within system
-                    console.log(event);
+                    let filedata = event.dataTransfer.getData("filedata");
+                    if (filedata != ""){
+                        try{
+                            let fileList = JSON.parse(filedata);
+                            //Check if the file objects are from the same host
+                            let localFiles = [];
+                            let remoteFiles = [];
+                            fileList.forEach(file => {
+                                if (file.hostUUID == systemUUID){
+                                    //Local file
+                                    localFiles.push(file);
+                                }else{
+                                    //Remote files
+                                    remoteFiles.push(file);
+                                }
+                            });
+
+                            //Start processing the local files
+                            let currentVroot = currentPath.split(":/").shift();
+                            clipboard = [];
+
+                            //Assume all files are from the same directory
+                            if (localFiles.length > 0){
+                                //Check if drag drop from the same directory
+                                let currentDirname = currentPath.split("/")
+                                currentDirname.pop();
+                                currentDirname = currentDirname.join("/");
+                                let firstFileDirname = localFiles[0].filepath.split("/")
+                                firstFileDirname.pop();
+                                firstFileDirname = firstFileDirname.join("/");
+                                if (currentDirname == firstFileDirname){
+                                    //Drag start and drop location are the same directory
+                                    msgbox("remove","Source and destination file names are the same")
+                                    return;
+                                }
+
+                                let fileVroot = localFiles[0].filepath.split(":/").shift();
+                                if (currentVroot == fileVroot){
+                                    //Same device same root. Move the file
+                                    cutMode = true;
+                                }else{
+                                    //Same device differnet root. Copy the file
+                                    cutMode = false;
+                                }
+
+                                //Move all localFiles into clipboard
+                                localFiles.forEach(file => {
+                                    clipboard.push(file.filepath);
+                                });
+
+                                if (useLocalstorage){
+                                    localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
+                                    if (cutMode){
+                                        localStorage.setItem("ao/file_system/cutmode","true");
+                                    }else{
+                                        localStorage.setItem("ao/file_system/cutmode","false");
+                                    }
+                                    
+                                }
+
+                                //Paste all the files to the current path
+                                console.log(clipboard);
+                                paste();
+                            }
+                           
+                            
+
+                        }catch(ex){
+                            console.log(ex);
+                            msgbox("remove","File drop failed. Unable to decode filelist.");
+                        }
+                    }
+                    
+                    
                 }
+                
            }
+
+           function recursiveScanFilesUpload(item, rootpath=""){
+               var filesInside = [];
+                if (item.isDirectory) {
+                    //This is a directory
+                    let directoryReader = item.createReader();
+                        directoryReader.readEntries(function(entries) {
+                        entries.forEach(function(entry) {
+                            recursiveScanFilesUpload(entry, rootpath + item.name + "/");
+                        });
+                    });
+                }else{
+                    //This is a file. Upload it
+                    item.file(function(fileObject){
+                        console.log(fileObject);
+                        uploadFile(fileObject);
+                    });
+                }
+                return filesInside;
+            }
+
 
         function showFileProperties(){
             //Show the file list of the selected files
@@ -2642,15 +2923,45 @@
             });
         }
 
-        function uploadFile(file) {
+        let uploadBufferedRefreshTimer;
+        function uploadFile(file, uuid=undefined, targetDir=undefined) {
+            //Create the task progress Object
+            let taskUUID = uuid;    //For queueing objects
+            if (taskUUID == undefined){
+                //If this is a new file to be uploaded
+                taskUUID = appendUploadFileItem(file.name, file.size);
+            }
+             
+            //Updates 22-10-2020
+            //Added file upload queuing system to prevent too many request on-the-fly at the same time
+            if (uploadingFileCount >= maxConcurrentUpload){
+                //Push to upload pending list
+                //Sometime files will be recursively uploaded (aka retry multiple time), hence the targetDir needed to be copied as well
+                let uploadDir = currentPath;
+                if (targetDir !== undefined){
+                    uploadDir = targetDir;
+                }
+                uploadPendingList.push({
+                    File: file,
+                    UUID: taskUUID,
+                    TargetDir: JSON.parse(JSON.stringify(uploadDir)),
+                });
+                return
+            }
+
+            //Prase upload Form
             let url = '../../system/file_system/upload'
-            let uploadCurrentPath = currentPath;
+            let uploadCurrentPath = JSON.parse(JSON.stringify(currentPath));
+            if (targetDir !== undefined){
+                //The upload paramter supplied targetDir
+                uploadCurrentPath = targetDir;
+            }
+            console.log("Uploading To => ", uploadCurrentPath, targetDir, currentPath);
             let formData = new FormData()
             let xhr = new XMLHttpRequest()
             formData.append('file', file);
-            formData.append('path', currentPath);
-            //Append this file to the upload progress list
-            let taskUUID = appendUploadFileItem(file.name, file.size);
+            formData.append('path', uploadCurrentPath);
+
             xhr.open('POST', url, true)
             xhr.upload.addEventListener("progress", function(e) {
                 progress = (e.loaded * 100.0 / e.total) || 100;
@@ -2663,6 +2974,7 @@
                             //When progress = 100 and the server is not response with 200,
                             //That means the upload has finish and server is processing the upload
                             $(this).find(".progress").addClass("indeterminate");
+
                         }
                     }
                 });
@@ -2671,18 +2983,17 @@
             xhr.addEventListener('readystatechange', function(e) {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     //Upload process ended
-                    if (uploadCurrentPath == currentPath){
-                        $(".uploadTask").each(function(){
-                            if ($(this).attr("taskID") == taskUUID){
-                                //Update this progress bar to completed
-                                $(this).find(".bar").css("width","100%");
-                                $(this).find(".progress").attr("class","ts tiny positive progress");
-                                $(this).find(".uploadTaskRemoveIcon").show();
-                                $(this).addClass("ended");
-                            }
-                        });
-                        setTimeout(refreshList,500);
-                    }
+                    //Update task status
+                    $(".uploadTask").each(function(){
+                        if ($(this).attr("taskID") == taskUUID){
+                            //Update this progress bar to completed
+                            $(this).find(".bar").css("width","100%");
+                            $(this).find(".progress").attr("class","ts tiny positive progress");
+                            $(this).find(".uploadTaskRemoveIcon").show();
+                            $(this).addClass("ended");
+                        }
+                    });
+
                     var resp = JSON.parse(e.target.response);
                     if (resp.error !== undefined){
                         msgbox("caution",resp.error);
@@ -2698,6 +3009,15 @@
                         });
                     }
                     uploadingFileCount--;
+
+                    //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
+                    setTimeout(function(){
+                        if (uploadPendingList.length > 0){
+                            let nextFile = uploadPendingList.shift();
+                            uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
+                        }
+                    }, 100)
+                    
                 }else if (xhr.readyState == 4 && xhr.status != 200) {
                     msgbox("remove","File too big or the target disk is fulled");
                     console.log(xhr);
@@ -2710,7 +3030,18 @@
                         }
                     });
                     uploadingFileCount--;
+
+                    //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
+                    setTimeout(function(){
+                        if (uploadPendingList.length > 0){
+                            let nextFile = uploadPendingList.shift();
+                            uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
+                        }
+                    }, 100)
                 }
+
+               
+
                 updateUploadFileCount();
             })
 
@@ -2764,6 +3095,7 @@
 
         function updateUploadFileCount(){
             $("#uploadCount").text(uploadingFileCount);
+            $("#waitingCount").text(uploadPendingList.length);
             if (uploadingFileCount == 0 && $(".uploadTask").length == 0){
                 $("#uploadTab").hide();
             }else{
@@ -2826,12 +3158,13 @@
                 a.click()
                 document.body.removeChild(a)
             }
-           //Handle new window opening
-           function newFloatWindow(url){
-               //Use floatwindow if it exists
-               //WIP
-               window.open(url);
-           }
+
+            //Update sorting method for file listing
+            function updateSortingMethods(){
+                var method = $("#sortingMethodSelector").val();
+                sortMode = method;
+                refreshList();
+            }
 
         </script>
     </body>

@@ -52,9 +52,14 @@ if (requirelib("filelib") == false){
     var rootDirs = filelib.glob("/");
     for (var i = 0; i < rootDirs.length; i++){
         var thisRoot = rootDirs[i];
+        /*
         if (filelib.fileExists(thisRoot + "Music/")){
             musicDis.push(thisRoot + "Music/");
         }
+        */
+        //Always use all roots
+        musicDis.push(thisRoot);
+        
     }
 
     //Handle user request on listing

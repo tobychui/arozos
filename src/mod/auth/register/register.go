@@ -12,8 +12,10 @@ import (
 	"io/ioutil"
 	"bufio"
 	"os"
+	"strings"
 	"errors"
 	"encoding/base64"
+	"encoding/json"
 	"log"
 
 	"github.com/valyala/fasttemplate"
@@ -155,6 +157,44 @@ func (h *RegisterHandler)SetAllowRegistry(allow bool){
 	h.AllowRegistry = allow;
 }
 
+//Clearn Register information by removing all users info whose account is no longer registered
+func (h *RegisterHandler)CleanRegisters(){
+	entries, _ := h.database.ListTable("register")
+	for _, keypairs := range entries{
+		if (strings.Contains(string(keypairs[0]), "user/email/")){
+			c := strings.Split(string(keypairs[0]), "/")
+			//Get username and emails
+			username := c[len(c)-1]
+			if !h.authAgent.UserExists(username){
+				//Delete this record
+				h.database.Delete("register", string(keypairs[0]))
+			}
+
+		}
+	}
+}
+
+func (h *RegisterHandler)ListAllUserEmails()[][]interface{}{
+	results := [][]interface{}{}
+	entries, _ := h.database.ListTable("register")
+	for _, keypairs := range entries{
+		if (strings.Contains(string(keypairs[0]), "user/email/")){
+			c := strings.Split(string(keypairs[0]), "/")
+			//Get username and emails
+			username := c[len(c)-1]
+			email := ""
+			json.Unmarshal(keypairs[1], &email)
+
+			//Check if the user still registered in the system
+			userStillRegistered := h.authAgent.UserExists(username)
+
+			results = append(results, []interface{}{username,email, userStillRegistered})
+		}
+	}
+
+	return results
+}
+
 //Handle the request for creating a new user
 func (h *RegisterHandler)HandleRegisterRequest(w http.ResponseWriter, r *http.Request){
 	if h.AllowRegistry == false{
@@ -212,7 +252,7 @@ func (h *RegisterHandler)HandleRegisterRequest(w http.ResponseWriter, r *http.Re
 	h.database.Write("register","user/email/" + username,email)
 
 	sendOK(w);
-	log.Println("New User Registered: ", email, username, password)
+	log.Println("New User Registered: ", email, username, strings.Repeat("*", len(password)))
 
 }
 

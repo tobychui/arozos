@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+
+	module "imuslab.com/aroz_online/mod/modules"
 )
 
 type settingModule struct {
@@ -31,7 +33,7 @@ func SystemSettingInit() {
 	http.HandleFunc("/system/setting/list", system_setting_handleListing)
 
 	//Register the module
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name:        "System Setting",
 		Desc:        "Cutomize your systems to fit your needs",
 		Group:       "System Settings",
@@ -85,10 +87,10 @@ func system_setting_getSettingGroups() []settingGroup {
 			Desc:     "Add, removed or edit users and groups",
 		},
 		settingGroup{
-			Name:     "Date & Time",
+			Name:     "Time & Schedule",
 			Group:    "Time",
 			IconPath: "SystemAO/system_setting/img/time.svg",
-			Desc:     "Modify System Timezone and date",
+			Desc:     "System Functions related to Time and Dates",
 		},
 		settingGroup{
 			Name:     "Advance Options",

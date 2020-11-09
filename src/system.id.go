@@ -42,8 +42,6 @@ func SystemIDInit(){
 		http.HandleFunc("/AOB/SystemAOB/functions/system_statistic/getDriveStat.php", system_id_getDriveStates);	
 	}
 	
-	//Handle ArOZ Online 1.0 scan methods
-	//WIP
 }
 
 func system_id_generateSystemUUID(){

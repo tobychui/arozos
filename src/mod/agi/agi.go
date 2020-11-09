@@ -10,63 +10,61 @@ import (
 
 	"github.com/robertkrimen/otto"
 
+	apt "imuslab.com/aroz_online/mod/apt"
 	auth "imuslab.com/aroz_online/mod/auth"
 	user "imuslab.com/aroz_online/mod/user"
-	apt "imuslab.com/aroz_online/mod/apt"
-	
 )
 
 /*
 	ArOZ Online Javascript Gateway Interface (AGI)
-	author: tobychui 
+	author: tobychui
 
 	This script load plugins written in Javascript and run them in VM inside golang
 	DO NOT CONFUSE PLUGIN WITH SUBSERVICE :))
 */
 
 var (
-	AgiVersion string = "1.1"					//Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "1.2" //Defination of the agi runtime version. Update this when new function is added
 )
 
-type AgiLibIntergface func(*otto.Otto, http.ResponseWriter, *http.Request) //Define the lib loader interface for AGI Libraries
-type AgiPackage struct{
-	InitRoot string					//The initialization of the root for the module that request this package
+type AgiLibIntergface func(*otto.Otto, http.ResponseWriter, *http.Request, *user.User) //Define the lib loader interface for AGI Libraries
+type AgiPackage struct {
+	InitRoot string //The initialization of the root for the module that request this package
 }
 
-type AgiSysInfo struct{
+type AgiSysInfo struct {
 	//System information
-	BuildVersion string
+	BuildVersion    string
 	InternalVersion string
-	LoadedModule []string
-	
+	LoadedModule    []string
+
 	//System Handlers
-	UserHandler *user.UserHandler
-	ReservedTables []string
-	PackageManager *apt.AptPackageManager
-	ModuleRegisterParser func (string) error
-	AuthAgent *auth.AuthAgent
+	UserHandler          *user.UserHandler
+	ReservedTables       []string
+	PackageManager       *apt.AptPackageManager
+	ModuleRegisterParser func(string) error
+	AuthAgent            *auth.AuthAgent
 
 	//Scanning Roots
-	StartupRoot string
+	StartupRoot   string
 	ActivateScope []string
 }
 
-
-type Gateway struct{
-	ReservedTables []string
-	AllowAccessPkgs map[string][]AgiPackage
+type Gateway struct {
+	ReservedTables   []string
+	AllowAccessPkgs  map[string][]AgiPackage
 	LoadedAGILibrary map[string]AgiLibIntergface
-	Option *AgiSysInfo
+	Option           *AgiSysInfo
 }
 
-func NewGateway(option AgiSysInfo) (*Gateway, error){
+func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Handle startup registration of ajgi modules
 	startupScripts, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(option.StartupRoot)) + "/*/init.agi")
 	gatewayObject := Gateway{
-		ReservedTables: option.ReservedTables,
-		AllowAccessPkgs: map[string][]AgiPackage{},
+		ReservedTables:   option.ReservedTables,
+		AllowAccessPkgs:  map[string][]AgiPackage{},
 		LoadedAGILibrary: map[string]AgiLibIntergface{},
-		Option: &option,
+		Option:           &option,
 	}
 
 	for _, script := range startupScripts {
@@ -89,12 +87,12 @@ func NewGateway(option AgiSysInfo) (*Gateway, error){
 
 	//Load all the other libs entry points into the memoary
 	gatewayObject.ImageLibRegister()
-	gatewayObject.FileLibRegister();
+	gatewayObject.FileLibRegister()
 
 	return &gatewayObject, nil
 }
 
-func  (g *Gateway)RegisterLib(libname string, entryPoint AgiLibIntergface) error {
+func (g *Gateway) RegisterLib(libname string, entryPoint AgiLibIntergface) error {
 	_, ok := g.LoadedAGILibrary[libname]
 	if ok {
 		//This lib already registered. Return error
@@ -105,23 +103,41 @@ func  (g *Gateway)RegisterLib(libname string, entryPoint AgiLibIntergface) error
 	return nil
 }
 
-func (g *Gateway)raiseError(err error) {
+func (g *Gateway) raiseError(err error) {
 	log.Println("[Runtime Error (AGI Engine)] " + err.Error())
 
 	//To be implemented
 }
 
 //Check if this table is restricted table. Return true if the access is valid
-func (g *Gateway)filterDBTable(tablename string) bool {
+func (g *Gateway) filterDBTable(tablename string) bool {
+	//Check if table is restricted
 	if stringInSlice(tablename, g.ReservedTables) {
 		return false
 	}
+
+	//Check if table exists
+	if !g.Option.UserHandler.GetDatabase().TableExists(tablename) {
+		return false
+	}
+
 	return true
 }
 
-func (g *Gateway)InterfaceHandler(w http.ResponseWriter, r *http.Request) {
+//Handle request from RESTFUL API
+func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
+	scriptContent, err := mv(r, "script", true)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - Bad Request (Missing script content)"))
+		return
+	}
+	g.ExecuteAGIScript(scriptContent, "", "", w, r, thisuser)
+}
+
+//Handle user requests
+func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
 	//Get user object from the request
-	thisuser, _ := g.Option.UserHandler.GetUserInfoFromRequest(w,r);
 	startupRoot := g.Option.StartupRoot
 	startupRoot = filepath.ToSlash(filepath.Clean(startupRoot))
 
@@ -136,55 +152,68 @@ func (g *Gateway)InterfaceHandler(w http.ResponseWriter, r *http.Request) {
 	//Check if the script path exists
 	scriptExists := false
 	scriptScope := "./web/"
-	for _, thisScope := range g.Option.ActivateScope{
+	for _, thisScope := range g.Option.ActivateScope {
 		thisScope = filepath.ToSlash(filepath.Clean(thisScope))
-		if fileExists(thisScope + "/" + scriptFile){
+		if fileExists(thisScope + "/" + scriptFile) {
 			scriptExists = true
 			scriptFile = thisScope + "/" + scriptFile
-			scriptScope = thisScope;
+			scriptScope = thisScope
 		}
 	}
 
-	if !scriptExists{
+	if !scriptExists {
 		sendErrorResponse(w, "Script not found")
 		return
 	}
 
 	//Check for user permission on this module
 	moduleName := getScriptRoot(scriptFile, scriptScope)
-	if !thisuser.GetModuleAccessPermission(moduleName){
+	if !thisuser.GetModuleAccessPermission(moduleName) {
 		w.WriteHeader(http.StatusForbidden)
-		if (g.Option.BuildVersion == "development"){
-			w.Write([]byte("Permission denied: User do not have permission to access " + moduleName, ))
-		}else{
+		if g.Option.BuildVersion == "development" {
+			w.Write([]byte("Permission denied: User do not have permission to access " + moduleName))
+		} else {
 			w.Write([]byte("403 Forbidden"))
 		}
-		
+
 		return
 	}
 
 	//Check the given file is actually agi script
-	if !(filepath.Ext(scriptFile) == ".agi" || filepath.Ext(scriptFile) == ".js"){
+	if !(filepath.Ext(scriptFile) == ".agi" || filepath.Ext(scriptFile) == ".js") {
 		w.WriteHeader(http.StatusForbidden)
 
-		if (g.Option.BuildVersion == "development"){
+		if g.Option.BuildVersion == "development" {
 			w.Write([]byte("AGI script must have file extension of .agi or .js"))
-		}else{
+		} else {
 			w.Write([]byte("403 Forbidden"))
 		}
-		
+
 		return
 	}
-	
+
 	//Get the content of the script
 	scriptContentByte, _ := ioutil.ReadFile(scriptFile)
 	scriptContent := string(scriptContentByte)
 
+	g.ExecuteAGIScript(scriptContent, scriptFile, scriptScope, w, r, thisuser)
+}
+
+/*
+	Executing the given AGI Script contents. Requires:
+	scriptContent: The AGI command sequence
+	scriptFile: The filepath of the script file
+	scriptScope: The scope of the script file, aka the module base path
+	w / r : Web request and response writer
+	thisuser: userObject
+
+*/
+func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scriptScope string, w http.ResponseWriter, r *http.Request, thisuser *user.User) {
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, w, r)
+	g.injectUserFunctions(vm, w, r, thisuser)
 
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
@@ -205,9 +234,9 @@ func (g *Gateway)InterfaceHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, err = vm.Run(scriptContent)
-	scriptpath, _ := filepath.Abs(scriptFile);
+	_, err := vm.Run(scriptContent)
 	if err != nil {
+		scriptpath, _ := filepath.Abs(scriptFile)
 		g.RenderErrorTemplate(w, err.Error(), scriptpath)
 		return
 	}
@@ -229,4 +258,3 @@ func (g *Gateway)InterfaceHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte(valueString))
 }
-

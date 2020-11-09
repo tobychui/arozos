@@ -96,6 +96,29 @@ function ao_module_setWindowTitle(newTitle){
     parent.setFloatWindowTitle(ao_module_windowID, newTitle);
 }   
 
+//Check if there are any windows with the same path. 
+//If yes, replace its hash content and reload to the new one and clise the current floatWindow
+function ao_module_makeSingleInstance(){
+    $(window.parent.document).find(".floatWindow").each(function(){
+        if ($(this).attr("windowid") == ao_module_windowID){
+            return
+        }
+        var currentPath = window.location.pathname;
+        if ("/" + $(this).find("iframe").attr('src').split("#").shift() == currentPath){
+            //Another instance already running. Replace it with the current path
+            $(this).find("iframe").attr('src', window.location.pathname.substring(1) + window.location.hash);
+            $(this).find("iframe")[0].contentWindow.location.reload();
+            //Move the other instant to top
+            var targetfw = parent.getFloatWindowByID($(this).attr("windowid"))
+            parent.MoveFloatWindowToTop(targetfw);
+            //Close the instance
+            ao_module_close();
+            return true
+        }
+    });
+    return false
+}
+
 //Close the current window
 function ao_module_close(){
     if (!ao_module_virtualDesktop){
@@ -289,6 +312,9 @@ function ao_module_parentCallback(data){
             return false;
         }
         $(parentWindow).find('iframe')[0].contentWindow.eval(parentCallback + "(" + JSON.stringify(data) + ");")
+
+        //Focus the parent windows
+        parent.MoveFloatWindowToTop(parentWindow);
         return true;
     }else{
         console.log("[ao_module] WARNING! Invalid call to parentCallback under non-virtualDesktop mode");

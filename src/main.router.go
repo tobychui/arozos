@@ -10,11 +10,9 @@ package main
 
 import (
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"path/filepath"
-	//"log"
 
 	fs "imuslab.com/aroz_online/mod/filesystem"
 )
@@ -75,7 +73,7 @@ func mroutner(h http.Handler) http.Handler {
 					http.Redirect(w, r, "desktop.system", 307);
 				}else if (len(interfaceModule) == 1){
 					//User with default interface module not desktop
-					modileInfo := system_module_getModuleInfoByID(interfaceModule[0]);
+					modileInfo := moduleHandler.GetModuleInfoByID(interfaceModule[0]);
 					http.Redirect(w, r, modileInfo.StartDir, 307);
 				}else if (len(interfaceModule) > 1){
 					//Redirect to module selector
@@ -103,16 +101,11 @@ func mroutner(h http.Handler) http.Handler {
 			}
 
 			//Check if this path is reverse proxy path. If yes, serve with proxyserver
-			isRP, proxy, rewriteURL := system_subservice_checkIfReverseProxyPath(r)
+			isRP, proxy, rewriteURL, subserviceObject := ssRouter.CheckIfReverseProxyPath(r)
 			
 			if isRP {
-				//Perform reverse proxy serving
-				r.URL, _ = url.Parse(rewriteURL)
-				username, _ := authAgent.GetUserName(w, r)
-				r.Header.Set("aouser", username)
-				r.Header.Set("X-Forwarded-Host", r.Host)
-				r.Host = r.URL.Host
-				proxy.ServeHTTP(w, r)
+				//Check user permission on that module
+				ssRouter.HandleRoutingRequest(w,r,proxy, subserviceObject, rewriteURL)
 			} else {
 				if *enable_dir_listing == false{
 					if strings.HasSuffix(r.URL.Path, "/") {

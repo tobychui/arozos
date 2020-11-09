@@ -6,13 +6,11 @@ package main
 */
 
 import (
-	"net/http"
 	"log"
 
 	//ArOZ Online Core Modules
 	db "imuslab.com/aroz_online/mod/database"
 	permission "imuslab.com/aroz_online/mod/permission"
-	auth "imuslab.com/aroz_online/mod/auth"
 	
 )
 
@@ -21,8 +19,13 @@ import (
 func RunStartup(){
 	//1. Initiate the main system database
 	if !fileExists("system/"){
-		panic("▒▒ SYSTEM FOLDER NOT FOUND ▒▒")
+		panic("▒▒ ERROR: SYSTEM FOLDER NOT FOUND ▒▒")
 	}
+
+	if !fileExists("web/"){
+		panic("▒▒ ERROR: WEB FOLDER NOT FOUND ▒▒")
+	}
+
 	dbconn, err := db.NewDatabase("system/ao.db", false)
 	if err != nil{
 		panic(err)
@@ -30,19 +33,7 @@ func RunStartup(){
 	sysdb = dbconn;
 
 	//2. Initiate the auth Agent
-	authAgent = auth.NewAuthenticationAgent("ao_auth", []byte(*session_key), sysdb, *allow_public_registry, func(w http.ResponseWriter, r *http.Request){
-		//Login Redirection Handler, redirect it login.system
-		w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-		http.Redirect(w, r, "/login.system?redirect="+r.URL.Path, 307)
-	})
-
-	//Register the API endpoints for the authentication UI
-	authAgent.RegisterPublicAPIs(auth.AuthEndpoints{
-		Login: "/system/auth/login",
-		Logout: "/system/auth/logout",
-		Register: "/system/auth/register",
-		CheckLoggedIn: "/system/auth/checkLogin",
-	})
+	AuthInit();	//See auth.go
 
 	//3. Start Permission Management Module
 	ph, err := permission.NewPermissionHandler(sysdb)
@@ -56,50 +47,45 @@ func RunStartup(){
 
 
 	//4. Mount and create the storage system base
-	StorageInit(); //See storage.go
-	
-	//5. Start User Management Module
-	UserSystemInit(); //See user.go
-	permissionInit(); //Register permission interface after user
-	RegisterSystemInit(); //See register.go
+	StorageInit(); 					//See storage.go
 
+	//5. Startup user and permission sytem
+	UserSystemInit(); 				//See user.go
+	permissionInit(); 				//Register permission interface after user
+	RegisterSystemInit(); 			//See register.go
 	
+	//6.Start Modules, Subservice and AGI loaders
+	ModuleServiceInit();			//Module Handler
+	PackagManagerInit();			//Start APT service agent
+	AGIInit();						//ArOZ Javascript Gateway Interface
+	SubserviceInit();				//Subservice Handler
 
-	//6. Kickstart the File System and Desktop
+	//7. Kickstart the File System and Desktop
 	FileSystemInit();				//Start FileSystem
 	DesktopInit();					//Start Desktop
-	PackagManagerInit();			//Start APT service agent
 	HardwarePowerInit();			//Start host power manager
 
-	//7. Initiate System Settings Handlers
+	//8. Initiate System Settings Handlers
 	SystemSettingInit();			//Start System Setting Core 
 	DiskQuotaInit();				//Disk Quota Management
 	DiskServiceInit();				//Start Disk Services
 	DeviceServiceInit();			//Client Device Management
 	SystemInfoInit();				//System Information UI
 	SystemIDInit();					//System UUID Manager
-	
+	AdvanceSettingInit();			//System Advance Settings
 
-	//8. Startup network services
+	//9. Startup network services
 	NetworkServiceInit();
 	WiFiInit();
 
 
-	//9. Start Subservice and AGI loaders
-	SubserviceInit();				//Subservice Handler
-	AGIInit();						//ArOZ Javascript Gateway Interface
-
-	//10. Initiate other things
-	ModuleServiceInit();			//Module Handler
-	
-
-	//Other legacy stuffs
+	//10. Other legacy stuffs
 	system_time_init();
 	util_init();
 	system_resetpw_init();
 	mediaServer_init();
 
 	//Finally
-	ModuleSortList();				//Sort the system module list
+	moduleHandler.ModuleSortList();				//Sort the system module list
 	
 }

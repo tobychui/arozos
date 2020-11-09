@@ -23,7 +23,7 @@ if (requirelib("filelib") == true){
     dirname = dirname.join("/");
 
     //Scan nearby files
-    var nearbyFiles = filelib.glob(dirname + "/*")
+    var nearbyFiles = filelib.aglob(dirname + "/*") //aglob must be used here to prevent errors for non-unicode filename
     var audioFiles = [];
     var supportedFormats = [".mp3",".flac",".wav",".ogg",".aac",".webm",".mp4"];
     //For each nearby files

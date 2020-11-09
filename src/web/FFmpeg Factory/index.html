@@ -625,7 +625,7 @@
                 $(taskObject).removeClass("converting").addClass("done");
                 $(taskObject).find(".description").html(`<span><i class='checkmark icon'></i> Completed</span>`);
             }
-            $(taskObject).find(".description").html('<a onclick="removeTask(this);"><i class="checkmark icon"></i> OK</a>');
+            $(taskObject).find(".description").html('<a onclick="removeTask(this);"><i class="checkmark icon"></i> Close</a>');
         }, function(){
             //Failed callback
             $(taskObject).find(".tiny.progress").attr("class","ui red tiny progress");

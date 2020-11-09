@@ -1,0 +1,64 @@
+
+package subservice // import "imuslab.com/aroz_online/mod/subservice"
+
+
+TYPES
+
+type SubService struct {
+	Port         int                        //Port that this subservice use
+	ServiceDir   string                     //The directory where the service is located
+	Path         string                     //Path that this subservice is located
+	RpEndpoint   string                     //Reverse Proxy Endpoint
+	ProxyHandler *reverseproxy.ReverseProxy //Reverse Proxy Object
+	Info         modules.ModuleInfo         //Module information for this subservice
+	Process      *exec.Cmd                  //The CMD runtime object of the process
+}
+
+type SubServiceRouter struct {
+	ReservePaths      []string
+	RunningSubService []SubService
+	BasePort          int
+
+	// Has unexported fields.
+}
+
+func NewSubServiceRouter(ReservePaths []string, basePort int, userHandler *user.UserHandler, moduleHandler *modules.ModuleHandler, parentPort int) *SubServiceRouter
+
+func (sr *SubServiceRouter) CheckIfPortInUse(port int) bool
+
+func (sr *SubServiceRouter) CheckIfReverseProxyPath(r *http.Request) (bool, *reverseproxy.ReverseProxy, string, *SubService)
+    Check if the target is reverse proxy. If yes, return the proxy handler and
+    the rewritten url in string
+
+func (sr *SubServiceRouter) CheckUserPermissionOnSubservice(ss *SubService, u *user.User) bool
+    Check if the user has permission to access such proxy module
+
+func (sr *SubServiceRouter) Close()
+
+func (sr *SubServiceRouter) GetNextUsablePort() int
+    Scan and get the next avaible port for subservice from its basePort
+
+func (sr *SubServiceRouter) GetSubserviceRoot() []string
+    Get a list of subservice roots in realpath
+
+func (sr *SubServiceRouter) HandleKillSubService(w http.ResponseWriter, r *http.Request)
+    Kill the subservice that is currently running
+
+func (sr *SubServiceRouter) HandleListing(w http.ResponseWriter, r *http.Request)
+
+func (sr *SubServiceRouter) HandleRoutingRequest(w http.ResponseWriter, r *http.Request, proxy *reverseproxy.ReverseProxy, subserviceObject *SubService, rewriteURL string)
+
+func (sr *SubServiceRouter) HandleStartSubService(w http.ResponseWriter, r *http.Request)
+
+func (sr *SubServiceRouter) KillSubService(serviceDir string) error
+
+func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error
+
+func (sr *SubServiceRouter) LoadSubservicesFromRootPath(rootpath string)
+    Load and start all the subservices inside this rootpath
+
+func (sr *SubServiceRouter) RestartSubService(ss *SubService)
+    Handle fail start over when the remote target is not responding
+
+func (sr *SubServiceRouter) StartSubService(serviceDir string) error
+

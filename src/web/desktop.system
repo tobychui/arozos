@@ -278,10 +278,21 @@
             box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
             z-index: 113;
         }
+
+        #listMenu.darkTheme{
+            background-color: #242330;
+            color: white;
+        }
         
-        #listMenu .searchBar {
+        #listMenu .searchBar{
             width: 100%;
             border-bottom: 2px solid #34b7eb;
+        }
+
+        #listMenu.darkTheme .searchBar input{
+            background-color: #17161f !important;
+            color: white !important;
+            border: 1px solid #17161f;
         }
         
         #listMenu .listItemWrapper {
@@ -295,6 +306,11 @@
             display: inline-block;
             overflow-y: auto;
             padding-top: 8px;
+        }
+
+        #listMenu.darkTheme .listItemWrapper .groups {
+            background-color: #17161f;
+            color: white;
         }
         
         #listMenu .listItemWrapper .groups .item {
@@ -311,6 +327,10 @@
         #listMenu .listItemWrapper .groups .item:hover {
             background-color: #dedede;
         }
+
+        #listMenu.darkTheme .listItemWrapper .groups .item:hover {
+            background-color: #242330;
+        }
         
         #listMenu .listItemWrapper .items {
             height: 457px;
@@ -320,6 +340,10 @@
             padding-top: 8px;
             box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.5);
             vertical-align: top;
+        }
+
+        #listMenu.darkTheme .listItemWrapper .items {
+            box-shadow: 0px 0px 0px 0px transparent;
         }
         
         #listMenu .listItemWrapper .items .item {
@@ -331,6 +355,11 @@
         
         #listMenu .listItemWrapper .items .item:hover {
             background-color: #f5f5f5;
+        }
+
+        #listMenu.darkTheme .listItemWrapper .items .item:hover {
+            background-color: #17161f !important;
+            margin-right: 5px;
         }
         
         #listMenu .listItemWrapper .items .item img {
@@ -351,6 +380,10 @@
         
         #listMenu .poweroption:hover {
             background-color: #dedede;
+        }
+
+        #listMenu.darkTheme .poweroption:hover {
+            background-color: #242330;
         }
         
         #contextmenu {
@@ -542,7 +575,9 @@
         }
 
         .notification.object:hover{
-            border-left: 3px solid #83D8FF;
+            /*
+                border-left: 3px solid #83D8FF;
+            */
         }
 
         .blured{
@@ -868,7 +903,11 @@
         function updateClockTime(){
             var d = new Date();
             var display = monthNames[d.getMonth()] + " " + d.getDate() + " " + zeropad(d.getHours(),2) + ":" + zeropad(d.getMinutes(),2);
-            $(".clock").text(display);
+            
+            if ($(".notification.object").length > 0){
+                display += `<span style="color: #f54242; margin-left: 8px; float: center;"><i class="notice circle icon"></i></span>`;
+            }
+            $(".clock").html(display);
             var largedate = monthNames[d.getMonth()] + " " + d.getDate() + " " + d.getFullYear() 
             $("#largedate").text(largedate);
             var dow = daysNames[d.getDay()];
@@ -1070,10 +1109,11 @@
                     }
                 }
             } else if (groupType == "Other") {
-                var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilties"];
+                var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilities"];
                 //List the Other groups
                 for (var i = 0; i < moduleInstalled.length; i++) {
                     if (excludeList.includes(moduleInstalled[i]["Group"]) == false && moduleInstalled[i]["StartDir"] != "") {
+                        console.log(moduleInstalled[i]["Group"]);
                         listingItems.push(moduleInstalled[i]);
                     }
                 }
@@ -1128,6 +1168,9 @@
                 //Load all search results
                 for (var i = 0; i < moduleInstalled.length; i++) {
                     var thisModule = moduleInstalled[i];
+                    if (thisModule["StartDir"] == ""){
+                        continue;
+                    }
                     var pathInfo = thisModule["StartDir"].split("/");
                     for (var j = 0; j < pathInfo.length; j++) {
                         pathInfo[j] = pathInfo[j].toLowerCase();
@@ -1567,6 +1610,9 @@
         //Please pass in the floatWindow object instead of the dragger
         function fwdown(object, event) {
             event = mapEventFromTouch(event);
+
+            //Hide all contenxt menus
+            hideAllContextMenus();
 
             //Move the window to the top layer
             MoveFloatWindowToTop(object);
@@ -3991,6 +4037,7 @@
         function hideAllContextMenus() {
             $("#subcontextmenu").hide();
             $("#contextmenu").hide()
+            $("#quickAccessPanel").slideUp("fast");
         }
 
         function restart(){

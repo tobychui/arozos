@@ -1,10 +1,10 @@
 {
-    "name": "ArOZ Gateway",
-    "short_name": "A-Gateway",
-    "start_url": "./m.index.html",
+    "name": "Arozos Mobile",
+    "short_name": "arozos",
+    "start_url": "./mobile.system",
     "display": "standalone",
     "background_color": "#171717",
-    "description": "Connecting your ArOZ with one shortcut",
+    "description": "Connecting to your arozos with one shortcut",
     "icons": [{
         "src": "img/public/pwa/192.png",
         "sizes": "192x192",

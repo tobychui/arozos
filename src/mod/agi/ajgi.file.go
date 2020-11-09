@@ -10,6 +10,7 @@ import (
 
 	"github.com/robertkrimen/otto"
 	fs "imuslab.com/aroz_online/mod/filesystem"
+	user "imuslab.com/aroz_online/mod/user"
 )
 
 /*
@@ -28,11 +29,7 @@ func (g *Gateway)FileLibRegister() {
 	}
 }
 
-func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r *http.Request) {
-	u, err := g.Option.UserHandler.GetUserInfoFromRequest(w,r)
-	if err != nil{
-		panic(err.Error())
-	}
+func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r *http.Request, u *user.User) {
 
 	//Legacy File system API
 	//writeFile(virtualFilepath, content) => return true/false when succeed / failed

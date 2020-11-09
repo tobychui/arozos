@@ -44,6 +44,167 @@ You might also create the database table in this section of the code. For exampl
 newDBTableIfNotExists("myModule")
 ```
 
+## Application Examples
+See web/UnitTest/backend/*.js for more information on how to use AGI in webapps.
+
+For subservice, see subservice/demo/agi/ for more examples.
+
+
+### Access From Frontend
+To access server functions from front-end (e.g. You are building a serverless webapp on top of arozos), you can call to the ao_module.js function for running an agi script located under ```./web``` directory. You can find the ao_module.js wrapper under ```./web/script/```
+
+Here is an example extracted from Music module for listing files nearby the openeing music file.
+
+./web/Music/embedded.html
+```
+ao_module_agirun("Music/functions/getMeta.js", {
+	file: encodeURIComponent(playingFileInfo.filepath)
+}, function(data){
+	songList = data;
+	for (var i = 0; i < data.length; i++){
+		//Do something here
+	}
+});
+
+
+```
+
+./web/Music/functions/getMeta.js
+```
+//Define helper functions
+function bytesToSize(bytes) {
+    var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes == 0) return '0 Byte';
+    var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+    return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+ }
+
+//Main Logic
+if (requirelib("filelib") == true){
+    //Get the filename from paramters
+    var openingFilePath = decodeURIComponent(file);
+    var dirname = openingFilePath.split("/")
+    dirname.pop()
+    dirname = dirname.join("/");
+
+    //Scan nearby files
+    var nearbyFiles = filelib.aglob(dirname + "/*") //aglob must be used here to prevent errors for non-unicode filename
+    var audioFiles = [];
+    var supportedFormats = [".mp3",".flac",".wav",".ogg",".aac",".webm",".mp4"];
+    //For each nearby files
+    for (var i =0; i < nearbyFiles.length; i++){
+        var thisFile = nearbyFiles[i];
+        var ext = thisFile.split(".").pop();
+        ext = "." + ext;
+        //Check if the file extension is in the supported extension list
+        for (var k = 0; k < supportedFormats.length; k++){
+            if (filelib.isDir(nearbyFiles[i]) == false && supportedFormats[k] == ext){
+                var fileExt = ext.substr(1);
+                var fileName = thisFile.split("/").pop();
+                var fileSize = filelib.filesize(thisFile);
+                var humanReadableFileSize = bytesToSize(fileSize);
+
+                var thisFileInfo = [];
+                thisFileInfo.push(fileName);
+                thisFileInfo.push(thisFile);
+                thisFileInfo.push(fileExt);
+                thisFileInfo.push(humanReadableFileSize);
+                
+                audioFiles.push(thisFileInfo);
+                break;
+            }
+        }
+    }
+    sendJSONResp(JSON.stringify(audioFiles));
+}
+
+```
+
+### Access from Subservice Backend
+It is also possible to access the AGI gateway from subservice backend.
+You can include aroz library from ```./subservice/demo/aroz``` . The following is an example extracted from demo subservice that request access to your desktop filelist.
+
+```
+package main
+import (
+	aroz "your/package/name/aroz"
+)
+
+var handler *aroz.ArozHandler
+
+//...
+
+func main(){
+	//Put other flags here
+
+	//Start subservice pipeline and flag parsing (This function call will also do flag.parse())
+	handler = aroz.HandleFlagParse(aroz.ServiceInfo{
+		Name: "Demo Subservice",
+		Desc: "A simple subservice code for showing how subservice works in ArOZ Online",			
+		Group: "Development",
+		IconPath: "demo/icon.png",
+		Version: "0.0.1",
+		//You can define any path before the actualy html file. This directory (in this case demo/ ) will be the reverse proxy endpoint for this module
+		StartDir: "demo/home.html",			
+		SupportFW: true, 
+		LaunchFWDir: "demo/home.html",
+		SupportEmb: true,
+		LaunchEmb: "demo/embedded.html",
+		InitFWSize: []int{720, 480},
+		InitEmbSize: []int{720, 480},
+		SupportedExt: []string{".txt",".md"},
+	});
+
+	//Start Web server with handler.Port
+	http.ListenAndServe(handler.Port, nil)
+}
+
+
+//Access AGI Gateway from Golang
+func agiGatewayTest(w http.ResponseWriter, r *http.Request){
+	//Get username and token from request
+	username, token := handler.GetUserInfoFromRequest(w,r)
+	log.Println("Received request from: ", username, " with token: ", token)
+
+	//Create an AGI Call that get the user desktop files
+	script := `
+		if (requirelib("filelib")){
+			var filelist = filelib.glob("user:/Desktop/*")
+			sendJSONResp(JSON.stringify(filelist));
+		}else{
+			sendJSONResp(JSON.stringify({
+				error: "Filelib require failed"
+			}));
+		}
+	`
+
+	//Execute the AGI request on server side
+	resp,err := handler.RequestGatewayInterface(token, script)
+	if err != nil{
+		//Something went wrong when performing POST request
+		log.Println(err)
+	}else{
+		//Try to read the resp body
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil{
+			log.Println(err)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		resp.Body.Close()
+
+		//Relay the information to the request using json header
+		//Or you can process the information within the go program
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(bodyBytes)
+
+	}
+}
+
+```
+
+
+
 ## APIs
 
 ### Basics
@@ -165,18 +326,31 @@ Users function are function group that only be usable when the interface is star
 #### CONST
 ```
 USERNAME
+USERICON
+USERQUOTA_TOTAL
+USERQUOTA_USED
 ```
 
 #### Filepath Virutalization
 ```
-decodeVirtualPath("user:/Desktop");
-encodeRealPath("files/users/User/Desktop");
+decodeVirtualPath("user:/Desktop"); //Convert virtual path (e.g. user:/Desktop) to real path (e.g. ./files/user/username/Desktop)
+decodeAbsoluteVirtualPath("user:/Desktop"); //Same as decodeVirtualPath but return in absolute path instead of relative path from the arozos binary root
+encodeRealPath("files/users/User/Desktop"); //Convert realpath into virtual path
 ```
 
 #### Permission Related
 ```
 getUserPermissionGroup();
 userIsAdmin(); => Return true / false
+```
+
+#### User Creation, Edit and Removal
+All the command in this section require administrator permission. To check if user is admin, use ``` userIsAdmin() ```.
+
+```
+userExists(username);
+createUser(username, password, defaultGroup);	//defaultGroup must be one of the permission group that exists in the system
+removeUser(username); //Return true if success, false if failed
 ```
 
 #### Library requirement
@@ -216,10 +390,29 @@ if (!requirelib("filelib")){
 ```
 
 
-### ImageLib Functions
-A basic image handling library to process images
+### imagelib
+A basic image handling library to process images. Allowing basic image resize,
+get image dimension and others (to be expanded)
+
+#### ImageLib functions
 ```
 imagelib.getImageDimension("user:/Desktop/test.jpg"); 									//return {width, height}
 imagelib.resizeImage("user:/Desktop/input.png", "user:/Desktop/output.png", 500, 300); 	//Resize input.png to 500 x 300 pixal and write to output.png
+imagelib.loadThumbString("user:/Desktop/test.jpg"); //Load the given file's thumbnail as base64 string, return false if failed
+imagelib.cropImage("user:/Desktop/test.jpg", "user:/Desktop/out.jpg",100,100,200,200)); 
+/*
+Crop the given image with the following arguemnts: 
+
+1) Input file (virtual path)
+2) Output file (virtual path, will be overwritten if exists)
+3) Position X
+4) Position Y
+5) Crop With
+6) Crop Height
+
+return true if success, false if failed
+*/
+
+
 ```
 

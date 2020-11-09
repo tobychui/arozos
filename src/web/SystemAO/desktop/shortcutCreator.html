@@ -184,8 +184,11 @@
                 }else{
                     for (var i = 0 ;i < data.length; i++){
                         var thisModule = data[i];
-                        var moduleInfoEncoded = encodeURIComponent(JSON.stringify(thisModule));
-                        $("#moduleList").append(`<option value="${moduleInfoEncoded}">${thisModule.Name}</option>`);
+                        if (thisModule.StartDir != ""){
+                            var moduleInfoEncoded = encodeURIComponent(JSON.stringify(thisModule));
+                            $("#moduleList").append(`<option value="${moduleInfoEncoded}">${thisModule.Name}</option>`);
+                        }
+                      
                     }
                     $('.ui.dropdown').dropdown();
                 }

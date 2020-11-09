@@ -1,0 +1,12 @@
+# imuslab.com/aroz_online/mod/subservice
+mod\subservice\subservice.go:422:31: sr.RunningSubservice undefined (type *SubServiceRouter has no field or method RunningSubservice, but does have RunningSubService)
+mod\subservice\subservice.go:476:20: undefined: loadedModule
+mod\subservice\subservice.go:483:8: undefined: loadedModule
+mod\subservice\subservice.go:484:3: undefined: loadedModule
+mod\subservice\subservice.go:492:10: undefined: system_subservice_launch
+mod\subservice\subservice.go:501:13: undefined: loadedModule
+mod\subservice\subservice.go:502:10: undefined: loadedModule
+mod\subservice\subservice.go:517:29: undefined: runningSubServices
+mod\subservice\subservice.go:546:141: undefined: subService
+mod\subservice\subservice.go:568:50: undefined: subService
+mod\subservice\subservice.go:517:29: too many errors

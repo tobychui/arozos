@@ -29,51 +29,70 @@
     <body>
         <div id="dplayer"></div>
         <script>
+            //Check if there are another instant running. If yes, replace that another instance URL
+            if (ao_module_virtualDesktop){
+                //If in ao_module mode, try to make this windows the only instance
+                if (!ao_module_makeSingleInstance()){
+                    initPlayback();
+                }
+            }else{
+                initPlayback();
+            }
+           
+
             //Load global vol from localStorage
             var defaultVol = localStorage.getItem("global_volume");
             if (defaultVol == null || defaultVol == "" || defaultVol == undefined){
                 defaultVol = 0.4;
             }
 
-            //Get file playback info from hash
-            var playbackFile = ao_module_loadInputFiles();
-            //Only handle one file
-            playbackFile = playbackFile[0];
-
-            //Update title name
-            ao_module_setWindowTitle("Video - " + playbackFile.filename);
-            setTimeout(function(){
-                updatePlayerSize();
-            },500);
-            //Set player property
-            const dp = new DPlayer({
-                container: document.getElementById('dplayer'),
-                screenshot: true,
-                autoplay: true,
-                volume: parseFloat(defaultVol),
-                video: {
-                    url: '../media?file=' + encodeURIComponent(playbackFile.filepath)
-                },
-                contextmenu: [
-                    {
-                        text: 'Download',
-                        link: '../media?file=' + encodeURIComponent(playbackFile.filepath) + "&download=true",
-                    }
-                ],
-            });
-
-            
-            dp.on("volumechange",function(){
-                var newVol = dp.volume();
-                if (localStorage){
-                    localStorage.setItem("global_volume",newVol);
+            function initPlayback(){
+                //Get file playback info from hash
+                var playbackFile = ao_module_loadInputFiles();
+                //Only handle one file
+                playbackFile = playbackFile[0];
+                if (playbackFile == null){
+                    return
                 }
-            });
-            
+                //Update title name
+                ao_module_setWindowTitle("Video - " + playbackFile.filename);
+                setTimeout(function(){
+                    updatePlayerSize();
+                },500);
 
-            $(window).on("resize",function(){
-                updatePlayerSize();
-            }); 
+                 //Set player property
+                const dp = new DPlayer({
+                    container: document.getElementById('dplayer'),
+                    screenshot: true,
+                    autoplay: true,
+                    volume: parseFloat(defaultVol),
+                    video: {
+                        url: '../media?file=' + encodeURIComponent(playbackFile.filepath)
+                    },
+                    contextmenu: [
+                        {
+                            text: 'Download',
+                            link: '../media?file=' + encodeURIComponent(playbackFile.filepath) + "&download=true",
+                        }
+                    ],
+                });
+
+                
+                dp.on("volumechange",function(){
+                    var newVol = dp.volume();
+                    if (localStorage){
+                        localStorage.setItem("global_volume",newVol);
+                    }
+                });
+                
+
+                $(window).on("resize",function(){
+                    updatePlayerSize();
+                }); 
+
+            }
+           
+           
 
             function updatePlayerSize(){
                 if ($("#dplayer").height() < window.innerHeight){

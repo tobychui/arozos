@@ -3,6 +3,8 @@ package main
 import (
 	"io/ioutil"
 	"net/http"
+
+	module "imuslab.com/aroz_online/mod/modules"
 )
 
 /*
@@ -17,7 +19,7 @@ import (
 
 func util_init(){
 	//PDF Viewer
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "PDF Reader",
 		Desc: "The browser build in PDF Reader",
 		Group: "Utilities",
@@ -31,7 +33,7 @@ func util_init(){
 	})
 
 	//Open Documents Viewer
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "OpenOffice Reader",
 		Desc: "Open OpenOffice files",
 		Group: "Utilities",
@@ -48,7 +50,7 @@ func util_init(){
 		Notebook - The build in basic text editor
 	*/
 	//Open Documents Viewer
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "Notebook",
 		Desc: "Basic Text Editor",
 		Group: "Utilities",
@@ -67,7 +69,7 @@ func util_init(){
 		ArOZ Media Player - The basic video player
 	*/
 	//Open Documents Viewer
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "ArOZ Media Player",
 		Desc: "Basic Video Player",
 		Group: "Utilities",
@@ -83,7 +85,7 @@ func util_init(){
 	/*
 		STL File Viewer - Plotted from ArOZ Online Beta
 	*/
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "STL Viewer",
 		Desc: "3D Model Viewer for STL Files",
 		Group: "Utilities",
@@ -99,7 +101,7 @@ func util_init(){
 	/*
 		Gcode File Viewer - Plotted from ArOZ Online Beta
 	*/
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "Gcode Viewer",
 		Desc: "Gcode Toolpath Viewer",
 		Group: "Utilities",
@@ -116,7 +118,7 @@ func util_init(){
 	/*
 		Basic Timer
 	*/
-	registerModule(moduleInfo{
+	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name: "Timer",
 		Desc: "Basic Timer Utility",
 		Group: "Utilities",

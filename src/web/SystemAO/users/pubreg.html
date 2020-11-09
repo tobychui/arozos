@@ -43,6 +43,28 @@
                 </div>
                 <div class="ui blue button" tabindex="0" onclick="handleFormSubmit(event);">Update</div>
             </form>
+            <div class="ui divider"></div>
+            <div class="ui basic segment">
+                <h4>Registered User List</h4>
+                <a class="ui green right floated button" href="../../system/register/listUserEmails?csv=true" target="_blank">Download as CSV</a>
+                <p>A list of registered users. Be noted that the user registration information will not be deleted when a user account is deregistered. The status of the user account status will be shown in the "Still Registered" collum.</p>
+            </div>
+            <table class="ui celled table">
+                <thead>
+                    <tr><th>Username</th>
+                    <th>Email</th>
+                    <th>Still Registered</th>
+                </tr></thead>
+                <tbody id="userlist">
+                    
+                </tbody>
+                </table>
+                <br>
+                <button class="ui blue button" onclick="initUserRegisterInfoList();"><i class="refresh icon"></i>Refresh Table</button>
+                <button class="ui right floated red button" onclick="clearUnregisteredUserInfo();"><i class="remove icon"></i> Clear Unregistered Users Information</button>
+                
+                <br><br><br>
+        
         </div>
         <script>
             $(".ui.checkbox").checkbox();
@@ -117,6 +139,41 @@
                 $("#errmsg").text(err);
                 $("#errdialog").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
 
+            }
+
+            initUserRegisterInfoList();
+            function initUserRegisterInfoList(){
+                $("#userlist").html("");
+                $.get("../../system/register/listUserEmails", function(data){
+                    if (data.error !== undefined){
+                        alert(data.error)
+                    }else{
+                        data.forEach(userinfo => {
+                            var icon = "green checkmark icon";
+                            if (userinfo[2] == false){
+                                icon = "red remove icon"
+                            }
+                            $("#userlist").append(`<tr>
+                                <td>${userinfo[0]}</td>
+                                <td><a href="mailto:${userinfo[1]}">${userinfo[1]}</a></td>
+                                <td><i class="${icon}"></i></td>
+                            </tr>`);
+                        });
+
+                        if (data.length == 0){
+                            $("#userlist").append(`<tr><td col="3"><i class="remove icon"></i> There is no user register record in the database.</td></tr>`);
+                        }
+                    }
+                })
+            }
+
+            //Remove all unregistered user information
+            function clearUnregisteredUserInfo(){
+                if (confirm("Confirm Removing ALL UNREGISTERED USERS INFORMATION?")){
+                    $.get("../../system/register/cleanUserRegisterInfo", function(data){
+                        initUserRegisterInfoList();
+                    });
+                }
             }
         </script>
     </body>

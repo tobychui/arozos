@@ -23,17 +23,19 @@ import (
 
 
 //Options for creating new file system handler
+/*
 type FileSystemOpeningOptions struct{
 	Name      string `json:"name"`						//Display name of this device
 	Uuid      string `json:"uuid"`						//UUID of this device, e.g. S1
 	Path      string `json:"path"`						//Path for the storage root
-	//Access    string `json:"access"`					//Access right, allow {readonly, everyone, user:{username}, group:{groupname}}
+	Access    string `json:"access,omitempty"`			//Access right, allow {readonly, readwrite}
 	Hierarchy string `json:"hierarchy"`					//Folder hierarchy, allow {public, user}
 	Automount bool   `json:"automount"`					//Automount this device if exists
 	Filesystem string `json:"filesystem,omitempty"`		//Support {"ext4","ext2", "ext3", "fat", "vfat", "ntfs"}
 	Mountdev  string `json:"mountdev,omitempty"`		//Device file (e.g. /dev/sda1)
 	Mountpt  string `json:"mountpt,omitempty"`			//Device mount point (e.g. /media/storage1)
 }
+*/
 
 //System Handler for returing
 type FileSystemHandler struct{
@@ -41,6 +43,7 @@ type FileSystemHandler struct{
 	UUID string
 	Path string
 	Hierarchy string
+	ReadOnly bool
 	InitiationTime int64
 	FilesystemDatabase *db.Database
 	Filesystem string
@@ -100,6 +103,7 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error){
 			Name: option.Name,
 			UUID: option.Uuid,
 			Path: option.Path,
+			ReadOnly: option.Access == "readonly",
 			Hierarchy: option.Hierarchy,
 			InitiationTime: time.Now().Unix(),
 			FilesystemDatabase: fsdb,

@@ -9,7 +9,7 @@ type FileSystemOption struct {
 	Name      string `json:"name"`						//Display name of this device
 	Uuid      string `json:"uuid"`						//UUID of this device, e.g. S1
 	Path      string `json:"path"`						//Path for the storage root
-	//Access    string `json:"access"`					//Access right, allow {readonly, everyone, user:{username}, group:{groupname}}
+	Access    string `json:"access,omitempty"`			//Access right, allow {readonly, everyone, user:{username}, group:{groupname}}
 	Hierarchy string `json:"hierarchy"`					//Folder hierarchy, allow {public, user}
 	Automount bool   `json:"automount"`					//Automount this device if exists
 	Filesystem string `json:"filesystem,omitempty"`		//Support {"ext4","ext2", "ext3", "fat", "vfat", "ntfs"}

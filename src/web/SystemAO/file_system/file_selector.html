@@ -374,12 +374,15 @@
                     return;
                 }else if ($(object).attr("IsDir") == "false" && type == "folder"){
                     return;
-                }else if (type == "new"){
+                }else if (type == "new" && $(object).attr("IsDir") == "false"){
                     //Use this filename as the newfile name (aka overwrite mode)
                     var newNewFilename = $(object).attr("filename");
                     newNewFilename = decodeURIComponent(newNewFilename);
                     $("#filename").val(newNewFilename);
                     return;
+                }else if (type == "new" && $(object).attr("IsDir") == "true"){
+                    //Selected a folder in new mode. Ignore it
+                    return
                 }
                 if (multiSelect){
                     if (ctrlDown){
@@ -500,6 +503,10 @@
                     $("#userlist").html("");
                     for (var i =0; i < data.length; i++){
                         if (data[i].IsDir == true){
+                            if (data[i]["Filename"].substring(0,1) == "."){
+                                //Do not show hidden files
+                                continue;
+                            }
                             $('#userlist').append(`<div class="item extrapadding" filepath="${data[i]["Filepath"]}" onclick="openShortcut(this);"><i class="folder icon" style="margin-right:8px;"></i> ${data[i]["Filename"]}</div>`);
                         }
                         
