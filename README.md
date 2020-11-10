@@ -23,9 +23,8 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 
 |Version|Download URL|Remarks|
 |---|---|---|
-|arozos v1.103|https://wdfiles.ru/b49b|   |
-|   |   |   |
-|   |   |   |
+|arozos v1.106|https://wdfiles.ru/b49v||
+|arozos v1.103|https://wdfiles.ru/b49b||
 
 *Yes, the download site is in Russia. No, I am not Russian, I use this site because they offer 80GB of storage for free*
 **All the image listed above require 8GB or above microSD card**
