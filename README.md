@@ -28,6 +28,9 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 |   |   |   |
 
 *Yes, the download site is in Russia. No, I am not Russian, I use this site because they offer 80GB of storage for free*
+**All the image listed above require 8GB or above microSD card**
+
+To optain the .img file, you can unzip the compressed image using 7zip. If you don't have it, you can get it [here](https://www.7-zip.org/download.html)
 
 ### For other ARM SBC(e.g. Orange Pi / Banana Pi / Friendly ARM's Pis)
 Download the correct architecture binary from the "release" tab and upload the binary with the "web" and "system" folder in "/src".
