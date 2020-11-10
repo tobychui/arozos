@@ -3,9 +3,7 @@
 <img src="https://img.shields.io/badge/License-Open%20Source-blue"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In%20Hong%20Kong-香港開發-blueviolet">
 
 ## IMPORTANT NOTES
-The current version of ArOZ Online System is migrating to Golang and the architecture might not be stable.
-Please use this with your own risk. And, we are surely we will change the structure of this system really soon.
-This is for front end development / endpoint dev only.
+The current arozos is still under intense developmenet. System structure might change at any time. Please only develop on the current existsing ArOZ Gateway Interface (AGI) JavaScript Interface or standard HTML webapps with ao_module.js endpoints.
 
 ## Installation
 Require GO 1.14 or above
@@ -13,9 +11,40 @@ Require GO 1.14 or above
 Run the following the command to build the system
 
 ```
+git pull https://github.com/tobychui/arozos
+cd ./arozos/src/
 go build
 ```
 (Yes, it is that simple)
+
+## Deploy
+### For Raspberry Pi (For Raspberry Pi 4B+)
+If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface.
+
+### For other ARM SBC(e.g. Orange Pi / Banana Pi / Friendly ARM's Pis)
+Download the correct architecture binary from the "release" tab and upload the binary with the "web" and "system" folder in "/src".
+After upload, you should have the following file structure
+
+```
+$ ls
+aroz_online_linux_arm64  web  system
+```
+
+Start the binary by calling ``` sudo ./aroz_online_linux_arm64 ``` (or without sudo if you prefer no hardware management)
+
+### Windows
+If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable.
+
+This system can be built and run on Windows hosts with the following build instructions
+```
+# Download the whole repo as zip and cd into it
+cd .\arozos\src\
+go build
+arozos.exe
+```
+**However, not all features are available for Windows**. 
+
+
 
 ## Screenshots
 ![Image](img/screenshots/1.png?raw=true)
