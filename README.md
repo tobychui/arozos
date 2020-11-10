@@ -21,6 +21,14 @@ go build
 ### For Raspberry Pi (For Raspberry Pi 4B+)
 If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface.
 
+|Version|Download URL|Remarks|
+|---|---|---|
+|arozos v1.103|https://wdfiles.ru/b49b|   |
+|   |   |   |
+|   |   |   |
+
+*Yes, the download site is in Russia. No, I am not Russian, I use this site because they offer 80GB of storage for free*
+
 ### For other ARM SBC(e.g. Orange Pi / Banana Pi / Friendly ARM's Pis)
 Download the correct architecture binary from the "release" tab and upload the binary with the "web" and "system" folder in "/src".
 After upload, you should have the following file structure
