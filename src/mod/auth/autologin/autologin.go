@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"encoding/json"
 
-	user "imuslab.com/aroz_online/mod/user"
+	user "imuslab.com/arozos/mod/user"
 )
 
 type AutoLoginHandler struct{

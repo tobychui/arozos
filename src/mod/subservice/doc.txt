@@ -1,5 +1,5 @@
 
-package subservice // import "imuslab.com/aroz_online/mod/subservice"
+package subservice // import "imuslab.com/arozos/mod/subservice"
 
 
 TYPES

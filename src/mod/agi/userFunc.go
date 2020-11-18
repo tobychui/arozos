@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
-	user "imuslab.com/aroz_online/mod/user"
+	user "imuslab.com/arozos/mod/user"
 )
 
 //Define path translation function

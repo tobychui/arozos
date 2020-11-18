@@ -19,9 +19,9 @@ import (
 	"log"
 
 	"github.com/valyala/fasttemplate"
-	db "imuslab.com/aroz_online/mod/database"
-	auth "imuslab.com/aroz_online/mod/auth"
-	permission "imuslab.com/aroz_online/mod/permission"
+	db "imuslab.com/arozos/mod/database"
+	auth "imuslab.com/arozos/mod/auth"
+	permission "imuslab.com/arozos/mod/permission"
 )
 
 type RegisterOptions struct{

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	permission "imuslab.com/aroz_online/mod/permission"
-	storage "imuslab.com/aroz_online/mod/storage"
+	permission "imuslab.com/arozos/mod/permission"
+	storage "imuslab.com/arozos/mod/storage"
 )
 
 //Permissions related to modules
@@ -156,6 +156,19 @@ func (u *User) GetHighestAccessRightStoragePool(fsUUID string) (*storage.Storage
 
 func (u *User) GetUserPermissionGroup() []*permission.PermissionGroup {
 	return u.PermissionGroup
+}
+
+//Check if the user is in one of the permission groups, require groupname
+func (u *User) UserIsInOneOfTheGroupOf(groupnames []string) bool {
+	userpg := u.GetUserPermissionGroup()
+	for _, thispg := range userpg {
+		for _, thisname := range groupnames {
+			if thispg.Name == thisname {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (u *User) SetUserPermissionGroup(groups []*permission.PermissionGroup) {

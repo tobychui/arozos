@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	wifi "imuslab.com/aroz_online/mod/network/wifi"
-	prout "imuslab.com/aroz_online/mod/prouter"
+	wifi "imuslab.com/arozos/mod/network/wifi"
+	prout "imuslab.com/arozos/mod/prouter"
 )
 
 /*

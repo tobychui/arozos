@@ -282,6 +282,9 @@
         #listMenu.darkTheme{
             background-color: #242330;
             color: white;
+            -webkit-box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
+            -moz-box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
+            box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
         }
         
         #listMenu .searchBar{
@@ -612,6 +615,35 @@
            background-color:#fafafa;
         }
 
+        /*
+            Handle dark theme for the quick access panel
+        */
+
+        #quickAccessPanel.darkTheme{
+            background-color: #242330;
+            color: white;
+            border: 1px solid transparent;
+            -webkit-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
+            -moz-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
+            box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
+        }
+        #quickAccessPanel.darkTheme .item:hover{
+           background-color:#17161f;
+        }
+        #quickAccessPanel.darkTheme .header{
+           color: white;
+        }
+        #quickAccessPanel.darkTheme .progress{
+           background-color: #0c0c0f;
+        }
+        #quickAccessPanel.darkTheme .header{
+           color: white;
+        }
+        #quickAccessPanel.darkTheme .inverted.button{
+           background-color: #17161f;
+           border: 1px solid black;
+        }
+
         .item.module{
             cursor:pointer;
         }
@@ -619,6 +651,8 @@
         .item.module:hover{
             background-color:#f5f5f5 !important;
         }
+
+       
 
         /*
                 Z-index layering
@@ -728,7 +762,7 @@
                 <div class="item groupType" group="Utilities">Utilities</div>
                 <div class="item groupType" group="Other">Other</div>
                 <div class="poweroption">
-                    <img style="width:18px; vertical-align: top; margin-right:4px;" src="img/system/power.svg"></img> Exit
+                    <img id="powerIcon" style="width:18px; vertical-align: top; margin-right:4px;" src="img/system/power.svg"></img> Exit
                 </div>
             </div>
             <div id="listMenuItem" class="items">
@@ -752,7 +786,7 @@
             Reconnecting...</div>
     </div>
 
-    <div id="quickAccessPanel" style="display:none;">
+    <div id="quickAccessPanel" class="" style="display:none;">
         <div class="ts small single line items">
             <div class="item">
                 <div class="ts mini image">
@@ -870,6 +904,7 @@
         initDesktopIconPreference()
         hookFloatWindowEvents();
         hookLaunchMenuEvents();
+        initTheme();
 
         //Login cookie expire check
         setInterval(function() {
@@ -1066,6 +1101,7 @@
                 success: function(data) {
                     moduleInstalled = data;
                     listModulesType("All");
+                    checkFileSystemAccess();
 
                     //Hide the system setting button if access is denied
                     var allowSettingAccess = false;
@@ -1583,6 +1619,15 @@
                 //Hide the stacked Float Window list if it is shown
                 $("#stackedWindowList").hide();
                 stackedFloatWindowListShwon = false;
+            }
+
+            if (renameMode == true){
+                //Exit rename mode if the target is not on the editing launchIcon
+                console.log(evt.target);
+                if ($(evt.target).is("body")){
+                    //End rename mode
+                    exitRenameMode();
+                }
             }
         });
 
@@ -2662,6 +2707,10 @@
 
         //This function start all the launchicon related events
         function drag(ev) {
+            //If rename mode, disable drag drop
+            if (renameMode){
+                return false;
+            }
             var target = ev.target;
             if (!($(ev.target).is("div") || $(ev.target).is("a"))) {
                 target = $(target).parent();
@@ -3184,6 +3233,13 @@
         window.onbeforeunload = myConfirmation;
 
         function iconClicked(object, evt) {
+            if (renameMode){
+                //Exit rename mode if icon is clicked during renaming
+                if ($(object).find(".renameInput").length == 0){
+                    exitRenameMode();
+                }
+                
+            }
             //Clicked on a launch icon.
             var alreadyHighlighted = $(object).find(".launchIconWrapper").hasClass("selected");
             if (alreadyHighlighted){
@@ -3208,6 +3264,10 @@
         }
 
         function iconDoubleClicked(object, evt=undefined) {
+            //Don't allow opening when renaming
+            if (renameMode){
+                return;
+            }
             //Double click on a launch icon, tries to open it
             var filedata = ao_module_utils.attrToObject($(object).attr("filedata"));
             //console.log(filedata);
@@ -3336,11 +3396,18 @@
                 shiftHold = false;
             }else if (event.which == "46"){
                 //Delete key
+
+                if (renameMode){
+                    //Deleting content in textarea. Ignore delte action
+                    return true
+                }
                 var deleteFilelist = [];
+                var deleteFilenameList = [];
                 $(".launchIconWrapper.selected").each(function(){
                     var fileObject = $(this).parent();
                     var fd = JSON.parse(decodeURIComponent((fileObject).attr("filedata")));
                     deleteFilelist.push(fd.Filepath);
+                    deleteFilenameList.push(fd.Filename)
                 });
 
                 //Prase the filelist and pass to trash module
@@ -3357,6 +3424,20 @@
                         }
                     }
                 });
+
+                //Delete the file's desktop location
+                deleteFilenameList.forEach(file => {
+                    $.ajax({
+                        url: "system/desktop/files",
+                        data: {del: file},
+                        success: function(data){
+                            if (data.error !== undefined){
+                                console.log(data.error);
+                            }
+                        }
+                    });
+                })
+               
             }else if (event.which == "13"){
                 //Enter key
                 if (!renameMode){
@@ -3367,11 +3448,12 @@
                     });
                     
                 }else if (renameMode){
-                    console.log("WIP");
+                    event.preventDefault();
+                    exitRenameMode();
                 }
             
             }else{
-                console.log(event.which);
+                //console.log(event.which);
             }
         });
 
@@ -3626,7 +3708,6 @@
                         
                     }
                 }
-
                 showSubContextMenu(target);
             });
         }
@@ -3808,8 +3889,9 @@
                             //After set Desktop icon, refresh the page 
                             refresh(function() {
                                 //After refresh the page, highlight the new folder and set it to rename mode
-                                var targetFolderObject = getObjectFromLocation(closestPixelLocation[0], closestPixelLocation[1]);
+                                var targetFolderObject = getObjectFromGridLocation(closestGridIndexLocation[0], closestGridIndexLocation[1]);
                                 console.log(targetFolderObject);
+                                enableRenameOnLaunchIconObject(targetFolderObject);
                             });
                         });
                     }
@@ -3839,9 +3921,16 @@
         function enableRenameOnLaunchIconObject(object) {
             renameMode = true;
             $(".launchIcon").attr("draggable", "false");
-            var originalName = $(object).find(".launchIconText").text().trim();
+            //var originalName = $(object).find(".launchIconText").text().trim();
+            var originalName = JSON.parse(decodeURIComponent($(object).attr("filedata"))).Filename;
             $(object).find(".launchIconText").hide();
-            $(object).append(`<textarea class="renameInput ${desktopIconSize}" type="text" ondragstart="return false;" maxlength="32">${originalName}</textarea>`);
+            $(object).append(`<textarea class="renameInput ${desktopIconSize}" type="text" ondragstart="return false;" dblclick="event.stopImmediatePropagation(); event.stopImmediatePropagation();"maxlength="32">${originalName}</textarea>`);
+            $(object).find(".renameInput")[0].select();
+            var index = originalName.lastIndexOf(".");
+            console.log(index);
+            if( index >= 0){
+                $(object).find(".renameInput")[0].setSelectionRange(0, index);
+            }
         }
 
         function exitRenameMode() {
@@ -3850,15 +3939,45 @@
                 $(".launchIcon").find(".launchIconText").show();
 
                 //Update the folder to textarea content
-
                 $(".renameInput").each(function() {
                     if ($(this).text() == "") {
                         //Ignore this update
                     } else {
-                        var newFoldername = $(this).text();
-                        alert("Update this object name to " + newFoldername)
+                        var filedata = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                        var filepath = filedata.Filepath;
+                        var newFilename = $(this).val();
+                        
+                        //Rename this file
+                        let currentInputTextArea = $(this);
+                        $.ajax({
+                            url: "./system/file_system/fileOpr",
+                            method: "POST",
+                            data: {opr: "rename", src: JSON.stringify([filepath]), new: JSON.stringify([newFilename])},
+                            success: function(data){
+                                if (data.error !== undefined){
+                                    //Cancel the operation
+                                    currentInputTextArea.remove();
+                                }else{
+                                     //Update the new file position
+                                     let closestLocation = findClosestGrid($(currentInputTextArea).parent().offset().left, $(currentInputTextArea).parent().offset().top);
+                                     let closestGridIndexLocation = closestLocation[1];
+                                     setIconDesktopLocation(newFilename, closestGridIndexLocation[0], closestGridIndexLocation[1], function(){
+                                         //Callback after setting location
+                                         refresh(function() {
+                                            //Refresh the desktop
+
+                                         });
+                                     });
+                                }
+                            }
+                        });
+                       
+
+                        //Refresh desktop
                     }
                 });
+
+                renameMode = false;
             }
         }
 
@@ -3882,6 +4001,19 @@
                     }
                 }
             });
+            hideAllContextMenus();
+        }
+
+        //File Rename
+        let renamingItems = [];
+        function handleRename(object, event){
+            if ($('.launchIconWrapper.selected').length > 0){
+                //Enter rename mode
+                renamingItems = $('.launchIconWrapper.selected');
+                let renameTarget = $('.launchIconWrapper.selected')[0]
+                let fileObject = $(renameTarget).parent();
+                enableRenameOnLaunchIconObject(fileObject);
+            }
             hideAllContextMenus();
         }
 
@@ -4134,6 +4266,52 @@
                     openModule("System Setting");
                 }
             })
+        }
+
+        function initTheme(targetTheme=undefined){
+            if (targetTheme == undefined){
+                $.get("../../system/file_system/preference?key=file_explorer/theme", function(data){
+                    if (data == "darkTheme"){
+                        setDarkTheme();
+                    }
+                });
+            }else{
+                //Manual override mode
+                if (targetTheme == "darkTheme"){
+                    setDarkTheme();
+                }else if (targetTheme == "whiteTheme"){
+                    setWhiteTheme();
+                }
+            }
+          
+        }
+
+        function checkFileSystemAccess(){
+            var allowReadWrite = false;
+            moduleInstalled.forEach(thisModule => {
+                if (thisModule.Name == "File Manager"){
+                    //This user has read write access to file system
+                    allowReadWrite = true;
+                }
+            });
+
+            if (!allowReadWrite){
+                sendNotification("READ ONLY Account", "This account is read only. You cannot perform any file operations on this desktop.");
+            }
+        }
+
+        function setDarkTheme(){
+            $("#listMenu").addClass("darkTheme");
+            $("#powerIcon").attr("src","img/system/power-white.svg");
+            $("#quickAccessPanel").addClass("darkTheme");
+            $("#quickAccessPanel").find(".button").addClass("inverted");
+        }
+
+        function setWhiteTheme(){
+            $("#listMenu").removeClass("darkTheme");
+            $("#powerIcon").attr("src","img/system/power.svg");
+            $("#quickAccessPanel").removeClass("darkTheme");
+            $("#quickAccessPanel").find(".button").removeClass("inverted");
         }
 
         function fullscreen() {

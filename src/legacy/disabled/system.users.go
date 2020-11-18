@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"github.com/satori/go.uuid"
 
-	auth "imuslab.com/aroz_online/mod/auth"
+	auth "imuslab.com/arozos/mod/auth"
 )
 
 /*

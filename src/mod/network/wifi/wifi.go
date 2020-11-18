@@ -8,7 +8,7 @@ package wifi
 */
 
 import (
-	db "imuslab.com/aroz_online/mod/database"
+	db "imuslab.com/arozos/mod/database"
 )
 
 type WiFiManager struct {

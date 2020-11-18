@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
-	network "imuslab.com/aroz_online/mod/network"
-	mdns "imuslab.com/aroz_online/mod/network/mdns"
-	ssdp "imuslab.com/aroz_online/mod/network/ssdp"
-	upnp "imuslab.com/aroz_online/mod/network/upnp"
-	prout "imuslab.com/aroz_online/mod/prouter"
+	network "imuslab.com/arozos/mod/network"
+	mdns "imuslab.com/arozos/mod/network/mdns"
+	ssdp "imuslab.com/arozos/mod/network/ssdp"
+	upnp "imuslab.com/arozos/mod/network/upnp"
+	prout "imuslab.com/arozos/mod/prouter"
 )
 
 var (

@@ -12,6 +12,7 @@ package filesystem
 */
 
 import (
+	"archive/zip"
 	"compress/flate"
 	"errors"
 	"io"
@@ -37,6 +38,102 @@ func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) e
 
 	err := z.Archive(filelist, outputfile)
 	return err
+}
+
+func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
+	//Create the target zip file
+	file, err := os.Create(outputfile)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	writer := zip.NewWriter(file)
+	defer writer.Close()
+
+	for _, srcpath := range filelist {
+		if IsDir(srcpath) {
+			//This is a directory
+			topLevelFolderName := filepath.ToSlash(filepath.Base(filepath.Dir(srcpath)) + "/" + filepath.Base(srcpath))
+			err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() {
+					return nil
+				}
+
+				if insideHiddenFolder(path) == true {
+					//This is hidden file / folder. Skip this
+					return nil
+				}
+				file, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+
+				relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
+				if includeTopLevelFolder {
+					relativePath = topLevelFolderName + "/" + relativePath
+				} else {
+					relativePath = filepath.Base(srcpath) + "/" + relativePath
+				}
+
+				f, err := writer.Create(relativePath)
+				if err != nil {
+					return err
+				}
+
+				_, err = io.Copy(f, file)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				return err
+			}
+		} else {
+			//This is a file
+			topLevelFolderName := filepath.Base(filepath.Dir(srcpath))
+			file, err := os.Open(srcpath)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+			relativePath := filepath.Base(srcpath)
+			if includeTopLevelFolder {
+				relativePath = topLevelFolderName + "/" + relativePath
+			}
+			f, err := writer.Create(relativePath)
+			if err != nil {
+				return err
+			}
+
+			_, err = io.Copy(f, file)
+			if err != nil {
+				return err
+			}
+
+		}
+	}
+
+	return nil
+}
+
+func insideHiddenFolder(path string) bool {
+	thisPathInfo := filepath.ToSlash(filepath.Clean(path))
+	pathData := strings.Split(thisPathInfo, "/")
+	for _, thispd := range pathData {
+		if thispd[:1] == "." {
+			//This path contain one of the folder is hidden
+			return true
+		}
+	}
+	return false
 }
 
 func ViewZipFile(filepath string) ([]string, error) {

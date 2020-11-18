@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"os"
 
-	db "imuslab.com/aroz_online/mod/database"
+	db "imuslab.com/arozos/mod/database"
 )	
 
 

@@ -1,4 +1,4 @@
-# imuslab.com/aroz_online/mod/subservice
+# imuslab.com/arozos/mod/subservice
 mod\subservice\subservice.go:422:31: sr.RunningSubservice undefined (type *SubServiceRouter has no field or method RunningSubservice, but does have RunningSubService)
 mod\subservice\subservice.go:476:20: undefined: loadedModule
 mod\subservice\subservice.go:483:8: undefined: loadedModule

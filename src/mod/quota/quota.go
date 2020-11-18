@@ -1,14 +1,5 @@
 package quota
 
-import (
-	//"log"
-	"os"
-	"path/filepath"
-
-	db "imuslab.com/aroz_online/mod/database"
-	fs "imuslab.com/aroz_online/mod/filesystem"
-)
-
 /*
 	ArOZ Online Storage Quota Limiting and Tracking Module
 	author: tobychui
@@ -16,6 +7,16 @@ import (
 	This system track and limit the quota of the users.
 */
 
+import (
+	//"log"
+	"os"
+	"path/filepath"
+
+	db "imuslab.com/arozos/mod/database"
+	fs "imuslab.com/arozos/mod/filesystem"
+)
+
+//QuotaHandler Object
 type QuotaHandler struct {
 	database          *db.Database //System database for storing data
 	username          string       //The current username for this handler
@@ -87,7 +88,6 @@ func (q *QuotaHandler) HaveSpace(size int64) bool {
 	} else {
 		return false
 	}
-	return false
 }
 
 //Update the user's storage pool to new one

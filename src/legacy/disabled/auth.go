@@ -6,7 +6,7 @@ import (
     "log"
     "encoding/json"
 
-    "imuslab.com/aroz_online/mod/auth"
+    "imuslab.com/arozos/mod/auth"
 )
 
 

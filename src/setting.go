@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	module "imuslab.com/aroz_online/mod/modules"
+	module "imuslab.com/arozos/mod/modules"
 )
 
 type settingModule struct {

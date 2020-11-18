@@ -4,8 +4,8 @@ import (
 	//"path/filepath"
 	//"log"
 
-	fs "imuslab.com/aroz_online/mod/filesystem"
-	//quota "imuslab.com/aroz_online/mod/quota"
+	fs "imuslab.com/arozos/mod/filesystem"
+	//quota "imuslab.com/arozos/mod/quota"
 )
 
 /*

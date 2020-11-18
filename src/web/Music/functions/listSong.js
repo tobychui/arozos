@@ -208,13 +208,15 @@ if (requirelib("filelib") == false){
             for (var i = 0; i < folders.length; i++){
                 var thisFolderInfo = [];
                 var folderName = folders[i].split("/").pop();
-
                 var thisFolderSubfolder = [];
                 var thisFolderSubfiles = [];
-                var subFolderFileList = filelib.aglob(folders[i] + "*")
+                var subFolderFileList = filelib.aglob(folders[i] + "/*")
                 for (var j = 0; j < subFolderFileList.length; j++){
                     if (filelib.isDir(subFolderFileList[j])){
-                        thisFolderSubfolder.push(subFolderFileList[j]);
+                        var thisFolderName = subFolderFileList[j].split("/").pop();
+                        if (thisFolderName.substring(0,1) != "."){
+                            thisFolderSubfolder.push(subFolderFileList[j]);
+                        }
                     }else{
                         var ext = subFolderFileList[j].split(".").pop();
                         if (IsSupportExt(ext)){

@@ -1,5 +1,5 @@
 
-package filesystem // import "imuslab.com/aroz_online/mod/filesystem"
+package filesystem // import "imuslab.com/arozos/mod/filesystem"
 
 
 FUNCTIONS

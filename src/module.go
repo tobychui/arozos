@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	module "imuslab.com/aroz_online/mod/modules"
+	module "imuslab.com/arozos/mod/modules"
 )
 
 var (

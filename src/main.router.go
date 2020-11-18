@@ -7,14 +7,13 @@ package main
 	This function also handle the special page (login.system and user.system) delivery
 */
 
-
 import (
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"path/filepath"
 
-	fs "imuslab.com/aroz_online/mod/filesystem"
+	fs "imuslab.com/arozos/mod/filesystem"
 )
 
 func mroutner(h http.Handler) http.Handler {
@@ -63,31 +62,30 @@ func mroutner(h http.Handler) http.Handler {
 		} else if r.URL.Path == "/" && authAgent.CheckAuth(r) {
 			//Index. Serve the user's interface module
 			w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-			userinfo, err := userHandler.GetUserInfoFromRequest(w,r)
-			if (err != nil){
+			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+			if err != nil {
 				//ERROR!! Server default
 				h.ServeHTTP(w, r)
-			}else{
-				interfaceModule := userinfo.GetInterfaceModules();
-				if (len(interfaceModule) == 1 && interfaceModule[0] == "Desktop"){
-					http.Redirect(w, r, "desktop.system", 307);
-				}else if (len(interfaceModule) == 1){
+			} else {
+				interfaceModule := userinfo.GetInterfaceModules()
+				if len(interfaceModule) == 1 && interfaceModule[0] == "Desktop" {
+					http.Redirect(w, r, "desktop.system", 307)
+				} else if len(interfaceModule) == 1 {
 					//User with default interface module not desktop
-					modileInfo := moduleHandler.GetModuleInfoByID(interfaceModule[0]);
-					http.Redirect(w, r, modileInfo.StartDir, 307);
-				}else if (len(interfaceModule) > 1){
+					modileInfo := moduleHandler.GetModuleInfoByID(interfaceModule[0])
+					http.Redirect(w, r, modileInfo.StartDir, 307)
+				} else if len(interfaceModule) > 1 {
 					//Redirect to module selector
-					http.Redirect(w, r, "SystemAO/boot/interface_selector.html", 307);
-				}else if (len(interfaceModule) == 0){
+					http.Redirect(w, r, "SystemAO/boot/interface_selector.html", 307)
+				} else if len(interfaceModule) == 0 {
 					//Redirect to error page
-					http.Redirect(w, r, "SystemAO/boot/no_interfaceing.html", 307);
-				}else{
+					http.Redirect(w, r, "SystemAO/boot/no_interfaceing.html", 307)
+				} else {
 					//For unknown operations, send it to desktop
-					http.Redirect(w, r, "desktop.system", 307);
+					http.Redirect(w, r, "desktop.system", 307)
 				}
 			}
-			
-			
+
 		} else if authAgent.CheckAuth(r) {
 			//User logged in. Continue to serve the file the client want
 			authAgent.UpdateSessionExpireTime(w, r)
@@ -95,22 +93,22 @@ func mroutner(h http.Handler) http.Handler {
 				//Disable caching when under development build
 				//w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
 			}
-			if filepath.Ext("web"+ fs.DecodeURI(r.RequestURI)) == ".js" {
+			if filepath.Ext("web"+fs.DecodeURI(r.RequestURI)) == ".js" {
 				//Fixed serve js meme type invalid bug on Firefox
 				w.Header().Add("Content-Type", "application/javascript; charset=UTF-8")
 			}
 
 			//Check if this path is reverse proxy path. If yes, serve with proxyserver
 			isRP, proxy, rewriteURL, subserviceObject := ssRouter.CheckIfReverseProxyPath(r)
-			
+
 			if isRP {
 				//Check user permission on that module
-				ssRouter.HandleRoutingRequest(w,r,proxy, subserviceObject, rewriteURL)
+				ssRouter.HandleRoutingRequest(w, r, proxy, subserviceObject, rewriteURL)
 			} else {
-				if *enable_dir_listing == false{
+				if *enable_dir_listing == false {
 					if strings.HasSuffix(r.URL.Path, "/") {
 						//User trying to access a directory. Send NOT FOUND.
-						http.NotFound(w, r)
+						errorHandleNotFound(w, r)
 						return
 					}
 				}
@@ -119,15 +117,15 @@ func mroutner(h http.Handler) http.Handler {
 
 		} else {
 			//User not logged in. Check if the path end with public/. If yes, allow public access
-			if r.URL.Path[len(r.URL.Path) -1 :] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public"{
+			if r.URL.Path[len(r.URL.Path)-1:] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public" {
 				//This file path end with public/. Allow public access
 				h.ServeHTTP(w, r)
-			}else{
+			} else {
 				//Other paths
 				w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
 				http.Redirect(w, r, "/login.system?redirect="+r.URL.Path, 307)
 			}
-			
+
 		}
 
 	})

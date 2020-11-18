@@ -11,9 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	hidden "imuslab.com/arozos/mod/filesystem/hidden"
 )
 
 /*
@@ -22,8 +25,21 @@ import (
 
 */
 
+type RenderHandler struct {
+	renderingFiles  sync.Map
+	renderinfFolder sync.Map
+}
+
+//Create a new RenderHandler
+func NewRenderHandler() *RenderHandler {
+	return &RenderHandler{
+		renderingFiles:  sync.Map{},
+		renderinfFolder: sync.Map{},
+	}
+}
+
 //Build cache for all files (non recursive) for the given filepath
-func BuildCacheForFolder(path string) error {
+func (rh *RenderHandler) BuildCacheForFolder(path string) error {
 	//Get a list of all files inside this path
 	files, err := filepath.Glob(filepath.ToSlash(filepath.Clean(path)) + "/*")
 	if err != nil {
@@ -31,7 +47,7 @@ func BuildCacheForFolder(path string) error {
 	}
 	for _, file := range files {
 		//Load Cache in generate mode
-		LoadCache(file, true)
+		rh.LoadCache(file, true)
 	}
 
 	//Check if the cache folder has file. If not, remove it
@@ -42,12 +58,12 @@ func BuildCacheForFolder(path string) error {
 	return nil
 }
 
-func LoadCache(file string, generateOnly bool) (string, error) {
-	//Try to load a cache from file. If not exists, generate it now
+//Try to load a cache from file. If not exists, generate it now
+func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, error) {
 	//Create a cache folder
 	cacheFolder := filepath.ToSlash(filepath.Clean(filepath.Dir(file))) + "/.cache/"
-	waitFile := cacheFolder + filepath.Base(file) + ".jpg.wait"
 	os.Mkdir(cacheFolder, 0755)
+	hidden.HideFile(cacheFolder)
 
 	//Check if cache already exists. If yes, return the image from the cache folder
 	if fileExists(cacheFolder + filepath.Base(file) + ".jpg") {
@@ -56,36 +72,36 @@ func LoadCache(file string, generateOnly bool) (string, error) {
 			return "", nil
 		}
 
-		//Check if this file is being writing in the current instsance
-		if fileExists(waitFile) {
-			//File is being processing by another process. Wait for it for 15 seconds
-			counter := 0
-			for fileExists(waitFile) && counter < 15 {
-				time.Sleep(1 * time.Second)
-				counter++
-			}
+		//Check if the file is being writting by another process. If yes, wait for it
+		counter := 0
+		for rh.fileIsBusy(file) && counter < 15 {
+			counter += 1
+			time.Sleep(1 * time.Second)
+		}
 
-			if counter >= 15 {
-				//Time out. Maybe this is from previous rendering? Remove the wait file
-				os.Remove(waitFile)
-			}
+		//Time out and the file is still busy
+		if rh.fileIsBusy(file) {
+			return "", errors.New("Process racing for cache file. Skipping")
 		}
 
 		//Read and return the image
 		ctx, err := getImageAsBase64(cacheFolder + filepath.Base(file) + ".jpg")
 		return ctx, err
+	} else {
+		//This file not exists yet. Check if it is being hold by another process already
+		if rh.fileIsBusy(file) {
+			return "", errors.New("Process racing for cache file. Skipping")
+		}
 	}
 
-	//Create a .wait file for other process to refernece
-
-	ioutil.WriteFile(waitFile, []byte(""), 0755)
+	//Cache image not exists. Set this file to busy
+	rh.renderingFiles.Store(file, "busy")
 
 	//That object not exists. Generate cache image
 	id4Formats := []string{".mp3", ".ogg", ".flac"}
 	if inArray(id4Formats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForAudio(cacheFolder, file, generateOnly)
-		//Remove the wait file
-		os.Remove(waitFile)
+		rh.renderingFiles.Delete(file)
 		return img, err
 	}
 
@@ -93,24 +109,34 @@ func LoadCache(file string, generateOnly bool) (string, error) {
 	imageFormats := []string{".png", ".jpeg", ".jpg"}
 	if inArray(imageFormats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForImage(cacheFolder, file, generateOnly)
-		//Remove the wait file
-		os.Remove(waitFile)
+		rh.renderingFiles.Delete(file)
 		return img, err
 	}
 
 	vidFormats := []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
 	if inArray(vidFormats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForVideo(cacheFolder, file, generateOnly)
-		//Remove the wait file
-		os.Remove(waitFile)
+		rh.renderingFiles.Delete(file)
 		return img, err
 	}
 
 	//Other filters
-
-	//Remove the wait file
-	os.Remove(waitFile)
+	rh.renderingFiles.Delete(file)
 	return "", errors.New("No supported format")
+}
+
+func (rh *RenderHandler) fileIsBusy(path string) bool {
+	if rh == nil {
+		log.Println("RenderHandler is null!")
+		return true
+	}
+	_, ok := rh.renderingFiles.Load(path)
+	if !ok {
+		//File path is not being process by another process
+		return false
+	} else {
+		return true
+	}
 }
 
 func getImageAsBase64(path string) (string, error) {
@@ -129,9 +155,19 @@ func getImageAsBase64(path string) (string, error) {
 }
 
 //Load a list of folder cache from websocket
-func HandleLoadCache(w http.ResponseWriter, r *http.Request, rpath string) {
+func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request, rpath string) {
 	//Get a list of files pending to be cached and sent
-	files, err := specialGlob(filepath.ToSlash(filepath.Clean(rpath)) + "/*")
+	targetPath := filepath.ToSlash(filepath.Clean(rpath))
+
+	//Check if this path already exists another websocket ongoing connection.
+	//If yes, disconnect the oldone
+	oldc, ok := rh.renderinfFolder.Load(targetPath)
+	if ok {
+		//Close and remove the old connection
+		oldc.(*websocket.Conn).Close()
+	}
+
+	files, err := specialGlob(targetPath + "/*")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Internal Server Error"))
@@ -148,10 +184,14 @@ func HandleLoadCache(w http.ResponseWriter, r *http.Request, rpath string) {
 		return
 	}
 
+	//Set this realpath as websocket connected
+	rh.renderinfFolder.Store(targetPath, c)
+
 	//For each file, serve a cached image preview
+	errorExists := false
 	for _, file := range files {
 		//Load the image cache
-		cachedImage, err := LoadCache(file, false)
+		cachedImage, err := rh.LoadCache(file, false)
 		if err != nil {
 
 		} else {
@@ -159,11 +199,17 @@ func HandleLoadCache(w http.ResponseWriter, r *http.Request, rpath string) {
 			err := c.WriteMessage(1, jsonString)
 			if err != nil {
 				//Connection closed
+				errorExists = true
 				break
 			}
 		}
 	}
 
+	//Clear record from syncmap
+	if !errorExists {
+		//This ended normally. Delete the targetPath
+		rh.renderinfFolder.Delete(targetPath)
+	}
 	c.Close()
 
 }

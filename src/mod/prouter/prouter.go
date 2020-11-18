@@ -15,7 +15,7 @@ import (
 	"errors"
 	"log"
 
-	user "imuslab.com/aroz_online/mod/user"
+	user "imuslab.com/arozos/mod/user"
 )
 
 type RouterOption struct{

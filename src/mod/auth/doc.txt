@@ -1,5 +1,5 @@
 
-package auth // import "imuslab.com/aroz_online/mod/auth"
+package auth // import "imuslab.com/arozos/mod/auth"
 
 
 FUNCTIONS

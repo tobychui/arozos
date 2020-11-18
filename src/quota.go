@@ -9,8 +9,8 @@ import (
 	"strings"
 	"log"
 
-	fs "imuslab.com/aroz_online/mod/filesystem"
-	//user "imuslab.com/aroz_online/mod/user"
+	fs "imuslab.com/arozos/mod/filesystem"
+	//user "imuslab.com/arozos/mod/user"
 )
 
 func DiskQuotaInit(){

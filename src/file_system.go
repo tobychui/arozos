@@ -18,16 +18,20 @@ import (
 	"strings"
 	"time"
 
-	fs "imuslab.com/aroz_online/mod/filesystem"
-	metadata "imuslab.com/aroz_online/mod/filesystem/metadata"
-	module "imuslab.com/aroz_online/mod/modules"
-	prout "imuslab.com/aroz_online/mod/prouter"
-	storage "imuslab.com/aroz_online/mod/storage"
-	user "imuslab.com/aroz_online/mod/user"
+	fs "imuslab.com/arozos/mod/filesystem"
+	hidden "imuslab.com/arozos/mod/filesystem/hidden"
+	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	module "imuslab.com/arozos/mod/modules"
+	prout "imuslab.com/arozos/mod/prouter"
+	storage "imuslab.com/arozos/mod/storage"
+	user "imuslab.com/arozos/mod/user"
+)
+
+var (
+	thumbRenderHandler *metadata.RenderHandler
 )
 
 func FileSystemInit() {
-
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "File Manager",
 		AdminOnly:   false,
@@ -88,7 +92,6 @@ func FileSystemInit() {
 	if err != nil {
 		log.Println("Failed to create system storage root.")
 		panic(err)
-		os.Exit(0)
 	}
 
 	//Create database table if not exists
@@ -96,9 +99,10 @@ func FileSystemInit() {
 	if err != nil {
 		log.Println("Failed to create table for file system")
 		panic(err)
-		os.Exit(0)
 	}
 
+	//Create a RenderHandler for caching thumbnails
+	thumbRenderHandler = metadata.NewRenderHandler()
 }
 
 //Handle upload.
@@ -840,6 +844,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 			//Create a trash directory for this folder
 			trashDir := filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.trash/"
 			os.MkdirAll(trashDir, 0755)
+			hidden.HideFile(trashDir)
 			os.Rename(rsrcFile, trashDir+filepath.Base(rsrcFile)+"."+Int64ToString(GetUnixTime()))
 		} else {
 			sendErrorResponse(w, "Unknown file opeartion given.")
@@ -1340,7 +1345,7 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//OK. Create the zip at the desired location
-		err := fs.ZipFile(realSourcePaths, rdest, false)
+		err := fs.ArozZipFile(realSourcePaths, rdest, false)
 		if err != nil {
 			sendErrorResponse(w, err.Error())
 			return
@@ -1351,9 +1356,10 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 		//Zip to tmp folder
 		userTmpFolder, _ := userinfo.VirtualPathToRealPath("tmp:/")
 		filename := Int64ToString(GetUnixTime()) + ".zip"
-		rdest := filepath.Clean(userTmpFolder) + "/" + filename
+		rdest := filepath.ToSlash(filepath.Clean(userTmpFolder)) + "/" + filename
+
 		log.Println(realSourcePaths, rdest)
-		err := fs.ZipFile(realSourcePaths, rdest, false)
+		err := fs.ArozZipFile(realSourcePaths, rdest, false)
 		if err != nil {
 			sendErrorResponse(w, err.Error())
 			return
@@ -1418,7 +1424,7 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Perform cache rendering
-	metadata.HandleLoadCache(w, r, rpath)
+	thumbRenderHandler.HandleLoadCache(w, r, rpath)
 
 }
 
@@ -1437,7 +1443,7 @@ func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata.BuildCacheForFolder(rpath)
+	thumbRenderHandler.BuildCacheForFolder(rpath)
 
 	sendOK(w)
 }

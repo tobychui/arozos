@@ -13,7 +13,7 @@ import (
 	//"github.com/boltdb/bolt"
 	//"errors"
 
-	//database "imuslab.com/aroz_online/mod/database"
+	//database "imuslab.com/arozos/mod/database"
 )
 
 /*

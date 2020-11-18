@@ -1,5 +1,5 @@
 
-package permission // import "imuslab.com/aroz_online/mod/permission"
+package permission // import "imuslab.com/arozos/mod/permission"
 
 
 FUNCTIONS

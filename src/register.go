@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"encoding/json"
 
-	reg "imuslab.com/aroz_online/mod/auth/register"
-	prout "imuslab.com/aroz_online/mod/prouter"
+	reg "imuslab.com/arozos/mod/auth/register"
+	prout "imuslab.com/arozos/mod/prouter"
 )
 
 var (

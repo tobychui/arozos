@@ -1,5 +1,5 @@
 
-package database // import "imuslab.com/aroz_online/mod/database"
+package database // import "imuslab.com/arozos/mod/database"
 
 
 TYPES

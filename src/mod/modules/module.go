@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sort"
 
-	user "imuslab.com/aroz_online/mod/user"
+	user "imuslab.com/arozos/mod/user"
 )
 
 type ModuleInfo struct{

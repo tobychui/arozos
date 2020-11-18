@@ -16,7 +16,7 @@ Other system variables related to auth
 
 auth/users/usercount => Number of users in the system
 
-Pre-requirement: imuslab.com/aroz_online/mod/database
+Pre-requirement: imuslab.com/arozos/mod/database
 */
 
 import (
@@ -33,7 +33,7 @@ import (
 
 	"github.com/gorilla/sessions"
 
-	db "imuslab.com/aroz_online/mod/database"
+	db "imuslab.com/arozos/mod/database"
 )
 
 type AuthAgent struct {
@@ -132,8 +132,6 @@ func (a *AuthAgent) RegisterPublicAPIs(ep AuthEndpoints) {
 
 //Handle login request, require POST username and password
 func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	session, _ := a.SessionStore.Get(r, a.SessionName)
-
 	//Get username from request using POST mode
 	username, err := mv(r, "username", true)
 	if err != nil {
@@ -159,46 +157,60 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check the database and see if this user is in the database
-	hashedPassword := Hash(password)
-	var passwordInDB string
-	err = a.Database.Read("auth", "passhash/"+username, &passwordInDB)
-	if err != nil {
-		//User not found or db exception
-		log.Println("[System Auth] " + username + " login with incorrect password")
-		sendErrorResponse(w, "Invalid username or password")
-		return
-	}
-
+	passwordCorrect := a.ValidateUsernameAndPassword(username, password)
 	//The database contain this user information. Check its password if it is correct
-	if passwordInDB == hashedPassword {
+	if passwordCorrect {
 		//Password correct
 		// Set user as authenticated
-		session.Values["authenticated"] = true
-		session.Values["username"] = username
-		session.Values["rememberMe"] = rememberme
-
-		//Check if remember me is clicked. If yes, set the maxage to 1 week.
-		if rememberme == true {
-			session.Options = &sessions.Options{
-				MaxAge: 3600 * 24 * 7, //One week
-				Path:   "/",
-			}
-		} else {
-			session.Options = &sessions.Options{
-				MaxAge: 3600 * 1, //One hour
-				Path:   "/",
-			}
-		}
-		session.Save(r, w)
-
+		a.LoginUserByRequest(w, r, username, rememberme)
 		//Print the login message to console
 		log.Println(username + " logged in.")
 		sendOK(w)
 	} else {
 		//Password incorrect
+		log.Println(username + " has entered an invalid username or password")
 		sendErrorResponse(w, "Invalid username or password")
 		return
 	}
+}
+
+func (a *AuthAgent) ValidateUsernameAndPassword(username string, password string) bool {
+	hashedPassword := Hash(password)
+	var passwordInDB string
+	err := a.Database.Read("auth", "passhash/"+username, &passwordInDB)
+	if err != nil {
+		//User not found or db exception
+		//log.Println("[System Auth] " + username + " login with incorrect password")
+		return false
+	}
+
+	if passwordInDB == hashedPassword {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, username string, rememberme bool) {
+	session, _ := a.SessionStore.Get(r, a.SessionName)
+
+	session.Values["authenticated"] = true
+	session.Values["username"] = username
+	session.Values["rememberMe"] = rememberme
+
+	//Check if remember me is clicked. If yes, set the maxage to 1 week.
+	if rememberme == true {
+		session.Options = &sessions.Options{
+			MaxAge: 3600 * 24 * 7, //One week
+			Path:   "/",
+		}
+	} else {
+		session.Options = &sessions.Options{
+			MaxAge: 3600 * 1, //One hour
+			Path:   "/",
+		}
+	}
+	session.Save(r, w)
 }
 
 //Handle logout, reply OK after logged out. WILL NOT DO REDIRECTION

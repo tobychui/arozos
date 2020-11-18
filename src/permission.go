@@ -3,22 +3,36 @@ package main
 import (
 	"net/http"
 
-	prout "imuslab.com/aroz_online/mod/prouter"
+	prout "imuslab.com/arozos/mod/prouter"
 )
 
-func permissionInit(){
+func permissionInit() {
 	//Register the permission handler, require authentication except listgroup
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
-		ModuleName: "System Setting", 
-		AdminOnly: true, 
-		UserHandler: userHandler, 
-		DeniedHandler: func(w http.ResponseWriter, r *http.Request){
-			sendErrorResponse(w, "Permission Denied");
+		ModuleName:  "System Setting",
+		AdminOnly:   true,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			sendErrorResponse(w, "Permission Denied")
 		},
-	});
+	})
 
 	//Must be handled by default router
-	http.HandleFunc("/system/permission/listgroup", permissionHandler.HandleListGroup)
+	http.HandleFunc("/system/permission/listgroup", func(w http.ResponseWriter, r *http.Request) {
+		if authAgent.GetUserCounts() == 0 {
+			//There is no user within the system. Always allow listgroup
+			permissionHandler.HandleListGroup(w, r)
+		} else {
+			//There are already users in the system. Only allow authorized users
+			if authAgent.CheckAuth(r) {
+				permissionHandler.HandleListGroup(w, r)
+			} else {
+				errorHandleNotLoggedIn(w, r)
+				return
+			}
+		}
+
+	})
 	adminRouter.HandleFunc("/system/permission/newgroup", permissionHandler.HandleGroupCreate)
 	adminRouter.HandleFunc("/system/permission/editgroup", permissionHandler.HandleGroupEdit)
 	adminRouter.HandleFunc("/system/permission/delgroup", permissionHandler.HandleGroupRemove)
@@ -32,5 +46,3 @@ func permissionInit(){
 		RequireAdmin: true,
 	})
 }
-
-

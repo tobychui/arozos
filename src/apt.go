@@ -3,8 +3,8 @@ package main
 import (
 	"net/http"
 	"log"
-	prout "imuslab.com/aroz_online/mod/prouter"
-	apt "imuslab.com/aroz_online/mod/apt"
+	prout "imuslab.com/arozos/mod/prouter"
+	apt "imuslab.com/arozos/mod/apt"
 )
 
 func PackagManagerInit(){

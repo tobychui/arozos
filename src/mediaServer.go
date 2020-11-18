@@ -8,7 +8,7 @@ import (
 	"strings"
 	"errors"
 
-	fs "imuslab.com/aroz_online/mod/filesystem"
+	fs "imuslab.com/arozos/mod/filesystem"
 )
 
 /*

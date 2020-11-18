@@ -10,9 +10,10 @@ import (
 
 	"github.com/robertkrimen/otto"
 
-	apt "imuslab.com/aroz_online/mod/apt"
-	auth "imuslab.com/aroz_online/mod/auth"
-	user "imuslab.com/aroz_online/mod/user"
+	apt "imuslab.com/arozos/mod/apt"
+	auth "imuslab.com/arozos/mod/auth"
+	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	user "imuslab.com/arozos/mod/user"
 )
 
 /*
@@ -44,6 +45,7 @@ type AgiSysInfo struct {
 	PackageManager       *apt.AptPackageManager
 	ModuleRegisterParser func(string) error
 	AuthAgent            *auth.AuthAgent
+	FileSystemRender     *metadata.RenderHandler
 
 	//Scanning Roots
 	StartupRoot   string

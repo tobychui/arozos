@@ -19,8 +19,7 @@ import (
 	"github.com/oliamb/cutter"
 	"github.com/robertkrimen/otto"
 
-	"imuslab.com/aroz_online/mod/filesystem/metadata"
-	user "imuslab.com/aroz_online/mod/user"
+	user "imuslab.com/arozos/mod/user"
 )
 
 /*
@@ -253,7 +252,7 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, w http.ResponseWriter, 
 		}
 
 		//Get the files' thumb base64 string
-		base64String, err := metadata.LoadCache(rsrc, false)
+		base64String, err := g.Option.FileSystemRender.LoadCache(rsrc, false)
 		if err != nil {
 			return otto.FalseValue()
 		} else {

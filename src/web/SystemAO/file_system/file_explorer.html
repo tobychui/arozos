@@ -928,12 +928,14 @@
             let enableBetaFilename = true; //Enable beta filename conversion from "inith..." to "normal"
             let currentFilelist = []; //The current file list in the currentPath
             let currentPathHash = "";   //The folder content hash
-
+            let enableAutoRefresh = true; //Enable directory updates on file change
+            
             //File operations
             let clipboard = []; //System clipboard
             let cutMode = false; //If set to true, this is cut mode. Else copy mode
             let useLocalstorage = lscheck();
             let overwriteMode = "keep"; //Overwrite mode, support {skip, overwrite, keep}
+            let thumbRenderWebSocket = null;
 
             //Keypress listeners
             let ctrlHold = false;
@@ -1020,6 +1022,9 @@
             
             //Create a timer to check change in current folder
             setInterval(function(){
+                if (enableAutoRefresh == false){
+                    return;
+                }
                 getDirHash(function(hash){
                     if (hash.error !== undefined){
                         //Something went wrong. Ignore this request
@@ -1161,11 +1166,20 @@
 
                 //Add loading screen to the folderlists and fileList
                 $("#fileList").html("");
-                $("#folderList").html(`<div style="height: 100px;">
-                    <div class="ts active inverted dimmer">
-                        <div class="ts text loader">Loading</div>
-                    </div>
-                </div>`);
+                if (currentTheme == "darkTheme"){
+                    $("#folderList").html(`<div style="height: 100px;">
+                        <div class="ts active dimmer">
+                            <div class="ts text loader">Loading</div>
+                        </div>
+                    </div>`);
+                }else{
+                    $("#folderList").html(`<div style="height: 100px;">
+                        <div class="ts active inverted dimmer">
+                            <div class="ts text loader">Loading</div>
+                        </div>
+                    </div>`);
+                }
+               
 
                 $.ajax({
                     url: "../../system/file_system/listDir",
@@ -1206,13 +1220,18 @@
                             currentFilelist.push(JSON.parse(JSON.stringify(data[i].Filename)));
                         }
                         //Define the grid size for the interface
-                        var gridSize = window.innerWidth / 7 ;
+                        var gridSize = 150 ;
                         if (isMobile){
-                            gridSize = window.innerWidth /2 - 20 ;
+                            if (window.innerWidth > window.innerHeight){
+                                //Screen using in horizontal mode
+                                gridSize = window.innerWidth /4 - 20 ;
+                            }else{
+                                //Screen using in vertical mode
+                                gridSize = window.innerWidth /2 - 20 ;
+                            }
+                            
                         }
-                        if (gridSize > 150 && !isMobile){
-                            gridSize = 150;
-                        }
+                        
                         //List all folders
                         for (var i =0; i < folders.length; i++){
                             var filename = folders[i].Filename;
@@ -1247,10 +1266,10 @@
                                 }
                                 $("#folderList").append(`
                                 <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:15em; margin-top:0px !important; overflow:hidden;">
-                                    <div class="image">
-                                        <img  draggable="true"ondragstart="disableDrag(event);" src="../../../img/desktop/system_icon/folder.png">
+                                    <div class="image" style="text-align: center;">
+                                        <img draggable="true"ondragstart="disableDrag(event);" src="../../../img/desktop/system_icon/folder.png" style="height: 148px; width: 148px; display: inline-block;">
                                     </div>
-                                    <div class="content">
+                                    <div class="content" style="font-size: 12px;">
                                         <div class="header ${currentTheme} ${textclass}">${displayName}</div>
                                     </div>
                                 </div>`);
@@ -1316,8 +1335,8 @@
                                 }
                                 $("#fileList").append(`
                                 <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" fileID="${fl + i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="file" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:20em;  margin-top:0px !important;  overflow:hidden;">
-                                    <div class="image">
-                                        <img draggable="true"ondragstart="disableDrag(event);" style="height: 148px; width: 148px;" src="${imagePath}">
+                                    <div class="image" style="text-align: center !important;">
+                                        <img draggable="true"ondragstart="disableDrag(event);" style="height: 148px; width: 148px; display:inline-block;" src="${imagePath}">
                                     </div>
                                     <div class="content">
                                         <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis; font-size: 100%">${displayName}</div>
@@ -1341,14 +1360,19 @@
                         bindFileObjectEvents();
                         currentFilelist.sort();
                         //Update the filelist hash
-                        currentPathHash = forge_sha256(currentFilelist.join(","));
-                        if (callback !== undefined){
-                            callback();
-                        }
+                        enableAutoRefresh = false;
+                        getDirHash(function(hash){
+                            currentPathHash = hash;
+                            enableAutoRefresh = true;
+                        });
 
                         //If viewmode is grid, load file thumbnails
                         if (viewMode == "grid"){
                             startThumbnailLoader();
+                        }
+
+                        if (callback !== undefined){
+                            callback();
                         }
                     }
                 });
@@ -1360,13 +1384,13 @@
                 if (location.protocol !== 'https:') {
                     protocol = "ws://";
                 }
-                let socket = new WebSocket(protocol + window.location.hostname + ":" + window.location.port + "/system/file_system/handleCacheRender?folder=" + path);
+                thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + window.location.port + "/system/file_system/handleCacheRender?folder=" + path);
 
-                socket.onopen = function(e) {
+                thumbRenderWebSocket.onopen = function(e) {
 
                 };
 
-                socket.onmessage = function(event) {
+                thumbRenderWebSocket.onmessage = function(event) {
                     //Find the correct file in the current directory and place its image
                     if (path == currentPath){
                         var thumbData = JSON.parse(event.data);
@@ -1382,11 +1406,11 @@
                     
                 };
 
-                socket.onclose = function(event) {
+                thumbRenderWebSocket.onclose = function(event) {
                     //Transfer ended
                 };
 
-                socket.onerror = function(error) {
+                thumbRenderWebSocket.onerror = function(error) {
                     console.log(error);
                 };
             }
@@ -1619,7 +1643,11 @@
             function refreshList(){
                 shiftHold = false;
                 ctrlHold = false;
-                listDirectory(currentPath);
+                let currentScrollTop = JSON.parse(JSON.stringify($("#folderView").scrollTop()));
+                listDirectory(currentPath, function(){
+                    //Scroll back to the original height
+                    $("#folderView").scrollTop(currentScrollTop);
+                });
             }
 
            
@@ -2617,6 +2645,10 @@
                 }else if (!isMobile && window.innerWidth > 650 && sideBarShown == false){
                     toggleSidebar(false);
                 }
+
+                if (isMobile){
+                    refreshList();
+                }
             });
 
             
@@ -2708,6 +2740,12 @@
                     $("#darkthemebtn").parent().addClass("inverted");
                     $(".dropdown").removeClass("inverted");
                     setPreference("file_explorer/theme","whiteTheme");
+
+                    //If in vdi mode, update desktop's listMenu as well
+                    if (ao_module_virtualDesktop){
+                        parent.initTheme("whiteTheme");
+                    }
+                    
                 }else{
                     $(".whiteTheme").removeClass("whiteTheme").addClass("darkTheme");
                     currentTheme = "darkTheme";
@@ -2715,6 +2753,11 @@
                     $("#darkthemebtn").parent().removeClass("inverted");
                     $(".dropdown").addClass("inverted");
                     setPreference("file_explorer/theme","darkTheme");
+
+                     //If in vdi mode, update desktop's listMenu as well
+                     if (ao_module_virtualDesktop){
+                        parent.initTheme("darkTheme");
+                    }
                 }
                
             }
