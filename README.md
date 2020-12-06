@@ -11,7 +11,7 @@ Require GO 1.14 or above
 Run the following the command to build the system
 
 ```
-git pull https://github.com/tobychui/arozos
+git clone https://github.com/tobychui/arozos
 cd ./arozos/src/
 go build
 ```
