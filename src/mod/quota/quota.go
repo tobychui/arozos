@@ -9,6 +9,7 @@ package quota
 
 import (
 	//"log"
+
 	"os"
 	"path/filepath"
 
@@ -69,9 +70,19 @@ func (q *QuotaHandler) SetUserStorageQuota(quota int64) {
 func (q *QuotaHandler) GetUserStorageQuota() int64 {
 	quota := int64(-2)
 	q.database.Read("quota", q.username+"/quota", &quota)
+
 	//Also update the one in memory
 	q.TotalStorageQuota = quota
 	return quota
+}
+
+//Check if the user's quota has been initialized
+func (q *QuotaHandler) IsQuotaInitialized() bool {
+	if q.GetUserStorageQuota() == int64(-2) {
+		return false
+	} else {
+		return true
+	}
 }
 
 func (q *QuotaHandler) RemoveUserQuota() {
@@ -115,6 +126,10 @@ func (q *QuotaHandler) CalculateQuotaUsage() {
 	totalUsedVolume := int64(0)
 	for _, thisfs := range q.fspool {
 		if thisfs.Hierarchy == "user" {
+			if !fs.FileExists(filepath.ToSlash(filepath.Clean(thisfs.Path)) + "/users/" + q.username) {
+				//This folder not exists. Maybe not initialized
+				continue
+			}
 			err := filepath.Walk(filepath.ToSlash(filepath.Clean(thisfs.Path))+"/users/"+q.username, func(path string, info os.FileInfo, err error) error {
 				if !info.IsDir() {
 					totalUsedVolume += fs.GetFileSize(path)

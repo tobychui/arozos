@@ -1,0 +1,23 @@
+/*
+	Dummy Module Registration Information
+	
+	Do not try to call any AJGI users / filepath functions in this script.
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Recorder",
+	Desc: "A basic audio recorder",
+	Group: "Media",
+	IconPath: "Recorder/img/small_icon.png",
+	Version: "1.0",
+	StartDir: "Recorder/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Recorder/index.html",
+	SupportEmb: false,
+	InitFWSize: [450, 210]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

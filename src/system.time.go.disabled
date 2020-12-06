@@ -1,0 +1,34 @@
+package main
+
+import (
+	//"log"
+
+	"net/http"
+
+	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/time/timezone"
+)
+
+func system_time_init() {
+	//Create a user handler
+	router := prout.NewModuleRouter(prout.RouterOption{
+		ModuleName:  "System Setting",
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			sendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	//Register the (usless?) System time module
+	registerSetting(settingModule{
+		Name:     "System Time",
+		Desc:     "Current Time in the System Host",
+		IconPath: "SystemAO/disk/smart/img/small_3icon.png",
+		Group:    "Time",
+		StartDir: "SystemAO/time/currenttime.html",
+	})
+
+	router.HandleFunc("/system/time/getTime", timezone.ShowTime)
+
+}

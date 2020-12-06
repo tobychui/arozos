@@ -1,25 +1,22 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
+	"runtime"
+
+	"imuslab.com/arozos/mod/permission"
 
 	fs "imuslab.com/arozos/mod/filesystem"
-	prout "imuslab.com/arozos/mod/prouter"
 	storage "imuslab.com/arozos/mod/storage"
-	ftp "imuslab.com/arozos/mod/storage/ftp"
 )
 
 var (
-	baseStoragePool *storage.StoragePool
-	fsHandlers      []*fs.FileSystemHandler
-	ftpServer       *ftp.Handler
+	baseStoragePool *storage.StoragePool    //base storage pool, all user can access these virtual roots
+	fsHandlers      []*fs.FileSystemHandler //All File system handlers. All opened handles must be registered in here
 )
 
 func StorageInit() {
@@ -27,18 +24,33 @@ func StorageInit() {
 	if !fileExists(filepath.Clean(*root_directory) + "/") {
 		os.MkdirAll(filepath.Clean(*root_directory)+"/", 0755)
 	}
+
+	//Start loading the base storage pool
+	err := LoadBaseStoragePool()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func LoadBaseStoragePool() error {
+	//Use for Debian buster local file system
+	localFileSystem := "ext4"
+	if runtime.GOOS == "windows" {
+		localFileSystem = "ntfs"
+	}
+
 	baseHandler, err := fs.NewFileSystemHandler(fs.FileSystemOption{
 		Name:       "User",
 		Uuid:       "user",
 		Path:       filepath.ToSlash(filepath.Clean(*root_directory)) + "/",
 		Hierarchy:  "user",
 		Automount:  false,
-		Filesystem: "ext4",
+		Filesystem: localFileSystem,
 	})
 
 	if err != nil {
 		log.Println("Failed to initiate user root storage directory: " + *root_directory)
-		panic(err)
+		return err
 	}
 	fsHandlers = append(fsHandlers, baseHandler)
 
@@ -49,12 +61,12 @@ func StorageInit() {
 		Path:       filepath.ToSlash(filepath.Clean(*tmp_directory)) + "/",
 		Hierarchy:  "user",
 		Automount:  false,
-		Filesystem: "ext4",
+		Filesystem: localFileSystem,
 	})
 
 	if err != nil {
 		log.Println("Failed to initiate tmp storage directory: " + *tmp_directory)
-		panic(err)
+		return err
 	}
 	fsHandlers = append(fsHandlers, tmpHandler)
 
@@ -81,14 +93,86 @@ func StorageInit() {
 	sp, err := storage.NewStoragePool(fsHandlers, "system")
 	if err != nil {
 		log.Println("Failed to create base Storaeg Pool")
-		panic(err.Error())
+		return err
 	}
+
 	//Update the storage pool permission to readwrite
 	sp.OtherPermission = "readwrite"
 	baseStoragePool = sp
 
-	//Mount permission group's storage pool
-	//WIP
+	return nil
+}
+
+//Initialize group storage pool
+func GroupStoragePoolInit() {
+	//Mount permission groups
+	for _, pg := range permissionHandler.PermissionGroups {
+		//For each group, check does this group has a config file
+		err := LoadStoragePoolForGroup(pg)
+		if err != nil {
+			continue
+		}
+
+		//Do something else, WIP
+	}
+
+	//Start editing interface for Storage Pool Editor
+	StoragePoolEditorInit()
+}
+
+func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
+	expectedConfigPath := "./system/storage/" + pg.Name + ".json"
+	if fileExists(expectedConfigPath) {
+		//Read the config file
+		pgStorageConfig, err := ioutil.ReadFile(expectedConfigPath)
+		if err != nil {
+			log.Println("Failed to read config for " + pg.Name + ": " + err.Error())
+			return errors.New("Failed to read config for " + pg.Name + ": " + err.Error())
+		}
+
+		//Generate fsHandler form json
+		thisGroupFsHandlers, err := fs.NewFileSystemHandlersFromJSON(pgStorageConfig)
+		if err != nil {
+			log.Println("Failed to load storage configuration: " + err.Error())
+			return errors.New("Failed to load storage configuration: " + err.Error())
+		}
+
+		//Add these to mounted handlers
+		for _, thisHandler := range thisGroupFsHandlers {
+			fsHandlers = append(fsHandlers, thisHandler)
+			log.Println(thisHandler.Name + " Mounted as " + thisHandler.UUID + ":/ for group " + pg.Name)
+		}
+
+		//Create a storage pool from these handlers
+		sp, err := storage.NewStoragePool(thisGroupFsHandlers, pg.Name)
+		if err != nil {
+			log.Println("Failed to create storage pool for " + pg.Name)
+			return errors.New("Failed to create storage pool for " + pg.Name)
+		}
+
+		//Set other permission to denied by default
+		sp.OtherPermission = "denied"
+
+		//Assign storage pool to group
+		pg.StoragePool = sp
+	} else {
+		//Storage configuration not exists. Fill in the basic information and move to next storage pool
+		pg.StoragePool.Owner = pg.Name
+		pg.StoragePool.OtherPermission = "denied"
+	}
+	return nil
+}
+
+func RegisterStorageSettings() {
+	//Storage Pool Configuration
+	registerSetting(settingModule{
+		Name:         "Storage Pools",
+		Desc:         "Storage Pool Mounting Configuration",
+		IconPath:     "SystemAO/disk/smart/img/small_icon.png",
+		Group:        "Disk",
+		StartDir:     "SystemAO/storage/poolList.html",
+		RequireAdmin: true,
+	})
 
 }
 
@@ -97,221 +181,4 @@ func CloseAllStorages() {
 	for _, fsh := range fsHandlers {
 		fsh.FilesystemDatabase.Close()
 	}
-}
-
-/*
-	FTP Server related handlers
-*/
-
-//Handle init of the FTP server endpoints
-func storageFTPServerInit() {
-	//Register FTP Endpoints
-	adminRouter := prout.NewModuleRouter(prout.RouterOption{
-		ModuleName:  "System Setting",
-		AdminOnly:   true,
-		UserHandler: userHandler,
-		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			errorHandlePermissionDenied(w, r)
-		},
-	})
-
-	//Create database related tables
-	sysdb.NewTable("ftp")
-	defaultEnable := false
-	if sysdb.KeyExists("ftp", "default") {
-		sysdb.Read("ftp", "default", &defaultEnable)
-	} else {
-		sysdb.Write("ftp", "default", false)
-	}
-
-	//Enable this service
-	if defaultEnable {
-		storageFTPServerStart()
-	}
-
-	adminRouter.HandleFunc("/system/storage/ftp/start", storageHandleFTPServerStart)
-	adminRouter.HandleFunc("/system/storage/ftp/stop", storageHandleFTPServerStop)
-	adminRouter.HandleFunc("/system/storage/ftp/upnp", storageHandleFTPuPnP)
-	adminRouter.HandleFunc("/system/storage/ftp/status", storageHandleFTPServerStatus)
-	adminRouter.HandleFunc("/system/storage/ftp/updateGroups", storageHandleFTPAccessUpdate)
-	adminRouter.HandleFunc("/system/storage/ftp/setPort", storageHandleFTPSetPort)
-}
-
-//Start the FTP Server by request
-func storageHandleFTPServerStart(w http.ResponseWriter, r *http.Request) {
-	err := storageFTPServerStart()
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-	}
-
-	//Remember the FTP server status
-	sysdb.Write("ftp", "default", true)
-	sendOK(w)
-}
-
-//Stop the FTP server by request
-func storageHandleFTPServerStop(w http.ResponseWriter, r *http.Request) {
-	if ftpServer != nil {
-		ftpServer.Close()
-	}
-	sysdb.Write("ftp", "default", false)
-	log.Println("FTP Server Stopped")
-	sendOK(w)
-}
-
-//Update UPnP setting on FTP server
-func storageHandleFTPuPnP(w http.ResponseWriter, r *http.Request) {
-	enable, _ := mv(r, "enable", false)
-	if enable == "true" {
-		log.Println("Enabling UPnP on FTP Server Port")
-		sysdb.Write("ftp", "upnp", true)
-	} else {
-		log.Println("Disabling UPnP on FTP Server Port")
-		sysdb.Write("ftp", "upnp", false)
-	}
-
-	//Restart FTP Server if server is running
-	if ftpServer != nil && ftpServer.ServerRunning {
-		storageFTPServerStart()
-	}
-
-	sendOK(w)
-}
-
-//Update access permission on FTP server
-func storageHandleFTPAccessUpdate(w http.ResponseWriter, r *http.Request) {
-	//Get groups paramter from post req
-	groupString, err := mv(r, "groups", true)
-	if err != nil {
-		sendErrorResponse(w, "groups not defined")
-		return
-	}
-
-	//Prase it
-	groups := []string{}
-	err = json.Unmarshal([]byte(groupString), &groups)
-	if err != nil {
-		sendErrorResponse(w, "Unable to parse groups")
-		return
-	}
-
-	log.Println("Updating FTP Access group to: ", groups)
-	//Set the accessable group
-	ftp.UpdateAccessableGroups(sysdb, groups)
-
-	sendOK(w)
-}
-
-func storageHandleFTPSetPort(w http.ResponseWriter, r *http.Request) {
-	port, err := mv(r, "port", true)
-	if err != nil {
-		sendErrorResponse(w, "Port not defined")
-		return
-	}
-
-	//Try parse the port into int
-	portInt, err := strconv.Atoi(port)
-	if err != nil {
-		sendErrorResponse(w, "Invalid port number")
-		return
-	}
-
-	//Update the database port configuration
-	sysdb.Write("ftp", "port", portInt)
-
-	//Restart the FTP server
-	storageFTPServerStart()
-
-	sendOK(w)
-}
-
-func storageHandleFTPServerStatus(w http.ResponseWriter, r *http.Request) {
-	type ServerStatus struct {
-		Enabled     bool
-		Port        int
-		AllowUPNP   bool
-		UPNPEnabled bool
-		UserGroups  []string
-	}
-
-	enabled := false
-	if ftpServer != nil && ftpServer.ServerRunning {
-		enabled = true
-	}
-
-	serverPort := 21
-	if sysdb.KeyExists("ftp", "port") {
-		sysdb.Read("ftp", "port", &serverPort)
-	}
-
-	enableUPnP := false
-	if sysdb.KeyExists("ftp", "upnp") {
-		sysdb.Read("ftp", "upnp", &enableUPnP)
-	}
-
-	userGroups := []string{}
-	if sysdb.KeyExists("ftp", "groups") {
-		sysdb.Read("ftp", "groups", &userGroups)
-	}
-
-	jsonString, _ := json.Marshal(ServerStatus{
-		Enabled:     enabled,
-		Port:        serverPort,
-		AllowUPNP:   *allow_upnp,
-		UPNPEnabled: enableUPnP,
-		UserGroups:  userGroups,
-	})
-	sendJSONResponse(w, string(jsonString))
-}
-
-func storageFTPServerStart() error {
-	if ftpServer != nil {
-		//If the previous ftp server is not closed, close it and open a new one
-		if ftpServer.UPNPEnabled && UPNP != nil {
-			UPNP.ClosePort(ftpServer.Port)
-		}
-		ftpServer.Close()
-	}
-
-	//Load new server config from database
-	serverPort := int(21)
-	if sysdb.KeyExists("ftp", "port") {
-		sysdb.Read("ftp", "port", &serverPort)
-	}
-
-	enableUPnP := false
-	if sysdb.KeyExists("ftp", "upnp") {
-		sysdb.Read("ftp", "upnp", &enableUPnP)
-	}
-
-	//Create a new FTP Handler
-	h, err := ftp.NewFTPHandler(userHandler, *host_name, serverPort, *tmp_directory)
-	if err != nil {
-		return err
-	}
-	h.Start()
-	ftpServer = h
-
-	if *allow_upnp {
-		if enableUPnP {
-			if UPNP == nil {
-				return errors.New("UPnP did not started correctly on this host. Ignore this option")
-			} else {
-				//Forward the port
-				UPNP.ForwardPort(ftpServer.Port, *host_name+" FTP Server")
-				ftpServer.UPNPEnabled = true
-			}
-
-		} else {
-			//UPNP disabled
-			if UPNP == nil {
-				return errors.New("UPnP did not started correctly on this host. Ignore this option")
-			} else {
-				UPNP.ClosePort(ftpServer.Port)
-				ftpServer.UPNPEnabled = false
-			}
-		}
-	}
-
-	return nil
 }

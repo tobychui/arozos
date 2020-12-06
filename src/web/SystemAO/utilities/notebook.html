@@ -95,6 +95,9 @@
                     data: {filepath: filepath, content: newcontent},
                     success: function(data){
                         console.log(data);
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }
                     }
                 });
             }

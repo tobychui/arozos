@@ -15,6 +15,7 @@ import (
 	"archive/zip"
 	"compress/flate"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -24,7 +25,7 @@ import (
 	"time"
 
 	archiver "github.com/mholt/archiver/v3"
-	dircpy "github.com/otiai10/copy"
+	//dircpy "github.com/otiai10/copy"
 )
 
 func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
@@ -147,7 +148,7 @@ func ViewZipFile(filepath string) ([]string, error) {
 	return filelist, err
 }
 
-func FileCopy(src string, dest string, mode string) error {
+func FileCopy(src string, dest string, mode string, progressUpdate func(int, string)) error {
 	srcRealpath, _ := filepath.Abs(src)
 	destRealpath, _ := filepath.Abs(dest)
 	if IsDir(src) && strings.Contains(destRealpath, srcRealpath) {
@@ -207,8 +208,12 @@ func FileCopy(src string, dest string, mode string) error {
 	//Ready to move. Check if both folder are located in the same root devices. If not, use copy and delete method.
 	if IsDir(src) {
 		//Source file is directory. CopyFolder
+
 		realDest := dest + copiedFilename
-		err := dircpy.Copy(src, realDest)
+
+		//err := dircpy.Copy(src, realDest)
+
+		err := dirCopy(src, realDest, progressUpdate)
 		if err != nil {
 			return err
 
@@ -228,17 +233,23 @@ func FileCopy(src string, dest string, mode string) error {
 			return err
 		}
 
+		if progressUpdate != nil {
+			//Set progress to 100, leave it to upper level abstraction to handle
+			progressUpdate(100, filepath.Base(realDest))
+		}
+
 		_, err = io.Copy(destination, source)
 		if err != nil {
 			return err
 		}
 		source.Close()
 		destination.Close()
+
 	}
 	return nil
 }
 
-func FileMove(src string, dest string, mode string, fastMove bool) error {
+func FileMove(src string, dest string, mode string, fastMove bool, progressUpdate func(int, string)) error {
 	srcRealpath, _ := filepath.Abs(src)
 	destRealpath, _ := filepath.Abs(dest)
 	if IsDir(src) && strings.Contains(destRealpath, srcRealpath) {
@@ -311,12 +322,16 @@ func FileMove(src string, dest string, mode string, fastMove bool) error {
 		if IsDir(src) {
 			//Source file is directory. CopyFolder
 			realDest := dest + movedFilename
-			err := dircpy.Copy(src, realDest)
+			//err := dircpy.Copy(src, realDest)
+
+			err := dirCopy(src, realDest, progressUpdate)
 			if err != nil {
 				return err
+			} else {
+				//Move completed. Remove source file.
+				os.RemoveAll(src)
+				return nil
 			}
-			//Move completed. Remove source file.
-			os.RemoveAll(src)
 
 		} else {
 			//Source is file only. Copy file.
@@ -337,8 +352,15 @@ func FileMove(src string, dest string, mode string, fastMove bool) error {
 				source.Close()
 				destination.Close()
 			*/
+
+			//Update the progress
+			if progressUpdate != nil {
+				progressUpdate(100, filepath.Base(src))
+			}
+
 			err := BufferedLargeFileCopy(src, realDest, 8192)
 			if err != nil {
+				log.Println("BLFC error: ", err.Error())
 				return err
 			}
 
@@ -355,9 +377,101 @@ func FileMove(src string, dest string, mode string, fastMove bool) error {
 					return errors.New("Source file remove failed.")
 				}
 			}
+
 		}
 	}
+
 	return nil
+}
+
+//Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
+func dirCopy(src string, realDest string, progressUpdate func(int, string)) error {
+	//Get the total file counts
+	totalFileCounts := 0
+	filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			totalFileCounts++
+		}
+		return nil
+	})
+
+	//Make the destinaton directory
+	if !fileExists(realDest) {
+		os.Mkdir(realDest, 0755)
+	}
+
+	//Start moving
+	fileCounter := 0
+
+	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		srcAbs, _ := filepath.Abs(src)
+		pathAbs, _ := filepath.Abs(path)
+
+		var folderRootRelative string = strings.Replace(pathAbs, srcAbs, "", 1)
+		if folderRootRelative == "" {
+			return nil
+		}
+
+		if info.IsDir() {
+			//Mkdir base on relative path
+			return os.MkdirAll(filepath.Join(realDest, folderRootRelative), 0755)
+		} else {
+			fileCounter++
+			//Move file base on relative path
+			fileSrc := filepath.ToSlash(filepath.Join(filepath.Clean(src), folderRootRelative))
+			fileDest := filepath.ToSlash(filepath.Join(filepath.Clean(realDest), folderRootRelative))
+
+			//Update move progress
+			if progressUpdate != nil {
+				progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), filepath.Base(fileSrc))
+			}
+
+			//Move the file using BLFC
+			err := BufferedLargeFileCopy(fileSrc, fileDest, 8192)
+			if err != nil {
+				//Ignore and continue
+				log.Println("BLFC Error:", err.Error())
+				return nil
+			}
+			/*
+				//Move fiel using IO Copy
+				err := BasicFileCopy(fileSrc, fileDest)
+				if err != nil {
+					log.Println("Basic Copy Error: ", err.Error())
+					return nil
+				}
+
+			*/
+		}
+		return nil
+	})
+
+	return err
+}
+
+func BasicFileCopy(src string, dst string) error {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+	return err
 }
 
 //Use for copying large file using buffering method. Allowing copying large file with little RAM

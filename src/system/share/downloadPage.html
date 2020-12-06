@@ -1,0 +1,91 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{hostname}} File Share</title>
+    <link rel="stylesheet" href="script/skeleton/offline.css">
+    <link rel="stylesheet" href="script/skeleton/normalize.css">
+    <link rel="stylesheet" href="script/skeleton/skeleton.css">
+    <script type="application/javascript" src="script/jquery.min.js"></script>
+    <style>
+
+        body{
+            padding-bottom: 100px;
+        }
+        .bar{
+            height: 12px;
+            background-color: #33c3f0;
+            width: 100%;
+        }
+
+        .footer{
+            position: fixed;
+            bottom: 0px;
+            height: 50px;
+            width: 100%;
+            background-color: #33c3f0;
+            padding: 20px;
+            color: white;
+        }
+    </style>
+    </head>
+    <body>
+        <div class="bar"></div>
+        <br>
+        <div class="container">
+            <h5>{{hostname}} File Sharing</h5>
+            <h3>{{filename}}</h3>
+            <div class="row">
+                <div class="one-half column">
+                    <table class="u-full-width">
+                        <thead>
+                          <tr>
+                            <th>Property</th>
+                            <th>Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>MIME Type</td>
+                            <td>{{mime}}</td>
+                          </tr>
+                          <tr>
+                            <td>File Extension</td>
+                            <td>{{ext}}</td>
+                          </tr>
+                          <tr>
+                            <td>File Size</td>
+                            <td>{{size}}</td>
+                          </tr>
+                          <tr>
+                            <td>Last Modification Time</td>
+                            <td>{{modtime}}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    <a href="{{downloadurl}}"><button class="button-primary">Download</button></a>
+                    <br><br>
+                    <p>Request File ID: {{reqid}}</p>
+                    <p>Request Timestamp: {{reqtime}}</p>
+                </div>
+                <div class="one-half column">
+                    {{previewer}}
+                    <!-- <img style="pointer-events: none;" src=""> -->
+                </div>
+            </div>
+           
+        </div>
+        <div class="footer">
+            <div class="container">
+                Cloud File Sharing Interface, Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
+            </div>
+        </div>
+      
+
+        
+    <script>
+     
+    </script>
+    </body>
+</html>

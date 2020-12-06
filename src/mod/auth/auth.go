@@ -45,7 +45,7 @@ type AuthAgent struct {
 
 	//Token related
 	ExpireTime             int64 //Set this to 0 to disable token access
-	tokenStore             map[string]token
+	tokenStore             sync.Map
 	terminateTokenListener chan bool
 	mutex                  *sync.Mutex
 
@@ -81,7 +81,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 		SessionStore:            store,
 		Database:                sysdb,
 		LoginRedirectionHandler: loginRedirectionHandler,
-		tokenStore:              map[string]token{},
+		tokenStore:              sync.Map{},
 		ExpireTime:              120,
 		terminateTokenListener:  done,
 		mutex:                   &sync.Mutex{},

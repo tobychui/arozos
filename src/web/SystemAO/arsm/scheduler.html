@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title>System Task Scheduler</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script src="../../script/jquery.min.js"></script>
+	<script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="js/moment.min.js"></script>
+    <style>
+        body{
+            margin-top: 12px; 
+            padding-right: 15px;
+        }
+        .hidden{
+            display:none;
+        }
+
+        .compulsory{
+            color: red;
+            font-weight: bold;
+        }
+
+        #main{
+            overflow-y:auto;
+        }
+
+        #logPreview{
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="ui stackable grid">
+            <div class="four wide column" >
+                <div class="ui vertical fluid menu">
+                    <div class="item">
+                        <img class="ui image" src="img/banner.png">
+                    </div>
+                    <a id="stb" class="active teal item functBtn" onclick="scheduleList(this);">
+                        User's Scheduled Tasks
+                    </a>
+                    <a id="asb" class="teal item functBtn" onclick="scheduleListAll(this);">
+                        All Scheduled Tasks
+                    </a>
+                    <a id="nsb" class="item functBtn" onclick="newTaskUI(this);">
+                        <i class="add icon"></i> New Scheduled Task
+                    </a>
+                    <a id="rsb" class="item functBtn" onclick="showRemoveSchedule(this);">
+                        <i class="remove icon"></i> Remove Scheduled Task
+                    </a>
+                    <div class="item">
+                        <div class="ui transparent icon input">
+                        <input type="text" id="filter" placeholder="Filter" onkeydown="handleFilterEnterKeydown(event);">
+                        <i class="search icon"></i>
+                        </div>
+                    </div>
+                    <a class="item" onclick="applyFilter();">
+                        <i class="filter icon"></i> Apply Filter
+                    </a>
+                    <a id="log" class="teal item functBtn" onclick="showLogInfo(this);">
+                        Show Logs
+                    </a>
+                </div>  
+            </div>
+            <div id="main" class="twelve wide column">
+                <div class="ui container">
+                    <br>
+                    <!-- Scheduled Task view-->
+                    <div id="scheduleView" class="view">
+                        <table class="ui celled striped table">
+                            <thead>
+                                <tr>
+                                    <th colspan="4">
+                                        Scheduled Tasks
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <th>
+                                        Script
+                                    </th>
+                                    <th>
+                                        Location
+                                    </th>
+                                    <th>
+                                        Interval
+                                    </th>
+                                    <th>
+                                        Base Time
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleList">
+                            
+                            </tbody>
+                        </table>
+                    </div>
+
+                     <!-- All Scheudle List-->
+                     <div id="scheudleListAll" class="view" style="display:none;">
+                        <table class="ui celled striped table">
+                            <thead>
+                                <tr>
+                                    <th colspan="5">
+                                        System Wide Scheduled Tasks
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <th>
+                                        Task Name (Creator)
+                                    </th>
+                                    <th>
+                                        Script Location
+                                    </th>
+                                    <th>
+                                        Description
+                                    </th>
+                                    <th>
+                                        Interval
+                                    </th>
+                                    <th>
+                                        Base Time
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleListAllContent">
+                            
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- New Scheduule view-->
+                    <div id="newTask" class="view hidden" >
+                        <div class="ui message">
+                            <div class="header">
+                                New Scheduled Task
+                            </div>
+                            <ul class="list">
+                                <li>You can add an agi script (.agi / .js) from one of your directories or</li>
+                                <li>A shell script (.bat or .sh) if you have admin privileges.</li>
+                            </ul>
+                            </div>
+                        <form class="ui form" onsubmit="handleTaskSubmition(event);">
+                            <div class="field">
+                            <label>Task Name (Max: 32 chars) <span class="compulsory">*</span></label>
+                            <input type="text" id="tasknanme" name="tasknanme" placeholder="New Task" maxlength="16" autocomplete="off">
+                            </div>
+                            <div class="field">
+                            <label>Description</label>
+                            <input type="text" id="desc" name="desc" placeholder="Description goes here"  autocomplete="off">
+                            </div>
+                            <div class="field">
+                                <label>Script Path <span class="compulsory">*</span></label>
+                                <div class="ui icon fluid input">
+                                    <input id="scriptpath" type="text" placeholder="Virtual path to the script file" autocomplete="off">
+                                    <i onclick="openFileSelector();" class="inverted circular search link icon"></i>
+                                </div>
+                                <div id="extensionWarning" style="display:none;" class="ui yellow small message">This extension is not supported by the scheduler. Please continue with your own risk.</div>
+                            </div>
+                            <div class="field">
+                                <label>Execution Interval <span class="compulsory">*</span></label>
+                                <div>
+                                    <div class="ui input" style="width: 200px;">
+                                        <input id="intervalvalue" type="number" placeholder="1" value="1">
+                                    </div>
+                                    <div class="ui selection dropdown">
+                                        <input type="hidden" id="intervalunit" name="intervalunit" value="60">
+                                        <i class="dropdown icon"></i>
+                                        <div class="default text">Unit</div>
+                                        <div class="menu">
+                                            <div class="item" data-value="60">Minutes</div>
+                                            <div class="item" data-value="3600">Hours</div>
+                                            <div class="item" data-value="86400">Days</div>
+                                            <div class="item" data-value="2628333">Months (approximate)</div>
+                                        </div>
+                                    </div>
+                                    <br>
+                                    <small>Execute the script above ever x unit. Month (Unit) is approximated as 2628333 seconds</small>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label>Execution Base <span class="compulsory">*</span></label>
+                                <div class="ui selection dropdown">
+                                    <input type="hidden" id="intervalbase" name="intervalbase" value="now">
+                                    <i class="dropdown icon"></i>
+                                    <div class="default text">Base Timeframe</div>
+                                    <div class="menu">
+                                        <div class="item" data-value="now">Now</div>
+                                        <div class="item" data-value="hour">Start of the Hour</div>
+                                        <div class="item" data-value="day">Start of the Day</div>
+                                        <div class="item" data-value="month">Start of the Month</div>
+                                        <div class="item" data-value="year">Start of the Year</div>
+                                        <div class="item" data-value="mon">Monday Mid-night</div>
+                                        <div class="item" data-value="tue">Tuesday Mid-night</div>
+                                        <div class="item" data-value="wed">Wednesday Mid-night</div>
+                                        <div class="item" data-value="thu">Thursday Mid-night</div>
+                                        <div class="item" data-value="fri">Friday Mid-night</div>
+                                        <div class="item" data-value="sat">Saturday Mid-night</div>
+                                        <div class="item" data-value="sun">Sunday Mid-night</div>
+                                    </div>
+                                </div>
+                                <small>The base day helps you to offset the interval for weekly / monthly based schedules.</small>
+                            </div>
+                            <button class="ui button" type="submit">Submit</button>
+                            <br> <br>
+                            <small>Fields with <span class="compulsory">*</span> are compulsory</small>
+                        </form>
+
+                        <div class="ui info message">
+                            <i class="close icon" onclick='$(this).parent().fadeOut();'></i>
+                            <div class="header">
+                                Tips for running shell scripts
+                            </div>
+                            <ul class="list">
+                                <li>The execution root of all bash script and batch script are based on the arozos root.</li>
+                                <li>Remember always use absolute path inside your scripts.</li>
+                            </ul>
+                        </div>
+                        <br><br>
+                    </div>
+
+                    <!-- Remove Scheduule view-->
+                    <div id="removeShedule" class="view hidden" >
+                        <table class="ui celled striped table">
+                            <thead>
+                                <tr>
+                                    <th class="ui red message" colspan="5">
+                                        <i class="remove icon"></i> Remove Scheduled Tasks<br>
+                                        <small>WARNING! All operations are not reversible.</small>
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <th>
+                                        Task Name (Creator)
+                                    </th>
+                                    <th>
+                                        Script Location
+                                    </th>
+                                    <th>
+                                        Description
+                                    </th>
+                                    <th>
+                                        Interval
+                                    </th>
+                                    <th>
+                                        Action
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="removeScheduleList">
+                            
+                            </tbody>
+                        </table>
+                    </div>
+
+                     <!-- Scheduler Log view-->
+                     <div id="listLog" class="view hidden" >
+                        <p>Select a log file to preview</p>
+                        <select id="logIndex" class="ui search fluid dropdown" onchange="loadLogFile(this.value);">
+                            <option value="">Date (DD-MM-YYYY)</option>
+                            <option value="AL">Alabama</option>
+                        </select>
+                        <div class="ui segment form">
+                            <div class="field">
+                                <textarea id="logPreview" rows="10"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+ 
+    <script>
+        $(".ui.dropdown").dropdown();
+        initScheduleList();
+        function initScheduleList(){
+            $.ajax({
+                url: "../../system/arsm/aecron/list",
+                data: {},
+                success: function(data){
+                    $("#scheduleList").html("");
+                    if (data.length == 0){
+                        $("#scheduleList").append(`<tr>
+                            <td colspan="4">
+                                No registered schedule.
+                            </td>
+                        </tr>`);
+                    }else{
+                        data.forEach(task => {
+                            var filter = $("#filter").val().trim();
+                            if (filter != ""){
+                                //Apply filter to the results
+                                if (task.Creator.includes(filter) || task.Name.includes(filter) || task.Description.includes(filter)){
+                                    //Matching
+                                }else{
+                                    //Not matching
+                                    return
+                                }
+                            }
+                            var scriptName = task.ScriptFile.split("/").pop();
+                            $("#scheduleList").append(`<tr>
+                                <td class="collapsing">
+                                    <i class="code file outline icon"></i> ${scriptName}
+                                </td>
+                                <td>${task.ScriptFile}</td>
+                                <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
+                                <td class="right aligned collapsing">${moment.unix(task.BaseTime).format('LLL')}</td>
+                            </tr>`);
+                        });
+                    }
+                }
+            });
+        }
+
+        function initScheduleFullList(){
+            $.ajax({
+                url: "../../system/arsm/aecron/list?listall=true",
+                data: {},
+                success: function(data){
+                    $("#scheduleListAllContent").html("");
+                    if (data.length == 0){
+                        $("#scheduleListAllContent").append(`<tr>
+                            <td colspan="4">
+                                No registered schedule.
+                            </td>
+                        </tr>`);
+                    }else{
+                        data.forEach(task => {
+                            var filter = $("#filter").val().trim();
+                            if (filter != ""){
+                                //Apply filter to the results
+                                if (task.Creator.includes(filter) || task.Name.includes(filter) || task.Description.includes(filter)){
+                                    //Matching
+                                }else{
+                                    //Not matching
+                                    return
+                                }
+                            }
+                            $("#scheduleListAllContent").append(`<tr>
+                                <td class="collapsing">
+                                    <i class="user icon"></i> ${task.Name} (${task.Creator})
+                                </td>
+                                <td>${task.ScriptFile}</td>
+                                <td>${task.Description}</td>
+                                <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
+                                <td class="right aligned collapsing">${moment.unix(task.BaseTime).format('LLL')}</td>
+                            </tr>`);
+                        });
+                    }
+                }
+            });
+        }
+
+        function parseSecondsToHumanReadableFormat(seconds){
+            seconds = Number(seconds);
+            var d = Math.floor(seconds / (3600*24));
+            var h = Math.floor(seconds % (3600*24) / 3600);
+            var m = Math.floor(seconds % 3600 / 60);
+            var s = Math.floor(seconds % 60);
+
+            var dDisplay = d > 0 ? d + (d == 1 ? " day " : " days ") : "";
+            var hDisplay = h > 0 ? h + (h == 1 ? " hour " : " hours ") : "";
+            var mDisplay = m > 0 ? m + (m == 1 ? " minute " : " minutes ") : "";
+            var sDisplay = s > 0 ? s + (s == 1 ? " second" : " seconds") : "";
+            return dDisplay + hDisplay + mDisplay + sDisplay;
+        }
+
+        $(".functBtn").on("click", function(data){
+            $(".functBtn.active").removeClass("active");
+            $(this).addClass("active");
+        });
+
+        handleWindowResize();
+        $(window).on("resize", function(){
+            handleWindowResize();
+        });
+        function handleWindowResize(){
+            $("#main").css({
+                height: window.innerHeight + "px"
+            });
+        }
+
+        function removeTask(object){
+            var taskName = $(object).attr("name");
+            if (confirm("Removing " + taskName + ". Confirm?")){
+                $.ajax({
+                    url: "../../system/arsm/aecron/remove",
+                    data: {name: taskName},
+                    success: function(data){
+                        console.log(data);
+                        showRemoveSchedule();
+                    }
+                })
+            }
+        }
+
+        function newTaskUI(btn){
+            $(".view").hide();
+            $(".functBtn.active").removeClass("active");
+            $("#nsb").addClass("active");
+            $("#newTask").show();
+        }
+
+        function scheduleListAll(btn){
+            $(".view").hide();
+            $("#scheudleListAll").show();
+            $(".functBtn.active").removeClass("active");
+            $("#asb").addClass("active");
+            initScheduleFullList();
+        }
+
+        function showLogInfo(btn){
+            $(".view").hide();
+            $("#listLog").show();
+            $(".functBtn.active").removeClass("active");
+            $("#log").addClass("active");
+            initLogIndex();
+        }
+
+        function scheduleList(btn){
+            $(".view").hide();
+            $(".functBtn.active").removeClass("active");
+            $("#stb").addClass("active");
+            $("#scheduleView").show();
+            initScheduleList();
+        }
+
+        function showRemoveSchedule(btn){
+            $(".view").hide();
+            $(".functBtn.active").removeClass("active");
+            $("#rsb").addClass("active");
+            $("#removeShedule").show();
+            initRemoveScheduleList();
+        }
+
+        function initLogIndex(){
+            $("#logIndex").html("");
+            $.get("../../system/arsm/aecron/listlog", function(data){
+                if (data.error !== undefined){
+                    alert(data.error);
+                }else{
+                    $("#logIndex").append(`<option value="">Date (DD-MM-YYYY)</option>`);
+                    data.forEach(logFile => {
+                        var filename = logFile.split("/").pop();
+                        $("#logIndex").append(`<option value="${filename}">${filename}</option>`);
+                    });
+
+                }
+            })
+        }
+
+        function initRemoveScheduleList(){
+            $.ajax({
+                url: "../../system/arsm/aecron/list?listall=true",
+                data: {},
+                success: function(data){
+                    $("#removeScheduleList").html("");
+                    if (data.length == 0){
+                        $("#removeScheduleList").append(`<tr>
+                            <td colspan="4">
+                                No registered schedule.
+                            </td>
+                        </tr>`);
+                    }else{
+                        data.forEach(task => {
+                            var filter = $("#filter").val().trim();
+                            if (filter != ""){
+                                //Apply filter to the results
+                                if (task.Creator.includes(filter) || task.Name.includes(filter) || task.Description.includes(filter)){
+                                    //Matching
+                                }else{
+                                    //Not matching
+                                    return
+                                }
+                            }
+                            $("#removeScheduleList").append(`<tr>
+                                <td class="collapsing">
+                                    <i class="user icon"></i> ${task.Name} (${task.Creator})
+                                </td>
+                                <td>${task.ScriptFile}</td>
+                                <td>${task.Description}</td>
+                                <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
+                                <td class="right aligned collapsing">
+                                    <button class="ui negative mini button" name="${task.Name}" onclick="removeTask(this);">Remove</button>
+                                </td>
+                            </tr>`);
+                        });
+                    }
+                }
+            });
+        }
+
+        //Handle task creation
+        function handleTaskSubmition(e){
+            e.preventDefault();
+            var taskName = $("#tasknanme").val();
+            var desc = $("#desc").val();
+            var scriptPath = $("#scriptpath").val();
+            var interval = parseFloat($("#intervalvalue").val()) * parseFloat($("#intervalunit").val());
+            var baseunix = Date.now();
+            var baseTimeframe = $("#intervalbase").val();
+            switch (baseTimeframe){
+                case "now":
+                    //Round off to the nearest minute
+                    baseunix = moment().startOf('minute').unix()
+                    break;
+                case "hour":
+                    baseunix = moment().startOf('hour').unix()
+                    break;
+                case "day":
+                    baseunix = moment().startOf('day').unix()
+                    break;
+                case "month":
+                    baseunix = moment().startOf('month').unix()
+                    break;
+                 case "year":
+                    baseunix = moment().startOf('year').unix()
+                    break;
+                case "mon":
+                    baseunix = moment().startOf('week').add(1,'days').unix(); 
+                    break;
+                case "tue":
+                    baseunix = moment().startOf('week').add(2,'days').unix(); 
+                    break;
+                case "wed":
+                    baseunix = moment().startOf('week').add(3,'days').unix(); 
+                    break;
+                case "thu":
+                    baseunix = moment().startOf('week').add(4,'days').unix(); 
+                    break;
+                case "fri":
+                    baseunix = moment().startOf('week').add(5,'days').unix(); 
+                    break;
+                case "sat":
+                    baseunix = moment().startOf('week').add(6,'days').unix(); 
+                    break;
+                case "sun":
+                    baseunix = moment().startOf('week').unix(); 
+                    break;
+            }
+
+            //Create ajax request
+            $.ajax({
+                url: "../../system/arsm/aecron/add",
+                method: "POST",
+                data: {
+                    "name":taskName,
+                    "interval": interval,
+                    "base": baseunix,
+                    "desc": desc,
+                    "path": scriptPath
+                },
+                success: function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{ 
+                        //Clear all inputs
+                        $("#tasknanme").val("");
+                        $("#desc").val("");
+                        $("#scriptpath").val("");
+
+                        //Update the list and show it
+                        scheduleList();
+                    }
+                }
+            })
+            
+        }
+
+        function applyFilter(){
+            initScheduleFullList();
+            initScheduleList();
+            initRemoveScheduleList();
+        }
+
+        function loadLogFile(filename){
+            $.get("../../system/arsm/aecron/listlog?filename=" + filename, function(data){
+                $("#logPreview").text(data);
+            })
+        }
+
+        function handleFilterEnterKeydown(event){
+            if (event.which == 13){
+                event.preventDefault();
+                applyFilter();
+            }
+        }
+
+        function openFileSelector(){
+            ao_module_openFileSelector(scriptSelected, "user:/", "file", false);
+        }
+
+        function scriptSelected(filedata){
+            for (var i=0; i < filedata.length; i++){
+                var filename = filedata[i].filename;
+                var filepath = filedata[i].filepath;
+                $("#scriptpath").val(filepath);
+
+                //See if the filepath end with valid extension
+                var ext = filepath.split(".").pop();
+                if (ext == "js" || ext == "agi" || ext == "sh" || ext == "bat"){
+                    $("#extensionWarning").hide();
+                }else{
+                    $("#extensionWarning").show();
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <script src="js/recorder.js"></script>
+        <title>Dummy</title>
+        <style>
+            body{
+                background-color:white;
+            }
+            .statusbar{
+                position: absolute;
+                bottom: 0px;
+                left:0px;
+                padding: 5px;
+                padding-left: 12px;
+            }
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="ui container">
+            <button id="record" class="ui red button" onclick="startRecording();">
+                Record
+              </button>
+              <button id="stop" class="ui disabled button" onclick="stopRecording();">
+                Stop
+              </button>
+              <button class="ui button" onclick="openStorageFolder();">
+                Open Folder
+              </button>
+              <br><br>
+              <p style="margin-bottom: 4px;">Select Output Folder</p>
+              <div class="ui icon fluid input">
+                <input id="saveFolder" type="text" placeholder="user:/Music/Recroding/" value="user:/Music/Recording/">
+                <i class="folder open link icon" onclick="selectSaveFolder();"></i>
+              </div>
+              <br>
+              <div class="statusbar">
+                  Status: <span id="status">Ready</span>
+              </div>
+        </div>
+        <script>
+            //Define the basic context for the recorder
+            var audio_context;
+            var recorder;
+            var recordTimer;
+            var recordCounter = 0;
+
+            //On window load, adjust the floatWindow settings
+            //Disable window resizing
+            ao_module_setFixedWindowSize();
+
+            //Check if there are previous saved path. If yes, update save target
+            var previousSavePath = localStorage.getItem("recorder-savepath");
+            if (previousSavePath != null){
+                $("#saveFolder").val(previousSavePath);
+            }
+
+            //Create save dir if not exists
+            createSaveDirIfNotExists();
+          
+
+            function createSaveDirIfNotExists(){
+                //Check if the folder exists. If not, create it
+                ao_module_agirun("Recorder/backend/createIfNotExists.js", {
+                    savedir: $("#saveFolder").val()
+                }, function(data){
+                    console.log(data);
+                });
+            }
+
+            //Handle recording stuffs
+            function startRecording(){
+                recorder && recorder.record();
+                $("#record").addClass("disabled");
+                $("#stop").removeClass("disabled");
+                updateStatus("Recording Started");
+                recordCounter = 0;
+                recordTimer = setInterval(function(){
+                    recordCounter++;
+                    updateStatus("Recording T: " + secondsToHms(recordCounter))
+                }, 1000);
+            }   
+
+            function stopRecording(){
+                recorder && recorder.stop();
+                $("#record").removeClass("disabled");
+                $("#stop").addClass("disabled");
+                clearInterval(recordTimer);
+                updateStatus("Recording Stopped")
+                renderWAV(function(blob){
+                    //Process the blob data here
+                    updateStatus("Saving")
+
+                    //Convert the blob to a file object
+                    var fileName = new Date().toLocaleDateString().split("/").join("-") + "_" +  new Date().toLocaleTimeString(undefined, {hour12: false}).split(":").join("-") + ".wav"
+                    var fileObjcet = ao_module_utils.blobToFile(blob, fileName, blob.type)
+                    
+                    console.log(fileObjcet);
+                    //Upload the file to server
+                    ao_module_uploadFile(fileObjcet, $("#saveFolder").val(), function(resp){
+                        resp = JSON.parse(resp);
+                        if (resp.error !== undefined){
+                            updateStatus("Failed: " + resp.error)
+                        }else{
+                            updateStatus("Saved as " + fileName)
+                        }
+                       
+                        console.log(resp);
+                    }, undefined, function(){
+                        updateStatus("File Saving Failed")
+                    });
+                }); 
+            }
+
+            function renderWAV(callback){
+                recorder && recorder.exportWAV(function(blob) {
+                    callback(blob);
+                });
+            }
+
+            function secondsToHms(d) {
+                d = Number(d);
+                var h = Math.floor(d / 3600);
+                var m = Math.floor(d % 3600 / 60);
+                var s = Math.floor(d % 3600 % 60);
+
+    
+                return (h+"").padStart(2, '0') + ":" + (m+"").padStart(2, '0') + ":" + (s+"").padStart(2, '0');
+            }
+
+            function openStorageFolder(){
+                var targetFolder =  $("#saveFolder").val();
+                ao_module_openPath(targetFolder);
+            }
+
+            function selectSaveFolder(){
+                var defaultFolder = $("#saveFolder").val();
+                if (defaultFolder == ""){
+                    defaultFolder = "user:/"
+                }
+                ao_module_openFileSelector(fileSelected, defaultFolder, "folder",false);
+            }
+
+            function fileSelected(filedata){
+                for (var i=0; i < filedata.length; i++){
+                    var filename = filedata[i].filename;
+                    var filepath = filedata[i].filepath;
+                    $("#saveFolder").val(filepath);
+                    localStorage.setItem("recorder-savepath",filepath);
+                }
+                createSaveDirIfNotExists();
+            }
+
+            function updateStatus(statusText){
+                ao_module_setWindowTitle("Recorder - " + statusText);
+                $("#status").text(statusText);
+            }
+
+
+            function startUserMedia(stream) {
+                var input = audio_context.createMediaStreamSource(stream);
+                recorder = new Recorder(input);
+                updateStatus("Ready");
+                console.log('Recorder initialised.');
+            }
+
+
+            //Try to setup Audio context
+            window.onload = function init() {
+                updateStatus("Starting")
+                try {
+                // webkit shim
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
+                window.URL = window.URL || window.webkitURL;
+                
+                audio_context = new AudioContext;
+                console.log('Audio context set up.');
+                console.log('navigator.getUserMedia ' + (navigator.getUserMedia ? 'available.' : 'not present!'));
+                } catch (e) {
+                    console.log(e);
+                    alert('No web audio support in this browser!');
+                }
+                
+                try{
+                    navigator.getUserMedia({audio: true}, startUserMedia, function(e) {
+                        console.log('No live audio input: ' + e);
+                    });
+                }catch(ex){
+                    $("#status").text("Audio API not usable due to invalid TLS config")
+                    ao_module_setWindowTitle("Recorder - Startup Failed");
+                }
+              
+            };
+
+            function downloadBlob(blob, name = 'file.txt') {
+                if (
+                window.navigator && 
+                window.navigator.msSaveOrOpenBlob
+                ) return window.navigator.msSaveOrOpenBlob(blob);
+
+                // For other browsers:
+                // Create a link pointing to the ObjectURL containing the blob.
+                const data = window.URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.href = data;
+                link.download = name;
+
+                // this is necessary as link.click() does not work on the latest firefox
+                link.dispatchEvent(
+                new MouseEvent('click', { 
+                    bubbles: true, 
+                    cancelable: true, 
+                    view: window 
+                })
+                );
+
+                setTimeout(() => {
+                // For Firefox it is necessary to delay revoking the ObjectURL
+                window.URL.revokeObjectURL(data);
+                link.remove();
+                }, 100);
+            }
+
+        </script>
+    </body>
+</html>

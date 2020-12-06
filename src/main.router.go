@@ -98,22 +98,32 @@ func mroutner(h http.Handler) http.Handler {
 				w.Header().Add("Content-Type", "application/javascript; charset=UTF-8")
 			}
 
-			//Check if this path is reverse proxy path. If yes, serve with proxyserver
-			isRP, proxy, rewriteURL, subserviceObject := ssRouter.CheckIfReverseProxyPath(r)
+			if *disable_subservices == false {
+				//Enable subservice access
+				//Check if this path is reverse proxy path. If yes, serve with proxyserver
+				isRP, proxy, rewriteURL, subserviceObject := ssRouter.CheckIfReverseProxyPath(r)
 
-			if isRP {
-				//Check user permission on that module
-				ssRouter.HandleRoutingRequest(w, r, proxy, subserviceObject, rewriteURL)
-			} else {
-				if *enable_dir_listing == false {
-					if strings.HasSuffix(r.URL.Path, "/") {
-						//User trying to access a directory. Send NOT FOUND.
+				if isRP {
+					//Check user permission on that module
+					ssRouter.HandleRoutingRequest(w, r, proxy, subserviceObject, rewriteURL)
+					return
+				}
+			}
+
+			//Not subservice routine. Handle file server
+			if *enable_dir_listing == false {
+				if strings.HasSuffix(r.URL.Path, "/") {
+					//User trying to access a directory. Send NOT FOUND.
+					if fileExists("web" + r.URL.Path + "index.html") {
+						//Index exists. Allow passthrough
+
+					} else {
 						errorHandleNotFound(w, r)
 						return
 					}
 				}
-				h.ServeHTTP(w, r)
 			}
+			h.ServeHTTP(w, r)
 
 		} else {
 			//User not logged in. Check if the path end with public/. If yes, allow public access

@@ -1,0 +1,43 @@
+#OS stuffs
+.vscode/*
+.DS_Store
+
+#Testing Folders
+test/deviceA/*
+test/deviceB/*
+tmp/*
+files/users*
+__debug_bin
+
+#Database related
+*.db
+system/db/*
+system/ao.db.lock
+*aofs.db.lock
+./web/aofs.db
+
+#Setting related
+system/network/wifi/ap/*
+system/storage.json
+system/dev.uuid
+system/storage.json
+system/storage/*.json
+system/cron.json
+
+#Logs related
+system/aecron/*.log
+
+
+#Subservice related
+subservice/backup/.suspended
+subservice/backup/backup/.suspended
+subservice/aprint
+subservice/aprint/*
+
+#Binary related
+build/*
+aroz_online.exe
+aroz_online
+arozos.exe
+*/arozos.exe
+arozos

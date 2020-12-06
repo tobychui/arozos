@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <title>Storage Pool Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+        body{
+            background-color:white;
+        }
+        .themebackground{
+            background-color:#23916d !important;
+            color:white !important;
+            background-image: url("img/slate.png") !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+            height:100px;
+            border: 0px solid transparent !important;
+            padding:24px !important;
+        }
+        .fshList{
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .controls{
+            position: absolute;
+            top: 12px;
+            right: 12px;
+        }
+
+        a{
+            cursor: pointer;
+        }
+        .false{
+            color: #eb0909;
+        }
+
+        .true{
+            color: #05b074;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui fluid attached segment themebackground" >
+        <h24 class="ui inverted header">
+            <i class="folder icon"></i>
+            <div class="content">
+                Edit File System Handler
+            <div class="sub header">Edit the selected File System Handler (FSH)</div>
+            </div>
+        </h4>
+    </div>
+    <br>
+    <div class="ui container">
+        <form id="mainForm" class="ui form" action="../../system/storage/pool/edit?opr=set" method="POST">
+            <div class="field" style="display: none;">
+                <label>Group</label>
+                <input type="text" name="group" id="groupfield" readonly="true">
+                </div>
+            <div class="field">
+                <label>Name</label>
+                <input type="text" name="name" placeholder="e.g. My Folder">
+            </div>
+            <div class="field">
+                <label>UUID</label>
+                <input type="text" name="uuid" placeholder="e.g. myfolder">
+            </div>
+            <div class="field">
+                <label>Path</label>
+                <input type="text" name="path" placeholder="e.g. /media/myfolder">
+            </div>
+            <div class="field">
+                <label>Access Permission</label>
+                <div id="accessfield" class="ui selection dropdown">
+                <input type="hidden" name="access" value="readwrite">
+                <i class="dropdown icon"></i>
+                <div class="default text">Access Permission</div>
+                <div class="menu">
+                    <div class="item" data-value="readonly">Read Only</div>
+                    <div class="item" data-value="readwrite">Read Write</div>
+                </div>
+                </div>
+            </div>
+            <div class="field">
+                <label>Storage Hierarchy</label>
+                <div id="hierarchyfield" class="ui selection dropdown">
+                <input type="hidden" name="hierarchy" value="user">
+                <i class="dropdown icon"></i>
+                <div class="default text">Storage Hierarchy</div>
+                <div class="menu">
+                    <div class="item" data-value="user">Isolated User Folders</div>
+                    <div class="item" data-value="public">Public Access Folders</div>
+                </div>
+                </div>
+            </div>
+            <div class="ui divider"></div>
+            <p>Physical Disks Settings</p>
+            <div class="field">
+                <label>Filesystem Type</label>
+                <div id="fstype" class="ui selection dropdown">
+                <input type="hidden" name="filesystem" value="ntfs">
+                <i class="dropdown icon"></i>
+                <div class="default text">Filesystem Type</div>
+                <div class="menu">
+                    <div class="item" data-value="ext4">EXT4</div>
+                    <div class="item" data-value="ext3">EXT3</div>
+                    <div class="item" data-value="ntfs">NTFS</div>
+                    <div class="item" data-value="vfat">VFAT</div>
+                    <div class="item" data-value="fat">FAT</div>
+                </div>
+                </div>
+            </div>
+            <div class="field">
+                <label>Mount Device</label>
+                <input type="text" name="mountdev" placeholder="e.g. /dev/sda1">
+            </div>
+            <div class="field">
+                <label>Mount Point</label>
+                <input type="text" name="mountpt" placeholder="e.g. /media/myfolder">
+            </div>
+
+            <div class="field">
+                <div class="ui checkbox">
+                <input type="checkbox" name="automount" tabindex="0" class="hidden">
+                <label>Automount</label>
+                </div>
+            </div>
+            <br>
+            
+            <div class="ui divider"></div>
+            <p>Security Related (if any)</p>
+            <div class="field">
+                <label>Username</label>
+                <input type="text" name="username" placeholder="">
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" name="password" placeholder="">
+            </div>
+
+            <button class="ui right floated button" onclick='handleCancel();'>Cancel</button>
+            <button class="ui green right floated button" type="submit">Update</button>
+            <br><br><br><br>
+        </form>
+    </div>
+    <script>
+        //Get target fsh uuid and group from hash
+        var targetFSH = "";
+        $(".ui.dropdown").dropdown();
+        $(".ui.checkbox").checkbox();
+
+        if (window.location.hash.length > 0){
+            var input = JSON.parse(decodeURIComponent(window.location.hash.substr(1)));
+            $("#groupfield").val(input.group);
+            //Request server side to provide info on this FSH
+            $.ajax({
+                url: "../../system/storage/pool/edit",
+                method: "GET",
+                data: {opr: "get", uuid: input.uuid, group: input.group},
+                success: function(data){
+                    renderOptionsToForm(data);
+                }
+            });
+
+            $("#mainForm").attr("action", "../../system/storage/pool/edit?opr=set&uuid=" + input.uuid + "&group=" + input.group);
+        }
+
+        function renderOptionsToForm(option){
+            console.log(option);
+            $("input[name=name]").val(option.name);
+            $("input[name=uuid]").val(option.uuid);
+            $("input[name=path]").val(option.path);
+            $("#accessfield").dropdown("set selected", option.access);
+            $("#hierarchyfield").dropdown("set selected", option.hierarchy);
+            $("#fstype").dropdown("set selected",option.filesystem);
+            $("input[name=mountdev]").val(option.mountdev);
+            $("input[name=mountpt]").val(option.mountpt);
+            if (option.automount == true){
+                $("input[name=automount]")[0].checked = true;
+            }
+        }
+
+
+        function handleCancel(){
+            ao_module_parentCallback(true);
+            ao_module_close();
+        }
+    </script>
+</body>
+</html>

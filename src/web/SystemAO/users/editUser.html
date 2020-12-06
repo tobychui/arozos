@@ -158,7 +158,11 @@
                             var displaysize = bytesToSize(data.Quota)
                             
                             if (data.Quota == -1){
+                                //Unlimited
                                 $("#quota").val(-1);
+                            }else if (data.Quota == -2){
+                                //Not initialized. Set it to 0
+                                $("#quota").val(0);
                             }else{
                                 $("#quota").val(displaysize[0]);
                             }

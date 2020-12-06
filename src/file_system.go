@@ -18,17 +18,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
+
 	fs "imuslab.com/arozos/mod/filesystem"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/share"
 	storage "imuslab.com/arozos/mod/storage"
 	user "imuslab.com/arozos/mod/user"
 )
 
 var (
 	thumbRenderHandler *metadata.RenderHandler
+	shareManager       *share.Manager
 )
 
 func FileSystemInit() {
@@ -43,6 +47,7 @@ func FileSystemInit() {
 
 	router.HandleFunc("/system/file_system/validateFileOpr", system_fs_validateFileOpr)
 	router.HandleFunc("/system/file_system/fileOpr", system_fs_handleOpr)
+	router.HandleFunc("/system/file_system/ws/fileOpr", system_fs_handleWebSocketOpr)
 	router.HandleFunc("/system/file_system/listDir", system_fs_handleList)
 	router.HandleFunc("/system/file_system/listDirHash", system_fs_handleDirHash)
 	router.HandleFunc("/system/file_system/listRoots", system_fs_listRoot)
@@ -57,6 +62,8 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/getProperties", system_fs_getFileProperties)
 	router.HandleFunc("/system/file_system/pathTranslate", system_fs_handlePathTranslate)
 	router.HandleFunc("/system/file_system/handleFileWrite", system_fs_handleFileWrite)
+
+	//Thumbnail caching functions
 	router.HandleFunc("/system/file_system/handleFolderCache", system_fs_handleFolderCache)
 	router.HandleFunc("/system/file_system/handleCacheRender", system_fs_handleCacheRender)
 
@@ -103,6 +110,22 @@ func FileSystemInit() {
 
 	//Create a RenderHandler for caching thumbnails
 	thumbRenderHandler = metadata.NewRenderHandler()
+
+	//Create a share manager to handle user file sharae
+	shareManager = share.NewShareManager(share.Options{
+		AuthAgent:   authAgent,
+		Database:    sysdb,
+		UserHandler: userHandler,
+		HostName:    *host_name,
+	})
+
+	//Share related functions
+	router.HandleFunc("/system/file_system/share/new", shareManager.HandleCreateNewShare)
+	router.HandleFunc("/system/file_system/share/delete", shareManager.HandleDeleteShare)
+	router.HandleFunc("/system/file_system/share/edit", shareManager.HandleEditShare)
+
+	//Handle the main share function
+	http.HandleFunc("/share", shareManager.HandleShareAccess)
 }
 
 //Handle upload.
@@ -129,6 +152,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	err = r.ParseMultipartForm(int64(*upload_buf) << 20)
 	if err != nil {
 		//Filesize too big
+		log.Println(err)
 		sendErrorResponse(w, "File too large")
 		return
 	}
@@ -187,8 +211,43 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Move the file to destination file location
-	go func(r *http.Request, file multipart.File, destination *os.File, userinfo *user.User) {
-		//Do the file copying using a buffered reader
+	if *enable_asyncFileUpload {
+		//Use Async upload method
+		go func(r *http.Request, file multipart.File, destination *os.File, userinfo *user.User) {
+			//Do the file copying using a buffered reader
+			buf := make([]byte, 8192)
+			for {
+				n, err := file.Read(buf)
+				if err != nil && err != io.EOF {
+					log.Println(err.Error())
+					destination.Close()
+					file.Close()
+					return
+				}
+				if n == 0 {
+					break
+				}
+
+				if _, err := destination.Write(buf[:n]); err != nil {
+					log.Println(err.Error())
+					destination.Close()
+					file.Close()
+					return
+				}
+			}
+
+			destination.Close()
+			file.Close()
+
+			//Clear up buffered files
+			r.MultipartForm.RemoveAll()
+
+			//Set the ownership of file
+			userinfo.SetOwnerOfFile(destFilepath)
+
+		}(r, file, destination, userinfo)
+	} else {
+		//Use blocking upload and move method
 		buf := make([]byte, 8192)
 		for {
 			n, err := file.Read(buf)
@@ -218,8 +277,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 		//Set the ownership of file
 		userinfo.SetOwnerOfFile(destFilepath)
-
-	}(r, file, destination, userinfo)
+	}
 
 	//Finish up the upload
 
@@ -572,6 +630,147 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
+
+	Handle file operations via WebSocket
+
+	This handler only handle copy and move. Not other operations.
+	For other operations, please use the legacy handleOpr endpoint
+*/
+
+func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
+	//Get and check user permission
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	operation, _ := mv(r, "opr", false) //Accept copy and move
+	vsrcFiles, _ := mv(r, "src", false)
+	vdestFile, _ := mv(r, "dest", false)
+	existsOpr, _ := mv(r, "existsresp", false)
+
+	if existsOpr == "" {
+		existsOpr = "keep"
+	}
+
+	//Decode the source file list
+	var sourceFiles []string
+	tmp := []string{}
+	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
+	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
+	if err != nil {
+		sendErrorResponse(w, "Source file JSON parse error.")
+		return
+	}
+
+	//Bugged char filtering
+	for _, src := range sourceFiles {
+		tmp = append(tmp, strings.ReplaceAll(src, "{{plug_sign}}", "+"))
+	}
+	sourceFiles = tmp
+
+	vdestFile = strings.ReplaceAll(vdestFile, "{{plug_sign}}", "+")
+
+	//Decode the target position
+	escapedVdest, _ := url.QueryUnescape(vdestFile)
+	vdestFile = escapedVdest
+	rdestFile, _ := userinfo.VirtualPathToRealPath(vdestFile)
+
+	//Permission checking
+	if !userinfo.CanWrite(vdestFile) {
+		log.Println(vdestFile)
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("403 - Access Denied"))
+		return
+	}
+
+	//Check if opr is suported
+	if operation == "move" || operation == "copy" {
+
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Not supported operation"))
+		return
+	}
+
+	//Upgrade to websocket
+	var upgrader = websocket.Upgrader{}
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - " + err.Error()))
+		log.Print("Websocket Upgrade Error:", err.Error())
+		return
+	}
+
+	type ProgressUpdate struct {
+		LatestFile string
+		Progress   int
+		Error      string
+	}
+
+	for i := 0; i < len(sourceFiles); i++ {
+		vsrcFile := sourceFiles[i]
+		rsrcFile, _ := userinfo.VirtualPathToRealPath(vsrcFile)
+		//c.WriteMessage(1, message)
+		if !fileExists(rsrcFile) {
+			//This source file not exists. Report Error and Stop
+			stopStatus := ProgressUpdate{
+				LatestFile: filepath.Base(rsrcFile),
+				Progress:   -1,
+				Error:      "File not exists",
+			}
+			js, _ := json.Marshal(stopStatus)
+			c.WriteMessage(1, js)
+			c.Close()
+			return
+		}
+
+		if operation == "move" {
+			fs.FileMove(rsrcFile, rdestFile, existsOpr, false, func(progress int, currentFile string) {
+				//Multply child progress to parent progress
+				blockRatio := float64(100) / float64(len(sourceFiles))
+				overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
+
+				//Construct return struct
+				currentStatus := ProgressUpdate{
+					LatestFile: filepath.Base(currentFile),
+					Progress:   int(overallRatio),
+					Error:      "",
+				}
+
+				js, _ := json.Marshal(currentStatus)
+				c.WriteMessage(1, js)
+			})
+		} else if operation == "copy" {
+			fs.FileCopy(rsrcFile, rdestFile, existsOpr, func(progress int, currentFile string) {
+				//Multply child progress to parent progress
+				blockRatio := float64(100) / float64(len(sourceFiles))
+				overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
+
+				//Construct return struct
+				currentStatus := ProgressUpdate{
+					LatestFile: filepath.Base(currentFile),
+					Progress:   int(overallRatio),
+					Error:      "",
+				}
+
+				js, _ := json.Marshal(currentStatus)
+				c.WriteMessage(1, js)
+			})
+		}
+
+	}
+
+	//Close WebSocket connection after finished
+	time.Sleep(1 * time.Second)
+	c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+	c.Close()
+
+}
+
+/*
 	Handle file operations
 
 	Support {move, copy, delete, recycle, rename}
@@ -734,7 +933,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 			//Updates 19-10-2020: Added ownership management to file move and copy
 			userinfo.RemoveOwnershipFromFile(rsrcFile)
 
-			err = fs.FileMove(rsrcFile, rdestFile, existsOpr, underSameRoot)
+			err = fs.FileMove(rsrcFile, rdestFile, existsOpr, underSameRoot, nil)
 			if err != nil {
 				sendErrorResponse(w, err.Error())
 				//Restore the ownership if remove failed
@@ -780,7 +979,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			err = fs.FileCopy(rsrcFile, rdestFile, existsOpr)
+			err = fs.FileCopy(rsrcFile, rdestFile, existsOpr, nil)
 			if err != nil {
 				sendErrorResponse(w, err.Error())
 				return
@@ -818,6 +1017,12 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
 			}
 
+			//Clear the cache folder if there is no files inside
+			fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
+			if len(fc) == 0 {
+				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/")
+			}
+
 			os.RemoveAll(rsrcFile)
 
 		} else if operation == "recycle" {
@@ -839,6 +1044,12 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 			//Check if this file has any cached files. If yes, remove it
 			if fileExists(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg") {
 				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
+			}
+
+			//Clear the cache folder if there is no files inside
+			fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
+			if len(fc) == 0 {
+				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/")
 			}
 
 			//Create a trash directory for this folder
@@ -1079,6 +1290,7 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		LastModTime    string
 		LastModUnix    int64
 		IsDirectory    bool
+		Owner          string
 	}
 
 	mime := "text/directory"
@@ -1106,6 +1318,12 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		filesize = size
 	}
 
+	//Get file owner
+	owner := userinfo.GetFileOwner(rpath)
+	if owner == "" {
+		owner = "Unknown"
+	}
+
 	result := fileProperties{
 		VirtualPath:    vpath,
 		StoragePath:    rpath,
@@ -1119,6 +1337,7 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		LastModTime:    timeToString(fileStat.ModTime()),
 		LastModUnix:    fileStat.ModTime().Unix(),
 		IsDirectory:    fileStat.IsDir(),
+		Owner:          owner,
 	}
 
 	jsonString, _ := json.Marshal(result)
@@ -1161,7 +1380,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	realpath, err := userinfo.VirtualPathToRealPath(currentDir)
 	//log.Println(realpath)
 	if err != nil {
-		sendTextResponse(w, "Error. Unable to parse path. "+err.Error())
+		sendErrorResponse(w, "Error. Unable to parse path. "+err.Error())
 		return
 	}
 	if !fileExists(realpath) {
@@ -1191,6 +1410,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		Filesize    float64
 		Displaysize string
 		ModTime     int64
+		IsShared    bool
 	}
 	var parsedFilelist []fileData
 
@@ -1209,6 +1429,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 			Filesize:    float64(rawsize),
 			Displaysize: fs.GetFileDisplaySize(rawsize, 2),
 			ModTime:     modtime,
+			IsShared:    shareManager.FileIsShared(v),
 		}
 
 		parsedFilelist = append(parsedFilelist, thisFile)
@@ -1462,6 +1683,12 @@ func system_fs_handleFileWrite(w http.ResponseWriter, r *http.Request) {
 	targetFilepath, err := mv(r, "filepath", true)
 	if err != nil {
 		sendErrorResponse(w, "Filepath cannot be empty")
+		return
+	}
+
+	//Check if filepath is writable
+	if !userinfo.CanWrite(targetFilepath) {
+		sendErrorResponse(w, "Write permission denied")
 		return
 	}
 

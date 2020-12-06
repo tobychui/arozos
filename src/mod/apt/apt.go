@@ -42,6 +42,19 @@ func (a *AptPackageManager)InstallIfNotExists(pkgname string, mustComply bool) e
 			return errors.New("Package " + pkgname + " not found in Windows %PATH%.")
 		}
 		return nil
+	}else if runtime.GOOS == "darwin"{
+		//Mac OS. Check if package exists
+		cmd := exec.Command("whereis", pkgname)
+		out, err := cmd.CombinedOutput()
+		if err != nil{
+			return errors.New("Package " + pkgname + " not found in MacOS ENV variable.")
+		}
+
+		if strings.TrimSpace(string(out)) == ""{
+			//Package not exists
+			return errors.New("Package " + pkgname + " not installed on this Mac")
+		}
+		return nil
 	}
 
 	if (a.AllowAutoInstall == false){

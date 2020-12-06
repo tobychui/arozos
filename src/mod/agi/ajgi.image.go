@@ -10,7 +10,6 @@ import (
 	_ "image/png"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,11 +35,7 @@ func (g *Gateway) ImageLibRegister() {
 	}
 }
 
-func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, w http.ResponseWriter, r *http.Request, u *user.User) {
-	u, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
-	if err != nil {
-		panic(err.Error())
-	}
+func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 
 	//Get image dimension, requires filepath (virtual)
 	vm.Set("_imagelib_getImageDimension", func(call otto.FunctionCall) otto.Value {

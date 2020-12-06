@@ -148,6 +148,11 @@ function ao_module_selectFiles(callback, fileType="file", accept="*", allowMulti
 }
 
 function ao_module_openPath(path){
+    //Trim away the last / if exists
+    if (path.substr(path.length - 1, 1) == "/"){
+        path = path.substr(0, path.length - 1);
+    }
+
     if (ao_module_virtualDesktop){
         parent.newFloatWindow({
             url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(path),
@@ -343,18 +348,19 @@ function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined
 }
 
 function ao_module_uploadFile(file, targetPath, callback=undefined, progressCallback=undefined, failedcallback=undefined) {
-    let url = ao_root + '/system/file_system/upload'
+    let url = ao_root + 'system/file_system/upload'
     let formData = new FormData()
     let xhr = new XMLHttpRequest()
     formData.append('file', file);
     formData.append('path', targetPath);
 
-    xhr.open('POST', url, true)
+    xhr.open('POST', url, true);
+
     xhr.upload.addEventListener("progress", function(e) {
         if (progressCallback !== undefined){
             progressCallback((e.loaded * 100.0 / e.total) || 100);
         }
-    })
+    });
 
     xhr.addEventListener('readystatechange', function(e) {
         if (xhr.readyState == 4 && xhr.status == 200) {
@@ -368,6 +374,7 @@ function ao_module_uploadFile(file, targetPath, callback=undefined, progressCall
             }
         }
     })
+
     xhr.send(formData);
 }
 
@@ -654,6 +661,23 @@ class ao_module_utils{
 			filelist = JSON.parse(filelist);
 			return filelist;
 		}
+    }
+
+    static readFileFromFileObject(fileObject, successCallback, failedCallback=undefined){
+        let reader = new FileReader();
+        reader.readAsText(fileObject);
+        reader.onload = function() {
+            successCallback(reader.result);
+        };
+        reader.onerror = function() {
+            if (failedCallback != undefined){
+                failedCallback(reader.error);
+            }else{
+                console.log(reader.error);
+            }
+           
+        };
+
     }
     
     static formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}

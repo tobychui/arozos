@@ -11,16 +11,15 @@ package filesystem
 */
 
 import (
-	"strings"
 	"errors"
-	"time"
 	"log"
-	"path/filepath"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	db "imuslab.com/arozos/mod/database"
-)	
-
+)
 
 //Options for creating new file system handler
 /*
@@ -38,33 +37,33 @@ type FileSystemOpeningOptions struct{
 */
 
 //System Handler for returing
-type FileSystemHandler struct{
-	Name string
-	UUID string
-	Path string
-	Hierarchy string
-	ReadOnly bool
-	InitiationTime int64
+type FileSystemHandler struct {
+	Name               string
+	UUID               string
+	Path               string
+	Hierarchy          string
+	ReadOnly           bool
+	InitiationTime     int64
 	FilesystemDatabase *db.Database
-	Filesystem string
+	Filesystem         string
+	Closed             bool
 }
 
-
 //Create a list of file system handler from the given json content
-func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, error){
+func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, error) {
 	//Generate a list of handler option from json file
 	options, err := loadConfigFromJSON(jsonContent)
-	if err != nil{
+	if err != nil {
 		return []*FileSystemHandler{}, err
 	}
 
 	resultingHandlers := []*FileSystemHandler{}
-	for _, option := range options{
-		thisHandler, err := NewFileSystemHandler(option);
-		if err != nil{
+	for _, option := range options {
+		thisHandler, err := NewFileSystemHandler(option)
+		if err != nil {
 			log.Println("Failed to create system handler for " + option.Name)
 			log.Println(err.Error())
-			continue;
+			continue
 		}
 		resultingHandlers = append(resultingHandlers, thisHandler)
 	}
@@ -73,114 +72,119 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, er
 }
 
 //Create a new file system handler with the given config
-func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error){
-	fstype := strings.ToLower(option.Filesystem) 
-	if inSlice([]string{"ext4","ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == ""{
+func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
+	fstype := strings.ToLower(option.Filesystem)
+	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
 		//Check if the target fs require mounting
-		if (option.Automount == true){
+		if option.Automount == true {
 			err := MountDevice(option.Mountpt, option.Mountdev, option.Filesystem)
-			if err != nil{
-				return &FileSystemHandler{},err
+			if err != nil {
+				return &FileSystemHandler{}, err
 			}
 		}
-		
+
 		//Check if the path exists
-		if !fileExists(option.Path){
+		if !fileExists(option.Path) {
 			return &FileSystemHandler{}, errors.New("Mount point not exists!")
 		}
 
-		if (option.Hierarchy == "user"){
+		if option.Hierarchy == "user" {
 			//Create user hierarchy for this virtual device
-			os.MkdirAll(filepath.ToSlash(filepath.Clean(option.Path)) + "/users", 0755)
+			os.MkdirAll(filepath.ToSlash(filepath.Clean(option.Path))+"/users", 0755)
 		}
 
 		//Create the fsdb for this handler
-		fsdb, err := db.NewDatabase(filepath.ToSlash(filepath.Clean(option.Path)) + "/aofs.db", false)
-		if err != nil{
+		fsdb, err := db.NewDatabase(filepath.ToSlash(filepath.Clean(option.Path))+"/aofs.db", false)
+		if err != nil {
 			return &FileSystemHandler{}, errors.New("Unable to create fsdb inside the target path. Is the directory read only?")
 		}
 		return &FileSystemHandler{
-			Name: option.Name,
-			UUID: option.Uuid,
-			Path: option.Path,
-			ReadOnly: option.Access == "readonly",
-			Hierarchy: option.Hierarchy,
-			InitiationTime: time.Now().Unix(),
+			Name:               option.Name,
+			UUID:               option.Uuid,
+			Path:               filepath.ToSlash(filepath.Clean(option.Path)) + "/",
+			ReadOnly:           option.Access == "readonly",
+			Hierarchy:          option.Hierarchy,
+			InitiationTime:     time.Now().Unix(),
 			FilesystemDatabase: fsdb,
-			Filesystem: fstype,
-		},nil
+			Filesystem:         fstype,
+			Closed:             false,
+		}, nil
 	}
 
-	return nil, errors.New("Not supported file system: "+ fstype)
+	return nil, errors.New("Not supported file system: " + fstype)
 }
 
 //Create a file ownership record
-func (fsh *FileSystemHandler)CreateFileRecord(realpath string, owner string) error{
+func (fsh *FileSystemHandler) CreateFileRecord(realpath string, owner string) error {
 	rpabs, _ := filepath.Abs(realpath)
 	fsrabs, _ := filepath.Abs(fsh.Path)
 	reldir, err := filepath.Rel(fsrabs, rpabs)
-	if err != nil{
+	if err != nil {
 		return err
 
 	}
 	fsh.FilesystemDatabase.NewTable("owner")
-	fsh.FilesystemDatabase.Write("owner","owner/" + reldir, owner)
+	fsh.FilesystemDatabase.Write("owner", "owner/"+reldir, owner)
 	return nil
 }
 
 //Read the owner of a file
-func (fsh *FileSystemHandler)GetFileRecord(realpath string) (string, error){
+func (fsh *FileSystemHandler) GetFileRecord(realpath string) (string, error) {
 	rpabs, _ := filepath.Abs(realpath)
 	fsrabs, _ := filepath.Abs(fsh.Path)
 	reldir, err := filepath.Rel(fsrabs, rpabs)
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
 	fsh.FilesystemDatabase.NewTable("owner")
-	if (fsh.FilesystemDatabase.KeyExists("owner","owner/" + reldir)){
+	if fsh.FilesystemDatabase.KeyExists("owner", "owner/"+reldir) {
 		owner := ""
-		fsh.FilesystemDatabase.Read("owner","owner/" + reldir, &owner)
-		return owner, nil;
-	}else{
+		fsh.FilesystemDatabase.Read("owner", "owner/"+reldir, &owner)
+		return owner, nil
+	} else {
 		return "", errors.New("Owner not exists")
 	}
 }
 
 //Delete a file ownership record
-func (fsh *FileSystemHandler)DeleteFileRecord(realpath string) error{
+func (fsh *FileSystemHandler) DeleteFileRecord(realpath string) error {
 	rpabs, _ := filepath.Abs(realpath)
 	fsrabs, _ := filepath.Abs(fsh.Path)
 	reldir, err := filepath.Rel(fsrabs, rpabs)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	fsh.FilesystemDatabase.NewTable("owner")
-	if (fsh.FilesystemDatabase.KeyExists("owner","owner/" + reldir)){
-		fsh.FilesystemDatabase.Delete("owner","owner/" + reldir)
+	if fsh.FilesystemDatabase.KeyExists("owner", "owner/"+reldir) {
+		fsh.FilesystemDatabase.Delete("owner", "owner/"+reldir)
 	}
-	
+
 	return nil
 }
 
-func (fsh *FileSystemHandler)Close(){
-	fsh.FilesystemDatabase.Close();
+func (fsh *FileSystemHandler) Close() {
+	fsh.FilesystemDatabase.Close()
 }
 
 //Helper function
 func inSlice(slice []string, val string) bool {
-    for _, item := range slice {
-        if item == val {
-            return true
-        }
-    }
-    return false
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+	return false
+}
+
+func FileExists(filename string) bool {
+	return fileExists(filename)
 }
 
 //Check if file exists
 func fileExists(filename string) bool {
-    _, err := os.Stat(filename)
-    if os.IsNotExist(err) {
-        return false
-    }
-    return true
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
 }

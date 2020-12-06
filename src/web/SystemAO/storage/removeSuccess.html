@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <title>Storage Pool Error</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+      body{
+          background-color: white;
+      }
+    </style>
+</head>
+<body>
+    <div class="ui container" style="padding-top: 25%;">
+        <h2 class="ui header">
+            <i class="checkmark green icon"></i>
+            <div class="content">
+                <span id="msg"></span>
+                <div class="sub header">If your File System is mounted, you might need to restart your system for the removal to be effective.</div>
+            </div>
+        </h2>
+
+        <div class="ui divider"></div>
+        <button class="ui right floated button" onclick="ao_module_close();">Cancel</button>
+        <button id="backbtn" class="ui green right floated button" onclick="back();"><i class="arrow left icon"></i> Back to Editor</button>
+    </div>
+    <script>
+        var returnAddress = "";
+        if (window.location.hash.length > 1){
+            var err = window.location.hash.substr(1);
+            err = decodeURIComponent(err);
+            var obj = JSON.parse(err);
+            console.log(obj);
+            $("#msg").text(obj[1] + ":/ has been removed from \"" + obj[0] + '"');
+            returnAddress = "poolEditor.html#" + obj[0];
+        }
+
+        function back(){
+            if (returnAddress == ""){
+               return
+            }else{
+                window.location.href = returnAddress;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -63,20 +63,26 @@ func (u *User) RemoveOwnershipFromFile(realpath string) error {
 }
 
 func (u *User) IsOwnerOfFile(realpath string) bool {
-	fsHandler, err := u.GetFileSystemHandlerFromRealPath(realpath)
-	if err != nil {
-		return false
-	}
-
-	owner, err := fsHandler.GetFileRecord(realpath)
-	if err != nil {
-		//Error occured. Either this file is not tracked or this file has no owner
-		return false
-	}
+	owner := u.GetFileOwner(realpath)
 	if owner == u.Username {
 		//This file is owned by this user
 		return true
 	} else {
 		return false
 	}
+}
+
+func (u *User) GetFileOwner(realpath string) string {
+	fsHandler, err := u.GetFileSystemHandlerFromRealPath(realpath)
+	if err != nil {
+		return ""
+	}
+
+	owner, err := fsHandler.GetFileRecord(realpath)
+	if err != nil {
+		//Error occured. Either this file is not tracked or this file has no owner
+		return ""
+	}
+
+	return owner
 }

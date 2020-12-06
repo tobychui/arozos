@@ -46,7 +46,7 @@
         <div class="content">
             <div class="info">From: <span id="src"></span></div>
             <div class="info">To: <span id="dest"></span></div>
-            <div class="info">Size remaining: <span id="remaining"> <i class="loading spinner icon"></i> Calculating</span></div>
+            <div class="info">Progress: <span id="progress"> <i class="loading spinner icon"></i> Calculating</span></div>
             <div class="ui active small progress" style="margin-top:18px;">
                 <div id="progressbar" class="bar" style="width:100%; background-color:#4287f5;"></div>
             </div>
@@ -75,6 +75,9 @@
             */
             var operationConfig = null;
             var opr = "";
+            var maxPathDisplayLength = 40;
+            var legacyMode = !('WebSocket' in window || 'MozWebSocket' in window); //Use AJAX instead of WebSocket if legacy mode is activated
+            var enterErrorMode = false;
 
             //Initalized floatWindow events
             ao_module_setFixedWindowSize();
@@ -122,9 +125,9 @@
                         }
 
 
-                    }catch{
+                    }catch(ex){
                         //Failed
-                        console.log("Argument parse error");
+                        console.log("Argument parse error", ex);
                     }
 
                 }else{
@@ -134,25 +137,178 @@
             }
 
             function cut(srcList, dest, overwriteMode){
-                $.ajax({
-                    type: 'POST',
-                    url: `../../system/file_system/fileOpr`,
-                    data: {opr: "move" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode},
-                    success: function(data){
-                        handleFinish(data);
+                if (legacyMode){
+                    console.log("WebSocket not found, Running in legacy mode")
+                    $.ajax({
+                        type: 'POST',
+                        url: `../../system/file_system/fileOpr`,
+                        data: {opr: "move" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode},
+                        success: function(data){
+                            handleFinish(data);
+                        }
+                    });
+                }else{
+                    //Replace all + sign in srclist with {{plus_sign}}
+                    var filteredSrcList = [];
+                    srcList.forEach(src => {
+                        filteredSrcList.push(src.split("+").join("{{plug_sign}}"));
+                    })
+
+                    //Use Websocket for operation updates
+                    var endpoint = getWSEndpoint() + `?opr=move&src=${encodeURIComponent(JSON.stringify(filteredSrcList))}&dest=${encodeURIComponent(dest)}&existsresp=${overwriteMode}`
+                    console.log(endpoint);
+                    var ws = new WebSocket(endpoint);
+                    ws.onopen = function() {
+                        console.log("File Operation WebSocket opened")
+                    };
+                        
+                    ws.onmessage = function (evt) { 
+                        var data = evt.data;
+                        var progress = JSON.parse(data);
+                        if (progress.Error != ""){
+                            $("#progressbar").css("background-color", "#eb3f28");
+                            enterErrorMode = true;
+                            alert(progress.Error);
+                           
+                        }else{
+                            $("#progressbar").css("width", progress.Progress + "%");
+                            var currentSrc = truncate(operationConfig.src + "/" + progress.LatestFile, maxPathDisplayLength);
+                            var filteredDest = operationConfig.dest.trim();
+                            if (filteredDest.substr(filteredDest.length -1, 1) != "/"){
+                                filteredDest += "/"
+                            }
+                            var currentDest = truncate(filteredDest + progress.LatestFile, maxPathDisplayLength);
+                            $("#src").text(currentSrc);
+                            $("#dest").text(currentDest);
+                            $("#progress").text(progress.Progress + "%")
+
+                            if (progress.Progress == 100){
+                                //Set progress bar to green
+                                $("#progressbar").css("background-color", "#2bba35");
+                            }
+                        }
+                        
+                    };
+                        
+                    ws.onclose = function() { 
+                        //Transfer finished! Set OK and close in 1 second
+                        if (!enterErrorMode){
+                            $("#progressbar").css("background-color", "#2bba35");
+                            $("#progressbar").css("width", "100%");
+                            $("#progress").text("100%")
+                            setTimeout(function(){
+                                ao_module_close();
+                            }, 1000);
+                        }
+                     
+                        
+                    };
+
+                    ws.onerror = function(event){
+                        console.error("WebSocket error observed:", event);
                     }
-                });
+
+                }
+               
             }
 
             function copy(srcList, dest, overwriteMode){
-                $.ajax({
-                    type: 'POST',
-                    url: `../../system/file_system/fileOpr`,
-                    data: {opr: "copy" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode },
-                    success: function(data){
-                        handleFinish(data);
+                if (legacyMode){
+                    //Open operation in legacy mode
+                    console.log("WebSocket not found, Running in legacy mode")
+                    $.ajax({
+                        type: 'POST',
+                        url: `../../system/file_system/fileOpr`,
+                        data: {opr: "copy" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode },
+                        success: function(data){
+                            handleFinish(data);
+                        }
+                    });
+                }else{
+                    var filteredSrcList = [];
+                    srcList.forEach(src => {
+                        filteredSrcList.push(src.split("+").join("{{plug_sign}}"));
+                    })
+
+
+                   //Use Websocket for operation updates
+                   var endpoint = getWSEndpoint() + `?opr=copy&src=${JSON.stringify(filteredSrcList)}&dest=${encodeURIComponent(dest)}&existsresp=${overwriteMode}`
+                    var ws = new WebSocket(endpoint);
+                    ws.onopen = function() {
+                        console.log("File Operation WebSocket opened")
+                    };
+                        
+                    ws.onmessage = function (evt) { 
+                        var data = evt.data;
+                        var progress = JSON.parse(data);
+                        if (progress.Error != ""){
+                            $("#progressbar").css("background-color", "#eb3f28");
+                            enterErrorMode = true;
+                            alert(progress.Error);
+                        }else{
+                            $("#progressbar").css("width", progress.Progress + "%");
+                            var currentSrc = truncate(operationConfig.src + "/" + progress.LatestFile, maxPathDisplayLength);
+                            var filteredDest = operationConfig.dest.trim();
+                            if (filteredDest.substr(filteredDest.length -1, 1) != "/"){
+                                filteredDest += "/"
+                            }
+                            var currentDest = truncate(filteredDest + progress.LatestFile, maxPathDisplayLength);
+
+                            $("#src").text(currentSrc);
+                            $("#dest").text(currentDest);
+                            $("#progress").text(progress.Progress + "%")
+
+                            if (progress.Progress == 100){
+                                //Set progress bar to green
+                                $("#progressbar").css("background-color", "#2bba35");
+                            }
+                        }
+                        
+                    };
+                        
+                    ws.onclose = function() { 
+                        //Transfer finished! Set OK and close in 1 second
+                        if (!enterErrorMode){
+                            $("#progressbar").css("background-color", "#2bba35");
+                            $("#progressbar").css("width", "100%");
+                            $("#progress").text("100%")
+                            setTimeout(function(){
+                                ao_module_close();
+                            }, 1000);
+                        }
+                    };
+
+                    ws.onerror = function(event){
+                        console.error("WebSocket error observed:", event);
                     }
-                });
+
+                }
+               
+            }
+
+            var truncate = function (fullStr, strLen, separator) {
+                if (fullStr.length <= strLen) return fullStr;
+
+                separator = separator || '...';
+
+                var sepLen = separator.length,
+                    charsToShow = strLen - sepLen,
+                    frontChars = Math.ceil(charsToShow/2),
+                    backChars = Math.floor(charsToShow/2);
+
+                return fullStr.substr(0, frontChars) + 
+                        separator + 
+                        fullStr.substr(fullStr.length - backChars);
+                 };
+
+            function getWSEndpoint(){
+                //Open opeartion in websocket
+                let protocol = "wss://";
+                if (location.protocol !== 'https:') {
+                    protocol = "ws://";
+                }
+                wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port + "/system/file_system/ws/fileOpr");
+                return wsControlEndpoint;
             }
 
             function updateTitle(fileNumber, opr){

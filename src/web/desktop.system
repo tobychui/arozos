@@ -465,6 +465,7 @@
             width:100px; 
             pointer-events:none;
             padding-left:18px;
+            white-space: nowrap;
             user-select: none;
         }
 
@@ -893,6 +894,7 @@
         var userInfo = {};
         var hardwareman = false;
         var downloadMode = false;
+        var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
         //Initiation functions
         initDesktopTheme();
@@ -2381,7 +2383,7 @@
                 }
 
                 if (callback !== undefined) {
-                    console.log(callback);
+                    //console.log(callback);
                     callback();
                 }
             });
@@ -2540,6 +2542,7 @@
             var filename = JSON.parse(JSON.stringify(filedata.Filename));
             var filepath = JSON.parse(JSON.stringify(filedata.Filepath));
             var isDir = JSON.parse(JSON.stringify(filedata.IsDir));
+            var isEmptyDir = JSON.parse(JSON.stringify(filedata.IsEmptyDir));
             var maxlength = 12;
             var type = "file";
             let shortenedName = filename;
@@ -2548,7 +2551,12 @@
             if (isDir) {
                 //Folder objects
                 icon = "folder outline";
-                imagePath = "img/desktop/system_icon/folder.png";
+                if (isEmptyDir){
+                    imagePath = "img/desktop/system_icon/folder.png";
+                }else{
+                    imagePath = "img/desktop/system_icon/folder-with-content.png";
+                }
+                
                 type = "folder";
             } else if (isDir == false && icon == "folder outline") {
                 icon = "file outline";
@@ -3559,7 +3567,7 @@
                     }
                     showMenu = true;
 
-                } else if (clickTarget.hasClass("backgroundFrame")) {
+                } else if (clickTarget.hasClass("backgroundFrame") || (isSafari && $(clickTarget).attr("id") == "selectionPanel")) {
                     //Click on the background. Load background context menu.
                     addContextMenuItem($("#contextmenu"), 'New', "<i class='caret right icon'></i>", "newitemmenu", true);
                     addContextMenuItem($("#contextmenu"), 'Refresh', "<i class='refresh icon'></i>", "handleMenuRefresh", false);
@@ -3576,6 +3584,8 @@
 
                     showMenu = true;
                 }
+
+                
 
                 if (showMenu){
                     //Toggle context menu
@@ -3965,7 +3975,6 @@
                                          //Callback after setting location
                                          refresh(function() {
                                             //Refresh the desktop
-
                                          });
                                      });
                                 }
@@ -4097,7 +4106,7 @@
         function openfm() {
             //Open file explorer on desktop
             newFloatWindow({
-                url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent("user:/Desktop/"),
+                url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent("user:/Desktop"),
                 appicon: "SystemAO/file_system/img/small_icon.png",
                 width: 1080,
                 height: 580,
@@ -4345,6 +4354,42 @@
 
             hideAllContextMenus();
         }
+
+
+
+        /*
+            Background services for keeping desktop files updated
+
+            Same mechanism is used as file explorer
+        */
+        let desktopFileHash = "";
+        setInterval(function(){
+            getDesktopHash(function(hash){
+                if (desktopFileHash == ""){
+                    //Initialization
+                    desktopFileHash = hash;
+                }else if (desktopFileHash != hash){
+                    //Changed on desktop files. Refresh
+                    refresh();
+                    desktopFileHash = hash;
+                }
+
+                //Else, no file change on desktop
+            });
+        }, 15000);
+
+        function getDesktopHash(callback){
+                $.ajax({
+                    url: "../../system/file_system/listDirHash",
+                    data: {dir: "user:/Desktop/"},
+                    success: function(data){
+                        if (data.error !== undefined){
+                           
+                        }
+                        callback(data);
+                    }
+                })
+            }
     </script>
 </body>
 

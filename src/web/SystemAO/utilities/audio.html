@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=0.6, maximum-scale=0.6"/>
+<html>
+<head>
+<meta charset="UTF-8">
+<script type='text/javascript' charset='utf-8'>
+</script>
+<title>ArOZ Onlineβ</title>
+<link rel="stylesheet" href="../../script/tocas/tocas.css">
+<script src="../../script/tocas/tocas.js"></script>
+<script src="../../script/jquery.min.js"></script>
+<script src="../../script/ao_module.js"></script>
+<style>
+.transparent{
+	background-color:rgba(255, 255, 255, 0) !important;
+	border:1px solid transparent;
+}
+
+.seventytransparent{
+	background-color:rgba(255, 255, 255, 0.7) !important;
+	border:1px solid transparent;
+}
+body {
+	background: rgba(255,255,255,0.7);
+}
+
+</style>
+</head>
+<body>
+
+    <div class="ts small attached segmented single line selection items" style="top:0;">
+		<!-- Audio Control System with no HTML5 Audio Attribute-->
+		<div class="ts fluid container transparent" style="cursor: pointer;">
+			<div id="audio_attr"style="display:none;">
+			<audio id="player" controls autoplay>
+			  <source src="" type="audio/mpeg">
+				Your browser does not support the audio element.
+			</audio>
+			</div>
+			<div id="YamiPlayer" class="content transparent" style="top:0;">
+			<div id="songname" class="ts top attached segment transparent">
+			NOW PLAYING ||
+			</div>
+			<div id="progressbardiv" class="ts attached progress">
+				<div id="audioprogress" class="bar" style="width: 0%"></div>
+			</div>
+			<div class="ts bottom attached segment seventytransparent">
+				<div class="ts icon buttons">
+					<button class="ts disabled button" onclick="PreviousSong()"><i class="step backward icon"></i></button>
+					<button class="ts button" onclick="playbtn()"><i id='playbtn' class="pause icon"></i></button>
+					<button class="ts disabled button" onclick="NextSong()"><i class="step forward icon"></i></button>
+					<button class="ts button" onclick="stopbtn()"><i class="stop icon"></i></button>
+					<button class="ts button" onclick="volDown()"><i class="volume down icon"></i></button>
+					<button class="ts button" onclick="volUp()"><i class="volume up icon"></i></button>
+					<button class="ts button" onclick="repeatmode()"><i class="repeat icon"></i></button>
+				</div>
+				<span>
+				<i id="voldis" class="volume off icon"> 100%</i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<i id="timecode" class="time icon"> 0:00/0:00</i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<i id="repmode" class="repeat icon"> Single</i>
+				</span>
+			</div>
+			
+			<!-- <button class="ts button" onclick="Show_Audio_Attrubute()">Show HTML5 Attrubute</button> -->
+			</div>
+		</div>
+    </div>
+<script>
+	/*
+		ArOZ Online Beta Audio Module Embedded Player
+		Migrated to arozos 1.105 by tobychui
+
+	*/
+//ArOZ Online BETA control system
+var pwa = false;
+var inVDI = true;
+var embedded = true;
+var downloadmode  = false;
+var lastactiveid = -1;
+var RepeatMode = 2;
+var extDiskAccessAPI="../../media/?file=";
+////////////////////////////
+    
+$( document ).ready(function() {
+	//Set the default path selector value
+	if (pwa){
+		$(".pwa").each(function(){
+			$(this).addClass('disabled');
+		});
+		$(".pwahide").each(function(){
+			$(this).hide();
+		});
+	}
+	var is_safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+	if (is_safari){
+		//This is added to fix some glitch on Safari tested on a Mac Machine
+		$("body").css("background-color:white;")
+	}
+	
+
+	//Update functions called following the AOB 11-8-2018 updates
+	//Now, the embedded windows can ask for resize properties and icon from the system
+	//If it is currently in VDI, force the current window size and resize properties
+	var windowID = $(window.frameElement).parent().attr("id");
+	ao_module_setFixedWindowSize();
+
+	
+	if (inVDI){
+		//It is currently in Virtual Desktop Mode, make it semi-transparent!
+		//$('body').css('background','rgba(255,255,255,0.7)');
+		setInterval(function() {
+			GvolDisplay();
+		},1000);
+		if ($("#backBtn").length > 0){
+		    $("#backBtn").attr("href","");
+		}
+		var windowID = $(window.frameElement).parent().attr("id");
+	}
+
+	$("#searchbar").hide();
+	
+    $('#downloadmode_reminder').hide();
+	$('#playbtn').attr('class', 'play icon');
+	//Load the global volume from the stored data
+	var globalvol = localStorage.getItem("global_volume");
+	var player = document.getElementById("player");
+	//console.log("Global Volume" + globalvol.toString());
+	if (!globalvol){
+		globalvol = 0.6;
+	}
+	player.volume = parseFloat(globalvol);
+	$('#voldis').html(" " + (Math.round(player.volume * 100)).toString() + "%");
+	//Load the repeat mode from stored data
+	var repmode = localStorage.getItem("repeat_mode");
+	if (repmode == 0){
+		//0 
+		$('#repmode').html(' Single');
+		RepeatMode = 0;
+	  }else if (repmode == 1){
+		//1
+		$('#repmode').html(' ALL');
+		RepeatMode = 1;
+	  }else{
+		//2
+		$('#repmode').html(' None');
+		RepeatMode = 2;
+	  }
+	 //console.log(songlist);
+	 if (embedded == true && repmode == 1){
+		 //Now allow all mode in embedded
+		 $('#repmode').html(' None');
+		 RepeatMode = 2;
+	 }
+
+	 //Read the file input
+	 var inputFiles = ao_module_loadInputFiles();
+	 if (inputFiles.length > 0){
+		inputFiles = inputFiles[0];
+		PlaySong(inputFiles.filepath, inputFiles.filename, "");
+	 }
+});
+
+	//On Pause or Play using Android notification on Firefox / Chrome
+	var aud = document.getElementById("player");
+	aud.onpause = function() {
+		//Paused by the user on notification
+		$('#playbtn').attr('class', 'play icon');
+	};
+	aud.onplay = function() {
+		//Play by the user on notification
+		$('#playbtn').attr('class', 'pause icon');
+	};
+	
+	function GvolDisplay(){
+		var globalvol = (Math.round(GetStorage('global_volume') * 100)) / 100;
+		var audio = document.getElementById("player");
+		audio.volume = globalvol;
+		$('#voldis').html(" " + (Math.round(audio.volume * 100)).toString() + "%");
+	}
+	
+	//These function is for ArOZ Online System quick storage data processing
+	function CheckStorage(id){
+		if (typeof(Storage) !== "undefined") {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	function GetStorage(id){
+		//All data get are string
+		return localStorage.getItem(id);
+	}
+	function SaveStorage(id,value){
+		localStorage.setItem(id, value);
+		return true;
+	}
+  function toggleSearch(){
+	  //Id of Search Bar: searchbar
+	  if (SearchBarOn){
+		  //Need to close the Search Bar
+		  $("#searchbar").css("display", "none");
+		  SearchBarOn = false;
+	  }else{
+		  $("#searchbar").css("display", "block");
+		  SearchBarOn = true;
+		  $(window).scrollTop(0);
+		  $("#sbinput").focus();
+	  }
+  }
+    $('#searchbar').bind("enterKey",function(e){
+		var keyword = $( "#sbinput" ).val();
+		if (keyword != ""){
+			window.location.href = "../Audio/index.php?search=" + keyword;
+		}else{
+			window.location.href = "../Audio/";
+		}
+	});
+	$('#searchbar').keyup(function(e){
+		if(e.keyCode == 13)
+		{
+			$(this).trigger("enterKey");
+		}
+	});
+  
+  function toggledownload(){
+	  if (downloadmode == true){
+		  $('#downloadmode_reminder').stop();
+		  $('#sbtext').html('Download Mode Disabled.');
+		  $("#downloadmodeBtn").css("background-color","");
+		  $('#downloadmode_reminder').fadeIn('slow').delay(2000).fadeOut('slow');
+		  downloadmode = false;
+	  }else{
+		  $('#downloadmode_reminder').stop();
+		  $('#sbtext').html('Download Mode Enabled.');
+		  $("#downloadmodeBtn").css("background-color","#b0ffaa");
+		  $('#downloadmode_reminder').fadeIn('slow').delay(2000).fadeOut('slow');
+		  downloadmode = true;
+	  }
+  }
+  
+  function getRealID(textid){
+	  return parseInt(textid.replace("AudioID",""));
+  }
+  function change(sourceUrl) {
+    var audio = $("#player");
+	$("#player").attr("src", "../../media?file=" + sourceUrl);
+    audio[0].pause();
+    audio[0].load();//suspends and restores all audio element
+    //audio[0].play(); changed based on Sprachprofi's comment below
+    audio[0].oncanplaythrough = audio[0].play();
+
+	}
+	
+
+  function PlaySong(name,displayname,id){
+	  if (downloadmode == false){
+		  //This operation is for choosing song
+		  $('#songname').html('NOW PLAYING || '+ decodeURIComponent(displayname));
+		  change(name);
+		  playingSong = [name,displayname,id];
+		  //console.log(playingSong);
+		  $('#playbtn').attr('class', 'pause icon');
+		  if (lastactiveid.toString() != id.toString()){
+			$('#' + lastactiveid).attr('class', 'ts item'); 
+			$('#' + id.toString()).attr('class', 'ts item active');
+		  }
+		  lastactiveid = id;
+		  $(document).prop('title', displayname);
+		  //console.log(lastactiveid);
+		  if (inVDI){
+			 //If it is currently in VDI, update the floatWindow title as well
+			ao_module_setWindowTitle(decodeURIComponent(displayname));
+		  }
+		
+	  }else if (downloadmode == true){
+		  //This operation is for downloading the audio file
+		  saveAs(name,displayname);
+	  }
+  }
+  
+  function CheckPlaying(){
+	var player = document.getElementById('player');
+	if (player.paused){
+		//Chrome does not allow instant playing of audio so user have to click the btn themselves.
+		$('#playbtn').attr('class', 'play icon');
+	}
+  }
+  
+  
+  function NextSong(){
+	  lastactiveid = parseInt(lastactiveid);
+		if (lastactiveid != "undefined"){
+			if (lastactiveid < songlist.length - 1){
+			PlaySong(songlist[lastactiveid + 1][0],songlist[lastactiveid + 1][1],songlist[lastactiveid + 1][2]);
+			}else{
+			PlaySong(songlist[0][0],songlist[0][1],songlist[0][2]);	
+			}
+		}
+  }
+  
+  function PreviousSong(){
+	  lastactiveid = parseInt(lastactiveid);
+		if (lastactiveid != "undefined"){
+			if (lastactiveid > 0){
+			PlaySong(songlist[lastactiveid - 1][0],songlist[lastactiveid - 1][1],songlist[lastactiveid - 1][2]);
+			}
+		}
+  }
+  
+	function saveAs(uri, filename) {
+		if (extStorageMode){
+			uri = extDiskAccessAPI + uri + "&mode=download&filename=" + JSON.stringify(filename);
+		}
+		var link = document.createElement('a');
+		if (typeof link.download === 'string') {
+			document.body.appendChild(link); // Firefox requires the link to be in the body
+			link.download = filename;
+			link.href = uri;
+			link.click();
+			document.body.removeChild(link); // remove the link when done
+		} else {
+			location.replace(uri);
+		}
+	}
+
+
+  function Show_Audio_Attrubute(){
+	  $("#audio_attr").fadeIn("slow");
+  }
+  function Hide_Audio_Attrubute(){
+	  $("#audio_attr").fadeOut("slow");
+  }
+  function repeatmode(){
+	  //This set the repeat mode for the browser reference.
+	  var repmode = localStorage.getItem("repeat_mode");
+	  // 0 = Single Repeat, repeat the same song
+	  // 1 = All Repeat, repeat when it reached the bottom of the list
+	  // 2 = No Repeat, stop after finishing this song.
+	  if (repmode == 0){
+		//0 -> 1
+		if (embedded == true){
+			repmode = 2;
+			$('#repmode').html(' None');
+			localStorage.setItem("repeat_mode", 2);
+		}else{
+			$('#repmode').html(' ALL');
+			localStorage.setItem("repeat_mode", 1);
+		}
+		
+	  }else if (repmode == 1){
+		//1 -> 2
+		$('#repmode').html(' None');
+		localStorage.setItem("repeat_mode", 2);
+	  }else{
+		//2 -> 0
+		$('#repmode').html(' Single');
+		localStorage.setItem("repeat_mode", 0);
+	  }
+	  
+  }
+  
+  
+  function playbtn(){
+	  if (document.getElementById('player').paused == true){
+		 $('#playbtn').attr('class', 'pause icon');
+		 $('#player').trigger('play'); 
+	  }else{
+		$('#playbtn').attr('class', 'play icon');
+		$('#player').trigger('pause');
+	  }		
+	  
+  }
+  function stopbtn(){
+	  $('#player').trigger('pause');
+	  document.getElementById('player').currentTime = 0;
+	  $('#playbtn').attr('class', 'play icon');
+  }
+  
+  $("#progressbardiv").click(function(e){
+	   var parentOffset = $(this).parent().offset(); 
+	   //or $(this).offset(); if you really just want the current element's offset
+	   var relX = e.pageX - parentOffset.left;
+	   var relY = e.pageY - parentOffset.top;
+	   var divwidth = $(this).parent().width();
+	   var ratio = relX / divwidth;
+	   var player = document.getElementById('player');  
+	   var targettime = Math.round(player.duration * ratio);
+	   player.currentTime = parseFloat(targettime);
+	   
+	   //console.log(ratio);
+	});
+
+  var player = document.getElementById('player');  
+	//For every time update
+	player.addEventListener("timeupdate", function() {
+		var currentTime = player.currentTime;
+		var duration = player.duration;
+		$('#timecode').html(" " + FTF(Math.round(currentTime)) + "/" + FTF(Math.round(duration)));
+		$('#audioprogress').stop(true,true).animate({'width':(currentTime)/duration*100+'%'},0,'linear');
+	});
+	
+	//When the audio file is loaded
+	player.addEventListener("canplay", function() {
+		//Load the global volume from the stored data
+		var globalvol = localStorage.getItem("global_volume");
+		//console.log("Global Volume" + globalvol.toString());
+		if (!globalvol){
+			globalvol = 0.6;
+		}
+		player.volume = globalvol;
+		$('#voldis').html(" " + (Math.round(player.volume * 100)).toString() + "%");
+		//Load the repeat mode from stored data
+		var repmode = localStorage.getItem("repeat_mode");
+		if (embedded == true){
+		  if (repmode == 1){
+			  $('#repmode').html(' None');
+			  repmode = 2;
+		  }
+		}
+		if (repmode == 0){
+			//0 
+			$('#repmode').html(' Single');
+			RepeatMode = 0;
+		  }else if (repmode == 1){
+			//1
+			$('#repmode').html(' ALL');
+			RepeatMode = 1;
+		  }else{
+			//2
+			$('#repmode').html(' None');
+			RepeatMode = 2;
+		  }
+	});
+	//Event when the player finished the audio playing
+	player.addEventListener("ended", function() {
+		var repmode = localStorage.getItem("repeat_mode");
+		if (repmode == 0){
+			//0 
+			$('#repmode').html(' Single');
+			RepeatMode = 0;
+		  }else if (repmode == 1){
+			//1
+			$('#repmode').html(' ALL');
+			RepeatMode = 1;
+		  }else{
+			//2
+			$('#repmode').html(' None');
+			RepeatMode = 2;
+		  }
+		  
+		if (embedded == true){
+		  if (RepeatMode == 1){
+			  RepeatMode = 2;
+			  $('#repmode').html(' None');
+		  }
+		}
+		if (RepeatMode == 0){
+			stopbtn();
+			$('#player').trigger('play'); 
+		}else if (RepeatMode == 1){
+			NextSong();
+		}else{
+			stopbtn();
+		}
+	});
+	
+  function volUp(){
+	var audio = document.getElementById("player");
+	if (audio.volume > 0.95){
+		audio.volume = 1;
+	}else{
+		audio.volume += 0.05;
+	}
+	$('#voldis').html(" " + (Math.round(audio.volume * 100)).toString() + "%");
+	localStorage.setItem("global_volume", audio.volume);
+  }
+
+  function volDown(){
+	var audio = document.getElementById("player");
+	if (audio.volume < 0.05){
+		audio.volume = 0;
+	}else{
+		audio.volume -= 0.05; 
+	}
+	$('#voldis').html(" " + (Math.round(audio.volume * 100)).toString() + "%");
+	localStorage.setItem("global_volume", audio.volume);
+  }
+	
+	$("#basedirPath").change(function(){
+		var selectedItem = $("#basedirPath").find(":selected").text();
+		if (selectedItem == "Internal Storage"){
+			if (inVDI){
+				window.location.href = "index.php?mode=fw";
+			}else{
+				window.location.href = "index.php";
+			}
+		}else{
+			if (inVDI){
+				window.location.href = "index.php?mode=fw&extstorage=" + selectedItem.split("/").pop();
+			}else{
+				window.location.href = "index.php?extstorage=" + selectedItem.split("/").pop();
+			}
+		}
+    });
+	
+	//Scroll Controller
+	$(window).scroll(function (event) {
+		var scroll = $(window).scrollTop();
+		if (scroll > 200){
+			$('#YamiPlayer').css('position', 'fixed');
+			$('#YamiPlayer').css('top', '0');
+			$('#YamiPlayer').css('right', '0');
+			$('#YamiPlayer').css('width', '100%');
+			$('#YamiPlayer').css('z-index', '1000');
+		}else if (scroll < 50){
+			$('#YamiPlayer').css('position', '');
+			$('#YamiPlayer').css('top', '');
+			$('#YamiPlayer').css('width', '100%');
+			$('#YamiPlayer').css('right', '');
+			$('#YamiPlayer').css('z-index', '');
+		}
+	});
+	
+	
+	
+	
+	function FTF(time)
+	{   
+		// Hours, minutes and seconds
+		var hrs = ~~(time / 3600);
+		var mins = ~~((time % 3600) / 60);
+		var secs = time % 60;
+
+		// Output like "1:01" or "4:03:59" or "123:03:59"
+		var ret = "";
+
+		if (hrs > 0) {
+			ret += "" + hrs + ":" + (mins < 10 ? "0" : "");
+		}
+
+		ret += "" + mins + ":" + (secs < 10 ? "0" : "");
+		ret += "" + secs;
+		return ret;
+	}
+</script>
+</body>
+</html>

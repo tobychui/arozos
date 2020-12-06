@@ -156,6 +156,7 @@
                 border-bottom: 1px solid #4a4a4a;
                 cursor:pointer;
                 vertical-align:middle;
+                position: relative;
             }
 
             .floatWindowButton .normalizedIcon{
@@ -207,6 +208,13 @@
                 height: 100%;
             }
 
+            .floatWindowButton .closebutton{
+                position: absolute;
+                font-size: 120%;
+                color:white;
+                right: 4px;
+                top: 4px;
+            }
         </style>
     </head>
     <body>
@@ -721,7 +729,9 @@
                         <div class="normalElements" style="display:none;">
                             <img class="ui normalizedIcon middle aligned image" src="${options.appicon}">
                             <span class="windowTitle" style="color:white;">${title}</span>
+                            <div class="closebutton" onclick="closefw(this);"><i class="remove icon"></i></div>
                         </div>
+                        
                     </div>
                 `);
             }  
@@ -817,6 +827,11 @@
                     closeFwProcess(windowID);
                 }
             } 
+
+            function closefw(object){
+                var windowID = $(object).parent().parent().attr("windowID");
+                closeFloatWindow(windowID);
+            }
 
             function closeFwProcess(windowID){
                 //Remove the window object

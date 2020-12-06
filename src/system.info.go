@@ -37,43 +37,57 @@ type ArOZInfoS struct {
 func SystemInfoInit() {
 	log.Println("Operation System: " + runtime.GOOS)
 	log.Println("System Architecture: " + runtime.GOARCH)
-	if runtime.GOOS == "windows" {
-		/*
-			//Skip this shit so it will not lag windows server on launch
-			log.Println("Windows Version: " + wmicGetinfo("os", "Caption")[0])
-			log.Println("Total Memory: " + wmicGetinfo("ComputerSystem", "TotalPhysicalMemory")[0] + "B")
-			log.Println("Processor: " + wmicGetinfo("cpu", "Name")[0])
-			log.Println("Following disk was detected:")
-			for _, info := range wmicGetinfo("diskdrive", "Model") {
-				log.Println(info)
-			}
-		*/
+	if *allow_hardware_management {
+		if runtime.GOOS == "windows" {
+			/*
+				//Skip this shit so it will not lag windows server on launch
+				log.Println("Windows Version: " + wmicGetinfo("os", "Caption")[0])
+				log.Println("Total Memory: " + wmicGetinfo("ComputerSystem", "TotalPhysicalMemory")[0] + "B")
+				log.Println("Processor: " + wmicGetinfo("cpu", "Name")[0])
+				log.Println("Following disk was detected:")
+				for _, info := range wmicGetinfo("diskdrive", "Model") {
+					log.Println(info)
+				}
+			*/
 
-		//this features only working on windows, so display on win at now
-		http.HandleFunc("/system/info/getCPUinfo", getCPUinfo)
-		http.HandleFunc("/system/info/ifconfig", ifconfig)
-		http.HandleFunc("/system/info/getDriveStat", getDriveStat)
-		http.HandleFunc("/system/info/usbPorts", getUSB)
-		http.HandleFunc("/system/info/getRAMinfo", getRAMinfo)
+			//this features only working on windows, so display on win at now
+			http.HandleFunc("/system/info/getCPUinfo", getCPUinfo)
+			http.HandleFunc("/system/info/ifconfig", ifconfig)
+			http.HandleFunc("/system/info/getDriveStat", getDriveStat)
+			http.HandleFunc("/system/info/usbPorts", getUSB)
+			http.HandleFunc("/system/info/getRAMinfo", getRAMinfo)
 
-	} else if runtime.GOOS == "linux" {
-		//this features only working on windows, so display on win at now
-		http.HandleFunc("/system/info/getCPUinfo", getCPUinfoLinux)
-		http.HandleFunc("/system/info/ifconfig", ifconfigLinux)
-		http.HandleFunc("/system/info/getDriveStat", getDriveStatLinux)
-		http.HandleFunc("/system/info/usbPorts", getUSBLinux)
-		http.HandleFunc("/system/info/getRAMinfo", getRAMinfoLinux)
+		} else if runtime.GOOS == "linux" {
+			//this features only working on windows, so display on win at now
+			http.HandleFunc("/system/info/getCPUinfo", getCPUinfoLinux)
+			http.HandleFunc("/system/info/ifconfig", ifconfigLinux)
+			http.HandleFunc("/system/info/getDriveStat", getDriveStatLinux)
+			http.HandleFunc("/system/info/usbPorts", getUSBLinux)
+			http.HandleFunc("/system/info/getRAMinfo", getRAMinfoLinux)
+		}
+
+		http.HandleFunc("/system/info/getArOZInfo", getArOZInfo)
+
+		//Register as a system setting
+		registerSetting(settingModule{
+			Name:     "Host Info",
+			Desc:     "System Information",
+			IconPath: "SystemAO/info/img/small_icon.png",
+			Group:    "Info",
+			StartDir: "SystemAO/info/index.html",
+		})
 	}
 
-	http.HandleFunc("/system/info/getArOZInfo", getArOZInfo)
 	//Register as a system setting
-	registerSetting(settingModule{
-		Name:     "Host Info",
-		Desc:     "System Information",
-		IconPath: "SystemAO/info/img/small_icon.png",
-		Group:    "Info",
-		StartDir: "SystemAO/info/index.html",
-	})
+	if fileExists("web/SystemAO/vendor/platform/index.html") {
+		registerSetting(settingModule{
+			Name:     "Platform Info",
+			Desc:     "Platform Information",
+			IconPath: "SystemAO/info/img/small_icon.png",
+			Group:    "Info",
+			StartDir: "SystemAO/vendor/platform/index.html",
+		})
+	}
 
 }
 

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"net/http"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
@@ -21,7 +20,7 @@ func realpathToVirtualpath(path string, u *user.User) (string, error) {
 }
 
 //Inject user based functions into the virtual machine
-func (g *Gateway) injectUserFunctions(vm *otto.Otto, w http.ResponseWriter, r *http.Request, u *user.User) {
+func (g *Gateway) injectUserFunctions(vm *otto.Otto, u *user.User) {
 	username := u.Username
 	vm.Set("USERNAME", username)
 	vm.Set("USERICON", u.GetUserIcon())
@@ -67,6 +66,16 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, w http.ResponseWriter, r *h
 		} else {
 			reply, _ := vm.ToValue(realpath)
 			return reply
+		}
+	})
+
+	//Check if a given virtual path is readonly
+	vm.Set("pathCanWrite", func(call otto.FunctionCall) otto.Value {
+		vpath, _ := call.Argument(0).ToString()
+		if u.CanWrite(vpath) {
+			return otto.TrueValue()
+		} else {
+			return otto.FalseValue()
 		}
 	})
 
@@ -217,7 +226,6 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, w http.ResponseWriter, r *h
 			g.raiseError(errors.New("Permission Denied: removeUser require admin permission"))
 			return otto.FalseValue()
 		}
-		return otto.FalseValue()
 	})
 
 	vm.Set("getUserInfoByName", func(call otto.FunctionCall) otto.Value {
@@ -243,7 +251,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, w http.ResponseWriter, r *h
 
 		//Check if the library name exists. If yes, run the initiation script on the vm
 		if entryPoint, ok := g.LoadedAGILibrary[libname]; ok {
-			entryPoint(vm, w, r, u)
+			entryPoint(vm, u)
 			reply, _ := vm.ToValue(true)
 			return reply
 		} else {

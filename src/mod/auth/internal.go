@@ -1,10 +1,9 @@
 package auth
 
 import (
-	"net/http"
 	"errors"
+	"net/http"
 )
-
 
 //Common functions
 func sendTextResponse(w http.ResponseWriter, msg string) {
@@ -51,4 +50,13 @@ func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 		return string(x), nil
 	}
 
+}
+
+func inSlice(list []string, a string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }

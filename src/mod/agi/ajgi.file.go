@@ -1,11 +1,10 @@
 package agi
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
-	"errors"
 	"os"
-	"net/http"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
@@ -22,14 +21,14 @@ import (
 	Complete rewrite by tobychui in Sept 2020
 */
 
-func (g *Gateway)FileLibRegister() {
+func (g *Gateway) FileLibRegister() {
 	err := g.RegisterLib("filelib", g.injectFileLibFunctions)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r *http.Request, u *user.User) {
+func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 
 	//Legacy File system API
 	//writeFile(virtualFilepath, content) => return true/false when succeed / failed
@@ -42,8 +41,8 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanWrite(vpath){
-			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: " + vpath))
+		if !u.CanWrite(vpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: "+vpath))
 		}
 
 		content, err := call.Argument(1).ToString()
@@ -54,7 +53,7 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check if there is quota for the given length
-		if !u.StorageQuota.HaveSpace(int64(len(content))){
+		if !u.StorageQuota.HaveSpace(int64(len(content))) {
 			//User have no remaining storage quota
 			g.raiseError(errors.New("Storage Quota Fulled"))
 			reply, _ := vm.ToValue(false)
@@ -69,11 +68,11 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 			return reply
 		}
 
-		//Check if file already exists. 
-		if fileExists(rpath){
+		//Check if file already exists.
+		if fileExists(rpath) {
 			//Check if this user own this file
 			isOwner := u.IsOwnerOfFile(rpath)
-			if isOwner{
+			if isOwner {
 				//This user own this system. Remove this file from his quota
 				u.RemoveOwnershipFromFile(rpath)
 			}
@@ -88,7 +87,7 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Add the filesize to user quota
-		u.SetOwnerOfFile(rpath);
+		u.SetOwnerOfFile(rpath)
 
 		reply, _ := vm.ToValue(true)
 		return reply
@@ -103,8 +102,8 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanWrite(vpath){
-			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: " + vpath))
+		if !u.CanWrite(vpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: "+vpath))
 		}
 
 		//Translate the virtual path to realpath
@@ -115,15 +114,15 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 			return reply
 		}
 
-		//Check if file already exists. 
-		if fileExists(rpath){
+		//Check if file already exists.
+		if fileExists(rpath) {
 			//Check if this user own this file
 			isOwner := u.IsOwnerOfFile(rpath)
-			if isOwner{
+			if isOwner {
 				//This user own this system. Remove this file from his quota
 				u.RemoveOwnershipFromFile(rpath)
 			}
-		}else{
+		} else {
 			g.raiseError(errors.New("File not exists"))
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -146,8 +145,8 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanRead(vpath){
-			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: " + vpath))
+		if !u.CanRead(vpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: "+vpath))
 		}
 
 		//Translate the virtual path to realpath
@@ -222,9 +221,9 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		if err != nil {
 			mode = "all"
 		}
-		
+
 		rpath, err := virtualPathToRealPath(vpath, u)
-		if err != nil{
+		if err != nil {
 			g.raiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
@@ -232,24 +231,24 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		results := []string{}
 		err = filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
 			thisVpath, err := realpathToVirtualpath(path, u)
-			if (mode == "file"){
+			if mode == "file" {
 				if !info.IsDir() {
 					results = append(results, thisVpath)
 				}
-			}else if (mode == "folder"){
+			} else if mode == "folder" {
 				if info.IsDir() {
 					results = append(results, thisVpath)
 				}
-			}else{
+			} else {
 				results = append(results, thisVpath)
 			}
-			
+
 			return nil
 		})
 
 		reply, _ := vm.ToValue(results)
 		return reply
-	});
+	})
 
 	//Glob
 	//glob("user:/Desktop/*.mp3") => return fileList in array
@@ -263,19 +262,19 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Handle when regex = "." or "./" (listroot)
-		if (filepath.ToSlash(filepath.Clean(regex)) == "/" || filepath.Clean(regex) == "."){
+		if filepath.ToSlash(filepath.Clean(regex)) == "/" || filepath.Clean(regex) == "." {
 			//List Root
 			rootDirs := []string{}
-			fileHandlers := u.GetAllFileSystemHandler();
-			for _, fsh := range fileHandlers{
-				rootDirs = append(rootDirs, fsh.UUID + ":/");
+			fileHandlers := u.GetAllFileSystemHandler()
+			for _, fsh := range fileHandlers {
+				rootDirs = append(rootDirs, fsh.UUID+":/")
 			}
 
 			reply, _ := vm.ToValue(rootDirs)
 			return reply
-		}else{
+		} else {
 			//Check for permission
-			if !u.CanRead(regex){
+			if !u.CanRead(regex) {
 				panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
 			}
 			//This function can only handle wildcard in filename but not in dir name
@@ -315,7 +314,7 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 			return reply
 		}
 
-		if regex != "/" && !u.CanRead(regex){
+		if regex != "/" && !u.CanRead(regex) {
 			panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
 		}
 
@@ -356,7 +355,7 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanRead(vpath){
+		if !u.CanRead(vpath) {
 			panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
 		}
 
@@ -390,7 +389,7 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanRead(vpath){
+		if !u.CanRead(vpath) {
 			panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
 		}
 
@@ -421,8 +420,8 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanRead(vpath){
-			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: " + vpath))
+		if !u.CanRead(vpath) {
+			panic(vm.MakeCustomError("PermissionDenied", "Path access denied: "+vpath))
 		}
 
 		//Translate the virtual path to realpath
@@ -455,7 +454,7 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanWrite(vdir){
+		if !u.CanWrite(vdir) {
 			panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
 		}
 
@@ -488,16 +487,16 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
 			g.raiseError(err)
-			return otto.FalseValue();
+			return otto.FalseValue()
 		}
 
 		//Get fs handler from the vpath
 		fsHandler, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
 			g.raiseError(err)
-			return otto.FalseValue();
+			return otto.FalseValue()
 		}
-		
+
 		//Return the name of the fsHandler
 		name, _ := vm.ToValue(fsHandler.Name)
 		return name
@@ -513,7 +512,7 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		//Check for permission
-		if !u.CanRead(vpath){
+		if !u.CanRead(vpath) {
 			panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
 		}
 
@@ -535,34 +534,34 @@ func (g *Gateway)injectFileLibFunctions(vm *otto.Otto, w http.ResponseWriter, r 
 		}
 
 		modTime := info.ModTime()
-		if (parseToUnix){
+		if parseToUnix {
 			result, _ := otto.ToValue(modTime.Unix())
 			return result
-		}else{
+		} else {
 			result, _ := otto.ToValue(modTime.Format("2006-01-02 15:04:05"))
 			return result
 		}
-		
+
 		return otto.TrueValue()
 	})
 
 	/*
-	vm.Set("_filelib_decodeURI", func(call otto.FunctionCall) otto.Value {
-		originalURI, err := call.Argument(0).ToString()
-		if err != nil {
-			g.raiseError(err)
-			reply, _ := vm.ToValue(false)
-			return reply
-		}
-		decodedURI := specialURIDecode(originalURI)
-		result, err := otto.ToValue(decodedURI)
-		if err != nil {
-			g.raiseError(err)
-			reply, _ := vm.ToValue(false)
-			return reply
-		}
-		return result
-	})
+		vm.Set("_filelib_decodeURI", func(call otto.FunctionCall) otto.Value {
+			originalURI, err := call.Argument(0).ToString()
+			if err != nil {
+				g.raiseError(err)
+				reply, _ := vm.ToValue(false)
+				return reply
+			}
+			decodedURI := specialURIDecode(originalURI)
+			result, err := otto.ToValue(decodedURI)
+			if err != nil {
+				g.raiseError(err)
+				reply, _ := vm.ToValue(false)
+				return reply
+			}
+			return result
+		})
 	*/
 
 	//Other file operations, wip

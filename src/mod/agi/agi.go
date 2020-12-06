@@ -28,7 +28,7 @@ var (
 	AgiVersion string = "1.2" //Defination of the agi runtime version. Update this when new function is added
 )
 
-type AgiLibIntergface func(*otto.Otto, http.ResponseWriter, *http.Request, *user.User) //Define the lib loader interface for AGI Libraries
+type AgiLibIntergface func(*otto.Otto, *user.User) //Define the lib loader interface for AGI Libraries
 type AgiPackage struct {
 	InitRoot string //The initialization of the root for the module that request this package
 }
@@ -112,15 +112,17 @@ func (g *Gateway) raiseError(err error) {
 }
 
 //Check if this table is restricted table. Return true if the access is valid
-func (g *Gateway) filterDBTable(tablename string) bool {
+func (g *Gateway) filterDBTable(tablename string, existsCheck bool) bool {
 	//Check if table is restricted
 	if stringInSlice(tablename, g.ReservedTables) {
 		return false
 	}
 
 	//Check if table exists
-	if !g.Option.UserHandler.GetDatabase().TableExists(tablename) {
-		return false
+	if existsCheck {
+		if !g.Option.UserHandler.GetDatabase().TableExists(tablename) {
+			return false
+		}
 	}
 
 	return true
@@ -215,7 +217,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scri
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, w, r, thisuser)
+	g.injectUserFunctions(vm, thisuser)
 
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
@@ -259,4 +261,36 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scri
 	}
 
 	w.Write([]byte(valueString))
+}
+
+/*
+	Execute AGI script with given user information
+
+*/
+func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.User) (string, error) {
+	//Create a new vm for this request
+	vm := otto.New()
+	//Inject standard libs into the vm
+	g.injectStandardLibs(vm, scriptFile, "")
+	g.injectUserFunctions(vm, targetUser)
+
+	//Try to read the script content
+	scriptContent, err := ioutil.ReadFile(scriptFile)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = vm.Run(scriptContent)
+	if err != nil {
+		return "", err
+	}
+
+	//Get the return valu from the script
+	value, err := vm.Get("HTTP_RESP")
+	if err != nil {
+		return "", err
+	}
+
+	valueString, err := value.ToString()
+	return valueString, nil
 }

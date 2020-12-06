@@ -48,13 +48,12 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			return reply
 		}
 		//Create the table with given tableName
-		if g.filterDBTable(tableName) {
+		if g.filterDBTable(tableName, false) {
 			sysdb.NewTable(tableName)
 			//Return true
 			reply, _ := vm.ToValue(true)
 			return reply
 		}
-
 		reply, _ := vm.ToValue(false)
 		return reply
 	})
@@ -83,7 +82,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			return reply
 		}
 		//Create the table with given tableName
-		if g.filterDBTable(tableName) {
+		if g.filterDBTable(tableName, true) {
 			sysdb.DropTable(tableName)
 			reply, _ := vm.ToValue(true)
 			return reply
@@ -104,7 +103,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		}
 
 		//Check if the tablename is reserved
-		if g.filterDBTable(tableName) {
+		if g.filterDBTable(tableName, true) {
 			keyString, err := call.Argument(1).ToString()
 			if err != nil {
 				g.raiseError(err)
@@ -133,7 +132,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		keyString, _ := call.Argument(1).ToString()
 		returnValue := ""
 		reply, _ := vm.ToValue(nil)
-		if g.filterDBTable(tableName) {
+		if g.filterDBTable(tableName, true) {
 			sysdb.Read(tableName, keyString, &returnValue)
 			r, _ := vm.ToValue(returnValue)
 			reply = r
@@ -148,7 +147,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		tableName, _ := call.Argument(0).ToString()
 		returnValue := map[string]string{}
 		reply, _ := vm.ToValue(nil)
-		if g.filterDBTable(tableName) {
+		if g.filterDBTable(tableName, true) {
 			entries, _ := sysdb.ListTable(tableName)
 			for _, keypairs := range entries {
 				//Decode the string
@@ -171,7 +170,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("deleteDBItem", func(call otto.FunctionCall) otto.Value {
 		tableName, _ := call.Argument(0).ToString()
 		keyString, _ := call.Argument(1).ToString()
-		if g.filterDBTable(tableName) {
+		if g.filterDBTable(tableName, true) {
 			err := sysdb.Delete(tableName, keyString)
 			if err != nil {
 				return otto.FalseValue()

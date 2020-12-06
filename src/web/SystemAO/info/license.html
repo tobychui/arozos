@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<head>
+    <title>Licenses</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <div class="ui header">
+                Open Source Licenses
+                <div class="sub header">This page shows all the licenses of the related open source resources used in this project.</div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+    </div>
+    
+    <div id="mainarea" class="ui container">
+       
+    </div>
+    <br><br>
+</body>
+<script>
+    $.get("../../system/info/license", function(data){
+        data.forEach(license => {
+            $("#mainarea").append(`<div class="ui blue segment">
+                <h3>${license[0]}</h3>
+                <p>${license[1].split("\n").join("<br>")}</p>
+            </div>`)
+        });
+    });
+</script>
+</html>

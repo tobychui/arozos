@@ -1,0 +1,59 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{hostname}} File Share</title>
+    <link rel="stylesheet" href="script/skeleton/offline.css">
+    <link rel="stylesheet" href="script/skeleton/normalize.css">
+    <link rel="stylesheet" href="script/skeleton/skeleton.css">
+    <script type="application/javascript" src="script/jquery.min.js"></script>
+    <style>
+        .bar{
+            height: 12px;
+            background-color: #33c3f0;
+            width: 100%;
+        }
+
+        .footer{
+            position: absolute;
+            bottom: 0px;
+            height: 100px;
+            width: 100%;
+            background-color: #33c3f0;
+            padding: 20px;
+            color: white;
+        }
+    </style>
+    </head>
+    <body>
+        <div class="bar"></div>
+        <br>
+        <div class="container">
+            <div class="row">
+                <div class="one-half column">
+                    <h5>{{hostname}} File Sharing</h5>
+                    <h3>File Not Found</h3>
+                    <p>The file you are looking for not exists or no longer exists on the current system. Please check if your link to the share file is valid.</p>
+                    <p>Request File ID: {{reqid}}</p>
+                    <p>Request Timestamp: {{reqtime}}</p>
+                </div>
+                <div class="one-half column">
+                    <img style="pointer-events: none;" src="img/public/share/notfound.png">
+                </div>
+            </div>
+           
+        </div>
+        <div class="footer">
+            <div class="container">
+                Cloud File Sharing Interface, Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
+            </div>
+        </div>
+      
+
+        
+    <script>
+     
+    </script>
+    </body>
+</html>

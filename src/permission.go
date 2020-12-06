@@ -1,10 +1,23 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
+	permission "imuslab.com/arozos/mod/permission"
 	prout "imuslab.com/arozos/mod/prouter"
 )
+
+func permissionNewHandler() {
+	ph, err := permission.NewPermissionHandler(sysdb)
+	if err != nil {
+		log.Println("Permission Handler creation failed.")
+		panic(err)
+	}
+	permissionHandler = ph
+	permissionHandler.LoadPermissionGroupsFromDatabase()
+
+}
 
 func permissionInit() {
 	//Register the permission handler, require authentication except listgroup

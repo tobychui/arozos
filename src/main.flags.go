@@ -24,15 +24,15 @@ var packageManager *apt.AptPackageManager //Manager for package auto installatio
 var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
-var build_version = "development"                     //System build flag, this can be either {development / production / stable}
-var internal_version = "0.1.105"                      //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
-var deviceUUID string                                 //The device uuid of this host
-var deviceVendor = "IMUSLAB.INC"                      //Vendor of the system
-var deviceVendorURL = "http://imuslab.com"            //Vendor contact information
-var deviceModel = "AR100"                             //Hardware Model of the system
-var deviceModelDesc = "Personal Cloud Storage System" //Device Model Description
-var iconVendor = "img/vendor/vendor_icon.png"         //Vendor icon location
-var iconSystem = "img/vendor/system_icon.png"         //System icon location
+var build_version = "development"                      //System build flag, this can be either {development / production / stable}
+var internal_version = "0.1.107"                       //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
+var deviceUUID string                                  //The device uuid of this host
+var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
+var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
+var deviceModel = "AR100"                              //Hardware Model of the system
+var deviceModelDesc = "General Purpose Cloud Platform" //Device Model Description
+var iconVendor = "img/vendor/vendor_icon.png"          //Vendor icon location
+var iconSystem = "img/vendor/system_icon.png"          //System icon location
 
 // =========== RUNTTIME RELATED ================S
 var max_upload_size int64 = 8192 << 20                         //Maxmium upload size, default 8GB
@@ -71,6 +71,7 @@ var tmp_directory = flag.String("tmp", "./", "Temporary storage, can be access v
 var root_directory = flag.String("root", "./files/", "User root directories")
 var file_opr_buff = flag.Int("iobuf", 1024, "Amount of buffer memory for IO operations")
 var enable_dir_listing = flag.Bool("dir_list", true, "Enable directory listing")
+var enable_asyncFileUpload = flag.Bool("upload_async", false, "Enable file upload buffering to run in async mode (Faster upload, require RAM >= 8GB)")
 
 //Flags related to compatibility or testing
 var enable_beta_scanning_support = flag.Bool("beta_scan", false, "Allow compatibility to ArOZ Online Beta Clusters")

@@ -71,7 +71,20 @@ func desktop_initUserFolderStructure(username string) {
 	if err != nil {
 		log.Println(err)
 	}
-	os.MkdirAll(homedir+"Desktop", 0755)
+
+	if !fileExists(homedir + "Desktop") {
+		//Desktop directory not exists. Create one and copy a template desktop
+		os.MkdirAll(homedir+"Desktop", 0755)
+		templateFolder := "./system/desktop/template/"
+		if fileExists(templateFolder) {
+			templateFiles, _ := filepath.Glob(templateFolder + "*")
+			for _, tfile := range templateFiles {
+				input, _ := ioutil.ReadFile(tfile)
+				ioutil.WriteFile(homedir+"Desktop/"+filepath.Base(tfile), input, 0755)
+			}
+		}
+	}
+
 }
 
 //Return the information about the host
@@ -121,6 +134,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		Filename      string
 		Ext           string
 		IsDir         bool
+		IsEmptyDir    bool
 		IsShortcut    bool
 		ShortcutImage string
 		ShortcutType  string
@@ -143,6 +157,24 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		thisFileObject.Filename = filepath.Base(this)
 		thisFileObject.Ext = filepath.Ext(this)
 		thisFileObject.IsDir = IsDir(this)
+		if thisFileObject.IsDir {
+			//Check if this dir is empty
+			filesInFolder, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(this)) + "/*")
+			fc := 0
+			for _, f := range filesInFolder {
+				if filepath.Base(f)[:1] != "." {
+					fc++
+				}
+			}
+			if fc > 0 {
+				thisFileObject.IsEmptyDir = false
+			} else {
+				thisFileObject.IsEmptyDir = true
+			}
+		} else {
+			//File object. Default true
+			thisFileObject.IsEmptyDir = true
+		}
 		//Check if the file is a shortcut
 		isShortcut := false
 		if filepath.Ext(this) == ".shortcut" {

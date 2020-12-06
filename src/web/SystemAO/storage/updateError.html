@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <title>Storage Pool Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+        body{
+            background-color:rgba(0,0,0,0);
+        }
+       
+    </style>
+</head>
+<body>
+    <div class="ui basic modal">
+        <div class="ui icon header">
+          <i class="red remove icon"></i>
+          Update Error
+        </div>
+        <div class="content">
+          <p id="errmsg"></p>
+        </div>
+        <div class="actions">
+          <div class="ui ok inverted button" onclick="handleExit()">
+                Cancel
+          </div>
+        </div>
+      </div>
+    <script>
+         $(".ui.modal").modal("show");
+        $(".ui.modal").modal({
+    		backdrop: 'static',
+    		keyboard: false
+		});
+        $('.ui.modal').modal("set active",false);
+
+        //Get error message from hash
+        if (window.location.hash.length > 1){
+            errobj = decodeURIComponent(window.location.hash.substr(1));
+            $("#errmsg").text(JSON.parse(errobj));
+        }
+
+        function handleExit(){
+            ao_module_parentCallback(true);
+            ao_module_close();
+        }
+    </script>
+</body>
+</html>

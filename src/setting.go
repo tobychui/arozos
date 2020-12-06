@@ -87,9 +87,9 @@ func system_setting_getSettingGroups() []settingGroup {
 			Desc:     "Add, removed or edit users and groups",
 		},
 		settingGroup{
-			Name:     "Time & Schedule",
-			Group:    "Time",
-			IconPath: "SystemAO/system_setting/img/time.svg",
+			Name:     "Clusters & Scheduling",
+			Group:    "Cluster",
+			IconPath: "SystemAO/system_setting/img/cluster.svg",
 			Desc:     "System Functions related to Time and Dates",
 		},
 		settingGroup{
@@ -113,12 +113,12 @@ func registerSetting(thismodule settingModule) {
 
 //List all the setting modules and output it as JSON
 func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := userHandler.GetUserInfoFromRequest(w,r)
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		sendErrorResponse(w, "User not logged in")
 		return
 	}
-	
+
 	allSettingGroups := system_setting_getSettingGroups()
 	listGroup, _ := mv(r, "listGroup", false)
 	if len(listGroup) > 0 {

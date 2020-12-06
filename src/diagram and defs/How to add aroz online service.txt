@@ -17,8 +17,8 @@ Wants=systemd-networkd-wait-online.service
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 30
-WorkingDirectory=/home/pi/aroz_online/
-ExecStart=/bin/bash /home/pi/aroz_online/start.sh
+WorkingDirectory=/home/pi/arozos/
+ExecStart=/bin/bash /home/pi/arozos/start.sh
 
 Restart=always
 RestartSec=10

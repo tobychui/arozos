@@ -223,7 +223,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Get the permission groups by their ids
-		newPermissioGroups := userHandler.GetPermissionHandler().GetPermissionGroupByIDs(newGroupKeys)
+		newPermissioGroups := userHandler.GetPermissionHandler().GetPermissionGroupByNameList(newGroupKeys)
 
 		//Set the user's permission to these groups
 		userinfo.SetUserPermissionGroup(newPermissioGroups)

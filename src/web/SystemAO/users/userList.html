@@ -24,9 +24,52 @@
                 <button id="editbtn" class="ui small disabled button" onclick="showEditUI();">
                     <i class="edit icon"></i>Edit
                 </button>
+               
                 <button id="editUserButton" class="ui small negative disabled right floated button" onclick="removeUser();">
                     Remove
                 </button>
+            </div>
+            <div class="ui styled fluid accordion">
+                <div class="title">
+                    <i class="dropdown icon"></i>
+                    Advance Operations
+                </div>
+                <div class="content">
+                    <h3>Import from CSV</h3>
+                    <p>Example Structure of the csv format (one user per row)</p>
+                    <table class="ui mini celled table" style="max-width: 500px;">
+                        <tbody>
+                            <tr>
+                              <td>User Name</td>
+                              <td>Default Password</td>
+                              <td>Default Group</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p>(Please make sure the group exists before import)</p>
+                    <button id="importbtn" class="ui small green button" onclick="importFromCSV();">
+                        <i class="upload icon"></i>Import from CSV
+                    </button>
+                    <button id="importbtn" class="ui small button" onclick="window.open('../users/template.csv');">
+                        Download CSV Template
+                    </button>
+                    <div class="ui divider"></div>
+                    <h3>Multi-Selection Remove</h3>
+                    <p>Select multiple users by their user group</p>
+                    <div class="ui selection dropdown">
+                        <input id="usergroupselector" type="hidden" name="Group">
+                        <i class="dropdown icon"></i>
+                        <div class="default text">Group</div>
+                        <div id="grouplist" class="menu">
+                        </div>
+                    </div>
+                    <button class="ui red button" onclick="deleteUsersInGroup();">Remove All Users in Group</button>
+                    <br><br>
+                    <div class="ui checkbox">
+                        <input id="mustbeonegroup" type="checkbox" name="iff">
+                        <label>only if the user is in exactly one group</label>
+                    </div>
+                </div>
             </div>
 
             <table class="ui very basic celled table">
@@ -41,8 +84,98 @@
                  
                 </tbody>
               </table>
+              <br><br>
+        </div>
+        <!-- Import Confirm Dialog-->
+        <div class="ui modal" id="confirmImport">
+            <i class="close icon"></i>
+            <div class="header">
+                Import Users
+            </div>
+            <div class="content">
+                <div class="description">
+                <div class="ui header">Confirm importing the following users?</div>
+                <table class="ui celled table">
+                    <thead>
+                      <tr><th>Username</th>
+                      <th>Default Password</th>
+                      <th>Group</th>
+                    </tr></thead>
+                    <tbody id="userImportPreview">
+                     
+                    </tbody>
+                  </table>
+                </div>
+            </div>
+            <div class="actions">
+                <div class="ui black deny button">
+                Cancel
+                </div>
+                <div class="ui positive right labeled icon button" onclick="confirmImportUsers();">
+                OK
+                <i class="checkmark icon"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Delete Confirm Dialog -->
+        <div class="ui modal" id="deleteConfirmDialog">
+            <i class="close icon"></i>
+            <div class="header" style="color: #eb4034;">
+              <i class="user times icon"></i> Remove Users
+            </div>
+            <div class="content">
+              <div class="description">
+                <div class="ui header">The following users will be removed from the system. This action is <span style="color: #eb4034;">NOT REVERSIBLE</span>.</div>
+                <div id="removePendingUsers" class="ui bulleted list">
+
+                </div>
+              </div>
+            </div>
+            <div class="actions">
+              <div class="ui black deny button">
+                Cancel
+              </div>
+              <div class="ui red right labeled icon button" onclick="confirmRemoval(this);">
+                Confirm Removal
+                <i class="checkmark icon"></i>
+              </div>
+            </div>
+          </div>
+        <!-- Error Display Dialog-->
+        <div class="ui basic modal errormodal">
+            <div class="ui icon header">
+                <i class="red remove icon"></i>
+                Some accounts cannot be created
+            </div>
+            <div class="content">
+                <p class="errormessage"></p>
+            </div>
+            <div class="actions">
+                <div class="ui ok inverted button">
+                    <i class="checkmark icon"></i>
+                    OK
+                </div>
+            </div>
         </div>
         <script>
+            //Init UI elements
+            $('.ui.accordion').accordion();
+            $('.ui.dropdown').dropdown();
+
+            //Init group list
+            $.get("../../system/permission/listgroup", function(data){
+                $("#grouplist").html("");
+                if (data.error !== undefined){
+                    console.log(data.error);
+                }else{
+                    data.forEach(group => {
+                        $("#grouplist").append(`<div class="item" data-value="${group}">${group}</div>`);
+                    });
+                }
+            });
+
+
+            //Init User List
             initUserList();
             function initUserList(){
                 $("#userTable").html("");
@@ -80,6 +213,107 @@
                     },
                     error: function(data){
                         $("#userTable").html("<p> Failed to load user database. </p>");
+                    }
+                });
+            }
+
+            var importPendingData = "";
+            function importFromCSV(){
+                //Open the native file selector for uploading a csv file
+                ao_module_selectFiles(function(files){
+                    var targetFile = files[0];
+                    console.log(targetFile, files);
+                    //Read the csv file into string
+                    ao_module_utils.readFileFromFileObject(targetFile, function(content){
+                        //Render the preview user list
+                        $("#userImportPreview").html("");
+                        var lines = content.split("\r\n").join("\n").split("\n");
+                        lines.forEach(line => {
+                            var data = line.split(",");
+                            if (line.length < 3){
+                                return;
+                            }
+                            $("#userImportPreview").append(`
+                                <tr>
+                                    <td data-label="Name">${data[0]}</td>
+                                    <td data-label="DP">${data[1]}</td>
+                                    <td data-label="Group">${data[2]}</td>
+                                </tr>`);
+                        });
+                        $("#confirmImport").modal("show");
+                        //Post the content to server side
+                        importPendingData = content;
+                    });
+                }, "file", ".csv", false);
+            }
+
+            var deletePendingGroup = "";
+            function deleteUsersInGroup(){
+                var targetGroup = $("#usergroupselector").val();
+                if (targetGroup == ""){
+                    return;
+                }
+                deletePendingGroup = targetGroup;
+                
+                $.get("../../system/users/list", function(data){
+                    var username = [];
+                    data.forEach(user => {
+                        var userGroup = user[1];
+                        if ($("#mustbeonegroup")[0].checked == true){
+                            if (userGroup.length == 1 && userGroup[0] == (deletePendingGroup)){
+                                username.push(user[0]);
+                            }
+                        }else{
+                            if (userGroup.includes(deletePendingGroup)){
+                                username.push(user[0]);
+                            }
+                        }
+                       
+                    });
+
+                    $("#removePendingUsers").html("");
+                    username.forEach(thisuser => {
+                        $("#removePendingUsers").append(`<div class="item">${thisuser}</div>`);
+                    });
+                });
+
+
+                $("#deleteConfirmDialog").modal("show");
+
+            }
+
+            function confirmRemoval(btn){
+                let group = deletePendingGroup;
+                let removeUsersWithOneGroupOnly = $("#mustbeonegroup")[0].checked;
+                $(btn).addClass("loading");
+                $.ajax({
+                    url :"../../system/auth/groupdel",
+                    data: {group: group, exact: removeUsersWithOneGroupOnly},
+                    success: function(data){
+                        $("#deleteConfirmDialog").modal("hide");
+                        $(btn).removeClass("loading");
+                        initUserList();
+                    }
+                })
+            }
+
+            function confirmImportUsers(){
+                $.ajax({
+                    url: "../../system/auth/csvimport",
+                    data: {csv: importPendingData},
+                    success: function(data){
+                        //The returned data should ba list of errors (if any)
+                        if (data.length == 0){
+                            //Reload the list
+                            initUserList();
+                        }else{
+                            //Display error list
+                            console.log(data);
+                            $(".errormodal").modal("show");
+                            var errmsg = data.join("<br>");
+                            $(".errormessage").html(errmsg); 
+                            initUserList();
+                        }
                     }
                 });
             }

@@ -64,6 +64,10 @@ func (u *UserHandler) GetDatabase() *db.Database {
 	return u.database
 }
 
+func (u *UserHandler) UpdateStoragePool(newpool *storage.StoragePool) {
+	u.basePool = newpool
+}
+
 func (u *User) Parent() *UserHandler {
 	return u.parent
 }
@@ -124,6 +128,11 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 		allFsHandlers := thisUser.GetAllFileSystemHandler()
 		thisUserQuotaManager = quota.NewUserQuotaHandler(u.database, username, allFsHandlers, maxQuota)
 
+		if !thisUserQuotaManager.IsQuotaInitialized() {
+			//This user quota hasn't been initalized. Initalize it now to match its group
+			userMaxDefaultStorageQuota := permission.GetLargestStorageQuotaFromGroups(permissionGroups)
+			thisUserQuotaManager.SetUserStorageQuota(userMaxDefaultStorageQuota)
+		}
 		//Push the manger to buffer
 		quotaManagerBuffer.Store(username, thisUserQuotaManager)
 	}
@@ -151,7 +160,7 @@ func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Requ
 //Remove the current user
 func (u *User) RemoveUser() {
 	//Remove the user storage quota settings
-	log.Println("Removing User Quota", u.StorageQuota)
+	log.Println("Removing User Quota: ", u.Username)
 	u.StorageQuota.RemoveUserQuota()
 
 	//Remove the user authentication register

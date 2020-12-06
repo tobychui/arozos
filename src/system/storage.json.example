@@ -3,7 +3,7 @@
     "name":"Storage 1",
     "uuid":"S1",
     "path":"/media/storage1/public/",
-    "access":"everyone",
+    "access":"readwrite",
     "hierarchy":"public",
     "automount":true,
     "filesystem":"ntfs",
@@ -14,7 +14,7 @@
     "name":"Storage 2",
     "uuid":"S2",
     "path":"/media/storage2",
-    "access":"everyone",
+    "access":"readwrite",
     "hierarchy":"public",
     "automount":true,
     "filesystem":"ntfs",
@@ -25,7 +25,7 @@
     "name":"Storage 3",
     "uuid":"S3",
     "path":"/media/storage3",
-    "access":"everyone",
+    "access":"readwrite",
     "hierarchy":"public",
     "automount":false
   },
@@ -33,7 +33,7 @@
     "name":"Storage 4",
     "uuid":"S4",
     "path":"/media/storage4",
-    "access":"everyone",
+    "access":"readwrite",
     "hierarchy":"public",
     "automount":false
   },
@@ -41,7 +41,7 @@
     "name":"web",
     "uuid":"web",
     "path":"web/",
-    "access":"everyone",
+    "access":"readwrite",
     "hierarchy":"public",
     "automount":false
   }

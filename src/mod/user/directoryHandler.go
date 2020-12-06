@@ -31,8 +31,12 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	uuids := []string{}
 	//Get all FileSystem Handler from this user's Home Directory (aka base directory)
 	for _, store := range u.HomeDirectories.Storages {
-		results = append(results, store)
-		uuids = append(uuids, store.UUID)
+		if store.Closed == false {
+			//Only return opened file system handlers
+			results = append(results, store)
+			uuids = append(uuids, store.UUID)
+		}
+
 	}
 
 	//Get all the FileSystem handler that is accessable by this user
@@ -41,8 +45,12 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 		for _, store := range pg.StoragePool.Storages {
 			//Get each of the storage of this permission group is assigned to
 			if !inSlice(uuids, store.UUID) {
-				results = append(results, store)
-				uuids = append(uuids, store.UUID)
+				if store.Closed == false {
+					//Only return opened file system handlers
+					results = append(results, store)
+					uuids = append(uuids, store.UUID)
+				}
+
 			}
 		}
 	}
@@ -72,6 +80,11 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 	for _, storage := range userFsHandlers {
 		if storage.UUID == vid {
 			//This storage is the one we are looking at
+
+			//Check if this has been closed
+			if storage.Closed == true {
+				return "", errors.New("Request Filesystem Handler has been closed by another process")
+			}
 			if storage.Hierarchy == "user" {
 				return filepath.Clean(storage.Path) + "/users/" + u.Username + subpath, nil
 			} else {
@@ -141,6 +154,9 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 		}
 		if pathContained == true {
 			//This storage is one of the root of the given realpath. Translate it into this
+			if storage.Closed == true {
+				return "", errors.New("Request Filesystem Handler has been closed by another process")
+			}
 			return storage.UUID + ":/" + subPath, nil
 		}
 

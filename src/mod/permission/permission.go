@@ -18,6 +18,7 @@ type PermissionGroup struct {
 	DefaultStorageQuota    int64
 	AccessibleModules      []string
 	StoragePool            *storage.StoragePool
+	parent                 *PermissionHandler
 }
 
 type PermissionHandler struct {
@@ -164,6 +165,7 @@ func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storag
 		DefaultInterfaceModule: interfaceModule,
 		DefaultStorageQuota:    storageQuota,
 		StoragePool:            &storage.StoragePool{},
+		parent:                 h,
 	}
 
 	//Write it to database
@@ -184,10 +186,10 @@ func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storag
 	return &newGroup
 }
 
-func (h *PermissionHandler) GetPermissionGroupByIDs(ids []string) []*PermissionGroup {
+func (h *PermissionHandler) GetPermissionGroupByNameList(namelist []string) []*PermissionGroup {
 	results := []*PermissionGroup{}
 	for _, gp := range h.PermissionGroups {
-		if inSlice(ids, gp.Name) {
+		if inSlice(namelist, gp.Name) {
 			thisPointer := gp
 			results = append(results, thisPointer)
 		}

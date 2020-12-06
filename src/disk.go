@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 
+	"imuslab.com/arozos/mod/disk/diskmg"
 	diskspace "imuslab.com/arozos/mod/disk/diskspace"
 	smart "imuslab.com/arozos/mod/disk/smart"
 	sortfile "imuslab.com/arozos/mod/disk/sortfile"
@@ -45,69 +46,92 @@ func DiskServiceInit() {
 		RequireAdmin: false,
 	})
 
-	registerSetting(settingModule{
-		Name:         "Disk Space",
-		Desc:         "System Storage Space on Disks",
-		IconPath:     "SystemAO/disk/space/img/small_icon.png",
-		Group:        "Disk",
-		StartDir:     "SystemAO/disk/space/diskspace.html",
-		RequireAdmin: false,
-	})
+	if *allow_hardware_management {
+		//Displaying remaining space on disk, only enabled when allow hardware is true
+		registerSetting(settingModule{
+			Name:         "Disk Space",
+			Desc:         "System Storage Space on Disks",
+			IconPath:     "SystemAO/disk/space/img/small_icon.png",
+			Group:        "Disk",
+			StartDir:     "SystemAO/disk/space/diskspace.html",
+			RequireAdmin: false,
+		})
+	}
 
 	//Register Disk SMART services
 	if sudo_mode {
-		//Create a new smart listerner
-		smartListener, err := smart.NewSmartListener()
-		if err != nil {
-			//Listener creation failed
-			log.Println("Failed to create SMART listener: " + err.Error())
-		} else {
-			//Listener created. Register endpoints
-			//Create a new admin router
-			adminRouter := prout.NewModuleRouter(prout.RouterOption{
-				ModuleName:  "System Setting",
-				AdminOnly:   true,
-				UserHandler: userHandler,
-				DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-					sendErrorResponse(w, "Permission Denied")
-				},
-			})
+		//Create a new admin router
+		adminRouter := prout.NewModuleRouter(prout.RouterOption{
+			ModuleName:  "System Setting",
+			AdminOnly:   true,
+			UserHandler: userHandler,
+			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+				sendErrorResponse(w, "Permission Denied")
+			},
+		})
 
-			//Register as a system setting
-			registerSetting(settingModule{
-				Name:         "Disk SMART",
-				Desc:         "HardDisk Health Checking",
-				IconPath:     "SystemAO/disk/smart/img/small_icon.png",
-				Group:        "Disk",
-				StartDir:     "SystemAO/disk/smart/smart.html",
-				RequireAdmin: true,
-			})
+		/*
+			SMART Listener
+			Handle disk SMART and disk information
 
-			/*
+			See disk/SMART for more information
+		*/
+		if *allow_hardware_management {
+			smartListener, err := smart.NewSmartListener()
+			if err != nil {
+				//Listener creation failed
+				log.Println("Failed to create SMART listener: " + err.Error())
+			} else {
+				//Listener created. Register endpoints
+
+				//Register as a system setting
 				registerSetting(settingModule{
-					Name:         "SMART Log",
-					Desc:         "HardDisk Health Log",
+					Name:         "Disk SMART",
+					Desc:         "HardDisk Health Checking",
 					IconPath:     "SystemAO/disk/smart/img/small_icon.png",
 					Group:        "Disk",
-					StartDir:     "SystemAO/disk/smart/log.html",
+					StartDir:     "SystemAO/disk/smart/smart.html",
 					RequireAdmin: true,
 				})
-			*/
 
-			adminRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
-			adminRouter.HandleFunc("/system/disk/smart/getSMARTTable", smartListener.CheckDiskTable)
-			adminRouter.HandleFunc("/system/disk/smart/getLogInfo", smartListener.CheckDiskTestStatus)
+				/*
+					registerSetting(settingModule{
+						Name:         "SMART Log",
+						Desc:         "HardDisk Health Log",
+						IconPath:     "SystemAO/disk/smart/img/small_icon.png",
+						Group:        "Disk",
+						StartDir:     "SystemAO/disk/smart/log.html",
+						RequireAdmin: true,
+					})
+				*/
+
+				adminRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
+				adminRouter.HandleFunc("/system/disk/smart/getSMARTTable", smartListener.CheckDiskTable)
+				adminRouter.HandleFunc("/system/disk/smart/getLogInfo", smartListener.CheckDiskTestStatus)
+			}
+		}
+
+		/*
+			Disk Manager Initialization
+			See disk/diskmg.go for more details
+
+			For setting register, see setting.advance.go
+		*/
+
+		if *allow_hardware_management {
+			adminRouter.HandleFunc("/system/disk/diskmg/view", diskmg.HandleView)
+			adminRouter.HandleFunc("/system/disk/diskmg/platform", diskmg.HandlePlatform)
+			adminRouter.HandleFunc("/system/disk/diskmg/mount", func(w http.ResponseWriter, r *http.Request) {
+				//Mount option require passing in all filesystem handlers
+				diskmg.HandleMount(w, r, fsHandlers)
+			})
+			adminRouter.HandleFunc("/system/disk/diskmg/format", func(w http.ResponseWriter, r *http.Request) {
+				//Format option require passing in all filesystem handlers
+				diskmg.HandleFormat(w, r, fsHandlers)
+			})
+			adminRouter.HandleFunc("/system/disk/diskmg/mpt", diskmg.HandleListMountPoints)
 		}
 
 	}
 
-	//Register external connection protocol
-	registerSetting(settingModule{
-		Name:         "FTP Server",
-		Desc:         "File Transfer Protocol Server",
-		IconPath:     "SystemAO/disk/smart/img/small_icon.png",
-		Group:        "Disk",
-		StartDir:     "SystemAO/disk/ftp.html",
-		RequireAdmin: true,
-	})
 }

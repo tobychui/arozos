@@ -81,6 +81,7 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 
 		//Time out and the file is still busy
 		if rh.fileIsBusy(file) {
+			log.Println("Process racing for cache file. Skipping", file)
 			return "", errors.New("Process racing for cache file. Skipping")
 		}
 
@@ -90,6 +91,7 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 	} else {
 		//This file not exists yet. Check if it is being hold by another process already
 		if rh.fileIsBusy(file) {
+			log.Println("Process racing for cache file. Skipping", file)
 			return "", errors.New("Process racing for cache file. Skipping")
 		}
 	}
@@ -116,6 +118,13 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 	vidFormats := []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
 	if inArray(vidFormats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForVideo(cacheFolder, file, generateOnly)
+		rh.renderingFiles.Delete(file)
+		return img, err
+	}
+
+	modelFormats := []string{".stl", ".obj"}
+	if inArray(modelFormats, strings.ToLower(filepath.Ext(file))) {
+		img, err := generateThumbnailForModel(cacheFolder, file, generateOnly)
 		rh.renderingFiles.Delete(file)
 		return img, err
 	}

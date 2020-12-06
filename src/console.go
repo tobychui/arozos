@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 )
 
@@ -17,6 +18,15 @@ func consoleCommandHandler(input string) string {
 	if len(chunk) > 0 && chunk[0] == "auth" {
 		if matchSubfix(chunk, []string{"auth", "new"}, 4, "auth new {username} {password}") {
 			return "Creating a new user " + chunk[2] + " with password " + chunk[3]
+		} else if matchSubfix(chunk, []string{"auth", "dump"}, 4, "auth dump {filename}.csv") {
+			filename := chunk[2]
+			fmt.Println("Dumping user list to " + filename + " csv file")
+			csv := authAgent.ExportUserListAsCSV()
+			err := ioutil.WriteFile(filename, []byte(csv), 0755)
+			if err != nil {
+				return err.Error()
+			}
+			return "OK"
 		}
 	} else if len(chunk) > 0 && chunk[0] == "permission" {
 		if matchSubfix(chunk, []string{"permission", "list"}, 2, "") {

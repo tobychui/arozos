@@ -5,10 +5,11 @@ go 1.13
 require (
 	github.com/andybalholm/brotli v1.0.0 // indirect
 	github.com/boltdb/bolt v1.3.1
-	github.com/cssivision/reverseproxy v0.0.1
 	github.com/dhowden/tag v0.0.0-20200828214007-46e57f75dbfc
 	github.com/disintegration/imaging v1.6.2
 	github.com/fclairamb/ftpserverlib v0.8.0
+	github.com/fogleman/fauxgl v0.0.0-20200818143847-27cddc103802
+	github.com/fogleman/simplify v0.0.0-20170216171241-d32f302d5046 // indirect
 	github.com/frankban/quicktest v1.10.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.1.0
 	github.com/gorilla/sessions v1.2.0
@@ -31,15 +32,15 @@ require (
 	github.com/smartystreets/cproxy v1.0.2
 	github.com/smartystreets/logging v1.1.1 // indirect
 	github.com/spf13/afero v1.3.1
+	github.com/tidwall/pretty v1.0.2
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/valyala/fasttemplate v1.1.0
-	github.com/yob/graval v0.0.0-20201010093616-ea9d2ebc6462
 	gitlab.com/NebulousLabs/fastrand v0.0.0-20181126182046-603482d69e40 // indirect
 	gitlab.com/NebulousLabs/go-upnp v0.0.0-20181011194642-3a71999ed0d3
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
-	golang.org/x/text v0.3.3
+	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )

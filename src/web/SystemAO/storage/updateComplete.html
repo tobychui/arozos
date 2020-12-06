@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <title>Storage Pool Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+        body{
+            background-color: rgba(0,0,0,0);
+        }
+    </style>
+</head>
+<body>
+    <div class="ui basic modal">
+        <div class="ui icon header">
+          <i class="green checkmark icon"></i>
+          Setting Updated
+        </div>
+        <div class="content">
+          <p>File System Handler options updated. Some options might require a reboot to take effect.</p>
+        </div>
+        <div class="actions">
+            <div id="reloadpoolbtn" class="ui ok inverted button" onclick="reloadPool()">
+                Reload Pool and Exit
+            </div>
+          <div class="ui green ok inverted button" onclick="handleExit()">
+                Exit
+          </div>
+        </div>
+      </div>
+      <div id="loader" class="ui active dimmer" style="display: none;">
+        <div class="ui text loader">Reloading Storage Pool</div>
+      </div>
+    <script>
+        $(".ui.modal").modal("show");
+        $(".ui.modal").modal({
+    		backdrop: 'static',
+    		keyboard: false
+		});
+        $('.ui.modal').modal("set active",false);
+        if (window.location.hash.length == 0){
+            //Invalid usage.
+            $("#reloadpoolbtn").remove();
+        }
+
+        function reloadPool(){
+            var groupname = window.location.hash.substr(1);
+            $("#loader").show();
+            $.ajax({
+                url: "../../system/storage/pool/reload",
+                data: {pool: groupname},
+                success: function(data){
+                    console.log(data);
+                    setTimeout(function(){
+                        handleExit();
+                    },1000);  
+                },
+                error: function(){
+                    alert("Reload Failed: Server is not responding")
+                }
+            });
+        }
+
+        function handleExit(){
+            ao_module_parentCallback(true);
+            ao_module_close();
+        }
+    </script>
+</body>
+</html>

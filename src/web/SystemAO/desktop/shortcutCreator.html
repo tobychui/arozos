@@ -206,7 +206,11 @@
         function createModuleShortcut(){
             var moduleInfo =  JSON.parse(decodeURIComponent($("#moduleList").val()));
             //Use the startup path for embeded > fw > default
-            generateShortcutFile("module",moduleInfo.Name, moduleInfo.Name, moduleInfo.IconPath);
+            var moduleIcon = moduleInfo.IconPath;
+            if (imageExists("../../" + moduleIcon.replace("small_icon","desktop_icon"))){
+                moduleIcon = moduleIcon.replace("small_icon","desktop_icon");
+            }
+            generateShortcutFile("module",moduleInfo.Name, moduleInfo.Name, moduleIcon);
             $(".stageTwo").slideUp();
             $("#stepTwoState").addClass("completed");
             $("#stepThree").slideDown();
@@ -236,6 +240,13 @@
                     }
                 }
             })
+        }
+
+        function imageExists(image_url){
+            var http = new XMLHttpRequest();
+            http.open('HEAD', image_url, false);
+            http.send();
+            return http.status != 404;
         }
 
         function createURLShortcut(){

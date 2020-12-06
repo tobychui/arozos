@@ -36,16 +36,28 @@ func NetworkServiceInit() {
 	*/
 
 	//Register handler endpoints
-	router.HandleFunc("/system/network/getNICinfo", network.GetNICInfo)
-	router.HandleFunc("/system/network/getPing", network.GetPing)
+	if *allow_hardware_management {
+		router.HandleFunc("/system/network/getNICinfo", network.GetNICInfo)
+		router.HandleFunc("/system/network/getPing", network.GetPing)
 
-	//Register as a system setting
+		//Register as a system setting
+		registerSetting(settingModule{
+			Name:     "Network Info",
+			Desc:     "System Information",
+			IconPath: "SystemAO/network/img/ethernet.png",
+			Group:    "Network",
+			StartDir: "SystemAO/network/hardware.html",
+		})
+	}
+
+	//Register external connection protocol
 	registerSetting(settingModule{
-		Name:     "Network Info",
-		Desc:     "System Information",
-		IconPath: "SystemAO/network/img/ethernet.png",
-		Group:    "Network",
-		StartDir: "SystemAO/network/hardware.html",
+		Name:         "FTP Server",
+		Desc:         "File Transfer Protocol Server",
+		IconPath:     "SystemAO/disk/smart/img/small_icon.png",
+		Group:        "Network",
+		StartDir:     "SystemAO/disk/ftp.html",
+		RequireAdmin: true,
 	})
 
 	/*
@@ -154,7 +166,7 @@ func StartNetworkServices() {
 }
 
 func StopNetworkServices() {
-	log.Println("Restarting Network Services...")
+	//log.Println("Shutting Down Network Services...")
 	//Shutdown uPNP service if enabled
 	if *allow_upnp {
 		log.Println("\r- Shutting down uPNP service")
