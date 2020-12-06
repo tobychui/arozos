@@ -1,4 +1,4 @@
-# ArOZ Online Documentation Rendering Interface
+# ArozOS Documentation Rendering Interface
 This is the documentation rendering script for ArOZ Online Documentation System.
 The json files follow the following structure
 
@@ -14,4 +14,4 @@ For example:
 More lines here
 ```
 
-The reader.php will then render the JSON content into css + HTML. All image should be placed inside /img directory under the /docs documentation root folder.
+The reader.html will then render the JSON content into css + HTML. All image should be placed inside /img directory under the /docs documentation root folder.
