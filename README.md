@@ -5,6 +5,24 @@
 ## IMPORTANT NOTES
 The current arozos is still under intense developmenet. System structure might change at any time. Please only develop on the current existsing ArOZ Gateway Interface (AGI) JavaScript Interface or standard HTML webapps with ao_module.js endpoints.
 
+## Features
+### User Interface
+- Web Desktop Interface (Similar to Synology DSM)
+- Ubuntu remix Windows style startup menu and task bars
+- Clean and easy to use File Manager (Support drag drop, upload etc)
+- Simplistic System Setting Menu
+- No-bull-shit module naming scheme
+### Networking 
+- FTP Server
+- WebDAV Server
+- Samba (Supported via 3rd party sub-services)
+- WiFi Management (Support wpa_supplicant for Rpi or nmcli for Armbian)
+### File / Disk Management
+- Mount / Format Disk Utilities (support NTFS, EXT4 and more!)
+- Virtual File System Architecture
+- File Sharing (Similar to Google Drive)
+- Basic File Operations with Real-time Progress (Copy / Cut / Paste / New File or Folder etc)
+
 ## Installation
 Require GO 1.14 or above
 
