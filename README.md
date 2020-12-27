@@ -153,9 +153,8 @@ The ArOZ AJGI / AGI interface provide a javascript programmable interface for Ar
 plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
 (also named the module root). See more details in the [AJGI Documentation](AJGI Documentation.md).
 
-
-## Q&A
-TO BE ADDED
+## Community / Q&A
+Find us on [Telegram](https://t.me/ArOZBeta)! We welcome all kind of feedbacks and questions.
 
 ## Buy me a coffee
 Actually I don't drink coffee.
