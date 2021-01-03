@@ -11,8 +11,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -33,6 +35,7 @@ type Options struct {
 	Database    *database.Database
 	UserHandler *user.UserHandler
 	HostName    string
+	TmpFolder   string
 }
 
 type ShareOption struct {
@@ -233,7 +236,93 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 		//Serve the download page
 		if isDir(shareOption.FileRealPath) {
-			w.Write([]byte("WIP"))
+			type File struct {
+				Filename string
+				RelPath  string
+				Filesize string
+				IsDir    bool
+			}
+			if directDownload == true {
+				//Download this folder as zip
+				//Build the filelist to download
+
+				//Create a zip using ArOZ Zipper, tmp zip files are located under tmp/share-cache/*.zip
+				tmpFolder := s.options.TmpFolder
+				tmpFolder = filepath.Join(tmpFolder, "share-cache")
+				os.MkdirAll(tmpFolder, 0755)
+				targetZipFilename := filepath.Join(tmpFolder, filepath.Base(shareOption.FileRealPath)) + ".zip"
+
+				//Build a filelist
+				err := fs.ArozZipFile([]string{shareOption.FileRealPath}, targetZipFilename, false)
+				if err != nil {
+					//Failed to create zip file
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("500 - Internal Server Error: Zip file creation failed"))
+					log.Println("Failed to create zip file for share download: " + err.Error())
+					return
+				}
+
+				//Serve thje zip file
+				w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(shareOption.FileRealPath)), "+", "%20")+".zip")
+				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+				http.ServeFile(w, r, targetZipFilename)
+
+			} else {
+				//Show download page. Do not allow serving
+				content, err := ioutil.ReadFile("./system/share/downloadPageFolder.html")
+				if err != nil {
+					http.NotFound(w, r)
+					return
+				}
+
+				//Get file size
+				fsize, fcount := fs.GetDirctorySize(shareOption.FileRealPath, false)
+
+				//Build the filelist of the root folder
+				rawFilelist, _ := fs.WGlob(filepath.Clean(shareOption.FileRealPath) + "/*")
+
+				rootVisableFiles := []File{}
+				for _, file := range rawFilelist {
+					if filepath.Base(file)[:1] != "." {
+						//Not hidden folder.
+						fileSize := fs.GetFileSize(file)
+						if fs.IsDir(file) {
+							fileSize, _ = fs.GetDirctorySize(file, false)
+						}
+
+						rootVisableFiles = append(rootVisableFiles, File{
+							Filename: filepath.Base(file),
+							RelPath:  "/",
+							Filesize: fs.GetFileDisplaySize(fileSize, 2),
+							IsDir:    fs.IsDir(file),
+						})
+					}
+				}
+
+				js, _ := json.Marshal(rootVisableFiles)
+
+				//Get modification time
+				fmodtime, _ := fs.GetModTime(shareOption.FileRealPath)
+				timeString := time.Unix(fmodtime, 0).Format("02-01-2006 15:04:05")
+
+				t := fasttemplate.New(string(content), "{{", "}}")
+				s := t.ExecuteString(map[string]interface{}{
+					"hostname":    s.options.HostName,
+					"reqid":       id,
+					"mime":        "application/x-directory",
+					"size":        fs.GetFileDisplaySize(fsize, 2),
+					"filecount":   strconv.Itoa(fcount),
+					"modtime":     timeString,
+					"downloadurl": "/share?id=" + id + "&download=true",
+					"filename":    filepath.Base(shareOption.FileRealPath),
+					"reqtime":     strconv.Itoa(int(time.Now().Unix())),
+					"filelist":    js,
+				})
+
+				w.Write([]byte(s))
+				return
+
+			}
 		} else {
 			if directDownload == true {
 				//Serve the file directly

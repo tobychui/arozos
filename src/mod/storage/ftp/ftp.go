@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 
 	ftp "github.com/fclairamb/ftpserverlib"
@@ -29,7 +30,7 @@ type mainDriver struct {
 }
 
 //NewFTPHandler creates a new handler for FTP Server as a wrapper to the ftpserverlib
-func NewFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, tmpFolder string) (*Handler, error) {
+func NewFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, tmpFolder string, PassiveModeIP string) (*Handler, error) {
 	//Create table for ftp if it doesn't exists
 	db := userHandler.GetDatabase()
 	db.NewTable("ftp")
@@ -38,9 +39,10 @@ func NewFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, t
 	server := ftp.NewFtpServer(&mainDriver{
 		setting: ftp.Settings{
 			ListenAddr: ":" + strconv.Itoa(Port),
+			PublicHost: strings.TrimSpace(PassiveModeIP),
 			PassiveTransferPortRange: &ftp.PortRange{
-				Start: 12810,
-				End:   12910,
+				Start: Port + 1,
+				End:   Port + 2,
 			},
 		},
 		userHandler:       userHandler,

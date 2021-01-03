@@ -62,6 +62,21 @@
                 <div class="editor"  editorUID="subEditor" onclick="focusThisEditor(this);"></div>
                 <div class="editorcover" editorUID="subEditor" onclick="focusThisEditor(this);"></div>
             </div>
+            <div id="terminals" style="display:none;">
+                <div class="menubar"> 
+                    <p>TERMINAL</p> 
+                    <div style="position: absolute; right: 12px;">
+                        <i style="cursor: pointer;" onclick="restartTerminal();" class="refresh icon"></i>
+                        <i style="cursor: pointer;" onclick="closeTerminal();" class="remove icon"></i>
+                    </div>
+                    
+                </div>
+                <div class="terminalWindow focused">
+                    <iframe id="initTerminal" src="../SystemAO/wstty/console.html">
+
+                    </iframe>
+                </div>
+            </div>
         </div>
         <div class="bottommenu">
             <div class="item"><i class="exchange icon"></i><span id="pingStatus"></span></div>
@@ -145,15 +160,65 @@
             let loadedModels = [];                  //Loaded models. Prevent duplicate loading problem
             let focusedFileInfo = [];
             let files = ao_module_loadInputFiles(); //Files imported from file system
-            //Clearn window hash
-            window.location.hash = "";
-            
-            //Initiation functions
-            initEditor($("#ca1").find(".editor")[0], "mainEditor", files);
+
+            //Terminal realted
+            let terminalStartingEndpoint = "../SystemAO/wstty/console.html";
+
+            //Initiation functions  
+            initEditor($("#ca1").find(".editor")[0], "mainEditor", files, restoreEditorState);
             initEditor($("#ca2").find(".editor")[0],"subEditor");
 
             //Load ready page into the editorCover
             $(".editorcover").load("home.html");
+
+            //Get system info to determind the terminal endpoint
+            $.get("../system/info/getArOZInfo", function(data){
+                if (data.HostOS == "windows"){
+                    terminalStartingEndpoint = "../SystemAO/wstty/console.html";
+                }else if (data.HostOS == "linux"){
+                    terminalStartingEndpoint = "../wstty/";
+                    $("#initTerminal").attr('src', terminalStartingEndpoint);
+
+                }
+            });
+           
+
+            //Restore the previous editor state
+            function restoreEditorState(editor){
+                //Load previous state if exists
+                if (window.location.hash.length > 1){
+                    var stateString = window.location.hash.substr(1);
+                    var oldState = JSON.parse(decodeURIComponent(stateString));
+
+                    //Load the previous statue opened folder
+                    if (oldState.folder !== undefined){
+                        //Load the previous opened folder
+                        var predictedName = oldState.folder.split("/").pop();
+                        if (oldState.folder.substr(oldState.folder.length -1) == "/"){
+                            var tmp = oldState.folder.split("/");
+                            tmp.pop();
+                            predictedName = tmp.pop();
+                        }
+                        
+                        openProjectFolder([{
+                            filename: predictedName,
+                            filepath: oldState.folder
+                        }], false);
+                    }
+
+                    //Open previous opened files
+                    if (oldState.files !== undefined){
+                        oldState.files.forEach(filepath => {
+                            openFile(filepath, false);
+                        })
+                    }
+
+                    //Open terminal if it is enabled previously
+                    if (oldState.terminal !== undefined && oldState.terminal == true){
+                        openTerminal();
+                    }
+                }
+            }
             
             //Restore previous editor states
             function restoreUserPreference(){
@@ -494,8 +559,11 @@
                         <div class="item">Open in floatWindow
                             <div class="tips"><i class="window restore outline icon"></i></div>
                         </div>
-                        <div class="item">Reveal in File Manager 
+                        <div class="item" onclick="openFileInFileManager();">Reveal in File Manager 
                             <div class="tips"><i class="folder outline icon"></i></div>
+                        </div>
+                        <div class="item" onclick="openTerminal();">Open Terminal
+                            <div class="tips"><i class="code icon"></i></div>
                         </div>
                         <div class="divider"></div>
                         <div class="item">Download
@@ -602,7 +670,7 @@
             }
 
             //open a file with a new editor by the given filepath
-            function openFile(filepath){
+            function openFile(filepath, updateHashStatus=true){
                 //Get the focused editor
                 var targetEditorGroup = undefined;
                 for (var i =0; i < editors.length; i++){
@@ -710,95 +778,16 @@
                     //Hide the editorCover
                     var ca = getCodeAreaFromEditorUUID(editorUUID);
                     $(ca).find(".editorcover").hide();
-                });
 
-                /*
-                $.ajax({
-                    url: "../media/?file=" + encodeURIComponent(filepath) + "#" + Date.now(),
-                    success: function(filecontent){
-                        //Get the target Opening Editor
-                        let targetOpeningEditor;
-                        for (var i = 0; i < editors.length; i++){
-                            if (editors[i].uuid == focusedEditor){
-                                targetOpeningEditor = editors[i];
-                            }
-                        }
-                        if (typeof targetOpeningEditor === undefined){
-                            console.log("Error when trying to get editor info")
-                            return;
-                        }
-                        //Load the editor instances
-                        var editor = targetOpeningEditor.editor;
-                        var editorUUID = targetOpeningEditor.uuid;
-                        var models = targetOpeningEditor.model;
-                        var states = targetOpeningEditor.state;
-                        var currentTabUUID = targetOpeningEditor.currentTabUUID;
-                        var targetTabMenu =  targetOpeningEditor.tabsMenu;
-
-                        //Save the current editor status into the data
-                        var currentState = editor.saveViewState();
-                        var currentModel = editor.getModel();
-                        states[currentTabUUID] = currentState;
-                        models[currentTabUUID] = currentModel;
-                        
-                        //Create a tab for this file
-                        var tabUUID = new Date().getTime();
-                        var filename = filepath.split("/").pop();
-                        $(targetTabMenu).find(".item.selected").removeClass("selected");
-                        $(targetTabMenu).append(`<div class="item selected" uuid="${tabUUID}"  editorUUID="${editorUUID}"><i class="code file icon"></i> ${filename} <div class="closebtn"><i class="remove icon"></i></i></div></div>`);
-
-                        //Add this tab into the open editor list
-                        $("#openeditors .item").removeClass("selected");
-                        $("#openeditors").append(`<div class="item selected" uuid="${tabUUID}" editorUUID="${editorUUID}"><div class="closebtn" style="display:inline-block;"><i class="remove icon"></i></div> <i class="code file icon"></i> ${filename} </div>`);
-
-                        //Update the current tag information
-                        targetOpeningEditor.currentTabUUID = tabUUID
-
-                        //Push the current tab into the array of tabs
-                        targetOpeningEditor.tabs.push({
-                            filename: filename,
-                            filepath: filepath,
-                            tabUUID: tabUUID,
-                            saveHash: filecontent.hashCode()
-                        });
-
-                         //Update title if nonVDI or update floatWindow title if under fdi
-                        if (ao_module_virtualDesktop){
-                            ao_module_setWindowTitle("NotepadA - " + filename);
-                        }else{
-                            document.title = "NotepadA - " + filename;
-                        }
-
-
-                        //Check if model is loaded before
-                        var model;
-                        if (loadedModels[filepath] === undefined){
-                             //Set the editor value and do model auto lanuage detection
-                            model = monaco.editor.createModel(
-                                filecontent,
-                                undefined,
-                                monaco.Uri.file("../media?file=" + encodeURIComponent(filepath))
-                            )
-                            loadedModels[filepath] = model;
-                        }else{
-                            //Load the already loaded model
-                            model = loadedModels[filepath];
-                        }
-                        editor.setModel(model)
-
-                        //Bind tab events
-                        bindTabItemEvents();
-
-                        //Update file info tab
-                        var tabInfo = getFocusedTabInfo();
-                        updateFileStatusDisplay(tabInfo.filepath);
-
-                        //Hide the editorCover
-                        var ca = getCodeAreaFromEditorUUID(editorUUID);
-                        $(ca).find(".editorcover").hide();
+                    //Write the opened filelist to window hash
+                    if (updateHashStatus){
+                        var currentState = getHashObject();
+                        currentState["files"] = getOpenedFiles();
+                        console.log(currentState);
+                        writeHashObject(currentState);
                     }
+                  
                 });
-                */
             }
 
             function hash(s){
@@ -827,7 +816,7 @@
                 }
             }
 
-            function openProjectFolder(filedata){
+            function openProjectFolder(filedata, rewriteHash=true){
                 for (var i=0; i < filedata.length; i++){
                     folderpath = filedata[i].filepath;
                     foldername = filedata[i].filename;
@@ -867,6 +856,13 @@
                         $("#directoryExplorer").append(folders.join(""));
                         $("#directoryExplorer").append(files.join(""));
                     });
+
+                    if (rewriteHash){
+                        var currentState = getHashObject();
+                        currentState["folder"] = foldername;
+                        writeHashObject(currentState);
+                    }
+
                 }
             }
 
@@ -944,7 +940,7 @@
             }
 
             //Initiate an editor with the given uuid and targetDOM
-            function initEditor(targetDOM, editorUUID, loadPendingFiles = []){
+            function initEditor(targetDOM, editorUUID, loadPendingFiles = [], callback=undefined){
                 require.config({ paths: { 'vs': 'script/monaco/vs' }});
                 window.GlobalEnvironment = { getWorkerUrl: () => proxy };
 
@@ -1003,8 +999,109 @@
                     //Initialize user settings
                     restoreUserPreference();
 
+                    //Perform callback with editor object if required
+                    if (callback !== undefined){
+                        callback(editor);
+                    }
                 });
                 
+              
+            }
+
+            /*
+                Terminal Function Related
+
+            */
+
+            function terminalInit(){
+                $(".ui.dropdown").dropdown();
+            }
+
+            var codeAreaBottomOffset = 0;
+            function openTerminal(){
+                //Open WsTTY on the editor
+                codeAreaBottomOffset = 300;
+                $("#terminals").show();
+                updateCodeAreaSize();
+                hideContextMenu();
+                updateStatusHash("terminal",true);
+            }
+
+            function closeTerminal(){
+                codeAreaBottomOffset = 0;
+                $("#terminals").hide();
+                updateCodeAreaSize();
+                updateStatusHash("terminal",false);
+            }
+
+            function restartTerminal(){
+                $("#terminals").find(".terminalWindow.focused").find("iframe").attr("src","");
+                setTimeout(function(){
+                    $("#terminals").find(".terminalWindow.focused").find("iframe").attr("src",terminalStartingEndpoint);
+                }, 1000);
+                
+            }
+
+            $(window).on("resize", function(data){
+                updateCodeAreaSize();
+            });
+
+            updateCodeAreaSize();
+            function updateCodeAreaSize(){
+                $("#codeArea").css({
+                    "height":window.innerHeight - 52 - codeAreaBottomOffset
+                });
+
+                editors.forEach(editor => {
+                    editor.editor.layout();
+                })
+                
+            }
+
+            function openFileInFileManager(){
+                var tabInfo = getFocusedTabInfo();
+                var filepath = tabInfo.filepath;
+                //Extract the parent dir
+                var folderPath = "";
+                if (filepath.substr(filepath.length -1) == "/"){
+                    var tmp = filepath.split("/");
+                    tmp.pop();
+                    folderPath = tmp.pop();
+                }else{
+                    folderPath = filepath.split("/").pop();
+                }
+                ao_module_openPath(folderPath);
+            }
+
+            function getHashObject(){
+                if (window.location.hash.length > 1){
+                    var stateString = window.location.hash.substr(1);
+                    var currentState = JSON.parse(decodeURIComponent(stateString));
+                    return currentState
+                }else{
+                    return {};
+                }
+            }
+
+            function writeHashObject(newStateObject){
+                window.location.hash = JSON.stringify(newStateObject);
+            }
+
+            function updateStatusHash(key, value){
+                var currentState = getHashObject();
+                currentState[key] = value;
+                writeHashObject(currentState);
+            }
+
+            function getOpenedFiles(){
+                var openedFilepaths = [];
+                editors.forEach(editor => {
+                    editor.tabs.forEach(tab => {
+                        openedFilepaths.push(tab.filepath);
+                    })
+                });
+
+                return openedFilepaths;
             }
 
             function changeTab(editorObject, targettabUUID) {

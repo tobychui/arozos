@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"image"
 	"image/jpeg"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -23,7 +22,7 @@ func generateThumbnailForAudio(cacheFolder string, file string, generateOnly boo
 	}
 	m, err := tag.ReadFrom(f)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	if m.Picture() != nil {

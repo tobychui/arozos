@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	wifi "imuslab.com/arozos/mod/network/wifi"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -34,31 +35,108 @@ func WiFiInit() {
 		},
 	})
 
-	//Register endpoints
-	router.HandleFunc("/system/network/scanWifi", network_wifi_handleScan)
-	router.HandleFunc("/system/network/connectWifi", network_wifi_handleConnect)
-	router.HandleFunc("/system/network/removeWifi", network_wifi_handleWiFiRemove)
-	router.HandleFunc("/system/network/wifiinfo", network_wifi_handleWiFiInfo)
+	//Allow hardware management. Generate the endpoint for WiFi Control
+	if *allow_hardware_management {
 
-	//Register WiFi Settings if system have WiFi interface
-	wlanInterfaces, _ := wifiManager.GetWirelessInterfaces()
-	if len(wlanInterfaces) > 0 {
-		//Contain at least 1 wireless interface Register System Settings
-		registerSetting(settingModule{
-			Name:     "WiFi Info",
-			Desc:     "Current Connected WiFi Information",
-			IconPath: "SystemAO/network/img/WiFi.png",
-			Group:    "Network",
-			StartDir: "SystemAO/network/wifiinfo.html",
-		})
-		registerSetting(settingModule{
-			Name:         "WiFi Settings",
-			Desc:         "Setup WiFi Conenctions",
-			IconPath:     "SystemAO/network/img/WiFi.png",
-			Group:        "Network",
-			StartDir:     "SystemAO/network/wifi.html",
-			RequireAdmin: true,
-		})
+		//Register endpoints
+		router.HandleFunc("/system/network/scanWifi", network_wifi_handleScan)
+		router.HandleFunc("/system/network/connectWifi", network_wifi_handleConnect)
+		router.HandleFunc("/system/network/removeWifi", network_wifi_handleWiFiRemove)
+		router.HandleFunc("/system/network/wifiinfo", network_wifi_handleWiFiInfo)
+
+		//Sudo mode only for wifi toggle
+		if sudo_mode {
+			router.HandleFunc("/system/network/power", network_wifi_handleWiFiPower)
+		}
+
+		//Register WiFi Settings if system have WiFi interface
+		wlanInterfaces, _ := wifiManager.GetWirelessInterfaces()
+		if len(wlanInterfaces) > 0 {
+			//Contain at least 1 wireless interface Register System Settings
+			registerSetting(settingModule{
+				Name:     "WiFi Info",
+				Desc:     "Current Connected WiFi Information",
+				IconPath: "SystemAO/network/img/WiFi.png",
+				Group:    "Network",
+				StartDir: "SystemAO/network/wifiinfo.html",
+			})
+			registerSetting(settingModule{
+				Name:         "WiFi Settings",
+				Desc:         "Setup WiFi Conenctions",
+				IconPath:     "SystemAO/network/img/WiFi.png",
+				Group:        "Network",
+				StartDir:     "SystemAO/network/wifi.html",
+				RequireAdmin: true,
+			})
+		}
+	}
+
+}
+
+func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
+	//Require admin permission to scan and connect wifi
+	user, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "Internal Server Error")
+		return
+	}
+
+	if !user.IsAdmin() {
+		sendErrorResponse(w, "Permission Denied")
+		return
+	}
+
+	status, _ := mv(r, "status", true)
+	if status == "" {
+		//Show current power status
+		infs, err := wifiManager.GetWirelessInterfaces()
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+
+		type WlanInterfaceStatus struct {
+			Name    string
+			Running bool
+		}
+
+		results := []WlanInterfaceStatus{}
+		for _, inf := range infs {
+			status, _ := wifiManager.GetInterfacePowerStatuts(strings.TrimSpace(inf))
+			results = append(results, WlanInterfaceStatus{
+				Name:    inf,
+				Running: status,
+			})
+		}
+
+		js, _ := json.Marshal(results);
+		sendJSONResponse(w, string(js))
+
+	} else {
+		//Change current power status
+		wlaninterface, err := mv(r, "interface", true)
+		if err != nil {
+			sendErrorResponse(w, "Invalid interface")
+			return
+		}
+
+		if status == "on" {
+			err := wifiManager.SetInterfacePower(wlaninterface, true)
+			if err != nil {
+				sendErrorResponse(w, err.Error())
+			} else {
+				sendOK(w)
+			}
+		} else if status == "off" {
+			err := wifiManager.SetInterfacePower(wlaninterface, false)
+			if err != nil {
+				sendErrorResponse(w, err.Error())
+			} else {
+				sendOK(w)
+			}
+		} else {
+			sendErrorResponse(w, "Invalid status")
+		}
 	}
 
 }

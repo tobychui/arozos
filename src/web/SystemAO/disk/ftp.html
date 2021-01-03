@@ -42,6 +42,7 @@
                 <div class="ui toggle checkbox">
                     <input id="useUPNP" type="checkbox" name="upnp" onchange="toggleUPNP(this.checked);">
                     <label>Enable UPnP on FTP Server Port</label>
+                    <small>Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
                 </div>
             </div>
             <div class="field">
@@ -50,6 +51,7 @@
                     <input id="listeningPort" type="number" placeholder="21" min="21" onchange="updateFTPPort(this.value)">
                 </div>
             </div>
+           
             <div class="field">
                 <label>Enable FTP access to the following user groups: </label>
                 <select id="grouplist" name="groups" multiple="" class="ui fluid dropdown">
@@ -61,10 +63,36 @@
             <div class="field">
                 <button onclick="updateGroupAccess();" class="ui secondary right floated button">Update Access Policy</button>
             </div>
+            <br><br>
+            <div class="ui divider"></div>
+            <h4>Advance Options</h4>
+            <div class="ui message">
+                <h4><i class="info circle icon"></i>FTP Usage under UPnP Mode</h4>
+                <p>When UPnP Mode is enabled, the FTP Server must be run under force passive mode and it is only accessible outside of your NAT network (aka access from the internet).</p>
+            </div>
+            <br>
+            <div class="field">
+                <div class="ui toggle checkbox">
+                    <input id="passiveMode" type="checkbox" name="passivemode" onchange="handlePassiveModeChange(this.checked);">
+                    <label>Force Passive Mode</label>
+                    <small>Enable this option if your server is hosted behind a NAT router, require manual port forwarding in router.</small>
+                </div>
+            </div>
+            <div class="field">
+                <label>Passive Mode Public IP Address</label>
+                <div class="ui labeled input">
+                    <input id="publicip" type="text">
+                </div>
+                <small>The public IP address of your NAT router. Currently only support IP address.</small>
+            </div>
+            <div class="field">
+                <button onclick="updatePublicIPSetting();" class="ui secondary right floated button">Update Public IP Setting</button>
+            </div>
         </div>
         <br><br>
     </div>
     <script>
+        var serverAllowUPNP = false;
 
         $(document).ready(function(){
             //Load usergroups
@@ -94,20 +122,54 @@
                 }else{
                     if (data.Enabled == true){
                         $("#enabled")[0].checked = true;
+                        $("#useUPNP").parent().removeClass("disabled");
+                    }else{
+                        $("#listeningPort").parent().addClass("disabled");
+                        $("#useUPNP").parent().addClass("disabled");
                     }
 
                     $("#listeningPort").val(data.Port);
 
                     if (data.AllowUPNP == false){
                         $("#useUPNP").parent().addClass("disabled");
+                        serverAllowUPNP = false;
+                    }else{
+                        $("#useUPNP").parent().removeClass("disabled");
+                        serverAllowUPNP = true;
                     }
 
-                    if (data.UPNPEnabled == true){
+                    if (data.FTPUpnpEnabled == true){
                         $("#useUPNP")[0].checked = true;
+
+                        //Disable the chnage of force passive mode and public ip address
+                        $("#passiveMode")[0].checked = true;
+                        $("#passiveMode").parent().addClass("disabled");
+                        $("#publicip").val(data.PublicAddr);
+                        $("#publicip").parent().addClass("disabled");
+                    }else{
+                        $("#useUPNP")[0].checked = false;
+
+                       //Restore to non UPnP passive mode setting
+                        $("#passiveMode")[0].checked = data.PassiveMode;
+                        $("#passiveMode").parent().removeClass("disabled");
+                        $("#publicip").val(data.PublicAddr);
+                        $("#publicip").parent().removeClass("disabled");
                     }
 
                     if (data.UserGroups !== undefined){
                         $('#grouplist').dropdown('set selected', data.UserGroups);
+                    }
+
+                    if (data.PassiveMode){
+                        $("#passiveMode")[0].checked = true;
+                    }else{
+                        $("#passiveMode")[0].checked = false;
+                    }
+
+                    if (data.PublicAddr != ""){
+                        $("#publicip").val(data.PublicAddr);
+                    }else{
+                        $("#publicip").val("");
                     }
 
                 }
@@ -121,6 +183,11 @@
                         showError(data.error);
                     }else{
                         showOK();
+                        if (serverAllowUPNP){
+                            $("#useUPNP").parent().removeClass("disabled");
+                        }
+                        
+                        $("#listeningPort").parent().removeClass("disabled");
                     }
                 });
             }else{
@@ -129,6 +196,8 @@
                         showError(data.error);
                     }else{
                         showOK();
+                        $("#useUPNP").parent().addClass("disabled");
+                        $("#listeningPort").parent().addClass("disabled");
                     }
                 });
             }
@@ -140,7 +209,9 @@
                     if (data.error != undefined){
                         showError(data.error);
                     }else{
-                        showOK();
+                        setTimeout(function(){
+                            handleUpnpStateCheck(true);
+                        }, 1000);
                     }
                 });
             }else{
@@ -148,10 +219,28 @@
                     if (data.error != undefined){
                         showError(data.error);
                     }else{
-                        showOK();
+                        setTimeout(function(){
+                            handleUpnpStateCheck(false);
+                        }, 1000);
                     }
                 });
             }
+        }
+
+        function handleUpnpStateCheck(expectedUPnPState){
+            console.log("Checking UPNP Enabling State")
+            $.get("../../system/storage/ftp/status",function(data){
+                if (data.FTPUpnpEnabled == expectedUPnPState){
+                    //OK
+                    showOK();
+                }else{
+                    //Show error
+                    showError("UPnP Port Forward Request Failed");
+                    $("#useUPNP")[0].checked = false;
+                }
+
+                initFTPServerStatus();
+            });
         }
 
         function updateGroupAccess(){
@@ -167,6 +256,36 @@
                     }else{
                         showOK();
                     }
+                }
+            })
+        }
+
+        function updatePublicIPSetting(){
+            var newip = $("#publicip").val();
+            $.ajax({
+                url: "../../system/storage/ftp/passivemode",
+                data: {set: "ip", "ip": newip},
+                success: function(data){
+                    if (data.error != undefined){
+                        showError(data.error);
+                    }else{
+                        showOK();
+                    }
+                }
+            })
+        }
+
+        function handlePassiveModeChange(value){
+            $.ajax({
+                url: "../../system/storage/ftp/passivemode",
+                data: {set: "mode", "passive": value},
+                success: function(data){
+                    if (data.error != undefined){
+                        showError(data.error);
+                    }else{
+                        showOK();
+                    }
+                    initFTPServerStatus();
                 }
             })
         }

@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	fsp "imuslab.com/arozos/mod/filesystem/fspermission"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	module "imuslab.com/arozos/mod/modules"
@@ -62,6 +63,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/getProperties", system_fs_getFileProperties)
 	router.HandleFunc("/system/file_system/pathTranslate", system_fs_handlePathTranslate)
 	router.HandleFunc("/system/file_system/handleFileWrite", system_fs_handleFileWrite)
+	router.HandleFunc("/system/file_system/handleFilePermission", system_fs_handleFilePermission)
 
 	//Thumbnail caching functions
 	router.HandleFunc("/system/file_system/handleFolderCache", system_fs_handleFolderCache)
@@ -111,12 +113,20 @@ func FileSystemInit() {
 	//Create a RenderHandler for caching thumbnails
 	thumbRenderHandler = metadata.NewRenderHandler()
 
+	/*
+		Share Related Registering
+
+		This section of functions create and register the file share service
+		for the arozos
+
+	*/
 	//Create a share manager to handle user file sharae
 	shareManager = share.NewShareManager(share.Options{
 		AuthAgent:   authAgent,
 		Database:    sysdb,
 		UserHandler: userHandler,
 		HostName:    *host_name,
+		TmpFolder:   *tmp_directory,
 	})
 
 	//Share related functions
@@ -126,6 +136,16 @@ func FileSystemInit() {
 
 	//Handle the main share function
 	http.HandleFunc("/share", shareManager.HandleShareAccess)
+
+	/*
+		Nighly Tasks
+
+		These functions allow file system to clear and maintain
+		the arozos file system when no one is using the system
+	*/
+
+	//Clear tmp folder if files is placed here too long
+	RegisterNightlyTask(system_fs_clearOldTmpFiles)
 }
 
 //Handle upload.
@@ -1716,6 +1736,91 @@ func system_fs_handleFileWrite(w http.ResponseWriter, r *http.Request) {
 
 }
 
+//Handle setting and loading of file permission on Linux
+func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
+	file, err := mv(r, "file", true)
+	if err != nil {
+		sendErrorResponse(w, "Invalid file")
+		return
+	}
+
+	//Translate the file to real path
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+	rpath, err := userinfo.VirtualPathToRealPath(file)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+	newMode, _ := mv(r, "mode", true)
+	if newMode == "" {
+		//Read the file mode
+
+		//Check if the file exists
+		if !fileExists(rpath) {
+			sendErrorResponse(w, "File not exists!")
+			return
+		}
+
+		//Read the file permission
+		filePermission, err := fsp.GetFilePermissions(rpath)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+
+		//Send the file permission to client
+		js, _ := json.Marshal(filePermission)
+		sendJSONResponse(w, string(js))
+	} else {
+		//Set the file mode
+		//Check if the file exists
+		if !fileExists(rpath) {
+			sendErrorResponse(w, "File not exists!")
+			return
+		}
+
+		//Check if windows. If yes, ignore this request
+		if runtime.GOOS == "windows" {
+			sendErrorResponse(w, "Windows host not supported")
+			return
+		}
+
+		//Check if this user has permission to change the file permission
+		//Aka user must be 1. This is his own folder or 2. Admin
+		fsh, _ := userinfo.GetFileSystemHandlerFromVirtualPath(file)
+		if fsh.Hierarchy == "user" {
+			//Always ok as this is owned by the user
+		} else if fsh.Hierarchy == "public" {
+			//Require admin
+			if userinfo.IsAdmin() == false {
+				sendErrorResponse(w, "Permission Denied")
+				return
+			}
+		} else {
+			//Not implemeneted. Require admin
+			if userinfo.IsAdmin() == false {
+				sendErrorResponse(w, "Permission Denied")
+				return
+			}
+		}
+
+		//Be noted that if the system is not running in sudo mode,
+		//File permission change might not works.
+
+		err := fsp.SetFilePermisson(rpath, newMode)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		} else {
+			sendOK(w)
+		}
+	}
+}
+
 //Check if the given filepath is and must inside the given directory path.
 //You can pass both as relative
 func system_fs_checkFileInDirectory(filesourcepath string, directory string) bool {
@@ -1734,6 +1839,41 @@ func system_fs_checkFileInDirectory(filesourcepath string, directory string) boo
 		return true
 	} else {
 		return false
+	}
+
+}
+
+//Clear the old files inside the tmp file
+func system_fs_clearOldTmpFiles() {
+	filesToBeDelete := []string{}
+	tmpAbs, _ := filepath.Abs(*tmp_directory)
+	filepath.Walk(*tmp_directory, func(path string, info os.FileInfo, err error) error {
+		if filepath.Base(path) != "aofs.db" && filepath.Base(path) != "aofs.db.lock" {
+			//Check if root folders. Do not delete root folders
+			parentAbs, _ := filepath.Abs(filepath.Dir(path))
+
+			if tmpAbs == parentAbs {
+				//Root folder. Do not remove
+				return nil
+			}
+			//Get its modification time
+			modTime, err := fs.GetModTime(path)
+			if err != nil {
+				return nil
+			}
+
+			//Check if mod time is more than 24 hours ago
+			if time.Now().Unix()-modTime > int64(*maxTempFileKeepTime) {
+				//Delete OK
+				filesToBeDelete = append(filesToBeDelete, path)
+			}
+		}
+		return nil
+	})
+
+	//Remove all files from the delete list
+	for _, fileToBeDelete := range filesToBeDelete {
+		os.RemoveAll(fileToBeDelete)
 	}
 
 }

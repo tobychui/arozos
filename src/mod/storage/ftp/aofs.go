@@ -218,7 +218,7 @@ func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 //arozos adaptive functions
 //This function rewrite the path from ftp representation to real filepath on disk
 func (a aofs) pathRewrite(path string) (string, *fs.FileSystemHandler, error) {
-	path = filepath.ToSlash(path)
+	path = filepath.ToSlash(filepath.Clean(path))
 	//log.Println("Original path: ", path)
 	if path == "/" {
 		//Roots. Show ftpbuf root
@@ -243,7 +243,7 @@ func (a aofs) pathRewrite(path string) (string, *fs.FileSystemHandler, error) {
 	} else if path == "/README.txt" {
 		tmpfs, _ := a.userinfo.GetFileSystemHandlerFromVirtualPath("tmp:/")
 		return a.tmpFolder + "README.txt", tmpfs, nil
-	} else {
+	} else if len(path) > 0 {
 		//Rewrite the path for any alternative filepath
 		//Get the uuid of the filepath
 		path := path[1:]
@@ -268,6 +268,9 @@ func (a aofs) pathRewrite(path string) (string, *fs.FileSystemHandler, error) {
 
 		//fsh not found.
 		return "", nil, errors.New("Path is READ ONLY")
+	} else {
+		//fsh not found.
+		return "", nil, errors.New("Invalid path")
 	}
 }
 

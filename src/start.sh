@@ -1,2 +1,2 @@
-#/bin/bash
-sudo ./arozos -hostname "Wireless Disk" -port 80 
+#!/bin/bash
+sudo ./arozos -hostname "ArozOS" -port 80

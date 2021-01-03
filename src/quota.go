@@ -1,27 +1,25 @@
 package main
 
 import (
-	"net/http"
 	"encoding/json"
-	"path/filepath"
+	"log"
+	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
-	"log"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	//user "imuslab.com/arozos/mod/user"
 )
 
-func DiskQuotaInit(){
+func DiskQuotaInit() {
 	//Register Endpoints
 	http.HandleFunc("/system/disk/quota/setQuota", system_disk_quota_setQuota)
-	http.HandleFunc("/system/disk/quota/listQuota", system_disk_quota_listQuota)
 	http.HandleFunc("/system/disk/quota/quotaInfo", system_disk_quota_handleQuotaInfo)
 	http.HandleFunc("/system/disk/quota/quotaDist", system_disk_quota_handleFileDistributionView)
 
 	//Register Setting Interfaces
-	//Register interface fow viewing the user storage quota
 	registerSetting(settingModule{
 		Name:     "Storage Quota",
 		Desc:     "User Remaining Space",
@@ -30,37 +28,31 @@ func DiskQuotaInit(){
 		StartDir: "SystemAO/disk/quota/quota.system",
 	})
 
-	//Register interface for admin to setup quota settings
-	/*
-	registerSetting(settingModule{
-		Name:         "Quota Settings",
-		Desc:         "Setup Group Storage Limit",
-		IconPath:     "SystemAO/disk/quota/img/small_icon.png",
-		Group:        "Disk",
-		StartDir:     "SystemAO/disk/quota/manage.html",
-		RequireAdmin: true,
-	})
-	*/
+	//Register the timer for running the global user quota recalculation
+	RegisterNightlyTask(system_disk_quota_updateAllUserQuotaEstimation)
 }
 
-
-//Get a list of quota on user groups and their storage limit
-func system_disk_quota_listQuota(w http.ResponseWriter, r *http.Request) {
-
+//Register the handler for automatically updating all user storage quota
+func system_disk_quota_updateAllUserQuotaEstimation() {
+	registeredUsers := authAgent.ListUsers()
+	for _, username := range registeredUsers {
+		//For each user, update their current quota usage
+		userinfo, _ := userHandler.GetUserInfoFromUsername(username)
+		userinfo.StorageQuota.CalculateQuotaUsage()
+	}
 }
-
 
 //Set the storage quota of the particular user
 func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := userHandler.GetUserInfoFromRequest(w,r)
-	if err != nil{
-		sendErrorResponse(w, "Unknown User");
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "Unknown User")
 		return
 	}
 
 	//Check if admin
-	if !userinfo.IsAdmin(){
-		sendErrorResponse(w, "Permission Denied");
+	if !userinfo.IsAdmin() {
+		sendErrorResponse(w, "Permission Denied")
 		return
 	}
 
@@ -84,16 +76,15 @@ func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 	//Qutasize unit is in MB
 	quotaSize = quotaSize << 20
 
-	log.Println("Updating " + groupname + " to ", quotaSize, "WIP")
-	sendOK(w);
+	log.Println("Updating "+groupname+" to ", quotaSize, "WIP")
+	sendOK(w)
 
 }
 
-
 func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := userHandler.GetUserInfoFromRequest(w,r)
-	if err != nil{
-		sendErrorResponse(w, "Unknown User");
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "Unknown User")
 		return
 	}
 
@@ -115,16 +106,16 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 
 //Get all the users file and see how
 func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := userHandler.GetUserInfoFromRequest(w,r)
-	if err != nil{
-		sendErrorResponse(w, "Unknown User");
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "Unknown User")
 		return
 	}
 
 	fileDist := map[string]int64{}
 	userFileSystemHandlers := userinfo.GetAllFileSystemHandler()
 	for _, thisHandler := range userFileSystemHandlers {
-		if (thisHandler.Hierarchy == "user"){
+		if thisHandler.Hierarchy == "user" {
 			thispath := filepath.ToSlash(filepath.Clean(thisHandler.Path)) + "/users/" + userinfo.Username + "/"
 			filepath.Walk(thispath, func(filepath string, info os.FileInfo, err error) error {
 				if err != nil {
@@ -143,7 +134,7 @@ func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http
 			})
 		}
 	}
-		
+
 	//Sort the file according to the number of files in the
 	type kv struct {
 		Mime string
@@ -163,4 +154,3 @@ func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http
 	jsonString, _ := json.Marshal(ss)
 	sendJSONResponse(w, string(jsonString))
 }
-

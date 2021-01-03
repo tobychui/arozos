@@ -1,0 +1,125 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{hostname}} File Share</title>
+    <link rel="stylesheet" href="script/skeleton/offline.css">
+    <link rel="stylesheet" href="script/skeleton/normalize.css">
+    <link rel="stylesheet" href="script/skeleton/skeleton.css">
+    <script type="application/javascript" src="script/jquery.min.js"></script>
+    <style>
+
+        body{
+            padding-bottom: 100px;
+        }
+        .bar{
+            height: 12px;
+            background-color: #1a1a1a;
+            width: 100%;
+        }
+
+        .footer{
+            position: fixed;
+            bottom: 0px;
+            height: 50px;
+            width: 100%;
+            background-color: #1a1a1a;
+            padding: 20px;
+            color: white;
+        }
+    </style>
+    </head>
+    <body>
+        <div class="bar"></div>
+        <br>
+        <div class="container">
+            <h5>{{hostname}} File Sharing</h5>
+            <h3>{{filename}}</h3>
+            <div class="row">
+                <div class="one-half column">
+                    <table class="u-full-width">
+                        <thead>
+                          <tr>
+                            <th>Property</th>
+                            <th>Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>MIME Type</td>
+                            <td>{{mime}}</td>
+                          </tr>
+                          <tr>
+                            <td>Folder Size</td>
+                            <td>{{size}}</td>
+                          </tr>
+                          <tr>
+                            <td>File Counts</td>
+                            <td>{{filecount}}</td>
+                          </tr>
+                          <tr>
+                            <td>Last Modification Time</td>
+                            <td>{{modtime}}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    <a href="{{downloadurl}}"><button class="button-primary">Download</button></a>
+                    <p style="font-size: 80%;"><b>Depending on folder size, zipping might take a while to complete.</b></p>
+                    <br>
+                    <p>Request File ID: {{reqid}}</p>
+                    <p>Request Timestamp: {{reqtime}}</p>
+                </div>
+                <div class="one-half column" id="filelistWrapper" style="overflow-y: auto; padding-right: 5px;">
+                  <table class="u-full-width">
+                    <thead>
+                      <tr>
+                        <th>Filename</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                      </tr>
+                    </thead>
+                    <tbody id="folderList">
+                     
+                  </table>
+                </div>
+            </div>
+           
+        </div>
+        <div class="footer">
+            <div class="container">
+                Cloud File Sharing Interface, Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
+            </div>
+        </div>
+    <script>
+      var rootFileList = {{filelist}};
+      renderFileList(rootFileList);
+
+      function renderFileList(filelist){
+        $("#folderList").html("");
+        filelist.forEach(file => {
+          var filetype = "File";
+          if (file.IsDir == true){
+            filetype = "Folder";
+          }
+          $("#folderList").append(`<tr>
+              <td>${file.Filename}</td>
+              <td>${filetype}</td>
+              <td>${file.Filesize}</td>
+            </tr>`);
+          });
+      }
+
+      resizeDOMElement();
+      function resizeDOMElement(){
+        $("#filelistWrapper").css({
+          height: window.innerHeight - 300,
+        })
+      }
+
+      $(window).on("resize", function(){
+        resizeDOMElement();
+      })
+    </script>
+    </body>
+</html>

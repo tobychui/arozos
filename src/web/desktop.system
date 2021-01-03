@@ -2740,14 +2740,16 @@
                         fd = JSON.parse(decodeURIComponent(fd));
                         filelist.push({
                             filename: fd.Filename,
-                            filepath: fd.Filepath
+                            filepath: fd.Filepath,
+                            hostUUID: hostInfo.DeviceUUID
                         });
                     });
                 }else{
                     //Only push the one selected
                     filelist.push({
                         filename: filename,
-                        filepath: filepath
+                        filepath: filepath,
+                        hostUUID: hostInfo.DeviceUUID
                     });
                 }
             }else{
@@ -2870,7 +2872,76 @@
                     var desktopFlag = ev.dataTransfer.getData("desktopflag"); 
                     if (desktopFlag == "" || desktopFlag === undefined || desktopFlag == null){
                         //This is a file drag drop from not desktop to desktop
-                        alert("Transfering file from file explorer to desktop. WIP")
+                        var filelist = ev.dataTransfer.getData("filedata");
+                        if (filelist != ""){
+                            filelist = JSON.parse(filelist);
+                            if (filelist.length == 0){
+                                return
+                            }
+
+                            //Get the position for this drop events and arrange grid locations
+                            var gridPosition = gridPositionAllocate(ev.clientX, ev.clientY, filelist.length);
+                            console.log(gridPosition)
+
+                            //Check if source is also from user:/
+                            var srcVroot = filelist[0].filepath.split(":/").shift();
+                            var mode = "copy"
+                            var title = "Copying "
+                            if (srcVroot == "user"){
+                                //Move
+                                mode = "move"
+                                title = "Moving "
+                            }
+
+                            //Check if any of the files already exists on desktop
+                            /*
+                            var duplicateFound = false;
+                            filelist.forEach(file => {
+                                var thisFilename = file.filename;
+                                desktopFileList.forEach(desktopFile => {
+                                    if (desktopFile == thisFilename){
+                                        //Diplicate
+                                        duplicateFound = true;
+                                    }
+                                });
+                            });
+                            */
+
+                            var filepathList = [];
+                            filelist.forEach(file => {
+                                filepathList.push(file.filepath)
+                            });
+
+                            //Start the file operation dialog
+                            var oprConfig = {
+                                opr: mode,
+                                src: filepathList,
+                                dest: "user:/Desktop/",
+                                overwriteMode: "ask"
+                            }
+                            var configHash = encodeURIComponent(JSON.stringify(oprConfig));
+
+                            //Genreate window title
+                            title = title + filepathList.length;
+                            if (filepathList.length > 1){
+                                title += " files";
+                            }else{
+                                title += " file";
+                            }
+
+                            parent.newFloatWindow({
+                                url: "SystemAO/file_system/file_operation.html#" + configHash,
+                                width: 400,
+                                height: 220,
+                                appicon: "SystemAO/file_system/img/selector.png",
+                                title: title
+                            });
+
+
+
+                        }
+
+                        
                     }else{
                         //This is a file drag event from desktop, but more than one files.
                         //Pin the final location for the drag drop object
@@ -3087,6 +3158,51 @@
                     return moduleInstalled[i];
                 }
             }
+        }
+
+        //Allocate the given number of grids from desktop 
+        function gridPositionAllocate(posx, posy, numberOfGridNeeded=1){
+            var gridMaxX = desktopGrids.length;
+            var gridMaxY = desktopGrids[0].length;
+            var targetLocation = findClosestGrid(posx, posy, false);
+            var targetGridLocation = targetLocation[1];
+            var previousEmptyGridPosition = targetGridLocation;
+            var locations = [];
+
+            for (var k =0; k < numberOfGridNeeded; k++){
+                var thisLocation = JSON.parse(JSON.stringify(previousEmptyGridPosition));
+                //Add k to y axis of the list.
+                thisLocation[1] += k;
+                if (thisLocation[1] >= gridMaxY){
+                        thisLocation[0]++;
+                        thisLocation[1] = 0;
+                }
+                if (thisLocation[1] >= gridMaxY && thisLocation[0] >= gridMaxX){
+                    //Desktop full. Force put to 0 0 
+                    thisLocation[0] = 0;
+                    thisLocation[1] = 0;
+                    break;
+                }
+                while (getObjectFromGridLocation(thisLocation[0], thisLocation[1]) !== undefined){
+                    thisLocation[1] += 1;
+                    if (thisLocation[1] >= gridMaxY){
+                        //Over the screen. Shift to the row on the right
+                        thisLocation[0]++;
+                        thisLocation[1] = 0;
+                    }
+
+                    if (thisLocation[1] >= gridMaxY && thisLocation[0] >= gridMaxX){
+                        //Desktop full. Force put to 0 0 
+                        thisLocation[0] = 0;
+                        thisLocation[1] = 0;
+                        break;
+                    }
+                }
+                previousEmptyGridPosition = JSON.parse(JSON.stringify(thisLocation))
+                locations.push(thisLocation)
+            }
+
+            return locations
         }
 
         function setIconDesktopLocation(sourceFilename, gridIndexX, gridIndexY, callback = undefined) {
@@ -3562,7 +3678,12 @@
                             addContextMenuSeperator($("#contextmenu"));
                             addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
                         } else if (objectType == "shortcut") {
-
+                            addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
+                            addContextMenuItem($("#contextmenu"), 'Open File Location', "<i class='folder open icon'></i>", "handleShortcutFolderOpen", false);
+                            addContextMenuItem($("#contextmenu"), 'Rename', "<i class='caret right icon'></i>", "handleRename", false);
+                            addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                            addContextMenuSeperator($("#contextmenu"));
+                            addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
                         }
                     }
                     showMenu = true;
@@ -3572,7 +3693,7 @@
                     addContextMenuItem($("#contextmenu"), 'New', "<i class='caret right icon'></i>", "newitemmenu", true);
                     addContextMenuItem($("#contextmenu"), 'Refresh', "<i class='refresh icon'></i>", "handleMenuRefresh", false);
                     addContextMenuItem($("#contextmenu"), 'Open File Manager', undefined, "openfm", false);
-                    addContextMenuItem($("#contextmenu"), 'Get File from URL', "<i class='download icon'></i>", "downloadURL", false);
+                    //addContextMenuItem($("#contextmenu"), 'Get File from URL', "<i class='download icon'></i>", "downloadURL", false);
                     addContextMenuItem($("#contextmenu"), 'Personalization', "<i class='paint brush icon'></i>", "personalization", false);
                     addContextMenuItem($("#contextmenu"), 'Background', "<i class='caret right icon'></i>", "background", true);
                     addContextMenuItem($("#contextmenu"), 'Icon Size', "<i class='caret right icon'></i>", "listIconsize", true);
@@ -3988,6 +4109,36 @@
 
                 renameMode = false;
             }
+        }
+
+        //Handle opening shortcut folder location
+        function handleShortcutFolderOpen(object, event){
+            var openPendingFolders = [];
+            $(".launchIconWrapper.selected").each(function(){
+                var filedata = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                console.log(filedata);
+                if (filedata.IsShortcut == true){
+                    if (filedata.ShortcutType == "folder"){
+                        openPendingFolders.push(filedata.ShortcutPath);
+                    }else if (filedata.ShortcutType == "module"){
+                        openPendingFolders.push("web:/" + filedata.ShortcutPath);
+                    }
+                    
+                }
+            });
+
+            //Open all folders
+            openPendingFolders.forEach(folder => {
+                parent.newFloatWindow({
+                    url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(folder),
+                    appicon: "SystemAO/file_system/img/small_icon.png",
+                    width:1080,
+                    height:580,
+                    title: "File Manager"
+                });
+            })
+
+            hideAllContextMenus();
         }
 
         //Handle basic desktop file operations

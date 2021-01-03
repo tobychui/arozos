@@ -1,7 +1,9 @@
 package upnp
 
 import (
+	"errors"
 	"log"
+	"sync"
 
 	"gitlab.com/NebulousLabs/go-upnp"
 )
@@ -17,6 +19,7 @@ type UPnPClient struct {
 	Connection    *upnp.IGD //UPnP conenction object
 	ExternalIP    string    //Storage of external IP address
 	RequiredPorts []int     //All the required ports will be recored
+	PolicyNames   sync.Map  //Name for the required port nubmer
 }
 
 func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
@@ -51,6 +54,14 @@ func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
 
 func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
 	log.Println("UPnP forwarding new port: ", portNumber, "for "+ruleName+" service")
+
+	//Check if port already forwarded
+	_, ok := u.PolicyNames.Load(portNumber)
+	if ok {
+		//Port already forward. Ignore this request
+		return errors.New("Port already forwarded")
+	}
+
 	// forward a port
 	err := u.Connection.Forward(uint16(portNumber), ruleName)
 	if err != nil {
@@ -58,6 +69,7 @@ func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
 	}
 
 	u.RequiredPorts = append(u.RequiredPorts, portNumber)
+	u.PolicyNames.Store(portNumber, ruleName)
 	return nil
 }
 
@@ -78,7 +90,12 @@ func (u *UPnPClient) ClosePort(portNumber int) error {
 		u.RequiredPorts = newRequiredPort
 
 		// Close the port
+		log.Println("Closing UPnP Port Forward: ", portNumber)
 		err := u.Connection.Clear(uint16(portNumber))
+
+		//Delete the name registry
+		u.PolicyNames.Delete(portNumber)
+
 		if err != nil {
 			log.Println(err)
 			return err

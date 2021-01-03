@@ -21,7 +21,7 @@ var moduleLaunchInfo = {
 	LaunchEmb: "NotepadA/embedded.html",
 	InitFWSize: [1024, 768],
 	InitEmbSize: [360, 200],
-	SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
+	SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".agi", ".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
 }
 
 //Register the module

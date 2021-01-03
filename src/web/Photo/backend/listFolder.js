@@ -3,11 +3,11 @@ if (!loadedfile) {
     console.log("Failed to load lib filelib, terminated.");
 }
 
-var folderList = filelib.glob("user:/Photo/Photo/storage/*");
+var folderList = filelib.glob("user:/Photo/storage/*");
 var arr = [];
 //add uploads folder
-var img = ChooseFirstImage("user:/Photo/Photo/uploads/");
-arr.push({ VPath: "user:/Photo/Photo/uploads/", Foldername: "uploads", img: img })
+var img = ChooseFirstImage("user:/Photo/uploads/");
+arr.push({ VPath: "user:/Photo/uploads/", Foldername: "uploads", img: img })
 
 for (var i = 0; i < folderList.length; i++) {
     if (filelib.isDir(folderList[i])) {

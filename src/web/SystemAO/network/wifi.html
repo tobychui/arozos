@@ -34,6 +34,18 @@
                 </h4>
             </div>
         </div>
+        <!-- WiFi Interface Toggle -->
+        <div class="ui segment">
+            <p>Wireless Interface Power Toggle</p>
+            <div class="ui green message" id="updateSucceedMessage" style="display:none;">
+                 <p><i class="checkmark icon"></i> Interface Status Updated</p>
+            </div>
+            <form class="ui form" id="wlanlist">
+                <p><i class="remove icon"></i> No wlan interface attached</p>
+            </form>
+        </div>
+
+        <!-- WiFi Scanning Results-->
         <div>
             <table class="ui very basic celled table">
             <thead>
@@ -99,12 +111,14 @@
     </div>
 
     <script>
+        var retryCount = 0;
         //Delete all previous modal if exists
         //Funny bug of Semantic ui
         for (var i =1; i < $(".ui.modal").length; i++){
             $($(".ui.modal")[i]).remove();
         }
         initWiFiScan();
+        initWlanPower();
         function initWiFiScan(){
             $("#wifilist").html(` <tr>
                 <td><i class="loading spinner icon"></i> Scanning Nearby WiFi Access Points</td>
@@ -112,11 +126,20 @@
             $.get("../../system/network/scanWifi",function(data){
                 if (data.error != undefined){
                     console.log(data.error);
+                    if (retryCount > 5){
+                        //Stop retrtying
+                        $("#wifilist").html(` <tr>
+                            <td><i class="remove icon"></i> WiFi Scanning Failed</td>
+                        </tr>`);
+                        return
+                    }
                     //Unknown error. Rescan later
                     setTimeout(function(){
                         initWiFiScan();
                     },3000);
+                    retryCount++;
                 }else{
+                    retryCount = 0;
                     $("#wifilist").html("");
                     for (var i = 0; i < data.length; i++){
                         var thisWiFi = data[i];
@@ -190,6 +213,56 @@
                    
                 }   
             });
+        }
+
+        function initWlanPower(){
+            $.get("../../system/network/power", function(data){
+                $("#wlanlist").html("");
+                if (data.error != undefined){
+                    console.log(data.error);
+                }else{
+                   
+                    data.forEach(interface => {
+                        var checked = "false";
+                        if (interface.Running){
+                            checked = "true";
+                        }
+                        $("#wlanlist").append(`<div class="field"><div class="ui toggle checkbox" id="${interface.Name}">
+                            <input type="checkbox" name="${interface.Name}" tabindex="0" class="hidden">
+                            <label><i class="wifi icon"></i> ${interface.Name}</label>
+                        </div></div>`);
+                        if (interface.Running){
+                            $("#" + interface.Name).checkbox("check");
+                        }else{
+                            $("#" + interface.Name).checkbox("uncheck");
+                        }
+                        
+                        $("#" + interface.Name).find("input").attr("onchange","handleInterfacePowerToggle(this);")
+                        
+                    });
+
+                }
+            }); 
+        }
+
+        function handleInterfacePowerToggle(object){
+            var toggleState = object.checked;
+            var interfaeName = $(object).attr("name");
+            var status = "on";
+            if (toggleState == true){
+                status = "on";
+            }else{
+                status = "off";
+            }
+            $.ajax({
+                url: "../../system/network/power",
+                data: {status: status, interface: interfaeName},
+                success: function(data){
+                    console.log(data);
+                    initWlanPower();
+                    $("#updateSucceedMessage").stop().finish().slideDown("fast").delay(5000).slideUp("fast");
+                }
+            })
         }
 
         function removeThis(obj, event){

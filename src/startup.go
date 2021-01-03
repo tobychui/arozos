@@ -79,7 +79,10 @@ func RunStartup() {
 	mediaServer_init()
 
 	//Start High Level Services that requires full arozos architectures
-	storageFTPServerInit() //Start FTP Server Endpoints
+	FTPServerInit() //Start FTP Server Endpoints
+	WebDAVInit()    //Start WebDAV Endpoint
+
+	NightlyInit() //Start Nightly Tasks
 
 	//Finally
 	moduleHandler.ModuleSortList() //Sort the system module list

@@ -24,6 +24,9 @@
             <div id="properties">
 
             </div>
+            <br>
+            <button class="ui small fluid button linuxonly" onclick="openFilePermissionPanel();">Change File Permissions</button>
+            <br>
         </div>
         <div id="filesizeLoader" class="ui active dimmer">
             <div class="ui indeterminate text loader">Calculating File Size</div>
@@ -46,6 +49,15 @@
                 }
             }
 
+            //Hide windows / linux only operations
+            $.get("/system/info/getArOZInfo", function(data){
+                if (data.HostOS == "windows"){
+                    $(".linuxonly").hide();
+                }else{
+                    $(".windowsonly").hide();
+                }
+            });
+
             function getFileProp(vpath, callback){
                 $.ajax({
                     url: "../../system/file_system/getProperties",
@@ -67,6 +79,17 @@
 
                     }
                 })
+            }
+
+            function openFilePermissionPanel(){
+                var hashPassthrough = encodeURIComponent(JSON.stringify(files));
+                ao_module_newfw({
+                    url: "SystemAO/file_system/file_permission.html#" + hashPassthrough,
+                    width: 340,
+                    height: 480,
+                    appicon: "SystemAO/file_system/img/properties.png",
+                    title: "File Permissions",
+                });
             }
 
             function renderMultipleObjects(){

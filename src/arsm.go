@@ -24,6 +24,11 @@ var (
 )
 
 func ArsmInit() {
+	/*
+		System Scheudler
+
+		The internal scheudler for arozos
+	*/
 	//Create an user router and its module
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "Tasks Scheduler",
@@ -79,4 +84,31 @@ func ArsmInit() {
 		RequireAdmin: false,
 	})
 
+	/*
+		WsTerminal
+
+		The terminal that perform remote WebSocket based reverse ssh
+	*/
+	/*
+		wstRouter := prout.NewModuleRouter(prout.RouterOption{
+			ModuleName:  "System Setting",
+			AdminOnly:   true,
+			UserHandler: userHandler,
+			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+				sendErrorResponse(w, "Permission Denied")
+			},
+		})
+
+		//Register settings
+		registerSetting(settingModule{
+			Name:         "WsTerminal",
+			Desc:         "Remote WebSocket Shell Terminal",
+			IconPath:     "SystemAO/arsm/img/wst.png",
+			Group:        "Cluster",
+			StartDir:     "SystemAO/arsm/wsterminal.html",
+			RequireAdmin: true,
+		})
+
+		log.Println("WebSocket Terminal, WIP: ", wstRouter)
+	*/
 }

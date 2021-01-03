@@ -141,7 +141,6 @@ func (q *QuotaHandler) CalculateQuotaUsage() {
 			}
 		}
 	}
-
 	q.UsedStorageQuota = totalUsedVolume
 }
 

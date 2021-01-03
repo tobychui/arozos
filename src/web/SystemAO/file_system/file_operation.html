@@ -40,8 +40,8 @@
     </head>
     <body>
         <div class="banner">
-            <div class="title">Moving 1 File</div>
-            <img id="opricon" src="" class="ui image"></img>
+            <div class="title">Calculating Operation</div>
+            <img id="opricon" src="img/loading.png" class="ui image"></img>
         </div>
         <div class="content">
             <div class="info">From: <span id="src"></span></div>
@@ -51,7 +51,25 @@
                 <div id="progressbar" class="bar" style="width:100%; background-color:#4287f5;"></div>
             </div>
         </div>
-        
+        <div class="ui modal" id="duplicateAction">
+            <div class="content">
+                <div class="description" style="padding: 0px !important;">
+                    <p><i class="big exclamation triangle icon"></i> At least one file has the same filename with another existsing file. <b>Which action should be taken?</b></p><br>
+                </div>
+            </div>
+            <div class="actions">
+                <div class="ui labeled button" onclick="continueProcess('overwrite');">
+                    Overwrite
+                </div>
+                <div class="ui labeled button" onclick="continueProcess('skip');">
+                    Skip
+                </div>
+                <div class="ui labeled button" style="color: #2fb55c;" onclick="continueProcess('keep');">
+                    Rename & Keep
+                </div>
+              
+            </div>
+        </div>
         <script>
             /*
                 ArOZ Online File Operation Listener
@@ -86,7 +104,7 @@
             init();
             function init(){
                 console.log("Checking launch parameters...");
-                if (window.location.hash.length > 0 && ao_module_virtualDesktop){
+                if (window.location.hash.length > 0){
                     //OK to proceed
                     try{
                         operationConfig = JSON.parse(decodeURIComponent(window.location.hash.substring(1)));
@@ -108,23 +126,50 @@
                             operationConfig.overwriteMode = "skip";
                         }
 
-                        //Update the display information
-                        $("#src").text(operationConfig.src);
-                        $("#dest").text(operationConfig.dest);
-                        opr = operationConfig.opr;
-                        updateTitle(operationConfig.src.length, operationConfig.opr);
+                        //Update 17-12-2020, ask the user for overwrite mode if file duplicate exists
+                        if (operationConfig.overwriteMode == "ask"){
+                            //Check if any file duplication before proceeding
+                            console.log(operationConfig.src);
 
-                        //Check which type of the oprs is about. And assign the related functions to start
-                        if (operationConfig.opr == "move"){
-                            $("#opricon").attr("src","img/move.gif");
-                            cut(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
-                           
-                        }else if (operationConfig.opr == "copy"){
-                            $("#opricon").attr("src","img/copy.gif");
-                            copy(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
+                            $.ajax({
+                                url: "../../system/file_system/listDir",
+                                data: {dir: operationConfig.dest},
+                                success: function(filelist){
+                                    //Check fod duplication
+                                    var duplicateFound = false;
+mainloop:
+                                    for (var i = 0; i < filelist.length; i++){
+                                        var desktopFile = filelist[i];
+                                        for (var j = 0; j < operationConfig.src.length; j++){
+                                            var srcfile = operationConfig.src[j];
+                                            var srcFilename = srcfile.split("/").pop();
+                                            if (srcFilename == desktopFile.Filename){
+                                                duplicateFound = true
+                                                break mainloop;
+                                            }
+                                        }
+                                    }; 
+
+                                    if (duplicateFound){
+                                        //Duplication found. 
+                                        $("#duplicateAction").modal({
+                                            closable: false
+                                        }).modal("show");
+
+                                    }else{
+                                        //Duplication not found. Start the operation with default mode
+                                        operationConfig.overwriteMode = "skip";
+                                        processOperations(operationConfig);
+                                    }
+
+
+                                }
+                            })
+                        }else{
+                            //All information are defined. Process it now.
+                            processOperations(operationConfig)
                         }
-
-
+                       
                     }catch(ex){
                         //Failed
                         console.log("Argument parse error", ex);
@@ -133,6 +178,30 @@
                 }else{
                     alert("Invalid use of File Operation Listener.")
                     ao_module_close();
+                }
+            }
+
+            function continueProcess(duplicateMode){
+                operationConfig.overwriteMode = duplicateMode;
+                $("#duplicateAction").modal("hide");
+                processOperations(operationConfig)
+            }
+
+            function processOperations(operationConfig){
+                //Update the display information
+                $("#src").text(operationConfig.src);
+                $("#dest").text(operationConfig.dest);
+                opr = operationConfig.opr;
+                updateTitle(operationConfig.src.length, operationConfig.opr);
+
+                //Check which type of the oprs is about. And assign the related functions to start
+                if (operationConfig.opr == "move"){
+                    $("#opricon").attr("src","img/move.gif");
+                    cut(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
+                
+                }else if (operationConfig.opr == "copy"){
+                    $("#opricon").attr("src","img/copy.gif");
+                    copy(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
                 }
             }
 

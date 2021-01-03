@@ -20,7 +20,7 @@ var (
 )
 
 //Handle init of the FTP server endpoints
-func storageFTPServerInit() {
+func FTPServerInit() {
 	//Register FTP Endpoints
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",
@@ -51,6 +51,57 @@ func storageFTPServerInit() {
 	adminRouter.HandleFunc("/system/storage/ftp/status", storageHandleFTPServerStatus)
 	adminRouter.HandleFunc("/system/storage/ftp/updateGroups", storageHandleFTPAccessUpdate)
 	adminRouter.HandleFunc("/system/storage/ftp/setPort", storageHandleFTPSetPort)
+	adminRouter.HandleFunc("/system/storage/ftp/passivemode", storageHandleFTPPassiveModeSettings)
+}
+
+/*
+	Handle the settings for passive mode related files
+
+	Example set commands
+	set=ip&ip=123.456.789.1
+	set=mode&passive=true
+*/
+func storageHandleFTPPassiveModeSettings(w http.ResponseWriter, r *http.Request) {
+	set, err := mv(r, "set", true)
+	if err != nil {
+		sendErrorResponse(w, "Invalid set type")
+		return
+	}
+
+	if set == "ip" {
+		//Updat the public up addr
+		ip, err := mv(r, "ip", true)
+		if err != nil {
+			sendErrorResponse(w, "Invalid ip given")
+			return
+		}
+
+		sysdb.Write("ftp", "publicip", ip)
+
+	} else if set == "mode" {
+		//Update the passive mode setting
+		passive, err := mv(r, "passive", true)
+		if err != nil {
+			sendErrorResponse(w, "Invalid passive option (true/false)")
+			return
+		}
+
+		log.Println("Updatng FTP Server PassiveMode to", passive)
+		if passive == "true" {
+			sysdb.Write("ftp", "passive", true)
+		} else {
+			sysdb.Write("ftp", "passive", false)
+		}
+	} else {
+		sendErrorResponse(w, "Unknown setting filed")
+		return
+	}
+
+	//Restart the FTP server if it is running now
+	if ftpServer != nil && ftpServer.ServerRunning {
+		storageFTPServerStart()
+	}
+
 }
 
 //Start the FTP Server by request
@@ -143,11 +194,14 @@ func storageHandleFTPSetPort(w http.ResponseWriter, r *http.Request) {
 
 func storageHandleFTPServerStatus(w http.ResponseWriter, r *http.Request) {
 	type ServerStatus struct {
-		Enabled     bool
-		Port        int
-		AllowUPNP   bool
-		UPNPEnabled bool
-		UserGroups  []string
+		Enabled        bool
+		Port           int
+		AllowUPNP      bool
+		UPNPEnabled    bool
+		FTPUpnpEnabled bool
+		PublicAddr     string
+		PassiveMode    bool
+		UserGroups     []string
 	}
 
 	enabled := false
@@ -170,12 +224,51 @@ func storageHandleFTPServerStatus(w http.ResponseWriter, r *http.Request) {
 		sysdb.Read("ftp", "groups", &userGroups)
 	}
 
+	ftpUpnp := false
+	if ftpServer != nil && ftpServer.UPNPEnabled {
+		ftpUpnp = true
+	}
+
+	publicAddr := ""
+	if UPNP != nil && UPNP.ExternalIP != "" && ftpUpnp == true {
+		publicAddr = UPNP.ExternalIP
+	} else {
+		manualPublicIpEntry := ""
+		if sysdb.KeyExists("ftp", "publicip") {
+			sysdb.Read("ftp", "publicip", &manualPublicIpEntry)
+		}
+
+		publicAddr = manualPublicIpEntry
+	}
+
+	forcePassiveMode := false
+	if ftpUpnp == true {
+		forcePassiveMode = true
+	} else {
+		if sysdb.KeyExists("ftp", "passive") {
+			sysdb.Read("ftp", "passive", &forcePassiveMode)
+		}
+
+		if forcePassiveMode {
+			//Read the ip setting from database
+			manualPublicIpEntry := ""
+			if sysdb.KeyExists("ftp", "publicip") {
+				sysdb.Read("ftp", "publicip", &manualPublicIpEntry)
+			}
+
+			publicAddr = manualPublicIpEntry
+		}
+	}
+
 	jsonString, _ := json.Marshal(ServerStatus{
-		Enabled:     enabled,
-		Port:        serverPort,
-		AllowUPNP:   *allow_upnp,
-		UPNPEnabled: enableUPnP,
-		UserGroups:  userGroups,
+		Enabled:        enabled,
+		Port:           serverPort,
+		AllowUPNP:      *allow_upnp,
+		UPNPEnabled:    enableUPnP,
+		FTPUpnpEnabled: ftpUpnp,
+		PublicAddr:     publicAddr,
+		UserGroups:     userGroups,
+		PassiveMode:    forcePassiveMode,
 	})
 	sendJSONResponse(w, string(jsonString))
 }
@@ -200,8 +293,27 @@ func storageFTPServerStart() error {
 		sysdb.Read("ftp", "upnp", &enableUPnP)
 	}
 
+	forcePassiveMode := false
+	sysdb.Read("ftp", "passive", &forcePassiveMode)
+
 	//Create a new FTP Handler
-	h, err := ftp.NewFTPHandler(userHandler, *host_name, serverPort, *tmp_directory)
+	passiveModeIP := ""
+	if *allow_upnp && enableUPnP {
+		//Using External IP address from the UPnP router reply
+		externalIP := UPNP.ExternalIP
+		if externalIP != "" {
+			passiveModeIP = externalIP
+		}
+	} else if forcePassiveMode {
+		//Not allowing upnp but still use passive mode (aka manual port forward)
+		externalIP := ""
+		if sysdb.KeyExists("ftp", "publicip") {
+			sysdb.Read("ftp", "publicip", &externalIP)
+		}
+		passiveModeIP = externalIP
+	}
+
+	h, err := ftp.NewFTPHandler(userHandler, *host_name, serverPort, *tmp_directory, passiveModeIP)
 	if err != nil {
 		return err
 	}
@@ -214,8 +326,18 @@ func storageFTPServerStart() error {
 				return errors.New("UPnP did not started correctly on this host. Ignore this option")
 			} else {
 				//Forward the port
-				UPNP.ForwardPort(ftpServer.Port, *host_name+" FTP Server")
-				ftpServer.UPNPEnabled = true
+				err := UPNP.ForwardPort(ftpServer.Port, *host_name+" FTP Server")
+				if err != nil {
+					log.Println("Failed to start FTP Server UPnP: ", err)
+					ftpServer.UPNPEnabled = false
+					return err
+				} else {
+					//Forward other data ports
+					UPNP.ForwardPort(ftpServer.Port+1, *host_name+" FTP Data 1")
+					UPNP.ForwardPort(ftpServer.Port+2, *host_name+" FTP Data 2")
+					ftpServer.UPNPEnabled = true
+				}
+				return nil
 			}
 
 		} else {
@@ -224,6 +346,9 @@ func storageFTPServerStart() error {
 				return errors.New("UPnP did not started correctly on this host. Ignore this option")
 			} else {
 				UPNP.ClosePort(ftpServer.Port)
+				UPNP.ClosePort(ftpServer.Port + 1)
+				UPNP.ClosePort(ftpServer.Port + 2)
+
 				ftpServer.UPNPEnabled = false
 			}
 		}

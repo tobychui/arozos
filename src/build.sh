@@ -17,6 +17,11 @@ mv arozos ../aroz_online_autorelease/arozos_linux_armv7
 GOOS=linux GOARCH=arm64 go build
 mv arozos ../aroz_online_autorelease/arozos_linux_arm64
 
+#Currently not CGO is required to build arozos. May remove dependencies later in the future
+#echo "Building OpenWRT"
+#GOOS=linux GOARCH=mipsle GOMIPS=softfloat CGO_ENABLED=0 go build
+#mv arozos ../aroz_online_autorelease/arozos_linux_mipsle
+
 echo "Building windows"
 #GOOS=windows GOARCH=386 go build
 #mv aroz_online.exe aroz_online_windows_i386.exe

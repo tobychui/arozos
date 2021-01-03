@@ -46,6 +46,7 @@ for (var i = 0; i < fileList.length; i++) {
 
 
             results.push({
+		vsrc: folder + filename,
                 src: "/media/?file=" + folder + filename,
                 caption: filename,
                 Size: bytesToSize(fileSize),
@@ -55,16 +56,5 @@ for (var i = 0; i < fileList.length; i++) {
             });
         }
     }
-}
-
-if (results.length == 0) {
-    results.push({
-        src: "/Photo/img/desktop_icon.png",
-        caption: "There is nothing inside here",
-        Size: 0,
-        thumbnail: "/Photo/img/desktop_icon.png",
-        thumbnailHeight: 128,
-        thumbnailWidth: 128
-    });
 }
 sendJSONResp(JSON.stringify(results));

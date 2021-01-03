@@ -137,6 +137,80 @@ func GetFileSize(filename string) int64 {
 	return fi.Size()
 }
 
+func IsInsideHiddenFolder(path string) bool {
+	thisPathInfo := filepath.ToSlash(filepath.Clean(path))
+	pathData := strings.Split(thisPathInfo, "/")
+	for _, thispd := range pathData {
+		if thispd[:1] == "." {
+			//This path contain one of the folder is hidden
+			return true
+		}
+	}
+	return false
+}
+
+/*
+	Wildcard Replacement Glob, design to hanle path with [ or ] inside.
+	You can also pass in normal path for globing if you are not sure.
+*/
+func WGlob(path string) ([]string, error) {
+	files, err := filepath.Glob(path)
+	if err != nil {
+		return []string{}, err
+	}
+
+	if strings.Contains(path, "[") == true || strings.Contains(path, "]") == true {
+		if len(files) == 0 {
+			//Handle reverse check. Replace all [ and ] with *
+			newSearchPath := strings.ReplaceAll(path, "[", "?")
+			newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
+			//Scan with all the similar structure except [ and ]
+			tmpFilelist, _ := filepath.Glob(newSearchPath)
+			for _, file := range tmpFilelist {
+				file = filepath.ToSlash(file)
+				if strings.Contains(file, filepath.ToSlash(filepath.Dir(path))) {
+					files = append(files, file)
+				}
+			}
+		}
+	}
+	//Convert all filepaths to slash
+	for i := 0; i < len(files); i++ {
+		files[i] = filepath.ToSlash(files[i])
+	}
+	return files, nil
+}
+
+func GetDirctorySize(filename string, includeHidden bool) (int64, int) {
+	var size int64 = 0
+	var fileCount int = 0
+	err := filepath.Walk(filename, func(thisFilename string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			if includeHidden {
+				//append all into the file count and size
+				size += info.Size()
+				fileCount++
+			} else {
+				//Check if this is hidden
+				if !IsInsideHiddenFolder(thisFilename) {
+					size += info.Size()
+					fileCount++
+				}
+
+			}
+
+		}
+		return err
+	})
+	if err != nil {
+		return 0, fileCount
+	}
+	return size, fileCount
+}
+
 func GetFileDisplaySize(filesize int64, rounding int) string {
 	precisionString := "%." + strconv.Itoa(rounding) + "f"
 	var bytes float64

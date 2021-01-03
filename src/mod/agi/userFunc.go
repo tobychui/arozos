@@ -26,6 +26,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, u *user.User) {
 	vm.Set("USERICON", u.GetUserIcon())
 	vm.Set("USERQUOTA_TOTAL", u.StorageQuota.TotalStorageQuota)
 	vm.Set("USERQUOTA_USED", u.StorageQuota.UsedStorageQuota)
+	vm.Set("USER_VROOTS", u.GetAllFileSystemHandler())
 	//File system and path related
 	vm.Set("decodeVirtualPath", func(call otto.FunctionCall) otto.Value {
 		path, _ := call.Argument(0).ToString()

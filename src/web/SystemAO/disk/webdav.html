@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+	<meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script src="../../script/jquery.min.js"></script>
+	<script src="../../script/semantic/semantic.min.js"></script>
+    <style>
+        .hidden{
+            display:none;
+        }
+
+        .disabled{
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <br>
+   <div class="ui container">
+        <div class="ui header">
+            WebDAV Server
+            <div class="sub header">Access your arozos user root with WebDAV protocols.</div>
+        </div>
+        <div class="ui message maconly" style="display:none">
+            <h4><i class="apple icon"></i> Login Method for MacOS</h4>
+            <p>If you are using MacOS, you can select "Connect to Network Server", enter the endpoint of the arozos WebDAV service (<span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav) and login with your arozos username and password.</p>
+        </div>
+        <div class="ui blue message windowonly nontls" style="display:none">
+            <h4><i class="windows icon"></i> Login Method for Windows (Non SSL / TLS Mode)</h4>
+            <p>If you are using Windows File Explorer as your WebDAV Client without TLS enabled on arozos server, <b>WebDAV will run in compatibility mode and Basic Auth is not usable. You must authenticate through this Web UI. </b> Please follow the steps below to authenticate your Windows WebDAV Client.</p>
+            <ol class="ui list">
+                <li>Mount the WebDAV endpoint in your File Explorer (Endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav)</li>
+                <li>Connect with no username and password</li>
+                <li>You will be directed to a READONLY directory. Refresh this page and see if there is a new client pop up in the "Access Pending Clients" list.</li>
+                <li>Click "Allow Access" to assign your user storage pool to be accessiable by this Windows WebDAV Client(s). (Sometime more than 1 conncetions will be used by the same File Explorer)</li>
+                <li>Refresh your file list in File Explorer and your root folder (user:/) should be listed</li>
+            </ol>
+        </div>
+        <div class="ui blue message windowonly tls" style="display:none">
+            <h4><i class="windows icon"></i> Login Method for Windows (With SSL / TLS MODE)</h4>
+            <p>If you are using Windows File Explorer as your WebDAV Client, go to "My Computer" and add a network drive with the following endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav</p>
+ 
+        </div>
+        <!-- General Settings -->
+        <h3>Basic Settings</h3>
+        <form class="ui form">
+            <div class="field">
+                <div class="ui toggle checkbox">
+                    <input type="checkbox" id="serverToggle" tabindex="0" class="hidden" onchange="toggleWebDAVServer(this.checked);">
+                    <label>Enable WebDAV Server</label>
+                </div>
+            </div>
+        </form>
+        <div id="status" class="ui icon message">
+            <i class="exchange icon"></i>
+            <div class="content">
+                <div class="header">
+                <span class="onlinestatus">Status: Offline</span>
+                </div>
+                <p class="ept"><span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav</p>
+            </div>
+        </div>
+       
+        <!-- NON TLS Windows Only Mode-->
+        <div id="nontlsWindowsSettings">
+            <br>
+            <h3>Non-TLS Windows Client Connection Settings</h3>
+            <h4>Access Pending Clients</h4>
+            <table class="ui very basic collapsing celled table">
+                <thead>
+                <tr>
+                    <th>Client IP</th>
+                    <th>Last Request</th>
+                    <th>Connection UUID</th>
+                    <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="accessPendingClientList">
+                <tr><td>
+                        <h4 class="ui header">
+                            <div class="content">
+                                192.168.0.1
+                            </div>
+                        </h4>
+                    </td>
+                    <td>
+                        1 Jan 1970 08:00:00
+                    </td>
+                    <td>
+                        5bfba525-00ba-4d00-b8cc-7938fd8a0175
+                    </td>
+                    <td>
+                        <button class="ui tiny primary button">Allow Access</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <div class="ui divider"></div>
+            <h4>Access Allowed Clients</h4>
+            <table class="ui very basic collapsing celled table">
+                <thead>
+                <tr>
+                    <th>Client IP</th>
+                    <th>Last Request</th>
+                    <th>Connection UUID</th>
+                    <th>Owner</th>
+                    <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="permittedClientList">
+
+                </tbody>
+            </table>
+            <div class="ui divider"></div>
+            <button class="ui blue button" onclick="refreshList();"><i class="refresh icon"></i> Refresh List</button>
+            <button class="ui button" onclick="clearPendings();"><i class="remove icon"></i> Clear All Pending Request</button>
+        </div>
+    </div>
+    <script>
+    var isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
+    var isWindows = navigator.platform.indexOf('Win') > -1;
+
+    //Initiate UI elements
+    $(".ui.checkbox").checkbox();
+    function toggleWebDAVServer(value){
+        if (value == true){
+            $("#status").addClass("green");
+            $("#status").find(".onlinestatus").text("Status: Online");
+            $.get("../../system/network/webdav/status?set=enable", function(data){
+                initServerStatus();
+            });
+        }else{
+            $("#status").removeClass("green");
+            $("#status").find(".onlinestatus").text("Status: Offline");
+            $.get("../../system/network/webdav/status?set=disable", function(data){
+                initServerStatus();
+            });
+        }
+    }
+
+    //Check server toggle state
+    initServerStatus();
+    function initServerStatus(){
+        $.get("../../system/network/webdav/status", function(data){
+            if (data[0] == true){
+                $("#serverToggle")[0].checked = true;
+                $("#status").addClass("green");
+                $("#status").find(".onlinestatus").text("Status: Online");
+            }else{
+                $("#serverToggle")[0].checked = false;
+                $("#status").removeClass("green");
+                $("#status").find(".onlinestatus").text("Status: Offline");
+            }
+
+            if (data[1] == false){
+                $("#serverToggle").parent().addClass("disabled");
+                $("#serverToggle").parent().parent().attr("title","Administrator Only");
+            }
+        });
+    }
+   
+
+    //Update tutorial information
+    $(".hostname").text(window.location.hostname);
+    $(".port").text(window.location.port);
+    $(".protocol").text(location.protocol);
+    if (isMac){
+        $(".maconly").show();
+    }else if (isWindows){
+        $(".windowonly").show();
+    }
+
+    //Check if running in HTTPS mode. If yes, hide this functions
+    if (location.protocol == 'https:'){
+        $("#nontlsWindowsSettings").hide();
+        $(".nontls").hide();
+    }else{
+        $(".tls").hide();
+    }
+
+    initAccessPendingList();
+    initAccessPermittedList();
+    function initAccessPermittedList(){
+        $.get("../../system/network/webdav/list?target=loggedin", function(data){
+            $("#permittedClientList").html("");
+            data.forEach(client => {
+                $("#permittedClientList").append(`<tr><td>
+                    <h4 class="ui header">
+                        <div class="content">
+                            ${client.ClientIP}
+                        </div>
+                    </h4>
+                </td>
+                <td>
+                    ${timeConverter(client.LastConnectionTimestamp)}
+                </td>
+                <td>
+                    ${client.UUID}
+                </td>
+                <td>
+                    ${client.Username}
+                </td>
+                <td>
+                    <button clientid="${client.UUID}" onclick="removeAllowAccess(this);" class="ui tiny red button">Remove Access</button>
+                </td>
+            </tr>`);
+
+
+            });
+
+            if (data.length == 0){
+                $("#permittedClientList").append(`<tr><td colspan="4"><i class="remove icon"></i> NO PERMITTED CLIENT</td></tr>`);
+            }
+        })
+    }
+
+    function refreshList(){
+        initAccessPendingList();
+        initAccessPermittedList();
+    }
+
+    function initAccessPendingList(){
+        $.get("../../system/network/webdav/list", function(data){
+            $("#accessPendingClientList").html("")
+            data.forEach(client => {
+                $("#accessPendingClientList").append(`<tr><td>
+                    <h4 class="ui header">
+                        <div class="content">
+                            ${client.ClientIP}
+                        </div>
+                    </h4>
+                </td>
+                <td>
+                    ${timeConverter(client.LastConnectionTimestamp)}
+                </td>
+                <td>
+                    ${client.UUID}
+                </td>
+                <td>
+                    <button clientid="${client.UUID}" onclick="setAllowAccess(this);" class="ui tiny primary button">Allow Access</button>
+                </td>
+            </tr>`);
+            })
+
+            if (data.length == 0){
+                $("#accessPendingClientList").append(`<tr><td colspan="4"><i class="remove icon"></i> NO CLIENTS PENDING</td></tr>`);
+            }
+        });
+    }
+
+    function setAllowAccess(object){
+        var clientUUID = $(object).attr("clientid");
+        $.ajax({
+            url: "../../system/network/webdav/edit",
+            data: {"opr": "set", "uuid": clientUUID},
+            success: function(data){
+                initAccessPendingList();
+                initAccessPermittedList();
+            }
+        })
+    }
+
+    function removeAllowAccess(object){
+        var clientUUID = $(object).attr("clientid");
+        $.ajax({
+            url: "../../system/network/webdav/edit",
+            data: {"opr": "remove", "uuid": clientUUID},
+            success: function(data){
+                initAccessPendingList();
+                initAccessPermittedList();
+            }
+        })
+    }
+
+    function clearPendings(){
+        $.get("../../system/network/webdav/clear", function(data){
+            //Done. Refresh list
+            initAccessPendingList();
+            initAccessPermittedList();
+        }); 
+    }
+
+    function timeConverter(UNIX_timestamp){
+        var a = new Date(UNIX_timestamp * 1000);
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var year = a.getFullYear();
+        var month = months[a.getMonth()];
+        var date = a.getDate();
+        var hour = a.getHours();
+        var min = a.getMinutes();
+        var sec = a.getSeconds();
+        var time = date + ' ' + month + ' ' + year + ' ' + (hour + "").padStart(2,"0") + ':' + (min + "").padStart(2,"0") + ':' + (sec + "").padStart(2,"0") ;
+        return time;
+    }
+    </script>
+</body>
+</html>

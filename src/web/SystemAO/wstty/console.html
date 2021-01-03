@@ -40,6 +40,24 @@
 
         </div>
         <input type="text" class="commandinput"></input>
+        <div class="ui basic modal">
+            <div class="ui icon header">
+                <i class="yellow exclamation triangle icon"></i>
+                Connection Closed
+            </div>
+            <div class="content">
+                <p>Session has been terminated by the server side (either by permission denied or system failure). Please restart the WsTTY for a new session.</p>
+            </div>
+            <div class="actions">
+                <div class="ui basic cancel inverted button">
+                OK
+                </div>
+                <div class="ui ok inverted button" onclick="ao_module_close();">
+                <i class="remove icon"></i>
+                Close
+                </div>
+            </div>
+        </div>
         <script>
             var ShellWs;
             var commandHistory = [];
@@ -47,6 +65,7 @@
 
             var CtrlDown = false;
 
+            $('.ui.modal').modal();
             $(document).ready(function(){
                 $(".commandinput").focus();
 
@@ -71,7 +90,7 @@
 
                 ShellWs.onclose = function(event) {
                     writeToScreen("[info] Connection Closed")
-                    ao_module_close();
+                    $('.ui.modal').modal("show");
                 };
 
                 ShellWs.onerror = function(error) {

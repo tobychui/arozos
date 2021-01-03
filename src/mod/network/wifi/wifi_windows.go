@@ -15,6 +15,15 @@ import (
 	"strings"
 )
 
+//Toggle WiFi On Off. Only allow on sudo mode
+func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
+	return errors.New("Windows WiFi function is currently readonly")
+}
+
+func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, error) {
+	return false, errors.New("Platform not supported")
+}
+
 func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	cmd := exec.Command("cmd", "/c", "chcp 65001 && netsh WLAN show networks mode=bssid")
 	out, err := cmd.CombinedOutput()

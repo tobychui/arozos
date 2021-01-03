@@ -18,6 +18,7 @@ import (
 
 	modules "imuslab.com/arozos/mod/modules"
 	"imuslab.com/arozos/mod/network/reverseproxy"
+	"imuslab.com/arozos/mod/network/websocketproxy"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -568,6 +569,15 @@ func (sr *SubServiceRouter) HandleRoutingRequest(w http.ResponseWriter, r *http.
 	r.Header.Set("aouser", u.Username)
 	r.Header.Set("aotoken", token)
 	r.Header.Set("X-Forwarded-Host", r.Host)
+	if r.Header["Upgrade"] != nil && r.Header["Upgrade"][0] == "websocket" {
+		//Handle WebSocket request. Forward the custom Upgrade header and rewrite origin
+		r.Header.Set("A-Upgrade", "websocket")
+		u, _ := url.Parse("ws://localhost:" + strconv.Itoa(subserviceObject.Port) + r.URL.String())
+		wspHandler := websocketproxy.NewProxy(u)
+		wspHandler.ServeHTTP(w, r)
+		return
+	}
+
 	r.Host = r.URL.Host
 	err := proxy.ServeHTTP(w, r)
 	if err != nil {

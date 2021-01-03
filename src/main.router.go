@@ -59,6 +59,8 @@ func mroutner(h http.Handler) http.Handler {
 				w.Header().Add("Content-Type", "application/javascript; charset=UTF-8")
 			}
 			h.ServeHTTP(w, r)
+		} else if len(r.URL.Path) > len("/webdav") && r.URL.Path[:7] == "/webdav" {
+			WebDavHandler.HandleRequest(w, r)
 		} else if r.URL.Path == "/" && authAgent.CheckAuth(r) {
 			//Index. Serve the user's interface module
 			w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")

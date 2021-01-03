@@ -72,6 +72,9 @@ func NetworkServiceInit() {
 
 	//Start the services that depends on network interface
 	StartNetworkServices()
+
+	//Start the port forward configuration interface
+	portForwardInit()
 }
 
 func StartNetworkServices() {
@@ -83,7 +86,7 @@ func StartNetworkServices() {
 		m, err := mdns.NewMDNS(mdns.NetworkHost{
 			HostName:     *host_name + "_" + deviceUUID, //To handle more than one identical model within the same network, this must be unique
 			Port:         *listen_port,
-			Domain:       "aroz.online",
+			Domain:       "arozos.com",
 			Model:        deviceModel,
 			UUID:         deviceUUID,
 			Vendor:       deviceVendor,

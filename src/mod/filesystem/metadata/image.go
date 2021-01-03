@@ -19,6 +19,9 @@ func generateThumbnailForImage(cacheFolder string, file string, generateOnly boo
 	}
 	//Resize to desiered width
 	img, _, err := image.Decode(bytes.NewReader(imageBytes))
+	if err != nil {
+		return "", err
+	}
 
 	//Check boundary to decide resize mode
 	b := img.Bounds()

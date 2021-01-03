@@ -17,6 +17,56 @@ import (
 	"github.com/valyala/fasttemplate"
 )
 
+//Toggle WiFi On Off. Only allow on sudo mode
+func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
+	status := "up"
+	if on == false {
+		status = "down"
+	}
+	cmd := exec.Command("ifconfig", wlanInterface, status)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Println("WiFi toggle failed: ", string(out))
+		return err
+	}
+
+	//OK
+	return nil
+}
+
+func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, error) {
+	//Check if interface is in list
+	interfaceList, err := w.GetWirelessInterfaces()
+	if err != nil {
+		return false, err
+	}
+	interfaceExists := false
+	for _, localInterface := range interfaceList {
+		if localInterface == wlanInterface {
+			interfaceExists = true
+		}
+	}
+
+	if !interfaceExists {
+		return false, errors.New("wlan Interface not exists")
+	}
+
+	//Check if the interface appears in ifconfig. If yes, this interface is online
+	cmd := exec.Command("bash", "-c", "ifconfig | grep "+wlanInterface)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, errors.New(string(out))
+	}
+
+	if strings.TrimSpace(string(out)) != "" {
+		//Interface exists in ifconfig. Report it as powered on
+		return true, nil
+	} else {
+		return false, nil
+	}
+
+}
+
 //Scan Nearby WiFi
 func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	rcmd := `iwlist ` + interfaceName + ` scan`
@@ -139,11 +189,11 @@ func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 	cmd := exec.Command("bash", "-c", rcmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println(string(out))
 		return []string{}, errors.New(string(out))
 	}
 	interfaces := strings.Split(strings.TrimSpace(string(out)), "\n")
-	sort.Strings(interfaces)
+	//sort.Strings(interfaces)
+	sort.Sort(sort.StringSlice(interfaces))
 	return interfaces, nil
 
 }
@@ -347,6 +397,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 }
 
 //Get the current connected wifi, return ESSID, wifi interface name and error if any
+//Return ESSID, interface and error
 func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 	cmd := exec.Command("iwgetid")
 	out, err := cmd.CombinedOutput()
@@ -364,8 +415,11 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 	}
 
 	dc := strings.Split(trimmedData, " ")
-	wlanInterface := dc[0]
+	if len(dc) == 0 {
+		return "", "", errors.New("No valid wlan Interface Found")
+	}
 
+	wlanInterface := dc[0]
 	ESSID := strings.Join(dc[1:], " ")[7:]
 	ESSID = strings.TrimSpace(ESSID)
 	ESSID = ESSID[:len(ESSID)-1]
@@ -373,6 +427,24 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 		ESSID = ""
 	}
 	return ESSID, wlanInterface, nil
+}
+
+func (w *WiFiManager) CheckInterfaceIsAP(wlanInterfaceName string) (bool, error) {
+	cmd := exec.Command("bash", "-c", "iwconfig wlan1 | grep Mode")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	if len(string(out)) == 0 {
+		return false, errors.New("Missing iwconfig package")
+	}
+
+	//Check if the output contains Mode:Master
+	if strings.Contains(string(out), "Mode:Master") {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 func (w *WiFiManager) RemoveWifi(ssid string) error {

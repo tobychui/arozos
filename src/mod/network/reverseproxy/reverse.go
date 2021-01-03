@@ -1,11 +1,11 @@
 package reverseproxy
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"errors"
 	"net/url"
 	"strings"
 	"sync"
@@ -115,7 +115,7 @@ func copyHeader(dst, src http.Header) {
 // Hop-by-hop headers. These are removed when sent to the backend.
 // http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
 var hopHeaders = []string{
-	"Connection",
+	//"Connection",
 	"Proxy-Connection", // non-standard but still sent by libcurl and rejected by e.g. google
 	"Keep-Alive",
 	"Proxy-Authenticate",
@@ -123,7 +123,7 @@ var hopHeaders = []string{
 	"Te",      // canonicalized version of "TE"
 	"Trailer", // not Trailers per URL above; http://www.rfc-editor.org/errata_search.php?eid=4522
 	"Transfer-Encoding",
-	"Upgrade",
+	//"Upgrade",
 }
 
 func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {
@@ -208,6 +208,11 @@ func removeHeaders(header http.Header) {
 			header.Del(h)
 		}
 	}
+
+	if header.Get("A-Upgrade") != "" {
+		header.Set("Upgrade", header.Get("A-Upgrade"))
+		header.Del("A-Upgrade")
+	}
 }
 
 func addXForwardedForHeader(req *http.Request) {
@@ -222,7 +227,7 @@ func addXForwardedForHeader(req *http.Request) {
 	}
 }
 
-func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) error{
+func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) error {
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -311,7 +316,7 @@ func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) erro
 	return nil
 }
 
-func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) error{
+func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) error {
 	hij, ok := rw.(http.Hijacker)
 	if !ok {
 		p.logf("http server does not support hijacker")
@@ -372,7 +377,7 @@ func (p *ReverseProxy) ProxyHTTPS(rw http.ResponseWriter, req *http.Request) err
 	return nil
 }
 
-func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) error{
+func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) error {
 	if req.Method == "CONNECT" {
 		err := p.ProxyHTTPS(rw, req)
 		return err

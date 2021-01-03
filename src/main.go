@@ -74,9 +74,9 @@ func main() {
 
 	//Handle version printing
 	if *show_version {
-		fmt.Println("ArOZOS " + build_version + " Revision " + internal_version)
+		fmt.Println("ArozOS " + build_version + " Revision " + internal_version)
 		fmt.Println("Developed by tobychui and other co-developers, Licensed to " + deviceVendor)
-		fmt.Println("THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.")
+		//fmt.Println("THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.")
 		os.Exit(0)
 	}
 
@@ -97,8 +97,8 @@ func main() {
 	os.Mkdir(*tmp_directory, 0777)
 
 	//Print copyRight information
-	log.Println("ArOZOS(C) 2020 " + deviceVendor + ".")
-	log.Println("ArOZOS " + build_version + " Revision " + internal_version)
+	log.Println("ArozOS(C) 2020 " + deviceVendor + ".")
+	log.Println("ArozOS " + build_version + " Revision " + internal_version)
 
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020

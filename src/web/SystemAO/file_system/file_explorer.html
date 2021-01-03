@@ -613,10 +613,10 @@
             }
 
             .sharebtn.whiteTheme:hover{
-                font-size: 150%;
+                opacity: 0.5;
             }
             .sharebtn.darkTheme:hover{
-                font-size: 150%;
+                opacity: 0.5;
             }
         </style>
     </head>
@@ -642,6 +642,7 @@
              <button class="ts icon tiny button standard whiteTheme" title="New File" onclick="newfile();"><i class="file outline icon"></i></button>
              <button class="ts icon tiny button standard whiteTheme" title="New Folder" onclick="newFolder();"><i class="folder outline icon"></i></button>
              <button class="ts icon tiny button standard whiteTheme" title="Upload" onclick="upload();"><i class="upload icon"></i></button>
+             <!-- <button class="ts icon tiny button standard whiteTheme" title="Permission" onclick="filePermission();"><i class="unlock alternate icon"></i></button> -->
 
              <button class="ts icon tiny button standard whiteTheme" title="Rename" onclick="rename();"><i class="i cursor icon"></i></button>
              <button class="ts icon tiny negative button" title="Delete" onclick="deleteFile();"><i class="trash outline icon"></i></button>
@@ -1002,11 +1003,11 @@
             <div class="item fileonly" onclick="openWith();">
                 <i class="external icon"></i> Open With
             </div>
-            <div class="item singleObjectOnlyHide" onclick="shareFile();">
-                <i class="share alternate icon"></i> Share
-            </div>
             <div class="item folderonly" onclick="openSelectedFolderInNewWindow();">
                 <i class="external icon"></i> Open In New Window
+            </div>
+            <div class="item singleObjectOnlyHide" onclick="shareFile();">
+                <i class="share alternate icon"></i> Share
             </div>
             <div class="item" onclick="copy();">
                 <i class="copy icon"></i> Copy
@@ -1073,8 +1074,6 @@
             let sortMode = "default"; //Sortmode, support {default, reverse, smallToLarge, largeToSmall, mostRecent, leastRecent}
             let currentPath = "user:/"
             let viewHistory = []; //View history
-            let isMobile = window.mobilecheck();
-            let isChromium = window.chrome;
             let enableBetaFilename = true; //Enable beta filename conversion from "inith..." to "normal"
             let currentFilelist = []; //The current file list in the currentPath
             let currentPathHash = "";   //The folder content hash
@@ -1103,6 +1102,12 @@
             //System Information
             let systemUUID = "";
             let systemIP = "";
+
+            //Browser detection
+            let isMobile = window.mobilecheck();
+            let isChromium = window.chrome;
+            let isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+            let isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
             //Intiiation functions
             initRootDirs();
@@ -1356,6 +1361,12 @@
                             pdir.pop(); pdir.pop();
                             pdir = pdir.join("/");
                             currentPath = pdir;
+
+                            //Check if it is already rooted and no more parent ahead
+                            if (currentPath == ""){
+                                currentPath = "user:/";
+                            }
+                            
                             listDirectory(currentPath, function(){
                                 window.location.reload();
                             });
@@ -1413,8 +1424,10 @@
                             //var icon = ao_module_utils.getIconFromExt(ext);
                             var icon = "folder";
                             var shareicon = "";
-                            if (isShared){
-                                
+                            if (isShared == true){
+                                shareicon = `<button class="sharebtn ${currentTheme}" onclick='handleShareFilebuttonClick(event, this);' style="margin-left: 4px; height: 16px;">
+                                    <i class='share alternate icon'></i>
+                                </button>`
                             }
                             if (viewMode == "list"){
                                 var textclass = "normal object";
@@ -1426,7 +1439,10 @@
                                     displayName = ao_module_codec.decodeHexFoldername(displayName, false);
                                     textclass = "hex foldername";
                                 }
-                                $("#folderList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder"><span style="display:inline-block !important;word-break: break-all;" class="${textclass}"><i class="${icon} icon" style="margin-right:12px;"></i>  ${displayName}</span></div>`);
+                                $("#folderList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder">
+                                    <span style="display:inline-block !important;word-break: break-all;" class="${textclass}">
+                                        <i class="${icon} icon" style="margin-right:12px;"></i>  ${displayName} ${shareicon}
+                                    </span></div>`);
                             }else if (viewMode == "grid"){
                                 var displayName = JSON.parse(JSON.stringify(filename));
                                 var textclass = "normal object";
@@ -1443,7 +1459,7 @@
                                         <img draggable="true"ondragstart="disableDrag(event);" src="../../../img/desktop/system_icon/folder.png" style="height: 148px; width: 148px; display: inline-block;">
                                     </div>
                                     <div class="content" style="font-size: 12px;">
-                                        <div class="header ${currentTheme} ${textclass}">${displayName}</div>
+                                        <div class="header ${currentTheme} ${textclass}">${displayName} ${shareicon}</div>
                                     </div>
                                 </div>`);
                             }
@@ -1471,9 +1487,11 @@
                                 var icon = ao_module_utils.getIconFromExt(ext);
                             }
 
-                            var shareIcon = "";
+                            var shareicon = "";
                             if (isShared){
-                                shareIcon = `<button class="sharebtn ${currentTheme}" onclick='handleShareFilebuttonClick(event, this);' style="margin-left: 4px; height: 16px;"><i class='share alternate icon'></i>`
+                                shareicon = `<button class="sharebtn ${currentTheme}" onclick='handleShareFilebuttonClick(event, this);' style="margin-left: 4px; height: 16px;">
+                                    <i class='share alternate icon'></i>
+                                </button>`
                             }
                             
                             if (viewMode == "list"){
@@ -1493,7 +1511,7 @@
                                 $("#fileList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);"  fileID="${fl + i}"  filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);"  type="file" filesize="${filesize}" displaysize="${Displaysize}">
                                     <span style="display:inline-block !important;word-break: break-all;text-overflow: ellipsis !important;overflow: hidden;" class="${textclass}">
                                         <i class="${icon} icon" style="margin-right:12px;"></i>  
-                                        ${displayName}  ${shareIcon}
+                                        ${displayName}  ${shareicon}
                                     </span>
                                 </div>`);
                             }else if (viewMode == "grid"){
@@ -1518,7 +1536,7 @@
                                         <img draggable="true"ondragstart="disableDrag(event);" style="height: 148px; width: 148px; display:inline-block;" src="${imagePath}">
                                     </div>
                                     <div class="content">
-                                        <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis; font-size: 100%">${displayName}</div>
+                                        <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis; font-size: 100%">${displayName} ${shareicon}</div>
                                         <div class="meta ${currentTheme}">
                                             <div>.${ext}</div>
                                         </div>
@@ -2120,7 +2138,7 @@
                                         callbackFunction: `callRefresh("${targetDir}")`
                                     }
                                     var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-                                    var title = "Moving " + fileList.length;
+                                    var title = "Copying " + fileList.length;
                                     if (fileList.length > 1){
                                         title += " files";
                                     }else{
@@ -2288,17 +2306,28 @@
                     //E.g. user:/Desktop/test/boo/ => Display as user:/.../test/boo/
                     $(".pathDisplay").append(`<div class="section ${currentTheme}">...</div>`);
                     $(".pathDisplay").append(`<div class="divider ${currentTheme} whiteTheme">/</div>`);
-                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable"  onclick="parentDir();">${pathInfo[l-2]}</div>`);
+                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable"  onclick="parentDir();">${shortenLongFoldername(pathInfo[l-2], 40)}</div>`);
                     $(".pathDisplay").append(`<div class="divider ${currentTheme} whiteTheme">/</div>`);
-                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable" onclick="refreshList();">${pathInfo[l-1]}</div>`);
+                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable" onclick="refreshList();">${shortenLongFoldername(pathInfo[l-1], 60)}</div>`);
                 }else if (l == 3){
-                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable"  onclick="parentDir();">${pathInfo[l-2]}</div>`);
+                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable"  onclick="parentDir();">${shortenLongFoldername(pathInfo[l-2], 40)}</div>`);
                     $(".pathDisplay").append(`<div class="divider ${currentTheme} whiteTheme">/</div>`);
-                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable" onclick="refreshList();">${pathInfo[l-1]}</div>`);
+                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable" onclick="refreshList();">${shortenLongFoldername(pathInfo[l-1], 60)}</div>`);
                 }else if (l == 2){
                     //E.g. user:/Desktop or user:/
-                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable" onclick="refreshList();">${pathInfo[1]}</div>`);
+                    $(".pathDisplay").append(`<div class="section ${currentTheme} selectable" onclick="refreshList();">${shortenLongFoldername(pathInfo[1], 80)}</div>`);
                 }
+            }
+
+            function shortenLongFoldername(name, maxchar = 20){
+                var resultname = name;
+                if (name.length > maxchar){
+                    //Shorten it
+                    var offset = parseInt((maxchar - 2) / 2);
+                    resultname = name.substr(0, offset) + "..." + name.substr(name.length - offset)
+                }
+
+                return resultname
             }
 
             function getExtFromPath(path){
@@ -2448,6 +2477,28 @@
                         });
                     }
                 });
+            }
+
+            function filePermission(){
+                //Open file permission window
+                if ($(".fileObject.selected").length > 0){
+                    //Build the filelist
+                    var fileList = [];
+                    $(".fileObject.selected").each(function(){
+                        var filepath = $(this).attr("filepath");
+                        fileList.push(filepath);
+                    });
+
+                    var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
+
+                    ao_module_newfw({
+                        url: "SystemAO/file_system/file_permission.html#" + hashPassthrough,
+                        width: 340,
+                        height: 480,
+                        appicon: "SystemAO/file_system/img/properties.png",
+                        title: "File Permissions",
+                    })
+                }
             }
 
             function newFolder(confirmed = false){
@@ -2855,7 +2906,12 @@
                 event.preventDefault(); 
                 event.stopImmediatePropagation();
                 $(".fileObject.selected").removeClass("selected");
-                $(object).parent().parent().addClass("selected");
+                if (viewMode == "list"){
+                    $(object).parent().parent().addClass("selected");
+                }else if (viewMode == "grid"){
+                    $(object).parent().parent().parent().addClass("selected");
+                }
+               
                 shareFile();
             }
 
@@ -3260,8 +3316,14 @@
                 }else{
                     //This is a file. Upload it
                     item.file(function(fileObject){
-                        console.log(fileObject);
-                        uploadFile(fileObject);
+                        if (isChrome || isSafari){
+                            console.log("Upload Target", fileObject, rootpath);
+                            uploadFile(fileObject, undefined, currentPath + rootpath);
+                        }else{
+                            console.log("Upload Target", fileObject, rootpath);
+                            uploadFile(fileObject);
+                        }
+                       
                     });
                 }
                 return filesInside;
@@ -3277,16 +3339,18 @@
                     var filepath = $(this).attr("filepath");
                     fileList.push(filepath);
                 });
+
+                var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
+                ao_module_newfw({
+                    url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
+                    width: 340,
+                    height: 480,
+                    appicon: "SystemAO/file_system/img/properties.png",
+                    title: "File Properties",
+                });
             }
 
-            var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
-            ao_module_newfw({
-                url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
-                width: 340,
-                height: 480,
-                appicon: "SystemAO/file_system/img/properties.png",
-                title: "File Properties",
-            });
+            
         }
 
         let uploadBufferedRefreshTimer;
@@ -3495,6 +3559,48 @@
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 console.log("Drop to folder detected");
+
+                //Extract target folder path from object
+                var targetPath = $(event.target).attr("filepath");
+                if (targetPath == ""){
+                    return
+                }
+                var targetVroot = targetPath.split(":/").shift();
+                console.log(targetPath);
+
+                //Check if this is upload or file move drag
+                var files = event.dataTransfer.files;
+                if (files.length > 0){
+                    //Upload mode
+                    alert("Drag drop upload into folder, WIP");
+                }else if (event.dataTransfer.getData("filedata") != ""){
+                    //Get the source files
+                    var filelist = JSON.parse(event.dataTransfer.getData("filedata"));
+                    if (filelist.length > 0){
+                        var srcVroot = filelist[0].filepath.split(":/").shift();
+                        if (srcVroot == targetVroot){
+                            //Use move mode
+                            cutMode = true;
+                            
+                        }else{
+                            //Use copy mode
+                            cutMode = false;
+                        }
+
+                        //Parse the filelist
+                        clipboard = [];
+                        filelist.forEach(file=>{
+                            clipboard.push(file.filepath);
+                        });
+                        if (useLocalstorage){
+                            localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
+                            localStorage.setItem("ao/file_system/cutmode","true");
+                        }
+                        
+                        //Perform operations
+                        paste(targetPath, false)
+                    }
+                }
            }
 
            function allowDrop(event){

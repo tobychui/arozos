@@ -7,6 +7,15 @@ package wifi
 */
 import "errors"
 
+//Toggle WiFi On Off. Only allow on sudo mode
+func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
+	return errors.New("Platform not supported")
+}
+
+func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, error) {
+	return false, errors.New("Platform not supported")
+}
+
 func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	return []WiFiInfo{}, errors.New("Platform not supported")
 }
