@@ -3,11 +3,11 @@
 <img src="https://img.shields.io/badge/License-Open%20Source-blue"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In%20Hong%20Kong-香港開發-blueviolet">
 
 ## IMPORTANT NOTES
-The current arozos is still under intense developmenet. System structure might change at any time. Please only develop on the current existsing ArOZ Gateway Interface (AGI) JavaScript Interface or standard HTML webapps with ao_module.js endpoints.
+The current arozos is still under intense development. System structure might change at any time. Please only develop on the current existing ArOZ Gateway Interface (AGI) JavaScript Interface or standard HTML webapps with ao_module.js endpoints.
 
 ## Features
 ### User Interface
-- Web Desktop Interface (Similar to Synology DSM)
+- Web Desktop Interface (Better than Synology DSM)
 - Ubuntu remix Windows style startup menu and task bars
 - Clean and easy to use File Manager (Support drag drop, upload etc)
 - Simplistic System Setting Menu
@@ -15,6 +15,7 @@ The current arozos is still under intense developmenet. System structure might c
 ### Networking 
 - FTP Server
 - WebDAV Server
+- UPnP Port Forwarding
 - Samba (Supported via 3rd party sub-services)
 - WiFi Management (Support wpa_supplicant for Rpi or nmcli for Armbian)
 ### File / Disk Management
@@ -22,6 +23,14 @@ The current arozos is still under intense developmenet. System structure might c
 - Virtual File System Architecture
 - File Sharing (Similar to Google Drive)
 - Basic File Operations with Real-time Progress (Copy / Cut / Paste / New File or Folder etc)
+
+### Others
+
+- Require as little as 512MB system memory and 8GB system storage
+- Base on one of the most stable Linux distro - Debian
+- Support for Desktop, Laptop (touchpad) and Mobile screen sizes
+
+
 
 ## Installation
 Require GO 1.14 or above
@@ -85,47 +94,75 @@ arozos.exe
 
 ## Start the ArOZ Online Platform
 
-### Supported Startup Paramters
-The following startup paramters are supported.
+### Supported Startup Parameters
+The following startup parameters are supported (As of 1.110)
 ```
+  -allow_autologin
+    	Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot (default true)
+  -allow_mdns
+    	Enable MDNS service. Allow device to be scanned by nearby ArOZ Hosts (default true)
   -allow_pkg_install
-        Allow the system to install package using Advanced Package Tool (aka apt or apt-get) (default true)
+    	Allow the system to install package using Advanced Package Tool (aka apt or apt-get) (default true)
+  -allow_ssdp
+    	Enable SSDP service, disable this if you do not want your device to be scanned by Windows's Network Neighborhood Page (default true)
+  -allow_upnp
+    	Enable uPNP service, recommended for host under NAT router
   -beta_scan
-        Allow compatibility to ArOZ Online Beta Clusters
+    	Allow compatibility to ArOZ Online Beta Clusters
   -cert string
-        TLS certificate file (.crt) (default "localhost.crt")
+    	TLS certificate file (.crt) (default "localhost.crt")
+  -console
+    	Enable the debugging console.
   -demo_mode
-        Run the system in demo mode. All directories and database are read only.
+    	Run the system in demo mode. All directories and database are read only.
+  -dir_list
+    	Enable directory listing (default true)
   -disable_ip_resolver
-        Disable IP resolving if the system is running under reverse proxy environment
+    	Disable IP resolving if the system is running under reverse proxy environment
+  -disable_subservice
+    	Disable subservices completely
+  -enable_homepage
+    	Redirect not logged in users to home page instead of login interface
   -enable_hwman
-        Enable hardware management functions in system (default true)
+    	Enable hardware management functions in system (default true)
   -hostname string
-        Default name for this host (default "My ArOZ")
+    	Default name for this host (default "My ArOZ")
   -iobuf int
-        Amount of buffer memory for IO operations (default 1024)
+    	Amount of buffer memory for IO operations (default 1024)
   -key string
-        TLS key file (.key) (default "localhost.key")
+    	TLS key file (.key) (default "localhost.key")
   -max_upload_size int
-        Maxmium upload size in MB. Must not exceed the available ram on your system (default 8192)
+    	Maxmium upload size in MB. Must not exceed the available ram on your system (default 8192)
+  -ntt int
+    	Nightly tasks execution time. Default 3 = 3 am in the morning (default 3)
   -port int
-        Listening port (default 8080)
+    	Listening port (default 8080)
   -public_reg
-        Enable public register interface for account creation
+    	Enable public register interface for account creation
   -root string
-        User root directories (default "./files/")
+    	User root directories (default "./files/")
+  -session_key string
+    	Session key, must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256). Leave empty for auto generated.
   -storage_config string
-        File location of the storage config file (default "./system/storage.json")
+    	File location of the storage config file (default "./system/storage.json")
   -tls
-        Enable TLS on HTTP serving
+    	Enable TLS on HTTP serving
   -tmp string
-        Temporary storage, can be access via tmp:/. A tmp/ folder will be created in this path. Recommend fast storage devices like SSD (default "./")
+    	Temporary storage, can be access via tmp:/. A tmp/ folder will be created in this path. Recommend fast storage devices like SSD (default "./")
+  -tmp_time int
+    	Time before tmp file will be deleted in seconds. Default 86400 seconds = 24 hours (default 86400)
+  -upload_async
+    	Enable file upload buffering to run in async mode (Faster upload, require RAM >= 8GB)
   -upload_buf int
-        Upload buffer memory in MB. Any file larger than this size will be buffered to disk (slower). (default 25)
+    	Upload buffer memory in MB. Any file larger than this size will be buffered to disk (slower). (default 25)
   -uuid string
-        System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.
+    	System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.
   -version
-        Show system build version
+    	Show system build version
+  -wlan_interface_name string
+    	The default wireless interface for connecting to an AP (default "wlan0")
+  -wpa_supplicant_config string
+    	Path for the wpa_supplicant config (default "/etc/wpa_supplicant/wpa_supplicant.conf")
 ```
 
 Example
@@ -144,8 +181,26 @@ Example
 
 ```
 
-### Storage.json
-This file define the storage devices to be mounted into aroz online system. See src/system/storage.json.example for template.
+### Storage Configuration
+#### Deploying Single Machine
+
+If you are deploying single machine, you can visit System Setting > Disk & Storage > Storage Pools and edit the "system" storage pool for setting up the global storage pools for all users in the system.
+
+![](img/screenshots/sp.png)
+
+
+
+#### Deploying on Multiple Machines
+
+If you are deploying on multiple machines, you can take a look at the storage configuration file located in:
+
+```
+src/system/storage.json.example
+```
+
+Rename the storage.json.example to storage.json and start arozos. The required virtual storage drives will be mounted accordingly.
+
+
 
 
 ## ArOZ JavaScript Gateway Interface / Plugin Loader
@@ -156,6 +211,11 @@ plugin for the system. To initiate the module, you can place a "init.agi" file i
 ## Community / Q&A
 Find us on [Telegram](https://t.me/ArOZBeta)! We welcome all kind of feedbacks and questions.
 
+## License
+
+CopyRight tobychui 2016 - 2021
+
+No limit for personal and educational usage. For other use case, please contact me via email or telegram.
+
 ## Buy me a coffee
-Actually I don't drink coffee.
-Send me something that would make me feel interested if you really want to send me something :)
+I am working on this project as a hobby / side project and I am not really into collecting donation from this project. 
