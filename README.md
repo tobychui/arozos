@@ -50,6 +50,7 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 
 |Version|Download URL|Remarks|
 |---|---|---|
+|arozos v1.108|https://wdfiles.ru/4053d3bfd730aa60|WebDAV Support Added|
 |arozos v1.107|https://wdfiles.ru/jv2x|Samba Supported Added|
 |arozos v1.106|https://wdfiles.ru/b49v||
 |arozos v1.103|https://wdfiles.ru/b49b||
