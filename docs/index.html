@@ -1,52 +1,504 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-  <!-- Basic Page Needs
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <meta charset="utf-8">
-  <title>arozos</title>
-  <meta name="description" content="">
-  <meta name="author" content="">
+  <title>ArozOS</title>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <meta content="Web Desktop, Open Source, Aroz, Go, OS, Raspberry Pi" name="keywords">
+  <meta content="The best Web Desktop Online System for the Raspberry Pi" name="description">
+  <meta name="author" content="tobychui">
 
-  <!-- Mobile Specific Metas
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Favicons -->
+  <link href="img/favicon.png" rel="icon">
+  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
 
-  <!-- FONT
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i|Roboto:100,300,400,500,700|Philosopher:400,400i,700,700i" rel="stylesheet">
 
-  <!-- CSS
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link rel="stylesheet" href="css/normalize.css">
-  <link rel="stylesheet" href="css/skeleton.css">
+  <!-- Bootstrap css -->
+  <!-- <link rel="stylesheet" href="css/bootstrap.css"> -->
+  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 
-  <!-- Favicon
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link rel="icon" type="image/png" href="images/favicon.png">
+  <!-- Libraries CSS Files -->
+  <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+  <link href="lib/owlcarousel/assets/owl.theme.default.min.css" rel="stylesheet">
+  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+  <link href="lib/animate/animate.min.css" rel="stylesheet">
+  <link href="lib/modal-video/css/modal-video.min.css" rel="stylesheet">
 
+  <!-- Main Stylesheet File -->
+  <link href="css/style.css" rel="stylesheet">
+
+  <!-- =======================================================
+    Theme Name: eStartup
+    Theme URL: https://bootstrapmade.com/estartup-bootstrap-landing-page-template/
+    Author: BootstrapMade.com
+    License: https://bootstrapmade.com/license/
+  ======================================================= -->
 </head>
+
 <body>
 
-  <!-- Primary Page Layout
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container">
-    <div class="row">
-      <div class="one-half column" style="margin-top: 25%">
-        <h4>arozos</h4>
-        <p>General purpose Web Desktop Operating System for Raspberry Pis and low power SBCs.<br>Read more over <a href="https://github.com/tobychui/arozos">Github</a></p>
-    <a class="button button-primary" href="reader/standard/reader.html#%7B%22chapter%22%3A%22started%22%2C%22page%22%3A0%7D">Getting Started</a>
-    <a class="button" href="reader/standard/reader.html#%7B%22chapter%22%3A%22beta%22%2C%22page%22%3A0%7D">Beta Docs (Legacy)</a>
-	  </div>
-	  <div class="one-half column" style="margin-top: 15%">
-		<img src="img/ok.png">
-	  </div>
-    </div>
-	
-  </div>
+  <header id="header" class="header header-hide">
+    <div class="container">
 
-<!-- End Document
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+      <div id="logo" class="pull-left">
+        <h1><a href="" class="scrollto">ArozOS</a></h1>
+        <!-- Uncomment below if you prefer to use an image logo -->
+        <!-- <a href="#body"><img src="img/logo.png" alt="" title="" /></a>-->
+      </div>
+
+      <nav id="nav-menu-container">
+        <ul class="nav-menu">
+          <li class="menu-active"><a href="#hero">Home</a></li>
+          <li><a href="#about-us">About</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#screenshots">Screenshots</a></li>
+          <li><a href="#docs">Documents</a></li>
+          <li><a href="#contact">Source</a></li>
+          <li><a>ENG / <ea onclick="window.location.href='index-zh.html';">中文</ea></a></li>
+        </ul>
+      </nav><!-- #nav-menu-container -->
+    </div>
+  </header><!-- #header -->
+
+  <!--==========================
+    Hero Section
+  ============================-->
+  <section id="hero" class="wow fadeIn">
+    <div class="hero-container">
+      <h1>ArozOS</h1>
+      <h2>A Web Desktop Operating System for YOUR Personal Cloud</h2>
+      <img src="img/banner.png" alt="Hero Imgs">
+      <a href="#get-started" class="btn-get-started scrollto">Get Started</a>
+      <div class="btns">
+        <a href="https://github.com/tobychui/arozos"><i class="fa fa-github fa-3x"></i> Github</a>
+        <a href="https://github.com/tobychui/arozos/releases"><i class="fa fa-download fa-3x"></i> Download</a>
+        <a href="docs/"><i class="fa fa-book fa-3x"></i> Documentation</a>
+      </div>
+    </div>
+  </section><!-- #hero -->
+
+  <!--==========================
+    Get Started Section
+  ============================-->
+  <section id="get-started" class="padd-section text-center wow fadeInUp">
+
+    <div class="container">
+      <div class="section-title text-center">
+
+        <h2></h2>
+        <p class="separator">Why ArozOS?</p>
+
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="row">
+
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-block">
+
+            <img src="img/svg/cloud.svg" alt="img" class="img-fluid">
+            <h4>Cloud Desktop</h4>
+            <p>Simple and elegant web desktop interface for your daily tasks</p>
+
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-block">
+
+            <img src="img/rpi.png" alt="img" class="img-fluid">
+            <h4>Design for Raspberry Pi</h4>
+            <p>System compatible with many brands of single board computers</p>
+
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+          <div class="feature-block">
+
+            <img src="img/os.png" alt="img" class="img-fluid">
+            <h4>Open Source</h4>
+            <p>ArozOS is open source on Github and free for personal use</p>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </section>
+
+  <!--==========================
+    About Us Section
+  ============================-->
+  <section id="about-us" class="about-us padd-section wow fadeInUp">
+    <div class="container">
+      <div class="row justify-content-center">
+
+        <div class="col-md-5 col-lg-3">
+          <img src="img/preview-pc.png" alt="About">
+        </div>
+
+        <div class="col-md-7 col-lg-5">
+          <div class="about-content">
+
+            <h2><span>ArozOS</span>PC<br> Web Desktop </h2>
+            <p>Turn any PC with browser into your Web Desktop client. Access all your files anytime, anywhere.
+            </p>
+            
+            <ul class="list-unstyled">
+              <li><i class="fa fa-angle-right"></i>No Setup and special user permission</li>
+              <li><i class="fa fa-angle-right"></i>Support Chrome, Firefox and Safari</li>
+              <li><i class="fa fa-angle-right"></i>Access via Web UI, FTP or WebDAV</li>
+              <li><i class="fa fa-angle-right"></i>One of the best Web based File Manager</li>
+              <li><i class="fa fa-angle-right"></i>WebApps powered by HTML5</li>
+              
+            </ul>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <br><br>
+    <div class="container">
+      <div class="row justify-content-center">
+
+        <div class="col-md-5 col-lg-3">
+          <img src="img/preview.png" alt="About">
+        </div>
+
+        <div class="col-md-7 col-lg-5">
+          <div class="about-content">
+
+            <h2><span>ArozOS</span>Mobile Web Desktop </h2>
+            <p>Supporting web desktop on mobile using PWA technology, making file access between devices much easier and smooth.
+            </p>
+
+            <ul class="list-unstyled">
+              <li><i class="fa fa-angle-right"></i>No App Installation Required</li>
+              <li><i class="fa fa-angle-right"></i>Support Android and iOS</li>
+              <li><i class="fa fa-angle-right"></i>Works on Chrome and Safari</li>
+              <li><i class="fa fa-angle-right"></i>Window based operations</li>
+              <li><i class="fa fa-angle-right"></i>Synchronize between devices</li>
+            </ul>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!--==========================
+    Features Section
+  ============================-->
+
+  <section id="features" class="padd-section text-center wow fadeInUp">
+
+    <div class="container">
+      <div class="section-title text-center">
+        <h2>Amazing Features</h2>
+        <p class="separator">Full fledged Desktop Experience with diverse range of Web Applications</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="row">
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/icons/work_desk_kirei.png" alt="img" class="img-fluid">
+            <h4>Simple & Beautiful</h4>
+            <p>Glassy and rounded corner Windows with ntuitive WebApp naming</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/icons/computer_cloud_storage.png" alt="img" class="img-fluid">
+            <h4>Multimedia</h4>
+            <p>Build in Music, Photo and Audio WebApp for multimedia streaming</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/icons/envelop_paper.png" alt="img" class="img-fluid">
+            <h4>File Manager</h4>
+            <p>One of the Best File Manager you could find on Web Desktop OS</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/svg/design-tool.svg" alt="img" class="img-fluid">
+            <h4>Easy to use</h4>
+            <p>Support drag drop operations with touchpad or touch screen</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/svg/cloud-computing.svg" alt="img" class="img-fluid">
+            <h4>Git Install</h4>
+            <p>Modules can be installed via git clone using the build in Module Installer</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/icons/computer_tethering.png" alt="img" class="img-fluid">
+            <h4>Easy Connect</h4>
+            <p>Support Web, FTP and WebDAV for easy access on any Operating Systems</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/os.png" alt="img" class="img-fluid">
+            <h4>Open Source</h4>
+            <p>Change whatever you want to fit your ever changing needs and use cases</p>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+          <div class="feature-block">
+            <img src="img/svg/code.svg" alt="img" class="img-fluid">
+            <h4>Written in Go</h4>
+            <p>Allowing great use of system resources while maintaining portability</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!--==========================
+    Screenshots Section
+  ============================-->
+  <section id="screenshots" class="padd-section text-center wow fadeInUp">
+
+    <div class="container">
+      <div class="section-title text-center">
+        <h2>Screenshots</h2>
+        <p class="separator">A quick overview of the ArozOS Web Desktop System</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="owl-carousel owl-theme">
+
+       
+
+      </div>
+    </div>
+    <div><img class="fullwidthImg" src="img/screen/1.png" alt="img"></div>
+    <div><img class="fullwidthImg" src="img/screen/2.png" alt="img"></div>
+    <div><img class="fullwidthImg" src="img/screen/3.png" alt="img"></div>
+    <div><img class="fullwidthImg" src="img/screen/4.png" alt="img"></div>
+  </section>
+
+  <!--==========================
+    Video Section
+  ============================-->
+
+  <section id="video" class="text-center wow fadeInUp">
+    <div class="overlay">
+      <div class="container-fluid container-full">
+
+        <div class="row">
+          <a href="#" class="js-modal-btn play-btn" data-video-id="NXmAsQhhlOs"></a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!--==========================
+    Testimonials Section
+  ============================-->
+
+  <section id="testimonials" class="padd-section text-center wow fadeInUp">
+    <div class="container">
+      <div class="row justify-content-center">
+
+        <div class="col-md-8">
+
+          <div class="testimonials-content">
+            <div id="carousel-example-generic" class="carousel slide" data-ride="carousel">
+
+              <div class="carousel-inner" role="listbox">
+
+                <div class="carousel-item  active">
+                  <div class="top-top">
+
+                    <h2>I use it like as it is Synology DSM</h2>
+                    <p>The ArozOS File Manager works better than Google Drive and looks like Windows File Explorer, which makes me get used to it real quick.</p>
+                    <h4>Xia<span>Youtuber</span></h4>
+
+                  </div>
+                </div>
+
+                <div class="carousel-item ">
+                  <div class="top-top">
+
+                    <h2>It feels like I am using native OS on a browser</h2>
+                    <p>It just works anywhere with a browser and internet connection. The interaction with ArozOS is snappy and intuitive that you didn't feel like you are accessing a website.</p>
+                    <h4>Matsuyama Naomi<span>Travel Writer</span></h4>
+
+                  </div>
+                </div>
+
+                <div class="carousel-item ">
+                  <div class="top-top">
+
+                    <h2>Yes, we made that up</h2>
+                    <p>You can't blame me for making the review up as there are no comments on this system yet. Maybe I will change them to real one later.</p>
+                    <h4>Toby Chui<span>Author</span></h4>
+
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="btm-btm">
+
+                <ul class="list-unstyled carousel-indicators">
+                  <li data-target="#carousel-example-generic" data-slide-to="0" class="active"></li>
+                  <li data-target="#carousel-example-generic" data-slide-to="1"></li>
+                  <li data-target="#carousel-example-generic" data-slide-to="2"></li>
+                </ul>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!--==========================
+    Blog Section
+  ============================-->
+  <section id="blog" class="padd-section wow fadeInUp">
+
+    <div class="container">
+      <div class="section-title text-center">
+
+        <h2>Wanna Get Started?</h2>
+        <p class="separator">Take a look at our <a href="https://github.com/tobychui/arozos/blob/master/README.md">Github README</a> file</p>
+
+      </div>
+    </div>
+
+   
+  </section>
+
+  <!--==========================
+    Newsletter Section
+  ============================-->
+  <section id="docs" class="newsletter text-center wow fadeInUp">
+    <div class="overlay padd-section">
+      <div class="container">
+        <div class="section-title text-center">
+          <h2>Documentation</h2>
+          <p>Want to develop on the ArozOS system? Maybe you are looking for the documentation.</p>
+          <a href="docs/" class="glass btn-get-started scrollto" target="_blank">Take a look</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!--==========================
+    Contact Section
+  ============================-->
+  <section id="contact" class="padd-section wow fadeInUp">
+
+    <div class="container">
+      <div class="section-title text-center">
+        <h2>View the Source</h2>
+        <p class="separator">Take a look at the source code here. <br>If you like this project, please feel free to give us a star.</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="row justify-content-center">
+
+        <div class="col-lg-3 col-md-4">
+
+          <div class="info">
+            <div>
+              <i class="fa fa-github"></i>
+              <p><a href="https://github.com/tobychui/arozos">https://github.com/tobychui/arozos</a></p>
+            </div>
+
+            <div class="email">
+              <i class="fa fa-envelope"></i>
+              <p><a href="mailto:imuslab@gmail.com">imuslab@gmail.com</a></p>
+            </div>
+
+          </div>
+
+          <!-- 
+          <div class="social-links">
+            <a href="#" class="twitter"><i class="fa fa-twitter"></i></a>
+            <a href="#" class="facebook"><i class="fa fa-facebook"></i></a>
+            <a href="#" class="instagram"><i class="fa fa-instagram"></i></a>
+            <a href="#" class="google-plus"><i class="fa fa-google-plus"></i></a>
+            <a href="#" class="linkedin"><i class="fa fa-linkedin"></i></a>
+          </div>
+-->
+        </div>
+      </div>
+    </div>
+  </section><!-- #contact -->
+
+  <!--==========================
+    Footer
+  ============================-->
+  <footer class="footer">
+    <div class="copyrights">
+      <div class="container">
+        <div class="credits">
+          <!--
+            All the links in the footer should remain intact.
+            You can delete the links only if you purchased the pro version.
+            Licensing information: https://bootstrapmade.com/license/
+            Purchase the pro version with working PHP/AJAX contact form: https://bootstrapmade.com/buy/?theme=eStartup
+          -->
+          Designed by <a href="https://bootstrapmade.com/">BootstrapMade</a>
+        </div>
+      </div>
+    </div>
+
+  </footer>
+
+
+
+  <a href="#" class="back-to-top"><i class="fa fa-chevron-up"></i></a>
+
+  <!-- JavaScript Libraries -->
+  <script src="lib/jquery/jquery.min.js"></script>
+  <script src="lib/jquery/jquery-migrate.min.js"></script>
+  <script src="lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="lib/superfish/hoverIntent.js"></script>
+  <script src="lib/superfish/superfish.min.js"></script>
+  <script src="lib/easing/easing.min.js"></script>
+  <script src="lib/modal-video/js/modal-video.js"></script>
+  <script src="lib/owlcarousel/owl.carousel.min.js"></script>
+  <script src="lib/wow/wow.min.js"></script>
+  <!-- Contact Form JavaScript File -->
+  <script src="contactform/contactform.js"></script>
+
+  <!-- Template Main Javascript File -->
+  <script src="js/main.js"></script>
+
 </body>
 </html>
