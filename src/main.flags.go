@@ -25,7 +25,7 @@ var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "0.1.108"                       //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
+var internal_version = "0.1.109"                       //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
@@ -55,7 +55,7 @@ var disable_ip_resolve_services = flag.Bool("disable_ip_resolver", false, "Disab
 //Flags related to Security
 var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving")
 var tls_cert = flag.String("cert", "localhost.crt", "TLS certificate file (.crt)")
-var session_key = flag.String("session_key", "super-secret-key", "Session key, must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256)")
+var session_key = flag.String("session_key", "", "Session key, must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256). Leave empty for auto generated.")
 var tls_key = flag.String("key", "localhost.key", "TLS key file (.key)")
 
 //Flags related to hardware or interfaces

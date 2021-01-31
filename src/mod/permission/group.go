@@ -22,6 +22,7 @@ func (gp *PermissionGroup) RemoveModule(modulename string) {
 //Remove this permission group
 func (gp *PermissionGroup) Remove() {
 	db := gp.parent.database
+
 	//Close the groups' storage pool
 	gp.StoragePool.Close()
 

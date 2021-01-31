@@ -33,6 +33,8 @@ subservice/backup/.suspended
 subservice/backup/backup/.suspended
 subservice/aprint
 subservice/aprint/*
+subservice/minecraft/*
+subservice/octave/*
 
 #Binary related
 build/*

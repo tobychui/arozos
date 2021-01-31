@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<head>
+    <title>Task Manager</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <script type="text/javascript" src="../info/js/chart/Chart.min.js"></script>
+</head>
+
+<body>
+    <br>
+    <div class="ui container">
+        <div id="cpuChartContainer" style="position: relative;">
+            <h2 class="ui header">
+                CPU
+                <div class="sub header">CPU Usage (%) in the previous 60 seconds</div>
+            </h2>
+            <p id="CPUname" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;">Generic Processor</p>
+            <canvas id="cpuChart" width="1200" height="300"></canvas>
+            <div class="ui stackable grid">
+                <div class="four wide column">
+                    <div class="ui header" >
+                        <span id="cpuUsage">0%</span>
+                         <div class="sub header">Usage</div>
+                     </div>
+                </div>
+                <div class="four wide column">
+                    <div class="ui header" >
+                        <span id="cpufreq">Loading</span>
+                        <div class="sub header">Frequency</div>
+                     </div>
+                </div>
+            </div>
+           
+        </div>
+        <br>
+        <div id="ramChartContainer" style="position: relative;">
+            <h2 class="ui header">
+                Memory
+                <div class="sub header">RAM Usage</div>
+            </h2>
+            <p id="RAMInfo" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;"></p>
+            <canvas id="ramChart" width="1200" height="300"></canvas>
+            <br>
+            <div class="ui stackable grid">
+                <div class="four wide column">
+                    <div class="ui header" >
+                        <span id="ramUsed">Loading</span>
+                        <div class="sub header">Used</div>
+                    </div>
+                </div>
+                <div class="four wide column">
+                    <div class="ui header" >
+                        <span id="ramUsedPercentage">Loading</span>
+                        <div class="sub header">Used (%)</div>
+                    </div>
+                </div>
+                <div class="four wide column">
+                    <div class="ui header">
+                        <span id="ramTotal">Loading</span>
+                        <div class="sub header">Total</div>
+                    </div>
+                </div>
+            </div>
+           
+           
+        </div>
+    </div>
+    <script>
+        var cpuChart;
+        var ramChart;
+        var options = {
+            maintainAspectRatio: false,
+            responsive: false,
+			spanGaps: false,
+			elements: {
+				line: {
+					tension: 0.000001
+				}
+			},
+			plugins: {
+				filler: {
+					propagate: false
+				}
+			},
+			scales: {
+				xAxes: [{
+					ticks: {
+						autoSkip: false,
+						maxRotation: 0
+                    },
+                    gridLines: {
+                        display: true ,
+                        color: "#d9eaf4"
+                    },
+                },{
+                    position: 'top',
+                    ticks: {
+                        display: false
+                    },
+                    gridLines: {
+                        display: false,
+                        drawTicks: false
+                    }
+                }],
+                yAxes: [{
+                    ticks: {
+                        suggestedMin: 0,
+                        suggestedMax: 100
+                    },
+                    gridLines: {
+                        display: true ,
+                        color: "#d9eaf4"
+                    },
+                },{
+                    position: 'right',
+                    ticks: {
+                        display: false
+                    },
+                    gridLines: {
+                        display: false,
+                        drawTicks: false
+                    }
+                }]
+            },
+            legend: {
+                display: false,
+            }
+        };
+
+        var ramOptions = {
+            maintainAspectRatio: false,
+            responsive: false,
+			spanGaps: false,
+			elements: {
+				line: {
+					tension: 0.000001
+				}
+			},
+			plugins: {
+				filler: {
+					propagate: false
+				}
+			},
+			scales: {
+				xAxes: [{
+					ticks: {
+						autoSkip: false,
+						maxRotation: 0
+                    },
+                    gridLines: {
+                        display: true ,
+                        color: "#ecdef0"
+                    },
+                },{
+                    position: 'top',
+                    ticks: {
+                        display: false
+                    },
+                    gridLines: {
+                        display: false,
+                        drawTicks: false
+                    }
+                }],
+                yAxes: [{
+                    ticks: {
+                        suggestedMin: 0,
+                        suggestedMax: 100
+                    },
+                    gridLines: {
+                        display: true ,
+                        color: "#ecdef0"
+                    },
+                },{
+                    position: 'right',
+                    ticks: {
+                        display: false
+                    },
+                    gridLines: {
+                        display: false,
+                        drawTicks: false
+                    }
+                }]
+            },
+            legend: {
+                display: false,
+            }
+        };
+        
+        initInfo();
+        chartInit();
+
+        //Special code to handle embedding into the System Setting embedded windows
+        var insideIframe = false;
+        if (parent.managerInIframe !== undefined && parent.managerInIframe == true){
+            $(window).on("click", function(e){
+                parent.ao_module_focus();
+            });
+        }
+
+        function initInfo(){
+            $.get("../../system/info/getCPUinfo", function(data){
+                var data = JSON.parse(data);
+                console.log(data);
+                $("#CPUname").text(data.Model);
+                if (parseFloat(data.Freq) > 1000){
+                    $("#cpufreq").text((data.Freq/1000).toFixed(2) + " Ghz");
+                }else{
+                    $("#cpufreq").text(data.Freq + " Mhz");
+                }
+                
+            });
+
+            $.get("../../system/info/getRAMinfo", function(data){
+                //Return ram in byte
+                var ramsize = bytesToSize(data);
+                $("#RAMInfo").text(ramsize);
+            })
+        }
+
+        function bytesToSize(bytes) {
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes == 0) return '0 Byte';
+            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+        }
+
+        function chartInit(){
+            cpuChart = new Chart('cpuChart', {
+				type: 'line',
+				data: {
+					labels: [],
+					datasets: [{
+						backgroundColor: "rgba(241,246,250,0.4)",
+						borderColor: "#4c9dcb",
+						data: [],
+						fill: 'start'
+                    }]
+				},
+				options: options
+            });
+            
+            //Push 60 empty data into the chart
+            for (var i =0; i < 60; i++){
+                addData(cpuChart, "",0)
+            }
+
+            //Create RAM Chart
+            ramChart = new Chart('ramChart', {
+				type: 'line',
+				data: {
+					labels: [],
+					datasets: [{
+						backgroundColor: "rgba(244,242,244,0.4)",
+						borderColor: "#9528b4",
+						data: [],
+						fill: 'start'
+                    }]
+				},
+				options: ramOptions
+            });
+
+            for (var i =0; i < 60; i++){
+                addData(ramChart, "",0)
+            }
+            
+        }
+
+        resizeCharts();
+        $(window).on("resize", function(){
+            resizeCharts();
+        })
+
+        function resizeCharts(){
+            $("#cpuChart").width($("#cpuChartContainer").width());
+            $("#ramChart").width($("#ramChartContainer").width());
+        }
+
+        updateData();
+        function updateData(){
+            //Testing use 
+            /*
+            setInterval(function(){
+                addAndShiftChartDate(cpuChart, "", Math.floor(Math.random() * 50) + 20)
+                addAndShiftChartDate(ramChart, "", Math.floor(Math.random() * 10) + 30)
+            }, 1000)
+            */
+
+            $.get("../../system/info/getUsageInfo", function(data){
+                //Update graph
+                addAndShiftChartDate(cpuChart, "", data.CPU);
+                addAndShiftChartDate(ramChart, "", data.RamUsage);
+
+                //Update values
+                $("#cpuUsage").text(data.CPU.toFixed(1) + "%");
+                $("#ramUsedPercentage").text(data.RamUsage.toFixed(1) + "%")
+                $("#ramUsed").text(data.UsedRAM);
+                $("#ramTotal").text(data.TotalRam);
+
+                setTimeout(function(){
+                    updateData();
+                }, 1000);
+            });
+
+        }
+
+        function addData(chart, label, data) {
+            chart.data.labels.push(label);
+            chart.data.datasets.forEach((dataset) => {
+                dataset.data.push(data);
+            });
+            chart.update();
+        }
+
+        function addAndShiftChartDate(chart, label, newdata) {
+            chart.data.labels.splice(0, 1); // remove first label
+            chart.data.datasets.forEach(function(dataset) {
+                dataset.data.splice(0, 1); // remove first data point
+            });
+
+            chart.update();
+
+            // Add new data
+            chart.data.labels.push(label); // add new label at end
+            chart.data.datasets.forEach(function(dataset, index) {
+                dataset.data.push(newdata); // add new data at end
+            });
+
+            chart.update();
+        }
+
+    </script>
+</body>
+</html>

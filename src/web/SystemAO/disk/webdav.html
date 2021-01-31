@@ -61,10 +61,17 @@
                 <div class="header">
                 <span class="onlinestatus">Status: Offline</span>
                 </div>
-                <p class="ept"><span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav</p>
+                <p>Server might take a few seconds to startup / shutdown after switching on and off.</p>
             </div>
         </div>
        
+        <!-- Connection Endpoint List -->
+        <div class="ui segment">
+            <p>The following are the endpoints that you can connect via WebDAV with your user account.</p>
+            <div class="ui list" id="vrootList">
+                
+            </div>
+        </div>
         <!-- NON TLS Windows Only Mode-->
         <div id="nontlsWindowsSettings">
             <br>
@@ -119,6 +126,7 @@
             <button class="ui blue button" onclick="refreshList();"><i class="refresh icon"></i> Refresh List</button>
             <button class="ui button" onclick="clearPendings();"><i class="remove icon"></i> Clear All Pending Request</button>
         </div>
+        <br><br>
     </div>
     <script>
     var isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
@@ -126,6 +134,10 @@
 
     //Initiate UI elements
     $(".ui.checkbox").checkbox();
+
+    //Generate endpoint list
+    generateConnectionEndpointList();
+
     function toggleWebDAVServer(value){
         if (value == true){
             $("#status").addClass("green");
@@ -140,6 +152,29 @@
                 initServerStatus();
             });
         }
+    }
+
+    function generateConnectionEndpointList(){
+        $.get("../../system/file_system/listRoots", function(data){
+            if (data.error != undefined){
+                console.log(data.error);
+            }else{
+                $("#vrootList").html("");
+                var port = (window.location.port);
+                if (window.location.port == ""){
+                    port = 80;
+                }
+                data.forEach(vroot => {
+                    $("#vrootList").append(`<div class="item">
+                    <i class="disk icon"></i>
+                    <div class="content">
+                        <div class="header">${vroot.RootName}</div>
+                        <div class="description">${location.protocol}//${window.location.hostname}:${port}/webdav/${vroot.RootPath.replace(":/","")}</div>
+                    </div>
+                </div>`);
+                });
+            }
+        });
     }
 
     //Check server toggle state
@@ -167,6 +202,9 @@
     //Update tutorial information
     $(".hostname").text(window.location.hostname);
     $(".port").text(window.location.port);
+    if (window.location.port == ""){
+        $(".port").text("80");
+    }
     $(".protocol").text(location.protocol);
     if (isMac){
         $(".maconly").show();

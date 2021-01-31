@@ -25,9 +25,9 @@ import (
 	"time"
 
 	archiver "github.com/mholt/archiver/v3"
-	//dircpy "github.com/otiai10/copy"
 )
 
+//Will be deprecate in 1.110
 func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
 	z := archiver.Zip{
 		CompressionLevel:       flate.DefaultCompression,
@@ -36,9 +36,119 @@ func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) e
 		OverwriteExisting:      false,
 		ImplicitTopLevelFolder: includeTopLevelFolder,
 	}
+	log.Println("ZipFile will be deprecate in next ArozOS Update!!!")
 
 	err := z.Archive(filelist, outputfile)
 	return err
+}
+
+//Aroz Zip File with progress update function (current filename / current file count / total file count / progress in percentage)
+func ArozZipFileWithProgress(filelist []string, outputfile string, includeTopLevelFolder bool, progressHandler func(string, int, int, float64)) error {
+	//Get the file count from the filelist
+	totalFileCount := 0
+	for _, srcpath := range filelist {
+		if IsDir(srcpath) {
+			filepath.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
+				if !info.IsDir() {
+					totalFileCount++
+				}
+				return nil
+			})
+		} else {
+			totalFileCount++
+		}
+
+	}
+
+	//Create the target zip file
+	file, err := os.Create(outputfile)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	writer := zip.NewWriter(file)
+	defer writer.Close()
+
+	currentFileCount := 0
+	for _, srcpath := range filelist {
+		if IsDir(srcpath) {
+			//This is a directory
+			topLevelFolderName := filepath.ToSlash(filepath.Base(filepath.Dir(srcpath)) + "/" + filepath.Base(srcpath))
+			err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() {
+					return nil
+				}
+
+				if insideHiddenFolder(path) == true {
+					//This is hidden file / folder. Skip this
+					return nil
+				}
+				file, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+
+				relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
+				if includeTopLevelFolder {
+					relativePath = topLevelFolderName + "/" + relativePath
+				} else {
+					relativePath = filepath.Base(srcpath) + "/" + relativePath
+				}
+
+				f, err := writer.Create(relativePath)
+				if err != nil {
+					return err
+				}
+
+				_, err = io.Copy(f, file)
+				if err != nil {
+					return err
+				}
+
+				//Update the zip progress
+				currentFileCount++
+				progressHandler(filepath.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+				return nil
+			})
+
+			if err != nil {
+				return err
+			}
+		} else {
+			//This is a file
+			topLevelFolderName := filepath.Base(filepath.Dir(srcpath))
+			file, err := os.Open(srcpath)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+			relativePath := filepath.Base(srcpath)
+			if includeTopLevelFolder {
+				relativePath = topLevelFolderName + "/" + relativePath
+			}
+			f, err := writer.Create(relativePath)
+			if err != nil {
+				return err
+			}
+
+			_, err = io.Copy(f, file)
+			if err != nil {
+				return err
+			}
+
+			//Update the zip progress
+			currentFileCount++
+			progressHandler(filepath.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+
+		}
+	}
+
+	return nil
 }
 
 func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {

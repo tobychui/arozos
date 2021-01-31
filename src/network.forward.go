@@ -94,7 +94,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 				ReadOnly: readOnly,
 			}
 
-			log.Println(thisPort)
+			//log.Println(thisPort)
 
 			forwardPorts = append(forwardPorts, thisPort)
 		}

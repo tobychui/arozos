@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="../script/ao.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <script src="qr/qrious.min.js"></script>
+        <title>Web Downloader</title>
+        <style>
+            body{
+                background-color:rgba(250,250,250,0.8);
+            }
+            @supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
+                body {
+                    -webkit-backdrop-filter: blur(10px);
+                    backdrop-filter: blur(10px);
+                    background-color:rgba(250,250,250,0.7);
+                }
+            }
+
+            @font-face {
+                font-family: 'TaipeiSansTCBeta';
+                src: url("../script/font/TaipeiSansTCBeta-Regular.ttf");
+            }
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="ui container">
+            <h3 class="ui header">
+                <i class="download icon"></i>
+                <div class="content">
+                    Web Downloader
+                    <div class="sub header">Copy and Paste URL to download</div>
+                </div>
+            </h3>
+            <form class="ui form">
+                <div class="field">
+                    <label>URL</label>
+                    <input type="text" id="url" placeholder="http://example.com/myfile.txt">
+                </div>
+                <div class="field">
+                    <label>Save Location</label>
+                    <div class="ui icon input">
+                        <input type="text" placeholder="user:/Desktop/">
+                        <i class="circular open folder link icon"></i>
+                    </div>
+                </div>
+            </form>
+             <br>
+            <button class="ui primary button">Download</button>
+            <button class="ui black button">Background Download</button>
+        </div>
+        <script>
+            //Init windows events
+            ao_module_setFixedWindowSize();
+        </script>
+       
+    </body>
+</html>

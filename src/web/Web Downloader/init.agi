@@ -1,0 +1,14 @@
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Web Downloader",
+	Group: "Download",
+	IconPath: "Web Downloader/img/small_icon.png",
+	Version: "1.0",
+	StartDir: "Web Downloader/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Web Downloader/index.html",
+	InitFWSize: [400, 500]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));
+

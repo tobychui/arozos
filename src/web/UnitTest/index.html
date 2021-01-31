@@ -47,9 +47,10 @@
 			function runtest(){
 				$("#results").html("");
 				//Get a list of test to be run
-				ao_module_agirun("UnitTest/list.agi",{}, function(data){
+				ao_module_agirun("UnitTest/list.agi",{testdata: "Hello World"}, function(data){
                     data.forEach(test => {
                         let scriptname = test.split("/").pop();
+                        let thisScriptPath = JSON.parse(JSON.stringify(test));
                         ao_module_agirun(test, {foo: "Hello", bar: "World"}, function(data){
                             //Success callback
                             $("#results").append(`<tr class="positive">
@@ -60,7 +61,7 @@
                         }, function(){
                             $("#results").append(`<tr class="negative">
                                 <td data-label="">${scriptname}</td>
-                                <td data-label=""></td>
+                                <td data-label=""><a href="../system/ajgi/interface?script=${thisScriptPath}" target="_blank">Open Debug Interface</a></td>
                                 <td data-label="">Failed</td>
                             </tr>`);
                         }, 10000);

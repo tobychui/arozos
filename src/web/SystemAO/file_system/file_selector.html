@@ -214,6 +214,7 @@
 
                 if (ao_module_virtualDesktop){
                     if (!ao_module_parentCallback(files)){
+                        //Parent callback not exists
                         alert("Selection Failed. Is parent window alive?")
                     }else{
                         parent.closeFwProcess(ao_module_windowID);

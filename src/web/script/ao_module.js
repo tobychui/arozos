@@ -89,11 +89,20 @@ function ao_module_setWindowSize(width, height){
     parent.setFloatWindowSize(ao_module_windowID, width, height)
 }
 
+//Update the floatWindow title
 function ao_module_setWindowTitle(newTitle){
     if (!ao_module_virtualDesktop){
         return;
     }
     parent.setFloatWindowTitle(ao_module_windowID, newTitle);
+}   
+
+//Set new window theme, default dark, support {dark/white}
+function ao_module_setWindowTheme(newtheme="dark"){
+    if (!ao_module_virtualDesktop){
+        return;
+    }
+    parent.setFloatWindowTheme(ao_module_windowID, newtheme);
 }   
 
 //Check if there are any windows with the same path. 
@@ -681,5 +690,4 @@ class ao_module_utils{
     }
     
     static formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}
-
 }

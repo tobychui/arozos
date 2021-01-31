@@ -105,7 +105,7 @@
                         <div class="description">Other's Permission: ${storagePool.OtherPermission}</div>
                         <div class="list">`;
 
-                        if (storagePool.Storages !== null){
+                        if (storagePool.Storages !== null && storagePool.Storages.length > 0){
                             storagePool.Storages.forEach(fsh => {
                                 spHTML += (`<div class="item">
                                 <i class="disk icon"></i>

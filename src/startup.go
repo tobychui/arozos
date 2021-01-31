@@ -6,18 +6,21 @@ package main
 */
 
 import (
-	//ArOZ Online Core Modules
+	"fmt"
+
 	db "imuslab.com/arozos/mod/database"
 )
 
 func RunStartup() {
 	//1. Initiate the main system database
 	if !fileExists("system/") {
-		panic("▒▒ ERROR: SYSTEM FOLDER NOT FOUND ▒▒")
+		fmt.Println("▒▒ ERROR: SYSTEM FOLDER NOT FOUND ▒▒")
+		panic("This error occurs because the system folder is missing. Please follow the installation guide and don't just download a binary and run it.")
 	}
 
 	if !fileExists("web/") {
-		panic("▒▒ ERROR: WEB FOLDER NOT FOUND ▒▒")
+		fmt.Println("▒▒ ERROR: WEB FOLDER NOT FOUND ▒▒")
+		panic("This error occurs because the web folder is missing. Please follow the installation guide and don't just download a binary and run it.")
 	}
 
 	dbconn, err := db.NewDatabase("system/ao.db", false)
@@ -81,6 +84,9 @@ func RunStartup() {
 	//Start High Level Services that requires full arozos architectures
 	FTPServerInit() //Start FTP Server Endpoints
 	WebDAVInit()    //Start WebDAV Endpoint
+	ClusterInit()   //Start Cluster Services
+
+	ModuleInstallerInit() //Start Module Installer
 
 	NightlyInit() //Start Nightly Tasks
 

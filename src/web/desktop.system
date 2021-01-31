@@ -1,7 +1,7 @@
 <html>
 
 <head>
-    <title>ArOZ Online Desktop</title>
+    <title>ArozOS Desktop</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="script/tocas/tocas.css">
@@ -1517,10 +1517,14 @@
 
         //Handle floatWindow resize events
         let resizingWindowTarget;
+        let resizingMinX = 0;
+        let minxWidth = 120;
+        let minHeight = 100;
         function resizeDown(object, event) {
             //Mouse down, start resizing
             resizingWindow = true;
             resizingWindowTarget = object;
+            resizingMinX = $(object).offset().left + $(object).width() - minxWidth;
             MoveFloatWindowToTop(object);
             $("#fwdragpanel").show();
             $(object).find(".iframecover").show();
@@ -1528,7 +1532,7 @@
             //Check which edge is the user dragging
             var dx = event.pageX - $(object).find(".iframewrapper").offset().left;
             var dy = event.pageY - $(object).offset().top;
-
+            
             if (dx < 10 && dy > $(object).height() - 10) {
                 //Left Bottom Corner
                 resizingEdgeID = 4;
@@ -1555,33 +1559,43 @@
         function resizeMove(object, event) {
             var posX = event.pageX;
             var posY = event.pageY;
+            
             if (resizingWindow == true && resizingEdgeID != 0) {
                 if (resizingEdgeID == 1) {
                     //Width = posX - floatWindow width + 2 (for border width)
                     var newWidth = posX - $(object).offset().left + 2;
-                    $(object).css("width", newWidth);
+                    $(object).css("width", Math.max(newWidth, minxWidth));
                 } else if (resizingEdgeID == 2) {
                     var newWidth = posX - $(object).offset().left + 2;
                     var newHeight = posY - $(object).offset().top + 2;
                     $(object).css({
-                        width: newWidth,
-                        height: newHeight
+                        width: Math.max(newWidth, minxWidth),
+                        height: Math.max(newHeight, minHeight)
                     });
                 } else if (resizingEdgeID == 3) {
                     var newHeight = posY - $(object).offset().top + 2;
-                    $(object).css("height", newHeight);
+                    $(object).css("height", Math.max(newHeight,minHeight));
                 } else if (resizingEdgeID == 4) {
                     var newWidth = $(object).offset().left - posX + $(object).width();
                     var newHeight = posY - $(object).offset().top + 2;
+                    
+                    if (newWidth < minxWidth){
+                        posX = resizingMinX;
+                    }
+                    
                     $(object).css({
-                        width: newWidth,
-                        height: newHeight,
+                        width: Math.max(newWidth, minxWidth),
+                        height: Math.max(newHeight, minHeight),
                         left: posX
                     });
                 } else if (resizingEdgeID == 5) {
                     var newWidth = $(object).offset().left - posX + $(object).width();
+                    if (newWidth < minxWidth){
+                        posX = resizingMinX;
+                    }
+                    
                     $(object).css({
-                        width: newWidth,
+                        width: Math.max(newWidth, minxWidth),
                         left: posX
                     });
                 }
@@ -4444,6 +4458,15 @@
                 }
             }
           
+        }
+
+        function setFloatWindowTheme(fwid, theme="dark"){
+            var targetFW = getFloatWindowByID(fwid);
+            if (theme == "dark"){
+                $(targetFW).removeClass("white");
+            }else if (theme == "white"){
+                $(targetFW).addClass("white");
+            }
         }
 
         function checkFileSystemAccess(){

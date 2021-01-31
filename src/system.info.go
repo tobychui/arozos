@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"runtime"
 
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
+	usage "imuslab.com/arozos/mod/info/usageinfo"
 	prout "imuslab.com/arozos/mod/prouter"
 )
 
@@ -70,6 +72,22 @@ func SystemInfoInit() {
 			Group:    "Info",
 			StartDir: "SystemAO/info/index.html",
 		})
+
+		/*
+			CPU and RAM usage interface
+
+		*/
+
+		registerSetting(settingModule{
+			Name:     "Performance",
+			Desc:     "System CPU and RAM usage",
+			IconPath: "SystemAO/info/img/small_icon.png",
+			Group:    "Info",
+			StartDir: "SystemAO/info/taskManagerFrame.html",
+		})
+
+		router.HandleFunc("/system/info/getUsageInfo", InfoHandleTaskInfo)
+
 	}
 
 	//Register as a system setting
@@ -83,4 +101,25 @@ func SystemInfoInit() {
 		})
 	}
 
+}
+
+func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
+	type UsageInfo struct {
+		CPU      float64
+		UsedRAM  string
+		TotalRam string
+		RamUsage float64
+	}
+	cpuUsage := usage.GetCPUUsage()
+	usedRam, totalRam, usagePercentage := usage.GetRAMUsage()
+
+	info := UsageInfo{
+		cpuUsage,
+		usedRam,
+		totalRam,
+		usagePercentage,
+	}
+
+	js, _ := json.Marshal(info)
+	sendJSONResponse(w, string(js))
 }

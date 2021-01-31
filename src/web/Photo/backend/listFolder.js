@@ -3,15 +3,16 @@ if (!loadedfile) {
     console.log("Failed to load lib filelib, terminated.");
 }
 
-var folderList = filelib.glob("user:/Photo/storage/*");
+var folderList = filelib.glob("user:/Photo/*");
 var arr = [];
-//add uploads folder
-var img = ChooseFirstImage("user:/Photo/uploads/");
-arr.push({ VPath: "user:/Photo/uploads/", Foldername: "uploads", img: img })
+//add main folder
+var img = ChooseFirstImage("user:/Photo/");
+arr.push({ VPath: "user:/Photo/", Foldername: "Root folder", img: img })
 
 for (var i = 0; i < folderList.length; i++) {
-    if (filelib.isDir(folderList[i])) {
-        img = ChooseFirstImage(folderList[i]);
+    var fldname = folderList[i].split("/")
+    if (filelib.isDir(folderList[i]) && folderList[i] != "user:/Photo/thumbnails" && fldname[fldname.length - 1].substring(0, 1) != ".") {
+        var img = ChooseFirstImage(folderList[i]);
         arr.push({ VPath: folderList[i] + "/", Foldername: folderList[i].split("/").pop(), img: img })
     }
 }

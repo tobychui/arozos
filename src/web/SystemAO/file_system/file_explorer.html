@@ -256,7 +256,7 @@
             }
             .closeMsgButton{
                 position:absolute;
-                top:4px;
+                top:8px;
                 right:12px;
 
             }
@@ -642,7 +642,7 @@
              <button class="ts icon tiny button standard whiteTheme" title="New File" onclick="newfile();"><i class="file outline icon"></i></button>
              <button class="ts icon tiny button standard whiteTheme" title="New Folder" onclick="newFolder();"><i class="folder outline icon"></i></button>
              <button class="ts icon tiny button standard whiteTheme" title="Upload" onclick="upload();"><i class="upload icon"></i></button>
-             <!-- <button class="ts icon tiny button standard whiteTheme" title="Permission" onclick="filePermission();"><i class="unlock alternate icon"></i></button> -->
+             <button class="ts icon tiny button standard whiteTheme" title="Create Zip" onclick="zipFile();"><i class="zip file icon"></i></button>
 
              <button class="ts icon tiny button standard whiteTheme" title="Rename" onclick="rename();"><i class="i cursor icon"></i></button>
              <button class="ts icon tiny negative button" title="Delete" onclick="deleteFile();"><i class="trash outline icon"></i></button>
@@ -668,7 +668,7 @@
                         <option value="mostRecent">Most Recent</option>
                         <option value="leastRecent">Least Recent</option>
                     </select>
-                    <button class="ts icon tiny button standard whiteTheme"  title="Search"><i class="search icon"></i></button>
+                    <button id="searhbtn" class="ts icon tiny button standard whiteTheme"  title="Search" onclick="toggleSearch();"><i class="search icon"></i></button>
                     <button class="ts icon tiny button standard whiteTheme videmode" mode="grid" title="Block View" onclick="changeViewMode(this);"><i class="block layout icon"></i></button>
                     <button class="ts icon tiny button standard whiteTheme videmode" mode="list" title="List View" onclick="changeViewMode(this);"><i class="align justify icon"></i></button>
                 </div>
@@ -680,6 +680,15 @@
                     <div class="section whiteTheme selectable">Desktop</div>
                 </div>
              </div>
+             <div class="searchbar" style="z-index:999; display:none;">
+                <div style="width: 80%; display:inline-block; margin-top:-4px;">
+                    <div class="ts mini fluid input">
+                        <input autocomplete="off" id="searchInput" type="text" class="whiteTheme" placeholder="File Search (Start wildcard search with / , e.g. /*.mp3)" onkeypress="handleSearchBarPress(event);">
+                    </div>
+                </div>
+                <button class="ts icon tiny button standard whiteTheme" onclick="handleSearch();"><i class="search icon"></i></button>
+                <button class="ts icon tiny button standard whiteTheme" onclick="hideSearchBar();"><i class="remove icon"></i></button>
+            </div>
              <div class="msgbox" style="z-index:999; display:none;">
                 <i class="checkmark icon"></i> <span>No Message</span>
                 <div class="closeMsgButton" onclick="$(this).parent().slideUp('fast');"><i class="remove icon"></i></div>
@@ -1006,6 +1015,9 @@
             <div class="item folderonly" onclick="openSelectedFolderInNewWindow();">
                 <i class="external icon"></i> Open In New Window
             </div>
+            <div class="item shareonly" onclick="openFileLocation();">
+                <i class="folder outline icon"></i> Open File Location
+            </div>
             <div class="item singleObjectOnlyHide" onclick="shareFile();">
                 <i class="share alternate icon"></i> Share
             </div>
@@ -1031,6 +1043,9 @@
             <div class="divider"></div>
             <div class="item" onclick="upload();">
                 <i class="upload icon"></i>  Upload
+            </div>
+            <div class="item" onclick="zipFile();">
+                <i class="zip file icon"></i> Create Zip
             </div>
             <div class="item" onclick="rename();">
                 <i class="i cursor icon"></i> Rename
@@ -1078,7 +1093,7 @@
             let currentFilelist = []; //The current file list in the currentPath
             let currentPathHash = "";   //The folder content hash
             let enableAutoRefresh = true; //Enable directory updates on file change
-            
+
             //File operations
             let clipboard = []; //System clipboard
             let cutMode = false; //If set to true, this is cut mode. Else copy mode
@@ -1094,6 +1109,8 @@
             let uploadingFileCount = 0;
             let maxConcurrentUpload = 4; //Maxmium number of oncurrent upload
             let uploadPendingList = []; //Upload pending queue for mass upoad
+            let lowMemoryMode = true;   //Upload with low memory mode channel
+            let uploadFileChunkSize = 1024 * 1024 * 4; //4KB
 
             //File Sharing related
             let shareEditingObject = ""; 
@@ -1108,10 +1125,12 @@
             let isChromium = window.chrome;
             let isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
             let isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
             //Intiiation functions
             initRootDirs();
             initSystemInfo();
+            initUploadMode();
 
             if (isMobile){
                 //Mobile css adjustment
@@ -1133,6 +1152,7 @@
             }
             //Initialize view mode buttons
             updateViewmodeButtons();
+            loadListModeFromDB();
 
             //Initialize system theme
             loadPreference("file_explorer/theme",function(data){
@@ -1140,7 +1160,8 @@
                     if (data == "darkTheme"){
                         toggleDarkTheme();
                     }else{
-                        //White theme. Do nothing
+                        //White theme
+                       
                     }
                 }
             });
@@ -1153,31 +1174,46 @@
                     if (currentPath.substring(currentPath.length -1) != "/"){
                         currentPath = currentPath + "/";
                     }
+                    loadListModeFromDB(function(){
+                        listDirectory(currentPath);
+                    });
+                    
                 }else{
                     //This is ao_module load file input. Handle the file opening
                     var filelist = ao_module_loadInputFiles();
                     if (filelist.length > 0){
                         filelist = filelist[0];
                         //Check if this is folder or file. Only opendir when it is folder
+                        //Updates 27-12-2020: Open folder and highlight the file if it is file
                         if (filelist.filename.includes(".") == false){
                             //Try to open it and overwrite the hash to filesystem hash
-                            listDirectory(filelist.filepath);
+                            loadListModeFromDB(function(){
+                                listDirectory(filelist.filepath);
+                            });
+                        }else{
+                            //File. Open its parent folder and highlight the target file if exists
+                            var parentdir = filelist.filepath.split("/");
+                            let focusFilename = JSON.parse(JSON.stringify(filelist.filename));
+                            parentdir.pop();
+                            parentdir = parentdir.join("/");
+                            loadListModeFromDB(function(){
+                                listDirectory(parentdir, function(){
+                                    focusFileObject(focusFilename);
+                                });
+                            });
                         }
-
                     }
                 }
-            }
-
-            //Get list mode from storage
-            loadPreference("file_explorer/listmode",function(data){
-                if (data != "" && data.error === undefined){
-                    viewMode = data;
-                    updateViewmodeButtons();
-                }
+            }else{
 
                 //Initialized directory views
-                listDirectory(currentPath);
-            });
+                loadListModeFromDB(function(){
+                    listDirectory(currentPath);
+                });
+            }
+            
+
+            
             
             //Create a timer to check change in current folder
             setInterval(function(){
@@ -1296,6 +1332,18 @@
 
             // ============================== FOLDER LISTING FUNCTIONS ====================
             function listDirectory(path, callback=undefined){
+                //If current mode is search mode, hide the serach bar
+                if (searchMode == true){
+                    //Hide searchbar and skip refresh list
+                    hideSearchBar(true);
+                }
+
+                //Backup the current selected files
+                let selectedFiles = [];
+                $(".fileObject.item.selected").each(function(){
+                    selectedFiles.push($(this).attr("filename"));
+                });
+
                 //Always pad slash to the end of path
                 if (path.substring(path.length - 1) != "/"){
                     path = path + "/";
@@ -1371,208 +1419,244 @@
                                 window.location.reload();
                             });
                             return;
-                        }
-                        
-                        $("#fileList").html("");
-                        $("#folderList").html("");
-                        //Build the css strcture of the list
-                        if (viewMode == "list"){
-                            $("#fileList").attr("class",`ts segmented fluid list ${currentTheme}`);
-                            $("#folderList").attr("class",`ts segmented fluid list ${currentTheme}`);
-                        }else if (viewMode == "details"){
-                            
-                        }else if (viewMode == "grid"){
-                            $("#fileList").attr("class",`${currentTheme}`).css("vertical-align","top");
-                            $("#folderList").attr("class",`${currentTheme}`).css("vertical-align","top");
-                        }
-                    
-                        var files = [];
-                        var folders = [];
-                        for (var i =0; i < data.length; i++){
-                            if (data[i].IsDir == true){
-                                //This is folder
-                                folders.push(data[i]);
-                            }else{
-                                //This is file
-                                files.push(data[i]);
-                            }
-                            currentFilelist.push(JSON.parse(JSON.stringify(data[i].Filename)));
-                        }
-                        //Define the grid size for the interface
-                        var gridSize = 150 ;
-                        if (isMobile){
-                            if (window.innerWidth > window.innerHeight){
-                                //Screen using in horizontal mode
-                                gridSize = window.innerWidth /4 - 20 ;
-                            }else{
-                                //Screen using in vertical mode
-                                gridSize = window.innerWidth /2 - 20 ;
-                            }
-                            
-                        }
-                        
-                        //List all folders
-                        for (var i =0; i < folders.length; i++){
-                            var filename = folders[i].Filename;
-                            var filepath = folders[i].Filepath;
-                            var realpath = folders[i].Realpath;
-                            var isDir = folders[i].IsDir;
-                            var filesize = folders[i].Filesize;
-                            var Displaysize = folders[i].Displaysize;
-                            var isShared = folders[i].IsShared;
-                            var ext = getExtFromPath(filepath);
-                            //var icon = ao_module_utils.getIconFromExt(ext);
-                            var icon = "folder";
-                            var shareicon = "";
-                            if (isShared == true){
-                                shareicon = `<button class="sharebtn ${currentTheme}" onclick='handleShareFilebuttonClick(event, this);' style="margin-left: 4px; height: 16px;">
-                                    <i class='share alternate icon'></i>
-                                </button>`
-                            }
-                            if (viewMode == "list"){
-                                var textclass = "normal object";
-                                if (currentTheme == "darkTheme"){
-                                    textclass += " darkTheme";
-                                }
-                                var displayName = filename;
-                                if (enableBetaFilename && ao_module_codec.decodeHexFoldername(displayName) != displayName){
-                                    displayName = ao_module_codec.decodeHexFoldername(displayName, false);
-                                    textclass = "hex foldername";
-                                }
-                                $("#folderList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder">
-                                    <span style="display:inline-block !important;word-break: break-all;" class="${textclass}">
-                                        <i class="${icon} icon" style="margin-right:12px;"></i>  ${displayName} ${shareicon}
-                                    </span></div>`);
-                            }else if (viewMode == "grid"){
-                                var displayName = JSON.parse(JSON.stringify(filename));
-                                var textclass = "normal object";
-                                if (enableBetaFilename && ao_module_codec.decodeHexFoldername(displayName) != displayName){
-                                    displayName = ao_module_codec.decodeHexFoldername(displayName, false);
-                                    textclass = "hex foldername";
-                                }
-                                if (displayName.length > 16){
-                                    displayName = displayName.substring(0,16) + "...";
-                                }
-                                $("#folderList").append(`
-                                <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:15em; margin-top:0px !important; overflow:hidden;">
-                                    <div class="image" style="text-align: center;">
-                                        <img draggable="true"ondragstart="disableDrag(event);" src="../../../img/desktop/system_icon/folder.png" style="height: 148px; width: 148px; display: inline-block;">
-                                    </div>
-                                    <div class="content" style="font-size: 12px;">
-                                        <div class="header ${currentTheme} ${textclass}">${displayName} ${shareicon}</div>
-                                    </div>
-                                </div>`);
-                            }
-                        }
-
-                        if (folders.length == 0){
-                            $("#folderList").hide();
                         }else{
-                            $("#folderList").show();
-                        }
-                    
-                        //List all files
-                        var fl = folders.length;
-                        for (var i =0; i < files.length; i++){
-                            var filename = files[i].Filename;
-                            var filepath = files[i].Filepath;
-                            var realpath = files[i].Realpath;
-                            var filesize = files[i].Filesize;
-                            var Displaysize = files[i].Displaysize;
-                            var isShared = files[i].IsShared;
-                            var ext = getExtFromPath(filepath);
-                            if (ext == ""){
-                                var icon = "file outline";
-                            }else{
-                                var icon = ao_module_utils.getIconFromExt(ext);
-                            }
-
-                            var shareicon = "";
-                            if (isShared){
-                                shareicon = `<button class="sharebtn ${currentTheme}" onclick='handleShareFilebuttonClick(event, this);' style="margin-left: 4px; height: 16px;">
-                                    <i class='share alternate icon'></i>
-                                </button>`
-                            }
-                            
-                            if (viewMode == "list"){
-                                var displayName = filename;
-                                var textclass = "normal object";
-                                if (currentTheme == "darkTheme"){
-                                    textclass += " darkTheme";
-                                }
-                                if (enableBetaFilename){
-                                    decodedName = ao_module_codec.decodeUmFilename(displayName);
-                                    if (decodedName != displayName){
-                                        displayName = decodedName;
-                                        textclass = "um filename";
+                            //Filelist returned. Render it
+                            renderDirectory(data,function(){
+                                //Restore the selected file list
+                                $(".fileObject.item").each(function(){
+                                    for (var i = 0; i < selectedFiles.length; i++){
+                                        var thisFilename = selectedFiles[i];
+                                        if (thisFilename == $(this).attr("filename")){
+                                            $(this).addClass("selected");
+                                        }
                                     }
-                                    filename = ao_module_codec.decodeUmFilename(filename);
-                                }
-                                $("#fileList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);"  fileID="${fl + i}"  filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);"  type="file" filesize="${filesize}" displaysize="${Displaysize}">
-                                    <span style="display:inline-block !important;word-break: break-all;text-overflow: ellipsis !important;overflow: hidden;" class="${textclass}">
-                                        <i class="${icon} icon" style="margin-right:12px;"></i>  
-                                        ${displayName}  ${shareicon}
-                                    </span>
-                                </div>`);
-                            }else if (viewMode == "grid"){
-                                var imagePath = "../../../img/desktop/files_icon/default/" + icon + ".png";
-                                var displayName = JSON.parse(JSON.stringify(filename));
-                                var textclass = "normal object";
-                                if (enableBetaFilename){
-                                    decodedName = ao_module_codec.decodeUmFilename(displayName);
-                                    if (decodedName != displayName){
-                                        textclass = "um filename";
-                                        displayName = decodedName;
-                                    }
-                                    filename = ao_module_codec.decodeUmFilename(filename);
-                                }
-                                
-                                if (displayName.length > 20){
-                                    displayName = displayName.substring(0,20) + "...";
-                                }
-                                $("#fileList").append(`
-                                <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" fileID="${fl + i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="file" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:20em;  margin-top:0px !important;  overflow:hidden;">
-                                    <div class="image" style="text-align: center !important;">
-                                        <img draggable="true"ondragstart="disableDrag(event);" style="height: 148px; width: 148px; display:inline-block;" src="${imagePath}">
-                                    </div>
-                                    <div class="content">
-                                        <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis; font-size: 100%">${displayName} ${shareicon}</div>
-                                        <div class="meta ${currentTheme}">
-                                            <div>.${ext}</div>
-                                        </div>
-                                        <div class="description ${currentTheme}">
-                                            ${Displaysize}
-                                        </div>
-                                    </div>
-                                </div>
-                                `);
-                            }
-                        }
-                        if (files.length == 0){
-                            $("#fileList").hide();
-                        }else{
-                            $("#fileList").show();
-                        }
+                                });
+                               
 
-                        bindFileObjectEvents();
-                        currentFilelist.sort();
-                        //Update the filelist hash
-                        enableAutoRefresh = false;
-                        getDirHash(function(hash){
-                            currentPathHash = hash;
-                            enableAutoRefresh = true;
-                        });
-
-                        //If viewmode is grid, load file thumbnails
-                        if (viewMode == "grid"){
-                            startThumbnailLoader();
+                                //Perform the callback
+                                if (callback !== undefined){
+                                    callback();
+                                }
+                            });
                         }
-
-                        if (callback !== undefined){
-                            callback();
-                        }
-                    }
+                    } 
                 });
+            }
+
+            //Render filelist --> Convert a file list object into the visable form of file list
+            function renderDirectory(filelist, callback=undefined){
+                var data = filelist;
+                $("#fileList").html("");
+                $("#folderList").html("");
+                //Build the css strcture of the list
+                if (viewMode == "list"){
+                    $("#fileList").attr("class",`ts segmented fluid list ${currentTheme}`);
+                    $("#folderList").attr("class",`ts segmented fluid list ${currentTheme}`);
+                }else if (viewMode == "details"){
+                    
+                }else if (viewMode == "grid"){
+                    $("#fileList").attr("class",`${currentTheme}`).css("vertical-align","top");
+                    $("#folderList").attr("class",`${currentTheme}`).css("vertical-align","top");
+                }
+            
+                var files = [];
+                var folders = [];
+                for (var i =0; i < data.length; i++){
+                    if (data[i].IsDir == true){
+                        //This is folder
+                        folders.push(data[i]);
+                    }else{
+                        //This is file
+                        files.push(data[i]);
+                    }
+                    currentFilelist.push(JSON.parse(JSON.stringify(data[i].Filename)));
+                }
+                //Define the grid size for the interface
+                var gridSize = 150 ;
+                if (isMobile){
+                    if (window.innerWidth > window.innerHeight){
+                        //Screen using in horizontal mode
+                        gridSize = window.innerWidth /4 - 20 ;
+                    }else{
+                        //Screen using in vertical mode
+                        gridSize = window.innerWidth /2 - 20 ;
+                    }
+                    
+                }
+                
+                //List all folders
+                for (var i =0; i < folders.length; i++){
+                    var filename = folders[i].Filename;
+                    var filepath = folders[i].Filepath;
+                    var realpath = folders[i].Realpath;
+                    var isDir = folders[i].IsDir;
+                    var filesize = folders[i].Filesize;
+                    var Displaysize = folders[i].Displaysize;
+                    var isShared = folders[i].IsShared;
+                    var ext = getExtFromPath(filepath);
+                    //var icon = ao_module_utils.getIconFromExt(ext);
+                    var icon = "folder";
+                    var shareicon = "";
+                    if (isShared == true){
+                        shareicon = `<button class="sharebtn ${currentTheme}" onclick='handleShareFilebuttonClick(event, this);' style="margin-left: 4px; height: 16px;">
+                            <i class='share alternate icon'></i>
+                        </button>`
+                    }
+                    if (viewMode == "list"){
+                        var textclass = "normal object";
+                        if (currentTheme == "darkTheme"){
+                            textclass += " darkTheme";
+                        }
+                        var displayName = filename;
+                        try{
+                            //Try to decode it using ArozOS Beta naming scheme
+                            if (enableBetaFilename && ao_module_codec.decodeHexFoldername(displayName) != displayName){
+                                displayName = ao_module_codec.decodeHexFoldername(displayName, false);
+                                textclass = "hex foldername";
+                            }
+                        }catch(ex){
+                            //Codec decode failed. Fallback to default name
+
+                        }
+                       
+                        $("#folderList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder">
+                            <span style="display:inline-block !important;word-break: break-all;" class="${textclass}">
+                                <i class="${icon} icon" style="margin-right:12px;"></i>  ${displayName} ${shareicon}
+                            </span></div>`);
+                    }else if (viewMode == "grid"){
+                        var displayName = JSON.parse(JSON.stringify(filename));
+                        var textclass = "normal object";
+                         try{
+                             //Try to decode it using ArozOS Beta naming scheme
+                            if (enableBetaFilename && ao_module_codec.decodeHexFoldername(displayName) != displayName){
+                                displayName = ao_module_codec.decodeHexFoldername(displayName, false);
+                                textclass = "hex foldername";
+                            }
+                        }catch(ex){
+                            //Codec decode failed. Fallback to default name
+                            
+                        }
+                        if (displayName.length > 16){
+                            displayName = displayName.substring(0,16) + "...";
+                        }
+                        $("#folderList").append(`
+                        <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:15em; margin-top:0px !important; overflow:hidden;">
+                            <div class="image" style="text-align: center;">
+                                <img draggable="true"ondragstart="disableDrag(event);" src="../../../img/desktop/system_icon/folder.png" style="height: 148px; width: 148px; display: inline-block;">
+                            </div>
+                            <div class="content" style="font-size: 12px;">
+                                <div class="header ${currentTheme} ${textclass}">${displayName} ${shareicon}</div>
+                            </div>
+                        </div>`);
+                    }
+                }
+
+                if (folders.length == 0){
+                    $("#folderList").hide();
+                }else{
+                    $("#folderList").show();
+                }
+            
+                //List all files
+                var fl = folders.length;
+                for (var i =0; i < files.length; i++){
+                    var filename = files[i].Filename;
+                    var filepath = files[i].Filepath;
+                    var realpath = files[i].Realpath;
+                    var filesize = files[i].Filesize;
+                    var Displaysize = files[i].Displaysize;
+                    var isShared = files[i].IsShared;
+                    var ext = getExtFromPath(filepath);
+                    if (ext == ""){
+                        var icon = "file outline";
+                    }else{
+                        var icon = ao_module_utils.getIconFromExt(ext);
+                    }
+
+                    var shareicon = "";
+                    if (isShared){
+                        shareicon = `<button class="sharebtn ${currentTheme}" onclick='handleShareFilebuttonClick(event, this);' style="margin-left: 4px; height: 16px;">
+                            <i class='share alternate icon'></i>
+                        </button>`
+                    }
+                    
+                    if (viewMode == "list"){
+                        var displayName = filename;
+                        var textclass = "normal object";
+                        if (currentTheme == "darkTheme"){
+                            textclass += " darkTheme";
+                        }
+                        if (enableBetaFilename){
+                            decodedName = ao_module_codec.decodeUmFilename(displayName);
+                            if (decodedName != displayName){
+                                displayName = decodedName;
+                                textclass = "um filename";
+                            }
+                            filename = ao_module_codec.decodeUmFilename(filename);
+                        }
+                        $("#fileList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);"  fileID="${fl + i}"  filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);"  type="file" filesize="${filesize}" displaysize="${Displaysize}">
+                            <span style="display:inline-block !important;word-break: break-all;text-overflow: ellipsis !important;overflow: hidden;" class="${textclass}">
+                                <i class="${icon} icon" style="margin-right:12px;"></i>  
+                                ${displayName}  ${shareicon}
+                            </span>
+                        </div>`);
+                    }else if (viewMode == "grid"){
+                        var imagePath = "../../../img/desktop/files_icon/default/" + icon + ".png";
+                        var displayName = JSON.parse(JSON.stringify(filename));
+                        var textclass = "normal object";
+                        if (enableBetaFilename){
+                            decodedName = ao_module_codec.decodeUmFilename(displayName);
+                            if (decodedName != displayName){
+                                textclass = "um filename";
+                                displayName = decodedName;
+                            }
+                            filename = ao_module_codec.decodeUmFilename(filename);
+                        }
+                        
+                        if (displayName.length > 20){
+                            displayName = displayName.substring(0,20) + "...";
+                        }
+                        $("#fileList").append(`
+                        <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" fileID="${fl + i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="file" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:20em;  margin-top:0px !important;  overflow:hidden;">
+                            <div class="image" style="text-align: center !important;">
+                                <img draggable="true"ondragstart="disableDrag(event);" style="height: 148px; width: 148px; display:inline-block;" src="${imagePath}">
+                            </div>
+                            <div class="content">
+                                <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis; font-size: 100%">${displayName} ${shareicon}</div>
+                                <div class="meta ${currentTheme}">
+                                    <div>.${ext}</div>
+                                </div>
+                                <div class="description ${currentTheme}">
+                                    ${Displaysize}
+                                </div>
+                            </div>
+                        </div>
+                        `);
+                    }
+                }
+                if (files.length == 0){
+                    $("#fileList").hide();
+                }else{
+                    $("#fileList").show();
+                }
+
+                bindFileObjectEvents();
+                currentFilelist.sort();
+                //Update the filelist hash
+                enableAutoRefresh = false;
+                getDirHash(function(hash){
+                    currentPathHash = hash;
+                    enableAutoRefresh = true;
+                });
+
+                //If viewmode is grid, load file thumbnails
+                if (viewMode == "grid"){
+                    startThumbnailLoader();
+                }
+
+                if (callback !== undefined){
+                    callback();
+                }
             }
 
             function startThumbnailLoader(){
@@ -1581,7 +1665,13 @@
                 if (location.protocol !== 'https:') {
                     protocol = "ws://";
                 }
-                thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + window.location.port + "/system/file_system/handleCacheRender?folder=" + path);
+
+                var port = window.location.port;
+                if (window.location.port == ""){
+                    port = "80";
+                }
+
+                thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/handleCacheRender?folder=" + path);
 
                 thumbRenderWebSocket.onopen = function(e) {
 
@@ -1730,6 +1820,12 @@
                         $("#contextmenu").find(".fileonly").show();
                     }
 
+                    if (searchMode == true){
+                        $("#contextmenu").find(".shareonly").show();
+                    }else{
+                        $("#contextmenu").find(".shareonly").hide();
+                    }
+
                     $("#contextmenu").addClass("visible");
                     //Handle CSS offset of the contextmenu
                     if ($("#contextmenu").offset().top < 0){
@@ -1782,6 +1878,11 @@
             }
 
             function parentDir(){
+                //If under searchmode, parentDir go back to the currentPath
+                if (searchMode){
+                    hideSearchBar();
+                    return;
+                }
                 //Check if there are any parent dir for this path
                 if (checkIfParentDirExists(currentPath)){
                     //There are parent path. Get it from currentPath
@@ -1803,12 +1904,25 @@
             function focusFileObject(targetFileName){
                 $(".fileObject").each(function(){
                     if ($(this).attr("filename") == targetFileName){
-                        console.log($(this));
                         $(this).addClass("selected");
                         //Trying to vertically align the directory from its parent list
                         $("#folderView").stop().finish().animate({
                             scrollTop: $(this).offset().top - $("#folderView").offset().top - (window.innerHeight - $("#navibar").height())/2 + $(this).height()
                         }, 300);
+                    }
+                });
+            }
+
+            function loadListModeFromDB(callback = undefined){
+                 //Get list mode from storage
+                 loadPreference("file_explorer/listmode",function(data){
+                    if (data != "" && data.error === undefined){
+                        viewMode = data;
+                        updateViewmodeButtons();
+                    }
+
+                    if (callback !== undefined){
+                        callback();
                     }
                 });
             }
@@ -1868,7 +1982,40 @@
                 });
             }
 
-           
+           function zipFile(){
+                $(".popup").fadeOut('fast');
+                var zippingFiles = [];
+                $(".fileObject.selected").each(function(){
+                    var filepath = $(this).attr("filepath");
+                    zippingFiles.push(filepath);
+                });
+
+                console.log(zippingFiles);
+
+                //Request to create a zip file, named with the parent dir name
+                var oprConfig = {
+                    opr: "zip",
+                    src: zippingFiles,
+                    dest: currentPath,
+                    overwriteMode: "overwrite",
+                    callbackWindowID: ao_module_windowID,
+                    callbackFunction: `callRefresh("${currentPath}")`
+                }
+                var configHash = encodeURIComponent(JSON.stringify(oprConfig));
+                var title = "Zipping " + zippingFiles.length;
+                if (fileList.length > 1){
+                    title += " files";
+                }else{
+                    title += " file";
+                }
+                parent.newFloatWindow({
+                    url: "SystemAO/file_system/file_operation.html#" + configHash,
+                    width: 400,
+                    height: 220,
+                    appicon: "SystemAO/file_system/img/selector.png",
+                    title: title
+                });
+           }
 
             let renameFileObjects = [];
             function rename(){
@@ -2128,7 +2275,6 @@
                                     });
                                }else{
                                     //Pass the request to operation handler
-                                     //Pass the request to operation handler
                                      var oprConfig = {
                                         opr: "copy",
                                         src: fileList,
@@ -2573,6 +2719,20 @@
                 $("#newFile").fadeOut('fast');
             }
 
+            //Open File Location
+            function openFileLocation(){
+                var folders = [];
+                $(".selected.fileObject").each(function(){
+                    var thisFilepath = $(this).attr('filepath');
+                    var thisFilename = $(this).attr('filename');
+                    openPathInNewWindow(encodeURIComponent(JSON.stringify([{
+                        filename: thisFilename,
+                        filepath: thisFilepath
+                    }])))
+                });
+                
+            }
+
             //OpenWith dialog
             function openWith(){
                 if ($(".selected.fileObject").length == 0){
@@ -2853,6 +3013,7 @@
             }
 
             function openPathInNewWindow(path){
+                console.log(window.location.pathname + "#" + path);
                 ao_module_newfw({
                     url: window.location.pathname + "#" + path,
                     appicon: "SystemAO/file_system/img/small_icon.png",
@@ -2901,6 +3062,7 @@
                     refreshList();
                 }
             });
+
 
             function handleShareFilebuttonClick(event, object){
                 event.preventDefault(); 
@@ -3113,6 +3275,7 @@
 
             function toggleDarkTheme(){
                 if ($(".darkTheme").length > 0){
+                    //Set To Whitetheme
                     $(".darkTheme").removeClass("darkTheme").addClass("whiteTheme");
                     currentTheme = "whiteTheme";
                     $("#darkthemebtn").attr("class","moon icon");
@@ -3126,6 +3289,7 @@
                     }
                     
                 }else{
+                    //Set to DarkTheme
                     $(".whiteTheme").removeClass("whiteTheme").addClass("darkTheme");
                     currentTheme = "darkTheme";
                     $("#darkthemebtn").attr("class","sun icon");
@@ -3149,6 +3313,10 @@
 
             //Keyboard hotkey events
             $(document).keydown(function(event){
+                if ($(':focus').is("input")){
+                    //Do not block operations on input fields.
+                    return;
+                }
                 if(event.which==17 || event.which == 91){
                     ctrlHold = true;
                 }else if (event.which == 16){
@@ -3317,11 +3485,28 @@
                     //This is a file. Upload it
                     item.file(function(fileObject){
                         if (isChrome || isSafari){
+                            //WebKits
                             console.log("Upload Target", fileObject, rootpath);
                             uploadFile(fileObject, undefined, currentPath + rootpath);
                         }else{
+                            //Firefox. Special handling for root path.
+                           
+                            //As firefox will keep its file input relative path, we need to remove the root folder
+                            //name from the rootpath passed in by the webkit API
+                            if (rootpath.substr(rootpath.length - 1, 1) == "/"){
+                                rootpath = rootpath.substr(0, rootpath.length - 1);
+                            }
+                            var rootpathInfo = rootpath.split("/");
+                            if (rootpathInfo.length > 1){
+                                //Uploading folder to folder. Extract the folder root name
+                                rootpathInfo.pop();
+                            }else{
+                                //Uploading file to folder. Do nothing
+                            }
+                            rootpath = rootpathInfo.join("/") + "/";
+
                             console.log("Upload Target", fileObject, rootpath);
-                            uploadFile(fileObject);
+                            uploadFile(fileObject, undefined, currentPath + rootpath);
                         }
                        
                     });
@@ -3353,139 +3538,340 @@
             
         }
 
+        function initUploadMode(){
+            //Get the amount of RAM on the server side to check if low memory mode should be used.
+            $.ajax({
+                url: "../../system/info/getRAMinfo",
+                success: function(data){
+                    if (data.error !== undefined){
+                        //Permission denied or other reasons that cannot access harwdare info. Use default mode
+                        lowMemoryMode = true;
+                    }else{
+                        //Check if ramsize > 1.8 GB (2GB). If yes, switch to large memory upload mode
+                        var memsize = JSON.parse(data);
+                        if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 1.8){
+                            console.log("[File Explorer] Entering large memory upload mode")
+                            lowMemoryMode = false;
+                        }
+                    }
+                },
+                error: function(){
+                    //Hardware mode disabled. Always use low memory upload mode instead
+                    lowMemoryMode = true;
+                }
+            });
+        }
+
         let uploadBufferedRefreshTimer;
+       
         function uploadFile(file, uuid=undefined, targetDir=undefined) {
-            //Create the task progress Object
-            let taskUUID = uuid;    //For queueing objects
-            if (taskUUID == undefined){
-                //If this is a new file to be uploaded
-                taskUUID = appendUploadFileItem(file.name, file.size);
-            }
-             
-            //Updates 22-10-2020
-            //Added file upload queuing system to prevent too many request on-the-fly at the same time
-            if (uploadingFileCount >= maxConcurrentUpload){
-                //Push to upload pending list
-                //Sometime files will be recursively uploaded (aka retry multiple time), hence the targetDir needed to be copied as well
+            if (lowMemoryMode){
+                 /*
+                    Low Memory Upload Mode (Experimental)
+                    (For host with less than 2GB RAM)
+                */
+                var filename = encodeURIComponent(file.name);
+                var filesize = file.size;
+
+                //Generate a new file item
+                let taskUUID = uuid;    //For queueing objects
+                if (taskUUID == undefined){
+                    //If this is a new file to be uploaded
+                    taskUUID = appendUploadFileItem(file.name, file.size);
+                }
+
+                //Push to upload pending list if the max concurrent upload is reached
+                if (uploadingFileCount >= maxConcurrentUpload){
+                    let uploadDir = currentPath;
+                    if (targetDir !== undefined){
+                        uploadDir = targetDir;
+                    }else if (isFirefox && uploadDir == currentPath && file.webkitRelativePath != ""){
+                        //Use the webkitRelativePath instead of the name, this is a folder upload
+                        let pathinfo = file.webkitRelativePath.split("/");
+                        pathinfo.pop();
+                        let subpath = pathinfo.join("/");
+                        uploadDir = uploadDir + subpath;
+                    }
+                    uploadPendingList.push({
+                        File: file,
+                        UUID: taskUUID,
+                        TargetDir: JSON.parse(JSON.stringify(uploadDir)),
+                    });
+                    return
+                }
+
+                function updateProgressForWebSocketUpload(uuid, progress){
+                    $(".uploadTask").each(function(){
+                        if ($(this).attr("taskID") == uuid){
+                            //Update this progress bar
+                            $(this).find(".bar").css("width",progress + "%");
+
+                            if (progress == 100){
+                                //When progress = 100 and the server is not response with 200,
+                                //That means the upload has finish and server is processing the upload
+                                $(this).find(".progress").addClass("indeterminate");
+
+                            }
+                        }
+                    });
+                }
+
+                //Open the websocket
+                let path = currentPath;
+                let protocol = "wss://";
+                if (location.protocol !== 'https:') {
+                    protocol = "ws://";
+                }
+
+                var port = window.location.port;
+                if (window.location.port == ""){
+                    port = "80";
+                }
+
                 let uploadDir = currentPath;
                 if (targetDir !== undefined){
                     uploadDir = targetDir;
+                }else if (isFirefox && uploadDir == currentPath && file.webkitRelativePath != ""){
+                    //Use the webkitRelativePath instead of the name, this is a folder upload
+                    let pathinfo = file.webkitRelativePath.split("/");
+                    pathinfo.pop();
+                    let subpath = pathinfo.join("/");
+                    uploadDir = uploadDir + subpath;
                 }
-                uploadPendingList.push({
-                    File: file,
-                    UUID: taskUUID,
-                    TargetDir: JSON.parse(JSON.stringify(uploadDir)),
-                });
-                return
-            }
 
-            //Prase upload Form
-            let url = '../../system/file_system/upload'
-            let uploadCurrentPath = JSON.parse(JSON.stringify(currentPath));
-            if (targetDir !== undefined){
-                //The upload paramter supplied targetDir
-                uploadCurrentPath = targetDir;
-            }
-            console.log("Uploading To => ", uploadCurrentPath, targetDir, currentPath);
-            let formData = new FormData()
-            let xhr = new XMLHttpRequest()
-            formData.append('file', file);
-            formData.append('path', uploadCurrentPath);
+                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir);
+                let currentSendingIndex = 0;
+                let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
+                
+                //Define a function for sending a particular chunk
+                function sendChunk(id){
+                    var offsetStart = id*uploadFileChunkSize;
+                    var offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
+                    var thisblob = file.slice(offsetStart,offsetEnd);
+                    socket.send(thisblob);
+                    console.log(id + "/" + chunks);
 
-            xhr.open('POST', url, true)
-            xhr.upload.addEventListener("progress", function(e) {
-                progress = (e.loaded * 100.0 / e.total) || 100;
-                $(".uploadTask").each(function(){
-                    if ($(this).attr("taskID") == taskUUID){
-                        //Update this progress bar
-                        $(this).find(".bar").css("width",progress + "%");
-
-                        if (progress == 100){
-                            //When progress = 100 and the server is not response with 200,
-                            //That means the upload has finish and server is processing the upload
-                            $(this).find(".progress").addClass("indeterminate");
-
-                        }
+                    //Update progress to first percentage
+                    var progress = id / (chunks-1) * 100.0;
+                    if (progress > 100){
+                        progress = 100;
                     }
-                });
-            })
+                    updateProgressForWebSocketUpload(taskUUID, progress)
+                    
+                }
 
-            xhr.addEventListener('readystatechange', function(e) {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    //Upload process ended
-                    //Update task status
-                    $(".uploadTask").each(function(){
-                        if ($(this).attr("taskID") == taskUUID){
-                            //Update this progress bar to completed
-                            $(this).find(".bar").css("width","100%");
-                            $(this).find(".progress").attr("class","ts tiny positive progress");
-                            $(this).find(".uploadTaskRemoveIcon").show();
-                            $(this).addClass("ended");
+                //Update all UI elements
+                updateUploadFileCount();
+                uploadingFileCount++;
 
-                            //Update 15-11-2020
-                            //Remove this taskbar after 3 secounds to prevent lags during > 2000 uploads
-                            $.when($(this).delay(1000).fadeOut("fast")).then(function(){
-                                $(this).remove();
-                                updateUploadFileCount();
-                            });
-                            
+                //Start sending
+                socket.onopen = function(e) {
+                    //Send the first chunk
+                    sendChunk(0);
+                    currentSendingIndex++;
+                };
+
+                socket.onmessage = function(event) {
+                    //Append to the send index
+                    var incomingValue = event.data;
+
+                    if (incomingValue == "next"){
+                        if (currentSendingIndex == chunks + 1){
+                            //Already finished
+                            socket.send("done");
+                        }else{
+                            //Send next chunk
+                            sendChunk(currentSendingIndex);
+                            currentSendingIndex++;
                         }
-                    });
-
-                    var resp = JSON.parse(e.target.response);
-                    if (resp.error !== undefined){
-                        msgbox("caution",resp.error);
-                        //Something went wrong. Set the color to red
+                      
+                    }else if (incomingValue == "OK"){
+                        //Merge completed
                         $(".uploadTask").each(function(){
                             if ($(this).attr("taskID") == taskUUID){
                                 //Update this progress bar to completed
                                 $(this).find(".bar").css("width","100%");
-                                $(this).find(".progress").attr("class","ts tiny negative progress");
+                                $(this).find(".progress").attr("class","ts tiny positive progress");
                                 $(this).find(".uploadTaskRemoveIcon").show();
                                 $(this).addClass("ended");
+
+                                $.when($(this).delay(1000).fadeOut("fast")).then(function(){
+                                    $(this).remove();
+                                    updateUploadFileCount();
+                                });
+                                
                             }
                         });
                     }
-                    uploadingFileCount--;
 
-                    //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
+                };
+
+                socket.onclose = function(event) {
+                    uploadingFileCount--;
+                    updateUploadFileCount();
+                     //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
                     setTimeout(function(){
                         if (uploadPendingList.length > 0){
                             let nextFile = uploadPendingList.shift();
                             uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
                         }
                     }, 100)
-                    
-                }else if (xhr.readyState == 4 && xhr.status != 200) {
-                    msgbox("remove","File too big or the target disk is fulled");
-                    console.log(xhr);
+                };
+
+                socket.onerror = function(error) {
+                    console.log(error.message);
+                    msgbox("caution","Upload failed due to unknown reason");
+                    //Something went wrong. Set the color to red
                     $(".uploadTask").each(function(){
                         if ($(this).attr("taskID") == taskUUID){
-                            //Upload screwed up. Show negative
+                            //Update this progress bar to completed
+                            $(this).find(".bar").css("width","100%");
                             $(this).find(".progress").attr("class","ts tiny negative progress");
                             $(this).find(".uploadTaskRemoveIcon").show();
                             $(this).addClass("ended");
                         }
                     });
                     uploadingFileCount--;
+                };
 
-                    //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
-                    setTimeout(function(){
-                        if (uploadPendingList.length > 0){
-                            let nextFile = uploadPendingList.shift();
-                            uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
-                        }
-                    }, 100)
+            }else{
+                /*
+                    Standard Upload Mode
+                    (For host with RAM >= 2GB)
+                */
+
+                //Create the task progress Object
+                let taskUUID = uuid;    //For queueing objects
+                if (taskUUID == undefined){
+                    //If this is a new file to be uploaded
+                    taskUUID = appendUploadFileItem(file.name, file.size);
+                }
+                
+                //Updates 22-10-2020
+                //Added file upload queuing system to prevent too many request on-the-fly at the same time
+                if (uploadingFileCount >= maxConcurrentUpload){
+                    //Push to upload pending list
+                    //Sometime files will be recursively uploaded (aka retry multiple time), hence the targetDir needed to be copied as well
+                    let uploadDir = currentPath;
+                    if (targetDir !== undefined){
+                        uploadDir = targetDir;
+                    }
+                    uploadPendingList.push({
+                        File: file,
+                        UUID: taskUUID,
+                        TargetDir: JSON.parse(JSON.stringify(uploadDir)),
+                    });
+                    return
                 }
 
-               
+                //Prase upload Form
+                let url = '../../system/file_system/upload'
+                let uploadCurrentPath = JSON.parse(JSON.stringify(currentPath));
+                if (targetDir !== undefined){
+                    //The upload paramter supplied targetDir
+                    uploadCurrentPath = targetDir;
+                }
+                console.log("Uploading To => ", uploadCurrentPath, targetDir, currentPath);
+                let formData = new FormData()
+                let xhr = new XMLHttpRequest()
+                formData.append('file', file);
+                formData.append('path', uploadCurrentPath);
 
+                xhr.open('POST', url, true)
+                xhr.upload.addEventListener("progress", function(e) {
+                    progress = (e.loaded * 100.0 / e.total) || 100;
+                    $(".uploadTask").each(function(){
+                        if ($(this).attr("taskID") == taskUUID){
+                            //Update this progress bar
+                            $(this).find(".bar").css("width",progress + "%");
+
+                            if (progress == 100){
+                                //When progress = 100 and the server is not response with 200,
+                                //That means the upload has finish and server is processing the upload
+                                $(this).find(".progress").addClass("indeterminate");
+
+                            }
+                        }
+                    });
+                })
+
+                xhr.addEventListener('readystatechange', function(e) {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+                        //Upload process ended
+                        //Update task status
+                        $(".uploadTask").each(function(){
+                            if ($(this).attr("taskID") == taskUUID){
+                                //Update this progress bar to completed
+                                $(this).find(".bar").css("width","100%");
+                                $(this).find(".progress").attr("class","ts tiny positive progress");
+                                $(this).find(".uploadTaskRemoveIcon").show();
+                                $(this).addClass("ended");
+
+                                //Update 15-11-2020
+                                //Remove this taskbar after 3 secounds to prevent lags during > 2000 uploads
+                                $.when($(this).delay(1000).fadeOut("fast")).then(function(){
+                                    $(this).remove();
+                                    updateUploadFileCount();
+                                });
+                                
+                            }
+                        });
+
+                        var resp = JSON.parse(e.target.response);
+                        if (resp.error !== undefined){
+                            msgbox("caution",resp.error);
+                            //Something went wrong. Set the color to red
+                            $(".uploadTask").each(function(){
+                                if ($(this).attr("taskID") == taskUUID){
+                                    //Update this progress bar to completed
+                                    $(this).find(".bar").css("width","100%");
+                                    $(this).find(".progress").attr("class","ts tiny negative progress");
+                                    $(this).find(".uploadTaskRemoveIcon").show();
+                                    $(this).addClass("ended");
+                                }
+                            });
+                        }
+                        uploadingFileCount--;
+
+                        //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
+                        setTimeout(function(){
+                            if (uploadPendingList.length > 0){
+                                let nextFile = uploadPendingList.shift();
+                                uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
+                            }
+                        }, 100)
+                        
+                    }else if (xhr.readyState == 4 && xhr.status != 200) {
+                        msgbox("remove","File too big or the target disk is fulled");
+                        console.log(xhr);
+                        $(".uploadTask").each(function(){
+                            if ($(this).attr("taskID") == taskUUID){
+                                //Upload screwed up. Show negative
+                                $(this).find(".progress").attr("class","ts tiny negative progress");
+                                $(this).find(".uploadTaskRemoveIcon").show();
+                                $(this).addClass("ended");
+                            }
+                        });
+                        uploadingFileCount--;
+
+                        //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
+                        setTimeout(function(){
+                            if (uploadPendingList.length > 0){
+                                let nextFile = uploadPendingList.shift();
+                                uploadFile(nextFile.File, nextFile.UUID, nextFile.TargetDir);
+                            }
+                        }, 100)
+                    }
+
+                
+
+                    updateUploadFileCount();
+                })
+
+                xhr.send(formData);
+                uploadingFileCount++;
                 updateUploadFileCount();
-            })
-
-            xhr.send(formData);
-            uploadingFileCount++;
-            updateUploadFileCount();
+            }
         }
 
         //Clear all finished upload tasks
@@ -3495,6 +3881,94 @@
                 updateUploadFileCount();
             });
             
+        }
+
+        var searchMode = false;
+        function toggleSearch(){
+            //Start search mode
+            $(".searchbar").slideDown("fast", function(){
+                initWindowSizes(true);
+            });
+            $("#searhbtn").addClass("disabled");
+
+            //Force videmode to list
+            viewMode = "list"
+            $(".videmode.button").each(function(){
+                 $(this).addClass('disabled');
+            });
+            searchMode = true;
+
+            //Clear current folderlist
+            $("#folderList").show();
+            $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
+                <div class="ts header">
+                    <i class="arrow up icon ${currentTheme}"></i> <span class="${currentTheme}">Type to Start Search</span>
+                    <div class="sub header ${currentTheme}" style="margin-top:12px;">Type something in the search bar to start searching.<br>
+                        Start wildcard matching with "/" (slash) and your wildcard string (e.g. /*.mp3)</div>
+                </div>
+            </div>`);
+            $("#fileList").hide();
+        }
+
+        function hideSearchBar(skipFilelistRefresh = false){
+            $(".searchbar").slideUp("fast", function(){
+                initWindowSizes(true);
+            });
+            $("#searchInput").val("");
+            $("#searhbtn").removeClass("disabled");
+            $(".videmode.button").each(function(){
+                if ($(this).attr("mode") != "list"){
+                    $(this).removeClass('disabled');
+                }
+            });
+            if (skipFilelistRefresh == false){
+                listDirectory(currentPath);
+            }
+            searchMode = false;
+        }
+
+        function handleSearch(){
+            var keyword = $("#searchInput").val();
+            $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
+                <i class="loading spinner icon ${currentTheme}"></i> <span class="${currentTheme}">Searching</span>
+            </div>`);
+            $.ajax({
+                url: "../../system/file_system/search",
+                data: {path: currentPath, keyword: keyword},
+                success: function(data){
+                    if (data.error !== undefined){
+                        msgbox("remove", data.error);
+                    }else{
+                        //Render the filelist
+                        console.log(data);
+                        if (data.length == 0){
+                            $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
+                                <div class="ts header ${currentTheme}">
+                                    <i class="question icon" ${currentTheme}></i> <span class="${currentTheme}">No Matching Results</span>
+                                    <div class="sub header ${currentTheme}">The host return no matching results for your keyword "${keyword}"". <br>Check your spelling and if your wildcard are valid.</div>
+                                </div>
+                            </div>`);
+                        }else{
+                            renderDirectory(data);
+                        }
+                        
+                    }
+                }, error: function(){
+                    $("#folderList").html(`<div class="ts basic segment">
+                    <div class="ts header">
+                        <i class="remove icon"></i> Search Error
+                        <div class="sub header">Search timeout has occurred during file searching.</div>
+                    </div>
+                </div>`);
+                }
+            })
+        }
+
+        function handleSearchBarPress(e){
+            if (e.keyCode == 13){
+                e.preventDefault();
+                handleSearch();
+            }
         }
 
         function appendUploadFileItem(filename, filesize){
@@ -3565,15 +4039,24 @@
                 if (targetPath == ""){
                     return
                 }
-                var targetVroot = targetPath.split(":/").shift();
-                console.log(targetPath);
-
+               
                 //Check if this is upload or file move drag
                 var files = event.dataTransfer.files;
                 if (files.length > 0){
-                    //Upload mode
-                    alert("Drag drop upload into folder, WIP");
+                    //Upload mode. Extract the target folder basename from path
+                    if (targetPath.substr(targetPath.length -1,1) == "/"){
+                        targetPath = targetPath.substr(0, targetPath.length-1);
+                    }
+                    var folderBase = targetPath.split("/").pop() + "/";
+                    var items = event.dataTransfer.items;
+                    for (let i=0; i<items.length; i++) {
+                        let item = items[i].webkitGetAsEntry();
+                        if (item) {
+                            recursiveScanFilesUpload(item, folderBase);
+                        }
+                    }
                 }else if (event.dataTransfer.getData("filedata") != ""){
+                    var targetVroot = targetPath.split(":/").shift();
                     //Get the source files
                     var filelist = JSON.parse(event.dataTransfer.getData("filedata"));
                     if (filelist.length > 0){

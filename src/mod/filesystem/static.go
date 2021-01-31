@@ -23,8 +23,10 @@ type FileData struct {
 	Filepath    string
 	Realpath    string
 	IsDir       bool
-	Filesize    float64
+	Filesize    int64
 	Displaysize string
+	ModTime     int64
+	IsShared    bool
 }
 
 type TrashedFile struct {
@@ -60,6 +62,23 @@ func MatchingFileSystem(fsa *FileSystemHandler, fsb *FileSystemHandler) bool {
 		return true
 	}
 	return false
+}
+
+func GetFileDataFromPath(vpath string, realpath string, sizeRounding int) FileData {
+	fileSize := GetFileSize(realpath)
+	displaySize := GetFileDisplaySize(fileSize, sizeRounding)
+	modtime, _ := GetModTime(realpath)
+	return FileData{
+		Filename:    filepath.Base(realpath),
+		Filepath:    vpath,
+		Realpath:    filepath.ToSlash(realpath),
+		IsDir:       IsDir(realpath),
+		Filesize:    fileSize,
+		Displaysize: displaySize,
+		ModTime:     modtime,
+		IsShared:    false,
+	}
+
 }
 
 func CheckMounted(mountpoint string) bool {
@@ -141,7 +160,7 @@ func IsInsideHiddenFolder(path string) bool {
 	thisPathInfo := filepath.ToSlash(filepath.Clean(path))
 	pathData := strings.Split(thisPathInfo, "/")
 	for _, thispd := range pathData {
-		if thispd[:1] == "." {
+		if len(thispd) > 0 && thispd[:1] == "." {
 			//This path contain one of the folder is hidden
 			return true
 		}
@@ -181,6 +200,10 @@ func WGlob(path string) ([]string, error) {
 	return files, nil
 }
 
+/*
+	Get Directory size, require filepath and include Hidden files option(true / false)
+	Return total file size and file count
+*/
 func GetDirctorySize(filename string, includeHidden bool) (int64, int) {
 	var size int64 = 0
 	var fileCount int = 0

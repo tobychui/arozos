@@ -19,7 +19,7 @@ import (
 */
 func SystemIDInit() {
 	//Initialize device UUID if not exists
-	system_id_generateSystemUUID()
+	systemIdGenerateSystemUUID()
 
 	//Register as a system setting
 	registerSetting(settingModule{
@@ -31,16 +31,16 @@ func SystemIDInit() {
 	})
 
 	//Handle the about page
-	http.HandleFunc("/system/id/requestInfo", system_id_handleRequest)
+	http.HandleFunc("/system/id/requestInfo", systemIdHandleRequest)
 
 	//Handle ArOZ Online Beta search methods
 	if *enable_beta_scanning_support {
-		http.HandleFunc("/AOB/hb.php", system_id_responseBetaScan)
+		http.HandleFunc("/AOB/hb.php", systemIdResponseBetaScan)
 		http.HandleFunc("/AOB/", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "../index.html", 307)
 		})
-		http.HandleFunc("/AOB/SystemAOB/functions/info/version.inf", system_id_serveVersonNumber)
-		http.HandleFunc("/AOB/SystemAOB/functions/system_statistic/getDriveStat.php", system_id_getDriveStates)
+		http.HandleFunc("/AOB/SystemAOB/functions/info/version.inf", systemIdServeVersonNumber)
+		http.HandleFunc("/AOB/SystemAOB/functions/system_statistic/getDriveStat.php", systemIdGetDriveStates)
 	}
 
 	//Handle license info
@@ -52,11 +52,31 @@ func SystemIDInit() {
 		StartDir: "SystemAO/info/license.html",
 	})
 
-	http.HandleFunc("/system/info/license", system_handleListLicense)
+	http.HandleFunc("/system/info/license", systemHandleListLicense)
+
+	//Handle health check ping
+	http.HandleFunc("/system/id/ping", systemIdHandlePing)
 
 }
 
-func system_id_generateSystemUUID() {
+/*
+	Ping function. This function handles the request
+*/
+func systemIdHandlePing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	status := struct {
+		Status string
+	}{
+		"OK",
+	}
+
+	js, _ := json.Marshal(status)
+	sendJSONResponse(w, string(js))
+}
+
+func systemIdGenerateSystemUUID() {
 	if !fileExists("./system/dev.uuid") {
 		//UUID not exist. Create one
 		thisuuid := uuid.NewV4().String()
@@ -78,7 +98,7 @@ func system_id_generateSystemUUID() {
 	}
 }
 
-func system_id_getSystemUUID() string {
+func systemIdGetSystemUUID() string {
 	fileUUID, err := ioutil.ReadFile("./system/dev.uuid")
 	if err != nil {
 		log.Println("Unable to read system UUID from dev.uuid file")
@@ -88,7 +108,7 @@ func system_id_getSystemUUID() string {
 	return string(fileUUID)
 }
 
-func system_handleListLicense(w http.ResponseWriter, r *http.Request) {
+func systemHandleListLicense(w http.ResponseWriter, r *http.Request) {
 	licenses, _ := filepath.Glob("./web/SystemAO/info/license/*.txt")
 	results := [][]string{}
 	for _, file := range licenses {
@@ -102,7 +122,7 @@ func system_handleListLicense(w http.ResponseWriter, r *http.Request) {
 	sendJSONResponse(w, string(js))
 }
 
-func system_id_handleRequest(w http.ResponseWriter, r *http.Request) {
+func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
 	if authAgent.CheckAuth(r) == false {
 		sendErrorResponse(w, "User not logged in")
@@ -124,7 +144,7 @@ func system_id_handleRequest(w http.ResponseWriter, r *http.Request) {
 	thisDevIP := ""
 
 	jsonString, _ := json.Marshal(returnStruct{
-		SystemUUID: system_id_getSystemUUID(),
+		SystemUUID: systemIdGetSystemUUID(),
 		IpAddress:  thisDevIP,
 		Vendor:     deviceVendor,
 		Build:      build_version,
@@ -136,9 +156,9 @@ func system_id_handleRequest(w http.ResponseWriter, r *http.Request) {
 	sendJSONResponse(w, string(jsonString))
 }
 
-func system_id_responseBetaScan(w http.ResponseWriter, r *http.Request) {
+func systemIdResponseBetaScan(w http.ResponseWriter, r *http.Request) {
 	//Handle beta scanning method
-	uuid := system_id_getSystemUUID()
+	uuid := systemIdGetSystemUUID()
 	IPAddress := r.Header.Get("X-Real-Ip")
 	if IPAddress == "" {
 		IPAddress = r.Header.Get("X-Forwarded-For")
@@ -154,7 +174,7 @@ func system_id_responseBetaScan(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(resp))
 }
 
-func system_id_serveVersonNumber(w http.ResponseWriter, r *http.Request) {
+func systemIdServeVersonNumber(w http.ResponseWriter, r *http.Request) {
 	if build_version == "development" {
 		w.Write([]byte("AO-DEV_v" + internal_version))
 	} else {
@@ -162,7 +182,7 @@ func system_id_serveVersonNumber(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func system_id_getDriveStates(w http.ResponseWriter, r *http.Request) {
+func systemIdGetDriveStates(w http.ResponseWriter, r *http.Request) {
 	results := [][]string{}
 	results = append(results, []string{
 		"user",

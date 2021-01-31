@@ -50,16 +50,6 @@ func NetworkServiceInit() {
 		})
 	}
 
-	//Register external connection protocol
-	registerSetting(settingModule{
-		Name:         "FTP Server",
-		Desc:         "File Transfer Protocol Server",
-		IconPath:     "SystemAO/disk/smart/img/small_icon.png",
-		Group:        "Network",
-		StartDir:     "SystemAO/disk/ftp.html",
-		RequireAdmin: true,
-	})
-
 	/*
 		registerSetting(settingModule{
 			Name:     "Ping test",
@@ -75,6 +65,7 @@ func NetworkServiceInit() {
 
 	//Start the port forward configuration interface
 	portForwardInit()
+
 }
 
 func StartNetworkServices() {
@@ -98,12 +89,6 @@ func StartNetworkServices() {
 			log.Println("MDNS Startup Failed: " + err.Error() + ". Running in Offline Mode.")
 		} else {
 			MDNS = m
-
-			//Testing function to show nearby Arozs
-			go func(MDNS *mdns.MDNSHost) {
-				nearbyAroz := MDNS.Scan(5)
-				log.Println(nearbyAroz)
-			}(MDNS)
 		}
 
 	}

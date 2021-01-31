@@ -541,8 +541,6 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			result, _ := otto.ToValue(modTime.Format("2006-01-02 15:04:05"))
 			return result
 		}
-
-		return otto.TrueValue()
 	})
 
 	/*

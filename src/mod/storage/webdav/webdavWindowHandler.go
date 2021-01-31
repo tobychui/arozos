@@ -12,14 +12,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
 
-//http://localhost:8080/webdav
-func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request) {
+//Handle request from Windows File Explorer
+func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request, vroot string) {
 	coookieName := "arozosWebdavToken"
 	cookie, err := r.Cookie(coookieName)
 	if err != nil {
@@ -99,6 +100,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 			} else {
 				//This client is not logged in but connected before
 				//log.Println("Windows client with assigned UUID: " + clientUUID + " try to access becore login validation")
+				///Rewrite the r.URL
 
 				//Update last connection timestamp
 				cinfo.(*WindowClientInfo).LastConnectionTimestamp = time.Now().Unix()
@@ -119,7 +121,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			realRoot, err := userinfo.VirtualPathToRealPath("user:/")
+			realRoot, err := userinfo.VirtualPathToRealPath(vroot + ":/")
 			if err != nil {
 				log.Println(err.Error())
 				http.Error(w, "Invalid ", http.StatusUnauthorized)
@@ -127,7 +129,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 			}
 
 			//Get and serve the file content
-			fs := s.getFsFromRealRoot(realRoot)
+			fs := s.getFsFromRealRoot(realRoot, filepath.ToSlash(filepath.Join(s.prefix, vroot)))
 			fs.ServeHTTP(w, r)
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	db "imuslab.com/arozos/mod/database"
+	fs "imuslab.com/arozos/mod/filesystem"
 	storage "imuslab.com/arozos/mod/storage"
 )
 
@@ -91,6 +92,7 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 				AccessibleModules:      groupPermission,
 				DefaultStorageQuota:    defaultStorageQuota,
 				StoragePool:            &storage.StoragePool{},
+				parent:                 h,
 			})
 		}
 	}
@@ -157,6 +159,12 @@ func (h *PermissionHandler) UpdatePermissionGroup(name string, isadmin bool, sto
 }
 
 func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storageQuota int64, moduleNames []string, interfaceModule string) *PermissionGroup {
+	//Create a new storage pool for this permission group
+	newPool, err := storage.NewStoragePool([]*fs.FileSystemHandler{}, name)
+	if err != nil {
+		newPool = &storage.StoragePool{}
+	}
+
 	//Create a new permission group
 	newGroup := PermissionGroup{
 		Name:                   name,
@@ -164,7 +172,7 @@ func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storag
 		AccessibleModules:      moduleNames,
 		DefaultInterfaceModule: interfaceModule,
 		DefaultStorageQuota:    storageQuota,
-		StoragePool:            &storage.StoragePool{},
+		StoragePool:            newPool,
 		parent:                 h,
 	}
 

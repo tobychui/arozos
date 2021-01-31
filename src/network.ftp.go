@@ -21,6 +21,16 @@ var (
 
 //Handle init of the FTP server endpoints
 func FTPServerInit() {
+	//Register FTP Server Setting page
+	registerSetting(settingModule{
+		Name:         "FTP Server",
+		Desc:         "File Transfer Protocol Server",
+		IconPath:     "SystemAO/disk/smart/img/small_icon.png",
+		Group:        "Network",
+		StartDir:     "SystemAO/disk/ftp.html",
+		RequireAdmin: true,
+	})
+
 	//Register FTP Endpoints
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",

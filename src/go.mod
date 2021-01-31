@@ -12,6 +12,7 @@ require (
 	github.com/fogleman/simplify v0.0.0-20170216171241-d32f302d5046 // indirect
 	github.com/frankban/quicktest v1.10.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.1.0
+	github.com/go-git/go-git/v5 v5.2.0
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/grandcat/zeroconf v1.0.0

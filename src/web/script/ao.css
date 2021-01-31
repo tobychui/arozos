@@ -21,6 +21,8 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
     height:520px;
     left:0px;
     top:0px;
+    border-radius: 6px;
+
 }
 
 .floatWindow .controls .title{
@@ -47,23 +49,24 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
     position:absolute;
     top:0px;
     left:0px;
-    width:100%;
+    width: 100%;
     height:22px;
     padding-bottom:2px;
     user-select: none;
+    border-radius: 6px 6px 0px 0px;
 }
-
-
 
 .floatWindow .iframewrapper{
     position:absolute;
     top: 22px;
     width:100%;
     height: calc(100% - 22px);
-    border-left: 3px solid #191c21;
-    border-right: 3px solid #191c21;
-    border-bottom: 3px solid #191c21;
+    border-left: 3px solid #37393e;
+    border-right: 3px solid #37393e;
+    border-bottom: 3px solid #37393e;
+    border-radius: 0px 0px 6px 6px;
 }
+
 .floatWindow .iframewrapper .iframecover{
     position:absolute;
     top:0px;
@@ -81,20 +84,77 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
     position:absolute;
     top:0px;
     left:0px;
+    border-radius: 0px 0px 5px 5px;
 }
+
+.floatWindow .fwcontrol .buttons:hover{
+    background-color: rgba(224, 224, 224,0.3);
+}
+
+.floatWindow .fwcontrol .buttons.close:hover{
+    background-color: rgba(232,142,142,0.7);
+}
+
 
 @supports (backdrop-filter: none) {
     .floatWindow .controls {
-        background-color:rgba(25, 28, 33, 0.85);
-        backdrop-filter: blur(3px);
+        background-color:rgba(26, 26, 26, 0.85);
+        backdrop-filter: blur(5px);
+        
+    }
+
+    .floatWindow .controls .title{
+        color: white;
     }
 
     .floatWindow .iframewrapper{
-        border-left: 3px solid rgba(25, 28, 33, 0.85);
-        border-right: 3px solid rgba(25, 28, 33, 0.85);
-        border-bottom: 3px solid rgba(25, 28, 33, 0.85);
+        border-left: 3px solid rgba(26, 26, 26, 0.6);
+        border-right: 3px solid rgba(26, 26, 26, 0.6);
+        border-bottom: 3px solid rgba(26, 26, 26, 0.6);
         backdrop-filter: blur(3px);
     }
+
+    .floatWindow .fwcontrol .buttons:hover{
+        background-color: rgba(224, 224, 224,.3);
+    }
+
+    /*
+        White theme
+    */
+
+    .floatWindow.white{
+        /* Updates 27-12-2020: Added box shadow and transparent boarder under backdrop filter mode*/
+       box-shadow: rgb(61, 61, 61) 1px 1px 4px;
+   }
+
+    .floatWindow.white .controls {
+        background-color:rgba(255,255,255, 0.85);
+        backdrop-filter: blur(5px);
+        
+    }
+
+    .floatWindow.white .controls .title{
+        font-weight: 130%;
+        color: rgb(20, 20, 20);
+        padding-right: 3px;
+    }
+
+    .floatWindow.white .iframewrapper{
+        border-left: 3px solid rgba(255,255,255,0.6);
+        border-right: 3px solid rgba(255,255,255,0.6);;
+        border-bottom: 3px solid rgba(255,255,255,0.6);;
+        backdrop-filter: blur(5px);
+    }
+
+    .floatWindow.white .fwcontrol .buttons:hover{
+        background-color: rgba(180, 180, 180,1);
+    }
+
+    .floatWindow.white .fwcontrol .buttons.close:hover{
+        background-color: rgba(232,142,142,0.7);
+    }
+    
+    
 }
 
 .floatWindow .fwcontrol{
@@ -120,14 +180,6 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
 .floatWindow .fwcontrol .buttons img{
     width:18px;
     height:auto;
-}
-
-.floatWindow .fwcontrol .buttons:hover{
-    background-color: rgba(142,232,225,0.3);
-}
-
-.floatWindow .fwcontrol .buttons.close:hover{
-    background-color: rgba(232,142,142,0.7);
 }
 
 .floatWindow .iframewrapper.widthHover{

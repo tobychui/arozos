@@ -20,6 +20,7 @@
                 <div class="sub header">Total used of <span id="remaining">N/A</span></div>
             </h1>
             <div class="ui divider"></div>
+            <p id="loadWarning"><i class="ui loading spinner icon"></i> File Category Graph might take some time to load...</p>
             <div id="canvas-holder">
                 <canvas id="chart-area"></canvas>
             </div>
@@ -103,6 +104,8 @@
                             }
                         }
                     });
+
+                    $("#loadWarning").hide();
                 });
                
             }

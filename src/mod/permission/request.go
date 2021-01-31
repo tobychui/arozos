@@ -218,7 +218,17 @@ func (h *PermissionHandler) HandleGroupRemove(w http.ResponseWriter, r *http.Req
 	group.Remove()
 
 	//Update the current cached permission group table
-	h.LoadPermissionGroupsFromDatabase()
+	newGroupList := []*PermissionGroup{}
+	for _, pg := range h.PermissionGroups {
+		if pg.Name != groupname {
+			newGroupList = append(newGroupList, pg)
+		}
+	}
+
+	h.PermissionGroups = newGroupList
+
+	//Update 27-12-2020: Replaced database reload with new group list creation
+	//h.LoadPermissionGroupsFromDatabase()
 
 	sendOK(w)
 }

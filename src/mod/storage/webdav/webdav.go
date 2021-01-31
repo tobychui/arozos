@@ -198,9 +198,22 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == "/webdav" {
+		//No vRoot defined. Reject connection
+		http.NotFound(w, r)
+		return
+	}
+
+	reqInfo := strings.Split(r.URL.RequestURI()[1:], "/")
+	reqRoot := "user"
+	if len(reqInfo) > 1 {
+		reqRoot = reqInfo[1]
+	}
+
+	//Windows File Explorer. Handle with special case
 	if r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir") && s.tlsMode == false {
 		//log.Println("Windows File Explorer Connection. Routing using alternative handler")
-		s.HandleWindowClientAccess(w, r)
+		s.HandleWindowClientAccess(w, r, reqRoot)
 		return
 	}
 
@@ -231,7 +244,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Try to resolve the realpath of the vroot
-	realRoot, err := userinfo.VirtualPathToRealPath("user:/")
+	realRoot, err := userinfo.VirtualPathToRealPath(reqRoot + ":/")
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, "Invalid ", http.StatusUnauthorized)
@@ -239,7 +252,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Ok. Check if the file server of this root already exists
-	fs := s.getFsFromRealRoot(realRoot)
+	fs := s.getFsFromRealRoot(realRoot, filepath.ToSlash(filepath.Join(s.prefix, reqRoot)))
 
 	//Serve the content
 	fs.ServeHTTP(w, r)
@@ -259,16 +272,17 @@ func (s *Server) serveReadOnlyWebDav(w http.ResponseWriter, r *http.Request) {
 		//Not allowed
 		w.WriteHeader(http.StatusForbidden)
 	} else {
+		r.URL.Path = "/webdav/"
 		s.readOnlyFileSystemHandler.ServeHTTP(w, r)
 	}
 }
 
-func (s *Server) getFsFromRealRoot(realRoot string) *webdav.Handler {
+func (s *Server) getFsFromRealRoot(realRoot string, prefix string) *webdav.Handler {
 	tfs, ok := s.filesystems.Load(realRoot)
 	if !ok {
 		//This file system handle hasn't been created. Create it now
 		fs := &webdav.Handler{
-			Prefix:     s.prefix,
+			Prefix:     prefix,
 			FileSystem: webdav.Dir(realRoot),
 			LockSystem: webdav.NewMemLS(),
 		}

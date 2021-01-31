@@ -329,6 +329,10 @@ USERNAME
 USERICON
 USERQUOTA_TOTAL
 USERQUOTA_USED
+
+//Since AGI 1.3
+USER_VROOTS
+USER_MODULES //Might return ["*"] for admin permission
 ```
 
 #### Filepath Virutalization
@@ -394,6 +398,12 @@ if (!requirelib("filelib")){
 A basic image handling library to process images. Allowing basic image resize,
 get image dimension and others (to be expanded)
 
+
+```
+//Include the library
+requirelib("imagelib");
+```
+
 #### ImageLib functions
 ```
 imagelib.getImageDimension("user:/Desktop/test.jpg"); 									//return {width, height}
@@ -413,6 +423,26 @@ Crop the given image with the following arguemnts:
 return true if success, false if failed
 */
 
+
+```
+
+### http
+A basic http function group that allow GET / POST / HEAD / Download request to other web resources
+
+```
+//Include the library
+requirelib("http");
+```
+
+#### http functions
+```
+http.get("http://example.com/api/"); //Create a get request, return the respond body
+http.post("http://localhost:8080/system/file_system/listDir", JSON.stringify({
+    dir: "user:/Desktop",
+    sort: "default"
+}));	//Create a POST request with JSON payload
+http.head("http://localhost:8080/", "Content-Type"); //Get the header field "Content-Type" from the requested url, leave 2nd paramter empty to return the whole header in JSON string
+http.download("http://example.com/music.mp3", "user:/Desktop", "(Optional) My Music.mp3")
 
 ```
 

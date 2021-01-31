@@ -19,10 +19,20 @@
             <div class="sub header">Manual UPnP Port Forwarding / Virtual Server</div>
         </div>
         <div class="ui divider"></div>
-            <div>
-                <button class="ui green basic small button" onclick="toggleNewRule();"><i class="add icon"></i> Add</button>
-                <button class="ui red basic small button" onclick="deleteSelected();"><i class="trash icon"></i> Remove</button>
-            </div>
+        <div id="errormessagedialog" class="ui red message" style="display:none;">
+            <h4 class="ui header">
+                <i class="remove icon"></i>
+                <div class="content">
+                    <span id="errmsg"></span>
+                    <div class="sub header"><p>If you are sure you have enabled UPnP services in your startup parameter, it might cause by the ArozOS was unable to discover your UPnP router in the local area network. <br>Please restart your router and ArozOS system and try again.</p></div>
+                </div>
+            </h4>
+            
+        </div>
+        <div>
+            <button class="ui green basic small button" onclick="toggleNewRule();"><i class="add icon"></i> Add</button>
+            <button class="ui red basic small button" onclick="deleteSelected();"><i class="trash icon"></i> Remove</button>
+        </div>
         <div id="addRule" class="ui segment" style="display: none;">
             <h4>Add New Port Forward Rule</h4>
 
@@ -100,7 +110,9 @@
                 success: function(data){
                     $("#pfwlist").html("");
                     if (data.error !== undefined){
-                        alert(data.error);
+                        $('button').addClass("disabled");
+                        $("#errmsg").text(data.error);
+                        $("#errormessagedialog").show();
                         return
                     }else{
                         data.forEach(rule => {
@@ -132,6 +144,11 @@
                             </tr>`);
                         })
                     }
+                },
+                error: function(){
+                    $('button').addClass("disabled");
+                    $("#errmsg").text("UPnP Servie is Disabled");
+                    $("#errormessagedialog").show();
                 }
             })
         }

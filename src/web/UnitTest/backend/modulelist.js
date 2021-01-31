@@ -1,1 +1,1 @@
-sendJSONResp(JSON.stringify(LOADED_MODULES));
+sendJSONResp(JSON.stringify(USER_MODULES));

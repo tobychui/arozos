@@ -722,3 +722,42 @@ func validateShareModes(mode string) (bool, string, []string) {
 
 	return false, "", []string{}
 }
+
+func (s *Manager) RemoveShareByRealpath(rpath string) error {
+	_, ok := s.fileToUrlMap.Load(rpath)
+	if ok {
+		s.fileToUrlMap.Delete(rpath)
+	} else {
+		return errors.New("Share with given realpath not exists")
+	}
+	return nil
+}
+
+func (s *Manager) RemoveShareByUUID(uuid string) error {
+	_, ok := s.urlToFileMap.Load(uuid)
+	if ok {
+		s.urlToFileMap.Delete(uuid)
+	} else {
+		return errors.New("Share with given uuid not exists")
+	}
+	return nil
+}
+
+//Check and clear shares that its pointinf files no longe exists
+func (s *Manager) ValidateAndClearShares() {
+	//Iterate through all shares within the system
+	s.fileToUrlMap.Range(func(k, v interface{}) bool {
+		thisRealPath := k.(string)
+		if !fileExists(thisRealPath) {
+			//This share source file don't exists anymore. Remove it
+			thisFileShareOption := v.(*ShareOption)
+
+			//Delete this task from both sync map
+			s.RemoveShareByRealpath(thisRealPath)
+			s.RemoveShareByUUID(thisFileShareOption.UUID)
+			log.Println("[Share] Removing share to file: " + thisRealPath + " as it no longer exists")
+		}
+		return true
+	})
+
+}

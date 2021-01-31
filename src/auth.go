@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"log"
 	"net/http"
 
 	auth "imuslab.com/arozos/mod/auth"
@@ -8,6 +10,26 @@ import (
 )
 
 func AuthInit() {
+	//Generate session key for authentication module if empty
+	sysdb.NewTable("auth")
+	if *session_key == "" {
+		//Check if the key was generated already. If not, generate a new one
+		if !sysdb.KeyExists("auth", "sessionkey") {
+			key := make([]byte, 32)
+			rand.Read(key)
+			newSessionKey := string(key)
+			sysdb.Write("auth", "sessionkey", newSessionKey)
+
+			log.Println("Authentication session key loaded from database")
+		} else {
+			log.Println("New authentication session key generated")
+		}
+		skeyString := ""
+		sysdb.Read("auth", "sessionkey", &skeyString)
+		session_key = &skeyString
+	}
+
+	//Create an Authentication Agent
 	authAgent = auth.NewAuthenticationAgent("ao_auth", []byte(*session_key), sysdb, *allow_public_registry, func(w http.ResponseWriter, r *http.Request) {
 		//Login Redirection Handler, redirect it login.system
 		w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")

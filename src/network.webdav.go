@@ -34,9 +34,11 @@ func WebDAVInit() {
 
 	WebDavHandler.Enabled = enabled
 
-	http.HandleFunc("/webdav", func(w http.ResponseWriter, r *http.Request) {
-		WebDavHandler.HandleRequest(w, r)
-	})
+	/*
+		http.HandleFunc("/webdav", func(w http.ResponseWriter, r *http.Request) {
+			WebDavHandler.HandleRequest(w, r)
+		})
+	*/
 
 	http.HandleFunc("/system/network/webdav/list", WebDavHandler.HandleConnectionList)
 

@@ -513,19 +513,17 @@ func HandleListStoragePools(w http.ResponseWriter, r *http.Request) {
 		if filter == "system" {
 			storagePools = append(storagePools, baseStoragePool)
 		} else {
-			for _, pg := range permissionHandler.PermissionGroups {
+			for _, pg := range userHandler.GetPermissionHandler().PermissionGroups {
 				if pg.Name == filter {
 					storagePools = append(storagePools, pg.StoragePool)
 				}
-
 			}
 		}
 	} else {
 		//Add the base pool into the list
 		storagePools = append(storagePools, baseStoragePool)
 
-		//Add permission group storage pools into the list
-		for _, pg := range permissionHandler.PermissionGroups {
+		for _, pg := range userHandler.GetPermissionHandler().PermissionGroups {
 			storagePools = append(storagePools, pg.StoragePool)
 		}
 

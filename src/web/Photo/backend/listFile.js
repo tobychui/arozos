@@ -23,7 +23,7 @@ if (!loadedfile) {
 
 //Get all the files filesize on desktop
 //folder = "user:/Photo/Photo/uploads/"
-folder = JSON.parse(POST_data)["folder"];
+var folder = JSON.parse(POST_data)["folder"];
 var fileList = filelib.glob(folder + "*.*");
 var results = [];
 for (var i = 0; i < fileList.length; i++) {
@@ -46,7 +46,7 @@ for (var i = 0; i < fileList.length; i++) {
 
 
             results.push({
-		vsrc: folder + filename,
+                vsrc: folder + filename,
                 src: "/media/?file=" + folder + filename,
                 caption: filename,
                 Size: bytesToSize(fileSize),

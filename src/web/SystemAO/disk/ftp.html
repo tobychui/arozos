@@ -31,6 +31,26 @@
         <div id="error" class="ui secondary inverted red segment" style="display:none;">
             <i class="remove icon"></i> <span class="msg">Something went wrong</span>
         </div>
+        <div class="ui blue message windowsonly" style="display:none;">
+            <h4 class="ui header">
+                <i class="windows icon"></i>
+                <div class="content">
+                    FTP Server Endpoint
+                    <div class="sub header">ftp://<span class="hostname"></span>:<span class="port"></span></div>
+                </div>
+            </h4>
+            <p>To connect your File Explorer to the ArozOS FTP server, enter the link above into the address bar of your file explorer window.</p>
+        </div>
+        <div class="ui basic message maconly" style="display:none;">
+            <h4 class="ui header">
+                <i class="apple icon"></i>
+                <div class="content">
+                    FTP Server Endpoint
+                    <div class="sub header">ftp://<span class="hostname"></span>:<span class="port"></span></div>
+                </div>
+            </h4>
+            <p>To connect your Finder to the ArozOS FTP server, select <code>Go</code> <i class="arrow right icon"></i> <code>Connect to Server</code> and enter the link above into the address bar</p>
+        </div>
         <div class="ui form">
             <div class="field">
                 <div class="ui toggle checkbox">
@@ -93,7 +113,14 @@
     </div>
     <script>
         var serverAllowUPNP = false;
+        var isMac = navigator.platform.indexOf('Mac') > -1;
+        var isWindows = navigator.platform.indexOf('Win') > -1;
 
+        if (isMac){
+            $(".maconly").show();
+        }else if (isWindows){
+            $(".windowsonly").show();
+        }
         $(document).ready(function(){
             //Load usergroups
             $.get("../../system/permission/listgroup", function(data){
@@ -129,6 +156,7 @@
                     }
 
                     $("#listeningPort").val(data.Port);
+                    $(".port").text(data.Port);
 
                     if (data.AllowUPNP == false){
                         $("#useUPNP").parent().addClass("disabled");
@@ -173,6 +201,9 @@
                     }
 
                 }
+
+                //Update tutorial information
+                $(".hostname").text(window.location.hostname);
             });
         }
 

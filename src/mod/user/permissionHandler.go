@@ -31,6 +31,18 @@ func (u *User) GetModuleAccessPermission(moduleName string) bool {
 	return false
 }
 
+func (u *User) GetUserAccessibleModules() []string {
+	userAccessibleModules := []string{}
+	for _, pg := range u.GetUserPermissionGroup() {
+		groupAccessiableModules := pg.AccessibleModules
+		for _, gmod := range groupAccessiableModules {
+			userAccessibleModules = append(userAccessibleModules, gmod)
+		}
+	}
+
+	return userAccessibleModules
+}
+
 func (u *User) IsAdmin() bool {
 	isAdmin := false
 	for _, pg := range u.PermissionGroup {

@@ -179,6 +179,7 @@
             initUserList();
             function initUserList(){
                 $("#userTable").html("");
+                $("#editbtn").addClass('disabled');
                 $.ajax({
                     url: "../../system/users/list",
                     success: function(data){

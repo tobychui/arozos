@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -15,10 +16,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+	uuid "github.com/satori/go.uuid"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	fsp "imuslab.com/arozos/mod/filesystem/fspermission"
@@ -46,6 +49,11 @@ func FileSystemInit() {
 		},
 	})
 
+	//Upload related functions
+	router.HandleFunc("/system/file_system/upload", system_fs_handleUpload)
+	router.HandleFunc("/system/file_system/lowmemUpload", system_fs_handleLowMemoryUpload)
+
+	//Other file operations
 	router.HandleFunc("/system/file_system/validateFileOpr", system_fs_validateFileOpr)
 	router.HandleFunc("/system/file_system/fileOpr", system_fs_handleOpr)
 	router.HandleFunc("/system/file_system/ws/fileOpr", system_fs_handleWebSocketOpr)
@@ -55,7 +63,6 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/listDrives", system_fs_listDrives)
 	router.HandleFunc("/system/file_system/newItem", system_fs_handleNewObjects)
 	router.HandleFunc("/system/file_system/preference", system_fs_handleUserPreference)
-	router.HandleFunc("/system/file_system/upload", system_fs_handleUpload)
 	router.HandleFunc("/system/file_system/listTrash", system_fs_scanTrashBin)
 	router.HandleFunc("/system/file_system/clearTrash", system_fs_clearTrashBin)
 	router.HandleFunc("/system/file_system/restoreTrash", system_fs_restoreFile)
@@ -64,6 +71,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/pathTranslate", system_fs_handlePathTranslate)
 	router.HandleFunc("/system/file_system/handleFileWrite", system_fs_handleFileWrite)
 	router.HandleFunc("/system/file_system/handleFilePermission", system_fs_handleFilePermission)
+	router.HandleFunc("/system/file_system/search", system_fs_handleFileSearch)
 
 	//Thumbnail caching functions
 	router.HandleFunc("/system/file_system/handleFolderCache", system_fs_handleFolderCache)
@@ -146,9 +154,289 @@ func FileSystemInit() {
 
 	//Clear tmp folder if files is placed here too long
 	RegisterNightlyTask(system_fs_clearOldTmpFiles)
+
+	//Clear shares that its parent file no longer exists in the system
+	shareManager.ValidateAndClearShares()
+	RegisterNightlyTask(shareManager.ValidateAndClearShares)
+
 }
 
-//Handle upload.
+/*
+	File Search
+
+	Handle file search in wildcard and recursive search
+
+*/
+
+func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
+	//Get the user information
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	//Get the search target root path
+	vpath, err := mv(r, "path", true)
+	if err != nil {
+		sendErrorResponse(w, "Invalid vpath given")
+		return
+	}
+
+	keyword, err := mv(r, "keyword", true)
+	if err != nil {
+		sendErrorResponse(w, "Invalid keyword given")
+		return
+	}
+
+	//Translate the vpath to realpath
+	rpath, err := userinfo.VirtualPathToRealPath(vpath)
+	if err != nil {
+		sendErrorResponse(w, "Invalid path given")
+		return
+	}
+
+	//Check if the search mode is recursive keyword or wildcard
+	if len(keyword) > 1 && keyword[:1] == "/" {
+		//Wildcard
+		wildcard := keyword[1:]
+		matchingFiles, err := filepath.Glob(filepath.Join(rpath, wildcard))
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+
+		//Prepare result struct
+		results := []fs.FileData{}
+
+		//Process the matching files. Do not allow directory escape
+		srcAbs, _ := filepath.Abs(rpath)
+		srcAbs = filepath.ToSlash(srcAbs)
+		escaped := false
+		for _, matchedFile := range matchingFiles {
+			absMatch, _ := filepath.Abs(matchedFile)
+			absMatch = filepath.ToSlash(absMatch)
+			if !strings.Contains(absMatch, srcAbs) {
+				escaped = true
+			}
+
+			thisVpath, _ := userinfo.RealPathToVirtualPath(matchedFile)
+			results = append(results, fs.GetFileDataFromPath(thisVpath, matchedFile, 2))
+
+		}
+
+		if escaped {
+			sendErrorResponse(w, "Search keywords contain escape character!")
+			return
+		}
+
+		//OK. Tidy up the results
+		js, _ := json.Marshal(results)
+		sendJSONResponse(w, string(js))
+	} else {
+		//Recursive keyword
+		results := []fs.FileData{}
+		err := filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
+
+			if strings.Contains(filepath.Base(path), keyword) {
+				//This is a matching file
+				if !fs.IsInsideHiddenFolder(path) {
+					thisVpath, _ := userinfo.RealPathToVirtualPath(path)
+					results = append(results, fs.GetFileDataFromPath(thisVpath, path, 2))
+				}
+
+			}
+			return nil
+		})
+
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+
+		//OK. Tidy up the results
+		js, _ := json.Marshal(results)
+		sendJSONResponse(w, string(js))
+	}
+
+}
+
+/*
+	Handle low-memory upload operations
+
+	This function is specailly designed to work with low memory devices
+	(e.g. ZeroPi / Orange Pi Zero with 512MB RAM)
+*/
+func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
+	//Get user info
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("401 - Unauthorized"))
+		return
+	}
+
+	//Get filename and upload path
+	filename, err := mv(r, "filename", false)
+	if filename == "" || err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Invalid filename given"))
+		return
+	}
+
+	//Get upload target directory
+	uploadTarget, err := mv(r, "path", false)
+	if uploadTarget == "" || err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Invalid path given"))
+		return
+	}
+
+	//Check if the user can write to this folder
+	if !userinfo.CanWrite(uploadTarget) {
+		//No permission
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("403 - Access Denied"))
+		return
+	}
+
+	//Translate the upload target directory
+	realUploadPath, err := userinfo.VirtualPathToRealPath(uploadTarget)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Path translation failed"))
+		return
+	}
+
+	//Generate an UUID for this upload
+	uploadUUID := uuid.NewV4().String()
+	uploadFolder := filepath.Join(*tmp_directory, "uploads", uploadUUID)
+	os.MkdirAll(uploadFolder, 0700)
+	targetUploadLocation := filepath.Join(realUploadPath, filename)
+	if !fileExists(realUploadPath) {
+		os.MkdirAll(realUploadPath, 0755)
+	}
+
+	//Start websocket connection
+	var upgrader = websocket.Upgrader{}
+	c, err := upgrader.Upgrade(w, r, nil)
+	defer c.Close()
+
+	//Handle WebSocket upload
+	blockCounter := 0
+	chunkName := []string{}
+	lastChunkArrivalTime := time.Now().Unix()
+
+	//Setup a timeout listener, check if connection still active every 1 minute
+	ticker := time.NewTicker(60 * time.Second)
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if time.Now().Unix()-lastChunkArrivalTime > 300 {
+					//Already 5 minutes without new data arraival. Stop connection
+					log.Println("Upload WebSocket connection timeout. Disconnecting.")
+					c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+					time.Sleep(1 * time.Second)
+					c.Close()
+					return
+				}
+			}
+		}
+	}()
+
+	for {
+		mt, message, err := c.ReadMessage()
+		if err != nil {
+			//Connection closed by client. Clear the tmp folder and exit
+			log.Println("Upload terminated by client. Cleaning tmp folder.")
+			//Clear the tmp folder
+			time.Sleep(1 * time.Second)
+			os.RemoveAll(uploadFolder)
+			return
+		}
+		//The mt should be 2 = binary for file upload and 1 for control syntax
+		if mt == 1 {
+			msg := strings.TrimSpace(string(message))
+			if msg == "done" {
+				//Start the merging process
+				log.Println(userinfo.Username + " uploaded a file: " + filepath.Base(targetUploadLocation))
+				break
+			} else {
+				//Unknown operations
+
+			}
+		} else if mt == 2 {
+			//File block. Save it to tmp folder
+			chunkName = append(chunkName, filepath.Join(uploadFolder, "upld_"+strconv.Itoa(blockCounter)))
+			ioutil.WriteFile(filepath.Join(uploadFolder, "upld_"+strconv.Itoa(blockCounter)), message, 0700)
+			blockCounter++
+
+			//Update the last upload chunk time
+			lastChunkArrivalTime = time.Now().Unix()
+
+			//Request client to send the next chunk
+			c.WriteMessage(1, []byte("next"))
+		}
+		//log.Println("recv:", len(message), "type", mt)
+	}
+
+	//Merge the file
+
+	out, err := os.OpenFile(targetUploadLocation, os.O_CREATE|os.O_WRONLY, 0755)
+	if err != nil {
+		log.Println("Failed to open file:", err)
+		c.WriteMessage(1, []byte(`{\"error\":\"Failed to open destination file\"}`))
+		c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+		time.Sleep(1 * time.Second)
+		c.Close()
+		return
+	}
+	defer out.Close()
+
+	for _, filesrc := range chunkName {
+		srcChunkReader, err := os.Open(filesrc)
+		if err != nil {
+			log.Println("Failed to open Source Chunk", filesrc, " with error ", err.Error())
+			c.WriteMessage(1, []byte(`{\"error\":\"Failed to open Source Chunk\"}`))
+			return
+		}
+		io.Copy(out, srcChunkReader)
+		srcChunkReader.Close()
+	}
+
+	//Set owner of the new uploaded file
+	userinfo.SetOwnerOfFile(targetUploadLocation)
+
+	//Return complete signal
+	c.WriteMessage(1, []byte("OK"))
+
+	//Stop the timeout listner
+	done <- true
+
+	//Clear the tmp folder
+	time.Sleep(1 * time.Second)
+	err = os.RemoveAll(uploadFolder)
+	if err != nil {
+		log.Println(err)
+	}
+
+	//Close WebSocket connection after finished
+	c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+	time.Sleep(1 * time.Second)
+	c.Close()
+
+}
+
+/*
+	Handle FORM POST based upload
+
+	This function is design for general SBCs or computers with more than 1GB of RAM
+	(e.g. Raspberry Pi 4 / Linux Server)
+*/
 func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -230,18 +518,19 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer destination.Close()
+	defer file.Close()
+
 	//Move the file to destination file location
 	if *enable_asyncFileUpload {
 		//Use Async upload method
 		go func(r *http.Request, file multipart.File, destination *os.File, userinfo *user.User) {
 			//Do the file copying using a buffered reader
-			buf := make([]byte, 8192)
+			buf := make([]byte, *file_opr_buff)
 			for {
 				n, err := file.Read(buf)
 				if err != nil && err != io.EOF {
 					log.Println(err.Error())
-					destination.Close()
-					file.Close()
 					return
 				}
 				if n == 0 {
@@ -250,14 +539,9 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 				if _, err := destination.Write(buf[:n]); err != nil {
 					log.Println(err.Error())
-					destination.Close()
-					file.Close()
 					return
 				}
 			}
-
-			destination.Close()
-			file.Close()
 
 			//Clear up buffered files
 			r.MultipartForm.RemoveAll()
@@ -265,16 +549,17 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 			//Set the ownership of file
 			userinfo.SetOwnerOfFile(destFilepath)
 
+			//Perform a GC afterward
+			runtime.GC()
+
 		}(r, file, destination, userinfo)
 	} else {
 		//Use blocking upload and move method
-		buf := make([]byte, 8192)
+		buf := make([]byte, *file_opr_buff)
 		for {
 			n, err := file.Read(buf)
 			if err != nil && err != io.EOF {
 				log.Println(err.Error())
-				destination.Close()
-				file.Close()
 				return
 			}
 			if n == 0 {
@@ -283,14 +568,9 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 			if _, err := destination.Write(buf[:n]); err != nil {
 				log.Println(err.Error())
-				destination.Close()
-				file.Close()
 				return
 			}
 		}
-
-		destination.Close()
-		file.Close()
 
 		//Clear up buffered files
 		r.MultipartForm.RemoveAll()
@@ -310,9 +590,12 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	log.Println(username + " uploaded a file: " + handler.Filename)
 
 	//Do upload finishing stuff
+	//Perform a GC
+	runtime.GC()
 
 	//Completed
 	sendOK(w)
+
 	return
 }
 
@@ -653,7 +936,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 
 	Handle file operations via WebSocket
 
-	This handler only handle copy and move. Not other operations.
+	This handler only handle zip, unzip, copy and move. Not other operations.
 	For other operations, please use the legacy handleOpr endpoint
 */
 
@@ -680,6 +963,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
 	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
 	if err != nil {
+		log.Println("Source file JSON parse error.", err.Error())
 		sendErrorResponse(w, "Source file JSON parse error.")
 		return
 	}
@@ -706,9 +990,10 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if opr is suported
-	if operation == "move" || operation == "copy" {
+	if operation == "move" || operation == "copy" || operation == "zip" {
 
 	} else {
+		log.Println("This file operation is not supported on WebSocket file operations endpoint. Please use the legacy endpoint instead. Received: ", operation)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Not supported operation"))
 		return
@@ -730,57 +1015,97 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		Error      string
 	}
 
-	for i := 0; i < len(sourceFiles); i++ {
-		vsrcFile := sourceFiles[i]
-		rsrcFile, _ := userinfo.VirtualPathToRealPath(vsrcFile)
-		//c.WriteMessage(1, message)
-		if !fileExists(rsrcFile) {
-			//This source file not exists. Report Error and Stop
-			stopStatus := ProgressUpdate{
-				LatestFile: filepath.Base(rsrcFile),
-				Progress:   -1,
-				Error:      "File not exists",
+	if operation == "zip" {
+		//Zip files
+		outputFilename := filepath.Join(rdestFile, filepath.Base(rdestFile)) + ".zip"
+		if len(sourceFiles) == 1 {
+			//Use the basename of the source file as zip file name
+			outputFilename = filepath.Join(rdestFile, filepath.Base(sourceFiles[0])) + ".zip"
+		}
+
+		//Translate source Files into real paths
+		realSourceFiles := []string{}
+		for _, vsrcs := range sourceFiles {
+			rsrc, err := userinfo.VirtualPathToRealPath(vsrcs)
+			if err != nil {
+				stopStatus := ProgressUpdate{
+					LatestFile: filepath.Base(rsrc),
+					Progress:   -1,
+					Error:      "File not exists",
+				}
+				js, _ := json.Marshal(stopStatus)
+				c.WriteMessage(1, js)
+				c.Close()
 			}
-			js, _ := json.Marshal(stopStatus)
+
+			realSourceFiles = append(realSourceFiles, rsrc)
+		}
+
+		//Create the zip file
+		fs.ArozZipFileWithProgress(realSourceFiles, outputFilename, false, func(currentFilename string, _ int, _ int, progress float64) {
+			currentStatus := ProgressUpdate{
+				LatestFile: currentFilename,
+				Progress:   int(math.Ceil(progress)),
+				Error:      "",
+			}
+
+			js, _ := json.Marshal(currentStatus)
 			c.WriteMessage(1, js)
-			c.Close()
-			return
-		}
+		})
 
-		if operation == "move" {
-			fs.FileMove(rsrcFile, rdestFile, existsOpr, false, func(progress int, currentFile string) {
-				//Multply child progress to parent progress
-				blockRatio := float64(100) / float64(len(sourceFiles))
-				overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
-
-				//Construct return struct
-				currentStatus := ProgressUpdate{
-					LatestFile: filepath.Base(currentFile),
-					Progress:   int(overallRatio),
-					Error:      "",
+	} else {
+		//File copy or move
+		for i := 0; i < len(sourceFiles); i++ {
+			vsrcFile := sourceFiles[i]
+			rsrcFile, _ := userinfo.VirtualPathToRealPath(vsrcFile)
+			//c.WriteMessage(1, message)
+			if !fileExists(rsrcFile) {
+				//This source file not exists. Report Error and Stop
+				stopStatus := ProgressUpdate{
+					LatestFile: filepath.Base(rsrcFile),
+					Progress:   -1,
+					Error:      "File not exists",
 				}
-
-				js, _ := json.Marshal(currentStatus)
+				js, _ := json.Marshal(stopStatus)
 				c.WriteMessage(1, js)
-			})
-		} else if operation == "copy" {
-			fs.FileCopy(rsrcFile, rdestFile, existsOpr, func(progress int, currentFile string) {
-				//Multply child progress to parent progress
-				blockRatio := float64(100) / float64(len(sourceFiles))
-				overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
+				c.Close()
+				return
+			}
 
-				//Construct return struct
-				currentStatus := ProgressUpdate{
-					LatestFile: filepath.Base(currentFile),
-					Progress:   int(overallRatio),
-					Error:      "",
-				}
+			if operation == "move" {
+				fs.FileMove(rsrcFile, rdestFile, existsOpr, false, func(progress int, currentFile string) {
+					//Multply child progress to parent progress
+					blockRatio := float64(100) / float64(len(sourceFiles))
+					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
 
-				js, _ := json.Marshal(currentStatus)
-				c.WriteMessage(1, js)
-			})
+					//Construct return struct
+					currentStatus := ProgressUpdate{
+						LatestFile: filepath.Base(currentFile),
+						Progress:   int(overallRatio),
+						Error:      "",
+					}
+
+					js, _ := json.Marshal(currentStatus)
+					c.WriteMessage(1, js)
+				})
+			} else if operation == "copy" {
+				fs.FileCopy(rsrcFile, rdestFile, existsOpr, func(progress int, currentFile string) {
+					//Multply child progress to parent progress
+					blockRatio := float64(100) / float64(len(sourceFiles))
+					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
+
+					//Construct return struct
+					currentStatus := ProgressUpdate{
+						LatestFile: filepath.Base(currentFile),
+						Progress:   int(overallRatio),
+						Error:      "",
+					}
+
+					js, _ := json.Marshal(currentStatus)
+					c.WriteMessage(1, js)
+				})
+			}
 		}
-
 	}
 
 	//Close WebSocket connection after finished
@@ -842,8 +1167,23 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		rdestFile, _ := userinfo.VirtualPathToRealPath(vdestFile)
 		//Check if the source file exists
 		if !fileExists(rsrcFile) {
-			sendErrorResponse(w, "Source file not exists.")
-			return
+			/*
+				Special edge case handler:
+
+				There might be edge case that files are stored in URIEncoded methods
+				e.g. abc def.mp3 --> abc%20cdf.mp3
+
+				In this case, this logic statement should be able to handle this
+			*/
+
+			edgeCaseFilename := filepath.Join(filepath.Dir(rsrcFile), system_fs_specialURIEncode(filepath.Base(rsrcFile)))
+			if fileExists(edgeCaseFilename) {
+				rsrcFile = edgeCaseFilename
+			} else {
+				sendErrorResponse(w, "Source file not exists.")
+				return
+			}
+
 		}
 
 		if operation == "rename" {
@@ -1011,8 +1351,10 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		} else if operation == "delete" {
 			//Delete the file permanently
 			if !fileExists(rsrcFile) {
+				//Check if it is a non escapted file instead
 				sendErrorResponse(w, "Source file not exists")
 				return
+
 			}
 
 			//Check if the desintation is read only.
@@ -1048,8 +1390,10 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		} else if operation == "recycle" {
 			//Put it into a subfolder named trash and allow it to to be removed later
 			if !fileExists(rsrcFile) {
-				sendErrorResponse(w, "Source file not exists.")
+				//Check if it is a non escapted file instead
+				sendErrorResponse(w, "Source file not exists")
 				return
+
 			}
 
 			//Check if the upload target is read only.
@@ -1263,6 +1607,13 @@ func system_fs_specialURIDecode(inputPath string) string {
 	return inputPath
 }
 
+func system_fs_specialURIEncode(inputPath string) string {
+	inputPath = strings.ReplaceAll(inputPath, " ", "{{space_sign}}")
+	inputPath, _ = url.QueryUnescape(inputPath)
+	inputPath = strings.ReplaceAll(inputPath, "{{space_sign}}", "%20")
+	return inputPath
+}
+
 func system_fs_matchFileExt(inputFilename string, extArray []string) bool {
 	inputExt := filepath.Ext(inputFilename)
 	if stringInSlice(inputExt, extArray) {
@@ -1422,17 +1773,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	//Check for really special exception in where the path contains [ or ] which cannot be handled via Golang Glob function
 	files, _ := system_fs_specialGlob(filepath.Clean(realpath) + "/*")
 
-	type fileData struct {
-		Filename    string
-		Filepath    string
-		Realpath    string
-		IsDir       bool
-		Filesize    float64
-		Displaysize string
-		ModTime     int64
-		IsShared    bool
-	}
-	var parsedFilelist []fileData
+	var parsedFilelist []fs.FileData
 
 	for _, v := range files {
 		if showHidden != "true" && filepath.Base(v)[:1] == "." {
@@ -1441,12 +1782,12 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		}
 		rawsize := fs.GetFileSize(v)
 		modtime, _ := fs.GetModTime(v)
-		thisFile := fileData{
+		thisFile := fs.FileData{
 			Filename:    filepath.Base(v),
 			Filepath:    currentDir + filepath.Base(v),
 			Realpath:    v,
 			IsDir:       IsDir(v),
-			Filesize:    float64(rawsize),
+			Filesize:    rawsize,
 			Displaysize: fs.GetFileDisplaySize(rawsize, 2),
 			ModTime:     modtime,
 			IsShared:    shareManager.FileIsShared(v),

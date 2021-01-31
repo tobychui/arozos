@@ -202,6 +202,87 @@ mainloop:
                 }else if (operationConfig.opr == "copy"){
                     $("#opricon").attr("src","img/copy.gif");
                     copy(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
+                
+                }else if (operationConfig.opr == "zip"){
+                    $("#opricon").attr("src","img/zip.gif");
+                    zip(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
+                
+                }
+            }
+
+            function zip(srcList, dest, overwriteMode){
+                //Replace all + sign with tag
+                var filteredSrcList = [];
+                srcList.forEach(src => {
+                    filteredSrcList.push(src.split("+").join("{{plug_sign}}"));
+                })
+
+                //Start WebSocket connection
+                var endpoint = getWSEndpoint() + `?opr=zip&src=${encodeURIComponent(JSON.stringify(filteredSrcList))}&dest=${encodeURIComponent(dest)}&existsresp=${overwriteMode}`
+                console.log(endpoint);
+                var ws = new WebSocket(endpoint);
+                var srcZipRoot = "";
+                ws.onopen = function() {
+                    console.log("File Operation WebSocket opened")
+                    //Emulate the src folder
+                    var srcDir = srcList[0].split("/");
+                    srcDir.pop();
+                    srcDir = srcDir.join("/");
+                    srcZipRoot = srcDir;
+                    var currentSrc = truncate(srcDir, maxPathDisplayLength);
+                    $("#src").text(currentSrc);
+
+                    //Emulate the dest folder
+                    var destFolderName = dest.substr(0, dest.length - 1).split('/').pop();
+                    destFolderName += ".zip";
+                    var currentDest = truncate(dest + destFolderName, maxPathDisplayLength);
+                    $("#dest").text(currentDest);
+
+                };
+
+                ws.onmessage = function (evt) { 
+                    var data = evt.data;
+                    var progress = JSON.parse(data);
+                    if (progress.Error != ""){
+                        //Something went wrong
+                        $("#progressbar").css("background-color", "#eb3f28");
+                        enterErrorMode = true;
+                        alert(progress.Error);
+                    }else{
+                        //Update the progress display
+                        $("#progressbar").css("width", progress.Progress + "%");
+                        var currentSrc = truncate(srcZipRoot + "/" + progress.LatestFile, maxPathDisplayLength);
+                        var filteredDest = operationConfig.dest.trim();
+                        if (filteredDest.substr(filteredDest.length -1, 1) != "/"){
+                            filteredDest += "/"
+                        }
+                        var currentDest = truncate(filteredDest + progress.LatestFile, maxPathDisplayLength);
+
+                        $("#src").text(currentSrc);
+                        $("#dest").text(currentDest);
+                        $("#progress").text(progress.Progress + "%")
+
+                        if (progress.Progress == 100){
+                            //Set progress bar to green
+                            $("#progressbar").css("background-color", "#2bba35");
+                        }
+                    }
+                };
+                        
+                ws.onclose = function() { 
+                    //Transfer finished! Set OK and close in 1 second
+                    if (!enterErrorMode){
+                        $("#progressbar").css("background-color", "#2bba35");
+                        $("#progressbar").css("width", "100%");
+                        $("#progress").text("100%")
+                        setTimeout(function(){
+                            ao_module_close();
+                        }, 1000);
+                    }
+                };
+
+                ws.onerror = function(event){
+                    console.error("WebSocket error observed:", event);
                 }
             }
 
@@ -387,7 +468,7 @@ mainloop:
                 }else if (opr == "copy"){
                     title = "Copying ";
                 }else if (opr == "zip"){
-                    title = "Zipping";
+                    title = "Zipping ";
                 }else if (opr == "download"){
                     title = "Downloading ";
                 }else if (opr == "unzip"){

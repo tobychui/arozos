@@ -10,8 +10,9 @@ import (
 	"github.com/grandcat/zeroconf"
 )
 
-type MDNSHost struct{
+type MDNSHost struct {
 	MDNS *zeroconf.Server
+	Host *NetworkHost
 }
 
 type NetworkHost struct {
@@ -26,8 +27,7 @@ type NetworkHost struct {
 	MinorVersion string
 }
 
-
-func NewMDNS(config NetworkHost) (*MDNSHost, error){
+func NewMDNS(config NetworkHost) (*MDNSHost, error) {
 	//Register the mds services
 	//server, err := zeroconf.Register("ArOZ", "_http._tcp", "local.", *listen_port, []string{"version_build=" + build_version, "version_minor=" + internal_version, "vendor=" + deviceVendor, "model=" + deviceModel, "uuid=" + deviceUUID, "domain=aroz.online"}, nil)
 	server, err := zeroconf.Register(config.HostName, "_http._tcp", "local.", config.Port, []string{"version_build=" + config.BuildVersion, "version_minor=" + config.MinorVersion, "vendor=" + config.Vendor, "model=" + config.Model, "uuid=" + config.UUID, "domain=" + config.Domain}, nil)
@@ -37,17 +37,18 @@ func NewMDNS(config NetworkHost) (*MDNSHost, error){
 
 	return &MDNSHost{
 		MDNS: server,
+		Host: &config,
 	}, nil
 }
 
-func (m *MDNSHost)Close() {
-	if m != nil{
+func (m *MDNSHost) Close() {
+	if m != nil {
 		m.MDNS.Shutdown()
 	}
-	
+
 }
 
-func (m *MDNSHost)Scan(timeout int) []NetworkHost {
+func (m *MDNSHost) Scan(timeout int) []*NetworkHost {
 	// Discover all services on the network (e.g. _workstation._tcp)
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
@@ -57,11 +58,11 @@ func (m *MDNSHost)Scan(timeout int) []NetworkHost {
 	entries := make(chan *zeroconf.ServiceEntry)
 	//Create go routine  to wait for the resolver
 
-	discoveredHost := []NetworkHost{}
+	discoveredHost := []*NetworkHost{}
 
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
-			if stringInSlice("domain=aroz.online", entry.Text) {
+			if stringInSlice("domain="+m.Host.Domain, entry.Text) {
 				//This is a ArOZ Online Host
 				/*
 					log.Println("HostName", entry.HostName)
@@ -80,7 +81,7 @@ func (m *MDNSHost)Scan(timeout int) []NetworkHost {
 				}
 
 				//log.Println(properties)
-				discoveredHost = append(discoveredHost, NetworkHost{
+				discoveredHost = append(discoveredHost, &NetworkHost{
 					HostName:     entry.HostName,
 					Port:         entry.Port,
 					IPv4:         entry.AddrIPv4,

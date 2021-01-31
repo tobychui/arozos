@@ -27,14 +27,14 @@ import (
 
 type RenderHandler struct {
 	renderingFiles  sync.Map
-	renderinfFolder sync.Map
+	renderingFolder sync.Map
 }
 
 //Create a new RenderHandler
 func NewRenderHandler() *RenderHandler {
 	return &RenderHandler{
 		renderingFiles:  sync.Map{},
-		renderinfFolder: sync.Map{},
+		renderingFolder: sync.Map{},
 	}
 }
 
@@ -56,6 +56,11 @@ func (rh *RenderHandler) BuildCacheForFolder(path string) error {
 		os.RemoveAll(filepath.ToSlash(filepath.Clean(path)) + "/.cache/")
 	}
 	return nil
+}
+
+func (rh *RenderHandler) CacheExists(file string) bool {
+	cacheFolder := filepath.ToSlash(filepath.Clean(filepath.Dir(file))) + "/.cache/"
+	return fileExists(cacheFolder + filepath.Base(file) + ".jpg")
 }
 
 //Try to load a cache from file. If not exists, generate it now
@@ -170,7 +175,7 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 
 	//Check if this path already exists another websocket ongoing connection.
 	//If yes, disconnect the oldone
-	oldc, ok := rh.renderinfFolder.Load(targetPath)
+	oldc, ok := rh.renderingFolder.Load(targetPath)
 	if ok {
 		//Close and remove the old connection
 		oldc.(*websocket.Conn).Close()
@@ -194,11 +199,37 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 	}
 
 	//Set this realpath as websocket connected
-	rh.renderinfFolder.Store(targetPath, c)
+	rh.renderingFolder.Store(targetPath, c)
 
 	//For each file, serve a cached image preview
 	errorExists := false
+	filesWithoutCache := []string{}
+
+	//Updated implementation 24/12/2020: Load image with cache first before rendering those without
+
 	for _, file := range files {
+		if rh.CacheExists(file) == false {
+			//Cache not exists. Render this later
+			filesWithoutCache = append(filesWithoutCache, file)
+		} else {
+			//Cache exists. Send it out first
+			cachedImage, err := rh.LoadCache(file, false)
+			if err != nil {
+
+			} else {
+				jsonString, _ := json.Marshal([]string{filepath.Base(file), cachedImage})
+				err := c.WriteMessage(1, jsonString)
+				if err != nil {
+					//Connection closed
+					errorExists = true
+					break
+				}
+			}
+		}
+	}
+
+	//Render the remaining cache files
+	for _, file := range filesWithoutCache {
 		//Load the image cache
 		cachedImage, err := rh.LoadCache(file, false)
 		if err != nil {
@@ -217,7 +248,7 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 	//Clear record from syncmap
 	if !errorExists {
 		//This ended normally. Delete the targetPath
-		rh.renderinfFolder.Delete(targetPath)
+		rh.renderingFolder.Delete(targetPath)
 	}
 	c.Close()
 

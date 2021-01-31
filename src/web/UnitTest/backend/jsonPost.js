@@ -1,6 +1,6 @@
 //For those shitty persons who use appplication/json instead of x-www-encoded
 //POST_data is constant and won't change
-sendJSONResp(JSON.stringify(POST_data));
+sendJSONResp(JSON.stringify(testdata));
 /*
 $.ajax({
     type: 'POST',

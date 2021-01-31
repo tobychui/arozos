@@ -188,7 +188,7 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	strOut = strings.ReplaceAll(strOut, "kB", "")
 	strOut = strings.ReplaceAll(strOut, " ", "")
 	strOut = strings.ReplaceAll(strOut, "\n", "")
-	ramSize, _ := strconv.Atoi(strOut)
+	ramSize, _ := strconv.ParseInt(strOut, 10, 64)
 	ramSizeInt := ramSize * 1000
 
 	var jsonData []byte

@@ -25,7 +25,7 @@ import (
 */
 
 var (
-	AgiVersion string = "1.2" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "1.3" //Defination of the agi runtime version. Update this when new function is added
 )
 
 type AgiLibIntergface func(*otto.Otto, *user.User) //Define the lib loader interface for AGI Libraries
@@ -90,8 +90,25 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Load all the other libs entry points into the memoary
 	gatewayObject.ImageLibRegister()
 	gatewayObject.FileLibRegister()
+	gatewayObject.HTTPLibRegister()
 
 	return &gatewayObject, nil
+}
+
+func (g *Gateway) RunScript(script string) error {
+	//Create a new vm for this request
+	vm := otto.New()
+
+	//Only allow non user based operations
+	g.injectStandardLibs(vm, "", "./web/")
+
+	_, err := vm.Run(script)
+	if err != nil {
+		log.Println("Script Execution Failed: ", err.Error())
+		return err
+	}
+
+	return nil
 }
 
 func (g *Gateway) RegisterLib(libname string, entryPoint AgiLibIntergface) error {
