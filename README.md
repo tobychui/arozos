@@ -48,12 +48,12 @@ go build
 ### For Raspberry Pi (For Raspberry Pi 4B+)
 If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface.
 
-|Version|Download URL|Remarks|
-|---|---|---|
-|arozos v1.108|https://wdfiles.ru/4053d3bfd730aa60|WebDAV Support Added|
-|arozos v1.107|https://wdfiles.ru/jv2x|Samba Supported Added|
-|arozos v1.106|https://wdfiles.ru/b49v||
-|arozos v1.103|https://wdfiles.ru/b49b||
+|Version|Download|Mirror|Remarks|
+|---|---|---|---|
+|arozos v1.108|https://wdfiles.ru/4053d3bfd730aa60|https://www.mediafire.com/file/aa8176setz3ljtv/arozos_v1.108.7z/file|WebDAV Support Added|
+|arozos v1.107|https://wdfiles.ru/jv2x|https://www.mediafire.com/file/0ybduxs9db3j6ai/arozos_v1.107.7z/file|Samba Supported Added|
+|arozos v1.106|https://wdfiles.ru/b49v|https://www.mediafire.com/file/ov58z14eo90b6g9/arozos_v1.106.7z/file||
+|arozos v1.103|https://wdfiles.ru/b49b|https://www.mediafire.com/file/bw34ov9ugxefqjz/arozos_v1.103.7z/file||
 
 *Yes, the download site is in Russia. No, I am not Russian, I use this site because they offer 80GB of storage for free*
 **All the image listed above require 8GB or above microSD card**
