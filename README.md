@@ -208,10 +208,14 @@ Rename the storage.json.example to storage.json and start arozos. The required v
 ## ArOZ JavaScript Gateway Interface / Plugin Loader
 The ArOZ AJGI / AGI interface provide a javascript programmable interface for ArOZ Online users to create 
 plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
-(also named the module root). See more details in the [AJGI Documentation](AJGI Documentation.md).
+(also named the module root). See more details in the ![AJGI Documentation](https://github.com/tobychui/arozos/blob/master/src/AGI%20Documentation.md).
 
 ## Community / Q&A
 Find us on [Telegram](https://t.me/ArOZBeta)! We welcome all kind of feedbacks and questions.
+
+Already using ArozOS? Show us your server configuration!
+
+https://github.com/tobychui/arozos/issues/50
 
 ## License
 
