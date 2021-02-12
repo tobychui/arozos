@@ -169,6 +169,7 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		infocmd := exec.Command(servicePath+"/"+binaryExecPath, "-info")
 		launchConfig, err := infocmd.CombinedOutput()
 		if err != nil {
+			log.Println("*Subservice* startup flag -info return no JSON string and moduleInfo.json does not exists.")
 			if startupMode {
 				log.Fatal("Unable to start service: "+binaryname, err)
 			} else {

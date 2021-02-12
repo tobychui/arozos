@@ -62,7 +62,7 @@ func mroutner(h http.Handler) http.Handler {
 		} else if len(r.URL.Path) >= len("/webdav") && r.URL.Path[:7] == "/webdav" {
 			WebDavHandler.HandleRequest(w, r)
 		} else if r.URL.Path == "/" && authAgent.CheckAuth(r) {
-			//Index. Serve the user's interface module
+			//Use logged in and request the index. Serve the user's interface module
 			w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
 			userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
@@ -87,7 +87,9 @@ func mroutner(h http.Handler) http.Handler {
 					http.Redirect(w, r, "desktop.system", 307)
 				}
 			}
-
+		} else if r.URL.Path == "/" && !authAgent.CheckAuth(r) && *allow_homepage == true {
+			//User not logged in but request the index, redirect to homepage
+			http.Redirect(w, r, "/homepage/index.html", 307)
 		} else if authAgent.CheckAuth(r) {
 			//User logged in. Continue to serve the file the client want
 			authAgent.UpdateSessionExpireTime(w, r)
@@ -132,10 +134,20 @@ func mroutner(h http.Handler) http.Handler {
 			if r.URL.Path[len(r.URL.Path)-1:] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public" {
 				//This file path end with public/. Allow public access
 				h.ServeHTTP(w, r)
+			} else if *allow_homepage == true && r.URL.Path[:10] == "/homepage/" {
+				//Handle public home serving if homepage mode is enabled
+				h.ServeHTTP(w, r)
 			} else {
 				//Other paths
-				w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-				http.Redirect(w, r, "/login.system?redirect="+r.URL.Path, 307)
+				if *allow_homepage {
+					//Redirect to home page
+					http.Redirect(w, r, "/homepage/index.html", 307)
+				} else {
+					//Rediect to login page
+					w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
+					http.Redirect(w, r, "/login.system?redirect="+r.URL.Path, 307)
+				}
+
 			}
 
 		}

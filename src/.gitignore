@@ -8,6 +8,7 @@ test/deviceB/*
 tmp/*
 files/users*
 __debug_bin
+experimentals/*
 
 #Database related
 *.db
@@ -27,6 +28,8 @@ system/cron.json
 #Logs related
 system/aecron/*.log
 
+#Webapp related
+web/teleprompter/*
 
 #Subservice related
 subservice/backup/.suspended

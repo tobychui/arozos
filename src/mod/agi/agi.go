@@ -25,7 +25,7 @@ import (
 */
 
 var (
-	AgiVersion string = "1.3" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "1.4" //Defination of the agi runtime version. Update this when new function is added
 )
 
 type AgiLibIntergface func(*otto.Otto, *user.User) //Define the lib loader interface for AGI Libraries

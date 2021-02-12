@@ -1,0 +1,65 @@
+<html>
+    <head>
+        <title>Zip Extractor</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color: rgba(255,255,255,0.7);
+            }
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="ts active inverted dimmer">
+            <div class="ts text loader">Loading Archives</div>
+        </div>
+        <script>
+            ao_module_setFixedWindowSize();
+
+            //Load openeing file from ao_module inputs
+            var targetFiles = ao_module_loadInputFiles();
+            console.log("Opening Zip Archives", targetFiles);
+            
+            //Generate an filepath array from file objects
+            var targetFilePaths = [];
+            targetFiles.forEach(file => {
+                targetFilePaths.push(file.filepath);
+            });
+
+            //Unzip and open them to tmp:/
+            var oprConfig = {
+                opr: "unzipAndOpen",
+                src: targetFilePaths,
+                dest: "tmp:/temp_" + Date.now() + "/",
+                overwriteMode: "overwrite",
+            }
+
+            //Render the dialog title name
+            var configHash = encodeURIComponent(JSON.stringify(oprConfig));
+            var title = "Unzipping " + targetFilePaths.length;
+            if (targetFilePaths.length > 1){
+                title += " files";
+            }else{
+                title += " file";
+            }
+
+            //Open the operation dialog in new floatWindow
+            ao_module_newfw({
+                url: "SystemAO/file_system/file_operation.html#" + configHash,
+                width: 400,
+                height: 220,
+                appicon: "SystemAO/file_system/img/zip_extractor.png",
+                title: title
+            });
+
+            //CLose this window
+            ao_module_close();
+        
+        </script>
+    </body>
+</html>

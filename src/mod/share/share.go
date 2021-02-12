@@ -218,7 +218,6 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 			if !allowAccess {
 				//Serve permission denied page
-				//Serve permission denied page
 				if directDownload || directServe {
 					w.WriteHeader(http.StatusForbidden)
 					w.Write([]byte("401 - Forbidden"))
@@ -357,6 +356,9 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					previewTemplate = filepath.Join(templateRoot, "image.html")
 				} else if ext == ".pdf" {
 					previewTemplate = filepath.Join(templateRoot, "iframe.html")
+				} else {
+					//Format do not support preview. Use the default.html
+					previewTemplate = filepath.Join(templateRoot, "default.html")
 				}
 
 				tp, err := ioutil.ReadFile(previewTemplate)
@@ -755,7 +757,11 @@ func (s *Manager) ValidateAndClearShares() {
 			//Delete this task from both sync map
 			s.RemoveShareByRealpath(thisRealPath)
 			s.RemoveShareByUUID(thisFileShareOption.UUID)
-			log.Println("[Share] Removing share to file: " + thisRealPath + " as it no longer exists")
+
+			//Remove share from database
+			s.options.Database.Delete("share", thisFileShareOption.UUID)
+
+			log.Println("*Share* Removing share to file: " + thisRealPath + " as it no longer exists")
 		}
 		return true
 	})

@@ -156,23 +156,44 @@ function ao_module_selectFiles(callback, fileType="file", accept="*", allowMulti
     input.click();
 }
 
-function ao_module_openPath(path){
+//Open a path with File Manager, optional highligh filename
+function ao_module_openPath(path, filename=undefined){
     //Trim away the last / if exists
     if (path.substr(path.length - 1, 1) == "/"){
         path = path.substr(0, path.length - 1);
     }
 
-    if (ao_module_virtualDesktop){
-        parent.newFloatWindow({
-            url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(path),
-            appicon: "SystemAO/file_system/img/small_icon.png",
-            width:1080,
-            height:580,
-            title: "File Manager"
-        });
+    if (filename == undefined){
+        if (ao_module_virtualDesktop){
+            parent.newFloatWindow({
+                url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(path),
+                appicon: "SystemAO/file_system/img/small_icon.png",
+                width:1080,
+                height:580,
+                title: "File Manager"
+            });
+        }else{
+            window.open(ao_root + "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(path))
+        }
     }else{
-        window.open(ao_root + "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(path))
+        var fileObject = [{
+            filepath: path + "/" + filename,
+            filename: filename,
+        }];
+        if (ao_module_virtualDesktop){
+            parent.newFloatWindow({
+                url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(JSON.stringify(fileObject)),
+                appicon: "SystemAO/file_system/img/small_icon.png",
+                width:1080,
+                height:580,
+                title: "File Manager"
+            });
+        }else{
+            window.open(ao_root + "SystemAO/file_system/file_explorer.html#" + encodeURIComponent(JSON.stringify(fileObject)))
+        }
     }
+
+   
 }
 
 
@@ -233,8 +254,9 @@ function ao_module_newfw(launchConfig){
 
     If you want to create a new file or folder object, you can use the following options paramters
     option = {
-        defaultName: "newfile.txt"            //Default filename used in new operation
-        fnameOverride: "myfunction" //For those defined with window.myfunction
+        defaultName: "newfile.txt",            //Default filename used in new operation
+        fnameOverride: "myfunction",           //For those defined with window.myfunction
+        filter: ["mp3","aac","ogg","flac","wav"] //File extension filter
     }
 */
 let ao_module_fileSelectionListener;
@@ -298,8 +320,44 @@ function ao_module_openFileSelector(callback,root="user:/", type="file",allowMul
     }
 }
 
+//Check if there is parent to callback
+function ao_module_hasParentCallback(){
+    if (ao_module_virtualDesktop){
+        //Check if parent callback exists
+        var thisFw;
+        $(parent.window.document.body).find(".floatWindow").each(function(){
+            if ($(this).attr('windowid') == ao_module_windowID){
+                thisFw = $(this);
+            }
+        });
+        var parentWindowID = thisFw.attr("parent");
+        var parentCallback = thisFw.attr("callback");
+        if (parentWindowID == "" || parentCallback == ""){
+            //No parent window defined
+            return false;
+        }
 
-function ao_module_parentCallback(data){
+        //Check if parent windows is alive
+        var parentWindow = undefined;
+        $(parent.window.document.body).find(".floatWindow").each(function(){
+            if ($(this).attr('windowid') == parentWindowID){
+                parentWindow = $(this);
+            }
+        });
+        if (parentWindow == undefined){
+            //parent window not exists
+            return false;
+        }
+
+        //Parent callback is set and ready to callback
+        return true;
+    }else{
+        return false
+    }
+}
+
+//Callback to parent with results
+function ao_module_parentCallback(data=""){
     if (ao_module_virtualDesktop){
         var thisFw;
         $(parent.window.document.body).find(".floatWindow").each(function(){

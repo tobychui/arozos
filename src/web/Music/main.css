@@ -1,0 +1,379 @@
+/*
+    AirMusic main css
+    author: tobychui
+
+    No, do not make bright theme for this WebApp
+*/
+
+body{
+    background-color: #474747;
+}
+
+@font-face {
+    font-family: TaipeiSans;
+    src: url(../script/font/TaipeiSansTCBeta-Regular.ttf);
+}
+
+p,span,h1,h2,h3,h4,h5,h6,div,a,button{
+    font-family: TaipeiSans;
+}
+
+.AMmenu{
+    background-color: #303030 !important;
+    color: white !important;
+    box-shadow: 0px 0px 0px 0px transparent !important;
+}
+.noBorder{
+    border: 1px solid transparent !important;
+}
+.whiteFont{
+    color: white !important;
+}
+.AMmenu.button:hover{
+    background-color: #3f3f3f !important;
+}
+.bottomBlue{
+    border-bottom: 3px solid #4b75ff !important;
+}
+.leftsb{
+    position:fixed;
+    top:0px;
+    left:0px;
+    width:60%;
+    background-color:#404040;
+}
+.leftsbObject{
+    padding: 5px;
+    border-bottom: 1px solid #4a4a4a;
+}
+.sidebarBanner{
+    background-color:#4b75ff;
+}
+.sbPaddingIn{
+    padding:10px;
+    padding-left:22px;
+}
+.sbSelectable{
+    cursor:pointer;
+}
+.sbSelectable:hover{
+    background-color:#606060;
+}
+.mainList{
+    position:relative;
+    top:51px;
+}
+.mainList.item{
+    padding:8px;
+    padding-left: 20px;
+    border-bottom: 1px solid #606060;
+    cursor: pointer;
+}
+.mainList.item:hover{
+    background-color:#606060;
+}
+.topRightCorner{
+    position:absolute;
+    top:6px;
+    right:30px;
+    background-color:#595959;
+    padding-left:5px;
+    padding-right:5px;
+    min-height:20px;
+    color:white;
+}
+.mainList.rightFunctionBar{
+    position:absolute;
+    top:0px;
+    height:100%;
+    width:25px;
+    right:0px;
+    color:#a5a5a5;
+    cursor:pointer;
+}
+.mainList.item.extrapadding{
+    padding-top:15px;
+    padding-bottom:15px;
+}
+#playerInterface{
+    z-index:100;
+    position:fixed;
+    left:0px;
+    top:0px;
+    height:100%;
+    width:100%;
+    background:rgba(20,20,20,0.8);
+    backdrop-filter: blur(3px);
+}
+#miniPlayer{
+    z-index:45;
+    position:fixed;
+    left:0px;
+    bottom:0px;
+    width:100%;
+    height:60px;
+    background-color:#282828;
+    border-top: 2px solid #4b75ff !important;
+}
+.miniPlayer.minitab{
+     background-color:#595959;
+     position:absolute;
+     padding-left:3px;
+     padding-right:3px;
+     color:white;
+     right:120px;
+     bottom:5px;
+     text-overflow: ellipsis;
+     overflow: hidden; 
+}
+.miniPlayerControls{
+    position:absolute;
+    top:18px;
+    right:5px;
+    color: white;
+    font-size: 1.6em;
+}
+.miniPlayer.selectable{
+    cursor: pointer;
+}
+.miniPlayer.selectable:hover{
+    
+}
+.playingTrack{
+    background-color:#606060;
+}
+.hidden{
+    display:none;
+}
+#mainPlayerControlInterface{
+    position:absolute;
+    bottom:0px;
+    left:0px;
+    width:100%;
+    height:140px;
+    padding:20px;
+}
+.mainControlButtons{
+    margin: auto;
+    width:80%;
+    font-size:200%;
+    text-align: center;
+    padding-top:25px;
+}
+.enabled.icon{
+    color:white;
+}
+.disabled.icon{
+    color:#8c8c8c;
+}
+.disabled{
+    opacity: 0.5;
+    pointer-events: none;
+}
+#albumnArt{
+    /*
+         margin-top:10px;
+        margin:20px;
+    */
+    width: 100%;
+    padding-right: 20px;
+    padding-left: 20px;
+    position: absolute;
+    text-align: center;
+}
+.mainPlayer.minitab{
+     background-color:rgba(80, 80, 80, 0.5);
+     padding-left:5px;
+     padding-right:5px;
+     color:white;
+     text-align: center;
+     text-overflow: ellipsis;
+     overflow: hidden; 
+     max-width:100px;
+     display: inline-block;
+     font-size:90%;
+}
+#progressTime{
+    color:white;
+    position:absolute;
+    left:0px;
+    top:0px;
+}
+#remainTime{
+    color:white;
+    position:absolute;
+    right:0px;
+    top:0px;
+}
+#volumeGUI{
+    position:absolute;
+    top:50px;
+    left:0px;
+    width:100%;
+    padding-left:20%;
+    padding-right:20%;
+    padding-top:5px;
+    padding-bottom:5px;
+    background-color:rgba(12, 12, 12, 0.8);
+    backdrop-filter: saturate(180%) blur(5px);
+    display:none;
+    z-index:95;
+}
+.quickMenu{
+    position:fixed;
+    top:25%;
+    left:10%;
+    right:10%;
+    bottom:25%;
+    border-radius: 5px;
+    background-color:rgba(12, 12, 12, 0.8);
+    backdrop-filter: saturate(180%) blur(5px);
+    padding:20px;
+    color:white;
+    overflow-y:auto;
+    overflow-x:hidden;
+    display:none;
+    z-index:120;
+}
+
+#fadeReturnScreen{
+    z-index:100;
+}
+
+@media (max-height: 650px) {
+    .quickMenu{
+        top: 3em;
+        bottom: 6em;
+        left:5%;
+        right:5%;
+    }
+    
+
+}
+
+.fadeScreen{
+    position:fixed;
+    top:0px;
+    left:0px;
+    width:100%;
+    height:100%;
+    z-index:110;
+    background:rgba(30,30,30,0.7);
+    display:none;
+}
+.greenBtn{
+    color:#2fb792 !important;
+    font-weight: bold;
+    padding:.5em;
+    padding-left:3em;
+    padding-right:3em;
+    width: 100%;
+    cursor:pointer;
+}
+.greenBtn:hover{
+    background-color:#6b6b6b;
+}
+.selectable.item{
+    border: 1px solid transparent;
+    padding-left:20px !important;
+    padding-right:20px !important;
+    cursor:pointer;
+    font-size:120%;
+}
+.selectable.item:hover{
+    background-color:#686868;
+    border: 1px solid #969696;
+}
+.forcesize.button{
+    width:72px !important;
+    height:72px !important;
+}
+.songTitleWrapper{
+    max-width:calc(100% - 80px);
+}
+.showMoreMenus{
+    background-color:rgba(12, 12, 12, 0.8);
+    backdrop-filter: saturate(180%) blur(5px);
+    position:fixed;
+    top:10%;
+    left:10%;
+    right:10%;
+    padding:20px;
+    padding-bottom:30px;
+    z-index:95;
+    border-radius: 5px;
+}
+.showMoreMenuItem{
+    border: 1px solid transparent;
+    font-size:1.1em;
+    color:white;
+    padding:10px;
+    cursor:pointer;
+}
+.showMoreMenuItem:hover{
+    background-color:#686868;
+    border: 1px solid #969696;
+}
+.dropdownMusicList{
+    background-color:rgb(66, 66, 66);
+    position:fixed;
+    left:0px;
+    top:0px;
+    height:calc(100% - 128px);
+    width:100%;
+    z-index:100;
+}
+.dropdownMusicListMiniMenu{
+    width:100%;
+    height:25px;
+    background-color:rgb(55, 55, 55);
+    padding-left:12px;
+    padding-right:12px;
+    padding-top:3px;
+    color:white;
+}
+.dropdownMusicListBottom{
+    position:absolute;
+    left:0px;
+    bottom:0px;
+    width:100%;
+    height:25px;
+    background-color:rgb(55, 55, 55);
+    padding-left:12px;
+    padding-right:12px;
+    padding-top:3px;
+    color:white;
+    text-align:center;
+    cursor:pointer;
+}
+#currentPlayingMainList{
+    height:calc(100% - 50px);
+    overflow-y:auto;
+    top:0px;
+}
+.dropdownList{
+    position:relative;
+}
+.dropdownList.item{
+    padding:8px;
+    padding-left: 20px;
+    border-bottom: 1px solid #606060;
+    cursor: pointer;
+}
+.dropdownList.item:hover{
+    background-color:#606060;
+}
+.dropdownList.playingTrack{
+    background-color:#606060;
+}
+
+#settingInterface .item{
+    font-size: 100%;
+}
+
+#playlistInterface .playlist.item{
+    padding: 4px;
+    padding-top:4px;
+    padding-bottom:4px;
+    font-size: 100%;
+}

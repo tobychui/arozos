@@ -1,66 +1,139 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-        <meta charset="UTF-8">
-        <meta name="theme-color" content="#4b75ff">
-        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
-        <link rel="stylesheet" href="../script/ao.css">
-        <script src="../script/jquery.min.js"></script>
-        <script src="../script/ao_module.js"></script>
-        <script src="../script/semantic/semantic.min.js"></script>
-        <script src="qr/qrious.min.js"></script>
-        <title>Web Downloader</title>
-        <style>
-            body{
-                background-color:rgba(250,250,250,0.8);
+
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#4b75ff">
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../script/ao.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="../script/semantic/semantic.min.js"></script>
+    <script src="qr/qrious.min.js"></script>
+    <title>Web Downloader</title>
+    <style>
+        body {
+            background-color: rgba(250, 250, 250, 0.8);
+        }
+        
+        @supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
+            body {
+                -webkit-backdrop-filter: blur(10px);
+                backdrop-filter: blur(10px);
+                background-color: rgba(250, 250, 250, 0.7);
             }
-            @supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
-                body {
-                    -webkit-backdrop-filter: blur(10px);
-                    backdrop-filter: blur(10px);
-                    background-color:rgba(250,250,250,0.7);
-                }
+        }
+        
+        @font-face {
+            font-family: 'TaipeiSansTCBeta';
+            src: url("../script/font/TaipeiSansTCBeta-Regular.ttf");
+        }
+    </style>
+</head>
+
+<body>
+    <br>
+    <div class="ui container">
+        <h3 class="ui header">
+            <i class="download icon"></i>
+            <div class="content">
+                Web Downloader
+                <div class="sub header">Copy and Paste URL to download</div>
+            </div>
+        </h3>
+        <form class="ui form">
+            <div class="field">
+                <label>URL</label>
+                <input type="text" id="url" placeholder="http://example.com/myfile.txt">
+            </div>
+            <div class="field">
+                <label>Save Location</label>
+                <div class="ui icon input">
+                    <input type="text" id="filepath" placeholder="user:/Download/">
+                    <i class="circular open folder link icon" id="filepathbtn" onclick="selectSaveLocation()"></i>
+                </div>
+            </div>
+        </form>
+        <br>
+        <button class="ui primary button" id="downloadbtn" onclick="initDownload()">Download</button>
+        <!-- <button class="ui black button">Download on new tab</button>-->
+        <br><br>
+        <p id="status">Ready.</p>
+    </div>
+    <script>
+        //Init windows events
+        ao_module_setFixedWindowSize();
+
+        function selectSaveLocation() {
+            var filename = decodeURI($("#url").val().split("/").pop().split("?").shift());
+            option = {
+                defaultName: filename //Default filename used in new operation
+            }
+            ao_module_openFileSelector(fileSelected, "user:/Download", "new", false, option);
+        }
+
+        function fileSelected(filedata) {
+            var filepath = filedata[0].filepath;
+            $("#filepath").val(filepath);
+        }
+
+        function initDownload() {
+            //check if path is empty before executing
+            if ($("#filepath").val() == "") {
+                var defaultFilename = decodeURI($("#url").val().split("/").pop().split("?").shift());
+                $("#filepath").val("user:/Download/" + defaultFilename);
             }
 
-            @font-face {
-                font-family: 'TaipeiSansTCBeta';
-                src: url("../script/font/TaipeiSansTCBeta-Regular.ttf");
+            //declare variable
+            var link = $("#url").val();
+            var filepath = getfilepath($("#filepath").val());
+            var filename = $("#filepath").val().split("/").pop();
+
+            //error handler
+            if (link == "") {
+                $("#status").html("Error: Invalid URL.");
+                return
             }
-        </style>
-    </head>
-    <body>
-        <br>
-        <div class="ui container">
-            <h3 class="ui header">
-                <i class="download icon"></i>
-                <div class="content">
-                    Web Downloader
-                    <div class="sub header">Copy and Paste URL to download</div>
-                </div>
-            </h3>
-            <form class="ui form">
-                <div class="field">
-                    <label>URL</label>
-                    <input type="text" id="url" placeholder="http://example.com/myfile.txt">
-                </div>
-                <div class="field">
-                    <label>Save Location</label>
-                    <div class="ui icon input">
-                        <input type="text" placeholder="user:/Desktop/">
-                        <i class="circular open folder link icon"></i>
-                    </div>
-                </div>
-            </form>
-             <br>
-            <button class="ui primary button">Download</button>
-            <button class="ui black button">Background Download</button>
-        </div>
-        <script>
-            //Init windows events
-            ao_module_setFixedWindowSize();
-        </script>
-       
-    </body>
+            if (filepath == "" || filename == "") {
+                $("#status").html("Error: Invalid filepath.");
+                return
+            }
+
+            //set the status
+            fieldDisabled(true);
+            $("#status").html('<i class="spinner loading icon "></i> Downloading...');
+            //send the AJAX request to the serevr
+            $.post("/system/ajgi/interface?script=Web Downloader/agi/download.agi", {
+                link: link,
+                filename: filename,
+                filepath: filepath
+            }, function(data) {
+                //set the status
+                fieldDisabled(false);
+                $("#status").html('Downloaded in ' + filepath);
+            });
+        }
+
+        function fieldDisabled(boolean) {
+            $("#url").attr("disabled", boolean);
+            $("#filepath").attr("disabled", boolean);
+            $("#filepathbtn").attr("disabled", boolean);
+            $("#downloadbtn").attr("disabled", boolean);
+        }
+
+        //handle the filepath
+        function getfilepath(beforeProcessedPath) {
+            var pathArray = beforeProcessedPath.split("/");
+            var processedPath = "";
+            for (var i = 0; i < pathArray.length - 1; i++) {
+                processedPath += pathArray[i] + "/";
+            }
+            return processedPath;
+        }
+    </script>
+
+</body>
+
 </html>

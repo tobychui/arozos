@@ -67,6 +67,7 @@ func RunStartup() {
 	SystemIDInit()            //System UUID Manager
 	AuthSettingsInit()        //Authentication Settings Handler, must be start after user Handler
 	AdvanceSettingInit()      //System Advance Settings
+	StartupFlagsInit()        //System BootFlag settibg
 	RegisterStorageSettings() //Storage Settings
 
 	//10. Startup network services and schedule services

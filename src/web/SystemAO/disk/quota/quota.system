@@ -30,11 +30,13 @@
         <script>
             var c = document.getElementById("chart-area");
             var ctx = c.getContext("2d");
+            var accurateUsedSpace = 0;
 
             initQuotaInfo();
             initFileTypeDistribution();
             
             function initQuotaInfo(){
+                //This will initalize the accumulative update quota information (Not accuratem, just estimation)
                 $.get("../../../system/disk/quota/quotaInfo",function(data){
                     if (data.error !== undefined){
 
@@ -47,7 +49,7 @@
                             total = "Read Only";
                         }
 
-                        $("#usedSpace").text(used);
+                        $("#usedSpace").html(used + ` <i style="color: #dedede;" class="tiny info circle icon" title="Cumulative Estimation"></i>`);
                         $("#remaining").text(total);
                     }
                 }); 
@@ -73,8 +75,15 @@
                     for (var i = 0; i < stopping; i++){
                         labels.push(list[i].Mime);
                         dataset.push(list[i].Size);
+                        accurateUsedSpace += list[i].Size;
                         colors.push(dynamicColors());
                     }
+
+                    //Update the actual used spaces
+                    var actualSpaceUsed = ao_module_utils.formatBytes(accurateUsedSpace);
+                    $("#usedSpace").text(actualSpaceUsed);
+                
+                   
                     data["datasets"] = [{
                         data: dataset, 
                         backgroundColor: colors

@@ -6,6 +6,7 @@
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
         <style>
             .ui.active.segment{
                 background-color: #f5f5f5 !important;
@@ -44,13 +45,23 @@
                     </div>
                 </h4>
             </div>
+            <div class="ui green message" style="display:none;" id="ok">
+                <h4 class="ui header">
+                    <i class="checkmark icon"></i>
+                    <div class="content">
+                        Module Installation Completed
+                        <div class="sub header" >You should be able to see your new module in the list below.</div>
+                    </div>
+                </h4>
+            </div>
             <div class="ui blue segment">
                 <h4 class="ui header">
                     New WebApp
                     <div class="sub header">Download new WebApp to your ArozOS Host</div>
                 </h4>
                 <div class="ui divider"></div>
-                <p>Enter the Github repo link in the filed below and click "Install"</p>
+                <h5>Install via Git Repository</h5>
+                <p>Enter the Github repo link in the field below and click "Install"</p>
                 <div class="ui small fluid action input" id="installViaGitInput">
                     <input id="gitlink" type="text" placeholder="http://github.com/....">
                     <button class="ui blue button" onclick="installViaGit();"><i class="download icon"></i> Install</button>
@@ -58,6 +69,18 @@
                 <div class="ui blue message" style="display:none;" id="installingDialog">
                     <p><i class="ui loading spinner icon"></i> Module installing in the background. Please wait until this dialog is closed.</p>
                 </div>
+                <div class="ui divider"></div>
+                <h4>Install via Zip File</h4>
+              
+                
+                <p>Select your module zip file and upload it to the system for installation.</p>
+                <div class="ui small fluid action input">
+                    <input type="text" id="installpendingFile" placeholder="New Module.zip">
+                    <button class="ui button" onclick="selectInstaller()"><i class="folder open icon"></i> Select Installer</button>
+                    <button class="ui blue button" onclick="InstallViaZipFile(this)"><i class="zip icon" ></i> Install</button>
+                </div>
+                
+            
             </div>
             <div class="ui red segment">
                 <h4 class="ui header">
@@ -145,6 +168,57 @@
                         }
                     });
                 }
+            }
+
+            function selectInstaller(){
+                ao_module_openFileSelector(fileSelected, "user:/Desktop", "file",true, {
+                    filter: ["zip"]
+                });
+            }
+
+            function fileSelected(filedata){
+                for (var i=0; i < filedata.length; i++){
+                    var filename = filedata[i].filename;
+                    var filepath = filedata[i].filepath;
+                    $("#installpendingFile").val(filepath);
+                }
+            }
+
+            function InstallViaZipFile(btn){
+                //Select the upload module zip file
+                var installerPath = $("#installpendingFile").val();
+                if (installerPath == ""){
+                    $("#installpendingFile").parent().addClass("error");
+                }else{
+                    $("#installpendingFile").parent().removeClass("error");
+                }
+
+                $(btn).addClass("loading");
+                //Install it
+                $.ajax({
+                    url: "../../system/modules/installViaZip",
+                    data: {path: installerPath},
+                    success: function(data){
+                        console.log(data);
+                        if (data.error !== undefined){
+                            $("#errmsg").text(data.error);
+                            $("#errmsgbox").slideDown("fast").delay(10000).slideUp("fast");
+                        }else{
+                            //Install completed.
+                            if (parent && parent.initModuleList != undefined){
+                                parent.initModuleList();
+                            }
+
+                            initModuleUninstallList();
+                            $("#ok").slideDown('fast').delay(5000).slideUp('fast');
+                        }
+                        $(btn).removeClass("loading");
+                    },
+                    error: function(){
+                        $(btn).removeClass("loading");
+                        alert("Installation failed due to unknown reason")
+                    }
+                })
             }
             
             function installViaGit(){

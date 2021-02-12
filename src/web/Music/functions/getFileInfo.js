@@ -22,7 +22,7 @@ if (requirelib("filelib") == false){
         filepath = filepath.replace("/media?file=", "");
     }
     var vpath = decodeURIComponent(filepath);
-    console.log(vpath)
+    //console.log(vpath)
     
     var results = [];
     

@@ -35,6 +35,7 @@ func SystemInfoInit() {
 			SN:           deviceUUID,
 			HostOS:       runtime.GOOS,
 			CPUArch:      runtime.GOARCH,
+			HostName:     *host_name,
 		})
 		/*
 			if runtime.GOOS == "windows" {
@@ -90,17 +91,14 @@ func SystemInfoInit() {
 
 	}
 
-	//Register as a system setting
-	if fileExists("web/SystemAO/vendor/platform/index.html") {
-		registerSetting(settingModule{
-			Name:     "Platform Info",
-			Desc:     "Platform Information",
-			IconPath: "SystemAO/info/img/small_icon.png",
-			Group:    "Info",
-			StartDir: "SystemAO/vendor/platform/index.html",
-		})
-	}
-
+	//Register a boot flag modifier
+	registerSetting(settingModule{
+		Name:     "Startup",
+		Desc:     "Platform Startup Flags",
+		IconPath: "SystemAO/info/img/small_icon.png",
+		Group:    "Info",
+		StartDir: "SystemAO/boot/bootflags.html",
+	})
 }
 
 func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {

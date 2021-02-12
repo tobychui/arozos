@@ -112,7 +112,7 @@
                 for (var i =0; i < moduleListInReverse.length; i ++){
                     var thisModuleInfo = moduleListInReverse[i];
                     var stringifyModuleInfo = encodeURIComponent(JSON.stringify(thisModuleInfo));
-                    $("#toolbarBtn").after(`<a class="item settingTab" moduleInfo="${stringifyModuleInfo}" onclick="loadSettingModuleFromTab(this);">${thisModuleInfo.Name}</a>`);
+                    $("#toolbarBtn").after(`<a class="item settingTab" moduleInfo="${stringifyModuleInfo}" title="${thisModuleInfo.Desc}" onclick="loadSettingModuleFromTab(this);">${thisModuleInfo.Name}</a>`);
                 }
               }
 

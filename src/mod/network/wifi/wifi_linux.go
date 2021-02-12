@@ -26,7 +26,7 @@ func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 	cmd := exec.Command("ifconfig", wlanInterface, status)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("WiFi toggle failed: ", string(out))
+		log.Println("*WiFi* WiFi toggle failed: ", string(out))
 		return err
 	}
 
@@ -76,7 +76,85 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	cmd := exec.Command("bash", "-c", rcmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		//Scan failed, the following code is used to handle edge case on some SBC that only nmcli works but not iwlist
+		/*
+			If the interface is not supported, something like this will show up:
 
+			wlan0     Interface doesn't support scanning.
+		*/
+		if strings.Contains(string(out), "Interface doesn't support scanning") {
+			//Try nmcli instead if exists
+			if pkg_exists("nmcli") {
+				log.Println("*WiFi* Running WiFi scan in nmcli compatibility mode")
+				cmd := exec.Command("bash", "-c", "nmcli d wifi list")
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					return []WiFiInfo{}, err
+				}
+
+				//Parse the nmcli output
+				lines := strings.Split(string(out), "\n")
+				if len(lines) > 1 {
+					//Remove the header
+					lines = lines[1:]
+				}
+
+				results := []WiFiInfo{}
+				//Prase the wifi information
+				for _, line := range lines {
+					//Replace all double space as split sign
+					line = strings.TrimSpace(line)
+					for strings.Contains(line, "  ") {
+						line = strings.ReplaceAll(line, "  ", "$")
+					}
+
+					for strings.Contains(line, "$$") {
+						line = strings.ReplaceAll(line, "$$", "$")
+					}
+
+					//Process the wifi info chunk
+					wifiInfoSlice := strings.Split(line, "$")
+
+					thisWifiInfo := new(WiFiInfo)
+					if len(wifiInfoSlice) == 7 {
+						//This is a valid entry
+
+						thisWifiInfo.ESSID = strings.TrimSpace(wifiInfoSlice[0])
+						thisWifiInfo.Quality = wifiInfoSlice[4] + "/100"
+						thisWifiInfo.Frequency = wifiInfoSlice[3]
+						channel, _ := strconv.Atoi(wifiInfoSlice[2])
+						thisWifiInfo.Channel = channel
+						thisWifiInfo.SignalLevel = w.getSignalLevelEstimation(wifiInfoSlice[5])
+						//Check connect before
+						if w.database.KeyExists("wifi", thisWifiInfo.ESSID) {
+							thisWifiInfo.ConnectedBefore = true
+						} else {
+							thisWifiInfo.ConnectedBefore = false
+						}
+
+					} else if len(wifiInfoSlice) == 8 {
+						//Entry with inuse * at front
+						thisWifiInfo.ESSID = strings.TrimSpace(wifiInfoSlice[1])
+						thisWifiInfo.Quality = wifiInfoSlice[5] + "/100"
+						thisWifiInfo.Frequency = wifiInfoSlice[4]
+						channel, _ := strconv.Atoi(wifiInfoSlice[2])
+						thisWifiInfo.Channel = channel
+						thisWifiInfo.SignalLevel = w.getSignalLevelEstimation(wifiInfoSlice[6])
+						thisWifiInfo.ConnectedBefore = true //It is connected
+					} else {
+						//Line not valid. Skip this line
+						continue
+					}
+
+					results = append(results, *thisWifiInfo)
+				}
+
+				return results, nil
+			} else {
+				log.Println("*WiFi* Scan Failed: ", err.Error())
+				return []WiFiInfo{}, errors.New("Interface doesn't support scanning")
+			}
+		}
 		return []WiFiInfo{}, err
 	}
 
@@ -183,6 +261,22 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	return results, nil
 }
 
+//Hack the signal level out of the nmcli bars
+func (w *WiFiManager) getSignalLevelEstimation(bar string) string {
+	bar = strings.TrimSpace(bar)
+	if bar == "▂▄▆█" {
+		return "-45 dBm[Estimated]"
+	} else if bar == "▂▄▆_" {
+		return "-55 dBm[Estimated]"
+	} else if bar == "▂▄__" {
+		return "-75 dBm[Estimated]"
+	} else if bar == "▂___" {
+		return "-85 dBm[Estimated]"
+	} else {
+		return "-95 dBm[Estimated]"
+	}
+}
+
 //Get all the network interfaces
 func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 	rcmd := `iw dev | awk '$1=="Interface"{print $2}'`
@@ -209,8 +303,8 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			cmd := exec.Command("nmcli", "con", "down", oldSSID)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Println("Disconencting previous SSID failed: " + string(out))
-				log.Println("Trying to connect new AP anyway")
+				log.Println("*WiFi* Disconencting previous SSID failed: " + string(out))
+				log.Println("*WiFi* Trying to connect new AP anyway")
 			}
 		}
 
@@ -223,7 +317,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		cmd := exec.Command("nmcli", "device", "wifi", "connect", ssid, "password", password)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println("Conencting to SSID " + ssid + " failed: " + string(out))
+			log.Println("*WiFi* Conencting to SSID " + ssid + " failed: " + string(out))
 			return &WiFiConnectionResult{Success: false}, errors.New(string(out))
 		}
 
@@ -242,7 +336,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			connectedSSID, _, _ = w.GetConnectedWiFi()
 			log.Println(connectedSSID)
 			rescanCount = rescanCount + 1
-			log.Println("Waiting WiFi Connection (Retry " + strconv.Itoa(rescanCount) + "/10)")
+			log.Println("*WiFi* Waiting WiFi Connection (Retry " + strconv.Itoa(rescanCount) + "/10)")
 			time.Sleep(3 * time.Second)
 		}
 
@@ -284,7 +378,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		//Special case, for handling WiFi Switching without retyping the password
 		writeToConfig = false
 	} else {
-		log.Println("Unsupported connection type")
+		log.Println("*WiFi* Unsupported connection type")
 		return &WiFiConnectionResult{Success: false}, errors.New("Unsupported Connection Type")
 	}
 
@@ -294,7 +388,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	}
 
 	if writeToConfig == true {
-		log.Println("WiFi Config Generated. Writing to file...")
+		log.Println("*WiFi* WiFi Config Generated. Writing to file...")
 		//Write config file to disk
 		err := ioutil.WriteFile("./system/network/wifi/ap/"+ssid+".config", []byte(networkConfigFile), 0755)
 		if err != nil {
@@ -302,7 +396,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			return &WiFiConnectionResult{Success: false}, err
 		}
 	} else {
-		log.Println("Switching WiFi AP...")
+		log.Println("*WiFi* Switching WiFi AP...")
 	}
 
 	//Start creating the new wpa_supplicant file
@@ -310,7 +404,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	configHeader, err := ioutil.ReadFile("./system/network/wifi/wpa_supplicant.conf_template.config")
 	if err != nil {
 		//Template header not found. Use default one from Raspberry Pi
-		log.Println("Warning! wpa_supplicant template file not found. Using default template.")
+		log.Println("*WiFi* Warning! wpa_supplicant template file not found. Using default template.")
 		configHeader = []byte(`ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 		update_config=1
 		{{networks}}
@@ -330,7 +424,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	for _, configFile := range networksConfigs {
 		thisNetworkConfig, err := ioutil.ReadFile(configFile)
 		if err != nil {
-			log.Println("Failed to read Network Config File: " + configFile)
+			log.Println("*WiFi* Failed to read Network Config File: " + configFile)
 			continue
 		}
 
@@ -357,11 +451,11 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	//Try to write the new config to wpa_supplicant
 	err = ioutil.WriteFile(w.wpa_supplicant_path, []byte(newconfig), 0777)
 	if err != nil {
-		log.Println("Failed to update wpa_supplicant config, are you sure you have access permission to that file?")
+		log.Println("*WiFi* Failed to update wpa_supplicant config, are you sure you have access permission to that file?")
 		return &WiFiConnectionResult{Success: false}, err
 	}
 
-	log.Println("WiFi Config Updated. Restarting Wireless Interfaces...")
+	log.Println("*WiFi* WiFi Config Updated. Restarting Wireless Interfaces...")
 
 	//Restart network services
 	cmd := exec.Command("wpa_cli", "-i", w.wan_interface_name, "reconfigure")
@@ -371,7 +465,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		return &WiFiConnectionResult{Success: false}, err
 	}
 
-	log.Println("Trying to connect new AP")
+	log.Println("*WiFi* Trying to connect new AP")
 	//Wait until the WiFi is conencted
 	rescanCount := 0
 	connectedSSID, _, _ := w.GetConnectedWiFi()
@@ -380,7 +474,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		connectedSSID, _, _ = w.GetConnectedWiFi()
 		log.Println(connectedSSID)
 		rescanCount = rescanCount + 1
-		log.Println("Waiting WiFi Connection (Retry " + strconv.Itoa(rescanCount) + "/10)")
+		log.Println("*WiFi* Waiting WiFi Connection (Retry " + strconv.Itoa(rescanCount) + "/10)")
 		time.Sleep(3 * time.Second)
 	}
 
@@ -402,10 +496,57 @@ func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 	cmd := exec.Command("iwgetid")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		//Check nmcli working or not
+		if pkg_exists("nmcli") {
+			//Try nmcli method instead
+			cmd := exec.Command("nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active")
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				return "", "", errors.New(string(out))
+			}
+
+			//nmcli return something. Use the first one
+			outString := strings.TrimSpace(string(out))
+			currentSSIDInfo := ""
+			if strings.Contains(outString, "\n") {
+				connectedIds := strings.Split(outString, "\n")
+				for _, conn := range connectedIds {
+					if !strings.Contains(conn, "Wired") {
+						//The first connection that is not wired
+						currentSSIDInfo = conn
+						break
+					}
+				}
+
+			} else {
+				currentSSIDInfo = outString
+			}
+
+			if strings.Contains(currentSSIDInfo, "Wired") {
+				//This is an ethernet port?
+				//Nothing connected
+				return "OFFLINE", "N/A", nil
+			}
+
+			if currentSSIDInfo == "" {
+				//No connection to any interface, which is strange?
+				return "", "", errors.New("No established connection")
+			}
+
+			//Split the information
+			SSIDinfoChunk := strings.Split(currentSSIDInfo, ":")
+			currentSSID := SSIDinfoChunk[0]
+			interfaceName := SSIDinfoChunk[1]
+
+			return currentSSID, interfaceName, nil
+
+		} else {
+			return "", "", errors.New(string(out))
+		}
 		return "", "", errors.New(string(out))
 	}
 	if len(string(out)) == 0 {
-		return "", "", nil
+		return "OFFLINE", "N/A", nil
 	}
 
 	//Try to parse the data

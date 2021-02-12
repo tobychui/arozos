@@ -22,7 +22,8 @@ for (var i =0; i < rootList.length; i++){
         var titleList = filelib.aglob(thisRoot + "Photo/Manga/*");
         for (var k =0; k < titleList.length; k++){
             var thisFileObject = titleList[k];
-            if (filelib.isDir(thisFileObject)){
+            //Only scan this if this is a directory and it is not start with "."
+            if (filelib.isDir(thisFileObject) && thisFileObject.split("/").pop().substr(0, 1) != "."){
                 //This should be manga title. Get its chapter count
                 var chaptersInThisTitle = filelib.aglob(thisFileObject + "/*");
                 var foldersInTitle = [];

@@ -39,6 +39,18 @@ var (
 	shareManager       *share.Manager
 )
 
+type trashedFile struct {
+	Filename         string
+	Filepath         string
+	FileExt          string
+	IsDir            bool
+	Filesize         int64
+	RemoveTimestamp  int64
+	RemoveDate       string
+	OriginalPath     string
+	OriginalFilename string
+}
+
 func FileSystemInit() {
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "File Manager",
@@ -64,6 +76,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/newItem", system_fs_handleNewObjects)
 	router.HandleFunc("/system/file_system/preference", system_fs_handleUserPreference)
 	router.HandleFunc("/system/file_system/listTrash", system_fs_scanTrashBin)
+	router.HandleFunc("/system/file_system/ws/listTrash", system_fs_WebSocketScanTrashBin)
 	router.HandleFunc("/system/file_system/clearTrash", system_fs_clearTrashBin)
 	router.HandleFunc("/system/file_system/restoreTrash", system_fs_restoreFile)
 	router.HandleFunc("/system/file_system/zipHandler", system_fs_zipHandler)
@@ -102,6 +115,19 @@ func FileSystemInit() {
 		LaunchFWDir:  "SystemAO/file_system/trashbin.html",
 		SupportEmb:   false,
 		SupportedExt: []string{"*"},
+	})
+
+	//Register the Zip Extractor module
+	moduleHandler.RegisterModule(module.ModuleInfo{
+		Name:         "Zip Extractor",
+		Group:        "System Tools",
+		IconPath:     "SystemAO/file_system/img/zip_extractor.png",
+		Version:      "1.0",
+		SupportFW:    false,
+		LaunchEmb:    "SystemAO/file_system/zip_extractor.html",
+		SupportEmb:   true,
+		InitEmbSize:  []int{260, 120},
+		SupportedExt: []string{".zip"},
 	})
 
 	//Create user root if not exists
@@ -348,6 +374,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	totalFileSize := int64(0)
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
@@ -371,15 +398,33 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			}
 		} else if mt == 2 {
 			//File block. Save it to tmp folder
-			chunkName = append(chunkName, filepath.Join(uploadFolder, "upld_"+strconv.Itoa(blockCounter)))
-			ioutil.WriteFile(filepath.Join(uploadFolder, "upld_"+strconv.Itoa(blockCounter)), message, 0700)
-			blockCounter++
+			chunkFilepath := filepath.Join(uploadFolder, "upld_"+strconv.Itoa(blockCounter))
+			chunkName = append(chunkName, chunkFilepath)
+			ioutil.WriteFile(chunkFilepath, message, 0700)
 
 			//Update the last upload chunk time
 			lastChunkArrivalTime = time.Now().Unix()
 
+			//Check if the file size is too big
+			totalFileSize += fs.GetFileSize(chunkFilepath)
+			if totalFileSize > max_upload_size {
+				//File too big
+				c.WriteMessage(1, []byte(`{\"error\":\"File size too large.\"}`))
+
+				//Close the connection
+				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+				time.Sleep(1 * time.Second)
+				c.Close()
+
+				//Clear the tmp files
+				os.RemoveAll(uploadFolder)
+				return
+			}
+			blockCounter++
+
 			//Request client to send the next chunk
 			c.WriteMessage(1, []byte("next"))
+
 		}
 		//log.Println("recv:", len(message), "type", mt)
 	}
@@ -635,6 +680,88 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+//Scan all directory and get trash file and send back results with WebSocket
+func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
+	//Get and check user permission
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	//Upgrade to websocket
+	var upgrader = websocket.Upgrader{}
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - " + err.Error()))
+		log.Print("Websocket Upgrade Error:", err.Error())
+		return
+	}
+
+	//Start Scanning
+	scanningRoots := []string{}
+	//Get all roots to scan
+	for _, storage := range userinfo.GetAllFileSystemHandler() {
+		storageRoot := storage.Path
+		scanningRoots = append(scanningRoots, storageRoot)
+	}
+
+	for _, rootPath := range scanningRoots {
+		err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+			oneLevelUpper := filepath.Base(filepath.Dir(path))
+			if oneLevelUpper == ".trash" {
+				//This is a trashbin dir.
+				file := path
+
+				//Parse the trashFile struct
+				timestamp := filepath.Ext(file)[1:]
+				originalName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
+				originalExt := filepath.Ext(filepath.Base(originalName))
+				virtualFilepath, _ := userinfo.RealPathToVirtualPath(file)
+				virtualOrgPath, _ := userinfo.RealPathToVirtualPath(filepath.Dir(filepath.Dir(file)))
+				rawsize := fs.GetFileSize(file)
+				timestampInt64, _ := StringToInt64(timestamp)
+				removeTimeDate := time.Unix(timestampInt64, 0)
+				if IsDir(file) {
+					originalExt = ""
+				}
+
+				thisTrashFileObject := trashedFile{
+					Filename:         filepath.Base(file),
+					Filepath:         virtualFilepath,
+					FileExt:          originalExt,
+					IsDir:            IsDir(file),
+					Filesize:         int64(rawsize),
+					RemoveTimestamp:  timestampInt64,
+					RemoveDate:       timeToString(removeTimeDate),
+					OriginalPath:     virtualOrgPath,
+					OriginalFilename: originalName,
+				}
+
+				//Send out the result as JSON string
+				js, _ := json.Marshal(thisTrashFileObject)
+				err := c.WriteMessage(1, js)
+				if err != nil {
+					//Connection already closed
+					return err
+				}
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			//Scan or client connection error (Connection closed?)
+			return
+		}
+	}
+
+	//Close connection after finished
+	c.Close()
+
+}
+
 //Scan all the directory and get trash files within the system
 func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -643,17 +770,6 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := userinfo.Username
-	type trashedFile struct {
-		Filename         string
-		Filepath         string
-		FileExt          string
-		IsDir            bool
-		Filesize         int64
-		RemoveTimestamp  int64
-		RemoveDate       string
-		OriginalPath     string
-		OriginalFilename string
-	}
 
 	results := []trashedFile{}
 	files, err := system_fs_listTrash(username)
@@ -843,7 +959,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 
 		jsonString, err := json.Marshal(newItemList)
 		if err != nil {
-			log.Fatal("Unable to parse JSON string for new item list!")
+			log.Println("*File System* Unable to parse JSON string for new item list!")
 			sendErrorResponse(w, "Unable to parse new item list. See server log for more information.")
 			return
 		}
@@ -884,7 +1000,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 				//This is a file with no extension.
 				f, err := os.Create(newfilePath)
 				if err != nil {
-					log.Fatal(err)
+					log.Println("*File System* " + err.Error())
 					sendErrorResponse(w, err.Error())
 					return
 				}
@@ -895,7 +1011,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 					//This file extension is not in template
 					f, err := os.Create(newfilePath)
 					if err != nil {
-						log.Fatal(err)
+						log.Println("*File System* " + err.Error())
 						sendErrorResponse(w, err.Error())
 						return
 					}
@@ -905,7 +1021,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 					input, _ := ioutil.ReadFile(templateFile[0])
 					err := ioutil.WriteFile(newfilePath, input, 0755)
 					if err != nil {
-						log.Fatal(err)
+						log.Println("*File System* " + err.Error())
 						sendErrorResponse(w, err.Error())
 						return
 					}
@@ -990,7 +1106,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if opr is suported
-	if operation == "move" || operation == "copy" || operation == "zip" {
+	if operation == "move" || operation == "copy" || operation == "zip" || operation == "unzip" {
 
 	} else {
 		log.Println("This file operation is not supported on WebSocket file operations endpoint. Please use the legacy endpoint instead. Received: ", operation)
@@ -1052,9 +1168,56 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 			js, _ := json.Marshal(currentStatus)
 			c.WriteMessage(1, js)
 		})
+	} else if operation == "unzip" {
+		//Check if the target destination exists and writable
+		if !userinfo.CanWrite(vdestFile) {
+			stopStatus := ProgressUpdate{
+				LatestFile: filepath.Base(vdestFile),
+				Progress:   -1,
+				Error:      "Access Denied: No Write Permission",
+			}
+			js, _ := json.Marshal(stopStatus)
+			c.WriteMessage(1, js)
+			c.Close()
+		}
+
+		//Create the destination folder
+		os.MkdirAll(rdestFile, 0755)
+
+		//Convert the src files into realpaths
+		realSourceFiles := []string{}
+		for _, vsrcs := range sourceFiles {
+			rsrc, err := userinfo.VirtualPathToRealPath(vsrcs)
+			if err != nil {
+				stopStatus := ProgressUpdate{
+					LatestFile: filepath.Base(rsrc),
+					Progress:   -1,
+					Error:      "File not exists",
+				}
+				js, _ := json.Marshal(stopStatus)
+				c.WriteMessage(1, js)
+				c.Close()
+			}
+
+			realSourceFiles = append(realSourceFiles, rsrc)
+		}
+
+		//Unzip the files
+		fs.ArozUnzipFileWithProgress(realSourceFiles, rdestFile, func(currentFile string, filecount int, totalfile int, progress float64) {
+			//Generate the status update struct
+
+			currentStatus := ProgressUpdate{
+				LatestFile: filepath.Base(currentFile),
+				Progress:   int(math.Ceil(progress)),
+				Error:      "",
+			}
+
+			js, _ := json.Marshal(currentStatus)
+			c.WriteMessage(1, js)
+		})
 
 	} else {
-		//File copy or move
+		//Other operations that allow multiple source files to handle one by one
 		for i := 0; i < len(sourceFiles); i++ {
 			vsrcFile := sourceFiles[i]
 			rsrcFile, _ := userinfo.VirtualPathToRealPath(vsrcFile)
@@ -1161,270 +1324,335 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	for i, vsrcFile := range sourceFiles {
-		//Convert the virtual path to realpath on disk
-		rsrcFile, _ := userinfo.VirtualPathToRealPath(string(vsrcFile))
+	if operation == "zip" {
+		//Zip operation. Parse the real filepath list
+		rsrcFiles := []string{}
 		rdestFile, _ := userinfo.VirtualPathToRealPath(vdestFile)
-		//Check if the source file exists
-		if !fileExists(rsrcFile) {
-			/*
-				Special edge case handler:
-
-				There might be edge case that files are stored in URIEncoded methods
-				e.g. abc def.mp3 --> abc%20cdf.mp3
-
-				In this case, this logic statement should be able to handle this
-			*/
-
-			edgeCaseFilename := filepath.Join(filepath.Dir(rsrcFile), system_fs_specialURIEncode(filepath.Base(rsrcFile)))
-			if fileExists(edgeCaseFilename) {
-				rsrcFile = edgeCaseFilename
-			} else {
-				sendErrorResponse(w, "Source file not exists.")
-				return
+		for _, vsrcFile := range sourceFiles {
+			rsrcFile, _ := userinfo.VirtualPathToRealPath(string(vsrcFile))
+			if fileExists(rsrcFile) {
+				rsrcFiles = append(rsrcFiles, rsrcFile)
 			}
-
 		}
 
-		if operation == "rename" {
-			//Check if the usage is correct.
-			if vdestFile != "" {
-				sendErrorResponse(w, "Rename only accept 'src' and 'new'. Please use move if you want to move a file.")
-				return
+		zipFilename := rdestFile
+		if fs.IsDir(rdestFile) {
+			//Append the filename to it
+			if len(rsrcFiles) == 1 {
+				zipFilename = filepath.Join(rdestFile, strings.TrimSuffix(filepath.Base(rsrcFiles[0]), filepath.Ext(filepath.Base(rsrcFiles[0])))+".zip")
+			} else if len(rsrcFiles) > 1 {
+				zipFilename = filepath.Join(rdestFile, filepath.Base(filepath.Dir(rsrcFiles[0]))+".zip")
 			}
-			//Check if new name paramter is passed in.
-			if len(newFilenames) == 0 {
-				sendErrorResponse(w, "Missing paramter (JSON string): 'new'")
-				return
-			}
-			//Check if the source filenames and new filenanmes match
-			if len(newFilenames) != len(sourceFiles) {
-				sendErrorResponse(w, "New filenames do not match with source filename's length.")
-				return
-			}
+		}
 
-			//Check if the target dir is not readonly
-			accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
-			if accmode == "readonly" {
-				sendErrorResponse(w, "This directory is Read Only.")
-				return
-			} else if accmode == "denied" {
-				sendErrorResponse(w, "Access Denied")
-				return
-			}
-
-			thisFilename := newFilenames[i]
-			//Check if the name already exists. If yes, return false
-			if fileExists(filepath.Dir(rsrcFile) + "/" + thisFilename) {
-				sendErrorResponse(w, "File already exists")
-				return
-			}
-
-			//Everything is ok. Rename the file.
-			targetNewName := filepath.Dir(rsrcFile) + "/" + thisFilename
-			err = os.Rename(rsrcFile, targetNewName)
-			if err != nil {
-				sendErrorResponse(w, err.Error())
-				return
-			}
-
-		} else if operation == "move" {
-			//File move operation. Check if the source file / dir and target directory exists
-			/*
-				Example usage from file explorer
-				$.ajax({
-					type: 'POST',
-					url: `/system/file_system/fileOpr`,
-					data: {opr: "move" ,src: JSON.stringify(fileList), dest: targetDir},
-					success: function(data){
-						if (data.error !== undefined){
-							msgbox("remove",data.error);
-						}else{
-							//OK, do something
-						}
-					}
-				});
-			*/
-
-			if !fileExists(rsrcFile) {
-				sendErrorResponse(w, "Source file not exists")
-				return
-			}
-
-			//Check if the source file is read only.
-			accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
-			if accmode == "readonly" {
-				sendErrorResponse(w, "This source file is Read Only.")
-				return
-			} else if accmode == "denied" {
-				sendErrorResponse(w, "Access Denied")
-				return
-			}
-
-			if rdestFile == "" {
-				sendErrorResponse(w, "Undefined dest location.")
-				return
-			}
-
-			//Get exists overwrite mode
-			existsOpr, _ := mv(r, "existsresp", true)
-
-			//Check if use fast move instead
-			//Check if the source and destination folder are under the same root. If yes, use os.Rename for faster move operations
-
-			underSameRoot := false
-			//Check if the two files are under the same user root path
-
-			srcAbs, _ := filepath.Abs(rsrcFile)
-			destAbs, _ := filepath.Abs(rdestFile)
-
-			//Check other storage path and see if they are under the same root
-			for _, rootPath := range userinfo.GetAllFileSystemHandler() {
-				thisRoot := rootPath.Path
-				thisRootAbs, err := filepath.Abs(thisRoot)
-				if err != nil {
-					continue
-				}
-				if strings.Contains(srcAbs, thisRootAbs) && strings.Contains(destAbs, thisRootAbs) {
-					underSameRoot = true
-				}
-			}
-
-			//Updates 19-10-2020: Added ownership management to file move and copy
-			userinfo.RemoveOwnershipFromFile(rsrcFile)
-
-			err = fs.FileMove(rsrcFile, rdestFile, existsOpr, underSameRoot, nil)
-			if err != nil {
-				sendErrorResponse(w, err.Error())
-				//Restore the ownership if remove failed
-				userinfo.SetOwnerOfFile(rsrcFile)
-				return
-			}
-
-			//Set user to own the new file
-			userinfo.SetOwnerOfFile(filepath.ToSlash(filepath.Clean(rdestFile)) + "/" + filepath.Base(rsrcFile))
-
-		} else if operation == "copy" {
-			//Copy file. See move example and change 'opr' to 'copy'
-			if !fileExists(rsrcFile) {
-				sendErrorResponse(w, "Source file not exists")
-				return
-			}
-
-			//Check if the desintation is read only.
-			accmode := userinfo.GetPathAccessPermission(vdestFile)
-			if accmode == "readonly" {
-				sendErrorResponse(w, "This directory is Read Only.")
-				return
-			} else if accmode == "denied" {
-				sendErrorResponse(w, "Access Denied")
-				return
-			}
-
-			if !fileExists(rdestFile) {
-				if fileExists(filepath.Dir(rdestFile)) {
-					//User pass in the whole path for the folder. Report error usecase.
-					sendErrorResponse(w, "Dest location should be an existing folder instead of the full path of the copied file.")
-					return
-				}
-				sendErrorResponse(w, "Dest folder not found")
-				return
-			}
-
-			existsOpr, _ := mv(r, "existsresp", true)
-
-			//Check if the user have space for the extra file
-			if !userinfo.StorageQuota.HaveSpace(fs.GetFileSize(rdestFile)) {
-				sendErrorResponse(w, "Storage Quota Full")
-				return
-			}
-
-			err = fs.FileCopy(rsrcFile, rdestFile, existsOpr, nil)
-			if err != nil {
-				sendErrorResponse(w, err.Error())
-				return
-			}
-
-			//Set user to own this file
-			userinfo.SetOwnerOfFile(filepath.ToSlash(filepath.Clean(rdestFile)) + "/" + filepath.Base(rsrcFile))
-
-		} else if operation == "delete" {
-			//Delete the file permanently
-			if !fileExists(rsrcFile) {
-				//Check if it is a non escapted file instead
-				sendErrorResponse(w, "Source file not exists")
-				return
-
-			}
-
-			//Check if the desintation is read only.
-			accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
-			if accmode == "readonly" {
-				sendErrorResponse(w, "This directory is Read Only.")
-				return
-			} else if accmode == "denied" {
-				sendErrorResponse(w, "Access Denied")
-				return
-			}
-
-			//Check if the user own this file
-			isOwner := userinfo.IsOwnerOfFile(rsrcFile)
-			if isOwner {
-				//This user own this system. Remove this file from his quota
-				userinfo.RemoveOwnershipFromFile(rsrcFile)
-			}
-
-			//Check if this file has any cached files. If yes, remove it
-			if fileExists(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg") {
-				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
-			}
-
-			//Clear the cache folder if there is no files inside
-			fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
-			if len(fc) == 0 {
-				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/")
-			}
-
-			os.RemoveAll(rsrcFile)
-
-		} else if operation == "recycle" {
-			//Put it into a subfolder named trash and allow it to to be removed later
-			if !fileExists(rsrcFile) {
-				//Check if it is a non escapted file instead
-				sendErrorResponse(w, "Source file not exists")
-				return
-
-			}
-
-			//Check if the upload target is read only.
-			accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
-			if accmode == "readonly" {
-				sendErrorResponse(w, "This directory is Read Only.")
-				return
-			} else if accmode == "denied" {
-				sendErrorResponse(w, "Access Denied")
-				return
-			}
-			//Check if this file has any cached files. If yes, remove it
-			if fileExists(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg") {
-				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
-			}
-
-			//Clear the cache folder if there is no files inside
-			fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
-			if len(fc) == 0 {
-				os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/")
-			}
-
-			//Create a trash directory for this folder
-			trashDir := filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.trash/"
-			os.MkdirAll(trashDir, 0755)
-			hidden.HideFile(trashDir)
-			os.Rename(rsrcFile, trashDir+filepath.Base(rsrcFile)+"."+Int64ToString(GetUnixTime()))
-		} else {
-			sendErrorResponse(w, "Unknown file opeartion given.")
+		//Create a zip file at target location
+		err := fs.ArozZipFile(rsrcFiles, zipFilename, false)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
 			return
 		}
+	} else {
+		//For operations that is handled file by file
+		for i, vsrcFile := range sourceFiles {
+			//Convert the virtual path to realpath on disk
+			rsrcFile, _ := userinfo.VirtualPathToRealPath(string(vsrcFile))
+			rdestFile, _ := userinfo.VirtualPathToRealPath(vdestFile)
+			//Check if the source file exists
+			if !fileExists(rsrcFile) {
+				/*
+					Special edge case handler:
+
+					There might be edge case that files are stored in URIEncoded methods
+					e.g. abc def.mp3 --> abc%20cdf.mp3
+
+					In this case, this logic statement should be able to handle this
+				*/
+
+				edgeCaseFilename := filepath.Join(filepath.Dir(rsrcFile), system_fs_specialURIEncode(filepath.Base(rsrcFile)))
+				if fileExists(edgeCaseFilename) {
+					rsrcFile = edgeCaseFilename
+				} else {
+					sendErrorResponse(w, "Source file not exists.")
+					return
+				}
+
+			}
+
+			if operation == "rename" {
+				//Check if the usage is correct.
+				if vdestFile != "" {
+					sendErrorResponse(w, "Rename only accept 'src' and 'new'. Please use move if you want to move a file.")
+					return
+				}
+				//Check if new name paramter is passed in.
+				if len(newFilenames) == 0 {
+					sendErrorResponse(w, "Missing paramter (JSON string): 'new'")
+					return
+				}
+				//Check if the source filenames and new filenanmes match
+				if len(newFilenames) != len(sourceFiles) {
+					sendErrorResponse(w, "New filenames do not match with source filename's length.")
+					return
+				}
+
+				//Check if the target dir is not readonly
+				accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
+				if accmode == "readonly" {
+					sendErrorResponse(w, "This directory is Read Only.")
+					return
+				} else if accmode == "denied" {
+					sendErrorResponse(w, "Access Denied")
+					return
+				}
+
+				thisFilename := newFilenames[i]
+				//Check if the name already exists. If yes, return false
+				if fileExists(filepath.Dir(rsrcFile) + "/" + thisFilename) {
+					sendErrorResponse(w, "File already exists")
+					return
+				}
+
+				//Everything is ok. Rename the file.
+				targetNewName := filepath.Dir(rsrcFile) + "/" + thisFilename
+				err = os.Rename(rsrcFile, targetNewName)
+				if err != nil {
+					sendErrorResponse(w, err.Error())
+					return
+				}
+
+			} else if operation == "move" {
+				//File move operation. Check if the source file / dir and target directory exists
+				/*
+					Example usage from file explorer
+					$.ajax({
+						type: 'POST',
+						url: `/system/file_system/fileOpr`,
+						data: {opr: "move" ,src: JSON.stringify(fileList), dest: targetDir},
+						success: function(data){
+							if (data.error !== undefined){
+								msgbox("remove",data.error);
+							}else{
+								//OK, do something
+							}
+						}
+					});
+				*/
+
+				if !fileExists(rsrcFile) {
+					sendErrorResponse(w, "Source file not exists")
+					return
+				}
+
+				//Check if the source file is read only.
+				accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
+				if accmode == "readonly" {
+					sendErrorResponse(w, "This source file is Read Only.")
+					return
+				} else if accmode == "denied" {
+					sendErrorResponse(w, "Access Denied")
+					return
+				}
+
+				if rdestFile == "" {
+					sendErrorResponse(w, "Undefined dest location.")
+					return
+				}
+
+				//Get exists overwrite mode
+				existsOpr, _ := mv(r, "existsresp", true)
+
+				//Check if use fast move instead
+				//Check if the source and destination folder are under the same root. If yes, use os.Rename for faster move operations
+
+				underSameRoot := false
+				//Check if the two files are under the same user root path
+
+				srcAbs, _ := filepath.Abs(rsrcFile)
+				destAbs, _ := filepath.Abs(rdestFile)
+
+				//Check other storage path and see if they are under the same root
+				for _, rootPath := range userinfo.GetAllFileSystemHandler() {
+					thisRoot := rootPath.Path
+					thisRootAbs, err := filepath.Abs(thisRoot)
+					if err != nil {
+						continue
+					}
+					if strings.Contains(srcAbs, thisRootAbs) && strings.Contains(destAbs, thisRootAbs) {
+						underSameRoot = true
+					}
+				}
+
+				//Updates 19-10-2020: Added ownership management to file move and copy
+				userinfo.RemoveOwnershipFromFile(rsrcFile)
+
+				err = fs.FileMove(rsrcFile, rdestFile, existsOpr, underSameRoot, nil)
+				if err != nil {
+					sendErrorResponse(w, err.Error())
+					//Restore the ownership if remove failed
+					userinfo.SetOwnerOfFile(rsrcFile)
+					return
+				}
+
+				//Set user to own the new file
+				userinfo.SetOwnerOfFile(filepath.ToSlash(filepath.Clean(rdestFile)) + "/" + filepath.Base(rsrcFile))
+
+			} else if operation == "copy" {
+				//Copy file. See move example and change 'opr' to 'copy'
+				if !fileExists(rsrcFile) {
+					sendErrorResponse(w, "Source file not exists")
+					return
+				}
+
+				//Check if the desintation is read only.
+				if !userinfo.CanWrite(vdestFile) {
+					sendErrorResponse(w, "Access Denied.")
+					return
+				}
+
+				if !fileExists(rdestFile) {
+					if fileExists(filepath.Dir(rdestFile)) {
+						//User pass in the whole path for the folder. Report error usecase.
+						sendErrorResponse(w, "Dest location should be an existing folder instead of the full path of the copied file.")
+						return
+					}
+					sendErrorResponse(w, "Dest folder not found")
+					return
+				}
+
+				existsOpr, _ := mv(r, "existsresp", true)
+
+				//Check if the user have space for the extra file
+				if !userinfo.StorageQuota.HaveSpace(fs.GetFileSize(rdestFile)) {
+					sendErrorResponse(w, "Storage Quota Full")
+					return
+				}
+
+				err = fs.FileCopy(rsrcFile, rdestFile, existsOpr, nil)
+				if err != nil {
+					sendErrorResponse(w, err.Error())
+					return
+				}
+
+				//Set user to own this file
+				userinfo.SetOwnerOfFile(filepath.ToSlash(filepath.Clean(rdestFile)) + "/" + filepath.Base(rsrcFile))
+
+			} else if operation == "delete" {
+				//Delete the file permanently
+				if !fileExists(rsrcFile) {
+					//Check if it is a non escapted file instead
+					sendErrorResponse(w, "Source file not exists")
+					return
+
+				}
+
+				//Check if the desintation is read only.
+				/*
+					accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
+					if accmode == "readonly" {
+						sendErrorResponse(w, "This directory is Read Only.")
+						return
+					} else if accmode == "denied" {
+						sendErrorResponse(w, "Access Denied")
+						return
+					}
+				*/
+				if !userinfo.CanWrite(vsrcFile) {
+					sendErrorResponse(w, "Access Denied.")
+					return
+				}
+
+				//Check if the user own this file
+				isOwner := userinfo.IsOwnerOfFile(rsrcFile)
+				if isOwner {
+					//This user own this system. Remove this file from his quota
+					userinfo.RemoveOwnershipFromFile(rsrcFile)
+				}
+
+				//Check if this file has any cached files. If yes, remove it
+				if fileExists(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg") {
+					os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
+				}
+
+				//Clear the cache folder if there is no files inside
+				fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
+				if len(fc) == 0 {
+					os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/")
+				}
+
+				os.RemoveAll(rsrcFile)
+
+			} else if operation == "recycle" {
+				//Put it into a subfolder named trash and allow it to to be removed later
+				if !fileExists(rsrcFile) {
+					//Check if it is a non escapted file instead
+					sendErrorResponse(w, "Source file not exists")
+					return
+
+				}
+
+				//Check if the upload target is read only.
+				//Updates 20 Jan 2021: Replace with CanWrite handler
+				/*
+					accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
+					if accmode == "readonly" {
+						sendErrorResponse(w, "This directory is Read Only.")
+						return
+					} else if accmode == "denied" {
+						sendErrorResponse(w, "Access Denied")
+						return
+					}*/
+				if !userinfo.CanWrite(vsrcFile) {
+					sendErrorResponse(w, "Access Denied.")
+					return
+				}
+
+				//Check if this file has any cached files. If yes, remove it
+				if fileExists(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg") {
+					os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
+				}
+
+				//Clear the cache folder if there is no files inside
+				fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
+				if len(fc) == 0 {
+					os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/")
+				}
+
+				//Create a trash directory for this folder
+				trashDir := filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.trash/"
+				os.MkdirAll(trashDir, 0755)
+				hidden.HideFile(trashDir)
+				os.Rename(rsrcFile, trashDir+filepath.Base(rsrcFile)+"."+Int64ToString(GetUnixTime()))
+			} else if operation == "unzip" {
+				//Unzip the file to destination
+
+				//Check if the user can write to the target dest file
+				if userinfo.CanWrite(string(vdestFile)) == false {
+					sendErrorResponse(w, "Access Denied.")
+					return
+				}
+
+				//Make the rdest directory if not exists
+				if !fileExists(rdestFile) {
+					err = os.MkdirAll(rdestFile, 0755)
+					if err != nil {
+						sendErrorResponse(w, err.Error())
+						return
+					}
+				}
+
+				//OK! Unzip to destination
+				err := fs.Unzip(rsrcFile, rdestFile)
+				if err != nil {
+					sendErrorResponse(w, err.Error())
+					return
+				}
+
+			} else {
+				sendErrorResponse(w, "Unknown file opeartion given.")
+				return
+			}
+		}
+
 	}
 	sendJSONResponse(w, "\"OK\"")
 	return
@@ -1697,7 +1925,7 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 
 	result := fileProperties{
 		VirtualPath:    vpath,
-		StoragePath:    rpath,
+		StoragePath:    filepath.Clean(rpath),
 		Basename:       filepath.Base(rpath),
 		VirtualDirname: filepath.ToSlash(filepath.Dir(vpath)),
 		StorageDirname: filepath.ToSlash(filepath.Dir(rpath)),
@@ -1918,6 +2146,9 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 		realdest, _ := userinfo.VirtualPathToRealPath(vdest)
 		rdest = realdest
 	}
+
+	//This function will be deprecate soon in ArozOS 1.120
+	log.Println("*DEPRECATE* zipHandler will be deprecating soon! Please use fileOpr endpoint")
 
 	if opr == "zip" {
 		//Check if destination location exists

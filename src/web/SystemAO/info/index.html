@@ -106,7 +106,7 @@
             $("#revision").html(data["Revision"]);
         });
         $.get("../../system/info/getRAMinfo", function(data) {
-            $("#ram").html(humanFileSize(data, true));
+            $("#ram").html(humanFileSize(data, false));
         });
         $.getJSON("../../system/info/ifconfig", function(data) {
             $("#nic").html("");

@@ -4,8 +4,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"log"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/robertkrimen/otto"
@@ -299,5 +301,39 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			return reply
 		})
 
+		//Include another js in runtime
+		vm.Set("includes", func(call otto.FunctionCall) otto.Value {
+			//Check if the pkg is already registered
+			scriptName, err := call.Argument(0).ToString()
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			//Check if it is calling itself
+			if filepath.Base(scriptFile) == filepath.Base(scriptName) {
+				g.raiseError(errors.New("*AGI* Self calling is not allowed"))
+				return otto.FalseValue()
+			}
+
+			//Check if the script file exists
+			targetScriptPath := filepath.ToSlash(filepath.Join(filepath.Dir(scriptFile), scriptName))
+			if !fileExists(targetScriptPath) {
+				g.raiseError(errors.New("*AGI* Target path not exists!"))
+				return otto.FalseValue()
+			}
+
+			//Run the script
+			scriptContent, _ := ioutil.ReadFile(targetScriptPath)
+			_, err = vm.Run(string(scriptContent))
+			if err != nil {
+				//Script execution failed
+				log.Println("Script Execution Failed: ", err.Error())
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			return otto.TrueValue()
+		})
 	}
 }

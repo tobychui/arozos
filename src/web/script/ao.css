@@ -22,7 +22,6 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
     left:0px;
     top:0px;
     border-radius: 6px;
-
 }
 
 .floatWindow .controls .title{
@@ -84,7 +83,7 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
     position:absolute;
     top:0px;
     left:0px;
-    border-radius: 0px 0px 5px 5px;
+    border-radius: 0px 0px 6px 6px;
 }
 
 .floatWindow .fwcontrol .buttons:hover{
@@ -97,10 +96,13 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
 
 
 @supports (backdrop-filter: none) {
+
+    .floatWindow{
+        box-shadow: rgb(61, 61, 61) 1px 1px 4px;
+    }
     .floatWindow .controls {
         background-color:rgba(26, 26, 26, 0.85);
         backdrop-filter: blur(5px);
-        
     }
 
     .floatWindow .controls .title{
@@ -108,10 +110,10 @@ h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
     }
 
     .floatWindow .iframewrapper{
-        border-left: 3px solid rgba(26, 26, 26, 0.6);
-        border-right: 3px solid rgba(26, 26, 26, 0.6);
-        border-bottom: 3px solid rgba(26, 26, 26, 0.6);
-        backdrop-filter: blur(3px);
+        border-left: 3px solid transparent;
+        border-right: 3px solid transparent;
+        border-bottom: 3px solid transparent;
+        backdrop-filter: blur(5px);
     }
 
     .floatWindow .fwcontrol .buttons:hover{

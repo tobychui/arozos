@@ -28,6 +28,41 @@ func ModuleServiceInit() {
 		authAgent.HandleCheckAuth(w, r, moduleHandler.GetLaunchParameter)
 	})
 
+	//Handle module installer. Require admin
+	http.HandleFunc("/system/modules/installViaZip", func(w http.ResponseWriter, r *http.Request) {
+		//Check if the user is admin
+		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+		if err != nil {
+			sendErrorResponse(w, "User not logged in")
+			return
+		}
+
+		//Validate the user is admin
+		if userinfo.IsAdmin() {
+			//Get the installation file path
+			installerPath, err := mv(r, "path", true)
+			if err != nil {
+				sendErrorResponse(w, "Invalid installer path")
+				return
+			}
+
+			//Translate it to realpath
+			rpath, err := userinfo.VirtualPathToRealPath(installerPath)
+			if err != nil {
+				log.Println("*Module Installer* Failed to install module: ", err.Error())
+				sendErrorResponse(w, "Invalid installer path")
+				return
+			}
+
+			//Install it
+			moduleHandler.InstallViaZip(rpath, AGIGateway)
+		} else {
+			//Permission denied
+			sendErrorResponse(w, "Permission Denied")
+		}
+
+	})
+
 	//Register setting interface for module configuration
 	registerSetting(settingModule{
 		Name:     "Module List",

@@ -195,10 +195,13 @@
                 //Check for special cases
                 if (files.length == 0 && type == "folder"){
                     //Select the current path as target instead
-                    currentPathname = currentDir.split("/").pop();
+                   var currentPathname = currentDir.split("/");
+                    currentPathname.pop();
+                    currentPathname = currentPathname.pop();
                     if (currentPathname == ""){
                         currentPathname = currentDir;
                     }
+
                     files.push({
                         filename: currentPathname,
                         filepath: currentDir
@@ -311,7 +314,18 @@
                             if (data[i].IsDir == true){
                                 folders.push(data[i]);
                             }else{
-                                files.push(data[i]);
+                                if (fileOptions.filter != undefined){
+                                    var fileExt = data[i].Filename.split(".").pop();
+                                    for (var j = 0; j < fileOptions.filter.length; j++){
+                                        if (fileOptions.filter[j] == fileExt){
+                                            files.push(data[i]);
+                                            break;
+                                        }
+                                    }
+                                }else{
+                                    files.push(data[i]);
+                                }
+                                
                             }
                         }  
 

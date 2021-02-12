@@ -37,6 +37,9 @@ func DesktopInit() {
 	router.HandleFunc("/system/desktop/preference", desktop_preference_handler)
 	router.HandleFunc("/system/desktop/createShortcut", desktop_shortcutHandler)
 
+	//API related to desktop based operations
+	router.HandleFunc("/system/desktop/opr/renameShortcut", desktop_handleShortcutRename)
+
 	//Initialize desktop database
 	err := sysdb.NewTable("desktop")
 	if err != nil {
@@ -110,6 +113,70 @@ func desktop_hostdetailHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	sendJSONResponse(w, string(jsonString))
+}
+
+func desktop_handleShortcutRename(w http.ResponseWriter, r *http.Request) {
+	//Check if the user directory already exists
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	//Get the shortcut file that is renaming
+	target, err := mv(r, "src", false)
+	if err != nil {
+		sendErrorResponse(w, "Invalid shortcut file path given")
+		return
+	}
+
+	//Get the new name
+	new, err := mv(r, "new", false)
+	if err != nil {
+		sendErrorResponse(w, "Invalid new name given")
+		return
+	}
+
+	//Check if the file actually exists and it is on desktop
+	rpath, err := userinfo.VirtualPathToRealPath(target)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	if target[:14] != "user:/Desktop/" {
+		sendErrorResponse(w, "Shortcut not on desktop")
+		return
+	}
+
+	if !fileExists(rpath) {
+		sendErrorResponse(w, "File not exists")
+		return
+	}
+
+	//OK. Change the name of the shortcut
+	originalShortcut, err := ioutil.ReadFile(rpath)
+	if err != nil {
+		sendErrorResponse(w, "Shortcut file read failed")
+		return
+	}
+
+	lines := strings.Split(string(originalShortcut), "\n")
+	if len(lines) < 4 {
+		//Invalid shortcut properties
+		sendErrorResponse(w, "Invalid shortcut file")
+		return
+	}
+
+	//Change the 2nd line to the new name
+	lines[1] = new
+	newShortcutContent := strings.Join(lines, "\n")
+	err = ioutil.WriteFile(rpath, []byte(newShortcutContent), 0755)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+	sendOK(w)
 }
 
 func desktop_listFiles(w http.ResponseWriter, r *http.Request) {

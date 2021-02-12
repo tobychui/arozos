@@ -11,6 +11,7 @@
             body{
                 overflow:hidden;
             }
+
         </style>
     </head>
     <body id="filePropertiesWindow">
@@ -25,7 +26,8 @@
 
             </div>
             <br>
-            <button class="ui small fluid button linuxonly" onclick="openFilePermissionPanel();">Change File Permissions</button>
+            <button style="display:none;" class="ui small blue fluid button singleFileOnly" onclick="changeDefaultWebApp();">Change Default WebApp</button>
+            <button style="margin-top: 4px;" class="ui small fluid button linuxonly" onclick="openFilePermissionPanel();">Change File Permissions</button>
             <br>
         </div>
         <div id="filesizeLoader" class="ui active dimmer">
@@ -35,19 +37,26 @@
             //Initiate the view model
             var files = ao_module_loadInputFiles();
             var fileProperties = [];
-            if (files.length == 1){
-                //There are only 1 file to be shown
-                getFileProp(files[0], renderSingleObject);
-            }else if (files.length > 1){
-                for (var i =0; i < files.length; i++){
-                    getFileProp(files[i], function(data){
-                        fileProperties.push(data);
-                        if (fileProperties.length == files.length){
-                            renderMultipleObjects();
-                        }
-                    });
+            var fileInfo = {};
+            function initFileProperties(){
+                $("#properties").html("");
+                if (files.length == 1){
+                    //There are only 1 file to be shown
+                    getFileProp(files[0], renderSingleObject);
+                }else if (files.length > 1){
+                    for (var i =0; i < files.length; i++){
+                        getFileProp(files[i], function(data){
+                            fileProperties.push(data);
+                            if (fileProperties.length == files.length){
+                                renderMultipleObjects();
+                            }
+                        });
+                    }
                 }
             }
+
+            initFileProperties();
+          
 
             //Hide windows / linux only operations
             $.get("/system/info/getArOZInfo", function(data){
@@ -65,7 +74,7 @@
                     method: "POST",
                     success: function(data){
                         callback(data);
-
+                        fileInfo = data;
                         //Initialize system theme
                         fpw_loadPreference("file_explorer/theme",function(data){
                             if (data.error === undefined){
@@ -157,21 +166,80 @@
                     
                     //Append MIME Type
                     $("#properties").append(ui_getText(data.MimeType));
-
-                    //Append other properties as table
-                    $("#properties").append(ui_getTable(
-                        [],
-                        [
-                            ["Virtual Path", data.VirtualPath],
-                            ["Storage Path", data.StoragePath],
-                            [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
-                            ["Permission", data.Permission],
-                            ["Last Modification", data.LastModTime],
-                            ["Is Directory", data.IsDirectory],
-                            ["Owner",data.Owner]
-                        ]
-                    ));
                     
+                    //Get the default opener
+                    if (!data.IsDirectory){
+                      
+
+                        //Check if this file is shortcut
+                        if ( data.Basename.split(".").pop() == "shortcut"){
+                            //This is shortcut file
+                            $("#properties").append(ui_getTable(
+                                        [],
+                                        [
+                                            ["Virtual Path", data.VirtualPath],
+                                            ["Storage Path", data.StoragePath],
+                                            ["Permission", data.Permission],
+                                            ["Last Modification", data.LastModTime],
+                                            ["File Type", "System Shortcut"],
+                                            ["Owner",data.Owner],
+
+                                        ]
+                                    ));
+                        }else{
+                            //Normal Files
+                            $(".singleFileOnly").show();
+                            $.ajax({
+                                url: "../../system/modules/getDefault",
+                                method: "GET",
+                                data: {
+                                    opr: "launch",
+                                    ext: "." + data.Basename.split(".").pop(),
+                                    mode: "launch"
+                                },
+                                success: function(openerinfo) {
+                                    //Check if the module is set.
+                                    var defaultWebAppField = ["Default WebApp",`<img class="ui mini spaced image" style="margin-left: 0px; padding-right: 8px;" src="../../${openerinfo.IconPath}">` + openerinfo.Name];
+                                    if ( openerinfo.Name == undefined){
+                                        //Not set. 
+                                        defaultWebAppField = ["Default WebApp", `<a href="#" onclick="changeDefaultWebApp();">Set Default WebApp</a>`];
+                                    }
+                                    //Append other properties as table
+                                    $("#properties").append(ui_getTable(
+                                        [],
+                                        [
+                                            defaultWebAppField,
+                                            ["Virtual Path", data.VirtualPath],
+                                            ["Storage Path", data.StoragePath],
+                                            [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
+                                            ["Permission", data.Permission],
+                                            ["Last Modification", data.LastModTime],
+                                            ["File Type", "File"],
+                                            ["Owner",data.Owner],
+
+                                        ]
+                                    ));
+                                }
+                            });
+                        }
+                        
+                    }else{
+                        $("#properties").append(ui_getTable(
+                            [],
+                            [
+                                ["Virtual Path", data.VirtualPath],
+                                ["Storage Path", data.StoragePath],
+                                [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
+                                ["Permission", data.Permission],
+                                ["Last Modification", data.LastModTime],
+                                ["File Type", "Folder"],
+                                ["Owner",data.Owner],
+
+                            ]
+                        ));
+                    }
+                   
+
                 }
                 
             }
@@ -252,6 +320,39 @@
                     callback(data);
                 });
             }
+
+
+            /*
+                Updates 30 Jan 2021: Added change of file opener
+            */
+
+             //Open Opener Selector for the given file
+            function changeDefaultWebApp(){
+                var ext = fileInfo.Ext;
+                var openFileList = [];
+                var openFileObject = {
+                    filepath: fileInfo.VirtualPath,
+                    filename: fileInfo.Basename,
+                }
+                openFileList.push(openFileObject);
+                var openParamter = encodeURIComponent(JSON.stringify(openFileObject));
+                ao_module_newfw({
+                    url: "SystemAO/file_system/defaultOpener.html#" + openParamter,
+                    width: 320,
+                    height: 510,
+                    appicon: "SystemAO/file_system/img/opener.png",
+                    title: "Default WebApp for " + ext,
+                    parent: ao_module_windowID,
+                    callback: "handleRefresh"
+                });
+            }
+
+            function handleRefresh(){
+                //Default opener changed. Update the display
+                initFileProperties();
+            }
+
+
         </script>
     </body>
 </html>

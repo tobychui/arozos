@@ -265,7 +265,7 @@
         var mode = "linux";
         var viewMode = "human"; //Accept {human / raw}
         var diskInformation; //Tmp variable for holding disk return results
-        var displayScaleRatio = 0.2; //Maxium differential ratio, default 0.3, it means the minium disk will show as 70% screen width
+        var displayScaleRatio = 0.1; //Maxium differential ratio, default 0.3, it means the minium disk will show as 70% screen width
         var fwmode = false;
         var formatPendingDevInfo;
         
@@ -514,7 +514,30 @@
                                 driveName = "Primary Drive";
                            }else if (thisDisk[2] == ""){
                                 driveName = "Local Disk";
+                           }else if (driveName == undefined){
+                                driveName = "No Media"
                            }
+
+                           if (thisDisk[3] == undefined){
+                               //Unknown File System
+                               thisDisk[3] = "N/A"
+                           }
+
+                           var cap = bytesToSize(thisDisk[6]);
+                           if (thisDisk[6] == undefined){
+                                cap =  "N/A";
+                           }
+
+                           var free = bytesToSize(thisDisk[5]);
+                           if (thisDisk[5] == undefined){
+                               free = "N/A";
+                           }
+
+                           var perc = Math.round(thisDisk[5] / thisDisk[6] * 100);
+                           if (isNaN(perc)){
+                               perc = "0";
+                           }
+
                            $("#diskInfoTable").append('<tr>\
                             <td class="collapsing">\
                                 <i class="disk outline icon"></i>' + thisDisk[0] + '\
@@ -522,9 +545,9 @@
                             <td class="">' + driveName + '</td>\
                             <td class="collapsing">' + thisDisk[1] + '</td>\
                             <td class="right aligned collapsing">' + thisDisk[3] + '</td>\
-                            <td class="right aligned collapsing">' + bytesToSize(thisDisk[6]) + '</td>\
-                            <td class="right aligned collapsing">' + bytesToSize(thisDisk[5]) + '</td>\
-                            <td class="right aligned collapsing">' + Math.round(thisDisk[5] / thisDisk[6] * 100) + '%</td>\
+                            <td class="right aligned collapsing">' + cap + '</td>\
+                            <td class="right aligned collapsing">' + free + '</td>\
+                            <td class="right aligned collapsing">' + perc + '%</td>\
                         </tr>');
                        }
                     }
@@ -667,7 +690,7 @@
             //Clear the old diskpart table
             $("#diskVisualization").html("");
             //Render the partition table
-            var maxWidth = window.innerWidth * 0.9 - 200;
+            var maxWidth = window.innerWidth * 0.8 - 200;
             var maxCapDisk = -1;
             var keys = [];
             for (key in disks){
@@ -685,6 +708,7 @@
                 var mountState = "Mounted";
                 var shortenType = diskInfo["Type"][0].split(" ").shift();
                 var thisMaxWidth = maxWidth - (1- (diskInfo["partitionsTotalSize"] / maxCapDisk)) * (window.innerWidth * displayScaleRatio);
+                
                 if (diskInfo["Mounted"].length == 1 && diskInfo["Mounted"][0] == false){
                     mountState = "Unmounted";
                 }else if(diskInfo["Mounted"].length > 1){

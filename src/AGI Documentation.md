@@ -320,6 +320,11 @@ execpkg("ffmpeg",'-i "files/users/TC/Desktop/群青.mp3" "files/users/TC/Desktop
 
 ```
 
+#### Structure & OOP
+```
+includes("hello world.js"); //Include another js / agi file within the current running one, return false if failed
+```
+
 ### User Functions
 Users function are function group that only be usable when the interface is started from a user request.
 

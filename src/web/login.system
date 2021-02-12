@@ -84,7 +84,7 @@
             <img class="ts medium image" src="data:image/png;base64, {{service_logo}}">
 
             <div class="ts borderless basic segment">
-                <p><i class="key icon"></i> Login with your ArOZ Online username and password</p>
+                <p><i class="key icon"></i> Sign in <span class="hostname">ArozOS</span> with your username and password</p>
                 <br>
                 <div class="ts fluid input textbox">
                     <input id="username" type="text" placeholder="Username">
@@ -99,7 +99,7 @@
                 </div>
                 
                 <br>
-                <button id="loginbtn" class="ts button loginbtn" style="background-color:#a59d87 !important;">Login</button><br>
+                <button id="loginbtn" class="ts button loginbtn" style="background-color:#275d8c !important;">Sign In</button><br>
                 <div class="ts breadcrumb" style="margin-top:12px;">
                     <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
                     <div class="divider signup"> / </div>
@@ -171,7 +171,13 @@
                 }else{
                     $(".signup").remove();
                 }
-            })
+            });
+
+            //Get the system hostname and replace the hostname fields
+            $.get("system/info/getArOZInfo", function(data){
+                document.title = data.HostName + " - Sign In"
+                $(".hostname").text(data.HostName);
+            });
         });
 
         //Event handlers for buttons

@@ -1,340 +1,18 @@
 <!DOCTYPE html>
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
 <html>
 <head>
 	<meta charset="UTF-8">
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
 	<meta name="theme-color" content="#4b75ff">
-    <link rel="stylesheet" href="../script/tocas/tocas.css">
+	<link rel="stylesheet" href="../script/tocas/tocas.css">
+	<link rel="stylesheet" href="./main.css">
 	<script src="../script/tocas/tocas.js"></script>
 	<script src="../script/jquery.min.js"></script>
 	<script src="../script/ao_module.js"></script>
 	<link rel="manifest" href="manifest.json">
 	<title>AirMusic</title>
-	<style>
-	body{
-		background-color: #474747;
-	}
-	.AMmenu{
-		background-color: #303030 !important;
-		color: white !important;
-		box-shadow: 0px 0px 0px 0px transparent !important;
-	}
-	.noBorder{
-		border: 1px solid transparent !important;
-	}
-	.whiteFont{
-		color: white !important;
-	}
-	.AMmenu.button:hover{
-		background-color: #3f3f3f !important;
-	}
-	.bottomBlue{
-		border-bottom: 3px solid #4b75ff !important;
-	}
-	.leftsb{
-		position:fixed;
-		top:0px;
-		left:0px;
-		width:60%;
-		background-color:#404040;
-	}
-	.leftsbObject{
-		padding: 5px;
-		border-bottom: 1px solid #4a4a4a;
-	}
-	.sidebarBanner{
-		background-color:#4b75ff;
-	}
-	.sbPaddingIn{
-		padding:10px;
-		padding-left:22px;
-	}
-	.sbSelectable{
-		cursor:pointer;
-	}
-	.sbSelectable:hover{
-		background-color:#606060;
-	}
-	.mainList{
-	    position:relative;
-	    top:51px;
-	}
-	.mainList.item{
-	    padding:8px;
-	    padding-left: 20px;
-	    border-bottom: 1px solid #606060;
-	    cursor: pointer;
-	}
-	.mainList.item:hover{
-	    background-color:#606060;
-	}
-	.topRightCorner{
-	    position:absolute;
-	    top:6px;
-	    right:30px;
-	    background-color:#595959;
-	    padding-left:5px;
-	    padding-right:5px;
-	    min-height:20px;
-	    color:white;
-	}
-	.mainList.rightFunctionBar{
-	    position:absolute;
-	    top:0px;
-	    height:100%;
-	    width:25px;
-	    right:0px;
-	    color:#a5a5a5;
-	    cursor:pointer;
-	}
-	.mainList.item.extrapadding{
-	    padding-top:15px;
-	    padding-bottom:15px;
-	}
-	#playerInterface{
-	    z-index:100;
-	    position:fixed;
-	    left:0px;
-	    top:0px;
-	    height:100%;
-	    width:100%;
-	    background:rgba(20,20,20,0.9);
-	}
-	#miniPlayer{
-	    z-index:45;
-	    position:fixed;
-	    left:0px;
-	    bottom:0px;
-	    width:100%;
-	    height:60px;
-	    background-color:#282828;
-	    border-top: 2px solid #4b75ff !important;
-	}
-	.miniPlayer.minitab{
-	     background-color:#595959;
-	     position:absolute;
-	     padding-left:3px;
-	     padding-right:3px;
-	     color:white;
-	     right:120px;
-	     bottom:5px;
-	     text-overflow: ellipsis;
-         overflow: hidden; 
-	}
-	.miniPlayerControls{
-	    position:absolute;
-	    top:18px;
-	    right:5px;
-	    color: white;
-	    font-size: 1.6em;
-	}
-	.miniPlayer.selectable{
-	    cursor: pointer;
-	}
-	.miniPlayer.selectable:hover{
-	    
-	}
-	.playingTrack{
-	    background-color:#606060;
-	}
-	.hidden{
-	    display:none;
-	}
-	#mainPlayerControlInterface{
-	    position:absolute;
-	    bottom:0px;
-	    left:0px;
-	    width:100%;
-	    height:140px;
-	    padding:20px;
-	}
-	.mainControlButtons{
-	    margin: auto;
-	    width:80%;
-	    font-size:200%;
-	    text-align: center;
-	    padding-top:25px;
-	}
-	.enabled.icon{
-	    color:white;
-	}
-	.disabled.icon{
-	    color:#8c8c8c;
-	}
-	.disabled{
-		opacity: 0.5;
-		pointer-events: none;
-	}
-	#albumnArt{
-	    margin-top:10px;
-	    margin:20px;
-	}
-	.mainPlayer.minitab{
-	     background-color:rgba(80, 80, 80, 0.5);
-	     padding-left:5px;
-	     padding-right:5px;
-	     color:white;
-	     text-align: center;
-	     text-overflow: ellipsis;
-         overflow: hidden; 
-         max-width:100px;
-         display: inline-block;
-         font-size:90%;
-	}
-	#progressTime{
-	    color:white;
-	    position:absolute;
-	    left:0px;
-	    top:0px;
-	}
-	#remainTime{
-	    color:white;
-	    position:absolute;
-	    right:0px;
-	    top:0px;
-	}
-	#volumeGUI{
-	    position:absolute;
-	    top:50px;
-	    left:0px;
-	    width:100%;
-	    padding-left:20%;
-	    padding-right:20%;
-	    padding-top:5px;
-	    padding-bottom:5px;
-	    background:rgba(80,80,80,0.5);
-	    display:none;
-	    z-index:95;
-	}
-	.quickMenu{
-	    position:fixed;
-	    top:25%;
-	    left:10%;
-	    right:10%;
-	    bottom:25%;
-	    border-radius: 5px;
-	    background-color:#4c4c4c;
-	    padding:20px;
-	    color:white;
-	    overflow-y:auto;
-	    overflow-x:hidden;
-	    display:none;
-	    z-index:120;
-	}
-	.fadeScreen{
-	    position:fixed;
-	    top:0px;
-	    left:0px;
-	    width:100%;
-	    height:100%;
-	    z-index:110;
-	    background:rgba(30,30,30,0.7);
-	    display:none;
-	}
-	.greenBtn{
-	    color:#2fb792 !important;
-	    font-weight: bold;
-	    padding:10px;
-	    padding-left:50px;
-	    padding-right:50px;
-	    cursor:pointer;
-	}
-	.greenBtn:hover{
-	    background-color:#6b6b6b;
-	}
-	.selectable.item{
-	    border: 1px solid transparent;
-	    padding-left:20px !important;
-	    padding-right:20px !important;
-	    cursor:pointer;
-	    font-size:120%;
-	}
-	.selectable.item:hover{
-	    background-color:#686868;
-	    border 1px solid #969696;
-	}
-	.forcesize.button{
-	    width:72px !important;
-	    height:72px !important;
-	}
-	.songTitleWrapper{
-	    max-width:calc(100% - 80px);
-	}
-	.showMoreMenus{
-	    background-color:#383838;
-	    position:fixed;
-	    top:10%;
-	    left:10%;
-	    right:10%;
-	    padding:20px;
-		padding-bottom:30px;
-	    z-index:95;
-	    border-radius: 5px;
-	}
-	.showMoreMenuItem{
-	    font-size:1.2em;
-	    color:white;
-	    padding:11px;
-	    cursor:pointer;
-	}
-	.showMoreMenuItem:hover{
-	    background-color:#545454;
-	}
-	.dropdownMusicList{
-		background-color:rgb(66, 66, 66);
-		position:fixed;
-		left:0px;
-		top:0px;
-		height:calc(100% - 128px);
-		width:100%;
-		z-index:100;
-	}
-	.dropdownMusicListMiniMenu{
-		width:100%;
-		height:25px;
-		background-color:rgb(55, 55, 55);
-		padding-left:12px;
-		padding-right:12px;
-		padding-top:3px;
-		color:white;
-	}
-	.dropdownMusicListBottom{
-		position:absolute;
-		left:0px;
-		bottom:0px;
-		width:100%;
-		height:25px;
-		background-color:rgb(55, 55, 55);
-		padding-left:12px;
-		padding-right:12px;
-		padding-top:3px;
-		color:white;
-		align:center;
-		cursor:pointer;
-	}
-	#currentPlayingMainList{
-		height:calc(100% - 50px);
-		overflow-y:auto;
-		top:0px;
-	}
-	.dropdownList{
-	    position:relative;
-	}
-	.dropdownList.item{
-	    padding:8px;
-	    padding-left: 20px;
-	    border-bottom: 1px solid #606060;
-	    cursor: pointer;
-	}
-	.dropdownList.item:hover{
-	    background-color:#606060;
-	}
-	.dropdownList.playingTrack{
-		background-color:#606060;
-	}
-	</style>
-	</head>
+</head>
 <body>
 <div id="mainMenu" class="ts basic fluid AMmenu menu bottomBlue" style="z-index:80;position:fixed;position:top:0px;left:0px;width:100%;">
     <button class="ts item icon noBorder AMmenu button" onClick="toggleLeftMenu();"><i class="content icon"></i></button>
@@ -346,7 +24,7 @@
 		</div>
 	</div>
 	<button class="ts right item icon AMmenu noBorder button" onClick="enterSearchMode();"><i class="search icon"></i></button>
-	<button class="ts right item icon AMmenu noBorder button"><i class="ellipsis vertical icon"></i></button>
+	<!-- <button class="ts right item icon AMmenu noBorder button"><i class="ellipsis vertical icon"></i></button> -->
 </div>
 <div id="searchModeMenu" class="ts basic fluid AMmenu menu bottomBlue" style="z-index:85;position:fixed;position:top:0px;left:0px;width:100%;height:51px;display:none;">
     <button class="ts item icon noBorder AMmenu button" onClick="exitSearchMode();"><i class="arrow left icon"></i></button>
@@ -365,8 +43,8 @@
 <div id="showMoreUI" class="showMoreMenus" style="display:none;">
     <div class="ts large header whiteFont songTitle">N/A</div>
     <div class="showMoreMenuItem" onClick="playFromShowMoreMenu();">Play</div>
-    <div class="showMoreMenuItem">Add to Playlist</div>
-    <div class="showMoreMenuItem">Remove</div>
+    <div class="showMoreMenuItem" onclick='addToPlaylistFromMoreMenu();'>Add to Playlist</div>
+    <div class="showMoreMenuItem playlistonly" onclick="removeFromPlylistFromMoreMenu();">Remove from current Playlist</div>
     <div class="showMoreMenuItem" onClick="searchYoutubeViaShowMore();">Search on Youtube</div>
     <div class="showMoreMenuItem">Edit Tag</div>
     <div class="showMoreMenuItem">Share</div>
@@ -409,7 +87,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;" onClick="setStorage('viewingTab','playlist');">
+	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;" onClick="loadPlaylistView(); setStorage('viewingTab','playlist');">
 		<div class="ts header">
 			<i class="align justify tiny icon whiteFont"></i>
 			<div class="content whiteFont">
@@ -417,7 +95,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;" onClick="setStorage('viewingTab','network');">
+	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;" onClick="loadNetworkView(); setStorage('viewingTab','network');">
 		<div class="ts header">
 			<i class="world tiny icon whiteFont"></i>
 			<div class="content whiteFont">
@@ -484,9 +162,9 @@
     <div style="padding-left:20px; padding-right:20px;padding-bottom:5px;" align="center">
         <!-- Function Menu Bar-->
         <div class="ts grid">
-            <div class="two wide column"><button style="cursor: pointer;"><i class="large plus icon whiteFont"></i></button></div>
+            <div class="two wide column"><button style="cursor: pointer;" onclick="showPlaylistInterface();"><i class="large plus icon whiteFont"></i></button></div>
             <div class="two wide column"><button id="downloadBtn" style="cursor: pointer;" onClick="downloadPlayingSong();"><i class="large download icon whiteFont"></i></button></div>
-            <div class="two wide column"><button style="cursor: pointer;" onClick="//showEqualizerInterface();"><i class="large sliders disabled icon whiteFont"></i></button></div>
+            <div class="two wide column"><button style="cursor: pointer;" onClick="openInFileExplorer();"><i class="large folder open icon whiteFont"></i></button></div>
             <div class="two wide column desktopOnly"><button style="cursor: pointer;" onClick="mute();" ><i class="large volume off icon whiteFont"></i></button></div>
             <div class="two wide column desktopOnly"><button style="cursor: pointer;" onClick="addAudioVolume(-0.05);"><i class="large volume down icon whiteFont"></i></button></div>
             <div class="two wide column desktopOnly"><button style="cursor: pointer;" onClick="addAudioVolume(0.05);"><i class="large volume up icon whiteFont"></i></button></div>
@@ -544,165 +222,7 @@
         </div>
     </div>
     <audio id="mainAudioPlayer" style="display:none;" src=""></audio>
-    <!-- Utils Interfaces, usually hidden-->
-    <div id="fadeReturnScreen" class="fadeScreen whiteFont" onClick="hideAllquickMenu();"></div>
-    <!-- Timer control interface-->
-    <div id="timerInterface" class="quickMenu">
-        <h4 class="whiteFont">Countdown Timer</h4>
-        <br>
-        <div id="timerSettingInterface" style="width:100%;" align="center">
-            <div>
-                <div class="ts statistic">
-                    <div class="label whiteFont">hours</div>
-                    <div id="timerHour" class="value whiteFont">0</div>
-                </div>
-                 <div class="ts statistic">
-                    <div class="label whiteFont">minutes</div>
-                    <div id="timerMinute" class="value whiteFont">0</div>
-                </div>
-            </div>
-            <div>
-                <div class="ts icon buttons">
-                    <button class="ts inverted button" onClick="addTimer('h',1);"><i class="add icon"></i></button>
-                    <button class="ts inverted button" onClick="addTimer('h','r');"><i class="refresh icon"></i></button>
-                    <button class="ts inverted button" onClick="addTimer('h',-1);"><i class="minus icon"></i></button>
-                 </div>
-                 <div class="ts icon buttons">
-                    <button class="ts inverted button" onClick="addTimer('m',10);"><i class="add icon"></i></button>
-                    <button class="ts inverted button" onClick="addTimer('m','r');"><i class="refresh icon"></i></button>
-                    <button class="ts inverted button" onClick="addTimer('m',-1);"><i class="minus icon"></i></button>
-                 </div>
-            </div>
-        </div>
-        <div id="timerCountingInterface" style="width:100%; display:none;" align="center">
-            <div class="ts statistic">
-                <div id="remainingUI" class="value whiteFont">0:00:00</div>
-                <div class="label whiteFont">Remaining</div>
-            </div>
-        </div>
-        <div class="ts divider"></div>
-        <div>
-            <div class="ts grid">
-                <div class="eight wide column">
-                    Action on times up
-                </div>
-                <div class="eight wide column">
-                    <select id="stopMode" class="ts basic inverted mini dropdown">
-                        <option>Fade Out and Stop</option>
-                        <option>Stop Playing</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        <div style="width:100%;position:absolute;left:0px;bottom:0px;padding-bottom:20px;" align="center">
-            <div class="ts grid" >
-                <div class="eight wide column" align="center"><button class="greenBtn" onClick='hideAllquickMenu();'>Close</button></div>
-                <div class="eight wide column" align="center"><button class="greenBtn" onClick="toggleCountDown(this);">Start</button></div>
-            </div> 
-        </div>
-    </div>
-	<!-- File properties interface-->
-	<div id="filepropInterface" class="quickMenu">
-		<div class="ts header">
-			<span class="filename whiteFont">Title</span>
-			<div class="sub header rawname whiteFont"  style="word-break:break-all;">Storage Name</div>
-		</div>
-		<div class="ts list whiteFont">
-			<div class="item whiteFont">Storage Location:   <span class="filepath"  style="word-break:break-all;">N/A</span></div>
-			<div class="item whiteFont">File Size:   <span class="filesize">N/A</span></div>
-			<div class="item whiteFont">Last Modification Date:   <span class="filedate">N/A</span></div>
-		</div>
-	</div>
-    <!-- Setting interface-->
-    <div id="settingInterface" class="quickMenu">
-        <div style="">
-            <div class="ts relaxed list" style="padding:0px !important;">
-                <div id="settingMenuTitle" class="item whiteFont" style="font-size: 180% !important;">N/A</div>
-                <div class="item selectable whiteFont"><i class="add icon" style="margin-right:5px;"></i> Add to playlist</div>
-                <div class="item selectable whiteFont" onClick="openInFileExplorer(); hideAllquickMenu();"><i class="folder open icon" style="margin-right:5px;"></i> Open in File Explorer</div>
-                <div class="item selectable whiteFont" onClick="searchOnYoutube(); hideAllquickMenu();"><i class="youtube play icon" style="margin-right:5px;"></i>Search on Youtube</div>
-                <div class="item selectable whiteFont" onClick="showFileInformation();"><i class="file icon" style="margin-right:5px;"></i> File Information</div>
-                <div class="ts divider"></div>
-                <div id="closeWebAppButton" class="item selectable whiteFont"  onClick="ao_module_close();"><i class="remove icon" style="margin-right:5px;"></i> Exit Application</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Equalizer Interface-->
-    <div id="equalizerInterface" class="quickMenu">
-        <div style="">
-            <div class="ts relaxed list" style="padding:0px !important;">
-                <div class="item whiteFont" style="font-size: 180% !important;">Simple Equalizer</div>
-                <div class="item whiteFont" style="">
-                    <div class="ts toggle checkbox">
-                        <input id="enableEqualizer" type="checkbox">
-                        <label class="whiteFont" for="enableEqualizer">Enable Equalizer</label>
-                    </div>
-                </div>
-                <div class="item whiteFont" style="">
-                    Low Gain
-                    <div class="ts fluid slider">
-                        <input type="range" value="100" step="1" min="0" max="100" oninput="changeGain(this.value, 'lowGain');">
-                    </div>
-                </div>
-                <div class="item whiteFont" style="">
-                    Middle Gain
-                    <div class="ts fluid slider">
-                        <input type="range" value="100" step="1" min="0" max="100" oninput="changeGain(this.value, 'lowGain');">
-                    </div>
-                </div>
-                <div class="item whiteFont" style="">
-                    High Gain
-                    <div class="ts fluid slider">
-                        <input type="range" value="100" step="1" min="0" max="100" oninput="changeGain(this.value, 'lowGain');">
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="whiteFont" style="position:absolute;bottom: 5px;right:8px;" align="right">Experimental Function<br>Powered by Web Audio Api</div>
-    </div>
-    
-     <!-- Equalizer Interface-->
-    <div id="remotePlayPush" class="quickMenu">
-        <div style="ts container">
-           <div class="ts header whiteFont">
-                <i class="rss icon" style="margin-right:5px;"></i>Push to RemotePlay
-                <div class="sub whiteFont header">Please enter the target Remote Play ID to Push.</div>
-            </div>
-           <div class="ts fluid input">
-                <input id="remotePlayID" type="text" placeholder="RemotePlay ID">
-            </div>
-        </div>
-        <div style="width:100%;padding-top:20px;" align="center">
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">7</button>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">8</button>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">9</button>
-                <br>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">4</button>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">5</button>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">6</button>
-                <br>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">1</button>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">2</button>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">3</button>
-                <br>
-                <button class="ts inverted icon button" style="margin-right:20px;" onClick="ridOpr('backspace');"><i class="long arrow left icon"></i></button>
-                <button class="ts inverted huge button forcesize" onClick="enterRemotePlayID(this);">0</button>
-				<button class="ts inverted icon button" style="margin-left:20px;" onClick="ridOpr('reset');"><i class="refresh icon"></i></button>
-        </div>
-        <div style="width:100%;margin-top:20px;">
-            <div class="">
-                <div class="ts grid" align="center">
-                    <div class="eight wide column" align="center">
-                        <button onClick="hideAllquickMenu();" class="greenBtn">Cancel</button>
-                    </div>
-                    <div class="eight wide column" align="center">
-                        <button onClick="sendRemotePlayRequest();" class="greenBtn">Send</button> 
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+   
 
 	<div id="dropdownSonglist" class="dropdownMusicList" style="display:none;">
 			<div class="dropdownMusicListMiniMenu">
@@ -723,9 +243,124 @@
     
 </div>
 
+<!-- Quick Menus and other tool windows-->
+
+ <!-- Timer control interface-->
+ <div id="timerInterface" class="quickMenu">
+	<h4 class="whiteFont">Countdown Timer</h4>
+	<br>
+	<div id="timerSettingInterface" style="width:100%;" align="center">
+		<div>
+			<div class="ts statistic">
+				<div class="label whiteFont">hours</div>
+				<div id="timerHour" class="value whiteFont">0</div>
+			</div>
+			 <div class="ts statistic">
+				<div class="label whiteFont">minutes</div>
+				<div id="timerMinute" class="value whiteFont">0</div>
+			</div>
+		</div>
+		<div>
+			<div class="ts icon mini buttons">
+				<button class="ts inverted button" onClick="addTimer('h',1);"><i class="add icon"></i></button>
+				<button class="ts inverted button" onClick="addTimer('h','r');"><i class="refresh icon"></i></button>
+				<button class="ts inverted button" onClick="addTimer('h',-1);"><i class="minus icon"></i></button>
+			 </div>
+			 <div class="ts icon mini buttons">
+				<button class="ts inverted button" onClick="addTimer('m',10);"><i class="add icon"></i></button>
+				<button class="ts inverted button" onClick="addTimer('m','r');"><i class="refresh icon"></i></button>
+				<button class="ts inverted button" onClick="addTimer('m',-1);"><i class="minus icon"></i></button>
+			 </div>
+		</div>
+	</div>
+	<div id="timerCountingInterface" style="width:100%; display:none;" align="center">
+		<div class="ts statistic">
+			<div id="remainingUI" class="value whiteFont">0:00:00</div>
+			<div class="label whiteFont">Remaining</div>
+		</div>
+	</div>
+	<div class="ts divider"></div>
+	<div>
+		<div class="ts grid">
+			<div class="eight wide column">
+				Times up action
+			</div>
+			<div class="eight wide column">
+				<select id="stopMode" class="ts basic inverted mini dropdown">
+					<option>Fade Out & Stop</option>
+					<option>Stop Playing</option>
+				</select>
+			</div>
+		</div>
+	</div>
+	<div style="width:100%;position:absolute;left:0px;bottom:0px; margin-bottom: 10px;;" align="center">
+		<div class="ts grid" >
+			<div class="eight wide column" style="padding-right: 0px;" align="center"><button class="greenBtn" onClick='hideAllquickMenu();'>Close</button></div>
+			<div class="eight wide column"  style="padding-left: 0px;" align="center"><button class="greenBtn" onClick="toggleCountDown(this);">Start</button></div>
+		</div> 
+	</div>
+</div>
+
+<!-- File properties interface-->
+<div id="filepropInterface" class="quickMenu">
+	<div class="ts header">
+		<span class="filename whiteFont">Title</span>
+		<div class="sub header rawname whiteFont"  style="word-break:break-all;">Storage Name</div>
+	</div>
+	<div class="ts list whiteFont">
+		<div class="item whiteFont">Storage Location:   <span class="filepath"  style="word-break:break-all;">N/A</span></div>
+		<div class="item whiteFont">File Size:   <span class="filesize">N/A</span></div>
+		<div class="item whiteFont">Last Modification Date:   <span class="filedate">N/A</span></div>
+	</div>
+</div>
+<!-- Setting interface-->
+<div id="settingInterface" class="quickMenu">
+	<div style="">
+		<div class="ts relaxed list" style="padding:0px !important;">
+			<div id="settingMenuTitle" class="item whiteFont" style="">N/A</div>
+			<div class="item selectable whiteFont" onclick="showPlaylistInterface(); $('#settingInterface').fadeOut('fast');"><i class="add icon" style="margin-right:5px;"></i> Add to playlist</div>
+			<div class="item selectable whiteFont" onClick="openInFileExplorer(); hideAllquickMenu();"><i class="folder open icon" style="margin-right:5px;"></i> Open in File Explorer</div>
+			<div class="item selectable whiteFont" onClick="searchOnYoutube(); hideAllquickMenu();"><i class="youtube play icon" style="margin-right:5px;"></i>Search on Youtube</div>
+			<div class="item selectable whiteFont" onClick="showFileInformation();"><i class="file icon" style="margin-right:5px;"></i> File Information</div>
+			<div class="ts divider"></div>
+			<div id="closeWebAppButton" class="item selectable whiteFont"  onClick="ao_module_close();"><i class="remove icon" style="margin-right:5px;"></i> Exit Application</div>
+		</div>
+	</div>
+</div>
+
+
+<!-- Playlist interface-->
+<div id="playlistInterface" class="quickMenu">
+	<div class="ts header">
+		<span class="whiteFont">Add to Playlist</span>
+	</div>
+	<div class="playlist item selectable whiteFont" onclick="addToNewPlaylist();">
+		<i class="add icon whiteFont"></i> New Playlist
+	</div>
+	<!-- playlist list-->
+	<div id="existsingPlaylist" style="overflow-y: scroll; height: 50%; border: 1px solid white;">
+		<div class="playlist item selectable whiteFont">
+			<i class="list icon whiteFont"></i> Test Playlist
+		</div>
+	</div>
+	<br>
+	<div style="width:100%;position:absolute;left:0px;bottom:0px; margin-bottom: 10px;;" align="center">
+	<button class="greenBtn" onClick='hideAllquickMenu();'>Close</button>
+	</div>
+	<div class="ts snackbar" id="succSnackBar">
+		<div class="content">
+			Action Completed
+		</div>
+	</div>
+</div>
+
+<!-- Utils Interfaces, usually hidden-->
+<div id="fadeReturnScreen" class="fadeScreen whiteFont" onClick="hideAllquickMenu();"></div>
+
 <script>
 	var leftMenuShown = false;
 	var currentPath = "";
+	var currentMode = "music";
 	var rootPaths = [];
 	var totalMusicCount = 0;
 	var currentPlaying = false;
@@ -738,18 +373,26 @@
 	var updateSystemVolume = true;
 	var timerMode = false;
 	var timerRemaining = 0;
+	var playlistAddPendingFile = ""; //The filepath of the file that is pending to be added to playlist
 	var timerEndMode = "fade"; //Fade or End, Provide volume fadeout or end immediately while times up
-	var equalizerEnabled = false;
-	var ua = navigator.userAgent.toLowerCase(); 
+	var ua = "";
 	var isAndroid = ua.indexOf("android") > -1; //&& ua.indexOf("mobile");
-    if (ua.indexOf('safari') != -1) { 
-      if (ua.indexOf('chrome') > -1) {
-        ua="chrome";
-      } else {
-        ua="safari";
-      }
-    }
-	
+    
+	//Update implementatio nof user agent detection
+	if (typeof InstallTrigger !== 'undefined'){
+		ua = "firefox";
+	}
+
+	if (!!window.chrome && (!!window.chrome.webstore || !!window.chrome.runtime)){
+		ua = "chrome";
+	}
+
+	var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+	if (isSafari == true){
+		ua = "safari";
+	}
+
+
 	$(document).ready(function(){
 		$("#leftSideBar").animate({left: $("#leftSideBar").width() * -1}, 300);
 		//Update 7-8-2019, default loading tab is handled over to the returnToPreviousState() function.
@@ -798,18 +441,26 @@
 			if (vt != ""){
 				if (vt == "music"){
 					loadSongList();
+					
 				}else if(vt == "folder"){
 					loadFolderView();
+					
 				}else if(vt == "playlist"){
+					loadPlaylistView();
 					
 				}else if(vt == "network"){
-
+					loadNetworkView();
+					
 				}
 			}else{
 				//Default action
 				loadSongList();
 			}
 		}
+	}
+
+	function loadNetworkView(){
+		currentMode = "network";
 	}
 	
 	function initAudioListeners(){
@@ -859,21 +510,12 @@
 	    var TEM = loadStorage("timerEndMode");
 	    if (TEM != ""){
 	        if (TEM == "fade"){
-	            $("#stopMode").val("Fade Out and Stop");
+	            $("#stopMode").val("Fade Out & Stop");
     	    }else{
     	        $("#stopMode").val("Stop Playing");
     	    }
 	    }
-	    //Equalizer Mode
-	    var eq = loadStorage("equalizerEnabled");
-	    if (eq != ""){
-	        if (eq == "true"){
-	            //Start equalizer by default
-	            equalizerEnabled = true;
-	            hookEqualizer();
-	            $("#enableEqualizer").prop('checked', true);
-	        }
-	    }
+	  
 	}
 	
 	//Setting menu function
@@ -1006,12 +648,6 @@
 		highLightPlayingMusic();
 	});
 	}
-	//Remote Play related functions
-	function startRemotePlay(){
-	   $("#settingInterface").fadeOut('fast');
-	   $("#remotePlayPush").fadeIn('fast');
-	   $("#fadeReturnScreen").fadeIn('fast');
-	}
 	
 	function enterRemotePlayID(object){
 	    var id = $(object).text().trim();
@@ -1028,23 +664,9 @@
 	    }
 	}
 	
-	function sendRemotePlayRequest(){
-	    var filepath = playingFileDetail[1];
-	    if (filepath.substring(0,1) != "/"){
-	        filepath = "../AirMusic/" + filepath;
-	    }
-		var remoteID = $("#remotePlayID").val();
-		$.get("../RemotePlay/embedded.php?fp=" + filepath + "&rid=" + remoteID,function(data){
-		    hideAllquickMenu();
-		    //Pause the song if playing.
-		    audioElement[0].pause();
-		    setPlaying(false);
-		});
-	}
-	
 	function openInFileExplorer(){
 	    var dirname = playingFileDetail[1].split("/");
-	    dirname.pop(); //Pop away the filename
+	    var fname = dirname.pop(); //Pop away the filename
 	    dirname = dirname.join("/") + "/";
 	    var path = dirname;
 	    if (dirname.substring(0,1) != "/"){
@@ -1056,7 +678,7 @@
 		if (path.substring(0,1) == "/"){
 			path = path.substring(1)
 		}
-	    ao_module_openPath(path);
+	    ao_module_openPath(path, fname);
 	}
 	
 	
@@ -1065,123 +687,9 @@
 	    $(".quickMenu").fadeOut('fast');
 	    $("#fadeReturnScreen").fadeOut('fast');
 	}
+
 	
-	//Equalizer related functions
-	function showEqualizerInterface(){
-	    $("#equalizerInterface").fadeIn('fast');
-	    $("#fadeReturnScreen").fadeIn('fast');
-	}
-	
-	$("#enableEqualizer").on("change",function(){
-	    if(this.checked) {
-	        setEqualizerActive(true);
-	    }else{
-	        setEqualizerActive(false);
-	    }
-	});
-	
-	function setEqualizerActive(mode){
-	    if (mode){
-	        equalizerEnabled = true;
-	        hookEqualizer();
-	        setStorage("equalizerEnabled",true);
-	    }else{
-	        //Disable equalizer
-	        //As Web Audio API is not finished yet, the only way to unhook the audio element is to remove the old one and respawn a new one
-	        equalizerEnabled = false;
-	        if (context !== undefined){
-	            context.close();
-	            var newAudioElement = $(audioElement[0]).clone();
-	            var audioVolume = audioElement[0].volume;
-	            var audioCurrentTime = audioElement[0].currentTime;
-	            var audioPaused = audioElement[0].paused;
-	            audioElement.remove();
-	            $("#playerInterface").append(newAudioElement);
-	            audioElement = $("#mainAudioPlayer");
-	            audioElement[0].volume = audioVolume;
-	            audioElement[0].currentTime = audioCurrentTime;
-	            initAudioListeners();
-	            if (audioPaused == false){
-	                setTimeout(function(){
-	                    audioElement[0].play();
-	                },500);
-	                 
-	            }
-	            setStorage("equalizerEnabled",false);
-	            
-	        }
-	    }
-	}
-	
-	var context;
-    var mediaElement;
-    var sourceNode;
-    var lGain, mGain, gGain;
-	function hookEqualizer(){
-	    if (ua="safari"){
-	        setEqualizerActive(false);
-	        return; //There is no AudioContext / Web Audio API for Safari yet.
-	    }
-	    mediaElement = audioElement[0];
-	    context = new AudioContext();
-        sourceNode = context.createMediaElementSource(mediaElement);
-        
-        // EQ Properties
-        var gainDb = -40.0;
-        var bandSplit = [360,3600];
-        
-        var hBand = context.createBiquadFilter();
-        hBand.type = "lowshelf";
-        hBand.frequency.value = bandSplit[0];
-        hBand.gain.value = gainDb;
-        
-        var hInvert = context.createGain();
-        hInvert.gain.value = -1.0;
-        
-        var mBand = context.createGain();
-        
-        var lBand = context.createBiquadFilter();
-        lBand.type = "highshelf";
-        lBand.frequency.value = bandSplit[1];
-        lBand.gain.value = gainDb;
-        
-        var lInvert = context.createGain();
-        lInvert.gain.value = -1.0;
-        
-        sourceNode.connect(lBand);
-        sourceNode.connect(mBand);
-        sourceNode.connect(hBand);
-        
-        hBand.connect(hInvert);
-        lBand.connect(lInvert);
-        
-        hInvert.connect(mBand);
-        lInvert.connect(mBand);
-        
-        lGain = context.createGain();
-        mGain = context.createGain();
-        hGain = context.createGain();
-        
-        lBand.connect(lGain);
-        mBand.connect(mGain);
-        hBand.connect(hGain);
-        
-        var sum = context.createGain();
-        lGain.connect(sum);
-        mGain.connect(sum);
-        hGain.connect(sum);
-        sum.connect(context.destination);
-	}
-	
-    function changeGain(string,type){
-      var value = parseFloat(string) / 100.0;
-      switch(type){
-        case 'lowGain': lGain.gain.value = value; break;
-        case 'midGain': mGain.gain.value = value; break;
-        case 'highGain': hGain.gain.value = value; break;
-      }
-    }
-    
+
 	
 	//Setting related function
 	function showSettingInterface(){
@@ -1197,10 +705,34 @@
 	    $("#timerInterface").fadeIn('fast');
 	    $("#fadeReturnScreen").fadeIn('fast');
 	}
+
+	function initPlaylistInterfaceList(){
+		$("#existsingPlaylist").html("");
+		//Get the playlist list from server side
+		ao_module_agirun("Music/functions/playlist.js", {
+			opr: "root"
+		}, function(data){
+			data.forEach(playlist => {
+				$("#existsingPlaylist").append(`<div class="playlist item selectable whiteFont" name="${playlist.name}" onclick="addSongToSelectedPlaylist(this);">
+					<i class="list icon whiteFont"></i> ${playlist.name} [${playlist.count} files]
+				</div>`);
+			})
+		});
+	}
+
+	function showPlaylistInterface(){
+		initPlaylistInterfaceList();
+		$("#playlistInterface").fadeIn('fast');
+	    $("#fadeReturnScreen").fadeIn('fast');
+	}
+
+	function addToThisPlaylist(){
+
+	}
 	
 	$("#stopMode").change(function () {
         var end = this.value;
-        if (end.includes("Fade Out and Stop")){
+        if (end.includes("Fade Out & Stop")){
             //Start fading out the volume
             timerEndMode = "fade";
             setStorage("timerEndMode","fade");
@@ -1415,7 +947,7 @@
 	        audioElement[0].volume = 0;
 	    }else{
 	        audioElement[0].volume += value; 
-	    }
+		}
 	    
 	    $("#volBar").css("width",Math.min(100,audioElement[0].volume * 100) + "%");
 	}
@@ -1520,7 +1052,7 @@
 	
 	function showMainPlayerInterface(){
 	    $("#playerInterface").animate({left:0},300);
-	     $("body").css("overflow-y","hidden");
+	    $("body").css("overflow-y","hidden");
 	}
 	
 	function syncSystemVol(){
@@ -1570,7 +1102,10 @@
 	    if (!currentPlaying && !startPaused){
 	        setPlaying(true);
 	    }
-	    playingFileDetail = [parseInt(id),filepath];
+		playingFileDetail = [parseInt(id),filepath];
+
+		//If the user play this file, assume the next file to be added to playlist is this file
+		playlistAddPendingFile = filepath;
 	    //Have a backup of the current list just incase the user open another directory while a list is playing
 		//Only backup when it is not call from dropdown list
 		if (!$(object).parent().hasClass("dropdownList")){
@@ -1585,10 +1120,7 @@
 	    
 	    //Just in case the albumn image changed, albumn art css is also updated.
 	    resizeQuickAdjust();
-	    //Allow equalizer to be used
-	    if (equalizerEnabled){
-	        hookEqualizer();
-	    }
+
 		updateStateReferingURL();
 		highLightPlayingMusic();
 	}
@@ -1710,39 +1242,29 @@
 	let audioTransitioning = false;
 	function fadeAudio(){
 		audioTransitioning = true;
-	    if (equalizerEnabled){
-	        //Stop immediately as equalizer API is not suitable for fading due to its delay in response
+		if(audioElement[0].volume > 0){
+			var testval = audioElement[0].volume - 0.1;
+			audioElement[0].volume = Math.max(0,testval);
+			setTimeout(fadeAudio, 50);
+		}else{
 			audioElement[0].pause();
-			audioTransitioning = false;
-	    }else{
-            if(audioElement[0].volume > 0){
-                var testval = audioElement[0].volume - 0.1;
-                audioElement[0].volume = Math.max(0,testval);
-                setTimeout(fadeAudio, 50);
-            }else{
-                audioElement[0].pause();
-                setTimeout(function(){
-                    audioElement[0].volume = originalVol;
-					updateStateReferingURL();
-					audioTransitioning = false;
-                }, 100);
-            }
-	    }
-    }
+			setTimeout(function(){
+				audioElement[0].volume = originalVol;
+				updateStateReferingURL();
+				audioTransitioning = false;
+			}, 100);
+		}
+	}
+    
     
     var targetVol = 0;
     function gainAudio(){
-         if (equalizerEnabled){
-             audioElement[0].play();
-         }else{
-            targetVol = audioElement[0].volume;
-            audioElement[0].volume = 0;
-            setTimeout(function(){
-                audioElement[0].play();
-                recursiveGainAudio();
-            }, 100);
-         }
-        
+		targetVol = audioElement[0].volume;
+		audioElement[0].volume = 0;
+		setTimeout(function(){
+			audioElement[0].play();
+			recursiveGainAudio();
+		}, 100);
     }
     
     function recursiveGainAudio(){
@@ -1806,8 +1328,183 @@
 	    $("#mainPlayerSongDesc").text(fileinfo);
 	    $("#mainPlayerMiniTab").text(id + "/" + totalMusicCount);
 	}
+
+	
+	/*
+		Playlist related functions
+
+	*/
+
+	function renderPlaylistByName(listname){
+		$("#interfaceTitle").text(listname);
+		ao_module_agirun("Music/functions/playlist.js", {
+			opr: "list",
+			playlistname: listname
+		}, function(data){
+			$("#mainList").html("");
+			if (data.error !== undefined){
+				//This playlist no longer exists. Back to main
+				loadPlaylistView();
+			}else{
+				//Updat ethe global values
+				displayList = data;
+    	        totalMusicCount = data.length;
+				currentPath = listname;
+				//Add the back btn for back to playlist view
+				$("#mainList").append(`<div class="mainList item extrapadding" onClick="loadPlaylistView();">
+					<div class="ts header selectable" style="margin:0px !important;">
+						<i class="angle left icon whiteFont" style="overflow:hidden;"></i>
+						<div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">
+							../
+						</div>
+					</div>
+				</div>`);
+
+
+				//List the resulting song list 
+				for (var i = 0; i < data.length; i++){
+					var songInfo = data[i];
+					
+					$("#mainList").append(`<div class="mainList item" filepath=${ao_module_utils.objectToAttr(songInfo[0])} id=${i+1} rawname=${ao_module_utils.objectToAttr(songInfo[1])}>
+						<div class="ts header selectable" style="margin:0px !important;" onClick="playSong(this);">
+							<i class="music icon whiteFont" style="overflow:hidden;"></i>
+							<div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">
+								${songInfo[1]}
+								<div class="sub header fileinfo" style="color: #c7c7c7;">${songInfo[2]} / ${songInfo[3]}</div>
+							</div>
+						</div>\
+						<div class="topRightCorner" align="center">
+							${i + 1}
+						</div>
+						<div class="mainList rightFunctionBar" type="file" align="center" onclick="showMore(this);">
+							<i class="ellipsis vertical icon" style="top:30%;"></i>
+						</div>
+					</div>`);
+
+					//Update the interface Detail
+					$("#interfaceDetails").text("[" + data.length + " files]");
+				};
+				//Fix some legacy css isseus
+				$("#mainList").append("<br><br><br><br><br><br><br>");
+			}
+		});
+	}
+	//Open a given playlist
+	function openPlaylist(object){
+		var listname = $(object).attr("listname");
+		renderPlaylistByName(listname);
+	}
+
+	function addToNewPlaylist(){
+		var playlistname = prompt("Enter new playlist name");
+		if (playlistname != null && playlistname != ""){
+			//Add to playlist
+			addSongToPlayList(playlistname);
+		}else{
+			$("#succSnackBar").find(".content").html(`<i class="remove icon"></i> Invalid playlist name`);
+			$("#succSnackBar").slideDown("fast").delay(3000).slideUp("fast");
+			
+		}
+	}
+
+	function addToPlaylistFromMoreMenu(){
+		$(".showMoreMenus").fadeOut('fast');
+		$("#showmoreUIcover").fadeOut('fast');
+		showPlaylistInterface();
+	}
+
+	//Remove the curernt file from the current playlist
+	function removeFromPlylistFromMoreMenu(){
+		if (currentMode == "playlist"){
+			//Remvoe the playlistAddPendingFile
+			//In playlist mode, the currentPath is used to store the plylist name
+			ao_module_agirun("Music/functions/playlist.js", {
+			opr: "remove",
+			playlistname: currentPath,
+			musicpath: playlistAddPendingFile.replace("/media?file=","")
+			}, function(data){
+				if (data.error !== undefined){
+					alert(data.error);
+				}else{
+					//Removed. Reload playlist
+					renderPlaylistByName(currentPath);
+
+					//Hide the MoreMenu
+					hideShowMoreMenu();
+				}
+			});
+		}
+	}
+
+	function addSongToSelectedPlaylist(object){
+		var playlistName = $(object).attr("name").trim();
+		addSongToPlayList(playlistName);
+	}
+
+	function addSongToPlayList(listname){
+		//Get current music file name
+		var currentSongPath = "";
+		if (playlistAddPendingFile !== ""){
+			currentSongPath = playlistAddPendingFile.replace("/media?file=","");
+		}else{
+			$("#succSnackBar").find(".content").html(`<i class="remove icon"></i> No song selected`);
+			$("#succSnackBar").slideDown("fast").delay(3000).slideUp("fast");
+			return;
+		}
+		
+		//Add to playlist
+		ao_module_agirun("Music/functions/playlist.js", {
+			opr: "add",
+			playlistname: listname,
+			musicpath: currentSongPath
+		},function(data){
+			//Show success
+			$("#succSnackBar").find(".content").html(`<i class="checkmark icon"></i> Added to playlist ${listname}`);
+			$("#succSnackBar").slideDown("fast").delay(3000).slideUp("fast");
+
+			//Reload the playlist
+			initPlaylistInterfaceList();
+		});
+	}
+
+	//List the number of playlist stored in this database
+	function loadPlaylistView(){
+		currentMode = "playlist";
+		//Clear the main list
+		$("#mainList").html("");
+		ao_module_agirun("Music/functions/playlist.js", {
+			opr: "root",
+		},function(data){
+			//Get the list of playlist
+			console.log(data);
+
+			//Render the elements
+			data.forEach(playlist => {
+				$("#mainList").append(`<div class="mainList item" listname="${playlist.name}" tag="playlist" onClick="openPlaylist(this);">
+					<div class="ts header selectable" style="margin:0px !important;" >
+						<i class="folder open icon whiteFont" style="overflow:hidden;"></i>
+						<div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">
+							${playlist.name}
+							<div class="sub header fileinfo" style="color: #c7c7c7;">[${playlist.count} files]</div>
+						</div>
+					</div>
+					<div class="mainList rightFunctionBar" tag="moreInfo" align="center" onClick="openPlaylist(this);">
+						<i class="chevron right icon" style="top:30%;"></i>
+					</div>
+				</div>`);
+			});
+			hideLeftMenu();
+
+			//Update the headers
+			$("#interfaceTitle").text("Playlist");
+			$("#AMmenuIcon").attr("class","list icon large whiteFont");
+			$("#interfaceDetails").text("[" + data.length + " playlist]");
+		});
+		
+	}
 	
 	function loadFolderView(){
+		currentMode = "folder";
 	    currentPath = "";
 	    var tempalte = '<div class="mainList item" filepath={filepath} id={id} tag="folder" onClick="openFolder(this);">\
         <div class="ts header selectable" style="margin:0px !important;" >\
@@ -2131,7 +1828,16 @@
 	
 	function hideShowMoreMenu(){
 	    $(".showMoreMenus").fadeOut('fast');
-	    $("#showmoreUIcover").fadeOut('fast');
+		$("#showmoreUIcover").fadeOut('fast');
+		
+		//Return the playlistAddPendingFile object back to the playing one
+		if (playingFileDetail !== undefined){
+			playlistAddPendingFile = playingFileDetail[1];
+		}else{
+			//No song is being play back
+			playlistAddPendingFile = "";
+		}
+		
 	}
 	
 	function playFromShowMoreMenu(){
@@ -2162,6 +1868,8 @@
 	function showMore(object){
 	    var filepath = $(object).parent().attr("filepath");
 		filepath = JSON.parse(decodeURIComponent(filepath));
+		//User want more action on this file. assume this is the file to add
+		playlistAddPendingFile = filepath;
 	    var id = $(object).parent().attr('id');
 	    var rawname = $(object).parent().attr("rawname");
 	    var displayName = JSON.parse(decodeURIComponent(ao_module_codec.decodeUmFilename(rawname)));
@@ -2179,14 +1887,22 @@
 			filepath = filepath.substring(12);
 		}
 		
-	    $.ajax("getFileInfo?filepath=" + filepath).done(function(data){
-    	    $("#showFileInfo").find(".filename").text(ao_module_codec.decodeUmFilename(data[0]));
+		//Pre-render the file info
+		ao_module_agirun("Music/functions/getFileInfo.js", {
+			filepath: filepath,
+		}, function(data){
+			$("#showFileInfo").find(".filename").text(ao_module_codec.decodeUmFilename(data[0]));
     		$("#showFileInfo").find(".rawname").text(data[0]);
     		$("#showFileInfo").find(".filepath").text(data[1]);
     		$("#showFileInfo").find(".filesize").text(data[2] + " (" + data[3] + " Bytes)");
     		$("#showFileInfo").find(".filedate").text(data[4]);
-	    });
+		});
 
+		if (currentMode != "playlist"){
+			$(".playlistonly").hide();
+		}else{
+			$(".playlistonly").show();
+		}
 	}
 
 	function playSongFromDropdownList(object){
@@ -2255,7 +1971,8 @@
 	}
 	
 	function loadSongList(type = "all"){
-	    currentPath = "";
+		currentPath = "";
+		currentMode = "music";
 	    var template = '<div class="mainList item" filepath={filepath} id={id} rawname={rawname}>\
         <div class="ts header selectable" style="margin:0px !important;" onClick="playSong(this);">\
             <i class="music icon whiteFont" style="overflow:hidden;"></i>\
@@ -2278,14 +1995,27 @@
 		ao_module_agirun("Music/functions/listSong.js", {
 			listSong: type,
 		},function(data){
-	        //Initialize the song list
-	        displayList = data;
+			//Initialize the song list
+			displayList = data;
+			if (type == "all"){
+				//Caching is used in here
+				displayList = data.list;
+				if (data.cached == true){
+					//This is a cached version of the music list. 
+					console.log("Updating cached song list");
+					ao_module_agirun("Music/functions/buildCache.js", {}, function(data){
+						console.log("Cache updated: ", data);
+					});
+				}
+			}
+			console.log(displayList);
+	        
 	        if (playingList == []){
 	            playingList = Array.from(displayList);
 	        }
 	        $("#mainList").html("");
-	        for ( var i =0; i < data.length; i++){
-	            var songInfo = data[i];
+	        for ( var i =0; i < displayList.length; i++){
+	            var songInfo = displayList[i];
 	            var path = songInfo[0];
 	            var displayname = ao_module_codec.decodeUmFilename(songInfo[1]);
 	            var ext = songInfo[2];
@@ -2299,7 +2029,7 @@
 	            box = replaceAll("{size}",size,box);
 	            $("#mainList").append(box);
 	        }
-	        totalMusicCount = data.length;
+	        totalMusicCount = displayList.length;
 	        $("#mainList").append("<br><br><br><br><br><br><br>");
 	        $("#interfaceDetails").text("[" + i + " songs]");
 	        highLightPlayingMusic();
@@ -2359,10 +2089,13 @@
 	  if ($("#playerInterface").offset().left != 0){
 	      $("#playerInterface").css("left",window.innerWidth);
 	  }
-	  $("#albumnArt").css("height",window.innerHeight - 255);
+	  $("#albumnArt").css({
+		  "height": window.innerHeight - 255,
+		  "top": (window.innerHeight / 2 -  $("#albumnArtImage").height()/2)
+	  });
 	  $("#albumnArtImage").css("max-height",window.innerHeight - 255);
-	  var imageTop = (window.innerHeight - 255 - $("#albumnArtImage").height()) / 2;
-	  $("#albumnArtImage").css("top",imageTop + "px");
+	  //var imageTop = (window.innerHeight - 255 - $("#albumnArtImage").height()) / 2;
+	  //$("#albumnArtImage").css("top",imageTop + "px");
 	  //console.log(window.innerHeight,imageTop);
 	}
 	

@@ -23,7 +23,7 @@ func SystemIDInit() {
 
 	//Register as a system setting
 	registerSetting(settingModule{
-		Name:     "ArOZ Online",
+		Name:     "ArozOS",
 		Desc:     "System Information",
 		IconPath: "SystemAO/info/img/small_icon.png",
 		Group:    "About",
@@ -45,12 +45,23 @@ func SystemIDInit() {
 
 	//Handle license info
 	registerSetting(settingModule{
-		Name:     "License",
-		Desc:     "Powered by the Open Source Community",
+		Name:     "Open Source",
+		Desc:     "License from the Open Source Community",
 		IconPath: "SystemAO/info/img/small_icon.png",
 		Group:    "About",
 		StartDir: "SystemAO/info/license.html",
 	})
+
+	//Register vendor information
+	if fileExists("web/SystemAO/vendor/index.html") {
+		registerSetting(settingModule{
+			Name:     "Vendor",
+			Desc:     "Vendor Information",
+			IconPath: "SystemAO/info/img/small_icon.png",
+			Group:    "About",
+			StartDir: "SystemAO/vendor/index.html",
+		})
+	}
 
 	http.HandleFunc("/system/info/license", systemHandleListLicense)
 

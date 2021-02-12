@@ -27,7 +27,7 @@ import (
 	archiver "github.com/mholt/archiver/v3"
 )
 
-//Will be deprecate in 1.110
+//A basic file zipping function
 func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
 	z := archiver.Zip{
 		CompressionLevel:       flate.DefaultCompression,
@@ -36,10 +36,119 @@ func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) e
 		OverwriteExisting:      false,
 		ImplicitTopLevelFolder: includeTopLevelFolder,
 	}
-	log.Println("ZipFile will be deprecate in next ArozOS Update!!!")
 
 	err := z.Archive(filelist, outputfile)
 	return err
+}
+
+//A basic file unzip function
+func Unzip(source, destination string) error {
+	archive, err := zip.OpenReader(source)
+	if err != nil {
+		return err
+	}
+	defer archive.Close()
+	for _, file := range archive.Reader.File {
+		reader, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer reader.Close()
+		path := filepath.Join(destination, file.Name)
+
+		err = os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			return err
+		}
+
+		if file.FileInfo().IsDir() {
+			continue
+		}
+
+		err = os.Remove(path)
+		if err != nil {
+			return err
+		}
+
+		writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			return err
+		}
+		defer writer.Close()
+		_, err = io.Copy(writer, reader)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//Aroz Unzip File with progress update function  (current filename / current file count / total file count / progress in percentage)
+func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHandler func(string, int, int, float64)) error {
+	//Gether the total number of files in all zip files
+	totalFileCounts := 0
+	unzippedFileCount := 0
+	for _, srcFile := range filelist {
+		archive, err := zip.OpenReader(srcFile)
+		if err != nil {
+			return err
+		}
+
+		totalFileCounts += len(archive.Reader.File)
+		archive.Close()
+	}
+
+	//Start extracting
+	for _, srcFile := range filelist {
+		archive, err := zip.OpenReader(srcFile)
+		if err != nil {
+			return err
+		}
+		defer archive.Close()
+		for _, file := range archive.Reader.File {
+			reader, err := file.Open()
+			if err != nil {
+				return err
+			}
+			defer reader.Close()
+			path := filepath.Join(outputfile, file.Name)
+
+			err = os.MkdirAll(path, os.ModePerm)
+			if err != nil {
+				return err
+			}
+
+			if file.FileInfo().IsDir() {
+				//Folder extracted
+
+				//Update the progress
+				unzippedFileCount++
+				progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+				continue
+			}
+
+			err = os.Remove(path)
+			if err != nil {
+				return err
+			}
+
+			writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+			if err != nil {
+				return err
+			}
+			defer writer.Close()
+			_, err = io.Copy(writer, reader)
+			if err != nil {
+				return err
+			}
+
+			//Update the progress
+			unzippedFileCount++
+			progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+		}
+	}
+
+	return nil
 }
 
 //Aroz Zip File with progress update function (current filename / current file count / total file count / progress in percentage)
@@ -151,11 +260,12 @@ func ArozZipFileWithProgress(filelist []string, outputfile string, includeTopLev
 	return nil
 }
 
+//ArOZ Zip FIle, but with no progress display
 func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
 	//Create the target zip file
 	file, err := os.Create(outputfile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
 
@@ -492,6 +602,11 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 	}
 
 	return nil
+}
+
+//Copy a given directory, with no progress udpate
+func CopyDir(src string, dest string) error {
+	return dirCopy(src, dest, func(progress int, name string) {})
 }
 
 //Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end

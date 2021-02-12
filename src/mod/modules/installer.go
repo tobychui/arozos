@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -24,6 +25,50 @@ import (
 	This script handle the installation of modules in the arozos system
 
 */
+
+//Install a module via selecting a zip file
+func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) error {
+	//Check if file exists
+	if !fileExists(realpath) {
+		return errors.New("*Module Installer* Installer file not found. Given: " + realpath)
+	}
+
+	//Install it
+	unzipTmpFolder := "./tmp/installer/" + strconv.Itoa(int(time.Now().Unix()))
+	err := fs.Unzip(realpath, unzipTmpFolder)
+	if err != nil {
+		return err
+	}
+
+	//Move the module(s) to the web root
+	files, _ := filepath.Glob(unzipTmpFolder + "/*")
+	folders := []string{}
+	for _, file := range files {
+		if IsDir(file) && fileExists(filepath.Join(file, "init.agi")) {
+			//This looks like a module folder
+			folders = append(folders, file)
+		}
+	}
+
+	for _, folder := range folders {
+		//Copy the module
+		err = fs.CopyDir(folder, "./web/"+filepath.Base(folder))
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		//Activate the module
+		m.ActivateModuleByRoot("./web/"+filepath.Base(folder), gateway)
+		m.ModuleSortList()
+	}
+
+	//Remove the tmp folder
+	os.RemoveAll(unzipTmpFolder)
+
+	//OK
+	return nil
+}
 
 //Install a module via git clone
 func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
@@ -70,30 +115,38 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	//Add the newly installed module to module list
 	for _, moduleFolder := range copyPendingList {
 		//This module folder has been moved to web successfully.
-		thisModuleEstimataedRoot := filepath.Join("./web/", filepath.Base(moduleFolder))
-		if fileExists(thisModuleEstimataedRoot) {
-			//Check if there is init.agi. If yes, load it as an module
-			if fileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
-				//Load this as an module
-				startDef, err := ioutil.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
-				if err != nil {
-					log.Println(filepath.Base(moduleFolder)+" Starting failed: ", err.Error())
-					continue
-				}
-
-				//Execute the init script using AGI
-				log.Println("Starting module: ", filepath.Base(moduleFolder))
-				err = gateway.RunScript(string(startDef))
-				if err != nil {
-					log.Println(filepath.Base(moduleFolder)+" Starting failed: ", err.Error())
-					continue
-				}
-
-			}
-		}
+		m.ActivateModuleByRoot(moduleFolder, gateway)
 	}
+
 	//Sort the module lsit
 	m.ModuleSortList()
+
+	return nil
+}
+
+func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.Gateway) error {
+	//Check if there is init.agi. If yes, load it as an module
+	thisModuleEstimataedRoot := filepath.Join("./web/", filepath.Base(moduleFolder))
+	if fileExists(thisModuleEstimataedRoot) {
+		if fileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
+			//Load this as an module
+			startDef, err := ioutil.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
+			if err != nil {
+				log.Println("*Module Activator* Failed to read init.agi from " + filepath.Base(moduleFolder))
+				return errors.New("Failed to read init.agi from " + filepath.Base(moduleFolder))
+			}
+
+			//Execute the init script using AGI
+			log.Println("Starting module: ", filepath.Base(moduleFolder))
+			err = gateway.RunScript(string(startDef))
+			if err != nil {
+				log.Println("*Module Activator* " + filepath.Base(moduleFolder) + " Starting failed" + err.Error())
+				return errors.New(filepath.Base(moduleFolder) + " Starting failed: " + err.Error())
+
+			}
+
+		}
+	}
 
 	return nil
 }

@@ -38,6 +38,7 @@ type ArOZInfo struct {
 	SN           string
 	HostOS       string
 	CPUArch      string
+	HostName     string
 }
 
 type Server struct {

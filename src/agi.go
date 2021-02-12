@@ -49,7 +49,6 @@ func AGIInit() {
 			return
 		}
 
-		log.Println(token)
 		//Validate Token
 		if authAgent.TokenValid(token) == true {
 			//Valid

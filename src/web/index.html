@@ -1,11 +1,42 @@
 <html>
     <head>
         <title>ArOZ Online Bootloader</title>
+        <style>
+            .container{
+                margin-left:4em;
+                margin-right: 4em;
+            }
+
+            .divider{
+                border-bottom: 1px solid #d9d9d9;
+                width: 100%;
+                margin-top:12px;
+                margin-bottom:12px;
+            }
+        </style>
     </head>
     <body>
-        <p>Hi there! This page should not be seen by normal users. <br>
-            Please report this issue on our Github repo if you have somehow entered this page by accident.</p>
-            <p>It will be nice if you can include the steps you get to here as well :)</p>
         <br>
+        <div class="container">
+            <h1>Hi there! It seems you have screwed up your system really badly. </h1>
+            <p>You are seeing this error because you try to do the followings</p>
+            <ul>
+                <li>Reinstalling ArozOS on the same host with the same IP address and session key</li>
+                <li>Trying to copy the ArozOS files to the new image without reinstalling the system</li>
+                <li>The browser cached the old login session key and ask the new server to login with the old key</li>
+            </ul> 
+            <p>And hence, the bootloader blocked your access to the main system due to security reasons.</p>
+            <div class="divider"></div>
+            <p>In any case, this can be easily solved by pressing the Logout link below and re-login again.</p>
+            <p>Press the link below to logout, after seeing "OK", get back to the login page and login again.</p>
+            1. <a href="./system/auth/logout" target="_blank">Logout API Link</a>
+            <br><br>
+            2. <a href="./login.system">Back to Login Page</a>
+            <br><br>
+            If the above instruction still unable to resolve your issue, find me on <a href="https://github.com/tobychui/arozos" target="_blank">https://github.com/tobychui/arozos</a>
+            <div class="divider"></div>
+            ArozOS Cloud Operating System, Developed by tobychui since 2016.<br>
+            
+        </div>
     </body>
 </html>

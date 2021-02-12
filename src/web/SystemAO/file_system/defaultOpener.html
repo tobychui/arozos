@@ -74,6 +74,7 @@
             var targetExt = "";
             var showAll = false;
             var moduleInfo = [];
+
             //Initiate ao_module events
             ao_module_setFixedWindowSize();
 
@@ -84,6 +85,7 @@
                 //Only handle the first file in list
                 targetFiles = targetFiles[0];
             }
+
             //Get ext from filename
             targetExt = "." + targetFiles.filename.split(".").pop();
             $("#fext").text(targetExt); 
@@ -177,13 +179,17 @@
                             console.log(data.error);
                         }else{
                             //Launch the module with floatWindow api
-                            if (ao_module_virtualDesktop){
-                                parent.openFileWithModule(launchInfo, openFilelist);
-                                ao_module_close();
+                            if (!ao_module_hasParentCallback()){
+                                if (ao_module_virtualDesktop){
+                                    parent.openFileWithModule(launchInfo, openFilelist);
+                                    ao_module_close();
+                                }else{
+                                    window.location.href = "../../" + targetModuleName + "#" + encodeURIComponent(JSON.stringify(openFilelist));
+                                }
                             }else{
-                                window.location.href = "../../" + targetModuleName + "#" + encodeURIComponent(JSON.stringify(openFilelist));
+                                ao_module_parentCallback("");
+                                ao_module_close();
                             }
-                            
                         }
                     }
                 });
