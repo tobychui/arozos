@@ -84,7 +84,10 @@ arozos.exe
 ```
 **However, not all features are available for Windows**. 
 
+## Docker
+Thanks [Saren](https://github.com/Saren-Arterius) for creating this amazing DockerFile
 
+See his repo over [here](https://github.com/Saren-Arterius/aroz-dockerize)
 
 ## Screenshots
 ![Image](img/screenshots/1.png?raw=true)
@@ -94,7 +97,7 @@ arozos.exe
 ![Image](img/screenshots/5.png?raw=true)
 ![Image](img/screenshots/6.png?raw=true)
 
-## Start the ArOZ Online Platform
+## Start the ArozOS Platform
 
 ### Supported Startup Parameters
 The following startup parameters are supported (As of 1.110)
