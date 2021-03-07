@@ -215,8 +215,8 @@ plugin for the system. To initiate the module, you can place a "init.agi" file i
 (also named the module root). See more details in the ![AJGI Documentation](https://github.com/tobychui/arozos/blob/master/src/AGI%20Documentation.md).
 
 ## Other Resources
-If you are looking for other WebApps or subservices (which will require SSH login to install, for OEM only), please take a look at our collections over here:
-https://github.com/aroz-online
+If you are looking for other WebApps (Installed via System Setting) or subservices (Require SSH login to install, for OEM only), please take a look at our collections over here:
+https://github.com/aroz-online/WebApp-and-Subservice-Index
 
 ## Community / Q&A
 Find us on [Telegram](https://t.me/ArOZBeta)! We welcome all kind of feedbacks and questions.
