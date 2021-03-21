@@ -68,7 +68,7 @@ After upload, you should have the following file structure
 
 ```
 $ ls
-aroz_online_linux_arm64  web  system
+arozos_linux_arm64  web  system
 ```
 
 Start the binary by calling ``` sudo ./aroz_online_linux_arm64 ``` (or without sudo if you prefer no hardware management)
@@ -174,18 +174,20 @@ The following startup parameters are supported (As of 1.110)
 Example
 ```
 //Starting aroz online with standard web port
-./aroz_online -port 80
+./arozos -port 80
 
 //Start aroz online in demo mode
-./aroz_online -demo_mode=true
+./arozos -demo_mode=true
 
 //Use https instead of http 
-./aroz_online -tls=true -key mykey.key -cert mycert.crt
+./arozos -tls=true -key mykey.key -cert mycert.crt
 
 //Change max upload size to 25MB
-./aroz_online -max_upload_size 25
+./arozos -max_upload_size 25
 
 ```
+
+See documentation for more examples.
 
 ### Storage Configuration
 #### Deploying Single Machine
