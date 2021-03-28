@@ -33,7 +33,7 @@ The current arozos is still under intense development. System structure might ch
 
 
 ## Installation
-Require GO 1.14 or above
+Require GO 1.14 or above (See [Instllation tutorial](https://dev.to/tobychui/install-go-on-raspberry-pi-os-shortest-tutorial-4pb))
 
 Run the following the command to build the system
 
