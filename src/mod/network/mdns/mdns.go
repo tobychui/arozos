@@ -48,7 +48,8 @@ func (m *MDNSHost) Close() {
 
 }
 
-func (m *MDNSHost) Scan(timeout int) []*NetworkHost {
+//Scan with given timeout and domain filter. Use m.Host.Domain for scanning similar typed devices
+func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 	// Discover all services on the network (e.g. _workstation._tcp)
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
@@ -62,14 +63,9 @@ func (m *MDNSHost) Scan(timeout int) []*NetworkHost {
 
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
-			if stringInSlice("domain="+m.Host.Domain, entry.Text) {
-				//This is a ArOZ Online Host
-				/*
-					log.Println("HostName", entry.HostName)
-					log.Println("Port", entry.Port)
-					log.Println("AddrIPv4", entry.AddrIPv4)
-				*/
+			if domainFilter == "" {
 
+				//This is a ArOZ Online Host
 				//Split the required information out of the text element
 				TEXT := entry.Text
 				properties := map[string]string{}
@@ -93,6 +89,33 @@ func (m *MDNSHost) Scan(timeout int) []*NetworkHost {
 					MinorVersion: properties["version_minor"],
 				})
 
+			} else {
+				if stringInSlice("domain="+domainFilter, entry.Text) {
+					//This is a ArOZ Online Host
+					//Split the required information out of the text element
+					TEXT := entry.Text
+					properties := map[string]string{}
+					for _, v := range TEXT {
+						kv := strings.Split(v, "=")
+						if len(kv) == 2 {
+							properties[kv[0]] = kv[1]
+						}
+					}
+
+					//log.Println(properties)
+					discoveredHost = append(discoveredHost, &NetworkHost{
+						HostName:     entry.HostName,
+						Port:         entry.Port,
+						IPv4:         entry.AddrIPv4,
+						Domain:       properties["domain"],
+						Model:        properties["model"],
+						UUID:         properties["uuid"],
+						Vendor:       properties["vendor"],
+						BuildVersion: properties["version_build"],
+						MinorVersion: properties["version_minor"],
+					})
+
+				}
 			}
 
 		}

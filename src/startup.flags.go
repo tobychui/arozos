@@ -18,6 +18,16 @@ import (
 
 func StartupFlagsInit() {
 	//Create a admin permission router for handling requests
+	//Register a boot flag modifier
+	registerSetting(settingModule{
+		Name:         "Startup",
+		Desc:         "Platform Startup Flags",
+		IconPath:     "SystemAO/info/img/small_icon.png",
+		Group:        "Info",
+		StartDir:     "SystemAO/boot/bootflags.html",
+		RequireAdmin: true,
+	})
+
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		AdminOnly:   true,
 		UserHandler: userHandler,

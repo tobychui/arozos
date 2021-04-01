@@ -1766,8 +1766,8 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 			IsDir    bool
 		}
 		//List the root media folders under user:/
-		var filesInUserRoot []fileObject
-		filesInRoot, _ := filepath.Glob(*root_directory + "users/" + username + "/*")
+		filesInUserRoot := []fileObject{}
+		filesInRoot, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(*root_directory)) + "/users/" + username + "/*")
 		for _, file := range filesInRoot {
 			thisFile := new(fileObject)
 			thisFile.Filename = filepath.Base(file)
@@ -1956,7 +1956,8 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 	currentDir, _ := mv(r, "dir", true)
-	currentDir, _ = url.QueryUnescape(currentDir)
+	//Commented this line to handle dirname that contains "+" sign
+	//currentDir, _ = url.QueryUnescape(currentDir)
 	sortMode, _ := mv(r, "sort", true)
 	showHidden, _ := mv(r, "showHidden", true)
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -1977,11 +1978,12 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	//Convert the virutal path to realpath
 	realpath, err := userinfo.VirtualPathToRealPath(currentDir)
-	//log.Println(realpath)
+
 	if err != nil {
 		sendErrorResponse(w, "Error. Unable to parse path. "+err.Error())
 		return
 	}
+
 	if !fileExists(realpath) {
 		userRoot, _ := userinfo.VirtualPathToRealPath("user:/")
 		if filepath.Clean(realpath) == filepath.Clean(userRoot) {

@@ -50,16 +50,6 @@ func NetworkServiceInit() {
 		})
 	}
 
-	/*
-		registerSetting(settingModule{
-			Name:     "Ping test",
-			Desc:     "System Information",
-			IconPath: "SystemAO/network/img/ethernet.png",
-			Group:    "Network",
-			StartDir: "SystemAO/network/ping.html",
-		})
-	*/
-
 	//Start the services that depends on network interface
 	StartNetworkServices()
 

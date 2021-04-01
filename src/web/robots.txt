@@ -1,0 +1,226 @@
+# ArozOS robots.txt
+# Notice: This robots.txt is here so as to prevent robot scanning of your cloud system.
+# If you want SEO on your cloud system, remove this file from the web root.
+
+User-agent: Applebot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: baiduspider
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Bingbot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Discordbot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: facebookexternalhit
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Googlebot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Googlebot-Image
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: ia_archiver
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: LinkedInBot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: msnbot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Naverbot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Pinterestbot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: seznambot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Slurp
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: teoma
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: TelegramBot
+Disallow: /
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Twitterbot
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Yandex
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: Yeti
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /img/
+Disallow: /index.html
+Disallow: /login.system
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+
+User-agent: *
+Disallow: /
+

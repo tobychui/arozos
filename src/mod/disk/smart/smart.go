@@ -14,143 +14,103 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os/exec"
-	"runtime"
+	"strings"
+
+	//"os/exec"
 	"errors"
-	"time"
+	"runtime"
+	//"time"
 )
 
-// SMART was used for storing all Devices data
-type SMART struct {
-	Port       string       `json:"Port"`
-	DriveSmart *DeviceSMART `json:"SMART"`
-}
-
-type SMARTListener struct{
+type SMARTListener struct {
 	SystemSmartExecutable string
-	LastScanTime int64
-	SMARTInformation []*SMART
-	ReadingInProgress bool
+	DriveList             DevicesList `json:"driveList"`
 }
 
 // DiskSmartInit Desktop script initiation
-func NewSmartListener() (*SMARTListener, error){
-	var SystemSmartExecutable string = ""
+func NewSmartListener() (*SMARTListener, error) {
+	smartExec := getBinary()
 
 	log.Println("Starting SMART mointoring")
-	if !(fileExists("system/disk/smart/win/smartctl.exe") || fileExists("system/disk/smart/linux/smartctl_arm") || fileExists("system/disk/smart/linux/smartctl_arm64") || fileExists("system/disk/smart/linux/smartctl_i386")) {
-		return &SMARTListener{}, errors.New("Smartctl.exe not found")
+
+	if smartExec == "" {
+		return &SMARTListener{}, errors.New("not supported platform")
 	}
-	if runtime.GOOS == "windows" {
-		SystemSmartExecutable = "./system/disk/smart/win/smartctl.exe"
-	} else if runtime.GOOS == "linux" {
-		if runtime.GOARCH == "arm" {
-			SystemSmartExecutable = "./system/disk/smart/linux/smartctl_armv6"
-		}
-		if runtime.GOARCH == "arm64" {
-			SystemSmartExecutable = "./system/disk/smart/linux/smartctl_armv6"
-		}
-		if runtime.GOARCH == "386" {
-			SystemSmartExecutable = "./system/disk/smart/linux/smartctl_i386"
-		}
-		if runtime.GOARCH == "amd64" {
-			SystemSmartExecutable = "./system/disk/smart/linux/smartctl_i386"
-		}
-	} else {
-		return &SMARTListener{}, errors.New("Not supported platform")
+
+	if !(fileExists(smartExec)) {
+		return &SMARTListener{}, errors.New("smartctl not found")
 	}
+
+	driveList := scanAvailableDevices(smartExec)
+	readSMARTDevices(smartExec, &driveList)
+	fillHealthyStatus(&driveList)
 	return &SMARTListener{
-		SystemSmartExecutable: SystemSmartExecutable,
-		LastScanTime: 0,
-		SMARTInformation: []*SMART{},
-		ReadingInProgress: false,
-	},nil
+		SystemSmartExecutable: smartExec,
+		DriveList:             driveList,
+	}, nil
 }
 
-// ReadSMART xxx
-func (s *SMARTListener)ReadSMART() []*SMART {
-	if time.Now().Unix()-s.LastScanTime > 30 {
-		if (s.ReadingInProgress == false){
-			//Set reading flag to true
-			s.ReadingInProgress = true;
-			s.SMARTInformation = []*SMART{}
-			//Scan disk
-			cmd := exec.Command(s.SystemSmartExecutable, "--scan", "--json=c")
-			out, _ := cmd.CombinedOutput()
-			Devices := new(DevicesList)
-			DevicesOutput := string(out)
-			json.Unmarshal([]byte(DevicesOutput), &Devices)
-			for _, element := range Devices.Devices {
-				//Load SMART for each drive
-				cmd := exec.Command(s.SystemSmartExecutable, "-i", element.Name, "-a", "--json=c")
-				out, err := cmd.CombinedOutput()
-				if err != nil{
-					//log.Println(string(out), err);
-				}
-				InvSMARTInformation := new(DeviceSMART)
-				SMARTOutput := string(out)
-				json.Unmarshal([]byte(SMARTOutput), &InvSMARTInformation)
-				if len(InvSMARTInformation.Smartctl.Messages) > 0 {
-					if InvSMARTInformation.Smartctl.Messages[0].Severity == "error" {
-						log.Println("[SMART Mointoring] Disk " + element.Name + " cannot be readed")
-					} else {
-						//putting everything into that struct array
-						n := SMART{Port: element.Name, DriveSmart: InvSMARTInformation}
-						s.SMARTInformation = append(s.SMARTInformation, &n)
-					}
-				} else {
-					//putting everything into that struct array
-					n := SMART{Port: element.Name, DriveSmart: InvSMARTInformation}
-					s.SMARTInformation = append(s.SMARTInformation, &n)
-				}
-
-			}
-			s.LastScanTime = time.Now().Unix()
-
-			//Set reading flag to false
-			s.ReadingInProgress = false;
+func scanAvailableDevices(smartExec string) DevicesList {
+	rawInfo := execCommand(smartExec, "--scan", "--json=c")
+	devicesList := new(DevicesList)
+	json.Unmarshal([]byte(rawInfo), &devicesList)
+	//used to remove csmi devices (Intel RAID Devices)
+	numOfRemoved := 0
+	for i, device := range devicesList.Devices {
+		if strings.Contains(device.Name, "/dev/csmi") {
+			devicesList.Devices = append(devicesList.Devices[:i-numOfRemoved], devicesList.Devices[i+1-numOfRemoved:]...)
+			numOfRemoved++
 		}
 	}
-	return s.SMARTInformation
+	return *devicesList
 }
 
-func (s *SMARTListener)GetSMART(w http.ResponseWriter, r *http.Request) {
-	jsonText, _ := json.Marshal(s.ReadSMART())
+func readSMARTDevices(smartExec string, devicesList *DevicesList) {
+	for i, device := range devicesList.Devices {
+		rawInfo := execCommand(smartExec, device.Name, "--info", "--all", "--json=c")
+		deviceSMART := new(DeviceSMART)
+		json.Unmarshal([]byte(rawInfo), &deviceSMART)
+		devicesList.Devices[i].Smart = *deviceSMART
+	}
+}
+
+func fillHealthyStatus(devicesList *DevicesList) {
+	devicesList.Healthy = "Normal"
+	for i, device := range devicesList.Devices {
+		for j, smartTableElement := range device.Smart.AtaSmartAttributes.Table {
+			devicesList.Devices[i].Smart.Healthy = "Normal"
+			devicesList.Devices[i].Smart.AtaSmartAttributes.Table[j].Healthy = "Normal"
+			if smartTableElement.WhenFailed == "FAILING_NOW" {
+				devicesList.Devices[i].Smart.AtaSmartAttributes.Table[j].Healthy = "Failing"
+				devicesList.Devices[i].Smart.Healthy = "Failing"
+				devicesList.Healthy = "Failing"
+				break
+			}
+			if smartTableElement.WhenFailed == "In_the_past" {
+				devicesList.Devices[i].Smart.AtaSmartAttributes.Table[j].Healthy = "Attention"
+				devicesList.Devices[i].Smart.Healthy = "Attention"
+				devicesList.Healthy = "Attention"
+				break
+			}
+		}
+	}
+}
+
+func (s *SMARTListener) GetSMART(w http.ResponseWriter, r *http.Request) {
+	jsonText, _ := json.Marshal(s.DriveList)
 	sendJSONResponse(w, string(jsonText))
 }
 
-func (s *SMARTListener)CheckDiskTable(w http.ResponseWriter, r *http.Request) {
-	disks, ok := r.URL.Query()["disk"]
-	if !ok || len(disks[0]) < 1 {
-		log.Println("Parameter DISK not found.")
-		return
-	}
-
-	DiskStatus := new(DeviceSMART)
-	for _, info := range s.ReadSMART() {
-		if info.Port == disks[0] {
-			DiskStatus = info.DriveSmart
+func getBinary() string {
+	if runtime.GOOS == "windows" {
+		return ".\\system\\disk\\smart\\win\\smartctl.exe"
+	} else if runtime.GOOS == "linux" {
+		if runtime.GOARCH == "arm" || runtime.GOARCH == "arm64" {
+			return "./system/disk/smart/linux/smartctl_armv6"
+		}
+		if runtime.GOARCH == "386" || runtime.GOARCH == "amd64" {
+			return "./system/disk/smart/linux/smartctl_i386"
 		}
 	}
-	JSONStr, _ := json.Marshal(DiskStatus.AtaSmartAttributes.Table)
-	//send!
-	sendJSONResponse(w, string(JSONStr))
-}
-
-func (s *SMARTListener)CheckDiskTestStatus(w http.ResponseWriter, r *http.Request) {
-	disks, ok := r.URL.Query()["disk"]
-	if !ok || len(disks[0]) < 1 {
-		log.Println("Parameter DISK not found.")
-		return
-	}
-
-	DiskTestStatus := new(DeviceSMART)
-	for _, info := range s.ReadSMART() {
-		if info.Port == disks[0] {
-			DiskTestStatus = info.DriveSmart
-		}
-	}
-	JSONStr, _ := json.Marshal(DiskTestStatus.AtaSmartData.SelfTest.Status)
-	//send!
-	sendJSONResponse(w, string(JSONStr))
+	return ""
 }

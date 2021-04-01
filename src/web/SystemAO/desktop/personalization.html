@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/semantic/semantic.min.js"></script>
+        <script src="../../script/ao_module.js"></script>
+        <style>
+            .hidden{
+                display:none;
+            }
+
+            .backgroundpreview{
+                border: 1px solid #898989;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ui tabular menu" style="position:fixed; top:0px; left:0px; width: 100%;">
+            <div class="active item" data-tab="wallpaper">Wallpaper</div>
+            <div class="item" data-tab="theme">Theme</div>
+            <div class="item" data-tab="advance">Advance</div>
+        </div>
+        <div style="position:fixed; top: 42px; left:0px; width: 100%; height: calc(100% - 42px); overflow-y:auto;">
+            <div class="ui active tab" data-tab="wallpaper">
+                <!-- Wallpaper Functions -->
+                <br>
+                <div class="ui container">
+                    <h3 class="ui header">
+                        <i class="image outline icon"></i>
+                        <div class="content">
+                            Wallpapers
+                            <div class="sub header">Manage your desktop preferences</div>
+                        </div>
+                    </h3>
+                    <div class="ui divider"></div>
+
+                    <div class="ui grid">
+                        <div class="ten wide column">
+                            <img id="mainBackground" class="ui fluid image backgroundpreview" src="">
+                        </div>
+                        <div class="six wide column">
+                            
+                        </div>
+                    </div>
+                
+                    <div class="ui divider"></div>
+                    <div id="backgroundPreviewList" class="ui grid">
+                        <div class="four wide column">
+                            <img class="ui fluid image backgroundpreview" src="">
+                        </div>
+                        <div class="four wide column">
+                            <img class="ui fluid image backgroundpreview" src="">
+                        </div>
+                        <div class="four wide column">
+                            <img class="ui fluid image backgroundpreview" src="">
+                        </div>
+                        <div class="four wide column">
+                            <img class="ui fluid image backgroundpreview" src="">
+                        </div>
+                    </div>
+
+                    <div class="ui divider"></div>
+                    <h4 class="ui header">
+                        Background Wallpaper
+                        <div class="sub header">Set your desktop background wallpaper theme.</div>
+                    </h4>
+                    <select id="wallpaperlist" class="ui fluid dropdown allowSelectDefaultThemes" onchange="handleBackgroundSelectionChange(this.value);">
+                        <option value="">Wallpaper Packs</option>
+                    </select>
+                    <small>This option will be disabled by default if you have set your "User Defined Wallpaper" in Advance tab.</small>
+                    <br> <br>
+                    <button class="ui small green right floated button allowSelectDefaultThemes" onclick="applyWallpaper();"><i class="checkmark icon"></i> Apply Wallpaper</button>
+                    <br><br><br>
+                    <div class="ui green segment" style="display:none" id="wallpaperChangeConfirm">
+                        <h4 class="ui header">
+                            <i class="checkmark green icon"></i>
+                            <div class="content">
+                            Wallpaper Updated
+                            <div class="sub header">You should be seeing your desktop wallpaper change in a moment.</div>
+                            </div>
+                        </h4>
+                    </div>
+
+                    <!-- Wallpaper change interval-->
+                    <div class="ui divider"></div>
+                    <h4 class="ui header">
+                        Wallpaper Interval
+                        <div class="sub header">Set the interval between the wallpaper image cycles.</div>
+                    </h4>
+                    <select id="changeInterval" class="ui fluid dropdown" onchange="handleIntervalChange(this.value);">
+                        <option value="10">10 seconds</option>
+                        <option value="30">30 seconds</option>
+                        <option value="60">60 seconds</option>
+                        <option value="180">3 minutes</option>
+                        <option value="300">5 minutes</option>
+                        <option value="600">10 minutes</option>
+                        <option value="1800">30 minutes</option>
+                        <option value="3600">1 hour</option>
+                    </select>
+
+                    <div class="ui green segment" style="display:none" id="interfaceChangeConfirm">
+                        <h4 class="ui header">
+                            <i class="checkmark green icon"></i>
+                            <div class="content">
+                            Wallpaper Interval Updated
+                            <div class="sub header">This setting will only apply to this browser</div>
+                            </div>
+                        </h4>
+                    </div>
+                </div>
+                <br><br><br>
+            </div>
+            <div class="ui tab" data-tab="theme">
+                <!-- Theme Color Related !-->
+                <br>
+                <div class="ui container">
+                    <h3 class="ui header">
+                        <i class="paint brush icon"></i>
+                        <div class="content">
+                            Theme Color
+                            <div class="sub header">Change the system theme color settings</div>
+                        </div>
+                    </h3>
+
+                    <div class="ui divider"></div>
+                    <p>Work In Progress</p>
+                </div>
+            </div>
+            <div class="ui tab" data-tab="advance">
+                <!-- Advance User Customization !-->
+                <br>
+                <div class="ui container">
+                    <h3 class="ui header">
+                        <i class="setting icon"></i>
+                        <div class="content">
+                            Advance Customization
+                            <div class="sub header">Manage your desktop preferences</div>
+                        </div>
+                    </h3>
+                    <div class="ui divider"></div>
+                    <h4 class="ui header">
+                        User Defined Wallpaper
+                        <div class="sub header">Advanced user customization function for desktop interface</div>
+                    </h4>
+                    <h3 id="userSelectedFolderPath">Disabled</h3>
+                    <p>If you have set a folder for loading desktop wallpapers, the image files from that folder will be used instead of the system build in wallpapers.</p>
+                    <button class="ui small right floated button" onclick="clearUserSelectedFolder();"><i class="remove icon"></i> Clear Selection</button>
+                    <button class="ui small black right floated button" onclick="selectUserFolder();"><i class="folder open icon"></i> Select Folder</button>
+        
+                    <br><br>
+                </div>
+                
+            </div>
+        </div>
+        <br><br>
+        <script>
+            var desktopThemeList = [];
+            var isStartingUp = true;
+
+            $(".dropdown").dropdown();
+            $('.tabular.menu .item').tab();
+
+
+            //Startup process
+            initDefaultBackgroundChangeValue();
+            initUserDefinedWallpaperFolder(function(themeName){
+                initCurrentBackgroundPreview(themeName);
+            });
+
+            //Return the data stored in the theme settings
+            //Will return either theme pack name or path for user defined folder
+            function initUserDefinedWallpaperFolder(callback = undefined){
+                $.get("../../system/desktop/theme?get=true", function(data) {
+                    if (data.includes(":/")){
+                        //This is a path
+                        $("#userSelectedFolderPath").text(data);
+                        $(".allowSelectDefaultThemes").addClass("disabled");
+                    }else{
+                        $("#userSelectedFolderPath").text("Disabled");
+                    }
+
+                    if (callback != undefined){
+                        callback(data);
+                    }
+                    
+                });
+            }
+            
+
+            function initDefaultBackgroundChangeValue(){
+                if (localStorage.getItem("ao/desktop/backgroundInterval") == null){
+                    //No background interval set.
+                    $("#changeInterval").dropdown("set selected", "30");
+                }else{
+                    //There is already a setting for background interval change. Use that instead
+                    var changeInterval = localStorage.getItem("ao/desktop/backgroundInterval");
+                    $("#changeInterval").dropdown("set selected", changeInterval);
+                }
+            }
+
+            //Change the interval to the given 
+            function handleIntervalChange(newInterval){
+                //Show change finsihed
+                if (isStartingUp){
+                    //Ignore startup change
+                    return;
+                }
+
+                //Save interval to localStorage
+                localStorage.setItem("ao/desktop/backgroundInterval", newInterval)
+                $("#interfaceChangeConfirm").slideDown('fast').delay(3000).slideUp('fast');
+
+                //Restart desktop background changer interval
+                if (ao_module_virtualDesktop){
+                    console.log("Restarting desktop background changer interval")
+                    parent.clearInterval(parent.backgroundIntervalCounter);
+                    parent.initBackgroundSwitchingAnimation();
+                }
+                
+            }
+
+            function selectUserFolder(){
+                ao_module_openFileSelector(folderSelected, undefined,"folder",false);
+            }
+
+            function folderSelected(filedata){
+                for (var i=0; i < filedata.length; i++){
+                    var filename = filedata[i].filename;
+                    var filepath = filedata[i].filepath;
+
+                    //Save the overwrite folder path
+                    $("#userSelectedFolderPath").text(filepath);
+                    $.get("../../system/desktop/theme?set=" + filepath, function(data) {
+                         //Reload desktop background pack
+                         if (ao_module_virtualDesktop){
+                            parent.changeDesktopTheme(filepath);
+                         }
+
+                         //Disable change to system build in themes
+                         $(".allowSelectDefaultThemes").addClass("disabled");
+
+                         //Load the preview
+                         initCurrentBackgroundPreview();
+                    });
+                }
+            }
+
+            function clearUserSelectedFolder(){
+                //Clear user selected folder
+                $.get("../../system/desktop/theme?set=default", function(data) {
+                         //Reload desktop background pack
+                         if (ao_module_virtualDesktop){
+                            parent.changeDesktopTheme("default");
+                         }
+
+                          //Re-enable the default theme seelct
+                        $(".allowSelectDefaultThemes").removeClass("disabled");
+                        $("#userSelectedFolderPath").text("Disabled");
+
+                        initUserDefinedWallpaperFolder();
+                        initCurrentBackgroundPreview();
+                    });
+            }
+
+            function initCurrentBackgroundPreview(){
+                //Get the list of theme in the system
+                $.get("../../system/desktop/theme", function(data) {
+                    desktopThemeList = data;
+                    //Generate the wallpaper list
+                    $("#wallpaperlist").html("");
+                    var deftaultData = "";
+                    desktopThemeList.forEach(themepack => {
+                        var encodedData = encodeURIComponent(JSON.stringify(themepack));
+                        var themeName = themepack.Theme.charAt(0).toUpperCase() + themepack.Theme.slice(1);
+                        $("#wallpaperlist").append(`<option value="${encodedData}">${themeName}</option>`);
+                        if (themepack.Theme == "default"){
+                            deftaultData = encodedData;
+                        }
+                    });
+
+                    //Get the one the user is currently using
+                    $.get("../../system/desktop/theme?get=true", function(data) {
+                        //Get the user theme settings
+                        $(".backgroundpreview").attr('src','../../img/desktop/bg/nobg.jpg');
+                        
+
+                        //Check if the theme is custom path
+                        if (data.includes(":/")){
+                            //Is path. Load path preview
+                            $.get("../../system/desktop/theme?load=" + data, function(imagelist){
+                                //Load background preview
+                                loadBackgroundPreviewForCustomFolder(imagelist);
+                                 //End of startup process
+                                isStartingUp = false;
+                            });
+                        }else{
+                            //Check if the theme exists
+                            var themeExists = false;
+                            var targetThemeObject;
+                            desktopThemeList.forEach(theme => {
+                                if (theme.Theme == data){
+                                    //Theme exists
+                                    themeExists = true;
+                                    targetThemeObject = theme;
+                                }
+                            });
+
+                            if (themeExists == false){
+                                //This theme not exists. Do not load preview
+                                $("#wallpaperlist").dropdown("set selected","Default");
+                            }else{
+                                loadBackgroundPreview(targetThemeObject);
+                                var themeName = data.charAt(0).toUpperCase() + data.slice(1)
+                                $("#wallpaperlist").dropdown("set selected",themeName);
+                            }
+                            
+                            //End of startup process
+                            isStartingUp = false;
+                        }
+                    });
+                });
+            }
+
+            function loadBackgroundPreviewForCustomFolder(imageList){
+                $("#backgroundPreviewList").html("");
+                $("#mainBackground").attr("src","../../media/?file=" + imageList[0]);
+                
+                for (var i = 1; i < imageList.length; i++){
+                    $("#backgroundPreviewList").append(`<div class="four wide column">
+                        <img class="ui fluid image backgroundpreview" src="${"../../media/?file=" + imageList[i]}">
+                    </div>`);
+                }
+            }
+
+            function loadBackgroundPreview(targetThemeObject){
+                $("#backgroundPreviewList").html("");
+                var imageList = targetThemeObject.Bglist;
+                $("#mainBackground").attr("src","../../img/desktop/bg/" + targetThemeObject.Theme + "/" + imageList[0]);
+                
+                for (var i = 1; i < imageList.length; i++){
+                    $("#backgroundPreviewList").append(`<div class="four wide column">
+                        <img class="ui fluid image backgroundpreview" src="${"../../img/desktop/bg/" + targetThemeObject.Theme + "/" + imageList[i]}">
+                    </div>`);
+                }
+            }
+
+            function handleBackgroundSelectionChange(value){
+                var targetThemeObject = JSON.parse(decodeURIComponent(value));
+                loadBackgroundPreview(targetThemeObject);
+            }
+
+            function applyWallpaper(){
+                var targetWallpaper =JSON.parse(decodeURIComponent($("#wallpaperlist").val()));
+                $.get("../../system/desktop/theme?set=" + targetWallpaper.Theme, function(data) {
+                    if (ao_module_virtualDesktop == true){
+                        parent.changeDesktopTheme(targetWallpaper.Theme);
+                    }
+                    if (data.includes("Error")) {
+                        console.log(data);
+                        return;
+                    }
+
+                    //Reload the preview
+                    initCurrentBackgroundPreview();
+
+                    //Show change finsihed
+                    $("#wallpaperChangeConfirm").slideDown('fast').delay(3000).slideUp('fast');
+                });
+            }
+        </script>
+    </body>
+</html>

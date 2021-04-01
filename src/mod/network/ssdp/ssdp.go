@@ -158,15 +158,10 @@ func getFirstNetworkInterfaceName() (string, error) {
 }
 
 func pkg_exists(pkgname string) bool {
-	cmd := exec.Command("whereis", pkgname)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
+	cmd := exec.Command("which", pkgname)
+	out, _ := cmd.CombinedOutput()
 
-	packageInfo := strings.Split(strings.TrimSpace(string(out)), ":")
-	//log.Println(packageInfo)
-	if len(packageInfo) > 1 && packageInfo[1] != "" {
+	if len(string(out)) > 1 {
 		return true
 	} else {
 		return false

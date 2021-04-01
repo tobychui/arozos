@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	console "imuslab.com/arozos/mod/console"
+	"imuslab.com/arozos/mod/network/gzipmiddleware"
 )
 
 /*
@@ -111,7 +112,13 @@ func main() {
 
 	//Initiate all the static files transfer
 	fs := http.FileServer(http.Dir("./web"))
-	http.Handle("/", mroutner(fs))
+	if *enable_gzip {
+		//Gzip enabled. Always serve with gzip if header exists
+		http.Handle("/", gzipmiddleware.Compress(mrouter(fs)))
+	} else {
+		//Normal file server without gzip
+		http.Handle("/", mrouter(fs))
+	}
 
 	//Set database read write to ReadOnly after startup if demo mode
 	if *demo_mode {

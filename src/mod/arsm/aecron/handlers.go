@@ -151,8 +151,8 @@ func (a *Aecron) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 	//Write current job lists to file
 	a.jobs = append(a.jobs, &newJob)
 
-	js, _ := json.Marshal(a.jobs)
-	js = []byte(pretty.Pretty(js))
+	js, _ := json.MarshalIndent(a.jobs, "", " ")
+
 	ioutil.WriteFile(a.cronfile, js, 0755)
 
 	//OK

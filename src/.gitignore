@@ -32,12 +32,16 @@ system/aecron/*.log
 web/teleprompter/*
 
 #Subservice related
-subservice/backup/.suspended
-subservice/backup/backup/.suspended
-subservice/aprint
-subservice/aprint/*
-subservice/minecraft/*
-subservice/octave/*
+subservice/*
+
+!subservice/ArSamba
+!subservice/ArSamba/*
+
+!subservice/demo
+!subservice/demo/*
+
+!subservice/WsTTY/
+!subservice/WsTTY/*
 
 #Binary related
 build/*
@@ -46,3 +50,4 @@ aroz_online
 arozos.exe
 */arozos.exe
 arozos
+upx.exe

@@ -178,10 +178,7 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 	newConfig = append(newConfig, options)
 
 	//Write config back to file
-	js, _ := json.Marshal(newConfig)
-
-	//Beautify the JSON output
-	js = []byte(pretty.Pretty(js))
+	js, _ := json.MarshalIndent(newConfig, "", " ")
 	return ioutil.WriteFile(targerFile, js, 0755)
 }
 

@@ -149,7 +149,11 @@
                         parent.initModuleList();
 
                         //Update the list
-                        initSubserviceList();
+                        setTimeout(function(){
+                            //Allow 1 seconds to it to startup
+                            initSubserviceList();
+                        }, 1000);
+                        
                     }
                 });
             }

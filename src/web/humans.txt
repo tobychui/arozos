@@ -1,0 +1,1 @@
+ArozOS is a web desktop online system that provide native desktop like experience through the latest web technology. Protecting your privacy while reducing your dependencies over large company's cloud service. If you'd like to help us out, see github.com/tobychui/arozos.

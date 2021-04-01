@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net/http"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
@@ -20,7 +21,7 @@ func realpathToVirtualpath(path string, u *user.User) (string, error) {
 }
 
 //Inject user based functions into the virtual machine
-func (g *Gateway) injectUserFunctions(vm *otto.Otto, u *user.User) {
+func (g *Gateway) injectUserFunctions(vm *otto.Otto, u *user.User, w http.ResponseWriter, r *http.Request) {
 	username := u.Username
 	vm.Set("USERNAME", username)
 	vm.Set("USERICON", u.GetUserIcon())
@@ -252,18 +253,24 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
-		//Check if the library name exists. If yes, run the initiation script on the vm
-		if entryPoint, ok := g.LoadedAGILibrary[libname]; ok {
-			entryPoint(vm, u)
-			reply, _ := vm.ToValue(true)
-			return reply
+		//Handle special case on high level libraries
+		if libname == "websocket" && w != nil && r != nil {
+			g.injectWebSocketFunctions(vm, u, w, r)
+			return otto.TrueValue()
 		} else {
-			//Lib not exists
-			log.Println("Lib not found: " + libname)
-			reply, _ := vm.ToValue(false)
-			return reply
+			//Check if the library name exists. If yes, run the initiation script on the vm
+			if entryPoint, ok := g.LoadedAGILibrary[libname]; ok {
+				entryPoint(vm, u)
+				return otto.TrueValue()
+			} else {
+				//Lib not exists
+				log.Println("Lib not found: " + libname)
+				return otto.FalseValue()
+			}
 		}
 
+		//Unknown status
+		return otto.FalseValue()
 	})
 
 }

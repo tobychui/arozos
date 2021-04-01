@@ -51,6 +51,7 @@ var allow_upnp = flag.Bool("allow_upnp", false, "Enable uPNP service, recommende
 var allow_ssdp = flag.Bool("allow_ssdp", true, "Enable SSDP service, disable this if you do not want your device to be scanned by Windows's Network Neighborhood Page")
 var allow_mdns = flag.Bool("allow_mdns", true, "Enable MDNS service. Allow device to be scanned by nearby ArOZ Hosts")
 var disable_ip_resolve_services = flag.Bool("disable_ip_resolver", false, "Disable IP resolving if the system is running under reverse proxy environment")
+var enable_gzip = flag.Bool("gzip", true, "Enable gzip compress on file server")
 
 //Flags related to Security
 var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving")
@@ -87,3 +88,7 @@ var allow_homepage = flag.Bool("enable_homepage", false, "Redirect not logged in
 //Scheduling and System Service Related
 var nightlyTaskRunTime = flag.Int("ntt", 3, "Nightly tasks execution time. Default 3 = 3 am in the morning")
 var maxTempFileKeepTime = flag.Int("tmp_time", 86400, "Time before tmp file will be deleted in seconds. Default 86400 seconds = 24 hours")
+
+//Flags related to ArozOS Cluster services
+var allow_clustering = flag.Bool("allow_cluster", true, "Enable cluster operations within LAN. Require allow_mdns=true flag")
+var allow_iot = flag.Bool("allow_iot", true, "Enable IoT related APIs and scanner. Require MDNS enabled")

@@ -1,6 +1,7 @@
 package usageinfo
 
 import (
+	"math"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -14,6 +15,10 @@ import (
 	This module get the CPU information on different platform using
 	native terminal commands
 */
+
+const query_cpuproc_command = "ps -eo pcpu,pid,user,args | sort -k 1 -r | head -10"
+const query_freemem_command = "top -d1 | sed '4q;d' | awk '{print $(NF-1)}'"
+const query_phymem_command = "sysctl hw.physmem | awk '{print $NF}'"
 
 //Get CPU Usage in percentage
 func GetCPUUsage() float64 {
@@ -30,9 +35,10 @@ func GetCPUUsage() float64 {
 			usage = 0
 		}
 		usage = s
-	} else if runtime.GOOS == "linux" {
-		//Get CPU processes
-		cmd := exec.Command("bash", "-c", "ps -eo pcpu,pid,user,args | sort -k 1 -r | head -10")
+	} else if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" {
+
+		//Get CPU first 10 processes uses most CPU resources
+		cmd := exec.Command("bash", "-c", query_cpuproc_command)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			usage = 0
@@ -52,14 +58,22 @@ func GetCPUUsage() float64 {
 			}
 		}
 
-		//Get CPU Core Counts
-		cmd = exec.Command("nproc")
+		// Prepare queryNCPUCommnad for core count query
+		queryNCPUCommand := ""
+		if runtime.GOOS == "linux" {
+			queryNCPUCommand = "nproc"
+		} else if runtime.GOOS == "freebsd" {
+			queryNCPUCommand = "sysctl hw.ncpu | awk '{print $NF}'"
+		}
+
+		// Get CPU core count
+		cmd = exec.Command(queryNCPUCommand)
 		out, err = cmd.CombinedOutput()
 		if err != nil {
 			return usageCounter
 		}
 
-		//Divide the process usage by core count
+		// Divide total CPU usage by processes by total CPU core count
 		coreCount, err := strconv.Atoi(string(out))
 		if err != nil {
 			coreCount = 1
@@ -69,9 +83,9 @@ func GetCPUUsage() float64 {
 		if usage > float64(100) {
 			usage = 100
 		}
-	} else {
-		//Not supported
 
+	} else {
+		// CPU Usage Not supported on this platform
 	}
 
 	return usage
@@ -140,6 +154,42 @@ func GetRAMUsage() (string, string, float64) {
 			return usedRam, totalRam, usedPercentage
 		}
 
+	} else if runtime.GOOS == "freebsd" {
+
+		// Get usused memory size (free)
+		cmd := exec.Command("bash", "-c", query_freemem_command)
+		freeMemByteArr, err := cmd.CombinedOutput()
+		if err != nil {
+			return usedRam, totalRam, usedPercentage
+		}
+		freeMemStr := string(freeMemByteArr)
+		freeMemStr = strings.ReplaceAll(freeMemStr, "\n", "")
+		freeMemSize, err := strconv.ParseFloat(strings.ReplaceAll(string(freeMemStr), "M", ""), 10)
+
+		// Get phy memory size
+		cmd = exec.Command("bash", "-c", query_phymem_command)
+		phyMemByteArr, err := cmd.CombinedOutput()
+		if err != nil {
+			return usedRam, totalRam, usedPercentage
+		}
+
+		phyMemStr := string(phyMemByteArr)
+		phyMemStr = strings.ReplaceAll(phyMemStr, "\n", "")
+
+		// phyMemSize in MB
+		phyMemSizeFloat, err := strconv.ParseFloat(phyMemStr, 10)
+		phyMemSizeFloat = phyMemSizeFloat / 1048576
+		phyMemSizeFloat = math.Floor(phyMemSizeFloat)
+		totalRam = strconv.FormatFloat(phyMemSizeFloat, 'f', -1, 64) + "MB"
+
+		// Used memory
+		usedRAMSizeFloat := phyMemSizeFloat - freeMemSize
+		usedRAMSizeFloat = math.Floor(usedRAMSizeFloat)
+		usedRam = strconv.FormatFloat(usedRAMSizeFloat, 'f', -1, 64) + "MB"
+
+		usedPercentage = usedRAMSizeFloat / phyMemSizeFloat * 100
+
+		return usedRam, totalRam, usedPercentage
 	}
 
 	return usedRam, totalRam, usedPercentage

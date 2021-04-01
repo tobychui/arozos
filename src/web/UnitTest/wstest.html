@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <title>WebSocket Test</title>
+    </head>
+    <body>
+        <br><br>
+        <div class="ui container">
+            <h3>WebSocket Testing Interface</h3>
+            <div class="ui form">
+                <div class="field">
+                    <label>Recv</label>
+                    <textarea id="incoming"></textarea>
+                </div>
+                <div class="field">
+                    <label>Send</label>
+                    <input type="text" id="sendMsg">
+                </div>
+                <div class="field">
+                   <button class="ui blue button" onclick="sendws();">Send</button>
+                </div>
+            </div>
+            <br>
+            <button class="ui button" onclick="openws();">Open Connection</button>
+        </div>
+
+        <script>
+            var ws;
+
+            $(window).ready(function(){
+                $("#incoming").val("");
+            });
+
+            //Send WebSocket
+            function sendws(){
+                var value = $("#sendMsg").val();
+                ws.send(value);
+                log("✉️ " + value)
+                $("#sendMsg").val("");
+            }
+
+            //Open WebSocket connection to test script
+            function openws(){
+                log("⏱️ Opening WebSocket...");
+                let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=UnitTest/special/websocket.js");
+                ws = socket;
+
+                socket.onopen = function(e) {
+                    log("✔️ Socket Opened");
+                };
+
+                socket.onmessage = function(event) {
+                    log(`✔️ Received: ${event.data}`);
+                };
+
+                socket.onclose = function(event) {
+                    if (event.wasClean) {
+                        log(`📪 Connection Closed Cleanly code=${event.code} reason=${event.reason}`);
+                    } else {
+                        // e.g. server process killed or network down
+                        // event.code is usually 1006 in this case
+                        log(`❌ Connection Closed Unexpectedly`);
+                    }
+                };
+
+                socket.onerror = function(error) {
+                    log(`❌ ERROR! ${error.message}`);
+                };
+            }
+
+            function log(content){
+                $("#incoming").val($("#incoming").val() + content + "\n");
+                $("#incoming").scrollTop($("#incoming")[0].scrollHeight);
+            }
+
+            function getWSEndpoint(){
+                //Open opeartion in websocket
+                let protocol = "wss://";
+                if (location.protocol !== 'https:') {
+                    protocol = "ws://";
+                }
+                wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port);
+                return wsControlEndpoint;
+            }
+        </script>
+    </body>
+</html>

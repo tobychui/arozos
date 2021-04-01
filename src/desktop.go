@@ -424,16 +424,18 @@ func desktop_fileLocation_handler(w http.ResponseWriter, r *http.Request) {
 ////////////////////////////////   END OF DESKTOP FILE ICON HANDLER ///////////////////////////////////////////////////
 
 func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
-	username, err := authAgent.GetUserName(w, r)
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		sendErrorResponse(w, "User not logged in")
 		return
 	}
+	username := userinfo.Username
 
 	//Check if the set GET paramter is set.
 	targetTheme, _ := mv(r, "set", false)
 	getUserTheme, _ := mv(r, "get", false)
-	if targetTheme == "" && getUserTheme == "" {
+	loadUserTheme, _ := mv(r, "load", false)
+	if targetTheme == "" && getUserTheme == "" && loadUserTheme == "" {
 		//List all the currnet themes in the list
 		themes, err := filepath.Glob("web/img/desktop/bg/*")
 		if err != nil {
@@ -493,6 +495,52 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 			sendJSONResponse(w, string("\""+result+"\""))
 			return
 		}
+	} else if loadUserTheme != "" {
+		//Load user theme base on folder path
+		rpath, err := userinfo.VirtualPathToRealPath(loadUserTheme)
+		if err != nil {
+			sendErrorResponse(w, "Custom folder load failed")
+			return
+		}
+
+		//Check if the folder exists
+		if !fileExists(rpath) {
+			sendErrorResponse(w, "Custom folder load failed")
+			return
+		}
+
+		if userinfo.CanRead(loadUserTheme) == false {
+			//No read permission
+			sendErrorResponse(w, "Permission denied")
+			return
+		}
+
+		//Scan for jpg, gif or png
+		imageList := []string{}
+		scanPath := filepath.ToSlash(filepath.Clean(rpath)) + "/"
+		pngFiles, _ := filepath.Glob(scanPath + "*.png")
+		jpgFiles, _ := filepath.Glob(scanPath + "*.jpg")
+		gifFiles, _ := filepath.Glob(scanPath + "*.gif")
+
+		//Merge all 3 slice into one image list
+		imageList = append(imageList, pngFiles...)
+		imageList = append(imageList, jpgFiles...)
+		imageList = append(imageList, gifFiles...)
+
+		//Convert the image list back to vpaths
+		virtualImageList := []string{}
+		for _, image := range imageList {
+			vpath, err := userinfo.RealPathToVirtualPath(image)
+			if err != nil {
+				continue
+			}
+
+			virtualImageList = append(virtualImageList, vpath)
+		}
+
+		js, _ := json.Marshal(virtualImageList)
+		sendJSONResponse(w, string(js))
+
 	} else if targetTheme != "" {
 		//Set the current user theme
 		sysdb.Write("desktop", username+"/theme", targetTheme)

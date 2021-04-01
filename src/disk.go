@@ -106,8 +106,6 @@ func DiskServiceInit() {
 				*/
 
 				adminRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
-				adminRouter.HandleFunc("/system/disk/smart/getSMARTTable", smartListener.CheckDiskTable)
-				adminRouter.HandleFunc("/system/disk/smart/getLogInfo", smartListener.CheckDiskTestStatus)
 			}
 		}
 

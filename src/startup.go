@@ -44,15 +44,14 @@ func RunStartup() {
 	RegisterSystemInit()   //See register.go
 	GroupStoragePoolInit() //Register permission groups's storage pool, require permissionInit()
 
-	//6.Start Modules and Package Manager
+	//6. Start Modules and Package Manager
 	ModuleServiceInit() //Module Handler
 	PackagManagerInit() //Start APT service agent
 
 	//7. Kickstart the File System and Desktop
-	FileSystemInit()     //Start FileSystem
-	DesktopInit()        //Start Desktop
-	HardwarePowerInit()  //Start host power manager
-	WebsocketShellInit() //Start WebSocket tty server
+	FileSystemInit()    //Start FileSystem
+	DesktopInit()       //Start Desktop
+	HardwarePowerInit() //Start host power manager
 
 	//8 Start AGI and Subservice modules (Must start after module)
 	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
@@ -86,6 +85,7 @@ func RunStartup() {
 	FTPServerInit() //Start FTP Server Endpoints
 	WebDAVInit()    //Start WebDAV Endpoint
 	ClusterInit()   //Start Cluster Services
+	IoTHubInit()    //Inialize ArozOS IoT Hub module
 
 	ModuleInstallerInit() //Start Module Installer
 

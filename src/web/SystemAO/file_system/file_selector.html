@@ -57,6 +57,7 @@
                 text-overflow: ellipsis !important;
                 overflow: hidden;
                 color:black;
+                user-select: none;
             }
             .fileObject.selected{
                 background-color:#d2f2f7 !important;
@@ -341,8 +342,8 @@
                                 icon = "folder";
                             }
                             var fileSize = folders[i].Displaysize;
-                            $("#folderList").append(`<div class="fileObject item" fid="${count}" ondblclick="openFolder(this);" onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
-                                <span class="fileInfo" ><i class="${icon} icon" style="margin-right:12px;"></i> ${filename}</span>
+                            $("#folderList").append(`<div class="fileObject item" fid="${count}" ondblclick="openFolder(event,this);" onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
+                                <span class="fileInfo"><i class="${icon} icon" style="margin-right:4px;"></i> ${filename}</span>
                             </div>`);
                             count++;
                         }
@@ -361,7 +362,7 @@
                             }
                             var fileSize = files[i].Displaysize;
                             $("#fileList").append(`<div class="fileObject item" fid="${count}"  ondblclick="chooseThisFile(this);"  onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
-                                <span class="fileInfo"><i class="${icon} icon" style="margin-right:12px;"></i> ${filename}</span>
+                                <span class="fileInfo"><i class="${icon} icon" style="margin-right:4px;margin-top: 2px;"></i> ${filename}</span>
                             </div>`);
                             count++;
                         }
@@ -375,7 +376,8 @@
             }
 
             //Open folder
-            function openFolder(object){
+            function openFolder(event, object){
+                event.preventDefault();
                 var filepath = $(object).attr("filepath");
                 filepath = decodeURIComponent(filepath);
                 listDir(filepath);

@@ -270,13 +270,16 @@
         var formatPendingDevInfo;
         
         //Init floatWindow events
+      	//It is a submodule inside System Setting, which shouldn't change the window title
+      	/*
         if (ao_module_virtualDesktop){
             ao_module_setWindowTitle("Disk Manager");
             fwmode = true;
         }else{
             
         }
-        
+        */
+      
         //Updates Nov 2020, added platform detection
         $.get(ao_root + "system/disk/diskmg/platform", function(data){
             if (data == "windows"){

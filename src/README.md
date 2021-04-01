@@ -1,13 +1,16 @@
-# ArOZ Online
+# ArozOS
 
-This is the go implementation of ArOZ Online Web Desktop environment, perfect for Linux server usage.
+This is the go implementation of ArozOS (aka ArOZ Online) Web Desktop environment,designed to run on linux, but somehow still works on Windows and Mac OS
 
 ## Development Notes
 
-WIP
+- Start each module with {ModuleName}Init() function, e.g. ```WiFiInit()```
+- Put your function in module (if possible) and call it in the main program
+- Do not change the sequence in the startup() function unless necessary
+- When in doubt, add startup flags (and use startup flag to disable experimental functions on startup)
 
 ## ArOZ JavaScript Gateway Interface / Plugin Loader
-The ArOZ AJGI / AGI interface provide a javascript programmable interface for ArOZ Online users to create 
+The ArOZ AJGI / AGI interface provide a JavaScript programmable interface for ArozOS users to create 
 plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
 (also named the module root). See more details in the [AJGI Documentation](AJGI Documentation.md).
 
@@ -19,12 +22,13 @@ For example, you have a module that provides web ui named "demo.exe",
 then your should put the demo.exe into "./subservice/demo/demo.exe".
 
 In the case of Linux environment, the subservice routine will first if the 
-module is installed via apt-get by checking with the "whereis" program.
+module is installed via apt-get by checking with the "which" program. (If you got busybox, it should be built in)
 If the package is not found in the apt list, the binary of the program will be searched
 under the subservice directory.
 
 Please follow the naming convention given in the build.sh template.
-For example, the corrisponding platform will search for the corrisponding binary excutable filename:
+For example, the corresponding platform will search for the corresponding binary excitable filename:
+
 ```
 demo_linux_amd64	=> Linux AMD64
 demo_linux_arm		=> Linux ARMv6l / v7l
@@ -33,14 +37,15 @@ demo_macOS_amd64	=> MacOS AMD64 (Not tested)
 ```
 
 ### Startup Flags
-During the tartup of the subservice, two paramters will be passed in. Here are the examples
+During the startup of the subservice, two types of parameter will be passed in. Here are the examples
 ```
 demo.exe -info
-demo.exe -port 12810
+demo.exe -port 12810 -rpt "http://localhost:8080/api/ajgi/interface"
 ```
 
-In the case of reciving the "info" flag, the program should print the JSON string with correct module information
+In the case of receiving the "info" flag, the program should print the JSON string with correct module information
 as stated in the struct below.
+
 ```
 //Struct for storing module information
 type serviecInfo struct{
@@ -82,7 +87,7 @@ fmt.Println(string(infoObject))
 os.Exit(0);
 ```
 
-When reciving the port flag, the program should start the web ui at the given port. The following is an example for 
+When receiving the port flag, the program should start the web ui at the given port. The following is an example for 
 the implementation of such functionality.
 
 ```
@@ -103,7 +108,7 @@ use the following setting files.
 ```
 .noproxy		=> Do not start a proxy to the given port
 .startscript	=> Send the launch parameter to the "start.bat" or "start.sh" file instead of the binary executable
-.suspended		=> Do not load this subservice during startup. But the user can enable it via the setting interface
+.disabled		=> Do not load this subservice during startup. But the user can enable it via the setting interface
 ```
 
 Here is an example "start.bat" used in integrating Syncthing into ArOZ Online System with ".startscript" file placed next
@@ -123,16 +128,16 @@ sudo ./aroz_online_linux_amd64
 
 ```
 
-And then you can create a new file called "aroz-online.service" in /etc/systemd/system with the following contents (Assume your aroz online root is at /home/pi/aroz_online)
+And then you can create a new file called "arozos.service" in /etc/systemd/system with the following contents (Assume your aroz online root is at /home/pi/arozos)
 
 ```
 [Unit]
-Description=ArOZ Online Cloud Desktop Service.
+Description=ArozOS Cloud Desktop Service.
 
 [Service]
 Type=simple
-WorkingDirectory=/home/pi/aroz_online/
-ExecStart=/bin/bash /home/pi/aroz_online/start.sh
+WorkingDirectory=/home/pi/arozos/
+ExecStart=/bin/bash /home/pi/arozos/start.sh
 
 Restart=always
 RestartSec=10
@@ -141,21 +146,19 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-Finally to enable the service, use the following systemd commnads
+Finally to enable the service, use the following systemd commands
 
 ```
 #Enable the script during the startup process
-sudo systemctl enable aroz-online.service
+sudo systemctl enable arozos.service
 
 #Start the service now
-sudo systemctl start aroz-online.service
+sudo systemctl start arozos.service
 
 #Show the status of the service
-systemctl status aroz-online.service
+systemctl status arozos.service
 
 
 #Disable the service if you no longer want it to start during boot
 sudo systemctl disable aroz-online.service
 ```
-
-See more on how to use systemd over here: https://www.digitalocean.com/community/tutorials/how-to-use-systemctl-to-manage-systemd-services-and-units

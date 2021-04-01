@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/oliamb/cutter"
 )
@@ -85,13 +84,10 @@ func pkg_exists(pkgname string) bool {
 		}
 		return true
 	} else if runtime.GOOS == "linux" {
-		cmd := exec.Command("whereis", pkgname)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return false
-		}
-		packageInfo := strings.Split(strings.TrimSpace(string(out)), ":")
-		if len(packageInfo) > 1 && packageInfo[1] != "" {
+		cmd := exec.Command("which", pkgname)
+		out, _ := cmd.CombinedOutput()
+
+		if len(string(out)) > 1 {
 			return true
 		} else {
 			return false

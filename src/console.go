@@ -129,6 +129,24 @@ func consoleCommandHandler(input string) string {
 			jsonString, _ := json.Marshal(userHandler.GetStoragePool())
 			return string(jsonString)
 		}
+	} else if len(chunk) > 0 && chunk[0] == "scan" {
+		if matchSubfix(chunk, []string{"scan", "all"}, 2, "") {
+			//scan all nearby arozos units
+			fmt.Println("Scanning (Should take around 10s)")
+			hosts := MDNS.Scan(10, "")
+			for _, host := range hosts {
+				fmt.Println(host)
+			}
+			return "OK"
+		} else if matchSubfix(chunk, []string{"scan", "aroz"}, 2, "") || matchSubfix(chunk, []string{"scan", "arozos"}, 2, "") {
+			//scan all nearby arozos units
+			fmt.Println("Scanning nearybe ArozOS Hosts (Should take around 10s)")
+			hosts := MDNS.Scan(10, "arozos.com")
+			for _, host := range hosts {
+				fmt.Println(host)
+			}
+			return "OK"
+		}
 	} else if len(chunk) > 0 && chunk[0] == "find" {
 		if matchSubfix(chunk, []string{"find", "module"}, 3, "list module {modulename}") {
 			//Display all loaded modules

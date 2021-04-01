@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"imuslab.com/arozos/mod/cluster/aclient"
 	"imuslab.com/arozos/mod/network/neighbour"
 	prout "imuslab.com/arozos/mod/prouter"
 )
@@ -55,6 +56,16 @@ func ClusterInit() {
 		})
 
 		router.HandleFunc("/system/cluster/scan", NeighbourDiscoverer.HandleScanningRequest)
+
+		/*
+			Start and Cluster Server and Client
+		*/
+
+		if *allow_clustering {
+			aclient.NewClient(aclient.AclientOption{
+				MDNS: MDNS,
+			})
+		}
 
 	} else {
 		log.Println("MDNS not enabled or startup failed. Skipping Cluster Scanner initiation.")

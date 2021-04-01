@@ -123,7 +123,7 @@ func (g *Gateway) RegisterLib(libname string, entryPoint AgiLibIntergface) error
 }
 
 func (g *Gateway) raiseError(err error) {
-	log.Println("[Runtime Error (AGI Engine)] " + err.Error())
+	log.Println("*AGI Engine* [Runtime Error] " + err.Error())
 
 	//To be implemented
 }
@@ -234,7 +234,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scri
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, thisuser)
+	g.injectUserFunctions(vm, thisuser, w, r)
 
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
@@ -289,7 +289,7 @@ func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.Use
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, targetUser)
+	g.injectUserFunctions(vm, targetUser, nil, nil)
 
 	//Try to read the script content
 	scriptContent, err := ioutil.ReadFile(scriptFile)

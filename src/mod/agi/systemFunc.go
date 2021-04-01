@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/robertkrimen/otto"
 )
@@ -335,5 +336,17 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 
 			return otto.TrueValue()
 		})
+
 	}
+
+	//Delay, sleep given ms
+	vm.Set("delay", func(call otto.FunctionCall) otto.Value {
+		delayTime, err := call.Argument(0).ToInteger()
+		if err != nil {
+			g.raiseError(err)
+			return otto.FalseValue()
+		}
+		time.Sleep(time.Duration(delayTime) * time.Millisecond)
+		return otto.TrueValue()
+	})
 }

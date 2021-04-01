@@ -114,20 +114,23 @@
         
         .launchIconText.small {
             margin-top: -3px;
-            font-size: 80%;
-            line-height: 100%;
+            font-size: 70%;
+            line-height: 1.55em;
+            /*
+                Fixed the issue of text being trimmed off due to lineheight setting
+            */
+            font-family: sans-serif !important;
         }
         
         .launchIconText.medium {
             margin-top: -2px;
             font-size: 90%;
-            line-height: 1.4em;
+            line-height: 1.2em;
         }
         
         .launchIconText.big {
             margin-top: -6px;
-            font-size: 120%;
-            line-height: 110%;
+            font-size: 110%;
         }
         
         .navimenu {
@@ -851,6 +854,7 @@
         var currentUserTheme = ""; //The theme for current user. 
         var backgroundCrossfadeInterval = 30000; //Time between the crossfade of each background image
         var nextSlideshowIndex = 0; //The next background image index to be shown
+        var backgroundIntervalCounter; //The interval object for background changer
 
         //Desktop icon realted
         var desktopIconSize = "medium"; //Size of desktop icons. Allow {small / medium / big}
@@ -2192,6 +2196,8 @@
 
         //Initiate desktop theme list and user current theme
         function initDesktopTheme() {
+            //Update 1 April 2021: Check if the user customize the desktop with the given path
+
             $.get("system/desktop/theme", function(data) {
                 //Return a list of theme stored on the system
                 desktopThemeList = data;
@@ -2214,7 +2220,12 @@
 
         //Actiave background cross fade changing animation
         function initBackgroundSwitchingAnimation() {
-            setInterval(function() {
+            if (localStorage.getItem("ao/desktop/backgroundInterval") !== null && !isNaN(parseInt(localStorage.getItem("ao/desktop/backgroundInterval")))){
+                //Localstorage has interval setting that is not NaN
+                backgroundCrossfadeInterval = parseInt(localStorage.getItem("ao/desktop/backgroundInterval")) * 1000;
+            }
+
+            backgroundIntervalCounter = setInterval(function() {
                 $("body").css("background-image", "none").css({
                     'background-color': '#000000'
                 });
@@ -2230,33 +2241,71 @@
         //Function for changing the desktop theme
         function changeDesktopTheme(targetThemeName) {
             currentUserTheme = targetThemeName;
-            for (var i = 0; i < desktopThemeList.length; i++) {
-                var thisTheme = desktopThemeList[i];
-                if (thisTheme["Theme"] == targetThemeName) {
-                    //Use this config as the target theme
-                    currentBackgroundList = thisTheme["Bglist"];
-                    break;
-                }
-            }
-            //Initiate the background image.
-            $("#bgwrapper").html("");
-            for (var i = 0; i < currentBackgroundList.length; i++) {
-                var id = "dbg" + i;
-                var thisImage = "img/desktop/bg/" + currentUserTheme + "/" + currentBackgroundList[i];
-                $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
-            }
-            setTimeout(function() {
-                $("#dbg0").addClass("showBackground");
-            }, 300);
 
-            if (currentBackgroundList.length == 1) {
-                //There are only 1 background in this pack. Make the next slice be 0 as well.
-                nextSlideshowIndex = 0;
-            }else if (currentBackgroundList.length == 0){
-                //Background no longer exists. Change to default
-                changeDesktopTheme("default");
-            } else {
-                nextSlideshowIndex = 1;
+            if (currentUserTheme.includes(":/") == false){
+                //This is default theme pack name
+                for (var i = 0; i < desktopThemeList.length; i++) {
+                    var thisTheme = desktopThemeList[i];
+                    if (thisTheme["Theme"] == targetThemeName) {
+                        //Use this config as the target theme
+                        currentBackgroundList = thisTheme["Bglist"];
+                        break;
+                    }
+                }
+                //Initiate the background image.
+                $("#bgwrapper").html("");
+                for (var i = 0; i < currentBackgroundList.length; i++) {
+                    var id = "dbg" + i;
+                    var thisImage = "img/desktop/bg/" + currentUserTheme + "/" + currentBackgroundList[i];
+                    $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
+                }
+                setTimeout(function() {
+                    $("#dbg0").addClass("showBackground");
+                }, 300);
+
+                if (currentBackgroundList.length == 1) {
+                    //There are only 1 background in this pack. Make the next slice be 0 as well.
+                    nextSlideshowIndex = 0;
+                }else if (currentBackgroundList.length == 0){
+                    //Background no longer exists. Change to default
+                    changeDesktopTheme("default");
+                } else {
+                    nextSlideshowIndex = 1;
+                }
+            }else{
+                //This is user defined photo file
+                $.get("system/desktop/theme?load=" + targetThemeName, function(data){
+                    if (data.error !== undefined){
+                        //The folder is gone. Use default instead
+                        console.log(data.error);
+                        changeDesktopTheme("default");
+                    }else{
+                        //OK! Load it
+                        currentBackgroundList = data;
+     
+                        $("#bgwrapper").html("");
+                        for (var i = 0; i < currentBackgroundList.length; i++) {
+                            var id = "dbg" + i;
+                            var thisImage = "media/?file=" + currentBackgroundList[i];
+                            $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
+                        }
+                        setTimeout(function() {
+                            $("#dbg0").addClass("showBackground");
+                        }, 300);
+
+                        if (currentBackgroundList.length == 1) {
+                            //There are only 1 background in this pack. Make the next slice be 0 as well.
+                            nextSlideshowIndex = 0;
+                        }else if (currentBackgroundList.length == 0){
+                            //Background no longer exists. Change to default
+                            changeDesktopTheme("default");
+                        } else {
+                            nextSlideshowIndex = 1;
+                        }
+
+                    }
+                });
+               
             }
 
         }
@@ -2609,10 +2658,16 @@
             //Check if filename is english only.
             if (/^[a-zA-Z\d .-=+]+$/.test(filename)) {
                 maxlength = 20;
+            }else{
+                //Check if it is under small text mode
+                if (size == "small"){
+                    maxlength = 10;
+                }
             }
+          
 
             if (type != "shortcut" && filename.length > maxlength) {
-                shortenedName = filename.substring(0, 12) + "...";
+                shortenedName = filename.substring(0, maxlength) + "...";
             }
             var compressedFiledata = ao_module_utils.objectToAttr(filedata);
             if (updateMode){
@@ -3381,6 +3436,8 @@
         }
 
         //Ask for confirmation before window close
+        //Update 16 Feb 2021: Disabled confirmation and use a new method of implementing this later
+        /*
         function myConfirmation() {
             if (!loggingOut){
                 return 'Your data might not been saved. Are you sure you want to quit?';
@@ -3388,6 +3445,7 @@
         }
 
         window.onbeforeunload = myConfirmation;
+        */
 
         function iconClicked(object, evt) {
             if (renameMode){
@@ -4063,7 +4121,14 @@
         }
 
         function personalization() {
-            alert("WIP");
+            //Show the personalization window
+            newFloatWindow({
+                url: "SystemAO/desktop/personalization.html",
+                appicon: "SystemAO/desktop/img/personalization.png",
+                width:640,
+                height:480,
+                title: "Personalization"
+            });
             hideAllContextMenus();
         }
 

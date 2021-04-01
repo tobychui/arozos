@@ -166,7 +166,7 @@
 		<div class="listitem" onClick="playThis(this);">N/A</div>
 	</div>
 	<!-- autoplay -->
-	<audio id="mainPlayer" style="display:none;" autoplay></audio>
+	<audio id="mainPlayer" style="display:none;" preload="auto" autoplay></audio>
 	
 	
 	<div style="display:none;">
@@ -308,7 +308,7 @@
 		});
 		
 		//Audio element custom UI listeners
-		$("#progressControl").on("click",function(e){
+		document.getElementById("progressControl").addEventListener("click",function(e){
 			//Click on the progress control bar, update the audio playing location
 			var x = e.pageX - $('#progressControl').offset().left;
 			var w = $("#progressControl").width();
@@ -473,12 +473,19 @@
 			updatePlayingSongSelection();
 		}
 		
-		
+		function blobToDataURL(blob, callback) {
+			var a = new FileReader();
+			a.onload = function(e) {callback(e.target.result);}
+			a.readAsDataURL(blob);
+		}
+
 		function loadSongFromSongInfo(playSongInfo){
 			var songName = ao_module_codec.decodeUmFilename(playSongInfo[0]);
 			var songPath = filterExternalStoragePath(playSongInfo[1]);
 			var fileSize = playSongInfo[3];
+
 			$(player).attr('src',"/media?file=" + encodeURIComponent(songPath));
+			
 			ao_module_setWindowTitle(songName);
 			songInfo = playSongInfo;
 			updateDisplayInformation(ao_module_codec.decodeUmFilename(songInfo[0]),songInfo[3]);

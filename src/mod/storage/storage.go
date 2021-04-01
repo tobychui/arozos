@@ -9,6 +9,8 @@ package storage
 */
 
 import (
+	"os"
+
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
@@ -24,6 +26,11 @@ type StoragePool struct {
 	2. readonly
 	3. denied
 */
+
+//Create all the required folder structure if it didn't exists
+func init() {
+	os.MkdirAll("./system/storage", 0755)
+}
 
 //Create a new StoragePool objects with given uuids
 func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StoragePool, error) {

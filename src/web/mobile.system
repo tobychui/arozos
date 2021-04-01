@@ -691,15 +691,6 @@
                 openModule(moduleName);
             }
 
-            //Ask for confirmation before window close
-            function exitConfirm() {
-                if (!loggingOut){
-                    return 'Your data might not been saved. Are you sure you want to quit?';
-                }
-            }
-
-            window.onbeforeunload = exitConfirm;
-
             //In mobile interface, there will be some option ignored by default
             function newFloatWindow(options){
                 //Hide all other floatWindows
@@ -807,6 +798,10 @@
             }
 
             function setFloatWindowResizePolicy(id, allowResize){
+                //Disabled in mobile mode
+            }
+
+            function setFloatWindowSize(id, width, height){
                 //Disabled in mobile mode
             }
 

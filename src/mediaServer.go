@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/network/gzipmiddleware"
 )
 
 /*
@@ -29,8 +30,14 @@ PLEASE ALWAYS USE URLENCODE IN THE LINK PASSED INTO THE /media ENDPOINT
 //
 
 func mediaServer_init() {
-	http.HandleFunc("/media/", serverMedia)
-	http.HandleFunc("/media/getMime/", serveMediaMime)
+	if *enable_gzip {
+		http.HandleFunc("/media/", gzipmiddleware.CompressFunc(serverMedia))
+		http.HandleFunc("/media/getMime/", gzipmiddleware.CompressFunc(serveMediaMime))
+	} else {
+		http.HandleFunc("/media/", serverMedia)
+		http.HandleFunc("/media/getMime/", serveMediaMime)
+	}
+
 }
 
 //This function validate the incoming media request and return the real path for the targed file

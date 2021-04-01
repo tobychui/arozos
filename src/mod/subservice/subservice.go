@@ -115,20 +115,10 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		}
 
 	} else if runtime.GOOS == "linux" {
-		//Check if service installed using whereis
-		cmd := exec.Command("whereis", serviceRoot)
-		searchResults, err := cmd.CombinedOutput()
-		if err != nil {
-			if startupMode {
-				log.Println("Failed to load subservice: " + serviceRoot)
-				return errors.New("Failed to load subservice: " + err.Error())
-			} else {
-				return errors.New("Failed to load subservice: " + err.Error())
-			}
-		}
-		searchResultsString := strings.TrimSpace(string(searchResults))
-		whereIsInfo := strings.Split(searchResultsString, ":")
-		if whereIsInfo[1] == "" {
+		//Check if service installed using which
+		cmd := exec.Command("which", serviceRoot)
+		searchResults, _ := cmd.CombinedOutput()
+		if len(strings.TrimSpace(string(searchResults))) == 0 {
 			//This is not installed. Check if it exists as a binary (aka ./myservice)
 			if !fileExists(servicePath + "/" + binaryExecPath) {
 				if startupMode {
@@ -182,11 +172,13 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 
 	//Clean the module info and append it into the module list
 	serviceLaunchInfo := strings.TrimSpace(string(out))
+
 	thisModuleInfo := modules.ModuleInfo{}
 	err := json.Unmarshal([]byte(serviceLaunchInfo), &thisModuleInfo)
 	if err != nil {
 		if startupMode {
 			log.Fatal("Failed to load subservice: "+serviceRoot+"\n", err.Error())
+
 		} else {
 			return errors.New("Failed to load subservice: " + serviceRoot)
 		}

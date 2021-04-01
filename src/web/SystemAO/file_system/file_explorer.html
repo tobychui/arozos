@@ -1021,6 +1021,9 @@
             <div class="item singleObjectOnlyHide" onclick="shareFile();">
                 <i class="share alternate icon"></i> Share
             </div>
+            <div class="item mobileonly" onclick="toggleCtrl();">
+                <i class="mouse pointer icon"></i> Multi-select
+            </div>
             <div class="item" onclick="copy();">
                 <i class="copy icon"></i> Copy
                 <span class="description">Ctrl + C</span>
@@ -1558,7 +1561,7 @@
                        
                         $("#folderList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder">
                             <span style="display:inline-block !important;word-break: break-all;" class="${textclass}">
-                                <i class="${icon} icon" style="margin-right:12px;"></i>  ${displayName} ${shareicon}
+                                <i class="${icon} icon" style="margin-right:12px; color:#9c9ee4;"></i>  ${displayName} ${shareicon}
                             </span></div>`);
                     }else if (viewMode == "grid"){
                         var displayName = JSON.parse(JSON.stringify(filename));
@@ -1779,7 +1782,7 @@
             var lastClickedFileID = 0;
             function bindFileObjectEvents(){
                 $(".fileObject").off("click").on('click',function(evt){
-                    if (isMobile){
+                    if (!ctrlHold && isMobile){
                         //If on mobile, click means open
                         openthis(this,evt);
                         return
@@ -1862,6 +1865,35 @@
                 $(".fileObject").off("contextmenu").on("contextmenu", function(evt){
                     evt.preventDefault();
                    
+                    if (isFirefox && isMobile){
+                        //Firefox Mobile. Fix select with context menu not working bug
+                        var selectedObject = $(evt.target);
+                        
+                       if ($(selectedObject).hasClass("fileObject")){
+                           if (!ctrlHold){
+                                $(".fileObject.selected").removeClass("selected");
+                           }
+                            $(selectedObject).addClass("selected");
+                       }else{
+                           //Uptrace 5 layers for fileObject
+                           for (var i = 0; i < 5; i++){
+                                if ($(selectedObject).hasClass("fileObject") == false){
+                                    selectedObject = $(selectedObject).parent();
+                                }else{
+                                    break;
+                                }
+                           }
+
+                           if (!ctrlHold){
+                                $(".fileObject.selected").removeClass("selected");
+                           }
+                            $(selectedObject).addClass("selected");
+                       }
+
+                    }
+
+
+
                     calculateContextMenuOffsets(evt);
 
                     //Show all options by defaults
@@ -1891,6 +1923,12 @@
                         $("#contextmenu").css("top","0px");
                     }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
                         $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
+                    }
+
+                    if (isMobile){
+                        $("#contextmenu").find(".mobileonly").show();
+                    }else{
+                        $("#contextmenu").find(".mobileonly").hide();
                     }
 
                 });
@@ -2678,6 +2716,7 @@
             function getShortcutInfo(filepath, callback){
                 $.get("../../media?file=" + filepath, function(data){
                     //This return the shortcut information. Split it and see what shortcut is this
+                    data = data.split("\r\n").join("\n");
                     var shortcutInfo = data.trim().split("\n");
                     callback(shortcutInfo);
                 });
@@ -2691,7 +2730,7 @@
                     var downloadURL = "/media?file=" + encodeURIComponent($(".fileObject.selected").attr("filepath")) + "&download=true";
                     var filename = $(".fileObject.selected").attr("filename");
                     generateDownloadFromURL(downloadURL,escape(filename));
-                }else{
+                }else if ($(".fileObject.selected").length > 1 || ($(".fileObject.selected").length == 1 && $(".fileObject.selected").attr("type") == "folder")){
                     //Do zip and download for multiple files
                     $(".fileObject.selected").each(function(){
                         fileList.push($(this).attr("filepath"));
@@ -2712,6 +2751,8 @@
                         }
                     });
                     
+                }else{
+                    alert("No file selected!")
                 }
                 
             }
@@ -3497,6 +3538,45 @@
                 }else if (event.which == 46){
                     //Delete
                     deleteFile();
+                }else if (event.which == 38){
+                    //Up Arrow
+                    if ($(".popup:visible").length == 0){
+                        //No popup visiable
+                        if (ctrlHold == true){
+                            //Parenet path
+                            parentDir();
+                        }else{
+                            //Select the file on the upper
+                            selectPreviousFile(event);
+                        }
+                    }
+                }else if (event.which == 40){
+                    //Down arrow
+                    if ($(".popup:visible").length == 0){
+                        //No popup visiable
+                        selectNextFile(event);
+                    }
+                }else if (event.which == 39){
+                    //Right arrow
+                    if ($(".popup:visible").length == 0 && viewMode == "grid"){
+                        //No popup visiable and grid mode
+                        selectRightFile(event);
+                    }
+                }else if (event.which == 37){
+                    //Left arrow
+                    if ($(".popup:visible").length == 0 && viewMode == "grid"){
+                        //No popup visiable and grid mode
+                        selectLeftFile(event);
+                    }
+                }else if (event.which == 13){
+                    //Enter key
+                    if ($(".fileObject.selected").length > 0){
+                        openViaButton();
+                    }
+                }else if (event.which == 27){
+                    //Esc key
+                    hideAllPopupWindows();
+                    $(".fileObject.selected").removeClass("selected");
                 }else{
                     //console.log(event.which);
                 }
@@ -3527,6 +3607,189 @@
                 } catch(e) {
                     return false;
                 }
+            }
+
+            function selectNextFile(e){
+                e.preventDefault();
+                //Check if there are no selection. If yes, select the first file object
+                if ($(".fileObject.selected").length == 0 && $(".fileObject").length > 0){
+                    //Select the first file object
+                    $($(".fileObject")[0]).addClass("selected");
+                    return
+                }else if ( $(".fileObject").length == 0){
+                    //No file in this folder
+                    return
+                }
+
+                //Already contain selected file on the interface. Seleect it
+                var baseObject = $($(".fileObject.selected")[0]);
+                if ($(".fileObject.selected").length > 1){
+                    $(".fileObject.selected").removeClass("selected");
+                }
+                if (viewMode == "list"){
+                    //Select the next file
+                    var nextObject = $(".fileObject").eq( $(".fileObject").index( $(baseObject) ) + 1 );
+                    if (nextObject.length > 0){
+                        nextObject.addClass("selected");
+                        scrollToFileObject(nextObject);
+                        $(baseObject).removeClass("selected");
+                    }
+                }else if (viewMode == "grid"){
+                    var colobj = getFileObjectInTheSameCol(baseObject);
+                    var nextObject = baseObject;
+                    for (var i = 0; i < colobj.length; i++){
+                        if ($(colobj[i]).hasClass("selected") && i != colobj.length - 1){
+                            nextObject = colobj[i + 1];
+                        }
+                    }
+
+                    $(baseObject).removeClass("selected");
+                    nextObject.addClass("selected");
+                    scrollToFileObject(nextObject);
+                }
+            }
+
+            function selectPreviousFile(e){
+                e.preventDefault();
+                //Check if there are no selection. If yes, select the first file object
+                if ($(".fileObject.selected").length == 0 && $(".fileObject").length > 0){
+                    //Select the first file object
+                    $($(".fileObject")[$(".fileObject").length - 1]).addClass("selected");
+                    return
+                }else if ( $(".fileObject").length == 0){
+                    //No file in this folder
+                    return
+                }
+
+                var baseObject = $($(".fileObject.selected")[0]);
+                if ($(".fileObject.selected").length > 1){
+                    $(".fileObject.selected").removeClass("selected");
+                }
+                if (viewMode == "list"){
+                    //Select the previous file
+                    if ($(".fileObject").index( $(baseObject) ) -1 < 0){
+                        return;
+                    }
+                    var previousObject = $(".fileObject").eq( $(".fileObject").index( $(baseObject) ) -1 );
+                    if (previousObject.length > 0){
+                        previousObject.addClass("selected");
+                        scrollToFileObject(previousObject);
+                        $(baseObject).removeClass("selected");
+                    }
+                    
+                
+                }else if (viewMode == "grid"){
+                    var colobj = getFileObjectInTheSameCol(baseObject);
+                    var prevObj = baseObject;
+                    for (var i = 0; i < colobj.length; i++){
+                        if ($(colobj[i]).hasClass("selected") && i > 0){
+                            prevObj = colobj[i - 1];
+                        }
+                    }
+
+                    $(baseObject).removeClass("selected");
+                    prevObj.addClass("selected");
+                    scrollToFileObject(prevObj);
+                }
+            }
+
+            function scrollToFileObject(fileObject){
+                if (viewMode == "grid"){
+                    $('#folderView').scrollTop($(fileObject)[0].offsetTop - ($("#directorySidebar").height()/2 - 340));
+                }else{
+                    $('#folderView').scrollTop($(fileObject)[0].offsetTop - ($("#directorySidebar").height()/2 - 140));
+                }
+            }
+
+            //Grid mode left right opr
+            function selectLeftFile(e){
+                e.preventDefault();
+                if (viewMode != "grid"){
+                    return;
+                }
+
+                if ($(".fileObject.selected").length == 0 && $(".fileObject").length > 0){
+                    //Select the first file object
+                    $($(".fileObject")[$(".fileObject").length - 1]).addClass("selected");
+                    return
+                }else if ( $(".fileObject").length == 0){
+                    //No file in this folder
+                    return
+                }
+
+                var baseObject = $($(".fileObject.selected")[0]);
+                if ($(".fileObject").index( $(baseObject) ) -1 < 0){
+                    return;
+                }
+                var previousObject = $(".fileObject").eq( $(".fileObject").index( $(baseObject) ) -1 );
+                if (previousObject.length > 0){
+                    previousObject.addClass("selected");
+                    scrollToFileObject(previousObject);
+                    $(baseObject).removeClass("selected");
+                }
+
+            }
+
+            function selectRightFile(e){
+                e.preventDefault();
+                if (viewMode != "grid"){
+                    return;
+                }
+                
+                if ($(".fileObject.selected").length == 0 && $(".fileObject").length > 0){
+                    //Select the first file object
+                    $($(".fileObject")[0]).addClass("selected");
+                    return
+                }else if ( $(".fileObject").length == 0){
+                    //No file in this folder
+                    return
+                }
+
+                var baseObject = $($(".fileObject.selected")[0]);
+                var nextObject = $(".fileObject").eq( $(".fileObject").index( $(baseObject) ) + 1 );
+                if (nextObject.length > 0){
+                    nextObject.addClass("selected");
+                    scrollToFileObject(nextObject);
+                    $(baseObject).removeClass("selected");
+                }
+
+            }
+
+            //Functions for getting file objects in the same collume
+            function getFileObjectInTheSameCol(baseFileObject){
+                if (viewMode != "grid"){
+                    return;
+                }
+
+                var baseOffset = $(baseFileObject).offset().left;
+                var fileObjectInTheSameCol = [];
+                $(".fileObject").each(function(){
+                    if ($(this).offset().left == baseOffset){
+                        let thisFileObject = $(this);
+                        fileObjectInTheSameCol.push(thisFileObject);
+                    }
+                });
+
+                return fileObjectInTheSameCol;
+
+            }
+
+            //Function for getting file objects in the same row
+            function getFileObjectInTheSameRow(baseFileObject){
+                if (viewMode != "grid"){
+                    return;
+                }
+
+                var baseOffset = $(baseFileObject).offset().top;
+                var fileObjectInTheSameRow = [];
+                $(".fileObject").each(function(){
+                    if ($(this).offset().top == baseOffset){
+                        let thisFileObject = $(this);
+                        fileObjectInTheSameRow.push(thisFileObject);
+                    }
+                });
+                
+                return fileObjectInTheSameRow;
             }
 
             //Handle drag drop upload
@@ -4199,6 +4462,10 @@
                 e.preventDefault();
                 handleSearch();
             }
+        }
+
+        function toggleCtrl(){
+            ctrlHold = !ctrlHold;
         }
 
         function appendUploadFileItem(filename, filesize){

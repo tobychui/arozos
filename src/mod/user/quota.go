@@ -78,6 +78,11 @@ func (u *User) GetFileOwner(realpath string) string {
 		return ""
 	}
 
+	if fsHandler.UUID == "user" {
+		//This file is inside user's root. It must be this user's file
+		return u.Username
+	}
+
 	owner, err := fsHandler.GetFileRecord(realpath)
 	if err != nil {
 		//Error occured. Either this file is not tracked or this file has no owner

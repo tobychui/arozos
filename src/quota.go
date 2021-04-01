@@ -102,6 +102,11 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 	})
 
 	sendJSONResponse(w, string(jsonString))
+
+	go func() {
+		//Update this user's quota estimation in go routine
+		userinfo.StorageQuota.CalculateQuotaUsage()
+	}()
 }
 
 //Get all the users file and see how

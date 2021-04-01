@@ -16,7 +16,7 @@ import (
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
-func mroutner(h http.Handler) http.Handler {
+func mrouter(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		/*
 			You can also check the path for url using r.URL.Path
@@ -59,6 +59,7 @@ func mroutner(h http.Handler) http.Handler {
 				w.Header().Add("Content-Type", "application/javascript; charset=UTF-8")
 			}
 			h.ServeHTTP(w, r)
+
 		} else if len(r.URL.Path) >= len("/webdav") && r.URL.Path[:7] == "/webdav" {
 			WebDavHandler.HandleRequest(w, r)
 		} else if r.URL.Path == "/" && authAgent.CheckAuth(r) {
@@ -94,8 +95,8 @@ func mroutner(h http.Handler) http.Handler {
 			//User logged in. Continue to serve the file the client want
 			authAgent.UpdateSessionExpireTime(w, r)
 			if build_version == "development" {
-				//Disable caching when under development build
-				//w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
+				//Do something if development build
+
 			}
 			if filepath.Ext("web"+fs.DecodeURI(r.RequestURI)) == ".js" {
 				//Fixed serve js meme type invalid bug on Firefox
@@ -131,7 +132,10 @@ func mroutner(h http.Handler) http.Handler {
 
 		} else {
 			//User not logged in. Check if the path end with public/. If yes, allow public access
-			if r.URL.Path[len(r.URL.Path)-1:] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public" {
+			if !fs.FileExists(filepath.Join("./web", r.URL.Path)) {
+				//Requested file not exists on the server. Return not found
+				errorHandleNotFound(w, r)
+			} else if r.URL.Path[len(r.URL.Path)-1:] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public" {
 				//This file path end with public/. Allow public access
 				h.ServeHTTP(w, r)
 			} else if *allow_homepage == true && r.URL.Path[:10] == "/homepage/" {
@@ -140,7 +144,7 @@ func mroutner(h http.Handler) http.Handler {
 			} else {
 				//Other paths
 				if *allow_homepage {
-					//Redirect to home page
+					//Redirect to home page if home page function is enabled
 					http.Redirect(w, r, "/homepage/index.html", 307)
 				} else {
 					//Rediect to login page

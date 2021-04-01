@@ -72,7 +72,7 @@ func (d *Discoverer) StartScanning(interval int, scanDuration int) {
 
 func (d *Discoverer) UpdateScan(scanDuration int) {
 	d.LastScanningTime = time.Now().Unix()
-	results := d.Host.Scan(scanDuration)
+	results := d.Host.Scan(scanDuration, d.Host.Host.Domain)
 	d.NearbyHosts = results
 }
 
