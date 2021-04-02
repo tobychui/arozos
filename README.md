@@ -46,7 +46,7 @@ go build
 
 ## Deploy
 ### For Raspberry Pi (For Raspberry Pi 4B+)
-If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface.
+If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface. If you cannot find the new device in your network, you can also connect to the ArozOS directly via ```http://{raspberry_pi_ip_address}:8080/```
 
 |Version|Download|Mirror|Remarks|
 |---|---|---|---|
