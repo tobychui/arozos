@@ -303,11 +303,25 @@
 
             function changeDesktopTheme(themename){
                 //Match the given theme to the themename
-                for (var i =0; i < desktopThemeList.length ; i++){
-                    if (desktopThemeList[i].Theme == themename){
-                        var targetImage = desktopThemeList[i].Bglist[0];
-                        $("#backdrop").css("background-image", `url(img/desktop/bg/${themename}/${targetImage})`)
+                if (themename.includes(":/") == false){
+                    //This is a path
+                    for (var i =0; i < desktopThemeList.length ; i++){
+                        if (desktopThemeList[i].Theme == themename){
+                            var targetImage = desktopThemeList[i].Bglist[0];
+                            $("#backdrop").css("background-image", `url(img/desktop/bg/${themename}/${targetImage})`)
+                        }
                     }
+                }else{
+                    //This is a path (user defined background folder)
+                    $.get("system/desktop/theme?load=" + themename, function(data){
+                        if (data.error !== undefined){
+                            //The folder is gone. Use default instead
+                            console.log(data.error);
+                            changeDesktopTheme("default");
+                        }else{
+                            $("#backdrop").css("background-image", `url(media/?file=${data[0]})`)
+                        }
+                    });
                 }
             }
            

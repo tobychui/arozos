@@ -1561,7 +1561,7 @@
                        
                         $("#folderList").append(`<div class="fileObject item ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder">
                             <span style="display:inline-block !important;word-break: break-all;" class="${textclass}">
-                                <i class="${icon} icon" style="margin-right:12px; color:#9c9ee4;"></i>  ${displayName} ${shareicon}
+                                <i class="${icon} icon" style="margin-right:12px; color:#eab54e;"></i>  ${displayName} ${shareicon}
                             </span></div>`);
                     }else if (viewMode == "grid"){
                         var displayName = JSON.parse(JSON.stringify(filename));
