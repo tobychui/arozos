@@ -1,0 +1,27 @@
+/*
+	PDF Viewer
+
+	Copyright 2012 Mozilla Foundation
+	ArozOS adaptive layer added by tobychui 2021
+
+	See viewer.html for license information
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "PDF Viewer",
+	Desc: "Possibly the best PDF viewer on the web",
+	Group: "Office",
+	IconPath: "PDF Viewer/icons/module_icon.png",
+	Version: "2.7.570",
+	StartDir: "",
+	SupportFW: true,
+	LaunchFWDir: "PDF Viewer/viewer.html",
+	SupportEmb: false,
+	InitFWSize: [1024, 768],
+	SupportedExt: [".pdf"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

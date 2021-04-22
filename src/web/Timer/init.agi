@@ -1,0 +1,26 @@
+/*
+	Notebook
+
+	Copyright 2021 ArozOS Project
+
+	The build in basic text editor for text files
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Timer",
+	Desc: "Basic Timer Utility",
+	Group: "Utilities",
+	IconPath: "Timer/img/timer.png",
+	Version: "2.0",
+	StartDir: "Timer/timer.html",
+	SupportFW: true,
+	LaunchFWDir: "Timer/timer.html",
+	SupportEmb: false,
+	InitFWSize: [380, 190],
+	SupportedExt: []
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

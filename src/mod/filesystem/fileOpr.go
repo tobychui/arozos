@@ -371,10 +371,9 @@ func ViewZipFile(filepath string) ([]string, error) {
 func FileCopy(src string, dest string, mode string, progressUpdate func(int, string)) error {
 	srcRealpath, _ := filepath.Abs(src)
 	destRealpath, _ := filepath.Abs(dest)
-	if IsDir(src) && strings.Contains(destRealpath, srcRealpath) {
+	if IsDir(src) && strings.Contains(filepath.ToSlash(destRealpath)+"/", filepath.ToSlash(srcRealpath)+"/") {
 		//Recursive operation. Reject
 		return errors.New("Recursive copy operation.")
-
 	}
 
 	//Check if the copy destination file already have an identical file
@@ -472,7 +471,7 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 func FileMove(src string, dest string, mode string, fastMove bool, progressUpdate func(int, string)) error {
 	srcRealpath, _ := filepath.Abs(src)
 	destRealpath, _ := filepath.Abs(dest)
-	if IsDir(src) && strings.Contains(destRealpath, srcRealpath) {
+	if IsDir(src) && strings.Contains(filepath.ToSlash(destRealpath)+"/", filepath.ToSlash(srcRealpath)+"/") {
 		//Recursive operation. Reject
 		return errors.New("Recursive move operation.")
 	}
@@ -557,20 +556,8 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 			//Source is file only. Copy file.
 			realDest := dest + movedFilename
 			/*
-				//Updates 20-10-2020, replaced io.Copy to BufferedLargeFileCopy
-				source, err := os.Open(src)
-				if err != nil {
-					return err
-				}
-
-				destination, err := os.Create(realDest)
-				if err != nil {
-					return err
-				}
-
-				io.Copy(destination, source)
-				source.Close()
-				destination.Close()
+				Updates 20-10-2020, replaced io.Copy to BufferedLargeFileCopy
+				Legacy code removed.
 			*/
 
 			//Update the progress
@@ -611,11 +598,14 @@ func CopyDir(src string, dest string) error {
 
 //Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
 func dirCopy(src string, realDest string, progressUpdate func(int, string)) error {
+
 	//Get the total file counts
-	totalFileCounts := 0
+	totalFileCounts := int64(0)
 	filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
-			totalFileCounts++
+			//Updates 22 April 2021, chnaged from file count to file size for progress update
+			//totalFileCounts++
+			totalFileCounts += info.Size()
 		}
 		return nil
 	})
@@ -626,7 +616,7 @@ func dirCopy(src string, realDest string, progressUpdate func(int, string)) erro
 	}
 
 	//Start moving
-	fileCounter := 0
+	fileCounter := int64(0)
 
 	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		srcAbs, _ := filepath.Abs(src)
@@ -641,7 +631,8 @@ func dirCopy(src string, realDest string, progressUpdate func(int, string)) erro
 			//Mkdir base on relative path
 			return os.MkdirAll(filepath.Join(realDest, folderRootRelative), 0755)
 		} else {
-			fileCounter++
+			//fileCounter++
+			fileCounter += info.Size()
 			//Move file base on relative path
 			fileSrc := filepath.ToSlash(filepath.Join(filepath.Clean(src), folderRootRelative))
 			fileDest := filepath.ToSlash(filepath.Join(filepath.Clean(realDest), folderRootRelative))

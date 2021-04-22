@@ -3,6 +3,7 @@ package agi
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -21,7 +22,7 @@ func realpathToVirtualpath(path string, u *user.User) (string, error) {
 }
 
 //Inject user based functions into the virtual machine
-func (g *Gateway) injectUserFunctions(vm *otto.Otto, u *user.User, w http.ResponseWriter, r *http.Request) {
+func (g *Gateway) injectUserFunctions(vm *otto.Otto, scriptFile string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) {
 	username := u.Username
 	vm.Set("USERNAME", username)
 	vm.Set("USERICON", u.GetUserIcon())
@@ -271,6 +272,47 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, u *user.User, w http.Respon
 
 		//Unknown status
 		return otto.FalseValue()
+	})
+
+	//Execd (Execute & detach) run another script and detach the execution
+	vm.Set("execd", func(call otto.FunctionCall) otto.Value {
+		//Check if the pkg is already registered
+		scriptName, err := call.Argument(0).ToString()
+		if err != nil {
+			g.raiseError(err)
+			return otto.FalseValue()
+		}
+
+		//Carry the payload to the forked process if there are any
+		payload, _ := call.Argument(1).ToString()
+
+		//Check if the script file exists
+		targetScriptPath := filepath.ToSlash(filepath.Join(filepath.Dir(scriptFile), scriptName))
+		if !fileExists(targetScriptPath) {
+			g.raiseError(errors.New("*AGI* Target path not exists!"))
+			return otto.FalseValue()
+		}
+
+		//Run the script
+		scriptContent, _ := ioutil.ReadFile(targetScriptPath)
+		go func() {
+			//Create a new VM to execute the script (also for isolation)
+			vm := otto.New()
+			//Inject standard libs into the vm
+			g.injectStandardLibs(vm, scriptFile, scriptScope)
+			g.injectUserFunctions(vm, scriptFile, scriptScope, u, w, r)
+
+			vm.Set("PARENT_DETACHED", true)
+			vm.Set("PARENT_PAYLOAD", payload)
+			_, err = vm.Run(string(scriptContent))
+			if err != nil {
+				//Script execution failed
+				log.Println("Script Execution Failed: ", err.Error())
+				g.raiseError(err)
+			}
+		}()
+
+		return otto.TrueValue()
 	})
 
 }

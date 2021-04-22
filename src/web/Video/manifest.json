@@ -1,6 +1,6 @@
 {
-  "name": "ArdPlayer",
-  "short_name": "ArdPlayer",
+  "name": "VidPlayer",
+  "short_name": "VidPlayer",
   "icons": [{
     "src": "img/pwa/128.png",
       "sizes": "128x128",

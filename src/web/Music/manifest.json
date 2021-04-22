@@ -1,6 +1,6 @@
 {
-  "name": "airMusic",
-  "short_name": "airMusic",
+  "name": "AirMusic",
+  "short_name": "AirMusic",
   "icons": [{
     "src": "img/pwa/128.png",
       "sizes": "128x128",
@@ -19,7 +19,7 @@
       "type": "image/png"
     }],
   "start_url": "index.html",
-  "display": "standalone",
+  "display": "fullscreen",
   "scope": "./",
   "background_color": "#4b75ff",
   "theme_color": "#4b75ff"

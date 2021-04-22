@@ -90,7 +90,7 @@ func mrouter(h http.Handler) http.Handler {
 			}
 		} else if r.URL.Path == "/" && !authAgent.CheckAuth(r) && *allow_homepage == true {
 			//User not logged in but request the index, redirect to homepage
-			http.Redirect(w, r, "/homepage/index.html", 307)
+			http.Redirect(w, r, "/www/index.html", 307)
 		} else if authAgent.CheckAuth(r) {
 			//User logged in. Continue to serve the file the client want
 			authAgent.UpdateSessionExpireTime(w, r)
@@ -138,14 +138,14 @@ func mrouter(h http.Handler) http.Handler {
 			} else if r.URL.Path[len(r.URL.Path)-1:] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public" {
 				//This file path end with public/. Allow public access
 				h.ServeHTTP(w, r)
-			} else if *allow_homepage == true && r.URL.Path[:10] == "/homepage/" {
+			} else if *allow_homepage == true && len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/" {
 				//Handle public home serving if homepage mode is enabled
 				h.ServeHTTP(w, r)
 			} else {
 				//Other paths
 				if *allow_homepage {
 					//Redirect to home page if home page function is enabled
-					http.Redirect(w, r, "/homepage/index.html", 307)
+					http.Redirect(w, r, "/www/index.html", 307)
 				} else {
 					//Rediect to login page
 					w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")

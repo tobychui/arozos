@@ -44,5 +44,11 @@ mv ../aroz_online_autorelease/system/storage.json ../aroz_online_autorelease/sys
 rm -rf ../aroz_online_autorelease/system/aecron/
 rm ../aroz_online_autorelease/system/cron.json
 
+echo "Creating tarball for all required files"
+cd ../aroz_online_autorelease/
+rm web.tar
+tar -cf web.tar system/ web/
+
+cd ../arozos/
 go build
 echo "Completed"

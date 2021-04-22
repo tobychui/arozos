@@ -31,7 +31,7 @@ func IoTHubInit() {
 		//Register IoT Hub Module
 		moduleHandler.RegisterModule(module.ModuleInfo{
 			Name:        "IoT Hub",
-			Group:       "System Tools",
+			Group:       "Internet",
 			IconPath:    "SystemAO/iot/hub/img/small_icon.png",
 			Version:     "1.0",
 			StartDir:    "SystemAO/iot/hub/index.html",
@@ -95,6 +95,8 @@ func IoTHubInit() {
 
 		//Add more here if needed
 
+		//Finally, inject the gateway into the AGI interface
+		AGIGateway.Option.IotManager = iotManager
 	}
 
 }

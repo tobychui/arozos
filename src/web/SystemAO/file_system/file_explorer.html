@@ -1585,7 +1585,7 @@
                                 <img draggable="true"ondragstart="disableDrag(event);" src="../../../img/desktop/files_icon/${filesIconTheme}/folder.png" style="height: 148px; width: 148px; display: inline-block;">
                             </div>
                             <div class="content" style="font-size: 12px;">
-                                <div class="header ${currentTheme} ${textclass}">${displayName} ${shareicon}</div>
+                                <div class="header ${currentTheme} ${textclass}" title="${filename}">${displayName} ${shareicon}</div>
                             </div>
                         </div>`);
                     }
@@ -1667,7 +1667,7 @@
                                 <img draggable="true"ondragstart="disableDrag(event);" style="height: 148px; width: 148px; display:inline-block;" src="${imagePath}">
                             </div>
                             <div class="content">
-                                <div class="header ${currentTheme} ${textclass}" style="text-overflow: ellipsis; font-size: 100%">${displayName} ${shareicon}</div>
+                                <div class="header ${currentTheme} ${textclass}" title="${filename}" style="text-overflow: ellipsis; font-size: 100%">${displayName} ${shareicon}</div>
                                 <div class="meta ${currentTheme}">
                                     <div>.${ext}</div>
                                 </div>
@@ -4438,7 +4438,7 @@
                             $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
                                 <div class="ts header ${currentTheme}">
                                     <i class="question icon" ${currentTheme}></i> <span class="${currentTheme}">No Matching Results</span>
-                                    <div class="sub header ${currentTheme}">The host return no matching results for your keyword "${keyword}"". <br>Check your spelling and if your wildcard are valid.</div>
+                                    <div class="sub header ${currentTheme}">The host return no matching results for your keyword "${keyword}". <br>Check your spelling and if your wildcard are valid.</div>
                                 </div>
                             </div>`);
                         }else{

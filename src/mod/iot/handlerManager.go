@@ -161,7 +161,7 @@ func (m *Manager) HandleGetDeviceStatus(w http.ResponseWriter, r *http.Request) 
 //Handle IoT Scanning Request
 func (m *Manager) HandleScanning(w http.ResponseWriter, r *http.Request) {
 	//Scan the devices
-	scannedDevices := m.scanDevices()
+	scannedDevices := m.ScanDevices()
 
 	js, _ := json.Marshal(scannedDevices)
 	sendJSONResponse(w, string(js))
@@ -170,14 +170,22 @@ func (m *Manager) HandleScanning(w http.ResponseWriter, r *http.Request) {
 //Handle IoT Listing Request
 func (m *Manager) HandleListing(w http.ResponseWriter, r *http.Request) {
 	if m.cachedDeviceList == nil {
-		m.scanDevices()
+		m.ScanDevices()
 	}
 
 	js, _ := json.Marshal(m.cachedDeviceList)
 	sendJSONResponse(w, string(js))
 }
 
-func (m *Manager) scanDevices() []*Device {
+func (m *Manager) GetCachedDeviceList() []*Device {
+	if m.cachedDeviceList == nil {
+		m.ScanDevices()
+	}
+
+	return m.cachedDeviceList
+}
+
+func (m *Manager) ScanDevices() []*Device {
 	scannedDevices := []*Device{}
 	for _, ph := range m.RegisteredHandler {
 		//Scan devices using this handler

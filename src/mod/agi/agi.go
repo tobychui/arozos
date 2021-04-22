@@ -13,6 +13,7 @@ import (
 	apt "imuslab.com/arozos/mod/apt"
 	auth "imuslab.com/arozos/mod/auth"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/iot"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -46,6 +47,7 @@ type AgiSysInfo struct {
 	ModuleRegisterParser func(string) error
 	AuthAgent            *auth.AuthAgent
 	FileSystemRender     *metadata.RenderHandler
+	IotManager           *iot.Manager
 
 	//Scanning Roots
 	StartupRoot   string
@@ -91,6 +93,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	gatewayObject.ImageLibRegister()
 	gatewayObject.FileLibRegister()
 	gatewayObject.HTTPLibRegister()
+	gatewayObject.IoTLibRegister()
 
 	return &gatewayObject, nil
 }
@@ -234,7 +237,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scri
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, thisuser, w, r)
+	g.injectUserFunctions(vm, scriptFile, scriptScope, thisuser, w, r)
 
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
@@ -289,7 +292,7 @@ func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.Use
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, targetUser, nil, nil)
+	g.injectUserFunctions(vm, scriptFile, "", targetUser, nil, nil)
 
 	//Try to read the script content
 	scriptContent, err := ioutil.ReadFile(scriptFile)

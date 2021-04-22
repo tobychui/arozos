@@ -16,6 +16,15 @@
             .backgroundpreview{
                 border: 1px solid #898989;
             }
+
+            .colorpallete{
+                border: 1px solid transparent;
+                cursor: pointer;
+            }
+
+            .colorpallete:hover{
+                border: 1px solid white;
+            }
         </style>
     </head>
     <body>
@@ -127,7 +136,16 @@
                     </h3>
 
                     <div class="ui divider"></div>
-                    <p>Work In Progress</p>
+                    <div class="ui container">
+                        <div id="colorgrid">
+                            Loading...
+                        </div>
+                    </div>
+                    <br>
+                    <div class="ui divider"></div>
+                    <button class="ui small basic black button" onclick="restoreDefaultThemeColor();">Restore Default</button>
+                    <br><br><br>
+                    
                 </div>
             </div>
             <div class="ui tab" data-tab="advance">
@@ -160,6 +178,7 @@
         <script>
             var desktopThemeList = [];
             var isStartingUp = true;
+            var cancelColorRestore = false; //If the user clicked on the target color pallete, do not restore the desktop to its original color before selection
 
             $(".dropdown").dropdown();
             $('.tabular.menu .item').tab();
@@ -170,6 +189,7 @@
             initUserDefinedWallpaperFolder(function(themeName){
                 initCurrentBackgroundPreview(themeName);
             });
+            generateColorGrids();
 
             //Return the data stored in the theme settings
             //Will return either theme pack name or path for user defined folder
@@ -351,6 +371,163 @@
             function handleBackgroundSelectionChange(value){
                 var targetThemeObject = JSON.parse(decodeURIComponent(value));
                 loadBackgroundPreview(targetThemeObject);
+            }
+
+            function generateColorGrids(){
+                $("#colorgrid").html("");
+                $.getJSON("./colors.json", function(data){
+                    for (let key in data) {
+                        let colorcodes = data[key];
+                        let thisSection = '';
+                        thisSection += (`<div class="ui grid">`);
+                        thisSection += (`<div class="five wide column">
+                            ${key.charAt(0).toUpperCase() + key.slice(1)}
+                        </div>`);
+                        for (let colorIndex in colorcodes) {
+                            if (colorIndex < 300){
+                                //Skip all the light colors
+                                continue;
+                            }
+                            let colorHexCoxde = colorcodes[colorIndex];
+                            thisSection += (`<div class="one wide column colorpallete" hex="${colorHexCoxde}" material="${colorIndex}" style="background-color: ${colorHexCoxde}; text-align: center;"><br></div>`);
+                        }
+
+                        thisSection += "</div>"
+                        $("#colorgrid").append(thisSection);
+
+                    }
+
+                    //Bind events to change the color for preview
+                    let previousColorCode = {};
+                    $(".colorpallete").on({
+                        mouseover: function() {
+                            event.preventDefault();
+                            $(this).animate({opacity: 0.25}, 100);
+
+                            //Save the current color
+                            var thisColorCode = $(this).attr("hex");
+                            previousColorCode["floatWindow"] = $(parent.window.content.document).find(".floatWindow .controls").css("background-color");
+                            previousColorCode["statusbar"] =  $(parent.window.content.document).find("#statusbar").css("background-color");
+                            previousColorCode["navimenu"] =  $(parent.window.content.document).find("#navimenu").css("background-color");
+
+                            //Set the preview color
+                            if (ao_module_virtualDesktop){
+                                $(parent.window.content.document).find(".floatWindow .controls").css("background-color",hexToRgbA(thisColorCode, 0.85));
+                                $(parent.window.content.document).find("#statusbar").css("background-color",thisColorCode );
+                                $(parent.window.content.document).find("#navimenu").css("background-color",hexToRgbA(thisColorCode, 0.5));
+                            }
+                        },
+                        mouseout: function() {
+                            event.preventDefault();
+                            $(this).animate({opacity: 1}, 100);
+                            $(".themeColorSolid").css("background-color", "");
+
+                            //Restore the original color
+                            if (ao_module_virtualDesktop && !cancelColorRestore){
+                                $(parent.window.content.document).find(".floatWindow .controls").css("background-color",previousColorCode["floatWindow"]);
+                                $(parent.window.content.document).find("#statusbar").css("background-color",previousColorCode["statusbar"]);
+                                $(parent.window.content.document).find("#navimenu").css("background-color",previousColorCode["navimenu"]);
+                            }else if (cancelColorRestore){
+                                cancelColorRestore = false;
+                            }
+                           
+                        }
+                    });
+
+                    //Setting the current theme
+                    $(".colorpallete").on("click", function(){
+                        var colorCode = $(this).attr("hex");
+                        writePreference("themecolor",colorCode, function(data){
+                            if (data.error != undefined){
+                                alert(data.error);
+                            }
+
+                            //Tick the current using color
+                            tickTheCurrentSelectedThemeColor();
+
+                            //Update the desktop theme color
+                            if (ao_module_virtualDesktop){
+                                cancelColorRestore=true;
+                                parent.setThemeColor(colorCode);
+                            }
+                            
+                        });
+                    });
+
+                    tickTheCurrentSelectedThemeColor();
+                });
+            }
+
+            function restoreDefaultThemeColor(){
+                $.ajax({
+                    url: "../../system/file_system/preference",
+                    data: {key: "themecolor", remove: true},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            console.log(data.error);
+                        }else{
+                            if (ao_module_virtualDesktop){
+                                //Just emulate the restored effect first, 
+                                //The theme color will restore after refresh
+                                parent.setThemeColor("#262626");
+                            }
+                        }
+                    }
+                });
+            }
+
+            function tickTheCurrentSelectedThemeColor(){
+                //Tick the one that is currently using
+                readPreference("themecolor", function(data){
+                    if (data.error == undefined){
+                        //See if there is a colorpallete match the hex string
+                        $(".colorpallete").each(function(){
+                            if ($(this).attr("hex") == data){
+                                //This is the pallete to tick
+                                $(this).html(`<i style="color:white; margin-left: -4px;" class="checkmark icon"></i>`);
+                            }else{
+                                $(this).html(`<br>`);
+                            }
+                        })
+                    }
+                })
+            }
+
+            function readPreference(key, callback=undefined){
+                $.ajax({
+                    url: "../../system/file_system/preference",
+                    data: {key: key},
+                    success: function(data){
+                        if (callback != undefined){
+                            callback(data);
+                        }
+                    }
+                });
+            }
+
+            function writePreference(key, value, callback=undefined){
+                $.ajax({
+                    url: "../../system/file_system/preference",
+                    data: {key: key, value: value},
+                    success: function(data){
+                        if (callback != undefined){
+                            callback(data);
+                        }
+                    }
+                })
+            }
+
+            function hexToRgbA(hex, transparent=1){
+                var c;
+                if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+                    c= hex.substring(1).split('');
+                    if(c.length== 3){
+                        c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+                    }
+                    c= '0x'+c.join('');
+                    return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+',' + transparent + ')';
+                }
+                throw new Error('Bad Hex');
             }
 
             function applyWallpaper(){

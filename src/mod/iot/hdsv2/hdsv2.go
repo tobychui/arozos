@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -45,8 +46,18 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 	foundDevices := []*iot.Device{}
 	hosts := h.scanner.Scan(3, "hds.arozos.com")
 	for _, host := range hosts {
+		//Decode the URL and escape characters
+		decodedURL, err := url.QueryUnescape(host.HostName)
+		if err != nil {
+			decodedURL = host.HostName
+		}
+
+		//Filter out the unknown cost of "\ " in the name
+		decodedURL = strings.ReplaceAll(decodedURL, "\\ ", " ")
+
+		//Add device
 		thisDevice := iot.Device{
-			Name:         strings.Title(strings.ReplaceAll(host.HostName, ".local.", "")),
+			Name:         strings.Title(strings.ReplaceAll(decodedURL, ".local.", "")),
 			Port:         host.Port,
 			Model:        host.Model,
 			Version:      host.BuildVersion + "-" + host.MinorVersion,

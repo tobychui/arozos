@@ -10,7 +10,10 @@
 	<script src="../script/tocas/tocas.js"></script>
 	<script src="../script/jquery.min.js"></script>
 	<script src="../script/ao_module.js"></script>
-	<link rel="manifest" href="manifest.json">
+	<!-- Handle native playback on Chrome Andoird-->
+	<script src="native.js"></script>
+
+	<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
 	<title>AirMusic</title>
 </head>
 <body>
@@ -223,7 +226,6 @@
     </div>
     <audio id="mainAudioPlayer" style="display:none;" src=""></audio>
    
-
 	<div id="dropdownSonglist" class="dropdownMusicList" style="display:none;">
 			<div class="dropdownMusicListMiniMenu">
 				<i class="icons" style="margin-right:8px;">
@@ -365,6 +367,7 @@
 	var totalMusicCount = 0;
 	var currentPlaying = false;
 	var audioElement = $("#mainAudioPlayer");
+	var audioElementObject = document.getElementById("mainAudioPlayer"); //Directly expose the audio object
 	var playingFileDetail = []; //[id, filepath]
 	var displayList = []; //This is the list where the current UI is displaying.
 	var playingList = []; //This is the list where the player last clicked on an item to play
@@ -375,9 +378,16 @@
 	var timerRemaining = 0;
 	var playlistAddPendingFile = ""; //The filepath of the file that is pending to be added to playlist
 	var timerEndMode = "fade"; //Fade or End, Provide volume fadeout or end immediately while times up
-	var ua = "";
+	var ua =  navigator.userAgent.toLowerCase();
 	var isAndroid = ua.indexOf("android") > -1; //&& ua.indexOf("mobile");
-    
+	var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+
+	//Embed native mediaSession for Android 
+	if (isChrome){
+		initNativeMediaPlayer();
+	}
+
+
 	//Update implementatio nof user agent detection
 	if (typeof InstallTrigger !== 'undefined'){
 		ua = "firefox";
@@ -601,6 +611,12 @@
 				<i class="ellipsis vertical icon" style="top:30%;"></i>\
 			</div>\
 		</div>';
+
+		if ($("#searchModeMenu").is(":hidden")){
+			//The user exited search mode before the search results come back
+			//Dispose the search result
+			return;
+		}
 		
 		if (data.length == 0){
 			//No search results.
@@ -953,13 +969,13 @@
 	}
 	
 	function updatePlaybackDisplayTime(currentTime,duration){
-	    var progress = Math.round(currentTime);
-	    var remainTime = Math.round(duration - currentTime);
+	    let progress = Math.round(currentTime);
+	    let remainTime = Math.round(duration - currentTime);
 	    $("#progressTime").text(secondsToHms(progress));
 	    if (!isNaN(remainTime)){
 	        $("#remainTime").text("-" + secondsToHms(remainTime));
 	    }
-	    
+
 	}
 	
 	function nextSongHandler(){
@@ -1096,6 +1112,7 @@
 			//This might be a file from dropdown list. use listid instead
 			id = $(object).parent().attr('listid');
 		}
+
 	    updateMiniPlayerUI(displayName,info,id);
 	    updateMainPlayerUI(displayName,info,id);
 	    loadAndPlayAudioFile(filepath, !startPaused);
@@ -1136,9 +1153,22 @@
 			if (data.error !== undefined){
 				console.log(data.error)
 				$("#albumnArtImage").attr("src","img/default.png");
+				if (isAndroid && navigator.mediaSession.metadata){
+					navigator.mediaSession.metadata.artwork = [
+						{ src: "img/default.png",   sizes: '512x512',   type: 'image/png' }
+					]
+				}
 			}else{
 				$("#albumnArtImage").attr("src","data:image/jpg;base64," + data);
+				if (isAndroid && navigator.mediaSession.metadata){
+					navigator.mediaSession.metadata.artwork = [
+						{ src: "data:image/jpg;base64," + data,   sizes: '480x480',   type: 'image/jpg' }
+					]
+				}
 			}
+
+			
+
 			resizeQuickAdjust();
 		});
 	}
@@ -1296,7 +1326,7 @@
 	        currentPlaying = false;
 	    }
 	}
-	
+
 	function loadAndPlayAudioFile(sourceURL,playAfterLoad = true){
 		var audio = audioElement;
 		sourceURL = "../" + sourceURL; //Convert absolute dir to relative
@@ -1314,7 +1344,6 @@
 		}
 		
 		loadThumbnail(sourceURL);
-        
 	}
 	
 	function updateMiniPlayerUI(displayName, fileinfo,id){
@@ -1327,6 +1356,10 @@
 	    $("#mainPlayerSongTitle").text(songname);
 	    $("#mainPlayerSongDesc").text(fileinfo);
 	    $("#mainPlayerMiniTab").text(id + "/" + totalMusicCount);
+		if (isAndroid && 'mediaSession' in navigator){
+			var infoRewrite = fileinfo.split(" / ")
+			updateTitle(songname, infoRewrite[1] + " (" + infoRewrite[0] + ")", id + "/" + totalMusicCount);
+		}
 	}
 
 	
@@ -1567,11 +1600,12 @@
 	}
 
 	function setWindowHash(hashValue){
-		
 		hashValue = JSON.stringify(hashValue);
+
 		if (!isAndroid){
-		    return;
+			return;
 		}
+		
 		if(history.pushState) {
 			window.history.pushState(null, null, '#' + hashValue);
 		}else {
@@ -2089,14 +2123,21 @@
 	  if ($("#playerInterface").offset().left != 0){
 	      $("#playerInterface").css("left",window.innerWidth);
 	  }
-	  $("#albumnArt").css({
-		  "height": window.innerHeight - 255,
-		  "top": (window.innerHeight / 2 -  $("#albumnArtImage").height()/2)
-	  });
+
 	  $("#albumnArtImage").css("max-height",window.innerHeight - 255);
+
+	  setTimeout(function(){
+		$("#albumnArt").css({
+			"height": window.innerHeight - 255,
+			"top": (window.innerHeight / 2 -  $("#albumnArtImage").height()/2)
+		});
+	  },50);
+	 
+	
+	  
 	  //var imageTop = (window.innerHeight - 255 - $("#albumnArtImage").height()) / 2;
 	  //$("#albumnArtImage").css("top",imageTop + "px");
-	  //console.log(window.innerHeight,imageTop);
+	  console.log(window.innerHeight);
 	}
 	
 	function setStorage(configName,configValue){
@@ -2232,8 +2273,8 @@
     }
 
 	//Handle window resize events
-	$( window ).resize(function() {
-        resizeQuickAdjust();
+	$(window).on("resize", function(){
+		resizeQuickAdjust();
 	});
 	
 	function AllQuickMenuHidden(){

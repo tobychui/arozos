@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- Meta headers for mobile devices-->
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="icon" href="favicon.png">
+
+        <!-- CSS and JavaScript, access to scripe folder is not blocked for non logged in users-->
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <title>Home Page</title>
+        <style>
+            body{
+                background-color:white;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Main website content goes here-->
+        <br><br>
+        <div class="ui container">
+            <a class="ui black right floated button" href="../login.system"><i class="key icon"></i>Login</a>
+            <h1>My Home</h1>
+            <div class="ui divider"></div>
+            <div class="ui two column stackable grid">
+                <div class="six wide column">
+                    <img src="../img/public/errors/welcome.png">
+                </div>
+                <div class="ten wide column">
+                    <h3>You are seeing this page instead of the login page because you have enabled home page mode</h3>
+                    <p>The ArozOS Home Page is a good way to show something simple for your organization or company when hosting on the cloud or a DIY NAS. </p>
+                    <p>To edit this page, take a look at ./web/www/index.html</p>
+                    
+                    <h3>How can I turn it this off?</h3>
+                    <p>Remove the -enable_homepage flag from your startup script and restart. All users that are not logged in will be redirected to login page instead.</p>
+                </div>
+            </div>
+            <div class="ui divider"></div>
+            <p>ArozOS Project, CopyRight tobychui 2016 - <span class="year"></span></p>
+        </div>
+        <script>
+            $(".year").text(new Date().getFullYear());
+        </script>
+    </body>
+</html>

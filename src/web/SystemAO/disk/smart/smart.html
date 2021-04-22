@@ -73,9 +73,10 @@
           var smartDATA;  
           $.getJSON("/system/disk/smart/getSMART", function(data) {
                 smartDATA = data;
+
                 $("#mainmenu").html("");
-                if ($(data).length == 0) {
-                    $("#smart-holder").append(append("-1","No disk find!","",-1));
+                if (data.devices == null || $(data).length == 0) {
+                    //$("#smart-holder").append(append("-1","No disk find!","",-1));
                     $("#healthy").text("No disks detected.");
                     $("#totaldisk").text("0");
                 }else{

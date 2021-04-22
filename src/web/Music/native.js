@@ -6,30 +6,92 @@
 */
 
 //Native Media Player
-function updateTitle(){
+function initNativeMediaPlayer(){
+    var skipTime = 10;
     if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'Unforgettable',
-        artist: 'Nat King Cole',
-        album: 'The Ultimate Collection (Remastered)',
-        artwork: [
-            { src: 'https://dummyimage.com/96x96',   sizes: '96x96',   type: 'image/png' },
-            { src: 'https://dummyimage.com/128x128', sizes: '128x128', type: 'image/png' },
-            { src: 'https://dummyimage.com/192x192', sizes: '192x192', type: 'image/png' },
-            { src: 'https://dummyimage.com/256x256', sizes: '256x256', type: 'image/png' },
-            { src: 'https://dummyimage.com/384x384', sizes: '384x384', type: 'image/png' },
-            { src: 'https://dummyimage.com/512x512', sizes: '512x512', type: 'image/png' },
-        ]
+        navigator.mediaSession.setActionHandler('play', function() {
+            gainAudio();
+            setPlaying(true);
         });
-    
-        navigator.mediaSession.setActionHandler('play', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('pause', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('stop', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('seekbackward', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('seekforward', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('seekto', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('previoustrack', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('nexttrack', function() { /* Code excerpted. */ });
-        navigator.mediaSession.setActionHandler('skipad', function() { /* Code excerpted. */ });
+        navigator.mediaSession.setActionHandler('pause', function() { 
+            originalVol = audioElement[0].volume;
+            fadeAudio();
+            setPlaying(false);
+        });
+        navigator.mediaSession.setActionHandler('stop', function() {
+            originalVol = audioElement[0].volume;
+            fadeAudio();
+            setPlaying(false);
+            audioElement[0].pause();
+            setTimeout(function(){
+                audioElement[0].volume = defaultVolumeBeforeFadeout;
+            },500);
+        });
+        navigator.mediaSession.setActionHandler('seekbackward', function() {
+            audioElementObject.currentTime = Math.max(audioElementObject.currentTime - skipTime, 0);
+            setTimeout(function(){
+                updatePositionState();
+            }, 500);
+        });
+        navigator.mediaSession.setActionHandler('seekforward', function() {
+            audioElementObject.currentTime = Math.min(audioElementObject.currentTime + skipTime, audioElementObject.duration);
+            setTimeout(function(){
+                updatePositionState();
+            }, 500);
+        });
+        navigator.mediaSession.setActionHandler('seekto', function(evt) {
+            if (evt.fastSeek && ('fastSeek' in audioElementObject)) {
+                audioElementObject.fastSeek(evt.seekTime);
+                return;
+            }
+            audioElementObject.currentTime = evt.seekTime;
+            setTimeout(function(){
+                updatePositionState();
+            }, 500);
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', function() {
+            previousSong();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', function() {
+            nextSong();
+        });
     }
+}
+
+function updateTitle(title, artist, albumn){
+    if ('mediaSession' in navigator) {
+        if (navigator.mediaSession.metadata){
+            //Media Session created. Update the existsing one instead
+            navigator.mediaSession.metadata.title = title;
+            navigator.mediaSession.metadata.artist = artist;
+            navigator.mediaSession.metadata.album = albumn;
+        }else{
+            //Media Session not created. Creat one
+            navigator.mediaSession.metadata = new MediaMetadata({
+            title: title,
+            artist: artist,
+            album: albumn,
+            /*artwork: [
+                { src: artwork,   sizes: '480x480',   type: 'image/jpg' }
+            ]*/
+            });
+        }
+
+    }
+}
+
+
+function updatePositionState(currentTime, duration) {
+    if (isNaN(currentTime) || isNaN(duration)){
+        return;
+    }
+
+    if ('setPositionState' in navigator.mediaSession) {
+        navigator.mediaSession.setPositionState({
+            duration: audioElement[0].duration,
+            playbackRate: audioElement[0].playbackRate,
+            position: audioElement[0].currentTime
+        });
+    }
+
 }

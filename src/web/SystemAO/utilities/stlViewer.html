@@ -55,7 +55,8 @@
 		<script src="../../script/ao_module.js"></script>
 		<div id="infotab">
 			<p id="filename"></p>
-			<p id="filepath"></p>
+			<p id="filepath" style="display:none;"></p>
+			<a id="displayFilepath" style="cursor: pointer;" onclick="openThisFileInFM(this);"></a>
 			<p>{model_dimension}</p>
 			<p id="filesize"></p>
 		</div>
@@ -67,6 +68,7 @@
 				file = files[0];
 				$("#filename").text(file.filename);
 				$("#filepath").text("../../media?file=" + file.filepath);
+				$("#displayFilepath").text(file.filepath);
 
 				//Get filesize info
 				$.ajax({
@@ -98,6 +100,17 @@
 				$("#infotab").html(newcontent);
 			}
 			
+			function openThisFileInFM(link){
+				var fileLocation = $(link).text();
+				
+				//Open the file using ao_module function call
+				var tmp = fileLocation.split("/");
+				var targetFilename = tmp.pop();
+				var targetFolder = tmp.join("/");
+				ao_module_openPath(targetFolder, targetFilename);
+
+			}
+
 			function round(value){
 				return Math.round(value * 100) / 100;
 			}
@@ -117,13 +130,25 @@
 				var loader = new THREE.STLLoader();
 				loader.load( filename, function ( geometry ) {
 
-					var material = new THREE.MeshPhongMaterial( { color: 0x545454, specular: 0x0c0c0c, shininess: 100 } );
+					var material = new THREE.MeshPhongMaterial( { color: 0x70721e, specular: 0x0c0c0c, shininess: 100 } );
 					var mesh = new THREE.Mesh( geometry, material );
 					const center = new THREE.Vector3();
-					mesh.position.set( 0, 0, 0 );
-					mesh.rotation.set( 0,  0, 0);
+
+					//Scsale it down to original's 10%
 					mesh.scale.set( 0.1, 0.1, 0.1 );
+					render();
+					var bbox = new THREE.Box3().setFromObject(mesh);
+					//Move the mesh to scene center
+					console.log(bbox);
+					mesh.updateMatrixWorld();
+					console.log(-1 * (bbox.max.x + bbox.min.x));
+					mesh.position.set(-1 * (bbox.max.x + bbox.min.x) / 2, -1 * (bbox.max.y + bbox.min.y) / 2, -1 * (bbox.max.z + bbox.min.z) / 2);
+					mesh.updateMatrixWorld();
+					console.log("Setting mesh world position: ", mesh.getWorldPosition())
+					mesh.rotation.set( 0,  0, 0);
 					
+					render();
+
 					var box = new THREE.Box3().setFromObject(mesh);
 					console.log( box.min, box.max, box.getSize(center) );
 					objectSize = box.getSize(center);

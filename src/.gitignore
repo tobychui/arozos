@@ -31,6 +31,13 @@ system/aecron/*.log
 #Webapp related
 web/teleprompter/*
 
+#Document related
+src/documents/*
+
+#Testing Modules
+src/web/Dummy/*
+src/web/Label Maker/*
+
 #Subservice related
 subservice/*
 

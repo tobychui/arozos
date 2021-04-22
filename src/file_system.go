@@ -82,7 +82,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/zipHandler", system_fs_zipHandler)
 	router.HandleFunc("/system/file_system/getProperties", system_fs_getFileProperties)
 	router.HandleFunc("/system/file_system/pathTranslate", system_fs_handlePathTranslate)
-	router.HandleFunc("/system/file_system/handleFileWrite", system_fs_handleFileWrite)
+
 	router.HandleFunc("/system/file_system/handleFilePermission", system_fs_handleFilePermission)
 	router.HandleFunc("/system/file_system/search", system_fs_handleFileSearch)
 
@@ -1236,7 +1236,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if operation == "move" {
-				fs.FileMove(rsrcFile, rdestFile, existsOpr, false, func(progress int, currentFile string) {
+				err := fs.FileMove(rsrcFile, rdestFile, existsOpr, false, func(progress int, currentFile string) {
 					//Multply child progress to parent progress
 					blockRatio := float64(100) / float64(len(sourceFiles))
 					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
@@ -1251,8 +1251,21 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					js, _ := json.Marshal(currentStatus)
 					c.WriteMessage(1, js)
 				})
+
+				//Handle move starting error
+				if err != nil {
+					stopStatus := ProgressUpdate{
+						LatestFile: filepath.Base(rsrcFile),
+						Progress:   -1,
+						Error:      err.Error(),
+					}
+					js, _ := json.Marshal(stopStatus)
+					c.WriteMessage(1, js)
+					c.Close()
+					return
+				}
 			} else if operation == "copy" {
-				fs.FileCopy(rsrcFile, rdestFile, existsOpr, func(progress int, currentFile string) {
+				err := fs.FileCopy(rsrcFile, rdestFile, existsOpr, func(progress int, currentFile string) {
 					//Multply child progress to parent progress
 					blockRatio := float64(100) / float64(len(sourceFiles))
 					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
@@ -1267,6 +1280,19 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					js, _ := json.Marshal(currentStatus)
 					c.WriteMessage(1, js)
 				})
+
+				//Handle Copy starting error
+				if err != nil {
+					stopStatus := ProgressUpdate{
+						LatestFile: filepath.Base(rsrcFile),
+						Progress:   -1,
+						Error:      err.Error(),
+					}
+					js, _ := json.Marshal(stopStatus)
+					c.WriteMessage(1, js)
+					c.Close()
+					return
+				}
 			}
 		}
 	}
@@ -1668,7 +1694,9 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 
 	key, _ := mv(r, "key", false)
 	value, _ := mv(r, "value", false)
-	if key != "" && value == "" {
+	remove, _ := mv(r, "remove", false)
+
+	if key != "" && value == "" && remove == "" {
 		//Get mode. Read the prefernece with given key
 		result := ""
 		err := sysdb.Read("fs", "pref/"+key+"/"+username, &result)
@@ -1677,10 +1705,23 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sendTextResponse(w, result)
+	} else if key != "" && value == "" && remove == "true" {
+		//Remove mode. Delete this key from sysdb
+		err := sysdb.Delete("fs", "pref/"+key+"/"+username)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+		}
+
+		sendOK(w)
 	} else if key != "" && value != "" {
 		//Set mode. Set the preference with given key
+		if len(value) > 1024 {
+			//Size too big. Reject storage
+			sendErrorResponse(w, "Preference value too long. Preference value can only store maximum 1024 characters.")
+			return
+		}
 		sysdb.Write("fs", "pref/"+key+"/"+username, value)
-		sendJSONResponse(w, "\"OK\"")
+		sendOK(w)
 	}
 }
 
@@ -2261,53 +2302,6 @@ func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
 	thumbRenderHandler.BuildCacheForFolder(rpath)
 
 	sendOK(w)
-}
-
-//Functions for handling quick file write without the need to go through agi for simple apps
-func system_fs_handleFileWrite(w http.ResponseWriter, r *http.Request) {
-	//Get the username for this user
-	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
-	}
-
-	//Get the file content and the filepath
-	content, _ := mv(r, "content", true)
-	targetFilepath, err := mv(r, "filepath", true)
-	if err != nil {
-		sendErrorResponse(w, "Filepath cannot be empty")
-		return
-	}
-
-	//Check if filepath is writable
-	if !userinfo.CanWrite(targetFilepath) {
-		sendErrorResponse(w, "Write permission denied")
-		return
-	}
-
-	//Convert the filepath to realpath
-	rpath, err := userinfo.VirtualPathToRealPath(targetFilepath)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
-	}
-
-	//Check if the path dir exists. If not, return error
-	if !fileExists(filepath.Dir(rpath)) {
-		sendErrorResponse(w, "Directory not exists")
-		return
-	}
-
-	//OK. Write to that file
-	err = ioutil.WriteFile(rpath, []byte(content), 0755)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
-	}
-
-	sendOK(w)
-
 }
 
 //Handle setting and loading of file permission on Linux

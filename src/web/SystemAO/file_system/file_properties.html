@@ -180,7 +180,7 @@
                                             ["Virtual Path", data.VirtualPath],
                                             ["Storage Path", data.StoragePath],
                                             ["Permission", data.Permission],
-                                            ["Last Modification", data.LastModTime],
+                                            ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
                                             ["File Type", "System Shortcut"],
                                             ["Owner",data.Owner],
 
@@ -213,7 +213,7 @@
                                             ["Storage Path", data.StoragePath],
                                             [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
                                             ["Permission", data.Permission],
-                                            ["Last Modification", data.LastModTime],
+                                            ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
                                             ["File Type", "File"],
                                             ["Owner",data.Owner],
 
@@ -231,7 +231,7 @@
                                 ["Storage Path", data.StoragePath],
                                 [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
                                 ["Permission", data.Permission],
-                                ["Last Modification", data.LastModTime],
+                                ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
                                 ["File Type", "Folder"],
                                 ["Owner",data.Owner],
 
@@ -352,7 +352,62 @@
                 initFileProperties();
             }
 
+            /*
+                Updates 9 April 2021: Added day compare for last modification days
+            */
 
+            function generateDisplayLastModTime(lastModTime){
+                console.log(lastModTime);
+
+                //Try to split the date into js date format
+                var dateInfo = (lastModTime.split(" ")[0]).split("-");
+                var modTime = new Date(dateInfo[0],dateInfo[1],dateInfo[2]);
+                var diff = calcDate(new Date(), modTime);
+                var displayText = "Unknown";
+                if (diff[2] > 0){
+                    //years
+                    displayText = diff[2] + " year";
+                    if (diff[2] > 1){
+                        displayText += "s"
+                    }
+
+                    displayText += " ago";
+                    
+                }else if (diff[1] > 0){
+                    //months
+                    displayText = diff[1] + "  month";
+                    if (diff[1] > 1){
+                        displayText += "s"
+                    }
+
+                    displayText += " ago";
+                }else if (diff [0] > 0){
+                    //days
+                    displayText = diff[0] + "  day";
+                    if (diff[0] > 1){
+                        displayText += "s"
+                    }
+
+                    displayText += " ago";
+                }else{
+                    //just now
+                    displayText = "Today"
+                }
+
+                return displayText + " (" + lastModTime + ")";
+            }
+
+            function calcDate(date1 = new Date(),date2) {
+                var diff = Math.floor(date1.getTime() - date2.getTime());
+                var day = 1000 * 60 * 60 * 24;
+
+                var days = Math.floor(diff/day);
+                var months = Math.floor(days/31);
+                var years = Math.floor(months/12);
+
+
+                return [days, months, years];
+            }
         </script>
     </body>
 </html>

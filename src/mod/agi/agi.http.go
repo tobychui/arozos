@@ -37,23 +37,23 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		//Get URL from function variable
 		url, err := call.Argument(0).ToString()
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		//Get respond of the url
 		res, err := http.Get(url)
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		bodyContent, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		returnValue, err := vm.ToValue(string(bodyContent))
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		return returnValue
@@ -63,7 +63,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		//Get URL from function paramter
 		url, err := call.Argument(0).ToString()
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		//Get JSON content from 2nd paramter
@@ -89,13 +89,13 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Println(err)
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 		defer resp.Body.Close()
 
 		bodyContent, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		returnValue, _ := vm.ToValue(string(bodyContent))
@@ -107,13 +107,13 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		//Get URL from function paramter
 		url, err := call.Argument(0).ToString()
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		//Request the url
 		resp, err := http.Get(url)
 		if err != nil {
-			return otto.NaNValue()
+			return otto.NullValue()
 		}
 
 		headerKey, err := call.Argument(1).ToString()

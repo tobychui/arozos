@@ -102,8 +102,8 @@ func main() {
 	log.Println("ArozOS " + build_version + " Revision " + internal_version)
 
 	//Setup homepage folder if not exists
-	if !fileExists("./web/homepage") {
-		os.MkdirAll("./web/homepage", 0644)
+	if !fileExists("./web/www") {
+		os.MkdirAll("./web/www", 0644)
 	}
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020

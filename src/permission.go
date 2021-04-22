@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -33,8 +34,10 @@ func permissionInit() {
 	//Must be handled by default router
 	http.HandleFunc("/system/permission/listgroup", func(w http.ResponseWriter, r *http.Request) {
 		if authAgent.GetUserCounts() == 0 {
-			//There is no user within the system. Always allow listgroup
-			permissionHandler.HandleListGroup(w, r)
+			//There is no user within the system. Only allow register of admin account
+			js, _ := json.Marshal([]string{"administrator"})
+			sendJSONResponse(w, string(js))
+			//permissionHandler.HandleListGroup(w, r)
 		} else {
 			//There are already users in the system. Only allow authorized users
 			if authAgent.CheckAuth(r) {

@@ -3,7 +3,6 @@
     <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-        <link rel="manifest" href="manifest.json">
         <meta charset="UTF-8">
         <meta name="theme-color" content="#4b75ff">
         <link rel="stylesheet" href="script/semantic/semantic.min.css">
@@ -11,6 +10,8 @@
         <script src="script/semantic/semantic.min.js"></script>
         <script src="../script/ao_module.js"></script>
         <script src="script/DPlayer.min.js"></script>
+
+        <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
         <title>Video</title>
         <style>
             html, body{
@@ -58,6 +59,11 @@
 
             .videoObject{
                 padding:6px !important; 
+                cursor: pointer;
+            }
+
+            .videoObject:hover{
+                background-color: #ffdd91;
             }
 
         </style>
@@ -75,16 +81,18 @@
             </h3>
             <div class="ui segment">
                 <p><i class="expand icon"></i>Screen Size</p>
-                <button class="ui tiny button" onclick="setScreenSize('50%');">
-                    Small
-                </button>
+                <!--
+                    <button class="ui tiny button" onclick="setScreenSize('50%');">
+                        Small
+                    </button>
+                 -->
                 <button class="ui tiny button" onclick="setScreenSize('70%');">
                     Normal
                 </button>
                 <button class="ui tiny button" onclick="setScreenSize('100%');">
                     Full Width
                 </button>
-                <div class="ui toggle checkbox" style="position:absolute;right:12px;bottom: 12px;">
+                <div class="ui toggle right floated checkbox">
                     <input id="autoplayToggle" type="checkbox" name="autoplay" onchange="setAutoplay(this);">
                     <label>Autoplay</label>
                 </div>
@@ -109,7 +117,7 @@
             var AllPlaylist = [];
             var currentPlaylist = [];
             var currentPlaying;
-            var unsortedVideoFiles = [];
+            //var unsortedVideoFiles = [];
             var autoPlay = false;
             var previousScreenSize = "70%";
             $('.ui.dropdown').dropdown();
@@ -236,25 +244,28 @@
                            var thisDevice = data[i];
                            var thisDeviceName = thisDevice.StorageName;
                            var playlistInThisDevice = thisDevice.PlayLists;
-                           var unsortedVideoInThisDevice = thisDevice.UnsortedVideos;
+                           //var unsortedVideoInThisDevice = thisDevice.UnsortedVideos;
                            //Append playlist
                            for (var j = 0; j < playlistInThisDevice.length; j++){
                                var thisPlaylistName = playlistInThisDevice[j].Name;
                                AllPlaylist.push(JSON.parse(JSON.stringify(playlistInThisDevice[j])));
                                $("#playListSelector").append(`<option class="playlistObject" value="${thisPlaylistName}" device="${thisDeviceName}">${thisPlaylistName}</option>`);
                            }
+                           /*
                            for (var k = 0; k < unsortedVideoInThisDevice.length; k++){
                                 unsortedVideoFiles.push(JSON.parse(JSON.stringify(unsortedVideoInThisDevice[k])));
                            }
+                           */
                            
                        }
                         //Append unsorted into playlist
-                       $("#playListSelector").append(`<option class="playlistObject" value="unsorted" device="">Unsorted Playlist</option>`);
+                        //$("#playListSelector").append(`<option class="playlistObject" value="unsorted" device="">Unsorted Playlist</option>`);
                         updateWindowEvents();
                     }
                 });
             }
 
+            /*
             function listUnsortedFiles(){
                  //Append unsorted files
                  $("#videolist").html("");
@@ -263,15 +274,16 @@
                     var thisVideoName = unsortedVideoFiles[k].Filename;
                     var thisFilePath = unsortedVideoFiles[k].Filepath;
                     var ext = unsortedVideoFiles[k].Ext;
-                    $("#videolist").append(`<div class="item videoObject" filename="${thisVideoName}" filepath="${thisFilePath}" ext="${ext}" playlist="Unsorted">
+                    $("#videolist").append(`<div class="item videoObject" onclick="playThisFile(this);" filename="${thisVideoName}" filepath="${thisFilePath}" ext="${ext}" playlist="Unsorted">
                         <i class="file icon"></i>
                         <div class="content">
-                            <a class="header" onclick="playThisFile(this);">${thisVideoName}</a>
+                            <a class="header">${thisVideoName}</a>
                             <div class="description">${thisFilePath} / [${ext}]</div>
                         </div>
                     </div>`);
                 }
             }
+            */
 
             function listPlayList(playlistName){
                 $("#videolist").html("");
@@ -286,21 +298,39 @@
                 for (var i = 0; i < currentPlaylist.length; i++){
                     var playListName = targetPlaylist.Name;
                     var thisVideoName = currentPlaylist[i].Filename;
+                    thisVideoName = thisVideoName.split(".");
+                    thisVideoName.pop();
+                    thisVideoName = thisVideoName.join(".");
                     var thisFilePath = currentPlaylist[i].Filepath;
                     var ext = currentPlaylist[i].Ext;
-                    $("#videolist").append(`<div class="item videoObject" filename="${thisVideoName}" filepath="${thisFilePath}" ext="${ext}" playlist="${playListName}">
-                        <i class="file icon"></i>
-                        <div class="content">
-                            <a class="header" onclick="playThisFile(this);">${thisVideoName}</a>
-                            <div class="description">${thisFilePath} / [${ext}]</div>
+                    $("#videolist").append(`<div class="item videoObject" onclick="playThisFile(this);" filename="${thisVideoName}" filepath="${thisFilePath}" ext="${ext}" playlist="${playListName}">
+                        <img class="ui top aligned tiny image thumbnail" src="img/no_preview.svg">
+                        <div class="content" style="width: calc(100% - 100px);">
+                            <p class="header">${thisVideoName}</p>
+                            <div class="description">${thisFilePath} <br> ${ext.substr(1)}</div>
                         </div>
                     </div>`);
                 }
+
+                //Render the thumbnail
+                $(".videoObject").each(function(){
+                    let vidDomElet = $(this);
+                    ao_module_agirun("Video/backend/getThumbnail.js", {
+                        file: $(this).attr("filepath")
+                    },function(data){
+                        if (data.error == undefined && data.length > 0){
+                            //Thumbnail get. Render it to the DOM element
+                            $(vidDomElet).find(".thumbnail").attr("src", 'data:image/jpg;base64,' + data);
+                        }
+                    } );
+                });
+
             }
 
             function playThisFile(obj){
                 $(".playing").removeClass("playing");
-                var fileDescriptor = $(obj).parent().parent();
+                //var fileDescriptor = $(obj).parent().parent();
+                var fileDescriptor = $(obj);
                 $("#videoname").text(fileDescriptor.attr("filename"));
                 $("#playlistName").text(fileDescriptor.attr("playlist"));
                 $("#ext").text("[" + fileDescriptor.attr("ext") + "]" );

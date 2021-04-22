@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="script/tocas/tocas.css">
-    <link rel="stylesheet" href="script/ao.css">
+    <link id="fwcss" rel="stylesheet" href="script/ao.css">
     <link rel="stylesheet" href="SystemAO/desktop/script/jsCalendar/source/jsCalendar.css">
     <script type="text/javascript" src="script/tocas/tocas.js"></script>
     <script type="text/javascript" src="script/jquery.min.js"></script>
@@ -513,6 +513,7 @@
 
         .notificationbar .cover{
             backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
             position:absolute;
             top:0px;
             left:0px;
@@ -690,10 +691,10 @@
         <div class="hostname statusbarpadding">
             Welcome
         </div>
-        <div class="clock statusbarpadding" style="display: table-cell; cursor:pointer; user-select: none;" onclick="toggleNotification();">
+        <div class="clock statusbarpadding" style="display: table-cell; cursor:pointer; user-select: none;" onclick="toggleNotification();" ontouchstart="toggleNotification();">
             ArOZ Online Desktop
         </div>
-        <div class="quicktools" onclick="showToolPanel();">
+        <div class="quicktools" onclick="showToolPanel();" ontouchend="showToolPanel();">
             <div class="qtwrapper">
                 <i class="content icon"></i>
             </div>
@@ -718,7 +719,7 @@
                 <div class="auto-jsCalendar blue"></div>
             </div>
         </div>
-        <div class="cover" onclick='toggleNotification("hide");'>
+        <div class="cover" onclick='toggleNotification("hide");' ontouchstart='toggleNotification("hide");'>
 
         </div>
     </div>
@@ -811,15 +812,15 @@
         </div>
         <div class="item" style="padding-bottom:12px;">
             <i class="volume up icon"></i> System Global Volume
-            <div class="ts fluid small progress" style="margin-top:8px; cursor:pointer;" onclick="updateVolume(this,event);">
+            <div class="ts fluid small progress" style="margin-top:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
                 <div id="volumebar" class="bar" style="width: 0%; background-color:#52C9FF;  cursor:pointer;"></div>
             </div>
         </div>
-        <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();">
+        <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
             <i class="setting icon"></i> System Settings
             <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
         </div>
-        <div class="item" onclick="fullscreen(); hideToolPanel();">
+        <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
             <i class="maximize icon"></i> Toggle Fullscreen
         </div>
         <div class="ts divider"></div>
@@ -828,10 +829,10 @@
                 <i class="log out icon"></i> Logout
             </div>
         -->
-        <div class="item hardware" onclick="restart(); hideToolPanel();">
+        <div class="item hardware" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
             <i class="repeat icon"></i> Restart
         </div>
-        <div class="item hardware" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();">
+        <div class="item hardware" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
             <i class="power icon"></i> Power Off
         </div>
     </div>
@@ -855,6 +856,7 @@
         var backgroundCrossfadeInterval = 30000; //Time between the crossfade of each background image
         var nextSlideshowIndex = 0; //The next background image index to be shown
         var backgroundIntervalCounter; //The interval object for background changer
+        var desktopThemeColor = ""; //The current desktop theme color, which renders to the status bar and suchs
 
         //Desktop icon realted
         var desktopIconSize = "medium"; //Size of desktop icons. Allow {small / medium / big}
@@ -908,6 +910,7 @@
         //initDesktopFiles();               //Will be called in initDesktopIconPreference() -> refresh()
         initModuleList();
         initDesktopIconPreference()
+        initUserDefinedThemeColor();
         hookFloatWindowEvents();
         hookLaunchMenuEvents();
         initTheme();
@@ -1980,9 +1983,16 @@
             if (bgcolor !== ""){
                 backgroundStyle = `background-color: ${bgcolor};`;
             }
+
+            //Check if the theme color is applied. If yes, generate the floatWindow with overwritten theem color
+            var overWriteThemeColor = "";
+            if (desktopThemeColor != ""){
+                overWriteThemeColor = `background-color: ${hexToRgbA(desktopThemeColor, 0.85)}`;
+            }
+
             //Append the floatWindow into the body
             $("body").append(`<div class="floatWindow" windowId="${uuid}" parent="${parentWindowID}" callback="${callbackFunctionName}" style="z-index:0; width:${width}px; height:${height}px; left:${left}px; top:${top}px;${backgroundStyle}">
-                                    <div class="controls fwdragger themeColorSolid">
+                                    <div class="controls fwdragger themeColorSolid" style="${overWriteThemeColor}">
                                         <img class="moduleicon" src="${moduleIcon}"></img>
                                         <div class="title">${title}</div>
                                         <div class="fwcontrol">
@@ -4417,10 +4427,36 @@
             hideAllContextMenus();
         }
 
+
+        document.getElementById("volumebar").parentNode.addEventListener("touchstart", function(e){
+            updateVolume( document.getElementById("volumebar").parentNode, e);
+        });
+
+        function getCoordinateFromEvent(e){
+            var x = -1;
+            var y = -1;
+            if (e.originalEvent == undefined){
+                e.originalEvent = e;
+            }
+            if(e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel'){
+                var touch = e.originalEvent.touches[0] || e.originalEvent.changedTouches[0];
+                x = touch.pageX;
+                y = touch.pageY;
+            } else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover'|| e.type=='mouseout' || e.type=='mouseenter' || e.type=='mouseleave') {
+                x = e.clientX;
+                y = e.clientY;
+            }else{
+                x = e.clientX;
+                y = e.clientY;
+            }
+            return [x,y];
+        }
+
         function updateVolume(object, event){
             var width = $(object).width();
             var left = $(object).offset().left;
-            var clickRel = event.clientX - left;
+            var clickPosition = getCoordinateFromEvent(event)[0];
+            var clickRel = clickPosition - left;
             var percentage = clickRel / width * 100;
             if (percentage < 0){
                 percentage = 0;
@@ -4683,6 +4719,46 @@
             $("#quickAccessPanel").find(".button").removeClass("inverted");
         }
 
+        function hexToRgbA(hex, transparent=1){
+            var c;
+            if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+                c= hex.substring(1).split('');
+                if(c.length== 3){
+                    c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+                }
+                c= '0x'+c.join('');
+                return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+',' + transparent + ')';
+            }
+            throw new Error('Bad Hex');
+        }
+
+        function setThemeColor(newThemeColor){
+            //Update the global theme color
+            desktopThemeColor = newThemeColor;
+
+            //Update the related elements
+            $("#statusbar").css("background-color",newThemeColor);
+            $("#navimenu").css("background-color",hexToRgbA(newThemeColor, 0.5));
+            $(".floatWindow .controls").css("background-color",hexToRgbA(newThemeColor, 0.85));
+
+            //List menu theme color bar
+            $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
+            $("#volumebar").css("background-color", newThemeColor);
+        }
+
+        //Load the user define theme color to overwrite the default color if exists
+        function initUserDefinedThemeColor(){
+            $.ajax({
+                url: "../../system/file_system/preference",
+                data: {key: "themecolor"},
+                success: function(data){
+                    if (data.error == undefined && data != ""){
+                        setThemeColor(data);
+                    }
+                }
+            });
+        }
+
         //Float Window context menu
         function getFocusedFloatWindowID(){
             var targetFloatWindowId = "";
@@ -4802,17 +4878,17 @@
         }, 15000);
 
         function getDesktopHash(callback){
-                $.ajax({
-                    url: "../../system/file_system/listDirHash",
-                    data: {dir: "user:/Desktop/"},
-                    success: function(data){
-                        if (data.error !== undefined){
-                           
-                        }
-                        callback(data);
+            $.ajax({
+                url: "../../system/file_system/listDirHash",
+                data: {dir: "user:/Desktop/"},
+                success: function(data){
+                    if (data.error !== undefined){
+                        
                     }
-                })
-            }
+                    callback(data);
+                }
+            })
+        }
     </script>
 </body>
 

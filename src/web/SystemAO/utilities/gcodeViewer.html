@@ -31,7 +31,8 @@
 		<script src="../../script/ao_module.js"></script>
 		<div id="infotab">
 			<p id="filename"></p>
-			<p id="filepath"></p>
+			<p id="filepath" style="display:none;"></p>
+			<p id="displayfilepath"></p>
 			<p id="filesize"></p>
 		</div>
 		<script>
@@ -42,7 +43,7 @@
 				file = files[0];
 				$("#filename").text(file.filename);
 				$("#filepath").text("../../media?file=" + file.filepath);
-
+				$("#displayfilepath").text(file.filepath);
 				//Get filesize info
 				$.ajax({
 					url: "../../system/file_system/getProperties", 

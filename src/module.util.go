@@ -1,9 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
-	"net/http"
-
 	module "imuslab.com/arozos/mod/modules"
 )
 
@@ -13,63 +10,21 @@ import (
 
 	DO NOT USE THIS TO WRITE A NEW MODULE
 
+
+	>> Updates v1.112
+	This util functions will be deprecated before v1.120.
+	Please migrate all of the modules out as WebApps using agi interface
 */
 
 //Register the utilities here
 
 func util_init() {
-	//PDF Viewer
-	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "PDF Reader",
-		Desc:         "The browser build in PDF Reader",
-		Group:        "Utilities",
-		IconPath:     "SystemAO/utilities/img/pdfReader.png",
-		Version:      "1.2",
-		SupportFW:    false,
-		SupportEmb:   true,
-		LaunchEmb:    "SystemAO/utilities/pdfReader.html",
-		InitEmbSize:  []int{1080, 580},
-		SupportedExt: []string{".pdf"},
-	})
-
-	//Open Documents Viewer
-	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "OpenOffice Reader",
-		Desc:         "Open OpenOffice files",
-		Group:        "Utilities",
-		IconPath:     "SystemAO/utilities/img/odfReader.png",
-		Version:      "0.8",
-		SupportFW:    false,
-		SupportEmb:   true,
-		LaunchEmb:    "SystemAO/utilities/odfReader.html",
-		InitEmbSize:  []int{1080, 580},
-		SupportedExt: []string{".odt", ".odp", ".ods"},
-	})
-
 	/*
-		Notebook - The build in basic text editor
+		ArOZ Video Player - The basic video player
 	*/
 	//Open Documents Viewer
 	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "Notebook",
-		Desc:         "Basic Text Editor",
-		Group:        "Utilities",
-		IconPath:     "SystemAO/utilities/img/notebook.png",
-		Version:      "1.0",
-		SupportFW:    false,
-		SupportEmb:   true,
-		LaunchEmb:    "SystemAO/utilities/notebook.html",
-		InitEmbSize:  []int{1080, 580},
-		SupportedExt: []string{".txt", ".md"},
-	})
-	http.HandleFunc("/system/utils/notebook/save", system_util_handleNotebookSave)
-
-	/*
-		ArOZ Media Player - The basic video player
-	*/
-	//Open Documents Viewer
-	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "ArOZ Media Player",
+		Name:         "Video Player",
 		Desc:         "Basic Video Player",
 		Group:        "Utilities",
 		IconPath:     "SystemAO/utilities/img/mediaPlayer.png",
@@ -129,76 +84,4 @@ func util_init() {
 		SupportedExt: []string{".gcode", ".gco"},
 	})
 
-	/*
-		Basic Timer
-	*/
-	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:        "Timer",
-		Desc:        "Basic Timer Utility",
-		Group:       "Utilities",
-		IconPath:    "SystemAO/utilities/img/timer.png",
-		StartDir:    "SystemAO/utilities/timer.html",
-		Version:     "1.0",
-		SupportFW:   true,
-		SupportEmb:  false,
-		LaunchFWDir: "SystemAO/utilities/timer.html",
-		InitFWSize:  []int{380, 190},
-	})
-
-}
-
-/*
-	Util functions
-	Please put the functions in the space below
-*/
-
-/*
-	Notebook function handlers
-	Handle save of new notebook text file
-*/
-
-func system_util_handleNotebookSave(w http.ResponseWriter, r *http.Request) {
-	username, err := authAgent.GetUserName(w, r)
-	if err != nil {
-		sendErrorResponse(w, "User not logged in")
-		return
-	}
-	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
-	filepath, _ := mv(r, "filepath", true)
-	newcontent, _ := mv(r, "content", true)
-	if filepath == "" {
-		sendErrorResponse(w, "Undefined filepath given.")
-		return
-	}
-
-	//Check if user can write
-	if !userinfo.CanWrite(filepath) {
-		sendErrorResponse(w, "Write request denied")
-		return
-	}
-
-	//Get real path of file
-	realpath, _ := userinfo.VirtualPathToRealPath(filepath)
-
-	//Check if file exists. If yes, remove its ownership and size allocation
-	if fileExists(realpath) {
-		userinfo.RemoveOwnershipFromFile(realpath)
-	}
-	if userinfo.StorageQuota.HaveSpace(int64(len(newcontent))) {
-		//have space. Set this file to the owner's
-		userinfo.RemoveOwnershipFromFile(realpath)
-	} else {
-		//Out of space. Add this file back to the user ownership
-		userinfo.SetOwnerOfFile(realpath)
-		sendErrorResponse(w, "Storage Quota Fulled")
-		return
-	}
-
-	err = ioutil.WriteFile(realpath, []byte(newcontent), 0755)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
-	}
-	userinfo.SetOwnerOfFile(realpath)
-	sendOK(w)
 }

@@ -92,6 +92,7 @@ function ao_module_setWindowSize(width, height){
 //Update the floatWindow title
 function ao_module_setWindowTitle(newTitle){
     if (!ao_module_virtualDesktop){
+        document.title = newTitle;
         return;
     }
     parent.setFloatWindowTitle(ao_module_windowID, newTitle);

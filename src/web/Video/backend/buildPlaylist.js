@@ -25,7 +25,6 @@ function basename(filepath){
 
 function scanPathForVideo(thisDir, thisStorageName){
     var playlistInThisStorage = [];
-    var unsortedVideoInThisStorage = [];
     var thisStoragePlaylist = {};
     
     if (filelib.fileExists(thisDir + "Video/")){
@@ -70,7 +69,12 @@ function scanPathForVideo(thisDir, thisStorageName){
             for (var k =0; k < playlistFilelist.length; k++){
                 //For each files in this folder
                 if (!filelib.isDir(playlistFilelist[k]) && validVideoFormat.indexOf(ext(playlistFilelist[k])) > -1 ){
-                    //This is a video file 
+                    //This is a video file extension file
+                    var filenameOnly = JSON.parse(JSON.stringify(playlistFilelist[k])).split("/").pop();
+                    if (filenameOnly.substr(0,2) == "._"){
+                        //MacOS caching files. Ignore this
+                        continue
+                    }
                     thisPlaylistObject["Files"].push(buildFileObject(playlistFilelist[k]));
                 }
             }
@@ -79,6 +83,7 @@ function scanPathForVideo(thisDir, thisStorageName){
         }
 
         //Build the unsorted file list
+        /*
         var unsortedFileList = [];
         for (var i = 0; i < validVideoFormat.length; i++){
             var unsortedFiles = filelib.aglob(walkPath + "/*." + validVideoFormat[i])
@@ -86,61 +91,15 @@ function scanPathForVideo(thisDir, thisStorageName){
                 unsortedFileList.push(buildFileObject(unsortedFiles[j]));
             }
         }
+        */
         
 
         //Push scan into results
         if (playlistInThisStorage.length > 0){
             thisStoragePlaylist["PlayLists"] = playlistInThisStorage;
-            thisStoragePlaylist["UnsortedVideos"] = unsortedFileList;
+            //thisStoragePlaylist["UnsortedVideos"] = unsortedFileList;
             playlist.push(thisStoragePlaylist);
         }
-     
-       
-
-        //
-
-        /*
-        //Video folder exists in this directory
-        thisStoragePlaylist["StorageName"] = thisStorageName;
-        var fileList = filelib.glob(thisDir + "Video/*");
-        for (var j =0; j < fileList.length; j++){ 
-            if (filelib.isDir(fileList[j])){
-                //This is a directory. Scan this playlist content
-                var playlistFilelist = filelib.aglob(fileList[j] + "/*.*")
-                var playlistName = basename(fileList[j]);
-                var thisPlaylistObject = {};
-                thisPlaylistObject["Name"] = playlistName;
-                thisPlaylistObject["Files"] = [];
-                for (var k =0; k < playlistFilelist.length; k++){
-                    //For each files in this folder
-                    if (!filelib.isDir(playlistFilelist[k]) && validVideoFormat.indexOf(ext(playlistFilelist[k])) > -1 ){
-                        //This is a video file 
-                        thisPlaylistObject["Files"].push(buildFileObject(playlistFilelist[k]));
-                    }
-                }
-                if (thisPlaylistObject["Files"].length  > 0){
-                    playlistInThisStorage.push(thisPlaylistObject)
-                }
-            }else{
-                //This is just a normal file. Add to unsorted files
-                if (validVideoFormat.indexOf(ext(fileList[j])) > -1 ){
-                    unsortedVideoInThisStorage.push(buildFileObject(fileList[j]))
-                }
-                
-            }
-            
-        }
-
-         //Push scan into results
-        thisStoragePlaylist["PlayLists"] = playlistInThisStorage;
-        thisStoragePlaylist["UnsortedVideos"] = unsortedVideoInThisStorage;
-        playlist.push(thisStoragePlaylist);
-
-        */
-
-      
-        
-
     }
     
 }

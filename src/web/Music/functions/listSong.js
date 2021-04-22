@@ -42,11 +42,7 @@ function handleUserRequest(){
         var rootDirs = filelib.glob("/");
         for (var i = 0; i < rootDirs.length; i++){
             var thisRoot = rootDirs[i];
-            /*
-            if (filelib.fileExists(thisRoot + "Music/")){
-                musicDis.push(thisRoot + "Music/");
-            }
-            */
+           
             //Always use all roots
             musicDis.push(thisRoot);
             
@@ -127,40 +123,74 @@ function handleUserRequest(){
                 }));
             
             }else if (listSong.substr(0,7) == "search:"){
+                //Search mode
                 var keyword = listSong.substr(7)
                 var songData = [];
-                for (var i = 0; i < musicDis.length; i++){
-                    var thisFileLib = musicDis[i];
-                    var allfilelist = filelib.walk(thisFileLib, "file");
-                    for (var k = 0; k < allfilelist.length; k++){
-                        var thisFile = allfilelist[k];
-                        var ext = allfilelist[k].split('.').pop();
-                        var filename = allfilelist[k].split('/').pop();
-                        if (IsSupportExt(ext) == true && filename.indexOf(keyword) !== -1){
-                            //This file match our ext req and keyword exists
-                            var thisSongData = [];
-                            //Access Path 
-                            thisSongData.push("/media?file=" + thisFile);
-                            //File Name only
-                            var filename = thisFile.split("/").pop()
-                            filename = filename.split(".");
-                            var ext = filename.pop();
-                            filename = filename.join(".");
-                            thisSongData.push(filename);
-                            //File Extension
-                            thisSongData.push(ext);
-                            //File size
-                            var fileSize = bytesToSize(filelib.filesize(thisFile))
-                            thisSongData.push(fileSize)
-            
-                            songData.push(thisSongData);
 
+                var cachedList = readDBItem("AirMusic", "cache");
+                var allfilelist = [];
+
+                function getRealtimeAllFleList(){
+                    var allfilelist = [];
+                    for (var i = 0; i < musicDis.length; i++){
+                        var thisFileLib = musicDis[i];
+                        thisDirList  = filelib.walk(thisFileLib, "file");
+                        for (var j = 0; j < thisDirList.length; j++){
+                            allfilelist.push(thisDirList[j]);
                         }
                     }
+                    return allfilelist;
                 }
+
+                if (cachedList == ""){
+                    //No cache. Do real time scanning
+                    allfilelist = getRealtimeAllFleList();
+                }else{
+                    //Try parse it. If parse failed fallback to realtime scanning
+                    try{    
+                        cachedList = JSON.parse(cachedList);
+                        for (var j = 0; j < cachedList.length; j++){
+                            var thisCachedSong = cachedList[j];
+                            allfilelist.push(thisCachedSong[0].replace("/media?file=", ""));
+                        }
+                    }catch(ex){
+                        //Fallback
+                        allfilelist = getRealtimeAllFleList();
+                    }
+                }
+                    
+                for (var k = 0; k < allfilelist.length; k++){
+                    var thisFile = allfilelist[k];
+                    var ext = allfilelist[k].split('.').pop();
+                    var filename = allfilelist[k].split('/').pop();
+                    if (IsSupportExt(ext) == true && filename.indexOf(keyword) !== -1){
+                        //This file match our ext req and keyword exists
+                        var thisSongData = [];
+                        //Access Path 
+                        thisSongData.push("/media?file=" + thisFile);
+                        //File Name only
+                        var filename = thisFile.split("/").pop()
+                        filename = filename.split(".");
+                        var ext = filename.pop();
+                        filename = filename.join(".");
+                        thisSongData.push(filename);
+                        //File Extension
+                        thisSongData.push(ext);
+                        //File size
+                        var fileSize = bytesToSize(filelib.filesize(thisFile))
+                        thisSongData.push(fileSize)
+        
+                        songData.push(thisSongData);
+
+                    }
+                }
+                
 
                 //Send resp
                 sendJSONResp(JSON.stringify(songData));
+
+                //Run build cache in background so to update any cache if exists
+                execd("buildCache.js")
             }else{
                 //WIP
                 console.log("listSong type " + listSong + " work in progress")

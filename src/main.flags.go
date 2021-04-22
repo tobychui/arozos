@@ -25,7 +25,7 @@ var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "0.1.111"                       //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
+var internal_version = "0.1.112"                       //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
@@ -83,7 +83,7 @@ var allow_public_registry = flag.Bool("public_reg", false, "Enable public regist
 var allow_autologin = flag.Bool("allow_autologin", true, "Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot")
 var demo_mode = flag.Bool("demo_mode", false, "Run the system in demo mode. All directories and database are read only.")
 var allow_package_autoInstall = flag.Bool("allow_pkg_install", true, "Allow the system to install package using Advanced Package Tool (aka apt or apt-get)")
-var allow_homepage = flag.Bool("enable_homepage", false, "Redirect not logged in users to home page instead of login interface")
+var allow_homepage = flag.Bool("enable_homepage", false, "Redirect not logged in users to public web hosting folder (web/www/) instead of login interface")
 
 //Scheduling and System Service Related
 var nightlyTaskRunTime = flag.Int("ntt", 3, "Nightly tasks execution time. Default 3 = 3 am in the morning")

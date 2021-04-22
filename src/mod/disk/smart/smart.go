@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	//"os/exec"
@@ -44,12 +45,14 @@ func NewSmartListener() (*SMARTListener, error) {
 	driveList := scanAvailableDevices(smartExec)
 	readSMARTDevices(smartExec, &driveList)
 	fillHealthyStatus(&driveList)
+	fillCapacity(&driveList)
 	return &SMARTListener{
 		SystemSmartExecutable: smartExec,
 		DriveList:             driveList,
 	}, nil
 }
 
+//this function used for fetch available devices by using smartctl
 func scanAvailableDevices(smartExec string) DevicesList {
 	rawInfo := execCommand(smartExec, "--scan", "--json=c")
 	devicesList := new(DevicesList)
@@ -65,6 +68,7 @@ func scanAvailableDevices(smartExec string) DevicesList {
 	return *devicesList
 }
 
+//this function used for merge SMART Information into devicesList
 func readSMARTDevices(smartExec string, devicesList *DevicesList) {
 	for i, device := range devicesList.Devices {
 		rawInfo := execCommand(smartExec, device.Name, "--info", "--all", "--json=c")
@@ -74,6 +78,7 @@ func readSMARTDevices(smartExec string, devicesList *DevicesList) {
 	}
 }
 
+//used for fill the healthy status to the array
 func fillHealthyStatus(devicesList *DevicesList) {
 	devicesList.Healthy = "Normal"
 	for i, device := range devicesList.Devices {
@@ -91,6 +96,26 @@ func fillHealthyStatus(devicesList *DevicesList) {
 				devicesList.Devices[i].Smart.Healthy = "Attention"
 				devicesList.Healthy = "Attention"
 				break
+			}
+		}
+	}
+}
+
+//fill the capacity if windows
+func fillCapacity(devicesList *DevicesList) {
+	if runtime.GOOS == "windows" {
+		DiskNames := wmicGetinfo("diskdrive", "Model")
+		DiskSizes := wmicGetinfo("diskdrive", "Size")
+		for i, device := range devicesList.Devices {
+			for j := range DiskNames {
+				//since Intel driver will alter drive name to "XXXX SCSI Disk Device"
+				//so remove the string to increase the match probability
+				DiskNames[j] = strings.ReplaceAll(DiskNames[j], " SCSI Disk Device", "")
+				//if the name match && capacity == 0
+				if device.Smart.ModelName == DiskNames[j] && devicesList.Devices[i].Smart.UserCapacity.Bytes == 0 {
+					capacity, _ := strconv.ParseInt(DiskSizes[j], 10, 64)
+					devicesList.Devices[i].Smart.UserCapacity.Bytes = capacity
+				}
 			}
 		}
 	}

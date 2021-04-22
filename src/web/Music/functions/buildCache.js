@@ -32,7 +32,6 @@ for (var i = 0; i < rootDirs.length; i++){
 function buildCache(){
     //Create db if not exists
     newDBTableIfNotExists("AirMusic");
-
      //Do the scanning
      var songData = [];
      var musicFiles = [];

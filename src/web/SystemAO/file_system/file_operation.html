@@ -254,6 +254,7 @@ mainloop:
                         if (progress.Error != ""){
                             //Something went wrong
                             $("#progressbar").css("background-color", "#eb3f28");
+                            $("#opricon").attr("src", "img/error.png");
                             enterErrorMode = true;
                             alert(progress.Error);
                         }else{
@@ -281,7 +282,8 @@ mainloop:
                         if (!enterErrorMode){
                             $("#progressbar").css("background-color", "#2bba35");
                             $("#progressbar").css("width", "100%");
-                            $("#progress").text("100%")
+                            $("#progress").text("100%");
+                            $("#opricon").attr("src", "img/done.png")
                             setTimeout(function(){
                                 if (operationConfig.opr == "unzipAndOpen"){
                                     //If open after unzip is required
