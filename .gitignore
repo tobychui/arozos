@@ -1,4 +1,8 @@
+# Operating System Trash
 */Thumbs.db
+*/._*
+
+# Files that should not go into the main branch
 src/aroz_online.exe
 src/aroz_online
 src/localhost.crt
@@ -8,5 +12,10 @@ src/system/storage.json
 src/subservice/*
 src/*.go_disabled
 src/system/ao.db
+
+# WebApps that cannot be published
+src/web/Cyinput/*
+
+# Release folder and database stuffs
 */aofs.db
 release/
