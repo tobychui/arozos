@@ -50,6 +50,7 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 
 |Version|Download|Mirror|Remarks|
 |---|---|---|---|
+|arozos v1.112 (Stable)|https://wdfiles.ru/740970|https://www.mediafire.com/file/eonn1weu8jvfz29/arozos_v1.112.7z/file|Bug fix and patches for v1.111|
 |arozos v1.111 (Stable)|https://wdfiles.ru/ead4e3|https://www.mediafire.com/file/cusm5jwsuey6b4k/arozos_v1.111.7z/file|IoT Hub Added|
 |arozos v1.110 (Stable)|https://wdfiles.ru/0412fd|http://www.mediafire.com/file/r7l40jv727covej/arozos_v1.110.7z/file||
 |arozos v1.109|https://wdfiles.ru/c5556b4473c75f6d|https://www.mediafire.com/file/mmjyv77ei9fwab5/arozos_v1.109.7z/file||
