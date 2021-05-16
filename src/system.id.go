@@ -52,11 +52,19 @@ func SystemIDInit() {
 		StartDir: "SystemAO/info/license.html",
 	})
 
+	registerSetting(settingModule{
+		Name:     "License",
+		Desc:     "License of ArozOS",
+		IconPath: "SystemAO/info/img/small_icon.png",
+		Group:    "About",
+		StartDir: "SystemAO/info/srcLicense.html",
+	})
+
 	//Register vendor information
 	if fileExists("web/SystemAO/vendor/index.html") {
 		registerSetting(settingModule{
 			Name:     "Vendor",
-			Desc:     "Vendor Information",
+			Desc:     "Vendor Notes",
 			IconPath: "SystemAO/info/img/small_icon.png",
 			Group:    "About",
 			StartDir: "SystemAO/vendor/index.html",

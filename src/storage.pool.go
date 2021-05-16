@@ -472,7 +472,7 @@ func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
 	js, _ := json.Marshal(oldConfigs)
 	resultingJson := pretty.Pretty(js)
 
-	ioutil.WriteFile(configFile, resultingJson, 755)
+	ioutil.WriteFile(configFile, resultingJson, 775)
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, post-check=0, pre-check=0")
 	http.Redirect(w, r, "../../../SystemAO/storage/poolEditor.html#"+groupName, 307)
 }

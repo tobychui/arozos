@@ -1,0 +1,22 @@
+/*
+	Camera App Register Script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Camera",
+	Desc: "The camera app that will never run out of storage",
+	Group: "Media",
+	IconPath: "Camera/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "Camera/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Camera/index.html",
+	SupportEmb: false,
+	InitFWSize: [475, 700],
+	SupportedExt: []
+}
+
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

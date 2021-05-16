@@ -16,7 +16,8 @@
         }
 
         .footer{
-            position: absolute;
+            position: fixed;
+            left: 0px;
             bottom: 0px;
             height: 100px;
             width: 100%;
@@ -29,7 +30,7 @@
     <body>
         <div class="bar"></div>
         <br>
-        <div class="container">
+        <div class="container" style="padding-bottom: 150px;">
             <div class="row">
                 <div class="one-half column">
                     <h5>{{hostname}} File Sharing</h5>
@@ -39,14 +40,14 @@
                     <p>Request Timestamp: {{reqtime}}</p>
                 </div>
                 <div class="one-half column">
-                    <img style="pointer-events: none;" src="img/public/share/notfound.png">
+                    <img style="pointer-events: none; width: 100%;" src="img/public/share/notfound.png">
                 </div>
             </div>
            
         </div>
         <div class="footer">
             <div class="container">
-                Cloud File Sharing Interface, Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
+                Cloud File Sharing Interface, <br>Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
             </div>
         </div>
       

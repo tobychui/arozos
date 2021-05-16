@@ -23,6 +23,16 @@ function IsSupportExt(ext){
     return false
 }
 
+//Check if the file is a hidden or meta file
+function IsMetaFile(filepath){
+    var filename = filepath.split("/").pop();
+    if (filename.substr(0,2) == "._"){
+        return true;
+    }
+
+    return false;
+}
+
 //Convert filesize from bytes to human readable format
 function bytesToSize(bytes) {
     var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];

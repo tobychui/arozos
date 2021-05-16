@@ -26,7 +26,7 @@ var iotManager *iot.Manager
 func IoTHubInit() {
 	if *allow_iot && *allow_mdns && MDNS != nil {
 		//Create a new ioT Manager
-		iotManager = iot.NewIoTManager()
+		iotManager = iot.NewIoTManager(sysdb)
 
 		//Register IoT Hub Module
 		moduleHandler.RegisterModule(module.ModuleInfo{
@@ -75,6 +75,7 @@ func IoTHubInit() {
 		router.HandleFunc("/system/iot/status", iotManager.HandleGetDeviceStatus)
 		router.HandleFunc("/system/iot/execute", iotManager.HandleExecute)
 		router.HandleFunc("/system/iot/icon", iotManager.HandleIconLoad)
+		router.HandleFunc("/system/iot/nickname", iotManager.HandleNickName)
 
 		//IoT Hub Info APIs
 		adminRouter.HandleFunc("/system/iot/listScanner", iotManager.HandleScannerList)

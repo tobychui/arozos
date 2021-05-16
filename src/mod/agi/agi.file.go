@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/robertkrimen/otto"
 	fs "imuslab.com/arozos/mod/filesystem"
@@ -314,6 +316,8 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
+		sortMode, _ := call.Argument(1).ToString()
+
 		if regex != "/" && !u.CanRead(regex) {
 			panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
 		}
@@ -336,11 +340,52 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
-		results := []string{}
-		for _, file := range suitableFiles {
-			thisRpath, _ := realpathToVirtualpath(filepath.ToSlash(file), u)
-			results = append(results, thisRpath)
+		type SortingFileData struct {
+			Filename string
+			Filepath string
+			Filesize int64
+			ModTime  int64
 		}
+
+		parsedFilelist := []fs.FileData{}
+		for _, file := range suitableFiles {
+			vpath, _ := realpathToVirtualpath(filepath.ToSlash(file), u)
+			modtime, _ := fs.GetModTime(file)
+			parsedFilelist = append(parsedFilelist, fs.FileData{
+				Filename: filepath.Base(file),
+				Filepath: vpath,
+				Filesize: fs.GetFileSize(file),
+				ModTime:  modtime,
+			})
+		}
+
+		if sortMode != "" {
+			if sortMode == "reverse" {
+				//Sort by reverse name
+				sort.Slice(parsedFilelist, func(i, j int) bool {
+					return strings.ToLower(parsedFilelist[i].Filename) > strings.ToLower(parsedFilelist[j].Filename)
+				})
+			} else if sortMode == "smallToLarge" {
+				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].Filesize < parsedFilelist[j].Filesize })
+			} else if sortMode == "largeToSmall" {
+				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].Filesize > parsedFilelist[j].Filesize })
+			} else if sortMode == "mostRecent" {
+				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime > parsedFilelist[j].ModTime })
+			} else if sortMode == "leastRecent" {
+				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime })
+			} else {
+				sort.Slice(parsedFilelist, func(i, j int) bool {
+					return strings.ToLower(parsedFilelist[i].Filename) < strings.ToLower(parsedFilelist[j].Filename)
+				})
+			}
+		}
+
+		//Parse the results (Only extract the filepath)
+		results := []string{}
+		for _, fileData := range parsedFilelist {
+			results = append(results, fileData.Filepath)
+		}
+
 		reply, _ := vm.ToValue(results)
 		return reply
 	})

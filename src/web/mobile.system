@@ -212,9 +212,102 @@
                 position: absolute;
                 font-size: 120%;
                 color:white;
-                right: 4px;
-                top: 4px;
+                right: 0em;
+                top: 0px;
+                margin-top: -8px;
+                margin-left: -4px;
+                padding: 3px;
             }
+
+            .floatWindowButton .externalbutton{
+                position: absolute;
+                font-size: 120%;
+                color:white;
+                right: 1.6em;
+                top: 0px;
+                margin-top: -8px;
+                margin-left: -4px;
+                padding: 3px;
+            }
+
+            #conndrop{
+                padding: 0.5em;
+                position: fixed;
+                top: 0px;
+                right: 0px;
+                z-index: 115;
+                width: 100px;
+                display: none; 
+                justify-content: flex-end;
+                pointer-events: none;
+            }
+            
+
+            /* Magic css to make the connection logo blink */
+            @-moz-keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            } 
+
+            @-webkit-keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            }
+            /* IE */
+            @-ms-keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            } 
+            /* Opera and prob css3 final iteration */
+            @keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            } 
+            .blink-image {
+                -moz-animation: blink normal 2s infinite ease-in-out; /* Firefox */
+                -webkit-animation: blink normal 2s infinite ease-in-out; /* Webkit */
+                -ms-animation: blink normal 2s infinite ease-in-out; /* IE */
+                animation: blink normal 2s infinite ease-in-out; /* Opera and prob css3 final iteration */
+            }
+
+            #sidebarToggleOverlay{
+                width: 100%;
+                height: 100%;
+                z-index: 995;
+                position: fixed;
+                top:0px;
+                left:0px;
+                display:none;
+            }
+
         </style>
     </head>
     <body>
@@ -260,7 +353,6 @@
                 </div>
             </div>
         </div>
-
         <div id="mainFrame">
             <div id="backdrop">
                 
@@ -268,27 +360,78 @@
             <div id="windowWrapper">
                 
             </div>
+
+            <div id="conndrop">
+                <img class="ui mini image blink-image" src="SystemAO/desktop/icons/connlost.svg">
+            </div>
         </div>
+        <div id="sidebarToggleOverlay"></div>
        
 
         <script>
             var isDesktopMode = true;   //Try to emulate Desktop mode
             var moduleInstalled = [];   //List of installed modules on the system
             var desktopThemeList = [];  //List of themes installed, same as desktop theme
+            var listMenuShown = false;
+            var hostInfo;
 
             //initiation Functions
+            initHostInfo();
             initModuleList();
             bindGroupTypeEvents();
             initBackdropImage();
             initUserDefinedThemeColor();
+            bindBackgroundClickActions();
 
             //Bind background click
-            $("#mainFrame").on("touchstart", function(evt){
-                if ($(this).hasClass("blurred") && $(".taskBar").find(".toggleTaskBar").attr("shown") == "true"){
-                    //hide the taskbar
-                    hideTaskBar();
-                }
-            });
+            function bindBackgroundClickActions(){
+                $("#mainFrame").on("touchstart click", function(evt){
+                    if ($(this).hasClass("blurred") && $(".taskBar").find(".toggleTaskBar").attr("shown") == "true"){
+                        //hide the taskbar
+                        hideTaskBar();
+                    }
+                });
+
+                $("#sidebarToggleOverlay").on("touchstart click", function(evt){
+                    if ($(".taskBar").find(".toggleTaskBar").attr("shown") == "true"){
+                        //hide the taskbar
+                        evt.preventDefault();
+                        hideTaskBar();
+                    }
+                });
+            }
+           
+
+            //Connection check
+            setInterval(function() {
+                $.ajax({
+                    url: 'system/auth/checkLogin',
+                    success: function(data) {
+                        if (data == true) {
+                            //Continue session
+                        } else {
+                            //Session timeout. Redirect to system index
+                            window.location.href = "index.html";
+                        }
+                        $("#conndrop").hide();
+                        $("#conndrop").css("display", "none");
+                    },
+                    error: function(evt) {
+                        //Server closed or freezed?
+                        $("#conndrop").show();
+                        $("#conndrop").css("display", "flex");
+                    },
+                    timeout: 15000
+                });
+            }, 15000);
+
+            //Initiate the host information
+            function initHostInfo(){
+                $.get("system/desktop/host",function(data){
+                    hostInfo = data;
+                    document.title = hostInfo.Hostname;
+                });
+            }
 
             //Initialize background image
             function initBackdropImage(){
@@ -378,6 +521,8 @@
                     $(this).find(".minimizedElements").show();
                     $(this).find(".normalElements").hide();
                 });
+
+                $("#sidebarToggleOverlay").hide();
             }
 
             function showTaskBar(){
@@ -394,7 +539,7 @@
                 $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_left-white-48dp.svg");
                 $(".taskBar").find(".toggleTaskBar").attr("shown","true");
                 $("#mainFrame").addClass("blurred");
-
+                $("#sidebarToggleOverlay").show();
                
             }
 
@@ -550,6 +695,8 @@
                     });
                     
                 });
+
+                listMenuShown = false;
             }
 
             //Bind swip events
@@ -639,6 +786,7 @@
                 swipeTarget = null;
             };
 
+
             function showListMenu(callback = undefined){
                 if ($(".taskBar").find(".toggleTaskBar").attr("shown") == "false"){
                     $(".taskBar").find(".toggleTaskBar").attr("shown", "true");
@@ -662,8 +810,9 @@
                             callback();
                         }
                     });
-                })
-               
+                });
+                listMenuShown = true;
+                $("#sidebarToggleOverlay").show();
             }
 
             function openModule(moduleName) {
@@ -747,6 +896,7 @@
                             <img class="ui normalizedIcon middle aligned image" src="${options.appicon}">
                             <span class="windowTitle" style="color:white;">${title}</span>
                             <div class="closebutton" onclick="closefw(this);"><i class="remove icon"></i></div>
+                            <div class="externalbutton" onclick="openfwInNewTab(this);"><i class="external icon"></i></div>
                         </div>
                         
                     </div>
@@ -759,7 +909,13 @@
                     width: window.innerWidth,
                     height: window.innerHeight
                 });
+                if (!listMenuShown){
+                    $("#listMenu").css("left", window.innerWidth * -1);
+                }
+                
             }
+
+
             updateWindowDimensions();
             $(window).on("resize", function(data){
                 updateWindowDimensions();
@@ -854,7 +1010,45 @@
                 closeFloatWindow(windowID);
             }
 
+            function openfwInNewTab(object){
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                var windowID = $(object).parent().parent().attr("windowID");
+                var targetFloatWindow = null;
+                $(".floatWindowWrapper").each(function(){
+                    if ($(this).attr("windowid") == windowID){
+                        targetFloatWindow = $(this);
+                    }
+                });
+                if (targetFloatWindow == null){
+                    return;
+                }
+                var iframe = $(targetFloatWindow).find("iframe");
+                var url = $(iframe)[0].contentWindow.location.href;
+                window.open(url);
+            }
+
+
+            //Get the window below this window id, can return null if there is no window
+            function getPreviousWindowObject(windowID){
+                var previousWindowID = null;
+                var result = null;
+                $(".floatWindowButton").each(function(){
+                    if ($(this).attr("windowid") == windowID){
+                        result = previousWindowID;
+                    }else{
+                        let thisWindowID = $(this).attr("windowid");
+                        previousWindowID = thisWindowID;
+                    }
+                });
+
+                return result;
+            }
+
             function closeFwProcess(windowID){
+                //Get the previous window object
+                var previousWindowID = getPreviousWindowObject(windowID);
+                
                 //Remove the window object
                 $(".floatWindowWrapper").each(function(){
                     if ($(this).attr("windowId") == windowID){
@@ -872,6 +1066,65 @@
                         });
                     }
                 });
+
+                //Focus the window behind if exists
+                setTimeout(function(){
+                    if (previousWindowID != null){
+                        //Hide all other flowWindows
+                        $(".floatWindowWrapper").fadeOut("fast");
+
+                        //Show the target fw
+                        var fw = getFloatWindowByID(previousWindowID);
+                        console.log(fw);
+                        fw.fadeIn("fast", function(){
+                            
+                        });
+                    }
+                }, 100);
+                
+            }
+
+            function openFileWithModule(moduleLaunchInfo, openFileList) {
+                var url = moduleLaunchInfo["StartDir"];
+                var size = [undefined, undefined];
+                var title = moduleLaunchInfo["Name"];
+                var icon = "img/system/favicon.png";
+                if (moduleLaunchInfo["IconPath"] != "") {
+                    icon = moduleLaunchInfo["IconPath"];
+                }
+                //Use floatWindow if exists
+                if (moduleLaunchInfo["SupportFW"] == true && moduleLaunchInfo["LaunchFWDir"] != "") {
+                    url = moduleLaunchInfo["LaunchFWDir"];
+                    if (moduleLaunchInfo["InitFWSize"] !== null) {
+                        size = moduleLaunchInfo["InitFWSize"]
+                    }
+                }
+                //Use embedded mode if exists
+                if (moduleLaunchInfo["SupportEmb"] == true && moduleLaunchInfo["LaunchEmb"] != "") {
+                    url = moduleLaunchInfo["LaunchEmb"];
+                    if (moduleLaunchInfo["InitEmbSize"] !== null) {
+                        size = moduleLaunchInfo["InitEmbSize"]
+                    }
+                }
+
+                var openParamter = encodeURIComponent(JSON.stringify(openFileList));
+
+                //Add launch files info and launch floatWindow
+                parent.newFloatWindow({
+                    url: url + "#" + openParamter,
+                    width: size[0],
+                    height: size[1],
+                    appicon: icon,
+                    title: title
+                });
+            }
+
+            //Mobile interface do not support pin function yet
+            function PinFloatWindowToTopMostMode(object){
+            }
+
+            function UnpinFloatWindowFromTopMostMode(object){
+
             }
             
         </script>

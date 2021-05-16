@@ -13,9 +13,11 @@ experimentals/*
 #Database related
 *.db
 system/db/*
+*.db.lock
 system/ao.db.lock
 *aofs.db.lock
 ./web/aofs.db
+system/auth/authlog.db
 
 #Setting related
 system/network/wifi/ap/*
@@ -30,13 +32,6 @@ system/aecron/*.log
 
 #Webapp related
 web/teleprompter/*
-
-#Document related
-src/documents/*
-
-#Testing Modules
-src/web/Dummy/*
-src/web/Label Maker/*
 
 #Subservice related
 subservice/*

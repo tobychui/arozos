@@ -215,6 +215,9 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Check if case sensitive is enabled
+	casesensitve, _ := mv(r, "casesensitive", true)
+
 	//Translate the vpath to realpath
 	rpath, err := userinfo.VirtualPathToRealPath(vpath)
 	if err != nil {
@@ -262,18 +265,36 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//Recursive keyword
 		results := []fs.FileData{}
-		err := filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
+		var err error = nil
+		if casesensitve == "true" {
+			//Require case sensitive match
+			err = filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
+				if strings.Contains(filepath.Base(path), keyword) {
+					//This is a matching file
+					if !fs.IsInsideHiddenFolder(path) {
+						thisVpath, _ := userinfo.RealPathToVirtualPath(path)
+						results = append(results, fs.GetFileDataFromPath(thisVpath, path, 2))
+					}
 
-			if strings.Contains(filepath.Base(path), keyword) {
-				//This is a matching file
-				if !fs.IsInsideHiddenFolder(path) {
-					thisVpath, _ := userinfo.RealPathToVirtualPath(path)
-					results = append(results, fs.GetFileDataFromPath(thisVpath, path, 2))
 				}
+				return nil
+			})
+		} else {
+			//Require general match
+			keywordLower := strings.ToLower(keyword)
+			err = filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
 
-			}
-			return nil
-		})
+				if strings.Contains(strings.ToLower(filepath.Base(path)), keywordLower) {
+					//This is a matching file
+					if !fs.IsInsideHiddenFolder(path) {
+						thisVpath, _ := userinfo.RealPathToVirtualPath(path)
+						results = append(results, fs.GetFileDataFromPath(thisVpath, path, 2))
+					}
+
+				}
+				return nil
+			})
+		}
 
 		if err != nil {
 			sendErrorResponse(w, err.Error())
@@ -987,7 +1008,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		//Check if the file already exists. If yes, fix its filename.
-		newfilePath := rpath + filename
+		newfilePath := filepath.ToSlash(filepath.Join(rpath, filename))
 
 		if fileType == "file" {
 			for fileExists(newfilePath) {

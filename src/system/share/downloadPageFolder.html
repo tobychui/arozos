@@ -28,6 +28,26 @@
             padding: 20px;
             color: white;
         }
+
+        .fileobject{
+          cursor: pointer;
+        }
+        .fileobject:hover{
+          background-color: #f5f5f5;
+        }
+
+        .fileobject.active{
+          background-color: #f5f5f5ee;
+        }
+
+        .noselect{
+          -webkit-touch-callout: none; /* iOS Safari */
+          -webkit-user-select: none; /* Safari */
+          -khtml-user-select: none; /* Konqueror HTML */
+          -moz-user-select: none; /* Old versions of Firefox */
+          -ms-user-select: none; /* Internet Explorer/Edge */
+          user-select: none;
+        }
     </style>
     </head>
     <body>
@@ -64,13 +84,13 @@
                           </tr>
                         </tbody>
                       </table>
-                    <a href="{{downloadurl}}"><button class="button-primary">Download</button></a>
+                    <a href="{{downloadurl}}"><button class="button-primary">Download All</button></a>
                     <p style="font-size: 80%;"><b>Depending on folder size, zipping might take a while to complete.</b></p>
                     <br>
                     <p>Request File ID: {{reqid}}</p>
                     <p>Request Timestamp: {{reqtime}}</p>
                 </div>
-                <div class="one-half column" id="filelistWrapper" style="overflow-y: auto; padding-right: 5px;">
+                <div class="one-half column" id="filelistWrapper" style="overflow-y: auto; padding-right: 0.5em;">
                   <table class="u-full-width">
                     <thead>
                       <tr>
@@ -81,6 +101,7 @@
                     </thead>
                     <tbody id="folderList">
                      
+                    </tbody>
                   </table>
                 </div>
             </div>
@@ -92,29 +113,102 @@
             </div>
         </div>
     <script>
-      var rootFileList = {{filelist}};
-      renderFileList(rootFileList);
+      var treeFileList = {{treelist}};
+      var downloadUUID = `{{downloaduuid}}`;
+      var currentViewingRoot = ".";
+      var selectedFile = null;
+      renderFileList(treeFileList["."]);
+
+      console.log(treeFileList);
 
       function renderFileList(filelist){
         $("#folderList").html("");
+        if (currentViewingRoot != "."){
+          $("#folderList").append(`<tr class="fileobject noselect" ondblclick="event.preventDefault(); parentdir();">
+              <td style="padding-left: 8px;" colspan="3" > ↩ Back</td>
+            </tr>`);
+          
+        }
+
         filelist.forEach(file => {
           var filetype = "File";
+          var displayName = "";
           if (file.IsDir == true){
             filetype = "Folder";
+            displayName = "📁 " + file.Filename;
+          }else{
+            displayName = "📄 " + file.Filename;
           }
-          $("#folderList").append(`<tr>
-              <td>${file.Filename}</td>
+          $("#folderList").append(`<tr class="fileobject noselect" onclick="highlightThis(this);" filename="${file.Filename}" relpath="${file.RelPath}" type="${filetype.toLocaleLowerCase()}" ondblclick="event.preventDefault(); openThis(this);">
+              <td style="padding-left: 8px;">${displayName}</td>
               <td>${filetype}</td>
               <td>${file.Filesize}</td>
             </tr>`);
           });
       }
 
+      //Went up one level
+      function parentdir(){
+        if (currentViewingRoot == "."){
+            //Root dir. Do nothing
+            
+        }else{
+            //Subdirs. travel up
+            var dirinfo = currentViewingRoot.split("/");
+            var nextDir = ".";
+            if (currentViewingRoot.indexOf("/") < 0){
+              //Parent dir will be root
+            }else{
+              dirinfo.pop();
+              nextDir = dirinfo.join("/");
+            }
+
+            
+            //Load the filelist
+            if (treeFileList[nextDir] != undefined){
+              currentViewingRoot = nextDir;
+              renderFileList(treeFileList[nextDir]);
+            }else{
+              //Back to root on error
+              currentViewingRoot = ".";
+              renderFileList(treeFileList["."]);
+            }
+        }
+      }
+
+      function openThis(object){
+        var targetFilename = $(object).attr("filename");
+        var targetType = $(object).attr("type");
+        var targetRelPath = $(object).attr("relpath");
+        
+        if (targetType == "folder"){
+          //Folder. Build a new root file list for this
+          var targetRenderList = treeFileList[targetRelPath];
+          if (targetRenderList != undefined){
+            currentViewingRoot = targetRelPath;
+            renderFileList(targetRenderList);
+          }
+          
+        }else{
+          //File. Download it
+          window.open("./share?id=" + downloadUUID + "&download=true&rel=" + targetRelPath)
+        }
+      }
+
       resizeDOMElement();
       function resizeDOMElement(){
         $("#filelistWrapper").css({
-          height: window.innerHeight - 300,
+          height: window.innerHeight - $("#filelistWrapper").offset().top - 100,
         })
+      }
+
+      function highlightThis(object){
+          $(".fileobject.active").removeClass("active");
+          $(object).addClass("active");
+          $("#activeFilename").text(" (" + $(object).attr("filename") +")");
+
+          //Update the properties values
+          selectedFile = $(object);
       }
 
       $(window).on("resize", function(){

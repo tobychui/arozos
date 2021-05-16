@@ -88,9 +88,9 @@ func mrouter(h http.Handler) http.Handler {
 					http.Redirect(w, r, "desktop.system", 307)
 				}
 			}
-		} else if r.URL.Path == "/" && !authAgent.CheckAuth(r) && *allow_homepage == true {
-			//User not logged in but request the index, redirect to homepage
-			http.Redirect(w, r, "/www/index.html", 307)
+		} else if ((len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/") || r.URL.Path == "/www") && *allow_homepage == true {
+			//Serve the custom homepage of the user defined. Hand over to the www router
+			userWwwHandler.RouteRequest(w, r)
 		} else if authAgent.CheckAuth(r) {
 			//User logged in. Continue to serve the file the client want
 			authAgent.UpdateSessionExpireTime(w, r)
@@ -143,15 +143,10 @@ func mrouter(h http.Handler) http.Handler {
 				h.ServeHTTP(w, r)
 			} else {
 				//Other paths
-				if *allow_homepage {
-					//Redirect to home page if home page function is enabled
-					http.Redirect(w, r, "/www/index.html", 307)
-				} else {
-					//Rediect to login page
-					w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-					http.Redirect(w, r, "/login.system?redirect="+r.URL.Path, 307)
-				}
 
+				//Rediect to login page
+				w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
+				http.Redirect(w, r, "/login.system?redirect="+r.URL.Path, 307)
 			}
 
 		}

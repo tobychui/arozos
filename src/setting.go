@@ -50,55 +50,61 @@ func SystemSettingInit() {
 //Setting group defination. Your setting module defination must match the group in-order to be shown
 func system_setting_getSettingGroups() []settingGroup {
 	return []settingGroup{
-		settingGroup{
+		{
 			Name:     "Host Information",
 			Group:    "Info",
 			IconPath: "SystemAO/system_setting/img/server.svg",
 			Desc:     "Config and info about the Server Host",
 		},
-		settingGroup{
+		{
 			Name:     "Devices & IoT",
 			Group:    "Device",
 			IconPath: "SystemAO/system_setting/img/device.svg",
 			Desc:     "Connected clients and IoT devices",
 		},
-		settingGroup{
+		{
 			Name:     "Module Management",
 			Group:    "Module",
 			IconPath: "SystemAO/system_setting/img/module.svg",
 			Desc:     "List of modules loaded in the system",
 		},
-		settingGroup{
+		{
 			Name:     "Disk & Storage",
 			Group:    "Disk",
 			IconPath: "SystemAO/system_setting/img/drive.svg",
 			Desc:     "Manage Storage Devices and Disks",
 		},
-		settingGroup{
+		{
 			Name:     "Network & Connection",
 			Group:    "Network",
 			IconPath: "SystemAO/system_setting/img/network.svg",
 			Desc:     "Manage Host Network and Connections",
 		},
-		settingGroup{
+		{
 			Name:     "Users & Groups",
 			Group:    "Users",
 			IconPath: "SystemAO/system_setting/img/users.svg",
 			Desc:     "Add, removed or edit users and groups",
 		},
-		settingGroup{
+		{
 			Name:     "Clusters & Scheduling",
 			Group:    "Cluster",
 			IconPath: "SystemAO/system_setting/img/cluster.svg",
 			Desc:     "System Functions related to Time and Dates",
 		},
-		settingGroup{
+		{
+			Name:     "Security & Keys",
+			Group:    "Security",
+			IconPath: "SystemAO/system_setting/img/security.svg",
+			Desc:     "System Security and Keypairs",
+		},
+		{
 			Name:     "Advance Options",
 			Group:    "Advance",
 			IconPath: "SystemAO/system_setting/img/code.svg",
 			Desc:     "Advance configs for developers",
 		},
-		settingGroup{
+		{
 			Name:     "About ArOZ",
 			Group:    "About",
 			IconPath: "SystemAO/system_setting/img/info.svg",

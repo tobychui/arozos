@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connection Log</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <style>
+    
+    </style>
+</head>
+<body>
+    <div class="ui container" style="height: 100% !important;">
+        <div>
+            <p>Connection Attempts</p>
+            <h1 class="ui header">
+                <span id="normalStatus">Analysising</span>
+                <div class="sub header">
+                    <span id="loginAptCount"></span> login request logged this month with <span id="incorrectRatio"></span> incorrect password attempts.
+                </div>
+            </h1>
+            <div class="ui divider"></div>
+            <div class="ui fluid selection dropdown">
+                <input type="hidden" name="tablekey" onchange="loadRecords(this);">
+                <i class="dropdown icon"></i>
+                <div class="default text">Date</div>
+                <div id="recordTables" class="menu">
+
+                </div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <div>
+            <table class="ui celled table">
+                <thead>
+                    <tr>
+                        <th>Accepted</th>
+                        <th>Timestamp</th>
+                        <th>Requested Account</th>
+                        <th>IP Address</th>
+                        <th>Access Port</th>
+                    </tr>
+                </thead>
+                <tbody id="records">
+                
+                </tbody>
+            </table>
+        </div>
+        <br><br>
+    </div>
+    
+    <script>
+        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun","Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        $(".ui.dropdown").dropdown();
+        initMonthList();
+       
+        //Get the table that belongs to today. Put in offset if the current month not found in list
+        function getCurrentMonthTable(monOffset = 0){
+            const d = new Date();
+            return monthNames[d.getMonth() - monOffset] + "-" + d.getFullYear()
+        }
+
+        //Get the month list
+        function initMonthList(){
+            $.ajax({
+                url: "../../system/auth/logger/index",
+                success: function(data){
+                    var currentMonthTable = getCurrentMonthTable();
+                    var currentMontHTableExists = false;
+                    if (data.error){
+                        alert(data.error);
+                    }else{
+                        $("#recordTables").html("");
+                        data.forEach(tableName => {
+                            if (tableName == currentMonthTable){
+                                currentMontHTableExists = true;
+                            }
+                            $("#recordTables").append(`<div class="item" data-value="${tableName}">${tableName}</div>`);
+                        });
+
+                        if (data.length == 0){
+                            //No record
+                            $("#normalStatus").parent().attr("class","ui header");
+                            $("#normalStatus").text("No Record");
+                            $("#incorrectRatio").text("0%");
+                            $("#loginAptCount").text("0");
+                        }
+                    }
+
+                    //Select the current month if it exists
+                    if (currentMontHTableExists){
+                        setTimeout(function(){
+                            $("#recordTables").parent().dropdown("set selected", getCurrentMonthTable());
+                        }, 500);
+                        loadRecordsByTableName(getCurrentMonthTable());
+                    }
+              
+                    
+                }
+            });
+        }
+
+        function loadRecordsByTableName(tableName){
+            $.ajax({
+                url: "../../system/auth/logger/list",
+                data: {record: tableName},
+                success: function(data){
+                    $("#records").html("");
+                    if (data.error !== undefined){
+                        $("#records").html(`<tr>
+                            <td data-label="status" colspan="5"><i class="remove icon"></i> ${data.error}</td>
+                        </tr>`);
+                    }else{
+                        if (data.length == 0){
+                            $("#records").html(`<tr>
+                                <td data-label="status" colspan="5"><i class="checkmark icon"></i> No login record in this time period.</td>
+                            </tr>`);
+                        }else{
+                            //console.log(data);
+                            //Reverse the array so the latest login on top
+                            data.reverse();
+                            data.forEach(entry => {
+                                var timestamp = getDatetimeFromTimestamp(entry.Timestamp);
+                                var statusIcon = `<i class="green checkmark icon"></i>`;
+                                if (entry.LoginSucceed == false){
+                                    statusIcon = `<i class="red remove icon"></i>`;
+                                }
+                                $("#records").append(`<tr>
+                                    <td data-label="status">${statusIcon}</td>
+                                    <td data-label="timestamp">${timestamp}</td>
+                                    <td data-label="acc">${entry.TargetUsername}</td>
+                                    <td data-label="ip">${entry.IpAddr}</td>
+                                    <td data-label="port">${entry.Port}</td>
+                                </tr>`);
+                            });
+
+                            updateSummaryText(data);
+                            
+                        }
+                    }
+                }
+            });
+        }
+
+        function loadRecords(object){
+            var tableName = object.value;
+            loadRecordsByTableName(tableName);
+        }
+
+        function updateSummaryText(records){
+            if (records.length == 0){
+                $("#normalStatus").parent().attr("class","ui header");
+                $("#normalStatus").text("No Record");
+                $("#loginAptCount").text("No ");
+                return;
+            }
+            var succ = 0;
+            var failed = 0;
+
+            //Calculate the risk ratio
+            records.forEach(entry => {
+                if (entry.LoginSucceed){
+                    succ++;
+                }else{
+                    failed++;
+                }
+            });
+
+            //Do a quick summary
+            var failRatio = (failed) / (succ + failed) * 100;
+            if (failRatio > 70){
+                $("#normalStatus").parent().attr("class","ui red header");
+                $("#normalStatus").text("HIGH RISK");
+            }else if (failRatio > 50){
+                $("#normalStatus").parent().attr("class","ui yellow header");
+                $("#normalStatus").text("LOW RISK");
+            }else{
+                // No problem
+                $("#normalStatus").parent().attr("class","ui green header");
+                $("#normalStatus").text("Normal");
+                
+            }
+            $("#incorrectRatio").text(failRatio.toFixed(1) + "%");
+            $("#loginAptCount").text(succ + failed);
+        }
+
+       function getDatetimeFromTimestamp(timestamp){
+            var s = new Date(timestamp * 1000);
+            var localOption =Intl.DateTimeFormat().resolvedOptions()
+            var options = { timeZone: 'UTC' };
+            if (localOption != undefined && localOption.timeZone != undefined){
+                options.timeZone = localOption.timeZone;
+            }
+            
+            return s.toLocaleDateString(undefined,options) + " " +  s.toLocaleTimeString(undefined,options);
+       }
+    </script>
+</body>
+</html>

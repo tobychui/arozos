@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#4b75ff">
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/semantic/semantic.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+		<title>Camera</title>
+		<style>
+			body{
+				background-color: #000000;
+			}
+
+			.previewer{
+				width: 100%;
+				max-height: 100%;
+			}
+
+			.previewer.mirror{
+				-webkit-transform: scaleX(-1);
+  				transform: scaleX(-1);
+			}
+
+			#controls{
+				position: fixed;
+				left: 0px;
+				bottom: 0px;
+				width: 100%;
+				padding: 12px;
+				padding-bottom: 20px;
+				
+			}
+
+			#verticalUI .shutterContainer{
+				display: flex;
+				justify-content: space-evenly;
+			}
+
+			#verticalUI .shutter.image{
+				width: 5em;
+			}
+
+			#verticalUI .settingButton{
+				position: absolute;
+				bottom: 2em;
+				left: 1em;
+			}
+
+			#verticalUI .cameraFunctionPanel{
+				position: fixed;
+				width: 100%;
+				top:0px;
+				left: 0px;
+			}
+
+			#verticalUI .cameraFunctionPanel .camswitch{
+				position: absolute;
+				top: 1em;
+				right: 1em;
+				box-shadow: none;
+				background-color: transparent !important;
+			}
+
+			#sidewayUI .shutterContainer{
+				position: fixed;
+				right: 0px;
+				height: 100%;
+				top:0px;
+				width: 5em;
+			}
+			
+			#sidewayUI .shutter.image{
+				position: absolute;
+				right: 20px;
+				width: 5em;
+				top: 50%;
+				-ms-transform: translateY(-50%);
+				transform: translateY(-50%);
+			}
+
+			#sidewayUI .settingButton{
+				position: fixed;
+				top: 2em;
+				right: 1em;
+			}
+
+			#sidewayUI .cameraFunctionPanel{
+				position: fixed;
+				height: 100%;
+				top:0px;
+				left: 0px;
+			}
+
+			#sidewayUI .cameraFunctionPanel .camswitch{
+				position: absolute;
+				top: 1em;
+				left: 1em;
+				box-shadow: none;
+				background-color: transparent !important;
+			}
+
+
+			#shutterCover{
+				position: fixed;
+				top:0px;
+				left: 0px;
+				width: 100%;
+				height: 100%;
+				background-color: black;
+				display:none;
+			}
+
+			#albumn{
+				position: fixed;
+				bottom: 2em;
+				right: 1em;
+			}
+
+			.ablumnpreview{
+				width: 3em;
+				cursor: pointer;
+			}
+
+			.latestPreview{
+				width: 3em !important;
+				height: 3em !important;
+			}
+
+			.zoombarcontainer{
+				width: 100%;
+				padding-bottom: 8px;
+				padding-left: 20px;
+				padding-right: 20px;
+			}
+
+			.sideway.zoombarcontainer{
+				display: flex;
+				justify-content: space-evenly;
+			}
+
+			#zoombar{
+				width: 100%;
+			}
+
+			#zoombar.sideway{
+				width: 50% !important;
+			}
+		</style>
+	</head>
+	<body>
+		<video id="camera" class="previewer" autoplay></video>
+		<div id="shutterCover"></div>
+		<canvas id="canvas" style="display:none;"></canvas>
+		<div id="controls">
+			<div class="zoombarcontainer">
+				<input id="zoombar" type="range" min="1" max="100" value="50">
+			</div>
+			<div></div>
+			<div id="verticalUI">
+				<div class="cameraFunctionPanel">
+					<div class="ui button small icon basic camswitch" onclick="switchCamera();">
+						<img src="img/icons/camswitch.svg">
+					</div>
+				</div>
+				<div class="shutterContainer">
+					<div onclick="takePicture();" ontouchdown="takePicture();">
+						<img class="ui shutter image" src="img/shutter.png">
+					</div>
+				</div>
+				<div class="settingButton">
+					<div>
+						<img class="ui tiny image savemodebutton"  style="cursor: pointer;" onclick="toggleSaveFormat();" src="img/icons/jpg-mode.svg"/>
+					</div>
+				</div>
+			</div>
+			<div id="sidewayUI">
+				<div class="cameraFunctionPanel">
+					<div class="ui button small icon basic camswitch" onclick="switchCamera();">
+						<img src="img/icons/camswitch.svg">
+					</div>
+				</div>
+				<div class="shutterContainer">
+					<div onclick="takePicture();" ontouchdown="takePicture();">
+						<img class="ui shutter image" src="img/shutter.png">
+					</div>
+				</div>
+				<div class="settingButton">
+					<div>
+						<img class="ui tiny image savemodebutton" style="cursor: pointer;"  onclick="toggleSaveFormat();"  src="img/icons/jpg-mode.svg"/>
+					</div>
+				</div>
+			</div>
+			<div id="albumn">
+				<div class="ablumnpreview" onclick="openImageView();">
+					<img class="ui fluid image latestPreview" src="img/module_icon.png"> 
+				</div>
+			</div>
+		</div>
+		<script>
+			let isMobile = false;
+			let saveFolder = "user:/Photo/DCIM";
+			let cameraFacingBackground = true;
+			let videoStream = null;
+			let saveFormat = "jpg";
+			if( /Android|webOS|iPhone|iPad|Mac|Macintosh|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
+				isMobile = true;
+			}
+
+			$(document).ready(function(){
+				ao_module_agirun("Camera/backend/readydir.js", {savetarget: saveFolder}, function(){
+					//Folder structure ready
+					initcamera();
+				});
+				loadAblumnPreview();
+				initVideoDeviceConstraints();
+			});
+
+			function openImageView(){
+				window.location.href = "preview.html";
+			}
+
+			$(window).on("resize", function(){
+				handleWindowResize();
+			});	
+
+			handleWindowResize();
+
+			function handleWindowResize(){
+				var width = window.innerWidth;
+				var height = window.innerHeight;
+				if (width > height){
+					//Using the phone sideway
+					$("#verticalUI").hide();
+					$("#sidewayUI").show();
+
+					$(".zoombarcontainer").addClass("sideway");
+					$("#zoombar").addClass("sideway");
+				}else{
+					//Use the phone vertically
+					$("#verticalUI").show();
+					$("#sidewayUI").hide();
+					$(".zoombarcontainer").removeClass("sideway");
+					$("#zoombar").removeClass("sideway");
+				}
+			}
+
+			function loadAblumnPreview(){
+				ao_module_agirun("Camera/backend/loadLatestPhoto.js", {savetarget: saveFolder}, function(data){
+					if (data.error !== undefined){
+						console.log(data.error);
+					}else if (data != ""){
+						$(".latestPreview").attr("src", `../media/?file=${data}`);
+						console.log(data);
+					}
+					
+				});
+			}
+			
+			function toggleSaveFormat(){
+				if (saveFormat == "jpg"){
+					//Switch to png mode
+					saveFormat = "png";
+					$(".savemodebutton").attr('src','img/icons/png-mode.svg');
+				}else{
+					//Switch to jpg mode
+					saveFormat = "jpg";
+					$(".savemodebutton").attr('src','img/icons/jpg-mode.svg');
+				}
+			}
+
+
+			function takePicture(){
+				$("#shutterCover").show(0);
+				setTimeout(function(){
+					$("#shutterCover").hide();
+				}, 500);
+				var canvas = document.getElementById('canvas');     
+				var video = document.getElementById('camera');
+				canvas.width = video.videoWidth;
+				canvas.height = video.videoHeight;
+				canvas.getContext('2d').drawImage(video, 0, 0, video.videoWidth, video.videoHeight);  
+				var mime = "image/jpeg";
+				if (saveFormat == "png"){
+					mime = "image/png";
+				}
+				
+				canvas.toBlob(function(blob){
+					//const img = new Image();
+					//img.src = URL.createObjectURL(blob);
+					//window.open(img.src);
+
+					//Generate a filename for this photo
+					var d = new Date();
+					var filename = "DSC_" + d.getFullYear() + d.getMonth() +  d.getDate() + "_" + d.getHours()  + d.getMinutes() + d.getSeconds() + "." + saveFormat;
+
+					//Upload it to server
+					uploadImageToServer(filename, blob, function(){
+						//Update the image preview
+						loadAblumnPreview();
+					});
+				}, mime);
+			}
+
+			//Upload the file to server
+			function uploadFile(file, uploadPath, callback=undefined){
+				let url = '../../system/file_system/upload'
+				let formData = new FormData()
+                let xhr = new XMLHttpRequest()
+                formData.append('file', file);
+                formData.append('path', uploadPath);
+				xhr.open('POST', url, true)
+				xhr.upload.addEventListener("progress", function(e) {
+					var progress = (e.loaded * 100.0 / e.total) || 100;
+					console.log(progress);
+				});
+
+				xhr.addEventListener('readystatechange', function(e) {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+						//Uplaod process ok
+						var resp = JSON.parse(e.target.response);
+						if (callback != undefined){
+							callback(resp);
+						}
+					}else{
+						//Upload failed
+						if (callback != undefined){
+							callback({
+								error: "File upload failed"
+							});
+						}
+					}
+				});
+				xhr.send(formData);
+			}
+
+			function uploadImageToServer(filename, blob, callback){
+				var imageFile = ao_module_utils.blobToFile(blob, filename, blob.type);
+				uploadFile(imageFile, "user:/Photo/DCIM", callback);
+			}
+
+			function initVideoDeviceConstraints(){
+				let supports = navigator.mediaDevices.getSupportedConstraints();
+				console.log(supports);
+				if( supports['facingMode'] == false ) {
+					$(".camswitch").addClass("disabled");
+				}
+			}
+
+			function switchCamera(){
+				//Stop all the previous streams
+				videoStream.getTracks().forEach(t => {
+					t.stop();
+				});
+
+				//Toggle the new camera
+				cameraFacingBackground = !cameraFacingBackground;
+				if (cameraFacingBackground){
+					//Use environment
+					$(".previewer").removeClass("mirror");
+					initcamera();
+				}else{
+					//Use user
+					$(".previewer").addClass("mirror");
+					initcamera('user');
+				}
+			}
+
+			function initcamera(facingmode = 'environment'){
+				//Define the camera constraints
+				const constraints = {
+					video: {
+						width: { ideal: 2048 },
+						height: { ideal: 1080 }, 
+						zoom: true,
+						facingMode: facingmode
+					},
+					audio: false
+				};
+				
+				let video = document.querySelector("video");
+				//Just to make sure it is oaused when starting 
+				video.pause()
+				video.srcObject = null
+
+				navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+					const [track] = stream.getVideoTracks();
+					videoStream = stream;
+					try{
+						const capabilities = track.getCapabilities();
+						const settings = track.getSettings();
+						console.log(track, settings);
+						//alert(JSON.stringify(settings));
+						video.srcObject = stream;
+						video.play();
+
+						//Check if zoom exists. If yes, allow zoom
+						if (!('zoom' in settings)) {
+							$("#zoombar").hide();
+						}else{
+							var input = $("#zoombar")[0];
+							input.min = capabilities.zoom.min;
+							input.max = capabilities.zoom.max;
+							input.step = capabilities.zoom.step;
+							input.value = settings.zoom;
+							input.oninput = function(event) {
+								track.applyConstraints({
+									advanced: [ {zoom: event.target.value} ]
+								});
+							}
+						}
+
+					}catch(ex){
+						//This video input support nothing
+						$("#zoombar").hide();
+						video.srcObject = stream;
+					}
+				
+				});
+			}
+			
+		</script>
+	</body>
+</html>	

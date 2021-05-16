@@ -70,4 +70,18 @@ func AuthSettingsInit() {
 	//Handle additional batch operations
 	adminRouter.HandleFunc("/system/auth/csvimport", authAgent.HandleCreateUserAccountsFromCSV)
 	adminRouter.HandleFunc("/system/auth/groupdel", authAgent.HandleUserDeleteByGroup)
+
+	//System for logging and displaying login user information
+	//Register FTP Server Setting page
+	registerSetting(settingModule{
+		Name:         "Connection Log",
+		Desc:         "Logs for login attempts",
+		IconPath:     "SystemAO/security/img/small_icon.png",
+		Group:        "Security",
+		StartDir:     "SystemAO/security/connlog.html",
+		RequireAdmin: true,
+	})
+
+	adminRouter.HandleFunc("/system/auth/logger/index", authAgent.Logger.HandleIndexListing)
+	adminRouter.HandleFunc("/system/auth/logger/list", authAgent.Logger.HandleTableListing)
 }

@@ -26,9 +26,19 @@ type Database struct {
 func NewDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
 	db, err := bolt.Open(dbfile, 0600, nil)
 	log.Println("Key-value Database Service Started: " + dbfile)
+
+	tableMap := sync.Map{}
+	//Build the table list from database
+	err = db.View(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(name []byte, _ *bolt.Bucket) error {
+			tableMap.Store(string(name), "")
+			return nil
+		})
+	})
+
 	return &Database{
 		Db:       db,
-		Tables:   sync.Map{},
+		Tables:   tableMap,
 		ReadOnly: readOnlyMode,
 	}, err
 }
@@ -197,7 +207,10 @@ func (d *Database) Delete(tableName string, key string) error {
 	//List table example usage
 	//Assume the value is stored as a struct named "groupstruct"
 
-	entries := sysdb.ListTable("test")
+	entries, err := sysdb.ListTable("test")
+	if err != nil {
+		panic(err)
+	}
 	for _, keypairs := range entries{
 		log.Println(string(keypairs[0]))
 		group := new(groupstruct)

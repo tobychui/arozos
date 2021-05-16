@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#4b75ff">
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/semantic/semantic.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+        <title>Camera</title>
+        <style>
+            body{
+                background-color: black;
+            }
+
+            .topcontrol{
+                position: fixed;
+                top: 0px;
+                left: 0px;
+                width: 100%;
+                padding: 8px;
+                z-index: 1000;
+            }
+
+            .clickable{
+                width: 3em;
+                cursor: pointer;
+            }
+
+            .right-floated{
+                position: absolute;
+                right: 8px;
+                top: 8px;
+                display: inline-block;
+            }
+
+            .imgwrapper{
+                position: fixed;
+                top: 0px;
+                left: 0px;
+                width: 100%;
+                height: 100%;
+                z-index: 10;
+            }
+            .imgbox {
+                display: grid;
+                height: 100%;
+                z-index: 10 !important;
+            }
+            .center-fit {
+                max-width: 100%;
+                max-height: 100vh;
+                margin: auto;
+                z-index: 10;
+            }
+
+            .rightarrow{
+                position: fixed;
+                top: calc(50% - 1.5em);
+                right: 1em;
+                z-index: 1000;
+            }
+
+            .leftarrow{
+                position: fixed;
+                top: calc(50% - 1.5em);
+                left: 1em;
+                z-index: 1000;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="topcontrol">
+            <div class="clickable" onclick="backToCamera();">
+                <img class="ui mini image" src="img/icons/back-arrow.svg"/>
+            </div>
+            <div class="right-floated">
+                <div class="clickable" onclick="openInFolder();" style="display: inline-block;">
+                    <img class="ui mini image" src="img/icons/folder.svg"/>
+                </div>
+                <div class="clickable" onclick="confirmDelete();" style="display: inline-block;">
+                    <img class="ui mini image" src="img/icons/delete.svg"/>
+                </div>
+            </div>
+        </div>
+        <div class="desktopcontrols">
+            <div class="rightarrow">
+                <img  onclick="nextPhoto();" style="width: 3em; cursor: pointer;" src="img/icons/right.svg">
+            </div>
+            <div class="leftarrow">
+                <img  onclick="previousPhoto();" style="width: 3em; cursor: pointer;" src="img/icons/left.svg">
+            </div>
+        </div>
+        <div class="imgwrapper">
+            <div class="imgbox">
+                <img id="viewpoint" class="center-fit" src='img/place-holder.png'>
+            </div>
+        </div>
+
+        <div id="confirmDelete" class="ui basic modal">
+            <div class="ui icon header">
+              <i class="red remove icon"></i>
+              <span id="confirmmsg"></span>
+            </div>
+            <div class="content" align="center">
+              <p>This operation is not reversible. Are you sure you want to delete this photo?</p>
+            </div>
+            <div class="actions">
+              <div class="ui red basic cancel inverted button">
+                <i class="remove icon"></i>
+                No
+              </div>
+              <div class="ui red ok button" onclick="deleteThis();">
+                <i class="trash icon"></i>
+                Yes
+              </div>
+            </div>
+          </div>
+        
+        <script>
+            let photoList = [];
+            let currentViewingPhoto = 0; //The index of current viewing photo
+            let saveTarget = "user:/Photo/DCIM/";
+            
+            function backToCamera(){
+                window.location.href = "index.html";
+            }
+
+            $(document).on("keydown", function(e){
+                if (e.keyCode == 39){
+                    nextPhoto();
+                }else if (e.keyCode == 37){
+                    previousPhoto();
+                }
+            });
+
+            $(document).ready(function(){
+                //Load the latest image
+                initPhotoList();
+            });
+
+            function initPhotoList(overrideIndex = 0){
+                ao_module_agirun("Camera/backend/listPhoto.js",{
+                    savetarget: saveTarget,
+                }, function(data){
+                    if (data.error !== undefined || data == ""){
+                        //No photo
+                    }else{
+                        //Load it
+                        currentViewingPhoto = overrideIndex;
+                        photoList = data;
+                        if (overrideIndex > photoList.length - 1){
+                            overrideIndex = photoList.length - 1;
+                        }
+                        $("#viewpoint").attr('src', '../media/?file=' + data[overrideIndex]);
+                    }
+                });
+            }
+
+            function confirmDelete(){
+                //Generate a confirm message
+                var filedata = photoList[currentViewingPhoto].split("/");
+                var filename = filedata.pop();
+                $("#confirmmsg").text("Confirm Delete " + filename + "?")
+
+                $("#confirmDelete").modal('show');
+            }
+
+            function deleteThis(){
+                var filedata = photoList[currentViewingPhoto].split("/");
+                var filename = filedata.pop();
+
+                ao_module_agirun("Camera/backend/delPhoto.js", {
+                    savetarget: saveTarget,
+                    filename: filename
+                }, function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        //OK. Reload the list
+                        initPhotoList(currentViewingPhoto);
+                    }
+                })
+            }
+
+            function openInFolder(){
+                if (currentViewingPhoto == ""){
+                    //Unknown error. open the DCIM folder
+                    ao_module_openPath(saveTarget);
+                }else{
+                    //Open the folder and highlight the picture
+                    var filedata = photoList[currentViewingPhoto].split("/");
+                    var filename = filedata.pop();
+                    var fileRoot = filedata.join("/");
+                    ao_module_openPath(fileRoot, filename);
+                }
+                
+            }
+
+
+            function nextPhoto(){
+                if (currentViewingPhoto == photoList.length - 1){
+                    //Already the last photo
+                }else{
+                    renderPhotoByPath(currentViewingPhoto + 1);
+                }
+            }
+
+            function previousPhoto(){
+                if (currentViewingPhoto == 0){
+                    //Already the firs photo
+                }else{
+                    renderPhotoByPath(currentViewingPhoto - 1);
+                }
+                
+            }
+
+            function renderPhotoByPath(index){
+                if (photoList[index] != undefined){
+                    currentViewingPhoto = index;
+                    $("#viewpoint").attr('src', '../media/?file=' + photoList[index]);
+                }
+                
+            }
+
+            /*
+                Special code to handle swipe left and right
+                
+            */
+
+            document.addEventListener('touchstart', handleTouchStart, false);        
+            document.addEventListener('touchmove', handleTouchMove, false);
+
+            var xDown = null;                                                        
+            var yDown = null;
+
+            function getTouches(evt) {
+            return evt.touches ||             // browser API
+                    evt.originalEvent.touches; // jQuery
+            }                                                     
+
+            function handleTouchStart(evt) {
+                const firstTouch = getTouches(evt)[0];                                      
+                xDown = firstTouch.clientX;                                      
+                yDown = firstTouch.clientY;                                      
+            };                                                
+
+            function handleTouchMove(evt) {
+                if ( ! xDown || ! yDown ) {
+                    return;
+                }
+
+                var xUp = evt.touches[0].clientX;                                    
+                var yUp = evt.touches[0].clientY;
+
+                var xDiff = xDown - xUp;
+                var yDiff = yDown - yUp;
+
+                if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
+                    if ( xDiff > 0 ) {
+                        /* left swipe */ 
+                        nextPhoto();
+                    } else {
+                        /* right swipe */
+                        previousPhoto();
+                    }                       
+                } else {
+                    if ( yDiff > 0 ) {
+                        /* up swipe */ 
+                    } else { 
+                        /* down swipe */
+                    }                                                                 
+                }
+                /* reset values */
+                xDown = null;
+                yDown = null;                                             
+            };
+        </script>
+    </body>
+</html>

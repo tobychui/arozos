@@ -28,6 +28,15 @@
                 if (event.which == 83 && event.ctrlKey){
                     event.preventDefault();
                     saveText();
+                }else if (event.target.tagName == "TEXTAREA"){
+                    //Some wierd hack to make SimpleMDE to work with ArozOS IME API
+                    if (parent.window.ime){
+                        parent.window.ime.focus = event.target;
+                        if (parent.window.ime.handler != null){
+                            parent.window.ime.handler(event);
+                        }
+                    }
+                    
                 }
             });
 

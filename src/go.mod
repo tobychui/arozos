@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/andybalholm/brotli v1.0.0 // indirect
 	github.com/boltdb/bolt v1.3.1
-	github.com/brutella/hc v1.2.4
+	github.com/brutella/hc v1.2.4 // indirect
 	github.com/dhowden/tag v0.0.0-20200828214007-46e57f75dbfc
 	github.com/disintegration/imaging v1.6.2
 	github.com/fclairamb/ftpserverlib v0.8.0

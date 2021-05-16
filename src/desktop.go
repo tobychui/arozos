@@ -75,7 +75,7 @@ func desktop_initUserFolderStructure(username string) {
 		log.Println(err)
 	}
 
-	if !fileExists(homedir + "Desktop") {
+	if !fileExists(filepath.Join(homedir, "Desktop")) {
 		//Desktop directory not exists. Create one and copy a template desktop
 		os.MkdirAll(homedir+"Desktop", 0755)
 		templateFolder := "./system/desktop/template/"
@@ -301,7 +301,7 @@ func setDesktopLocationFromPath(filename string, username string, x int, y int) 
 	//You cannot directly set path of others people's deskop. Hence, fullpath needed to be parsed from auth username
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 	desktoppath, _ := userinfo.VirtualPathToRealPath("user:/Desktop/")
-	path := desktoppath + filename
+	path := filepath.Join(desktoppath, filename)
 	type iconLocation struct {
 		X int
 		Y int
@@ -625,7 +625,7 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
 
 	//Check if there are desktop icon. If yes, override icon on module
 	if shortcutType == "module" && fileExists("./web/"+filepath.ToSlash(filepath.Dir(shortcutIcon)+"/desktop_icon.png")) {
-		shortcutIcon = filepath.ToSlash(filepath.Dir(shortcutIcon) + "/desktop_icon.png")
+		shortcutIcon = filepath.ToSlash(filepath.Join(filepath.Dir(shortcutIcon), "/desktop_icon.png"))
 	}
 
 	shortcutText = strings.ReplaceAll(shortcutText, "/", "")

@@ -9,6 +9,7 @@ import (
 	db "imuslab.com/arozos/mod/database"
 	permission "imuslab.com/arozos/mod/permission"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/www"
 )
 
 /*
@@ -21,11 +22,12 @@ var authAgent *auth.AuthAgent //System authentication agent
 var permissionHandler *permission.PermissionHandler
 var userHandler *user.UserHandler         //User Handler
 var packageManager *apt.AptPackageManager //Manager for package auto installation
+var userWwwHandler *www.Handler           //User Webroot handler
 var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "0.1.112"                       //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
+var internal_version = "0.1.113"                       //Internal build version, please follow git commit counter for setting this value. max value \[0-9].[0-9][0-9].[0-9][0-9][0-9]\
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
@@ -40,7 +42,8 @@ var sudo_mode bool = (os.Geteuid() == 0 || os.Geteuid() == -1) //Check if the pr
 
 // =========== SYSTEM FLAGS ==============
 //Flags related to System startup
-var listen_port = flag.Int("port", 8080, "Listening port")
+var listen_port = flag.Int("port", 8080, "Listening port for HTTP server")
+var tls_listen_port = flag.Int("tls_port", 8443, "Listening port for HTTPS server")
 var show_version = flag.Bool("version", false, "Show system build version")
 var host_name = flag.String("hostname", "My ArOZ", "Default name for this host")
 var system_uuid = flag.String("uuid", "", "System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.")
@@ -54,7 +57,8 @@ var disable_ip_resolve_services = flag.Bool("disable_ip_resolver", false, "Disab
 var enable_gzip = flag.Bool("gzip", true, "Enable gzip compress on file server")
 
 //Flags related to Security
-var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving")
+var use_tls = flag.Bool("tls", false, "Enable TLS on HTTP serving (HTTPS Mode)")
+var disable_http = flag.Bool("disable_http", false, "Disable HTTP server, require tls=true")
 var tls_cert = flag.String("cert", "localhost.crt", "TLS certificate file (.crt)")
 var session_key = flag.String("session_key", "", "Session key, must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256). Leave empty for auto generated.")
 var tls_key = flag.String("key", "localhost.key", "TLS key file (.key)")
@@ -83,7 +87,7 @@ var allow_public_registry = flag.Bool("public_reg", false, "Enable public regist
 var allow_autologin = flag.Bool("allow_autologin", true, "Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot")
 var demo_mode = flag.Bool("demo_mode", false, "Run the system in demo mode. All directories and database are read only.")
 var allow_package_autoInstall = flag.Bool("allow_pkg_install", true, "Allow the system to install package using Advanced Package Tool (aka apt or apt-get)")
-var allow_homepage = flag.Bool("enable_homepage", false, "Redirect not logged in users to public web hosting folder (web/www/) instead of login interface")
+var allow_homepage = flag.Bool("homepage", true, "Enable user homepage. Accessible via /www/{username}/")
 
 //Scheduling and System Service Related
 var nightlyTaskRunTime = flag.Int("ntt", 3, "Nightly tasks execution time. Default 3 = 3 am in the morning")

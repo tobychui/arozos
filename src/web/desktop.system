@@ -10,6 +10,7 @@
     <script type="text/javascript" src="script/tocas/tocas.js"></script>
     <script type="text/javascript" src="script/jquery.min.js"></script>
     <script type="text/javascript" src="script/ao_module.js"></script>
+    <script type="text/javascript" src="SystemAO/desktop/offline/pong.js"></script>
     <script type="text/javascript" src="SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <style>
         body {
@@ -135,7 +136,7 @@
         
         .navimenu {
             position: fixed;
-            z-index: 110;
+            z-index: 1110;
             width: 100%;
             height: 36px;
             left: 0px;
@@ -143,7 +144,22 @@
             padding-left: 8px;
             padding-right: 8px;
         }
-        
+
+        /* Connection loss indicator */
+        #connectionLost{
+            position: fixed;
+            z-index: 1000;
+            right: 1em;
+            top: calc(30px + 1em);
+            display: none;
+        }
+
+        #connectionLost .ts.card{
+            box-shadow: none;
+            border: 0px solid transparent;
+        }
+
+        /* Theme Color css settings */
         .themeColor {
             background-color: rgba(14,14,14,0.5);
             backdrop-filter: blur(4px);
@@ -219,10 +235,20 @@
             z-index: 100;
             display: none;
         }
+
+        #tfwdragpanel{
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0px;
+            left: 0px;
+            z-index: 500;
+            display: none;
+        }
         
         #stackedWindowList {
             position: fixed;
-            z-index: 112;
+            z-index: 1112;
             left: 0px;
             bottom: 36px;
             width: 300px;
@@ -279,7 +305,7 @@
             width: 400px;
             background-color: #fcffff;
             box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
-            z-index: 113;
+            z-index: 1113;
         }
 
         #listMenu.darkTheme{
@@ -394,7 +420,7 @@
         
         #contextmenu {
             position: fixed;
-            z-index: 1000;
+            z-index: 3000;
             left: 20px;
             top: 20px;
         }
@@ -495,7 +521,7 @@
             top:28px;
             width:100%;
             height: calc(100% - 28px);
-            z-index:114;
+            z-index:1114;
         }
 
         .notificationbar .content{
@@ -506,7 +532,7 @@
             width:30%;
             min-width:650px;
             height:400px;
-            z-index:115;
+            z-index:1115;
             padding: 3px;
             border-radius: 5px;
         }
@@ -657,7 +683,61 @@
             background-color:#f5f5f5 !important;
         }
 
-       
+         /* Offline blinking warning css */
+         @-moz-keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            } 
+
+            @-webkit-keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            }
+            /* IE */
+            @-ms-keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            } 
+            /* Opera and prob css3 final iteration */
+            @keyframes blink {
+                0% {
+                    opacity:1;
+                }
+                50% {
+                    opacity:0;
+                }
+                100% {
+                    opacity:1;
+                }
+            } 
+            .blink-image {
+                -moz-animation: blink normal 2s infinite ease-in-out; /* Firefox */
+                -webkit-animation: blink normal 2s infinite ease-in-out; /* Webkit */
+                -ms-animation: blink normal 2s infinite ease-in-out; /* IE */
+                animation: blink normal 2s infinite ease-in-out; /* Opera and prob css3 final iteration */
+            }
+
 
         /*
                 Z-index layering
@@ -666,11 +746,19 @@
                 Layer 100: Focused tab drag drop layer
                 Layer 101: Focused Tab
                 ...
-                Layer 110: Navigation Bar
-                Layer 112: Stacked Window List
-                Layer 113: List Menu
-                Layer 114: Notification Bar background bluring layer
-                Layer 115: Notification Bar
+                Layer 400 - 499: Non-focused top most FloatWindows
+                Layer 500: Top Mot FloatWindow drag drop layer
+                Layer 501: Top Most FloatWindow
+                ...
+                Layer 1000: Connection lost indicator
+                ...
+                Layer 1110: Navigation Bar
+                Layer 1112: Stacked Window List
+                Layer 1113: List Menu
+                Layer 1114: Notification Bar background bluring layer
+                Layer 1115: Notification Bar
+                ...
+                Layer 3000: contextmenu
             */
     </style>
     <script>
@@ -692,7 +780,7 @@
             Welcome
         </div>
         <div class="clock statusbarpadding" style="display: table-cell; cursor:pointer; user-select: none;" onclick="toggleNotification();" ontouchstart="toggleNotification();">
-            ArOZ Online Desktop
+            ArozOS Desktop
         </div>
         <div class="quicktools" onclick="showToolPanel();" ontouchend="showToolPanel();">
             <div class="qtwrapper">
@@ -738,6 +826,7 @@
 
     <!-- floatWindow dragging panel-->
     <div id="fwdragpanel"></div>
+    <div id="tfwdragpanel"></div>
 
     <!-- Selection panel-->
     <div id="selectionPanel"></div>
@@ -786,9 +875,21 @@
     </div>
 
     <!-- Disconnected. Reconnecting interface -->
-    <div id="connectionLost" class="ts active dimmer" style="display:none; z-index:999;">
-        <div class="ts text indeterminate loader">Connection Lost<br>
-            Reconnecting...</div>
+    <div id="connectionLost">
+        <div class="ts inverted card themeColor" style="width: 300px; background-color: rgba(14,14,14,0.5);">
+            <div class="content">
+                <div class="header"><img class="ts mini image blink-image" style="vertical-align:bottom; padding-right: 0.5em;" src="SystemAO/desktop/icons/connlost.svg"> Connection Lost</div>
+                <div class="description">
+                    Connection to server is lost. Please wait until this warning disappear before further operations.
+                </div>
+            </div>
+            <div class="ts fluid bottom attached buttons">
+                <button class="ts opinion button" onclick="handleManualCheckReconnect(this);">Check Again</button>
+                <button class="ts secondary opinion button">Wait</button>
+            </div>
+        </div>
+        
+      
     </div>
 
     <div id="quickAccessPanel" class="" style="display:none;">
@@ -838,6 +939,7 @@
     </div>
 
     <script>
+
         /*
         ArOZ Online Desktop Interface
 
@@ -893,6 +995,12 @@
         //Context Menu variables
         var menuStartLocation = [0, 0];
 
+        //Input Method Editor objects
+        window.ime = {
+            handler: null,
+            focus: null
+        };
+
         //Others
         var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -901,6 +1009,7 @@
         var hardwareman = false;
         var downloadMode = false;
         var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
 
         //Initiation functions
         initDesktopTheme();
@@ -917,6 +1026,26 @@
 
         //Login cookie expire check
         setInterval(function() {
+            checkConnection();
+        }, 15000);
+
+        function handleManualCheckReconnect(button){
+            $(button).addClass("loading");
+            checkConnection(undefined, function(status){
+                let oldText = $(button).text();
+                $(button).removeClass("loading");
+                if (status == false){
+                    //Still unable to connect. Show cross icon
+                    $(button).html(`<i class="remove icon"></i>`);
+                    setTimeout(function(){
+                        //Restore its original text after 5 sec
+                        $(button).text(oldText);
+                    }, 5000);
+                }
+            });
+        }
+
+        function checkConnection(timeout=15000, callback=undefined){
             $.ajax({
                 url: 'system/auth/checkLogin',
                 success: function(data) {
@@ -929,15 +1058,21 @@
                     }
                     $("#connectionLost").hide();
                     document.title = hostInfo.Hostname;
+                    if (callback != undefined){
+                        callback(true);
+                    }
                 },
                 error: function(evt) {
                     //Server closed or freezed?
                     $("#connectionLost").show();
                     document.title = "Reconnecting...";
+                    if (callback != undefined){
+                        callback(false);
+                    }
                 },
-                timeout: 15000
+                timeout: timeout
             });
-        }, 15000);
+        }
 
         //Keep the clock updated
         setInterval(function(){
@@ -1535,7 +1670,17 @@
             resizingWindowTarget = object;
             resizingMinX = $(object).offset().left + $(object).width() - minxWidth;
             MoveFloatWindowToTop(object);
-            $("#fwdragpanel").show();
+            if ($(object).hasClass("topmost")){
+                //Top most windows
+                $("#tfwdragpanel").show();
+            }else{
+                //Normal Windows
+                $('.floatWindow.topmost').css("pointer-events", "none");
+                $('.floatWindow.topmost').css("opacity", 0.7);
+                $("#fwdragpanel").show();
+            }
+          
+            
             $(object).find(".iframecover").show();
 
             //Check which edge is the user dragging
@@ -1615,6 +1760,10 @@
             resizingWindow = false;
             resizingEdgeID = 0;
             $("#fwdragpanel").hide();
+            $("#tfwdragpanel").hide();
+            $('.floatWindow.topmost').css("pointer-events", "auto");
+            $('.floatWindow.topmost').css("opacity", 1);
+
             $(object).find(".iframecover").hide();
             $(object).find(".iframewrapper").css('cursor', '');
             //Force minmium width and height on any floatWindow objects
@@ -1625,6 +1774,9 @@
                 $(object).css("height", "120px");
             }
             resizingWindowTarget = undefined;
+
+            $(".topmost").show();
+
         }
 
         //Hook body mousemove assistant events
@@ -1687,7 +1839,14 @@
             //Move the window to the top layer
             MoveFloatWindowToTop(object);
             //Show the background drag panel
-            $("#fwdragpanel").show();
+            if ($(object).hasClass("topmost")){
+                $("#tfwdragpanel").show();
+            }else{
+                $('.floatWindow.topmost').css("pointer-events", "none");
+                $('.floatWindow.topmost').css("opacity", 0.7);
+                $("#fwdragpanel").show();
+            }
+            
             
             //Get the relative click offset of the down event
             clickDownOffset = [event.pageX - $(object).offset().left, event.pageY - $(object).offset().top];
@@ -1730,6 +1889,10 @@
             event = mapEventFromTouch(event);
             if (movingWindow) {
                 $("#fwdragpanel").hide();
+                $("#tfwdragpanel").hide();
+                $('.floatWindow.topmost').css("pointer-events", "auto");
+                $('.floatWindow.topmost').css("opacity", 1);
+
                 $(object).find(".iframecover").hide();
                 movingWindow = false;
 
@@ -1905,6 +2068,31 @@
             }
         }
 
+        function PinFloatWindowToTopMostMode(object){
+            if ($(".floatwindow.topmost").length >= 100){
+                //Cannot add more topmost fw
+                console.log("Max number of top most floatWindow reached")
+                return
+            }
+            //Move the current fw to top, its z index is now 101
+            MoveFloatWindowToTop(object);
+            var windowID = $(object).attr("windowId");
+            console.log("[Desktop] Pinning window ID: " + windowID)
+            //Move this to fixed layer position
+            $(object).addClass("topmost");
+            $(object).css("z-index", 501);
+        }
+
+        function UnpinFloatWindowFromTopMostMode(object){
+            $(object).removeClass("topmost");
+            if (focusedWindow == object){
+                focusedWindow = undefined;
+                $(object).css("z-index", 1);
+            }
+            
+            MoveFloatWindowToTop(object);
+        }
+
         function MoveFloatWindowToTop(object) {
             var windowID = $(object).attr("windowId");
             var windowZindex = $(object).css("z-index");
@@ -1914,21 +2102,46 @@
                 return;
             }
 
-            //Move the previous focused window to layer 100 first
-            $(focusedWindow).css("z-index", 100);
-            $(".floatWindow").each(function() {
-                var thisWindowZIndex = $(this).css("z-index");
-                if (parseInt(thisWindowZIndex) > parseInt(windowZindex)) {
-                    if ($(this).attr("windowId") != windowID) {
-                        $(this).css("z-index", thisWindowZIndex - 1);
-                        //console.log($(this).attr("windowId"), $(this).css("z-index"));
+            if ($(focusedWindow).hasClass("topmost")){
+                //The previous focused windows is topmost. Move it to layer 109
+                $(focusedWindow).css("z-index", 500);
+                $(".floatWindow.topmost").each(function(){
+                    var thisWindowZIndex = $(this).css("z-index");
+                    if (parseInt(thisWindowZIndex) > parseInt(windowZindex)) {
+                        if ($(this).attr("windowId") != windowID) {
+                            $(this).css("z-index", thisWindowZIndex - 1);
+                        }
                     }
-                }
-            });
-            //Move target object to top
-            $(object).css("z-index", 101);
-            focusedWindow = $(object);
+                });
+            }else{
+                //The previous focused windows is normal windows. Move it to 100
+                $(focusedWindow).css("z-index", 100);
 
+                //Shift all the other windows down
+                $(".floatWindow").each(function() {
+                    if ($(this).hasClass("topmost")){
+                        return;
+                    }
+                    var thisWindowZIndex = $(this).css("z-index");
+                    if (parseInt(thisWindowZIndex) > parseInt(windowZindex)) {
+                        if ($(this).attr("windowId") != windowID) {
+                            $(this).css("z-index", thisWindowZIndex - 1);
+                            //console.log($(this).attr("windowId"), $(this).css("z-index"));
+                        }
+                    }
+                });
+            }
+
+            if ($(object).hasClass("topmost")){
+                //The new windows is a topmost window
+                $(object).css("z-index", 501);
+            }else{
+                $(object).css("z-index", 101);
+            }
+           
+            
+            focusedWindow = $(object);
+            
             //Check if this div is hidden. If not, fade it in.
             if ($(object).is(":hidden")) {
                 $(object).fadeIn(100);
@@ -2466,8 +2679,8 @@
                         method: "POST",
                         data: {"set": thisFile.Filename, "x": current[0], "y": current[1]},
                         success: function(data) {
-                            if (data.includes("Error")) {
-                                console.log(data);
+                            if (data.error !== undefined) {
+                                console.log(data.error);
                             }
                         }
                     });
@@ -2516,6 +2729,9 @@
                 resizingWindow = false;
                 resizingEdgeID = 0;
                 $("#fwdragpanel").hide();
+                $("#tfwdragpanel").hide();
+                $('.floatWindow.topmost').css("pointer-events", "auto");
+                $('.floatWindow.topmost').css("opacity", 1);
                 $(resizingWindowTarget).find(".iframecover").hide();
                 $(resizingWindowTarget).find(".iframewrapper").css('cursor', '');
             }
@@ -3612,6 +3828,7 @@
             }else if (event.which == "27"){
                 //Cancel all floatwindow events and key events
                 $("#fwdragpanel").hide();
+                $("#tfwdragpanel").hide();
                 $(".floatWindow").find(".iframecover").hide();
                 movingWindow = false;
                 resizingWindow = false;
@@ -4223,6 +4440,16 @@
             if( index >= 0){
                 $(object).find(".renameInput")[0].setSelectionRange(0, index);
             }
+
+            //Updates 4-5-2021: Added IME support on rename input
+            $(object).find(".renameInput")[0].addEventListener("keydown", function(event){
+                if (window.ime && window.ime.handler != null){
+                    window.ime.handler(event);
+                }else{
+                    //No IME handler. Just continue the input
+                }
+            });
+            window.ime.focus = $(object).find(".renameInput")[0];
         }
 
         function exitRenameMode() {
@@ -4419,7 +4646,11 @@
                         //Set the icon location
                         setIconDesktopLocation(newfn, closestGridIndexLocation[0], closestGridIndexLocation[1], function(){
                             //Refresh the desktop
-                            refresh();
+                            refresh(function(){
+                                var targetNewFile = getObjectFromGridLocation(closestGridIndexLocation[0], closestGridIndexLocation[1]);
+                                console.log("Renaming ", targetNewFile);
+                                enableRenameOnLaunchIconObject(targetNewFile);
+                            });
                         });
                     }
                 }
@@ -4744,6 +4975,9 @@
             //List menu theme color bar
             $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
             $("#volumebar").css("background-color", newThemeColor);
+
+            //Connection lost notification css
+            $("#connectionLost").find(".ts.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
         }
 
         //Load the user define theme color to overwrite the default color if exists
@@ -4888,6 +5122,23 @@
                     callback(data);
                 }
             })
+        }
+
+        function bindObjectToIMEEvents(object){
+            object.addEventListener("keydown", function(event){
+                if (window.ime && window.ime.handler != null){
+                    window.ime.handler(event);
+                }else{
+                    //No IME handler. Just continue the input
+                }
+            });
+
+            object.addEventListener("focus", function(event){
+                if (window.ime){
+                    //IME exists. Set this field to focused field
+                    window.ime.focus = event.target;
+                }
+            });
         }
     </script>
 </body>

@@ -10,6 +10,7 @@ import (
 	ssdp "imuslab.com/arozos/mod/network/ssdp"
 	upnp "imuslab.com/arozos/mod/network/upnp"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/www"
 )
 
 var (
@@ -55,6 +56,28 @@ func NetworkServiceInit() {
 
 	//Start the port forward configuration interface
 	portForwardInit()
+
+	//Start userhomepage if enabled
+	//Handle user webroot routings if homepage is enabled
+	if *allow_homepage {
+		userWwwHandler = www.NewWebRootHandler(www.Options{
+			UserHandler: userHandler,
+			Database:    sysdb,
+		})
+
+		router.HandleFunc("/system/network/www/toggle", userWwwHandler.HandleToggleHomepage)
+		router.HandleFunc("/system/network/www/webRoot", userWwwHandler.HandleSetWebRoot)
+
+		//Register as a system setting
+		registerSetting(settingModule{
+			Name:     "Personal Page",
+			Desc:     "Personal Web Page",
+			IconPath: "SystemAO/www/img/homepage.png",
+			Group:    "Network",
+			StartDir: "SystemAO/www/config.html",
+		})
+
+	}
 
 }
 
@@ -119,10 +142,23 @@ func StartNetworkServices() {
 		UPNP / Setup automatic port forwarding
 	*/
 	if *allow_upnp {
-		u, err := upnp.NewUPNPClient(*listen_port, *host_name)
+		var u *upnp.UPnPClient
+		var err error = nil
+		if *use_tls {
+			u, err = upnp.NewUPNPClient(*tls_listen_port, *host_name+"-https")
+		} else {
+			u, err = upnp.NewUPNPClient(*listen_port, *host_name+"-http")
+		}
+
 		if err != nil {
 			log.Println("UPnP Startup Failed: " + err.Error())
 		} else {
+
+			//Bind the http port if running in https and http server is not disabled
+			if *use_tls && !*disable_http {
+				u.ForwardPort(*listen_port, *host_name+"-http")
+			}
+
 			UPNP = u
 
 			//Show a tip for success port forward

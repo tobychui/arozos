@@ -86,10 +86,10 @@
                         Small
                     </button>
                  -->
-                <button class="ui tiny button" onclick="setScreenSize('70%');">
+                <button class="ui tiny button" onclick="setScreenSize('70%'); previousScreenSize='70%';">
                     Normal
                 </button>
-                <button class="ui tiny button" onclick="setScreenSize('100%');">
+                <button class="ui tiny button" onclick="setScreenSize('100%');previousScreenSize='100%';">
                     Full Width
                 </button>
                 <div class="ui toggle right floated checkbox">
@@ -190,7 +190,7 @@
 
                 //Handle full screen
                 dp.on('fullscreen', function() {
-                    previousScreenSize = $("#dplayer").css("width");
+                    //previousScreenSize = $("#dplayer").css("width");
                     setScreenSize("100%");
                 });
 

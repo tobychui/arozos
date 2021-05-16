@@ -4,11 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
-
-	//"log"
 	"os"
-
-	//storage "imuslab.com/arozos/mod/storage"
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
@@ -88,7 +84,7 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 			if storage.Hierarchy == "user" {
 				return filepath.Clean(storage.Path) + "/users/" + u.Username + subpath, nil
 			} else {
-				return filepath.Clean(storage.Path) + "/" + subpath, nil
+				return filepath.Clean(storage.Path) + subpath, nil
 			}
 
 		}
@@ -213,6 +209,9 @@ func getIDFromVirtualPath(vpath string) (string, string, error) {
 	if strings.Contains(vpath, ":") == false {
 		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
 	}
+
+	//Clean up the virutal path 
+	vpath = filepath.ToSlash(filepath.Clean(vpath))
 
 	tmp := strings.Split(vpath, ":")
 	vdID := tmp[0]

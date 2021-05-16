@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"imuslab.com/arozos/mod/database"
 )
 
 /*
@@ -18,11 +20,20 @@ import (
 type Manager struct {
 	RegisteredHandler []ProtocolHandler
 	cachedDeviceList  []*Device
+	db                *database.Database
 }
 
-func NewIoTManager() *Manager {
+func NewIoTManager(sysdb *database.Database) *Manager {
+	//Create the iot database if it doesn't exists
+	if !sysdb.TableExists("iot") {
+		sysdb.NewTable("iot")
+	}
+
+	//Return a new iot manager
 	return &Manager{
 		RegisteredHandler: []ProtocolHandler{},
+		cachedDeviceList:  []*Device{},
+		db:                sysdb,
 	}
 }
 
@@ -169,7 +180,8 @@ func (m *Manager) HandleScanning(w http.ResponseWriter, r *http.Request) {
 
 //Handle IoT Listing Request
 func (m *Manager) HandleListing(w http.ResponseWriter, r *http.Request) {
-	if m.cachedDeviceList == nil {
+
+	if m.cachedDeviceList == nil || len(m.cachedDeviceList) == 0 {
 		m.ScanDevices()
 	}
 
@@ -191,6 +203,7 @@ func (m *Manager) ScanDevices() []*Device {
 		//Scan devices using this handler
 		thisProtcolDeviceList, err := ph.Scan()
 		if err != nil {
+			log.Println("*IoT* Scan Error: " + err.Error())
 			continue
 		}
 

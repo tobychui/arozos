@@ -98,13 +98,9 @@ func main() {
 	os.Mkdir(*tmp_directory, 0777)
 
 	//Print copyRight information
-	log.Println("ArozOS(C) 2020 " + deviceVendor + ".")
+	log.Println("ArozOS(C) 2021 " + deviceVendor + ".")
 	log.Println("ArozOS " + build_version + " Revision " + internal_version)
 
-	//Setup homepage folder if not exists
-	if !fileExists("./web/www") {
-		os.MkdirAll("./web/www", 0644)
-	}
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020
 	*/
@@ -128,8 +124,14 @@ func main() {
 	//Start http server
 	go func() {
 		if *use_tls {
-			log.Println("Secure Web server listening at :" + strconv.Itoa(*listen_port))
-			http.ListenAndServeTLS(":"+strconv.Itoa(*listen_port), *tls_cert, *tls_key, nil)
+			if !*disable_http {
+				go func() {
+					log.Println("Standard (HTTP) Web server listening at :" + strconv.Itoa(*listen_port))
+					http.ListenAndServe(":"+strconv.Itoa(*listen_port), nil)
+				}()
+			}
+			log.Println("Secure (HTTPS) Web server listening at :" + strconv.Itoa(*tls_listen_port))
+			http.ListenAndServeTLS(":"+strconv.Itoa(*tls_listen_port), *tls_cert, *tls_key, nil)
 		} else {
 			log.Println("Web server listening at :" + strconv.Itoa(*listen_port))
 			http.ListenAndServe(":"+strconv.Itoa(*listen_port), nil)

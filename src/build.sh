@@ -46,8 +46,8 @@ rm ../aroz_online_autorelease/system/cron.json
 
 echo "Creating tarball for all required files"
 cd ../aroz_online_autorelease/
-rm web.tar
-tar -cf web.tar system/ web/
+rm web.tar.gz
+tar -czf web.tar system/ web/
 
 cd ../arozos/
 go build

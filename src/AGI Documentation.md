@@ -431,6 +431,7 @@ if (!requirelib("filelib")){
 ```
 	filelib.writeFile("user:/Desktop/test.txt", "Hello World"); 		//Write to file
 	filelib.readFile("user:/Desktop/test.txt");							//Read from file
+	filelib.deleteFile("user:/Desktop/test.txt"); 						//Delete a file by given path
 	filelib.readdir("user:/Desktop/"); 									//List all subdirectories within this directory
 	filelib.walk("user:/Desktop/"); 									//Recursive scan dir and return all files and folder in subdirs
 	filelib.glob("user:/Desktop/*.jpg");
@@ -440,7 +441,7 @@ if (!requirelib("filelib")){
 	filelib.isDir("user:/Desktop/NewFolder/");
 	filelib.md5("user:/Desktop/test.jpg");
 	filelib.mkdir("user/Desktop/NewFolder");	
-	filelib.mtime("user:/Desktop/test.jpg"); 							//Get modification time, return unix timestamp
+	filelib.mtime("user:/Desktop/test.jpg", true); 							//Get modification time, return unix timestamp. Set the 2nd paramter to false for human readble format
 	filelib.rname("user:/Deskop"); 										//Get Rootname, return "User"
 ```
 

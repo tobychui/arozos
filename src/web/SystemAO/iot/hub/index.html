@@ -53,6 +53,12 @@
             height:100%;
             background:rgba(247,247,247,0.95);
         }
+
+		.popupInterface{
+			height:80%;
+			width:95%;
+			overflow-y:auto;
+		}
     </style>
 </head>
 
@@ -72,7 +78,7 @@
 	   <i class="search icon"></i> Scan Devices
 	   </a>
 	   <div class="bottom item">
-		  CopyRight ArozOS Project 2021
+		  CopyRight ArozOS Project 2020 - <span class="thisYear"></span>
 	   </div>
 	</div>
 	<div class="pusher">
@@ -102,7 +108,7 @@
 	<div id="moreInfoInterface" class="ts active dimmer" style="display:none;">
 	   <div style="position:absolute;width:100%;height:100%;left:0px;top:0px;" onClick='$("#moreInfoInterface").fadeOut("fast");'>
 	   </div>
-	   <div id="informationItnerface" class="ts segment mainUI" style="height:80%;width:95%;overflow-y:auto;">
+	   <div id="informationItnerface" class="ts segment mainUI popupInterface">
 		  <div class="ts header">
 			 Device Properties
 		  </div>
@@ -135,11 +141,36 @@
 	   </div>
 	</div>
 
+	<!-- Editing can be done on this device -->
+	<div id="editInterface" class="ts active dimmer" style="display:none;">
+		<div style="position:absolute;width:100%;height:100%;left:0px;top:0px;" onClick='$("#editInterface").fadeOut("fast");'>
+		</div>
+		<div class="ts segment mainUI popupInterface" >
+			<div class="ts header">
+				Edit Device Records
+			</div>
+			<p>Set Device Nickname</p>
+			<div class="ts action fluid small input">
+				<input class="deviceNickname" type="text" uuid="" placeholder="New Nickname" autocomplete="off">
+				<button class="ts positive button" onclick="setNickName(this)">Update</button>
+			</div>
+			<div class="ts inverted positive segment nicnameSetConfirm" style="display:none;">
+				<p><i class="checkmark icon"></i> Device Nickname Updated</p>
+			</div>
+
+			<div class="ts divider"></div>
+			<br>
+			<button class="ts primary button"  onClick='$("#editInterface").fadeOut("fast");'>Close</button>
+			<br><br>
+
+		</div>
+	</div>
+
 	<!-- Action can be done on this device -->
 	<div id="actioninterface" class="ts active dimmer" style="display:none;">
 		<div style="position:absolute;width:100%;height:100%;left:0px;top:0px;" onClick='$("#actioninterface").fadeOut("fast");'>
 		</div>
-		<div id="informationItnerface" class="ts segment mainUI" style="height:80%;width:95%;overflow-y:auto;">
+		<div id="informationItnerface" class="ts segment mainUI popupInterface">
 		   <div class="ts header">
 			  Device Actions
 		   </div>
@@ -235,11 +266,48 @@
 								</div>
 							</div>
 							<div class="controlBtn infoMount">
+								<button class="ts icon basic button" onClick="edit(this);"><i class="edit icon"></i></button>
 								<button class="ts icon button" onClick="showMore(this);"><i class="notice icon"></i></button>
 								<button class="ts primary icon button" onClick="action(this);"><i class="options icon"></i></button>
 							</div>
 						</div>`);
 					});
+
+					if (data.length == 0){
+						//No device found
+						$("#devList").html(`<div class="ts basic segment HDSDev">
+							<div class="ts grid">
+								<div class="four wide column"><img class="ts tiny devIcon image" src="img/system/not-found.svg"></div>
+								<div class="twelve wide column">
+									<div class="ts container">
+										<div class="ts header">
+											<span class="devHeader">No Device Found</span>
+											<div class="sub devProperty header">Want to create your own IoT devices with ESP8266 & Arduino IDE? <br>Check out the <a href="https://github.com/tobychui/Home-Dynamic" target="_blank">HomeDynamic</a> System!</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>`);
+					}
+
+					//Load the nickname of each device if it exists
+					$(".HDSDev").each(function(){
+						//Get its nickname 
+						var devUUID = $(this).attr("uuid");
+						var targetDOMElement = $(this);
+						$.ajax({
+							url: "../../../system/iot/nickname",
+							data: {opr: "get", uuid: devUUID},
+							success: function(data){
+								if (data.error == undefined){
+									//No error. Render it to the header
+									var currentHeader = $(targetDOMElement).find(".devHeader").text();
+									var newHeader = data + " (" + currentHeader + ") ";
+									$(targetDOMElement).find(".devHeader").text(newHeader);
+								}
+							}
+						});
+					})
 					
 				}
 			});
@@ -248,6 +316,57 @@
 		function toggleSideMenu(){
 			//$("#sideMenu").toggle();
 			ts('.right.sidebar').sidebar('toggle');
+		}
+
+		function setNickName(input){
+			var inputValue = $(input).parent().find(".deviceNickname").val();
+			var devUUID = $(input).parent().find(".deviceNickname").attr("uuid");
+			if (inputValue !== ""){
+				//Set the new value
+				$.ajax({
+					url: "../../../system/iot/nickname",
+					data: {opr: "set", uuid: devUUID, name: inputValue},
+					success: function(data){
+						if (data.error !== undefined){
+							alert(data.error);
+						}else{
+							//OK!
+							$("#editInterface").find(".nicnameSetConfirm").slideDown("fast").delay(3000).slideUp("fast");
+
+							//Update the device list
+							loadDevList();
+						}
+					}
+				});
+			}
+		}
+
+		function edit(object){
+			//get the device UUID
+			var devdata = $(object).parent().parent().attr("devicedata");
+			devdata = JSON.parse(decodeURIComponent(devdata));
+			var devUUID = devdata.DeviceUUID;
+			$("#editInterface").find(".deviceNickname").attr("uuid",devUUID);
+
+			//Get the device nickname from server side
+			$.ajax({
+				url: "../../../system/iot/nickname",
+				data: {opr: "get", uuid: devUUID},
+				success: function(data){
+					if (data.error !== undefined){
+						//Nickname not set yet. 
+						$("#editInterface").find(".deviceNickname").val("");
+					}else{
+						$("#editInterface").find(".deviceNickname").val(data);
+					}
+				}
+			})
+
+			//Show the interface
+			$("#editInterface").fadeIn('fast');
+
+
+
 		}
 
 		function executeEndpoint(object, targetValue=""){
@@ -450,6 +569,8 @@
 		$(window).on("resize",function(){
 			updateIframeSize();
 		});
+
+		$(".thisYear").text(new Date().getFullYear());
 	</script>
 </body>
 </html>

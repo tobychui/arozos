@@ -1,9 +1,11 @@
 <html>
     <head>
-        <title>File Explorer</title>
+        <title>File Manager</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <link rel="icon" type="image/png" href="./img/small_icon.png">
+        <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
         <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
@@ -75,6 +77,12 @@
 
             .ts.button.darkTheme{
                 background-color:#17161f !important;
+                border: 1px solid #262533;
+                color:white;
+            }
+
+            .ts.button.active.darkTheme{
+                background-color:#312f42 !important;
                 border: 1px solid #262533;
                 color:white;
             }
@@ -686,8 +694,9 @@
                         <input autocomplete="off" id="searchInput" type="text" class="whiteTheme" placeholder="File Search (Start wildcard search with / , e.g. /*.mp3)" onkeypress="handleSearchBarPress(event);">
                     </div>
                 </div>
-                <button class="ts icon tiny button standard whiteTheme" onclick="handleSearch();"><i class="search icon"></i></button>
-                <button class="ts icon tiny button standard whiteTheme" onclick="hideSearchBar();"><i class="remove icon"></i></button>
+                <button class="ts icon tiny button standard whiteTheme" title="Case Sensitive" onclick="toggleCaseSensitive(this);">Aa</button>
+                <button class="ts icon tiny button standard whiteTheme" title="Search" onclick="handleSearch();"><i class="search icon"></i></button>
+                <button class="ts icon tiny button standard whiteTheme" title="Clear Search" onclick="hideSearchBar();"><i class="remove icon"></i></button>
             </div>
              <div class="msgbox" style="z-index:999; display:none;">
                 <i class="checkmark icon"></i> <span>No Message</span>
@@ -1111,6 +1120,7 @@
             let useLocalstorage = lscheck();
             let overwriteMode = "keep"; //Overwrite mode, support {skip, overwrite, keep}
             let thumbRenderWebSocket = null;
+            let searchCaseSensitive = false;
 
             //Keypress listeners
             let ctrlHold = false;
@@ -1136,7 +1146,7 @@
             let isChromium = window.chrome;
             let isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
             let isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-            var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+            let isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
             //Intiiation functions
             initRootDirs();
@@ -1513,7 +1523,10 @@
                 }
                 //Define the grid size for the interface
                 var gridSize = 150 ;
+
                 if (isMobile){
+                    //Update 3/5/2021: Optimize the width calculation method to best fit
+                    /*
                     if (window.innerWidth > window.innerHeight){
                         //Screen using in horizontal mode
                         gridSize = window.innerWidth /4 - 20 ;
@@ -1521,7 +1534,17 @@
                         //Screen using in vertical mode
                         gridSize = window.innerWidth /2 - 20 ;
                     }
-                    
+                    */
+
+                    //A hack to align the divs to center of the container
+                    $("#folderView").attr("align", "center");
+                    $("#folderList").attr("align", "left");
+                    $("#fileList").attr("align", "left");
+
+                    //Calculate the best width to fit all the grids
+                    var bestCount = Math.floor(parseFloat($("#folderView").width()) / parseFloat(gridSize));
+                    var bestOffset = $("#folderView").width() % gridSize;
+                    gridSize = gridSize + (bestOffset / bestCount) - (window.innerWidth - $("#folderView").width()) / bestCount;
                 }
                 
                 //List all folders
@@ -1865,7 +1888,7 @@
                 $(".fileObject").off("contextmenu").on("contextmenu", function(evt){
                     evt.preventDefault();
                    
-                    if (isFirefox && isMobile){
+                    if (isMobile){
                         //Firefox Mobile. Fix select with context menu not working bug
                         var selectedObject = $(evt.target);
                         
@@ -4272,7 +4295,7 @@
 
                 xhr.open('POST', url, true)
                 xhr.upload.addEventListener("progress", function(e) {
-                    progress = (e.loaded * 100.0 / e.total) || 100;
+                    var progress = (e.loaded * 100.0 / e.total) || 100;
                     $(".uploadTask").each(function(){
                         if ($(this).attr("taskID") == taskUUID){
                             //Update this progress bar
@@ -4419,15 +4442,29 @@
             }
             searchMode = false;
         }
+        
+        //Handle case sensitive in keyword searching
+        function toggleCaseSensitive(btn){
+            if ($(btn).hasClass("active")){
+                $(btn).removeClass("active");
+                searchCaseSensitive = false;
+            }else{
+                $(btn).addClass("active");
+                searchCaseSensitive = true;
+            }
+        }
 
         function handleSearch(){
             var keyword = $("#searchInput").val();
             $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
                 <i class="loading spinner icon ${currentTheme}"></i> <span class="${currentTheme}">Searching</span>
             </div>`);
+            $("#fileList").hide();
+            $("#fileList").html("");
+           
             $.ajax({
                 url: "../../system/file_system/search",
-                data: {path: currentPath, keyword: keyword},
+                data: {path: currentPath, keyword: keyword, casesensitive: searchCaseSensitive},
                 success: function(data){
                     if (data.error !== undefined){
                         msgbox("remove", data.error);
@@ -4435,6 +4472,7 @@
                         //Render the filelist
                         console.log(data);
                         if (data.length == 0){
+                            $("#folderList").show();
                             $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
                                 <div class="ts header ${currentTheme}">
                                     <i class="question icon" ${currentTheme}></i> <span class="${currentTheme}">No Matching Results</span>

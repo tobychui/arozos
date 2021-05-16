@@ -29,11 +29,52 @@ ao_root = ao_module_getAORootFromScriptPath();
     under Web Desktop Mode. 
 */
 
-if (ao_module_virtualDesktop){
-    document.addEventListener("mousedown", function() {
-        //When click on this document, focus this
-        ao_module_focus();
-    }, true);
+document.addEventListener("DOMContentLoaded", function() {
+    if (ao_module_virtualDesktop){
+        //Add window focus handler
+        document.addEventListener("mousedown", function(event) {
+            //When click on this document, focus this
+            ao_module_focus();
+
+            if (event.target.tagName == "INPUT" || event.target.tagName == "TEXTAREA"){
+
+            }else{
+                if (parent.window.ime.focus != null){
+                    parent.window.ime.focus = null;
+                }
+            }
+        }, true);
+    
+        //Add IME registration handler
+        var inputFields = document.querySelectorAll("input,textarea");
+        for (var i = 0; i < inputFields.length; i++){
+            if ($(inputFields[i]).attr("type") != undefined){
+                var thisType = $(inputFields[i]).attr("type");
+                if ((thisType == "text" || thisType =="search" || thisType =="url")){
+                    //Supported types of input
+                    ao_module_bindCustomIMEEvents(inputFields[i]);
+                }else{
+                    //Not supported type of inputs
+
+                }
+            }else{
+                //text area
+                ao_module_bindCustomIMEEvents(inputFields[i]);
+            }
+        }
+    }
+});
+
+/*
+    Startup Section Script
+    
+    These functions handle the startup of an ao_module and adapt them into the
+    standard arozos desktop eco-system api
+*/
+
+//Function handle to bind custom IME events
+function ao_module_bindCustomIMEEvents(object){
+    parent.bindObjectToIMEEvents(object);
 }
 
 
@@ -142,6 +183,16 @@ function ao_module_close(){
 //Focus this floatWindow
 function ao_module_focus(){
     parent.MoveFloatWindowToTop(parent.getFloatWindowByID(ao_module_windowID));
+}
+
+//Set the floatWindow to top most mode
+function ao_module_setTopMost(){
+    parent.PinFloatWindowToTopMostMode(parent.getFloatWindowByID(ao_module_windowID));
+}
+
+//Unset the floatWindow top most mode
+function ao_module_unsetTopMost(){
+    parent.UnpinFloatWindowFromTopMostMode(parent.getFloatWindowByID(ao_module_windowID));
 }
 
 //Popup a file selection window for uplaod

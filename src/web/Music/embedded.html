@@ -6,6 +6,7 @@
 	<meta charset="UTF-8">
 	<meta name="theme-color" content="#232324">
     <link rel="stylesheet" href="../script/tocas/tocas.css">
+	<link rel="icon" type="image/png" href="./img/small_icon.png">
 	<script src="../script/tocas/tocas.js"></script>
 	<script src="../script/jquery.min.js"></script>
 	<script src="../script/ao_module.js"></script>
@@ -15,6 +16,12 @@
 		overflow: hidden;
 		height:100%;
 	}
+
+	.coloredBackground{
+		background: rgb(58,58,58);
+		background: linear-gradient(180deg, rgba(58,58,58,1) 2%, rgba(34,34,34,1) 57%, rgba(0,0,0,1) 100%); 
+	}
+
 	html, body { height: 100%; width: 100%; margin: 0; }
 	.playerInterface{
 		background-color:rgba(226, 221, 220,0.95);
@@ -186,6 +193,11 @@
 	    player.volume = getCurrentGlobVol();
 		//Init ao_module window events
 		ao_module_setFixedWindowSize();
+
+		//Do things if it is not run under desktop mode
+		if (!ao_module_virtualDesktop){
+			$("#nearbyFilelist").addClass("coloredBackground");
+		}
 
 		//Ignore all other input files.
 		playingFileInfo = ao_module_loadInputFiles()[0];

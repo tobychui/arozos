@@ -26,7 +26,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/auth"
 	"imuslab.com/arozos/mod/database"
-	fs "imuslab.com/arozos/mod/filesystem"
+	filesystem "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -103,6 +103,8 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 		directServe = true
 	}
 
+	relpath, _ := mv(r, "rel", false)
+
 	//Check if id exists
 	val, ok := s.urlToFileMap.Load(id)
 	if ok {
@@ -159,7 +161,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusForbidden)
 					w.Write([]byte("401 - Forbidden"))
 				} else {
-					w.Write([]byte("Permission Denied page WIP"))
+					ServePermissionDeniedPage(w)
 				}
 				return
 			}
@@ -185,7 +187,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusForbidden)
 					w.Write([]byte("401 - Forbidden"))
 				} else {
-					w.Write([]byte("Permission Denied page WIP"))
+					ServePermissionDeniedPage(w)
 				}
 				return
 			}
@@ -222,7 +224,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusForbidden)
 					w.Write([]byte("401 - Forbidden"))
 				} else {
-					w.Write([]byte("Permission Denied page WIP"))
+					ServePermissionDeniedPage(w)
 				}
 				return
 			}
@@ -242,29 +244,58 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				IsDir    bool
 			}
 			if directDownload == true {
-				//Download this folder as zip
-				//Build the filelist to download
+				if relpath != "" {
+					//User specified a specific file within the directory. Escape the relpath
+					targetFilepath := filepath.Join(shareOption.FileRealPath, relpath)
 
-				//Create a zip using ArOZ Zipper, tmp zip files are located under tmp/share-cache/*.zip
-				tmpFolder := s.options.TmpFolder
-				tmpFolder = filepath.Join(tmpFolder, "share-cache")
-				os.MkdirAll(tmpFolder, 0755)
-				targetZipFilename := filepath.Join(tmpFolder, filepath.Base(shareOption.FileRealPath)) + ".zip"
+					//Check if file exists
+					if !fileExists(targetFilepath) {
+						http.NotFound(w, r)
+						return
+					}
 
-				//Build a filelist
-				err := fs.ArozZipFile([]string{shareOption.FileRealPath}, targetZipFilename, false)
-				if err != nil {
-					//Failed to create zip file
-					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte("500 - Internal Server Error: Zip file creation failed"))
-					log.Println("Failed to create zip file for share download: " + err.Error())
-					return
+					//Validate the absolute path to prevent path escape
+					absroot, _ := filepath.Abs(shareOption.FileRealPath)
+					abstarget, _ := filepath.Abs(targetFilepath)
+
+					if len(abstarget) <= len(absroot) || abstarget[:len(absroot)] != absroot {
+						//Directory escape detected
+						w.WriteHeader(http.StatusBadRequest)
+						w.Write([]byte("400 - Bad Request: Invalid relative path"))
+						return
+					}
+
+					//Serve the target file
+					w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(targetFilepath)), "+", "%20"))
+					w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+					http.ServeFile(w, r, targetFilepath)
+
+					sendOK(w)
+				} else {
+					//Download this folder as zip
+					//Build the filelist to download
+
+					//Create a zip using ArOZ Zipper, tmp zip files are located under tmp/share-cache/*.zip
+					tmpFolder := s.options.TmpFolder
+					tmpFolder = filepath.Join(tmpFolder, "share-cache")
+					os.MkdirAll(tmpFolder, 0755)
+					targetZipFilename := filepath.Join(tmpFolder, filepath.Base(shareOption.FileRealPath)) + ".zip"
+
+					//Build a filelist
+					err := filesystem.ArozZipFile([]string{shareOption.FileRealPath}, targetZipFilename, false)
+					if err != nil {
+						//Failed to create zip file
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("500 - Internal Server Error: Zip file creation failed"))
+						log.Println("Failed to create zip file for share download: " + err.Error())
+						return
+					}
+
+					//Serve thje zip file
+					w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(shareOption.FileRealPath)), "+", "%20")+".zip")
+					w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+					http.ServeFile(w, r, targetZipFilename)
 				}
-
-				//Serve thje zip file
-				w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(shareOption.FileRealPath)), "+", "%20")+".zip")
-				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-				http.ServeFile(w, r, targetZipFilename)
 
 			} else {
 				//Show download page. Do not allow serving
@@ -275,47 +306,63 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				}
 
 				//Get file size
-				fsize, fcount := fs.GetDirctorySize(shareOption.FileRealPath, false)
+				fsize, fcount := filesystem.GetDirctorySize(shareOption.FileRealPath, false)
 
-				//Build the filelist of the root folder
-				rawFilelist, _ := fs.WGlob(filepath.Clean(shareOption.FileRealPath) + "/*")
-
-				rootVisableFiles := []File{}
-				for _, file := range rawFilelist {
+				//Build the tree list of the folder
+				treeList := map[string][]File{}
+				err = filepath.Walk(filepath.Clean(shareOption.FileRealPath), func(file string, info os.FileInfo, err error) error {
+					if err != nil {
+						//If error skip this
+						return nil
+					}
 					if filepath.Base(file)[:1] != "." {
-						//Not hidden folder.
-						fileSize := fs.GetFileSize(file)
-						if fs.IsDir(file) {
-							fileSize, _ = fs.GetDirctorySize(file, false)
+						fileSize := filesystem.GetFileSize(file)
+						if filesystem.IsDir(file) {
+							fileSize, _ = filesystem.GetDirctorySize(file, false)
 						}
 
-						rootVisableFiles = append(rootVisableFiles, File{
+						relPath, err := filepath.Rel(shareOption.FileRealPath, file)
+						if err != nil {
+							relPath = ""
+						}
+
+						relPath = filepath.ToSlash(filepath.Clean(relPath))
+						relDir := filepath.ToSlash(filepath.Dir(relPath))
+
+						if relPath == "." {
+							//The root file object. Skip this
+							return nil
+						}
+
+						treeList[relDir] = append(treeList[relDir], File{
 							Filename: filepath.Base(file),
-							RelPath:  "/",
-							Filesize: fs.GetFileDisplaySize(fileSize, 2),
-							IsDir:    fs.IsDir(file),
+							RelPath:  filepath.ToSlash(relPath),
+							Filesize: filesystem.GetFileDisplaySize(fileSize, 2),
+							IsDir:    filesystem.IsDir(file),
 						})
 					}
-				}
+					return nil
+				})
 
-				js, _ := json.Marshal(rootVisableFiles)
+				tl, _ := json.Marshal(treeList)
 
 				//Get modification time
-				fmodtime, _ := fs.GetModTime(shareOption.FileRealPath)
+				fmodtime, _ := filesystem.GetModTime(shareOption.FileRealPath)
 				timeString := time.Unix(fmodtime, 0).Format("02-01-2006 15:04:05")
 
 				t := fasttemplate.New(string(content), "{{", "}}")
 				s := t.ExecuteString(map[string]interface{}{
-					"hostname":    s.options.HostName,
-					"reqid":       id,
-					"mime":        "application/x-directory",
-					"size":        fs.GetFileDisplaySize(fsize, 2),
-					"filecount":   strconv.Itoa(fcount),
-					"modtime":     timeString,
-					"downloadurl": "/share?id=" + id + "&download=true",
-					"filename":    filepath.Base(shareOption.FileRealPath),
-					"reqtime":     strconv.Itoa(int(time.Now().Unix())),
-					"filelist":    js,
+					"hostname":     s.options.HostName,
+					"reqid":        id,
+					"mime":         "application/x-directory",
+					"size":         filesystem.GetFileDisplaySize(fsize, 2),
+					"filecount":    strconv.Itoa(fcount),
+					"modtime":      timeString,
+					"downloadurl":  "./share?id=" + id + "&download=true",
+					"filename":     filepath.Base(shareOption.FileRealPath),
+					"reqtime":      strconv.Itoa(int(time.Now().Unix())),
+					"treelist":     tl,
+					"downloaduuid": id,
 				})
 
 				w.Write([]byte(s))
@@ -340,7 +387,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				}
 
 				//Get file mime type
-				mime, ext, err := fs.GetMime(shareOption.FileRealPath)
+				mime, ext, err := filesystem.GetMime(shareOption.FileRealPath)
 				if err != nil {
 					mime = "Unknown"
 				}
@@ -370,10 +417,10 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				content = []byte(strings.ReplaceAll(string(content), "{{previewer}}", string(tp)))
 
 				//Get file size
-				fsize := fs.GetFileSize(shareOption.FileRealPath)
+				fsize := filesystem.GetFileSize(shareOption.FileRealPath)
 
 				//Get modification time
-				fmodtime, _ := fs.GetModTime(shareOption.FileRealPath)
+				fmodtime, _ := filesystem.GetModTime(shareOption.FileRealPath)
 				timeString := time.Unix(fmodtime, 0).Format("02-01-2006 15:04:05")
 
 				t := fasttemplate.New(string(content), "{{", "}}")
@@ -382,7 +429,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"reqid":       id,
 					"mime":        mime,
 					"ext":         ext,
-					"size":        fs.GetFileDisplaySize(fsize, 2),
+					"size":        filesystem.GetFileDisplaySize(fsize, 2),
 					"modtime":     timeString,
 					"downloadurl": "/share?id=" + id + "&download=true",
 					"preview_url": "/share?id=" + id + "&serve=true",
@@ -626,7 +673,10 @@ func (s *Manager) DeleteShare(userinfo *user.User, vpath string) error {
 		uuid := val.(*ShareOption).UUID
 
 		//Remove this from the database
-		s.options.Database.Delete("share", uuid)
+		err = s.options.Database.Delete("share", uuid)
+		if err != nil {
+			return err
+		}
 
 		//Remove this form the current sync map
 		s.urlToFileMap.Delete(uuid)
@@ -635,7 +685,7 @@ func (s *Manager) DeleteShare(userinfo *user.User, vpath string) error {
 		return nil
 
 	} else {
-		//Already deleted
+		//Already deleted from buffered record.
 		return nil
 	}
 
@@ -683,7 +733,20 @@ func (s *Manager) GetShareObjectFromUUID(uuid string) *ShareOption {
 }
 
 func (s *Manager) FileIsShared(rpath string) bool {
-	return !(s.GetShareUUIDFromPath(rpath) == "")
+	shareUUID := s.GetShareUUIDFromPath(rpath)
+	return shareUUID != ""
+}
+
+func ServePermissionDeniedPage(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusForbidden)
+	pageContent := []byte("Permissioned Denied")
+	if fileExists("system/share/permissionDenied.html") {
+		content, err := ioutil.ReadFile("system/share/permissionDenied.html")
+		if err == nil {
+			pageContent = content
+		}
+	}
+	w.Write([]byte(pageContent))
 }
 
 /*

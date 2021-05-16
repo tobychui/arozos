@@ -127,7 +127,9 @@
                     var settingModuleInfo = JSON.parse(decodeURIComponent($(targetObject).attr("moduleInfo")));
                     var settingStartDir = settingModuleInfo.StartDir;
                     $("#settingContentLoader").html("");
-                    $("#settingContentLoader").load("../../" + settingStartDir);
+                    $("#settingContentLoader").load("../../" + settingStartDir, function(){
+                        injectIMEToLoadedConetentFrame();
+                    });
                 }
               }
 
@@ -142,8 +144,36 @@
                     var settingModuleInfo = JSON.parse(decodeURIComponent($(targetObject).attr("moduleInfo")));
                     var settingStartDir = settingModuleInfo.StartDir;
                     $("#settingContentLoader").html("");
-                    $("#settingContentLoader").load("../../" + settingStartDir);
+                    $("#settingContentLoader").load("../../" + settingStartDir, function(){
+                        injectIMEToLoadedConetentFrame();
+                    });
                 }
+              }
+
+              function injectIMEToLoadedConetentFrame(){
+                    //Inject IME listener into the loaded content window
+                    var inputFields = document.getElementById("settingContentLoader").querySelectorAll("input,textarea");
+                    for (var i = 0; i < inputFields.length; i++){
+                        if ($(inputFields[i]).attr("type") != undefined){
+                            var thisType = $(inputFields[i]).attr("type");
+                            if (thisType == "text" || thisType =="search" || thisType =="url"){
+                                //Supported types of input
+                                if (ao_module_virtualDesktop){
+                                    ao_module_bindCustomIMEEvents(inputFields[i]);
+                                }
+                                
+                                console.log(inputFields[i]);
+                            }else{
+                                //Not supported type of inputs
+                                
+                            }
+                        }else{
+                            //text area
+                            if (ao_module_virtualDesktop){
+                                ao_module_bindCustomIMEEvents(inputFields[i]);
+                            }
+                        }
+                    }
               }
 
 

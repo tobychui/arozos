@@ -72,9 +72,14 @@
     <script>
         var cpuChart;
         var ramChart;
+
+        //Override Chart.js v3 poor API designs
+        Chart.defaults.plugins.tooltip.enabled = false;
+        Chart.defaults.plugins.legend.display = false;
+
         var options = {
-            maintainAspectRatio: false,
-            responsive: false,
+            maintainAspectRatio: true,
+            responsive: true,
 			spanGaps: false,
 			elements: {
 				line: {
@@ -84,56 +89,37 @@
 			plugins: {
 				filler: {
 					propagate: false
-				}
+				},
 			},
 			scales: {
-				xAxes: [{
-					ticks: {
-						autoSkip: false,
-						maxRotation: 0
-                    },
-                    gridLines: {
-                        display: true ,
-                        color: "#d9eaf4"
-                    },
-                },{
-                    position: 'top',
-                    ticks: {
-                        display: false
-                    },
-                    gridLines: {
-                        display: false,
-                        drawTicks: false
+				x: {
+                    grid: {
+                        color:  "rgba(83, 160, 205, 0.2)"
                     }
-                }],
-                yAxes: [{
-                    ticks: {
-                        suggestedMin: 0,
-                        suggestedMax: 100
-                    },
-                    gridLines: {
-                        display: true ,
-                        color: "#d9eaf4"
-                    },
-                },{
-                    position: 'right',
-                    ticks: {
-                        display: false
-                    },
-                    gridLines: {
-                        display: false,
-                        drawTicks: false
+                },
+                y: {
+                    min: 0,
+                    max: 100,
+                    grid: {
+                        color:  "rgba(83, 160, 205, 0.2)"
                     }
-                }]
+                }
             },
             legend: {
                 display: false,
+            },
+            tooltips: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                            return tooltipItem.yLabel;
+                    }
+                }
             }
         };
 
         var ramOptions = {
-            maintainAspectRatio: false,
-            responsive: false,
+            maintainAspectRatio: true,
+            responsive: true,
 			spanGaps: false,
 			elements: {
 				line: {
@@ -143,50 +129,31 @@
 			plugins: {
 				filler: {
 					propagate: false
-				}
+				},
 			},
 			scales: {
-				xAxes: [{
-					ticks: {
-						autoSkip: false,
-						maxRotation: 0
-                    },
-                    gridLines: {
-                        display: true ,
-                        color: "#ecdef0"
-                    },
-                },{
-                    position: 'top',
-                    ticks: {
-                        display: false
-                    },
-                    gridLines: {
-                        display: false,
-                        drawTicks: false
+				x: {
+                    grid: {
+                        color:  "rgba(156, 55, 185, 0.2)"
                     }
-                }],
-                yAxes: [{
-                    ticks: {
-                        suggestedMin: 0,
-                        suggestedMax: 100
-                    },
-                    gridLines: {
-                        display: true ,
-                        color: "#ecdef0"
-                    },
-                },{
-                    position: 'right',
-                    ticks: {
-                        display: false
-                    },
-                    gridLines: {
-                        display: false,
-                        drawTicks: false
+                },
+                y: {
+                    min: 0,
+                    max: 100,
+                    grid: {
+                        color:  "rgba(156, 55, 185, 0.2)"
                     }
-                }]
+                }
             },
             legend: {
                 display: false,
+            },
+            tooltips: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                            return tooltipItem.yLabel;
+                    }
+                }
             }
         };
         

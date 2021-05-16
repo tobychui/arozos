@@ -85,7 +85,7 @@ function handleUserRequest(){
                     var allfilelist = filelib.walk(thisFileLib, "file");
                     for (var k = 0; k < allfilelist.length; k++){
                         var ext = allfilelist[k].split('.').pop();
-                        if (IsSupportExt(ext) == true){
+                        if (IsSupportExt(ext) == true && !IsMetaFile(allfilelist[k])){
                             musicFiles.push(allfilelist[k]);
                         }
                     }
@@ -163,7 +163,7 @@ function handleUserRequest(){
                     var thisFile = allfilelist[k];
                     var ext = allfilelist[k].split('.').pop();
                     var filename = allfilelist[k].split('/').pop();
-                    if (IsSupportExt(ext) == true && filename.indexOf(keyword) !== -1){
+                    if (IsSupportExt(ext) == true && filename.indexOf(keyword) !== -1 && !IsMetaFile(allfilelist[k])){
                         //This file match our ext req and keyword exists
                         var thisSongData = [];
                         //Access Path 
@@ -248,7 +248,7 @@ function handleUserRequest(){
                         folders.push(filelist[j]);
                     }else{
                         var ext = filelist[j].split(".").pop();
-                        if (IsSupportExt(ext)){
+                        if (IsSupportExt(ext)  && !IsMetaFile(filelist[j])){
                             files.push(filelist[j]);
                         }
                         
@@ -272,7 +272,7 @@ function handleUserRequest(){
                             }
                         }else{
                             var ext = subFolderFileList[j].split(".").pop();
-                            if (IsSupportExt(ext)){
+                            if (IsSupportExt(ext) && !IsMetaFile(subFolderFileList[j])){
                                 thisFolderSubfiles.push(subFolderFileList[j]);
                             }
                             

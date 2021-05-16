@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- Meta headers for mobile devices-->
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="icon" href="favicon.png">
+
+        <!-- CSS and JavaScript, access to scripe folder is not blocked for non logged in users-->
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/semantic/semantic.min.js"></script>
+        <title>Home Page</title>
+        <style>
+            body{
+                background-color:white;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Main website content goes here-->
+        <br><br>
+        <div class="ui container">
+            <h1><span class="username"></span>'s Personal Home Page</h1>
+            <div class="ui divider"></div>
+            <div class="ui two column stackable grid">
+                <div class="six wide column">
+                    <img src="../../img/public/errors/welcome.png">
+                </div>
+                <div class="ten wide column">
+                    <h3>You are seeing this page because you have enabled home page on your account.</h3>
+                    <p>The ArozOS Home Page is a simple way to host your files using a web page so you can access it anywhere without login. </p>
+                    <p><b>However, it seems you haven't configure your web root location</b> and hence, this error occured.</p>
+                    
+                    <h3>How can I set it up correctly?</h3>
+                    <p>Login to your Web Desktop System and open System Setting → Network & Connection → Personal Page and configure the web root accordingly.</p>
+                </div>
+            </div>
+            <div class="ui divider"></div>
+            <p>ArozOS Project, CopyRight tobychui 2016 - <span class="year"></span></p>
+        </div>
+        <script>
+            $(".year").text(new Date().getFullYear());
+
+            var username = window.location.href.substring(0, window.location.href.length - 1).split("/").pop();
+            $(".username").text(username);
+        </script>
+    </body>
+</html>

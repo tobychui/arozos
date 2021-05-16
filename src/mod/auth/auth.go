@@ -33,6 +33,7 @@ import (
 
 	"github.com/gorilla/sessions"
 
+	"imuslab.com/arozos/mod/auth/authlogger"
 	db "imuslab.com/arozos/mod/database"
 )
 
@@ -52,6 +53,9 @@ type AuthAgent struct {
 	//Autologin Related
 	AllowAutoLogin  bool
 	autoLoginTokens []AutoLoginToken
+
+	//Logger
+	Logger *authlogger.Logger
 }
 
 type AuthEndpoints struct {
@@ -75,6 +79,12 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 	ticker := time.NewTicker(300 * time.Second)
 	done := make(chan bool)
 
+	//Create a new logger for logging all login request
+	newLogger, err := authlogger.NewLogger()
+	if err != nil {
+		panic(err)
+	}
+
 	//Create a new AuthAgent object
 	newAuthAgent := AuthAgent{
 		SessionName:             sessionName,
@@ -87,6 +97,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 		mutex:                   &sync.Mutex{},
 		AllowAutoLogin:          false,
 		autoLoginTokens:         []AutoLoginToken{},
+		Logger:                  newLogger,
 	}
 
 	//Create a timer to listen to its token storage
@@ -107,7 +118,11 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 
 //Close the authAgent listener
 func (a *AuthAgent) Close() {
+	//Stop the token listening
 	a.terminateTokenListener <- true
+
+	//Close the auth logger database
+	a.Logger.Close()
 }
 
 //This function will handle an http request and redirect to the given login address if not logged in
@@ -132,11 +147,14 @@ func (a *AuthAgent) RegisterPublicAPIs(ep AuthEndpoints) {
 
 //Handle login request, require POST username and password
 func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
+
 	//Get username from request using POST mode
 	username, err := mv(r, "username", true)
 	if err != nil {
 		//Username not defined
 		log.Println("[System Auth] Someone trying to login with username: " + username)
+		//Write to log
+		a.Logger.LogAuth(r, false)
 		sendErrorResponse(w, "Username not defined or empty.")
 		return
 	}
@@ -145,6 +163,7 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	password, err := mv(r, "password", true)
 	if err != nil {
 		//Password not defined
+		a.Logger.LogAuth(r, false)
 		sendErrorResponse(w, "Password not defined or empty.")
 		return
 	}
@@ -165,11 +184,13 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		a.LoginUserByRequest(w, r, username, rememberme)
 		//Print the login message to console
 		log.Println(username + " logged in.")
+		a.Logger.LogAuth(r, true)
 		sendOK(w)
 	} else {
 		//Password incorrect
 		log.Println(username + " has entered an invalid username or password")
 		sendErrorResponse(w, "Invalid username or password")
+		a.Logger.LogAuth(r, false)
 		return
 	}
 }

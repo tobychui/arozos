@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo ./arozos -hostname "ArozOS" -port 80
+sudo ./arozos -port 8080 -tls=true -tls_port 8443
