@@ -254,9 +254,7 @@ https://github.com/tobychui/arozos/issues/50
 
 ## 授權
 
-CopyRight tobychui 2016 - 2021
-
-No limit for personal and educational usage. For other use case, please contact me via email or telegram.
+睇英文版本 README - License 部分
 
 ## 贊助開發
 
