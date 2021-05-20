@@ -109,11 +109,15 @@ arozos.exe
 
 ### 支援的啟動參數
 
-以下為 ArozOS 的啟動參數 (版本 1.110)
+以下為 ArozOS 的啟動參數 (版本 1.113)
 
 ```
-  -allow_autologin
+-allow_autologin
     	Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot (default true)
+  -allow_cluster
+    	Enable cluster operations within LAN. Require allow_mdns=true flag (default true)
+  -allow_iot
+    	Enable IoT related APIs and scanner. Require MDNS enabled (default true)
   -allow_mdns
     	Enable MDNS service. Allow device to be scanned by nearby ArOZ Hosts (default true)
   -allow_pkg_install
@@ -132,14 +136,18 @@ arozos.exe
     	Run the system in demo mode. All directories and database are read only.
   -dir_list
     	Enable directory listing (default true)
+  -disable_http
+    	Disable HTTP server, require tls=true
   -disable_ip_resolver
     	Disable IP resolving if the system is running under reverse proxy environment
   -disable_subservice
     	Disable subservices completely
-  -enable_homepage
-    	Redirect not logged in users to home page instead of login interface
   -enable_hwman
     	Enable hardware management functions in system (default true)
+  -gzip
+    	Enable gzip compress on file server (default true)
+  -homepage
+    	Enable user homepage. Accessible via /www/{username}/ (default true)
   -hostname string
     	Default name for this host (default "My ArOZ")
   -iobuf int
@@ -151,7 +159,7 @@ arozos.exe
   -ntt int
     	Nightly tasks execution time. Default 3 = 3 am in the morning (default 3)
   -port int
-    	Listening port (default 8080)
+    	Listening port for HTTP server (default 8080)
   -public_reg
     	Enable public register interface for account creation
   -root string
@@ -161,7 +169,9 @@ arozos.exe
   -storage_config string
     	File location of the storage config file (default "./system/storage.json")
   -tls
-    	Enable TLS on HTTP serving
+    	Enable TLS on HTTP serving (HTTPS Mode)
+  -tls_port int
+    	Listening port for HTTPS server (default 8443)
   -tmp string
     	Temporary storage, can be access via tmp:/. A tmp/ folder will be created in this path. Recommend fast storage devices like SSD (default "./")
   -tmp_time int
@@ -189,8 +199,11 @@ arozos.exe
 //Start aroz online in demo mode
 ./arozos -demo_mode=true
 
-//Use https instead of http 
-./arozos -tls=true -key mykey.key -cert mycert.crt
+//Use https instead of http
+./arozos -tls=true -tls_port 443 -key mykey.key -cert mycert.crt -disable_http=true
+
+//Start both HTTPS and HTTP server on two different port
+./arozos -port 80 -tls=true -key mykey.key -cert mycert.crt -tls_port 443
 
 //Change max upload size to 25MB
 ./arozos -max_upload_size 25
