@@ -560,6 +560,18 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		os.MkdirAll(filepath.Dir(destFilepath), 0755)
 	}
 
+	//Check if any file with same filename already exists. If yes, rename destFilepath
+	renameRetrycount := 1
+	for {
+		if fileExists(destFilepath) {
+			renameRetrycount++
+			newStoreFilename := strings.Split(storeFilename, ".")[0] + "-" + strconv.Itoa(renameRetrycount) + storeFilename[len(strings.Split(storeFilename, ".")[0]):]
+			destFilepath = filepath.ToSlash(filepath.Clean(realUploadPath)) + "/" + newStoreFilename
+		} else {
+			break
+		}
+	}
+	
 	//Check if the upload target is read only.
 	accmode := userinfo.GetPathAccessPermission(uploadTarget)
 	if accmode == "readonly" {
