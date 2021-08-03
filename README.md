@@ -74,7 +74,7 @@ $ ls
 arozos_linux_arm64  web  system
 ```
 
-Start the binary by calling ``` sudo ./aroz_online_linux_arm64 ``` (or without sudo if you prefer no hardware management)
+Start the binary by calling ``` sudo ./arozos_linux_arm64 ``` (or without sudo if you prefer no hardware management)
 
 ### Windows
 If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable.
