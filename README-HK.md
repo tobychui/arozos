@@ -73,7 +73,7 @@ $ ls
 arozos_linux_arm64  web  system
 ```
 
-你可以用 ``` sudo ./aroz_online_linux_arm64 ``` 嚟執行個執行檔，如果你唔鐘意比咁多權限佢你可以省略個 sudo（但係 ArozOS 就會讀取唔到你部機啲 hardware 咁解囉）
+你可以用 ``` sudo ./arozos_linux_arm64 ``` 嚟執行個執行檔，如果你唔鐘意比咁多權限佢你可以省略個 sudo（但係 ArozOS 就會讀取唔到你部機啲 hardware 咁解囉）
 
 ### Windows
 
