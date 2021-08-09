@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/permission"
 
 	"github.com/tidwall/pretty"
 	fs "imuslab.com/arozos/mod/filesystem"
@@ -80,7 +81,7 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 	} else if opr == "set" {
 		//Set
 		newFsOption := buildOptionFromRequestForm(r)
-		log.Println(newFsOption)
+		//log.Println(newFsOption)
 
 		//Read and remove the original settings from the config file
 		err := setFSHConfigByGroupAndId(group, uuid, newFsOption)
@@ -112,6 +113,10 @@ func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOpti
 	if !fileExists(targerFile) {
 		log.Println("Config file not found: ", targerFile)
 		return nil, errors.New("Configuration file not found")
+	}
+
+	if !fileExists(filepath.Dir(targerFile)) {
+		os.MkdirAll(filepath.Dir(targerFile), 0775)
 	}
 
 	//Load and parse the file
@@ -153,6 +158,10 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 		return errors.New("Configuration file not found")
 	}
 
+	if !fileExists(filepath.Dir(targerFile)) {
+		os.MkdirAll(filepath.Dir(targerFile), 0775)
+	}
+
 	//Load and parse the file
 	configContent, err := ioutil.ReadFile(targerFile)
 	if err != nil {
@@ -179,7 +188,7 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 
 	//Write config back to file
 	js, _ := json.MarshalIndent(newConfig, "", " ")
-	return ioutil.WriteFile(targerFile, js, 0755)
+	return ioutil.WriteFile(targerFile, js, 0775)
 }
 
 //Handle Storage Pool toggle on-off
@@ -197,7 +206,7 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if group exists
-	if !permissionHandler.GroupExists(group) {
+	if group != "system" && !permissionHandler.GroupExists(group) {
 		sendErrorResponse(w, "Group not exists")
 		return
 	}
@@ -209,8 +218,16 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if fsh exists
-	targetpg := permissionHandler.GetPermissionGroupByName(group)
-	storagePool := targetpg.StoragePool
+	var targetpg *permission.PermissionGroup
+	var storagePool *storage.StoragePool
+	if group == "system" {
+		//System storage pool.
+		storagePool = baseStoragePool
+	} else {
+		targetpg = permissionHandler.GetPermissionGroupByName(group)
+		storagePool = targetpg.StoragePool
+	}
+
 	var targetFSH *fs.FileSystemHandler
 	for _, thisFsh := range storagePool.Storages {
 		if thisFsh.UUID == fsh {
@@ -388,7 +405,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 	if len(newConfigs) > 0 {
 		js, _ := json.Marshal(newConfigs)
 		resultingJson := pretty.Pretty(js)
-		ioutil.WriteFile(targetConfigFile, resultingJson, 755)
+		ioutil.WriteFile(targetConfigFile, resultingJson, 777)
 	} else {
 		os.Remove(targetConfigFile)
 	}
@@ -410,15 +427,18 @@ func buildOptionFromRequestForm(r *http.Request) fs.FileSystemOption {
 		Filesystem: r.FormValue("filesystem"),
 		Mountdev:   r.FormValue("mountdev"),
 		Mountpt:    r.FormValue("mountpt"),
-		Username:   r.FormValue("username"),
-		Password:   r.FormValue("password"),
+
+		Parentuid:  r.FormValue("parentuid"),
+		BackupMode: r.FormValue("backupmode"),
+
+		Username: r.FormValue("username"),
+		Password: r.FormValue("password"),
 	}
 
 	return newFsOption
 }
 
 func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
-
 	newFsOption := buildOptionFromRequestForm(r)
 
 	type errorObject struct {
@@ -469,10 +489,19 @@ func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
 	oldConfigs = append(oldConfigs, newFsOption)
 
 	//Prepare the content to be written
-	js, _ := json.Marshal(oldConfigs)
+	js, err := json.Marshal(oldConfigs)
 	resultingJson := pretty.Pretty(js)
 
-	ioutil.WriteFile(configFile, resultingJson, 775)
+	err = ioutil.WriteFile(configFile, resultingJson, 0775)
+	if err != nil {
+		//Write Error. This could sometime happens on Windows host for unknown reason
+		js, _ := json.Marshal(errorObject{
+			Message: err.Error(),
+			Source:  groupName,
+		})
+		http.Redirect(w, r, "../../../SystemAO/storage/error.html#"+string(js), 307)
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, post-check=0, pre-check=0")
 	http.Redirect(w, r, "../../../SystemAO/storage/poolEditor.html#"+groupName, 307)
 }
@@ -490,6 +519,7 @@ func HandleListStoragePoolsConfig(w http.ResponseWriter, r *http.Request) {
 	if target != "system" {
 		targetFile = "./system/storage/" + target + ".json"
 	}
+
 	//Read and serve it
 	configContent, err := ioutil.ReadFile(targetFile)
 	if err != nil {

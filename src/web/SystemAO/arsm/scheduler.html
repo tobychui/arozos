@@ -341,11 +341,16 @@
                                     return
                                 }
                             }
+
+                            var scriptLocation = task.ScriptFile;
+                            if (task.JobType == "function"){
+                                scriptLocation = "[Internal Function]"
+                            }
                             $("#scheduleListAllContent").append(`<tr>
                                 <td class="collapsing">
                                     <i class="user icon"></i> ${task.Name} (${task.Creator})
                                 </td>
-                                <td>${task.ScriptFile}</td>
+                                <td>${scriptLocation}</td>
                                 <td>${task.Description}</td>
                                 <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
                                 <td class="right aligned collapsing">${moment.unix(task.BaseTime).format('LLL')}</td>
@@ -478,15 +483,27 @@
                                     return
                                 }
                             }
+
+                            var scriptLocation = task.ScriptFile;
+                            if (task.JobType == "function"){
+                                scriptLocation = "[Internal Function]";
+                            }
+
+                            var removebutton = `<button class="ui negative mini button" name="${task.Name}" onclick="removeTask(this);">Remove</button>`;
+                            if (task.JobType == "function"){
+                                //Cannot be removed
+                                removebutton = `[READ ONLY]`;
+                            }
+
                             $("#removeScheduleList").append(`<tr>
                                 <td class="collapsing">
                                     <i class="user icon"></i> ${task.Name} (${task.Creator})
                                 </td>
-                                <td>${task.ScriptFile}</td>
+                                <td>${scriptLocation}</td>
                                 <td>${task.Description}</td>
                                 <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
                                 <td class="right aligned collapsing">
-                                    <button class="ui negative mini button" name="${task.Name}" onclick="removeTask(this);">Remove</button>
+                                    ${removebutton}
                                 </td>
                             </tr>`);
                         });

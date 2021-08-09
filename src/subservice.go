@@ -65,7 +65,7 @@ func SubserviceInit() {
 	//Scan and load all subservice modules
 	subservices, _ := filepath.Glob("./subservice/*")
 	for _, servicePath := range subservices {
-		if !fileExists(servicePath + "/.disabled") {
+		if IsDir(servicePath) && !fileExists(servicePath+"/.disabled") {
 			//Only enable module with no suspended config file
 			ssRouter.Launch(servicePath, true)
 		}

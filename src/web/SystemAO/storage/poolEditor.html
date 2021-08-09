@@ -43,6 +43,10 @@
         .true{
             color: #05b074;
         }
+
+        .backuponly{
+            display:none;
+        }
     </style>
 </head>
 <body>
@@ -86,30 +90,57 @@
                     <label>Path</label>
                     <input type="text" name="path" placeholder="e.g. /media/myfolder">
                 </div>
-                <div class="field">
+                <div id="accPermission" class="field">
                     <label>Access Permission</label>
                     <div class="ui selection dropdown">
-                    <input type="hidden" name="access" value="readwrite">
-                    <i class="dropdown icon"></i>
-                    <div class="default text">Access Permission</div>
-                    <div class="menu">
-                        <div class="item" data-value="readonly">Read Only</div>
-                        <div class="item" data-value="readwrite">Read Write</div>
-                    </div>
+                        <input type="hidden" name="access" value="readwrite">
+                        <i class="dropdown icon"></i>
+                        <div class="default text">Access Permission</div>
+                        <div class="menu">
+                            <div class="item" data-value="readonly">Read Only</div>
+                            <div class="item" data-value="readwrite">Read Write</div>
+                        </div>
                     </div>
                 </div>
                 <div class="field">
                     <label>Storage Hierarchy</label>
                     <div class="ui selection dropdown">
-                    <input type="hidden" name="hierarchy" value="user">
-                    <i class="dropdown icon"></i>
-                    <div class="default text">Storage Hierarchy</div>
-                    <div class="menu">
-                        <div class="item" data-value="user">Isolated User Folders</div>
-                        <div class="item" data-value="public">Public Access Folders</div>
-                    </div>
+                        <input type="hidden" autocomplete="false" name="hierarchy" value="user" onchange="handleHierarchyChange(this.value);">
+                        <i class="dropdown icon"></i>
+                        <div class="default text">Storage Hierarchy</div>
+                        <div class="menu">
+                            <div class="item" data-value="user">Isolated User Folders</div>
+                            <div class="item" data-value="public">Public Access Folders</div>
+                            <div class="item" data-value="backup">Backup Storage</div>
+                        </div>
                     </div>
                 </div>
+                <div class="ui divider backuponly"></div>
+                <p class="backuponly">Backup Settings</p>
+                <div class="field backuponly">
+                    <label>Backup Virtual Disk UID</label>
+                    <div class="ui selection dropdown">
+                        <input type="hidden" autocomplete="false" name="parentuid" value="">
+                        <i class="dropdown icon"></i>
+                        <div class="default text">Storage Hierarchy</div>
+                        <div class="menu" id="backupIdList">
+                            
+                        </div>
+                    </div>
+                  </div>
+                  <div class="field backuponly">
+                    <label>Backup Mode</label>
+                    <div class="ui selection dropdown">
+                        <input type="hidden" autocomplete="false" name="backupmode" value="">
+                        <i class="dropdown icon"></i>
+                        <div class="default text">Storage Hierarchy</div>
+                        <div class="menu">
+                            <div class="item" data-value="basic">Basic</div>
+                            <div class="item" data-value="nightly">Nightly</div>
+                            <div class="item" data-value="version">Versioning</div>
+                        </div>
+                    </div>
+                  </div>
                 <div class="ui divider"></div>
                 <p>Physical Disks Settings</p>
                 <div class="field">
@@ -299,6 +330,38 @@
                         });
                     }); 
             });
+        }
+
+        function handleHierarchyChange(newHierarchy){
+            if (newHierarchy == "backup"){
+
+                //Force readwrite mode to read only
+                $("#accPermission").find(".dropdown").dropdown("set selected", "readonly");
+                $("#accPermission").addClass("disabled");
+
+                //Show backup only divs
+                $(".backuponly").slideDown("fast");
+
+                //Render the backup id list
+                $("#backupIdList").html(``);
+                $.get("../../system/storage/pool/list?filter=" + editingStoragePool, function(data){
+                     data.forEach(usergroup => {
+                         if (usergroup.Storages != null){
+                            usergroup.Storages.forEach(storage => {
+                                $("#backupIdList").append(`<div class="item" data-value="${storage.UUID}">${storage.Name} (${storage.UUID}:/)</div>`);
+                            })
+                        }
+                     });
+                     $("#backupIdList").parent().dropdown();
+                });
+            }else{
+                //Restore readwrite mode
+                $("#accPermission").removeClass("disabled");
+
+                 //Hide backup only divs
+                 $(".backuponly").slideUp("fast");
+                 $(".backuponly").find("input").val("");
+            }
         }
 
         function removeThisFSH(object){

@@ -26,7 +26,7 @@ import (
 */
 
 var (
-	AgiVersion string = "1.4" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "1.5" //Defination of the agi runtime version. Update this when new function is added
 )
 
 type AgiLibIntergface func(*otto.Otto, *user.User) //Define the lib loader interface for AGI Libraries
@@ -74,7 +74,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	for _, script := range startupScripts {
 		scriptContentByte, _ := ioutil.ReadFile(script)
 		scriptContent := string(scriptContentByte)
-		log.Println("Gatewat script loaded (" + script + ")")
+		log.Println("[AGI] Gatewat script loaded (" + script + ")")
 		//Create a new vm for this request
 		vm := otto.New()
 
@@ -83,7 +83,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 
 		_, err := vm.Run(scriptContent)
 		if err != nil {
-			log.Println("AJI Load Failed: " + script + ". Skipping.")
+			log.Println("[AGI] Load Failed: " + script + ". Skipping.")
 			log.Println(err)
 			continue
 		}
@@ -94,6 +94,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	gatewayObject.FileLibRegister()
 	gatewayObject.HTTPLibRegister()
 	gatewayObject.IoTLibRegister()
+	gatewayObject.AppdataLibRegister()
 
 	return &gatewayObject, nil
 }
@@ -107,7 +108,7 @@ func (g *Gateway) RunScript(script string) error {
 
 	_, err := vm.Run(script)
 	if err != nil {
-		log.Println("Script Execution Failed: ", err.Error())
+		log.Println("[AGI] Script Execution Failed: ", err.Error())
 		return err
 	}
 
@@ -126,7 +127,7 @@ func (g *Gateway) RegisterLib(libname string, entryPoint AgiLibIntergface) error
 }
 
 func (g *Gateway) raiseError(err error) {
-	log.Println("*AGI Engine* [Runtime Error] " + err.Error())
+	log.Println("[AGI] Runtime Error " + err.Error())
 
 	//To be implemented
 }

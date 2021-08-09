@@ -303,7 +303,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			cmd := exec.Command("nmcli", "con", "down", oldSSID)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Println("*WiFi* Disconencting previous SSID failed: " + string(out))
+				log.Println("*WiFi* Connecting previous SSID failed: " + string(out))
 				log.Println("*WiFi* Trying to connect new AP anyway")
 			}
 		}
@@ -317,7 +317,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		cmd := exec.Command("nmcli", "device", "wifi", "connect", ssid, "password", password)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println("*WiFi* Conencting to SSID " + ssid + " failed: " + string(out))
+			log.Println("*WiFi* Connecting to SSID " + ssid + " failed: " + string(out))
 			return &WiFiConnectionResult{Success: false}, errors.New(string(out))
 		}
 
@@ -461,8 +461,23 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	cmd := exec.Command("wpa_cli", "-i", w.wan_interface_name, "reconfigure")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("failed to restart network: " + string(out))
-		return &WiFiConnectionResult{Success: false}, err
+		//Maybe the user forgot to set the flag. Try auto detect.
+		autoDetectedWIface, err := w.GetWirelessInterfaces();
+		if err != nil || len(autoDetectedWIface) == 0{
+			log.Println("failed to restart network: " + string(out))
+			return &WiFiConnectionResult{Success: false}, err
+		}
+
+		firstWlanInterface := autoDetectedWIface[0]
+		cmd := exec.Command("wpa_cli", "-i", firstWlanInterface, "reconfigure")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			//Really failed.
+			log.Println("failed to restart network: " + string(out))
+			return &WiFiConnectionResult{Success: false}, err
+		}
+
+		
 	}
 
 	log.Println("*WiFi* Trying to connect new AP")

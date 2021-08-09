@@ -8,7 +8,13 @@
     <title>Storage Pool Manager</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <style>
-      
+        .svg-icon {
+            display: inline-flex;
+            align-self: center;
+        }.svg-icon svg {
+            height:1em;
+            width:1em;
+        }
     </style>
 </head>
 <body>
@@ -71,7 +77,7 @@
             </div>
         </div>
     </div>
-
+    <script src="diskicon.js"></script>
     <script>
         var selectedStoragePool = "";
         var storagePoolList = [];
@@ -107,8 +113,14 @@
 
                         if (storagePool.Storages !== null && storagePool.Storages.length > 0){
                             storagePool.Storages.forEach(fsh => {
+                                var diskIcon = `grey disk icon`;
+                                if (fsh.Hierarchy == "backup"){
+                                    diskIcon = `green refresh icon`
+                                }else if (fsh.Hierarchy == "user"){
+                                    diskIcon = `blue disk icon`;
+                                }
                                 spHTML += (`<div class="item">
-                                <i class="disk icon"></i>
+                                <i class="${diskIcon}"></i>
                                 <div class="content">
                                     <div class="header">${fsh.Name} (${fsh.UUID}:/)</div>
                                     <div class="description">

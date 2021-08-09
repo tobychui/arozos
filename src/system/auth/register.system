@@ -75,6 +75,14 @@
         </div>
 
         <script>
+            //1. read the parameters from the URL
+            if(get('user') != undefined){
+                $("#emailfield").val(get('user'));
+                $("#emailfield").attr("disabled", "disabled");
+                $("input[name='username']").val(get('user'));
+                $("input[name='username']").attr("disabled", "disabled");
+            }
+
             function toggleSignupBox(toggle){
                 if (toggle){
                     $("#submitbtn").removeClass('disabled')
@@ -136,6 +144,12 @@
                 }else{
                     return false
                 }
+            }
+
+            //https://stackoverflow.com/questions/831030/how-to-get-get-request-parameters-in-javascript
+            function get(name){
+                if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
+                    return decodeURIComponent(name[1]);
             }
         </script>
     </body>

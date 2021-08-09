@@ -142,8 +142,6 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 
 		return arr
 	}
-
-	return []LogicalDiskSpaceInfo{}
 }
 
 func stringToInt64(value string) (int64, error) {

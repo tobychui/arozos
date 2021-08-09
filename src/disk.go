@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 
+	"imuslab.com/arozos/mod/disk/diskcapacity"
 	"imuslab.com/arozos/mod/disk/diskmg"
 	diskspace "imuslab.com/arozos/mod/disk/diskspace"
 	smart "imuslab.com/arozos/mod/disk/smart"
@@ -31,6 +32,10 @@ func DiskServiceInit() {
 
 	//Disk Space Display endpoint
 	router.HandleFunc("/system/disk/space/list", diskspace.HandleDiskSpaceList)
+
+	//Handle Virtual Disk Properties display endpoints
+	dc := diskcapacity.NewCapacityResolver(userHandler)
+	router.HandleFunc("/system/disk/space/resolve", dc.HandleCapacityResolving)
 
 	//New Large File Scanner
 	lfs := sortfile.NewLargeFileScanner(userHandler)

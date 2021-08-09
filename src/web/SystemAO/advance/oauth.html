@@ -1,0 +1,199 @@
+<html>
+
+<head>
+    <title>OAuth Login</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.css">
+    <script type="application/javascript" src="../../script/jquery.min.js"></script>
+    <script type="application/javascript" src="../../script/clipboard.min.js"></script>
+    <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <style>
+        /* Tooltip container */
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            border-bottom: 1px dotted black;
+            /* If you want dots under the hoverable text */
+        }
+        /* Tooltip text */
+        
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            padding: 5px 0;
+            border-radius: 6px;
+            /* Position the tooltip text */
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            /* Fade in tooltip */
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        /* Tooltip arrow */
+        
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <div class="ui header">
+                <i class="key icon"></i>
+                <div class="content">
+                    OAuth Access
+                    <div class="sub header">Allow external account to access ArozOS with OAuth 2.0</div>
+                </div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <div class="ui green inverted segment" style="display:none;" id="updateSet">
+            <h5 class="ui header">
+                <i class="checkmark icon"></i>
+                <div class="content">
+                    Setting Updated
+                </div>
+            </h5>
+        </div>
+        <div class="ui form">
+            <div class="field">
+                <div class="ui toggle checkbox">
+                    <input type="checkbox" id="enable" name="public">
+                    <label>Enable OAuth</label>
+                </div>
+            </div>
+            <div class="field">
+                <label>Select OAuth IdP (aka Service provider)</label>
+                <div class="ui selection fluid dropdown" autocomplete="false">
+                    <input type="hidden" id="idp" name="idp" autocomplete="false">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Select service provider</div>
+                    <div id="idplist" class="menu">
+
+                    </div>
+                </div>
+            </div>
+            <div class="field">
+                <label>Redirect URL (you have to provide https://YOUR_DOMAIN/system/auth/oauth/authorize at the 3rd auth rely)</label>
+                <div class="ui fluid input">
+                    <input type="text" id="redirecturl" placeholder="https://YOUR_DOMAIN/">
+                </div>
+            </div>
+            <div class="field">
+                <label>Client ID</label>
+                <div class="ui fluid input">
+                    <input type="text" id="clientid" placeholder="Client ID">
+                </div>
+            </div>
+            <div class="field">
+                <label>Client Secret</label>
+                <div class="ui fluid input">
+                    <input type="text" id="clientsecret" placeholder="Client Secret">
+                </div>
+            </div>
+            <div class="field">
+                <label>Default user group</label>
+                <div class="ui selection fluid dropdown" autocomplete="false">
+                    <input type="hidden" id="group" name="group" autocomplete="false">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Select user group</div>
+                    <div id="grouplist" class="menu">
+
+                    </div>
+                </div>
+            </div>
+            <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
+        </div>
+        <div class="ui divider"></div>
+        <br><br>
+    </div>
+
+
+    <script>
+        $(document).ready(function() {
+            loadIdpList();
+            loadGroupList();
+            read();
+        });
+
+        function read() {
+            $.getJSON("../../system/auth/oauth/config/read", function(data) {
+                if (data.enabled) {
+                    $("#enable").parent().checkbox("check")
+                }
+                $("#idp").parent().dropdown("set selected", data.idp);
+                $("#redirecturl").val(data.redirect_url);
+                $("#clientid").val(data.client_id);
+                $("#clientsecret").val(data.client_secret);
+                $("#group").parent().dropdown("set selected", data.default_user_group);
+            });
+        }
+
+        function update() {
+            $.post("../../system/auth/oauth/config/write", {
+                    enabled: $("#enable").parent().checkbox("is checked"),
+                    idp: $("#idp").val(),
+                    redirecturl: $("#redirecturl").val(),
+                    clientid: $("#clientid").val(),
+                    clientsecret: $("#clientsecret").val(),
+                    defaultusergroup: $("#group").val()
+                })
+                .done(function(data) {
+                    if (data.error != undefined){
+                        alert(data.error);
+                    }else{
+                        //OK!
+                        $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
+                    }
+                });
+        }
+
+        function loadIdpList() {
+            $("#idplist").html("");
+            var data = ["Google", "Microsoft", "Github"];
+            if (data.error !== undefined) {
+                alert(data.error);
+            } else {
+                for (var i = 0; i < data.length; i++) {
+                    let idpinfo = data[i];
+                    $("#idplist").append(`<div class="item" data-value="${idpinfo}">${idpinfo}</div>`);
+                }
+            }
+            $("#idplist").parent().dropdown();
+        }
+
+        function loadGroupList() {
+            $("#grouplist").html("");
+            $.get("../../system/permission/listgroup", function(data) {
+                if (data.error !== undefined) {
+                    alert(data.error);
+                } else {
+                    for (var i = 0; i < data.length; i++) {
+                        let groupinfo = data[i];
+                        $("#grouplist").append(`<div class="item" data-value="${groupinfo}">${groupinfo}</div>`);
+                    }
+                }
+                $("#grouplist").parent().dropdown();
+            });
+        }
+    </script>
+</body>
+
+</html>

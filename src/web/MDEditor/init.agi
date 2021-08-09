@@ -1,0 +1,26 @@
+/*
+	Notebook
+
+	Copyright 2021 ArozOS Project
+
+	The build in basic text editor for text files
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "MDEditor",
+	Desc: "Basic Text Editor",
+	Group: "Utilities",
+	IconPath: "MDEditor/img/notebook.png",
+	Version: "3.0",
+	StartDir: "MDEditor/mde.html",
+	SupportFW: true,
+	LaunchFWDir: "MDEditor/mde.html",
+	SupportEmb: false,
+	InitFWSize: [1080, 580],
+	SupportedExt: [".txt", ".md", ".html",".xml",".json"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

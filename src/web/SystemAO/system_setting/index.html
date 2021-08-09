@@ -68,11 +68,35 @@
           <script>
               var currentSettingModuleList = [];
               var loadViaSystemSetting = true; //Check for this parameter to see if launching in Setting Interface
+              var loadToPage = undefined; //Load setting page directly to the given tab, passed in via window hash
+
+              if (window.location.hash.length > 0){
+                var hashObject = window.location.hash.substr(1);
+                hashObject = JSON.parse(decodeURIComponent(hashObject));
+                if (typeof(hashObject.group) != 'undefined' && typeof(hashObject.name) != 'undefined'){
+                    loadToPage = hashObject;
+                }
+              }
 
                 //Initiation Functions
                 initMainSideMenu();
                 hideToolBar();
-                initSettingGroup("Info");
+                
+                if (loadToPage == undefined){
+                    initSettingGroup("Info");
+                }else{
+                    initSettingGroup(loadToPage.group, function(settingList){
+                        let reversedList = JSON.parse(JSON.stringify(settingList)).reverse();
+                        for (var i = 0; i < settingList.length; i++){
+                            var settingTab = settingList[i];
+                            if (settingTab.Name == loadToPage.name){
+                                //This is the tab we are looking for
+                                initSettingModules(i - 1);
+                            }
+                        }
+                           
+                    });
+                }
                 
                 function initMainSideMenu(){
                     $.get("../../system/setting/list",function(data){
@@ -83,10 +107,11 @@
                             var toolTip = data[i].Desc;
                             $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}" style="padding: 2px;"></img> ${settingGroupName}</a>`);
                         }
+
                     });
                 }
 
-                function initSettingGroup(group){
+                function initSettingGroup(group, callback=undefined){
                     $.get("../../system/setting/list?listGroup=" + group,function(data){
                         if (data.error !== undefined){
                             console.log(data.error);
@@ -94,7 +119,9 @@
                             currentSettingModuleList = data;
                             initSettingModuleTabs();
                             initSettingModules(0);
-                            
+                            if (callback != undefined){
+                                callback(data);
+                            }
                         }
                     });
                 }

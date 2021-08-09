@@ -105,6 +105,8 @@
                     <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
                     <div class="divider signup"> / </div>
                     <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
+                    <div class="divider signin"> / </div>
+                    <a class="section signin" style="cursor:pointer; display:none;" href="system/auth/oauth/login">Signin via External account</a>
                 </div>
                 <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span id="errmsg">Error. Incorrect username or password.</span></p>
                
@@ -174,6 +176,18 @@
                 }
             });
 
+            //OAuth related code, check if system is open for ext login
+            $.get("system/auth/oauth/checkoauth",function(data){
+                if (data == true){
+                    $(".signin").show();
+                }else{
+                    $(".signin").remove();
+                }
+            });
+            if(get('redirect') != undefined){
+                $(".section.signin").attr("href","system/auth/oauth/login?redirect=" + get('redirect'));
+            }
+
             //Get the system hostname and replace the hostname fields
             $.get("system/info/getArOZInfo", function(data){
                 document.title = data.HostName + " - Sign In"
@@ -222,6 +236,12 @@
                 $("input").removeClass('disabled');
             });
 
+        }
+
+        //https://stackoverflow.com/questions/831030/how-to-get-get-request-parameters-in-javascript
+        function get(name){
+            if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
+                return decodeURIComponent(name[1]);
         }
     </script>
     </body>

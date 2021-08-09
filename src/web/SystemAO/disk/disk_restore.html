@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>File Restore</title>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+	<meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script src="../../script/jquery.min.js"></script>
+	<script src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <style>
+        .hidden{
+            display:none;
+        }
+
+        .disabled{
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .colorblock{
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            vertical-align: bottom;
+            margin-right: 12px;
+        }
+
+        .blue.colorblock{
+            background-color: #52bdf2;
+        }
+
+        .grey.colorblock{
+            background-color: #b9b9b9;
+        }
+
+        .yellow.colorblock{
+            background-color: #e5e75c;
+        }
+
+        .ui.table tr td{
+           border-top: 0px solid transparent !important; 
+        }
+        
+        .overlap.bar{
+            position: absolute !important; 
+            top:0px; 
+            left: 0px;
+        }
+
+        .nointeract{
+            pointer-events: none;
+            user-select: none; 
+        }
+
+        #restorableList{
+            max-height: 300px;
+            overflow-y: scroll;
+            padding-right: 4px;
+        }
+
+        #snapshotList{
+            max-height: 300px;
+            overflow-y: scroll;
+            padding-right: 4px;
+        }
+        
+        .timeleft{
+            width: 30px;
+            height: 30px;
+            display: inline-block;
+            user-select: none; 
+            vertical-align: baseline;
+            margin-bottom: -10px;
+            margin-right: 4px;
+        }
+
+        .closebtn{
+            position: absolute;
+            right: 4px;
+            top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <br>
+    <div class="ui container">
+        <h3 class="ui header">
+            Backup & Restore
+            <div class="sub header">Show restore points for the selected virtual disk</div>
+        </h3>
+        <div class="ui divider"></div>
+       <div id="error" class="ui red inverted segment hidden">
+            <h4 class="ui header">
+                <i class="remove icon"></i>
+                <div class="content">
+                    List Restore Failed
+                    <div class="sub reason header" style="color: white;">Unknown Vroot paramter given</div>
+                </div>
+            </h4>
+       </div>
+       <div id="restoreCancel" class="ui grey inverted segment hidden">
+            <h4 class="ui header">
+                <i class="remove icon"></i>
+                <div class="content">
+                    Snapshot Restore Cancelled
+                    <div class="sub reason header" style="color: white;">Operation cancelled by user</div>
+                </div>
+            </h4>
+        </div>  
+       <div id="succ" class="ui green segment" style="display:none;">
+        <h4 class="ui header">
+            <i class="green checkmark icon"></i>
+            <div class="content">
+                File Restored
+                <div class="sub reason header openfolder"><a style="cursor: pointer" onclick="handleOpenRestoreLocation()"><i class="ui folder open icon"></i> Open Location</a></div>
+            </div>
+        </h4>
+       </div>
+       <div id="fileinfo" class="ui segment" style="display:none;">
+        <h4 class="ui header">
+            <div class="content">
+                <span class="filename">No File Selected</span>
+                <div class="sub header relpath">N/A</div>
+            </div>
+        </h4>
+        <div class="ui divider"></div>
+        <h5>Restorable File Properties</h5>
+        <span class="backupDisk">N/A</span><br>
+        <span class="restorePoint">N/A</span><br>
+        <span class="deleteTime">N/A</span><br>
+        <span class="deleteRemainingTime">N/A</span><br>
+        <button id="snapshotSummaryBtn" class="ui mini button" style="display:none;" onclick="openSnapshotInfo();">View Snapshot Summary</button>
+        <button class="circular ui icon basic small button closebtn" onclick='$("#fileinfo").slideUp("fast");'>
+            <i class="icon remove"></i>
+        </button>
+       </div>
+       <div id="snapshotList" class="ui middle aligned divided list">
+            <div class="item">
+                <img class="ui mini image nointeract" src="../../img/system/drive-backup.svg">
+                <div class="content">
+                No Restorable Snapshot(s) for this virtual disk.
+                </div>
+            </div>
+        </div>
+        <div id="restorableList" class="ui middle aligned divided list">
+            <div class="item">
+                <img class="ui mini image nointeract" src="../../img/system/file-notfound.svg">
+                <div class="content">
+                No Restorable File(s) for this virtual disk.
+                </div>
+            </div>
+        </div>
+        <div class="ui checkbox">
+            <input type="checkbox" name="showhidden" autocomplete="false" onchange="toggleHiddenFiles(this.checked);">
+            <label>Show hidden / cache files</label>
+        </div>
+        <div class="ui divider" style="margin-top: 8px; margin-bottom: 8px;"></div>
+        <br>
+            <div class="ui tiny green button" onclick="restoreAll();">Restore All</div>
+           <button class="ui right floated button" onclick="ao_module_close();">Close</button>
+        <br>
+    </div>
+        
+    <br><br>
+    <script>
+        var vrootID = "";
+        var viewingFileInfo = {};
+
+        $(".ui.checkbox").checkbox();
+        //Extract vroot id from the window hash
+        if (window.location.hash.length > 1){
+            vrootID = JSON.parse(decodeURIComponent(window.location.hash.substr(1)));
+
+            if (vrootID.length >= 1){
+                listRestorableFiles(vrootID[0]);
+            }else{
+                $("#error").removeClass("hidden");
+            }
+            
+        }else{
+            $("#error").removeClass("hidden");
+        }
+
+        function openSnapshotInfo(){
+            var snapshotInfo = {
+                SnapshotDisk: viewingFileInfo.BackupDiskUID,
+                SnapshotName: viewingFileInfo.Filename
+            };
+            var hashPassthrough = encodeURIComponent(JSON.stringify(snapshotInfo));
+            ao_module_newfw({
+                url: "SystemAO/disk/disk_snapshot.html#" + hashPassthrough,
+                width: 900,
+                height: 520,
+                appicon: "img/system/backup.svg",
+                title: "Snapshot Summary",
+            });
+        }
+
+        function showFileInfo(object){
+            var filedata = $(object).attr("filedata");
+            filedata = JSON.parse(decodeURIComponent(filedata));
+            console.log(filedata);
+            //Show information on page
+            if (filedata.IsSnapshot){
+                $("#fileinfo").find(".filename").text("Snapshot " + filedata.Filename);
+            }else{
+                $("#fileinfo").find(".filename").text(filedata.Filename + ` (${ao_module_utils.formatBytes(filedata.Filesize, 2)})`);
+            }
+            
+            viewingFileInfo=filedata;
+            
+            //Hide the filename in relpath
+            var shortenRelpath = filedata.RelpathOnDisk.split("/");
+            shortenRelpath.pop();
+            shortenRelpath = shortenRelpath.join("/") + "/";
+            $("#fileinfo").find(".relpath").text(shortenRelpath);
+            $("#fileinfo").find(".backupDisk").html('<i class="ui blue disk icon"></i> Restorable file from ' + filedata.BackupDiskUID + ":/");
+            $("#fileinfo").find(".deleteTime").html('<i class="ui trash icon"></i> File deleted since ' + timeConverter(filedata.DeleteTime));
+            $("#fileinfo").find(".restorePoint").html('<i class="ui refresh icon"></i> Restore to ' + (filedata.RestorePoint));
+            $("#fileinfo").find(".deleteRemainingTime").html('<i class="ui red remove icon"></i> Auto delete in '+ secondsToHms(filedata.RemainingTime));
+
+            if (filedata.IsSnapshot){
+                $("#fileinfo").find(".deleteRemainingTime").hide();
+                $("#fileinfo").find(".deleteTime").hide();
+                $("#snapshotSummaryBtn").show();
+
+            }else{
+                $("#fileinfo").find(".deleteRemainingTime").show();
+                $("#fileinfo").find(".deleteTime").show();
+                $("#snapshotSummaryBtn").hide();
+            }
+
+            $("#fileinfo").slideDown('fast');
+        }
+
+
+        function secondsToHms(d) {
+            d = Number(d);
+            var h = Math.floor(d / 3600);
+            var m = Math.floor(d % 3600 / 60);
+            var s = Math.floor(d % 3600 % 60);
+
+            var hDisplay = h > 0 ? h.toString().padStart(2, "0") + (h == 1 ? " hour, " : " hours, ") : "";
+            var mDisplay = m > 0 ? m.toString().padStart(2, "0") + (m == 1 ? " minute, " : " minutes") : "";
+            return hDisplay + mDisplay; 
+        }
+
+        function timeConverter(UNIX_timestamp){
+            var a = new Date(UNIX_timestamp * 1000);
+            var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            var year = a.getFullYear();
+            var month = months[a.getMonth()];
+            var date = a.getDate();
+            var hour = a.getHours().toString().padStart(2, "0");
+            var min = a.getMinutes().toString().padStart(2, "0");
+            var sec = a.getSeconds().toString().padStart(2, "0");
+            var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+            return time;
+        }
+
+        function toggleHiddenFiles(status=undefined){
+            if (status == undefined){
+                $(".hiddenfile").slideToggle("fast");
+            }else if (status == true){
+                $(".hiddenfile").slideDown("fast");
+            }else if (status == false){
+                $(".hiddenfile").slideUp("fast");
+            }
+            
+        }
+
+        //Restore this file
+        var restoreFileInfo = undefined;
+        function restoreThisFile(fileObject){
+            var filedata = $(fileObject).attr("filedata");
+            filedata = JSON.parse(decodeURIComponent(filedata));
+            console.log(filedata);
+
+            if (filedata.IsSnapshot == true && !confirm("Confirm snapshot restore? All newly created files will be kept.")){
+                $("#restoreCancel").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
+                return;
+            }
+
+            $.ajax({
+                url: "../../system/backup/restoreFile",
+                method: "POST",
+                data: {"bdid": filedata.BackupDiskUID, "relpath": filedata.RelpathOnDisk},
+                success: function(data){
+                    if (data.error !== undefined){
+                        alert("Restore failed: " + data.error);
+                    }else{
+                        console.log(data);
+                        if (filedata.IsSnapshot){
+                            restoreFileInfo = filedata;
+                        }else{
+                            restoreFileInfo = data;
+                        }
+                       
+
+                        if (restoreFileInfo.RestoredVirtualPath == ""){
+                            $("#openfolder").hide();
+                        }else{
+                            $("#openfolder").show();
+                        }
+
+                        $("#succ").finish().stop().slideDown('fast').delay(10000).slideUp('fast');
+                        listRestorableFiles(vrootID[0]);
+                    }
+                   
+                }
+            })
+        }
+
+        function handleOpenRestoreLocation(){
+            if (restoreFileInfo.RestorePoint !== undefined){
+                //Snapshot
+                ao_module_openPath(restoreFileInfo.RestorePoint + ":/");
+                return
+            }else if (restoreFileInfo.RestoredVirtualPath != undefined && restoreFileInfo.RestoredVirtualPath != ""){
+                var filepath = restoreFileInfo.RestoredVirtualPath;
+                var tmp = filepath.split("/");
+                var filename = tmp.pop();
+                var dirname = tmp.join("/");
+                ao_module_openPath(dirname, filename);
+            }
+        }
+
+        function listRestorableFiles(rootID){
+            $.ajax({
+                url: "/system/backup/listRestorable",
+                data: {vroot: rootID},
+                success: function(data){
+                    if (data.error !== undefined){
+                        $("#error").find(".reason").text(data.error);
+                        $("#error").removeClass("hidden");
+                    }else{
+
+                        //Filter out the restorable snapshot and files
+                        let restorableFiles = [];
+                        let restorableSnapshots = [];
+
+                        data.RestorableFiles.forEach(file => {
+                            if (file.IsSnapshot){
+                                restorableSnapshots.push(file);
+                            }else{
+                                restorableFiles.push(file);
+                                
+                            }
+                        });
+
+                        //Sort the result by latest first (file only)
+                        restorableFiles.sort(function(a, b) {
+                            return b.DeleteTime - a.DeleteTime;
+                        });
+                        restorableSnapshots.sort(function(a, b) {
+                            return b.Filename > a.Filename;
+                        });
+
+                        //Display the reuslt for restorableSnapshot
+                        $("#snapshotList").html("");
+                        restorableSnapshots.forEach(snapshot => {
+                            let snapshotData = encodeURIComponent(JSON.stringify(snapshot));
+                            $("#snapshotList").append(`<div class="item restorableFile snapshot" filedata="${snapshotData}">
+                                <div class="right floated content">
+                                    <div class="ui tiny button" onclick="showFileInfo(this.parentNode.parentNode)">Info</div>
+                                    <div class="ui tiny green button" onclick="restoreThisFile($(this).parent().parent());">Restore</div>
+                                </div>
+                                
+                                <div class="content">
+                                    <p style="word-break: break-all; font-size: 97%"><img class="ui mini spaced image nointeract" src="../../img/system/drive-backup.svg">
+                                        Snapshot ${snapshot.Filename}
+                                    </p>
+                                </div>
+                            </div>`);
+                        })
+
+                        //Display the result for restorableFile
+                        $("#restorableList").html("");
+                        restorableFiles.forEach(fileObject => {
+                            let thisFileData = encodeURIComponent(JSON.stringify(fileObject));
+
+                            var timerIcon = "100.svg";
+                            if (fileObject.RemainingTime < 75600){
+                                timerIcon = "87_5.svg"
+                            }else if (fileObject.RemainingTime < 64800){
+                                timerIcon = "75.svg"
+                            }else if (fileObject.RemainingTime < 54000){
+                                timerIcon = "62_5.svg"
+                            }else if (fileObject.RemainingTime < 43200){
+                                timerIcon = "50.svg"
+                            }else if (fileObject.RemainingTime < 32400){
+                                timerIcon = "37_5.svg"
+                            }else if (fileObject.RemainingTime < 21600){
+                                timerIcon = "25.svg"
+                            }else if (fileObject.RemainingTime < 10800){
+                                timerIcon = "12_5.svg"
+                            }else if (fileObject.RemainingTime < 7200){
+                                timerIcon = "0.svg"
+                            }
+
+                            var deleteTimeLeftHumanReadable = secondsToHms(fileObject.RemainingTime);
+
+                            var fileIcon = "../../img/system/file-restore.svg";
+                            var isHidden = "";
+                            if (fileObject.IsHidden == true){
+                                fileIcon = "../../img/system/file-restore-hidden.svg";
+                                isHidden = "hiddenfile";
+                            }
+
+                            $("#restorableList").append(`<div class="item restorableFile file ${isHidden}" filedata="${thisFileData}">
+                                <div class="right floated content">
+                                    <div class="timeleft" title="Will be deleted in ${deleteTimeLeftHumanReadable}">
+                                        <img class="ui fluid image" src="../../img/icons/backup/${timerIcon}"/>
+                                    </div>
+                                    <div class="ui tiny button" onclick="showFileInfo(this.parentNode.parentNode)">Info</div>
+                                    <div class="ui tiny green button" onclick="restoreThisFile($(this).parent().parent());">Restore</div>
+                                </div>
+                                
+                                <div class="content">
+                                    <p style="word-break: break-all;"><img class="ui mini spaced image nointeract" src="${fileIcon}">
+                                        ${fileObject.Filename}
+                                    </p>
+                                </div>
+                            </div>`);
+                        });
+
+                        if (restorableFiles.length == 0){
+                            $("#restorableList").html(`<div class="item">
+                            <img class="ui mini image nointeract" src="../../img/system/file-notfound.svg">
+                            <div class="content">
+                                No Restorable File(s) for this virtual disk.
+                            </div>
+                            </div>`);
+
+                        }
+                    }
+                    
+
+                    $(".hiddenfile").hide();
+                }
+                
+            })
+        }
+
+        function restoreAll(){
+            if (confirm("Confirm restore all files from backup?")){
+                $(".restorableFile").each(function(){
+                    //Restore this file if it is not a snapshot
+                    if ($(this).hasClass("snapshot") == false){
+                        restoreThisFile($(this));
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

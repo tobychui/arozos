@@ -290,7 +290,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 				return reply
 			}
 
-			suitableFiles, err := filepath.Glob(rrootPath + "/" + regexFilename)
+			suitableFiles, err := filepath.Glob(filepath.Join(rrootPath, regexFilename))
 			if err != nil {
 				g.raiseError(err)
 				reply, _ := vm.ToValue(false)
@@ -326,6 +326,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 		vrootPath := filepath.Dir(regex)
 		regexFilename := filepath.Base(regex)
 		//Translate the virtual path to realpath
+
 		rrootPath, err := virtualPathToRealPath(vrootPath, u)
 		if err != nil {
 			g.raiseError(err)
@@ -333,7 +334,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
-		suitableFiles, err := specialGlob(rrootPath + "/" + regexFilename)
+		suitableFiles, err := specialGlob(filepath.Join(rrootPath, regexFilename))
 		if err != nil {
 			g.raiseError(err)
 			reply, _ := vm.ToValue(false)
@@ -349,7 +350,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 
 		parsedFilelist := []fs.FileData{}
 		for _, file := range suitableFiles {
-			vpath, _ := realpathToVirtualpath(filepath.ToSlash(file), u)
+			vpath, err := realpathToVirtualpath(filepath.ToSlash(file), u)
+			if err != nil {
+				g.raiseError(err)
+				reply, _ := vm.ToValue(false)
+				return reply
+			}
 			modtime, _ := fs.GetModTime(file)
 			parsedFilelist = append(parsedFilelist, fs.FileData{
 				Filename: filepath.Base(file),
@@ -360,7 +366,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		if sortMode != "" {
-			if sortMode == "reverse" {
+			if sortMode == "reverse" || sortMode == "descending" {
 				//Sort by reverse name
 				sort.Slice(parsedFilelist, func(i, j int) bool {
 					return strings.ToLower(parsedFilelist[i].Filename) > strings.ToLower(parsedFilelist[j].Filename)

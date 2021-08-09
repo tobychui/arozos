@@ -298,20 +298,32 @@
                 for (var i =0; i <deletePendingFiles.length; i++){
                     deleteFileList.push(deletePendingFiles[i].filepath);
                 }
-                $.ajax({
-                    url: "../../system/file_system/fileOpr",
-                    method:"POST",
-                    data: {opr: "recycle", src: JSON.stringify(deleteFileList)},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            console.log("Delete failed! " + data.error)
-                        }else{
-                            //Delete completed. Close this window
-                            parent.refresh(undefined, true);
-                            ao_module_close();
+                requestCSRFToken(function(token){
+                    $.ajax({
+                        url: "../../system/file_system/fileOpr",
+                        method:"POST",
+                        data: {opr: "recycle", src: JSON.stringify(deleteFileList), csrft: token},
+                        success: function(data){
+                            if (data.error !== undefined){
+                                console.log("Delete failed! " + data.error)
+                            }else{
+                                //Delete completed. Close this window
+                                parent.refresh(undefined, true);
+                                ao_module_close();
+                            }
                         }
-                    }
+                    });
                 });
+                
+            }
+
+            function requestCSRFToken(callback){
+                $.ajax({
+                    url: "../../system/csrf/new",
+                    success: function(token){
+                        callback(token);
+                    }
+                })
             }
         </script>
     </body>

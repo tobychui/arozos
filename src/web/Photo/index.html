@@ -3,15 +3,13 @@
 
 <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="/Photo/favicon.ico" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Web site created using create-react-app" />
     <link rel="apple-touch-icon" href="/Photo/logo192.png" />
     <link rel="manifest" href="/Photo/manifest.json" />
-    <title>React App</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <script src="/script/ao_module.js"></script>
+    <title>Photo</title>
+    <script src="../script/jquery.min.js"></script>
     <style>
         body {
             background-color: #fff
@@ -23,11 +21,18 @@
     </style>
     <link href="/Photo/static/css/2.c301f1a7.chunk.css" rel="stylesheet">
     <link href="/Photo/static/css/main.5ecd60fb.chunk.css" rel="stylesheet">
+    <script src="../script/ao_module.js"></script>
 </head>
 
 <body><noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script>
+        //Check if there are file dropped into this interface. If yes, redirect to embedded
+        var infile = ao_module_loadInputFiles();
+        if (infile != null) {
+            window.location.href = "embedded.html" + window.location.hash;
+        }
+
         ! function(e) {
             function t(t) {
                 for (var n, l, p = t[0], f = t[1], i = t[2], c = 0, s = []; c < p.length; c++) l = p[c], Object.prototype.hasOwnProperty.call(o, l) && o[l] && s.push(o[l][0]), o[l] = 0;

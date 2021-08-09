@@ -37,24 +37,6 @@ func SystemInfoInit() {
 			CPUArch:      runtime.GOARCH,
 			HostName:     *host_name,
 		})
-		/*
-			if runtime.GOOS == "windows" {
-				//this features only working on windows, so display on win at now
-				http.HandleFunc("/system/info/getCPUinfo", getCPUinfo)
-				http.HandleFunc("/system/info/ifconfig", ifconfig)
-				http.HandleFunc("/system/info/getDriveStat", getDriveStat)
-				http.HandleFunc("/system/info/usbPorts", getUSB)
-				http.HandleFunc("/system/info/getRAMinfo", getRAMinfo)
-
-			} else if runtime.GOOS == "linux" {
-				//this features only working on windows, so display on win at now
-				http.HandleFunc("/system/info/getCPUinfo", getCPUinfoLinux)
-				http.HandleFunc("/system/info/ifconfig", ifconfigLinux)
-				http.HandleFunc("/system/info/getDriveStat", getDriveStatLinux)
-				http.HandleFunc("/system/info/usbPorts", getUSBLinux)
-				http.HandleFunc("/system/info/getRAMinfo", getRAMinfoLinux)
-			}
-		*/
 
 		router.HandleFunc("/system/info/getCPUinfo", info.GetCPUInfo)
 		router.HandleFunc("/system/info/ifconfig", info.Ifconfig)

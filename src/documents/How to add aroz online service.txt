@@ -10,7 +10,7 @@
 3.2. Write the service content as follow (replace your startup directories)
 
 [Unit]
-Description=AROZOS Cloud Desktop Service.
+Description=ArozOS Cloud Service
 After=systemd-networkd-wait-online.service
 Wants=systemd-networkd-wait-online.service
 

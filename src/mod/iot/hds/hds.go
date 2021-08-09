@@ -32,7 +32,7 @@ func NewProtocolHandler() *Handler {
 
 //Start the HDSv1 scanner, which no startup process is required
 func (h *Handler) Start() error {
-	log.Println("*IoT* Home Dynamic System (Legacy) Loaded")
+	log.Println("[IoT] Home Dynamic System (Legacy) Loaded")
 	return nil
 }
 
@@ -68,7 +68,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 
 	//Check if the IP range is supported by HDS protocol
 	if !valid {
-		log.Println("*IoT* Home Dynamic Protocol requirement not satisfied. Skipping Scan")
+		log.Println("[IoT] Home Dynamic Protocol requirement not satisfied. Skipping Scan")
 		return nil, nil
 	}
 

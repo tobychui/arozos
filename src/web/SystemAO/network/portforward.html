@@ -160,6 +160,11 @@
                 ports.push(parseInt(thisPort));
             });
 
+            if (ports.length == 0){
+                //Not selecting anything
+                return;
+            }
+
             //Confirm removal
             if (confirm("Confirm removing forward on: " + ports.join(", ") + "?")){
                 ports.forEach(port => {

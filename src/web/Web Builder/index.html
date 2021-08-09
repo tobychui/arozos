@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#ff9224">
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<script src="../script/semantic/semantic.min.js"></script>
+		<title>Web Builder</title>
+
+		<!-- <link rel="manifest" crossorigin="use-credentials" href="manifest.json"> -->
+		<style>
+			body {
+				background-color: white;
+			}
+
+			.blog.main{
+				background-color: #ff9224;
+				border: 1px solid #ff9224;
+				color: white;
+			}
+
+			.blog.main:hover{
+				background-color: #c7721c !important;
+				border: 1px solid #c7721c !important;
+				color: white !important;
+			}
+
+			.blog.green{
+				background-color: #47d191;
+				border: 1px solid #47d191;
+				color: white;
+			}
+
+			.blog.green:hover{
+				background-color: #38a170 !important;
+				border: 1px solid #38a170 !important;
+				color: white !important;
+			}
+
+			.blog.red{
+				background-color: #c4413d;
+				border: 1px solid #c4413d;
+				color: white;
+			}
+
+			.blog.red:hover{
+				background-color: #8c302d !important;
+				border: 1px solid #8c302d !important;
+				color: white !important;
+			}
+
+            .topPad{
+                margin-top: 4px;
+            }
+
+			#editorFrame{
+				width: 100%;
+				border: 0px solid transparent;
+				height: calc(100% - 10px);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="ui compact mini top attached menu">
+			<div class="item" style="font-weight: bold;">
+				Web Builder (Basic)
+			</div>
+			<div class="item" id="currentTitle">
+				(Default Title)
+			</div>
+			<a class="item" onclick="setTitle();">
+			  Change Title
+			</a>
+			<!-- 
+			<a class="item">
+			  Select Template
+			</a>
+			-->
+			<a class="item" onclick="forceSavePost();">
+				Save
+			</a>
+		  </div>
+		<iframe id="editorFrame" src="framedEditor.html"></iframe>
+		<script>
+			var editingFile = "";
+			var inputFiles = ao_module_loadInputFiles();
+			var editorWindow = $("#editorFrame")[0].contentWindow;
+			var currentWebDeployRoot = "";
+			var savePendingContents = "";
+			var currentTitle = "";
+			var currentTemplate = "";
+			
+			if (inputFiles != null && inputFiles.length > 0){
+				//Edit  mode
+				inputFiles = inputFiles[0];
+				ao_module_setWindowTitle(inputFiles.filename + " - Web Builder");
+			}else{
+				//New post mode
+				ao_module_setWindowTitle("untitled.html " + "- Web Builder")
+			}
+
+			getWebRoot();
+
+			function newEditor(){
+				editorWindow.initEditor();
+			}
+
+			function setTitle(){
+				var newtitle = prompt("Webpage Title", currentTitle);
+				if (newtitle != null){
+					updateTitle(newtitle);
+				}
+			}
+
+			function updateTitle(newtitle){
+				$("#currentTitle").text(newtitle);
+				currentTitle = newtitle;
+			}
+
+			function handleWindowResize(){
+				$(editorWindow.document).find("#suneditor_maineditor").css("width", "100%");
+				var heightOverride = window.innerHeight - 45;
+				$(editorWindow.document).find("#suneditor_maineditor").css("height",  + "px");
+				$(editorWindow.document).find(".se-wrapper").css("height", heightOverride - 100 + "px");
+				$(editorWindow.document).find(".se-wrapper-inner").css("height", heightOverride - 100 + "px");
+
+				$("#editorFrame").css("height", heightOverride + "px");
+			}
+
+			
+			$(window).on("resize", function(){
+				handleWindowResize();
+			});
+
+			function handleSavefile(content){
+				savePost(content);
+				return false;
+			}
+
+			function forceSavePost(){
+				var editorContent = editorWindow.getContent();
+				savePost(editorContent);
+				console.log("Saved");
+			}
+
+			function saveFileSelected(filedata){
+				for (var i=0; i < filedata.length; i++){
+					var filename = filedata[i].filename;
+					var filepath = filedata[i].filepath;
+					editingFile = filepath;
+					ao_module_setWindowTitle(filename + " - Web Builder")
+				}
+
+				//savePost again
+				var contentToSave = savePendingContents;
+				savePendingContents = "";
+				savePost(contentToSave);
+			}
+
+			function savePost(postContent){
+				if (editingFile == ""){
+					savePendingContents = postContent;
+					ao_module_openFileSelector(saveFileSelected, currentWebDeployRoot || "user:/Desktop", "new",false, {
+						defaultName: "untitled.html"
+					});
+					return false;
+				}else{
+					//Create post
+					ao_module_agirun("Web Builder/backend/save.js", {
+						filepath: editingFile,
+						content: postContent,
+						title: currentTitle,
+					}, function(data){
+						if (data.error !== undefined){
+							alert(data.error);
+						}else{
+							
+							
+						}
+					});
+				}
+			}
+
+			function getWebRoot(callback = undefined){
+				$.get("../system/network/www/webRoot", function(data){
+					if (data == null || data == "" || data == undefined){
+						callback("");
+						return;
+					}
+					currentWebDeployRoot = data;
+					if (callback != undefined){
+						callback(data);
+					}
+					
+				});
+			}
+		</script>
+	</body>
+</html>

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/disk/hybridBackup"
 )
 
 //Options for creating new file system handler
@@ -36,13 +37,22 @@ type FileSystemOpeningOptions struct{
 }
 */
 
+/*
+	An interface for storing data related to a specific hierarchy settings.
+	Example like the account information of network drive,
+	backup mode of backup drive etc
+*/
+type HierarchySpecificConfig interface{}
+
 //System Handler for returing
 type FileSystemHandler struct {
 	Name               string
 	UUID               string
 	Path               string
 	Hierarchy          string
+	HierarchyConfig    HierarchySpecificConfig
 	ReadOnly           bool
+	Parentuid          string
 	InitiationTime     int64
 	FilesystemDatabase *db.Database
 	Filesystem         string
@@ -88,22 +98,42 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 			return &FileSystemHandler{}, errors.New("Mount point not exists!")
 		}
 
+		//Handle Hierarchy branching
+		var hierarchySpecificConfig interface{} = nil
+
 		if option.Hierarchy == "user" {
 			//Create user hierarchy for this virtual device
 			os.MkdirAll(filepath.ToSlash(filepath.Clean(option.Path))+"/users", 0755)
 		}
 
+		if option.Hierarchy == "backup" {
+			//Backup disk. Create an Hierarchy Config for this drive
+			hierarchySpecificConfig = hybridBackup.BackupTask{
+				CycleCounter:      0,
+				LastCycleTime:     0,
+				DiskUID:           option.Uuid,
+				DiskPath:          option.Path,
+				ParentUID:         option.Parentuid,
+				Mode:              option.BackupMode,
+				DeleteFileMarkers: map[string]int64{},
+			}
+
+		}
+
 		//Create the fsdb for this handler
-		fsdb, err := db.NewDatabase(filepath.ToSlash(filepath.Clean(option.Path))+"/aofs.db", false)
+		fsdb, err := db.NewDatabase(filepath.ToSlash(filepath.Join(filepath.Clean(option.Path), "aofs.db")), false)
 		if err != nil {
 			return &FileSystemHandler{}, errors.New("Unable to create fsdb inside the target path. Is the directory read only?")
 		}
+
 		return &FileSystemHandler{
 			Name:               option.Name,
 			UUID:               option.Uuid,
 			Path:               filepath.ToSlash(filepath.Clean(option.Path)) + "/",
 			ReadOnly:           option.Access == "readonly",
+			Parentuid:          option.Parentuid,
 			Hierarchy:          option.Hierarchy,
+			HierarchyConfig:    hierarchySpecificConfig,
 			InitiationTime:     time.Now().Unix(),
 			FilesystemDatabase: fsdb,
 			Filesystem:         fstype,
@@ -162,7 +192,9 @@ func (fsh *FileSystemHandler) DeleteFileRecord(realpath string) error {
 	return nil
 }
 
+//Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
+	//Close the fsh database
 	fsh.FilesystemDatabase.Close()
 }
 

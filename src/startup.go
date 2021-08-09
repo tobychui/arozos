@@ -42,6 +42,7 @@ func RunStartup() {
 	UserSystemInit()       //See user.go
 	permissionInit()       //Register permission interface after user
 	RegisterSystemInit()   //See register.go
+	OAuthInit()            //Oauth system init
 	GroupStoragePoolInit() //Register permission groups's storage pool, require permissionInit()
 
 	//6. Start Modules and Package Manager
@@ -49,9 +50,11 @@ func RunStartup() {
 	PackagManagerInit() //Start APT service agent
 
 	//7. Kickstart the File System and Desktop
+	SchedulerInit()     //Start System Scheudler
 	FileSystemInit()    //Start FileSystem
 	DesktopInit()       //Start Desktop
 	HardwarePowerInit() //Start host power manager
+	//StorageDaemonInit() //Start File System handler daemon (for backup and other sync process)
 
 	//8 Start AGI and Subservice modules (Must start after module)
 	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
@@ -73,13 +76,15 @@ func RunStartup() {
 	NetworkServiceInit() //Initalize network serves (ssdp / mdns etc)
 	WiFiInit()           //Inialize WiFi management module
 
-	ArsmInit() //Inialize ArOZ Remote Support & Management Framework
+	//ARSM Moved to scheduler, remote support is rewrite pending
+	//ArsmInit() //Inialize ArOZ Remote Support & Management Framework
 
 	//11. Other stuffs
-	//system_time_init()
 	util_init()
 	system_resetpw_init()
 	mediaServer_init()
+	security_init()
+	backup_init()
 
 	//Start High Level Services that requires full arozos architectures
 	FTPServerInit() //Start FTP Server Endpoints
@@ -88,8 +93,6 @@ func RunStartup() {
 	IoTHubInit()    //Inialize ArozOS IoT Hub module
 
 	ModuleInstallerInit() //Start Module Installer
-
-	NightlyInit() //Start Nightly Tasks
 
 	//Finally
 	moduleHandler.ModuleSortList() //Sort the system module list

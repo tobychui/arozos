@@ -100,6 +100,10 @@ func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
 		return false
+	} else if err != nil {
+		//Some edge case for Input Output error can occur here.
+		//Return false if that is the case
+		return false
 	}
 	return true
 }

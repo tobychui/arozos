@@ -7,6 +7,9 @@
 //Require filelib
 requirelib("filelib");
 
+//Require imagelib
+requirelib("imagelib");
+
 //Make Manga folder if not exists
 if (!filelib.fileExists("user:/Photo/Manga")){
     filelib.mkdir("user:/Photo/Manga")
@@ -44,7 +47,17 @@ for (var i =0; i < rootList.length; i++){
                     //Get the first image from the first chapter
                     var firstChapterFolder = foldersInTitle[0];
                     var firstChapterImagaes = filelib.aglob(firstChapterFolder + "/*.jpg");
+                    
+                    //Get the first image that is not horizontal
                     titleImagePath = firstChapterImagaes[0];
+                    var index = 0;
+                    var size = imagelib.getImageDimension(titleImagePath);
+                    while(size[0] > size[1] && index < firstChapterImagaes.length - 1){
+                        //Not this one. Next image
+                        index++;
+                        titleImagePath = firstChapterImagaes[index]; 
+                        size = imagelib.getImageDimension(titleImagePath);
+                    }
                 }
 
                 //Get the starting chapter

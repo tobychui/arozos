@@ -19,10 +19,10 @@ func AuthInit() {
 			rand.Read(key)
 			newSessionKey := string(key)
 			sysdb.Write("auth", "sessionkey", newSessionKey)
-
-			log.Println("Authentication session key loaded from database")
-		} else {
 			log.Println("New authentication session key generated")
+		} else {
+			log.Println("Authentication session key loaded from database")
+
 		}
 		skeyString := ""
 		sysdb.Read("auth", "sessionkey", &skeyString)

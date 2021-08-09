@@ -37,7 +37,7 @@ func NewProtocolHandler(scanner *mdns.MDNSHost) *Handler {
 }
 
 func (h *Handler) Start() error {
-	log.Println("*IoT* Home Dynamic v2 Loaded")
+	log.Println("[IoT] Home Dynamic v2 Loaded")
 	return nil
 }
 

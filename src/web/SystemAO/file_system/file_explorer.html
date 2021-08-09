@@ -683,7 +683,7 @@
              </div>
              <div class="mobilePathDisplayWrapper">
                 <div style="width:100%;" class="ts pathDisplay breadcrumb whiteTheme addressText mobileOnly">
-                    <div class="section wh onclick="refreshList();"iteTheme selectable"><i class="folder icon"></i> user</div>
+                    <div class="section whiteTheme selectable"><i class="folder icon"></i> user</div>
                     <div class="divider whiteTheme">:/</div>
                     <div class="section whiteTheme selectable">Desktop</div>
                 </div>
@@ -1024,6 +1024,10 @@
             <div class="item folderonly" onclick="openSelectedFolderInNewWindow();">
                 <i class="external icon"></i> Open In New Window
             </div>
+            <!-- This is the vroot alternative new windows-->
+            <div class="item vrootonly" onclick="openSelectedVroot();">
+                <i class="external icon"></i> Open In New Window
+            </div>
             <div class="item shareonly" onclick="openFileLocation();">
                 <i class="folder outline icon"></i> Open File Location
             </div>
@@ -1045,14 +1049,14 @@
                 <i class="cut icon"></i> Cut
                 <span class="description">Ctrl + X</span>
             </div>
-            <div class="divider noSelectionOnly"></div>
+            <div class="divider vroothide noSelectionOnly"></div>
             <div class="item noSelectionOnly" onclick="newfile();">
                 <i class="file outline icon"></i>  New File
             </div>
             <div class="item noSelectionOnly" onclick="newFolder();">
                 <i class="folder outline icon"></i> New Folder
             </div>
-            <div class="divider"></div>
+            <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="upload();">
                 <i class="upload icon"></i>  Upload
             </div>
@@ -1065,7 +1069,10 @@
             <div class="item" onclick="deleteFile();">
                 <i class="trash icon"></i> Delete
             </div>
-            <div class="divider"></div>
+            <div class="item backuponly" onclick="openBackupManager();">
+                <i class="block layout icon"></i> Backup & Restore
+            </div>
+            <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="refreshList();">
                 <i class="refresh icon"></i> Refresh
             </div>
@@ -1077,6 +1084,11 @@
             </div>
             <!-- This properties shows the currentDirectory properties instead of the selected file properties-->
             <div class="item noSelectionOnly" onclick="showCurrentDirectoryProperties();">
+                <i class="notice icon"></i> Properties
+            </div>
+            <!-- This properties show the vroot properties -->
+             <!-- This properties shows the currentDirectory properties instead of the selected file properties-->
+             <div class="item vrootonly" onclick="showVrootProperties();">
                 <i class="notice icon"></i> Properties
             </div>
         </div>
@@ -1092,10 +1104,12 @@
             <div class="uploadList" id="uploadProgressList">
               
             </div>
+            <br>
+            <!-- 
             <div class="clearallButton">
                 <a onclick="clearAllUploadTask();">Clear All</a>
             </div>
-            
+            -->
         </div>
 
            
@@ -1306,7 +1320,8 @@
                             var thisRoot = data[i];
                             var displayName = thisRoot.RootName;
                             var rootPath = thisRoot.RootPath;
-                            $("#storageroot").append(`<div class="dir item ${currentTheme}" filepath="${rootPath}" type="folder" rootname="${displayName}" onclick="openthis(this);"><i class="disk outline rightmargin icon"></i> ${displayName} (${rootPath})</div>`);
+                            var containBackup = thisRoot.RootBackups;
+                            $("#storageroot").append(`<div class="dir item ${currentTheme}" contain-backup="${containBackup}" filepath="${rootPath}" type="folder" rootname="${displayName}" onclick="openthis(this);"><i class="disk outline rightmargin icon"></i> ${displayName} (${rootPath})</div>`);
                         }
                     }
                 });
@@ -1341,23 +1356,26 @@
 
             function getUserRootIcons(foldername){
                 var icon = "folder open";
-                if (foldername == "Desktop"){
+                foldername = foldername.toLowerCase();
+                if (foldername == "desktop"){
                     icon = "computer";
-                }else if (foldername == "Document"){
+                }else if (foldername == "document"){
                     icon = "file text outline";
-                }else if (foldername == "Music"){
+                }else if (foldername == "music" || foldername == "audio"){
                     icon = "music";
-                }else if (foldername == "Photo"){
+                }else if (foldername == "photo" || foldername == "picture"){
                     icon = "image";
-                }else if (foldername == "Video"){
+                }else if (foldername == "video" || foldername == "film"){
                     icon = "video";
-                }else if (foldername == "Trash"){
+                }else if (foldername == "trash" || foldername == "bin" || foldername == "rubbish"){
                     icon = "trash"
-                }else if (foldername == "Download"){
+                }else if (foldername == "download"){
                     icon = "download"
-                }else if (foldername == "Model"){
+                }else if (foldername == "www" || foldername == "web" || foldername == "mysite"){
+                    icon = "globe"
+                }else if (foldername == "model"){
                     icon = "cube"
-                }else if (foldername == "Appdata"){
+                }else if (foldername == "appdata"){
                     icon = "code"
                 }
                 return icon;
@@ -1454,7 +1472,7 @@
 
                         if (data.error !== undefined){
                             //Parse path error. Try to refresh the page
-                            console.log("Path prase error! Redirecting to parent directory.", data.error);
+                            console.log("Path parse error! Redirecting to parent directory.", data.error);
                             var pdir = currentPath.split("/");
                             pdir.pop(); pdir.pop();
                             pdir = pdir.join("/");
@@ -1845,12 +1863,15 @@
                     }
 
                     if ($(".fileObject.selected").length != 1){
+                        //Multiple object selected
                         $(".singleObjectOnly").addClass("disabled");
                         $(".singleObjectOnlyHide").hide();
                     }else{
+                        //Single object
                         $(".singleObjectOnly").removeClass("disabled");
                         $(".singleObjectOnlyHide").show();
                     }
+
                 });
 
                 //Bind right click select on items
@@ -1921,7 +1942,12 @@
 
                     //Show all options by defaults
                     $("#contextmenu").find(".item").show();
+                    $("#contextmenu").find(".vroothide").show();
                     $("#contextmenu").find(".noSelectionOnly").hide();
+                    $("#contextmenu").find(".vrootonly").hide();
+                    
+                    //Hide backup manual
+                    $("#contextmenu").find(".backuponly").hide();
 
                     //Check if this is folder or file. Replace the suitable selections
                     if ($(this).attr("type") == "folder"){
@@ -1964,6 +1990,7 @@
                         $("#contextmenu").find(".item").hide();
                         $("#contextmenu").find(".noSelectionOnly").show();
                         $("#contextmenu").find(".allowNoSelection").show();
+                        $("#contextmenu").find(".vroothide").show();
 
                         //Calculate the position of the context menu
                         calculateContextMenuOffsets(e);
@@ -1980,18 +2007,51 @@
                    }
                });
 
-               
+               //Handle right click on storage roots
+               $("#storageroot").off("contextmenu").on("contextmenu", function(e){
+                    if ($(e.target).is("i")){
+                        e.target = e.target.parentElement;
+                    }
+
+                    $("#storageroot").find(".dir.item").each(function(){
+                        if ($(this).attr("rootname") != undefined){
+                            $(this).removeClass("active");
+                        }
+                    });
+
+                    if ($(e.target).attr("rootname") != undefined){
+                        //Correct one. Show vroot functions
+                        e.preventDefault();
+                        var rootname = $(e.target).attr("rootname");
+                        var containBackup = $(e.target).attr("contain-backup") == "true";
+                        $(e.target).addClass("active");
+                        $("#contextmenu").find(".item").hide();
+                        $("#contextmenu").find(".vroothide").hide();
+                        $("#contextmenu").find(".vrootonly").show();
+
+                        //Check if this is a backup drive
+                        if (containBackup == true){
+                            $("#contextmenu").find(".backuponly").show();
+                        }else{
+                            $("#contextmenu").find(".backuponly").hide();
+                        }
+
+                        //Show context menu
+                        calculateContextMenuOffsets(e);
+
+                        $("#contextmenu").addClass("visible");
+                        //Handle CSS offset of the contextmenu
+                        if ($("#contextmenu").offset().top < 0){
+                            $("#contextmenu").css("top","0px");
+                        }else if($("#contextmenu").offset().top + $("#contextmenu").height() > window.innerHeight){
+                            $("#contextmenu").css("top",window.innerHeight - $("#contextmenu").height() + "px");
+                        }
+                    }
+               });
 
                $(document).on("click",function(evt){
                    $(".contextmenu").removeClass("visible");
                });
-
-                //Force overwrite css
-                /*
-                $(".ts.contextmenu .item").css({
-                    'cssText':"padding: 8px !important"
-                });
-                */
             }
 
             //Change the current view mode
@@ -2230,22 +2290,25 @@
                 }
                 console.log(srclist, newnamelist);
                 //Send the request to serverside
-                $.ajax({
-                    url: "../../system/file_system/fileOpr",
-                    method: "POST",
-                    data: {opr: "rename", src: JSON.stringify(srclist), new: JSON.stringify(newnamelist)},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            msgbox("remove",data.error);
-                            $("#renameBox").fadeOut(100);
-                        }else{
-                            refreshList();
-                            msgbox("checkmark","Rename suceed");
-                            $("#renameBox").fadeOut(100);
+                requestCSRFToken(function(token){
+                    $.ajax({
+                        url: "../../system/file_system/fileOpr",
+                        method: "POST",
+                        data: {opr: "rename", src: JSON.stringify(srclist), new: JSON.stringify(newnamelist), csrft: token},
+                        success: function(data){
+                            if (data.error !== undefined){
+                                msgbox("remove",data.error);
+                                $("#renameBox").fadeOut(100);
+                            }else{
+                                refreshList();
+                                msgbox("checkmark","Rename suceed");
+                                $("#renameBox").fadeOut(100);
+                            }
                         }
-                    }
+                    });
+                    renameFileObjects = [];
                 });
-                renameFileObjects = [];
+               
                 hideAllPopupWindows();
             }
 
@@ -2350,21 +2413,24 @@
                                //Stsart operations
                                if (!ao_module_virtualDesktop){
                                    //Not under desktop mode. Use direct copy API
-                                    $.ajax({
-                                        type: 'POST',
-                                        url: `../../system/file_system/fileOpr`,
-                                        data: {opr: "move" ,src: JSON.stringify(fileList), dest: targetDir,existsresp: overwriteMode},
-                                        success: function(data){
-                                            if (data.error !== undefined){
-                                                msgbox("remove",data.error);
-                                            }else{
-                                                //OK
-                                                msgbox("checkmark",fileList.length + " objects moved.")
-                                                refreshList();
+                                   requestCSRFToken(function(token){
+                                        $.ajax({
+                                            type: 'POST',
+                                            url: `../../system/file_system/fileOpr`,
+                                            data: {opr: "move" ,src: JSON.stringify(fileList), dest: targetDir,existsresp: overwriteMode, csrft: token},
+                                            success: function(data){
+                                                if (data.error !== undefined){
+                                                    msgbox("remove",data.error);
+                                                }else{
+                                                    //OK
+                                                    msgbox("checkmark",fileList.length + " objects moved.")
+                                                    refreshList();
+                                                }
+                                                hideAllPopupWindows();
                                             }
-                                            hideAllPopupWindows();
-                                        }
-                                    });
+                                        });
+                                   });
+                                   
                                }else{
                                     //Pass the request to operation handler
                                     var oprConfig = {
@@ -2408,21 +2474,24 @@
                            }else{
                                //OK!
                                if (!ao_module_virtualDesktop){
-                                    $.ajax({
-                                        type: 'POST',
-                                        url: `../../system/file_system/fileOpr`,
-                                        data: {opr: "copy" ,src: JSON.stringify(fileList), dest: targetDir,existsresp: overwriteMode },
-                                        success: function(data){
-                                            if (data.error !== undefined){
-                                                msgbox("remove",data.error);
-                                            }else{
-                                                //OK
-                                                msgbox("checkmark",fileList.length + " objects copied.")
-                                                refreshList();
+                                    requestCSRFToken(function(token){
+                                        $.ajax({
+                                            type: 'POST',
+                                            url: `../../system/file_system/fileOpr`,
+                                            data: {opr: "copy" ,src: JSON.stringify(fileList), dest: targetDir,existsresp: overwriteMode, csrft: token},
+                                            success: function(data){
+                                                if (data.error !== undefined){
+                                                    msgbox("remove",data.error);
+                                                }else{
+                                                    //OK
+                                                    msgbox("checkmark",fileList.length + " objects copied.")
+                                                    refreshList();
+                                                }
+                                                hideAllPopupWindows();
                                             }
-                                            hideAllPopupWindows();
-                                        }
+                                        });
                                     });
+                                    
                                }else{
                                     //Pass the request to operation handler
                                      var oprConfig = {
@@ -2502,22 +2571,25 @@
                     //Start force delete function
                     $("#forceDeleteConfirmBox").fadeOut(100);
                     let fdlistLength = forceDeleteList.length;
-                    $.ajax({
-                        url: "../../system/file_system/fileOpr",
-                        method:"POST",
-                        data: {opr: "delete", src: JSON.stringify(forceDeleteList)},
-                        success: function(data){
-                            if (data.error !== undefined){
-                                msgbox("caution",data.error);
-                            }else{
-                                refreshList();
-                                msgbox("checkmark",fdlistLength + " objects removed.")
+                    requestCSRFToken(function(token){
+                        $.ajax({
+                            url: "../../system/file_system/fileOpr",
+                            method:"POST",
+                            data: {opr: "delete", src: JSON.stringify(forceDeleteList), csrft: token},
+                            success: function(data){
+                                if (data.error !== undefined){
+                                    msgbox("caution",data.error);
+                                }else{
+                                    refreshList();
+                                    msgbox("checkmark",fdlistLength + " objects removed.")
+                                }
+                                hideAllPopupWindows();
                             }
-                            hideAllPopupWindows();
-                        }
+                        });
+                        //Finishing up delete sequence
+                        forceDeleteList = [];
                     });
-                    //Finishing up delete sequence
-                    forceDeleteList = [];
+                    
                 }
             }
 
@@ -2543,27 +2615,30 @@
                 }else{
                     //Continue to delete files
                     let fdlistLength = deleteFileList.length;
-                    $.ajax({
-                        url: "../../system/file_system/fileOpr",
-                        method:"POST",
-                        data: {opr: "recycle", src: JSON.stringify(deleteFileList)},
-                        success: function(data){
-                            if (data.error !== undefined){
-                                msgbox("caution",data.error);
-                            }else{
-                                refreshList();
-                                msgbox("checkmark",fdlistLength + " objects moved to trash bin.")
-                            }
+                    requestCSRFToken(function(token){
+                        $.ajax({
+                            url: "../../system/file_system/fileOpr",
+                            method:"POST",
+                            data: {opr: "recycle", src: JSON.stringify(deleteFileList), csrft: token},
+                            success: function(data){
+                                if (data.error !== undefined){
+                                    msgbox("caution",data.error);
+                                }else{
+                                    refreshList();
+                                    msgbox("checkmark",fdlistLength + " objects moved to trash bin.")
+                                }
 
-                            if (currentPath == "user:/"){
-                                //Reload the User root folder list
-                                initRootDirs();
+                                if (currentPath == "user:/"){
+                                    //Reload the User root folder list
+                                    initRootDirs();
+                                }
                             }
-                        }
+                        });
+                        console.log(deleteFileList);
+                        deleteFileList = [];
+                        hideAllPopupWindows();
                     });
-                    console.log(deleteFileList);
-                    deleteFileList = [];
-                    hideAllPopupWindows();
+                   
                 }
             }
 
@@ -2758,7 +2833,24 @@
                     $(".fileObject.selected").each(function(){
                         fileList.push($(this).attr("filepath"));
                     });
-                    console.log(fileList);
+                    console.log("Zipping: ", fileList);
+
+                    //Add a display for file compression
+                    var fileCount = $(".fileObject.selected").length;
+                    
+                    var displayString = "Zipping " + fileCount + " files";
+                    if (fileCount == 1){
+                        //Use the filename as task name
+                        displayString = "Zipping " + $(".fileObject.selected").attr("filename");
+                    }
+         
+                    var taskUUID = appendUploadFileItem(displayString, -1);
+                    $("#uploadTab").show();
+
+                    //Set the progress bar to intermediate mode
+                    let targetTaskDisplayObject =  getUploadTaskByID(taskUUID);
+                    targetTaskDisplayObject.find(".progress").addClass("preparing");
+
                     //Zip the file or folder
                     $.ajax({
                         url: "../../system/file_system/zipHandler",
@@ -2766,11 +2858,46 @@
                         method: "POST",
                         success: function(data){
                             if (data.error !== undefined){
-                                alert(data.error);
+                                //Error
+                                targetTaskDisplayObject.find(".progress").removeClass("preparing").removeClass("primary").addClass("negative");
+                               
+                                msgbox("remove",data.error);
                             }else{
                                 //Zip completed.
+                                targetTaskDisplayObject.find(".progress").removeClass("preparing").removeClass("primary").addClass("positive");
+
+                                //Open the zip file
                                 window.open("../../media?file=" + data + "&download=true");
                             }
+
+                           
+                            targetTaskDisplayObject.find(".bar").css("width", "100%");
+
+                            //Hide the taskbar after 5 secs
+                            setTimeout(function(){
+                                //Fade out this task
+                                $(targetTaskDisplayObject).fadeOut('fast',
+                                    function(){
+                                        $(this).remove();
+                                        if ($(".uploadTask").length == 0){
+                                            $("#uploadTab").hide();
+                                        }
+                                    }
+                                );
+                               
+                            }, 3000);
+                            
+                        }, 
+                        error: function(){
+                            targetTaskDisplayObject.find(".progress").removeClass("preparing").removeClass("primary").addClass("negative");
+                            targetTaskDisplayObject.find(".bar").css("width", "100%");
+                            msgbox("remove","Zipping failed due to unknown reason");
+
+                            setTimeout(function(){
+                                if ($(".uploadTask").length == 0){
+                                    $("#uploadTab").hide();
+                                }
+                            }, 3000);
                         }
                     });
                     
@@ -3208,6 +3335,15 @@
                         openPathInNewWindow([$(this).attr('filepath')]);
                     }
                 })
+            }
+
+            function openSelectedVroot(){
+                $("#storageroot").find(".dir.item").each(function(){
+                    if ($(this).hasClass("active")){
+                        var thisRootPath = $(this).attr('filepath');
+                        openPathInNewWindow([$(this).attr('filepath')]);
+                    }
+                });
             }
 
             //Always open the first object locally, and open others in new floatWindows
@@ -3978,6 +4114,30 @@
             });
         }
 
+        function showVrootProperties(){
+            var rootname = [$("#storageroot").find(".dir.item.active").attr("filepath")];
+            var hashPassthrough = encodeURIComponent(JSON.stringify(rootname));
+            ao_module_newfw({
+                url: "SystemAO/disk/diskprop.html#" + hashPassthrough,
+                width: 410,
+                height: 580,
+                appicon: "img/system/drive.svg",
+                title: "Disk Properties",
+            });
+        }
+
+        function openBackupManager(){
+            var rootname = [$("#storageroot").find(".dir.item.active").attr("filepath")];
+            var hashPassthrough = encodeURIComponent(JSON.stringify(rootname));
+            ao_module_newfw({
+                url: "SystemAO/disk/disk_restore.html#" + hashPassthrough,
+                width: 410,
+                height: 580,
+                appicon: "img/system/backup.svg",
+                title: "Backup & Restore",
+            });
+        }
+
         function showFileProperties(){
             //Show the file list of the selected files
             if ($(".fileObject.selected").length > 0){
@@ -4012,7 +4172,7 @@
                     }else{
                         //Check if ramsize > 1.8 GB (2GB). If yes, switch to large memory upload mode
                         var memsize = JSON.parse(data);
-                        if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 1.8){
+                        if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 3.8){
                             console.log("[File Explorer] Entering large memory upload mode")
                             lowMemoryMode = false;
                         }
@@ -4121,7 +4281,7 @@
                     var offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
                     var thisblob = file.slice(offsetStart,offsetEnd);
                     socket.send(thisblob);
-                    console.log(id + "/" + chunks);
+                    //console.log(id + "/" + chunks);
 
                     //Update progress to first percentage
                     var progress = id / (chunks-1) * 100.0;
@@ -4281,12 +4441,12 @@
                 }
 
                 //Prase upload Form
-                let url = '../../system/file_system/upload'
                 let uploadCurrentPath = JSON.parse(JSON.stringify(currentPath));
                 if (targetDir !== undefined){
                     //The upload paramter supplied targetDir
                     uploadCurrentPath = targetDir;
                 }
+                let url = '../../system/file_system/upload?path=' + uploadCurrentPath
                 //console.log("Uploading To => ", uploadCurrentPath, targetDir, currentPath);
                 let formData = new FormData()
                 let xhr = new XMLHttpRequest()
@@ -4506,9 +4666,26 @@
             ctrlHold = !ctrlHold;
         }
 
+        function getUploadTaskByID(taskUUID){
+            var task = undefined;
+            $("#uploadTab").find(".uploadTask").each(function(){
+                if ($(this).attr("taskid") == taskUUID){
+                    task = $(this);
+                }
+            });
+
+            return task;
+        }
+
         function appendUploadFileItem(filename, filesize){
             var newuuid = uuidv4();
-            var humanReadableFilesize = bytesToSize(filesize);
+            var humanReadableFilesize = 0;
+            if (filesize < 0){
+                humanReadableFilesize = "Unknown Size"
+            }else{
+                humanReadableFilesize = bytesToSize(filesize);
+            }
+            
             $("#uploadProgressList").append(`<div class="uploadTask" taskID="${newuuid}">
                 <p style="width: calc(100% - 15px);">${filename} (${humanReadableFilesize})</p>
                 <div class="ts tiny primary progress" style="margin-top:-12px;">
@@ -4662,6 +4839,15 @@
                 var method = $("#sortingMethodSelector").val();
                 sortMode = method;
                 refreshList();
+            }
+
+            function requestCSRFToken(callback){
+                $.ajax({
+                    url: "../../system/csrf/new",
+                    success: function(token){
+                        callback(token);
+                    }
+                })
             }
 
         </script>

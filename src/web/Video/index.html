@@ -124,6 +124,12 @@
             init();
             initPlaylist();
 
+            //Check if there are file dropped into this interface. If yes, redirect to embedded
+            var infile = ao_module_loadInputFiles();
+            if (infile != null){
+                window.location.href = "embedded.html" + window.location.hash;
+            }
+
             autoPlay = (ao_module_storage.loadStorage("Video","autoplay") == "true");
             if (autoPlay){
                 $("#autoplayToggle").attr("checked",true);

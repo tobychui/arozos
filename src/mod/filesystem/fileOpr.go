@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/filesystem/hidden"
+
 	archiver "github.com/mholt/archiver/v3"
 )
 
@@ -346,15 +348,24 @@ func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder boo
 }
 
 func insideHiddenFolder(path string) bool {
-	thisPathInfo := filepath.ToSlash(filepath.Clean(path))
-	pathData := strings.Split(thisPathInfo, "/")
-	for _, thispd := range pathData {
-		if thispd[:1] == "." {
-			//This path contain one of the folder is hidden
-			return true
-		}
+	FileIsHidden, err := hidden.IsHidden(path, true)
+	if err != nil {
+		//Read error. Maybe permission issue, assuem is hidden
+		return true
 	}
-	return false
+	return FileIsHidden
+
+	/*
+		thisPathInfo := filepath.ToSlash(filepath.Clean(path))
+		pathData := strings.Split(thisPathInfo, "/")
+		for _, thispd := range pathData {
+			if len(thispd) > 0 && thispd[:1] == "." {
+				//This path contain one of the folder is hidden
+				return true
+			}
+		}
+		return false
+	*/
 }
 
 func ViewZipFile(filepath string) ([]string, error) {

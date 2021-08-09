@@ -1,0 +1,396 @@
+<html>
+    <head>
+        <title>File Share</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <style>
+            body{
+                background: rgba(255,255,255,01) !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ui stackable grid">
+            <div class="eight wide column">
+                <div class="width: 100%; ">
+                    <div style="display: block; margin-left: auto; margin-right: auto;" align="center">
+                        <div id="qrcode" style="border: 10px solid white; background-color: white;">
+                            <h1>Loading</h1>
+                        </div>
+                    </div>
+                    <div style="width: 100%">
+                        <a id="sharelink" href="" target="_blank" style="margin-top:8px; font-size: 120%; padding-left: 20px; padding-right: 20px; word-break: break-all; overflow-wrap: anywhere;">Scan this QR Code to copy the share link</a>
+                    </div>
+                    
+                </div>
+            </div>
+            <div id="shareSettingOptions" class="eight wide column" style="padding-left: 12px; display:none;">
+                <div class="ui header whiteTheme">
+                    Share Settings
+                    <div class="sub header whiteTheme">Change who can see this file</div>
+                </div>
+                <div id="shareSettingForm" class="ui form">
+                    <div class="field">
+                        <label><p class="whiteTheme">Visable options:</p></label>
+                        <div class="ui checkboxes">
+                            <div class="ui radio checkbox">
+                                <input id="anyone" type="radio" class="shareoption" name="shareopt" value="anyone" onchange="updateSharePermission(this);">
+                                <label for="anyone">
+                                    <div class="ui header">
+                                        <div class="content whiteTheme">
+                                            <i class="globe icon"></i> Anyone with the link
+                                            <div class="sub header whiteTheme">Anyone who has the link can access this file</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <br><br>
+                            <div class="ui radio checkbox">
+                                <input id="signedin" type="radio" class="shareoption" value="signedin" name="shareopt" onchange="updateSharePermission(this);">
+                                <label for="signedin">
+                                    <div class="ui header">
+                                        <div class="content whiteTheme">
+                                            <i class="user circle outline icon"></i> Anyone signed in
+                                            <div class="sub header whiteTheme">Anyone who has signed in can access this file</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <br><br>
+                            <div class="ui radio checkbox">
+                                <input id="samegroup" type="radio" class="shareoption" value="samegroup" name="shareopt" onchange="updateSharePermission(this);">
+                                <label for="samegroup">
+                                    <div class="ui header">
+                                        <div class="content whiteTheme">
+                                            <i class="users icon"></i> Users in the same group
+                                            <div class="sub header whiteTheme">Anyone who is in the same group as you do</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        <br><br>
+                        <div id="udpateNotification" style="display:none;" class="ui green inverted segment">
+                                <i class=" checkmark icon"></i> Share Setting Updated
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <div style="width: 100%; padding-right: 12px;" align="right">
+            <div class="ui button popupbuttons whiteTheme allowHover" onclick="copyLinkToClipboard(this)">
+                <i class="copy icon"></i> Copy
+            </div> 
+            <div id="sharingRemoveBtn" class="ui red button popupbuttons negative whiteTheme allowHover" onclick="removeSharing()">
+                <i class="remove icon"></i> Remove
+            </div> 
+        </div>
+        <script>
+            /*
+                Usage: Pass in file descriptor to start share a file
+                var fd = encodeURIComponent(JSON.stringify({
+                        filename: "test.txt",
+                        filepath: "user:/Desktop/test.txt"
+                    })
+                );
+                window.open("file_share.html#" + fd);
+                
+                If you want to preset a file sharing mode (aka your module handle the share mode picking),
+                Pass in with the "shareMode" paramter. Example fd as follow:
+                {
+                    filename: "test.txt",
+                    filepath: "user:/Desktop/test.txt",
+                    shareMode: "signedin"
+                }
+
+                To remove a share, pass in "remove" for the share mode
+                Supported Share Mode keywords {anyone/signedin/samegroup/remove}
+
+            */
+            var shareEditingUUID = "";
+            var shareingFileData = {};
+            var initialized = false;
+            var fileSharingURL = "";
+
+            function PageReady(){
+                if (initialized){
+                    return;
+                }
+                initialized = true;
+                $(".checkbox").checkbox();
+                var inputFile = ao_module_loadInputFiles();
+                if (inputFile == null){
+                    //No file selected
+                    $(".shareoption").parent().addClass("disabled");
+                    $("#qrcode").html(`<h1>No File</h1>`);
+                    $("#sharelink").text(``);
+                    $("#sharingRemoveBtn").addClass("disabled");
+                    return
+                }
+
+
+                //Make sure one file is choicen each time
+                inputFile = inputFile[0]; 
+                shareingFileData = inputFile;
+
+                initFileDetails(shareingFileData, function(shareUUID){
+                    //Set the mode of share if it is defined
+                    if (shareingFileData.shareMode !== undefined && shareingFileData.shareMode == "remove"){
+                        //Remove the share UUID
+                        removeSharing();
+                        return;
+                    }
+                    if (shareingFileData.shareMode !== undefined){
+                        //As the share mode is defined by the caller, hide the setting interface
+                        $("#shareSettingOptions").hide();
+                        $.ajax({
+                            url: "../../system/file_system/share/edit",
+                            data: {uuid: shareEditingUUID, mode: shareingFileData.shareMode},
+                            success: function(data){
+                                if (data.error !== undefined){
+                                    alert(data.error);
+                                    return;
+                                }
+                                
+                                //Update the checkbox
+                                $(".shareoption").each(function(){
+                                    if ($(this)[0].value != shareingFileData.shareMode){
+                                        $(this)[0].checked = false;
+                                    }else{
+                                        $(this)[0].checked = true;
+                                    }
+                                
+                                });
+                            }
+                        });
+                    }else{
+                        //Default: show the setting to allow user adjustment
+                        $("#shareSettingOptions").show();
+                    }
+                });
+            }
+
+            function initFileDetails(shareingFileData, callback=undefined){
+                $.ajax({
+                    url: "../../system/file_system/share/new",
+                    data: {path: shareingFileData.filepath},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            updateShareLinkInfo(data.UUID);
+                            shareEditingUUID = data.UUID;
+                            $(".shareoption").each(function(){
+                                if ($(this)[0].value != data.Permission){
+                                    $(this)[0].checked = false;
+                                }else{
+                                    $(this)[0].checked = true;
+                                }
+                               
+                            });
+
+                            //If the file is from desktop, set share icon
+                            if (ao_module_virtualDesktop == true){
+                                var fileDir = shareingFileData.filepath.split("/");
+                                fileDir.pop();
+                                fileDir = fileDir.join("/");
+                                if (fileDir == "user:/Desktop"){
+                                    //Remove share icon
+                                    parent.setFileShareIndicator(shareingFileData.filename);
+                                }
+                            }
+
+                            if (callback != undefined){
+                                callback(data.UUID)
+                            }
+                        }
+                    }
+                });
+            }
+
+            function removeSharing(){
+                if (shareEditingUUID == ""){
+                    return
+                }
+
+                //The target file to remove
+                $.ajax({
+                    url: "../../system/file_system/share/delete",
+                    data: {path: shareingFileData.filepath},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Removed!
+                            $(".button").addClass('disabled');
+                            $(".checkbox").addClass("disabled");
+                            $("#sharelink").text("");
+                            $("#sharelink").attr("href", "#");
+                            $("#qrcode").html(`<br><br><h1><i class="green checkmark icon"></i> Share Removed</h1>`);
+
+                            //If the file is located on desktop and it is web desktop mode
+                            if (ao_module_virtualDesktop == true){
+                                var fileDir = shareingFileData.filepath.split("/");
+                                fileDir.pop();
+                                fileDir = fileDir.join("/");
+                                if (fileDir == "user:/Desktop"){
+                                    //Remove share icon
+                                    parent.removeFileShareIndicator(shareingFileData.filename);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function updateSharePermission(object){
+                var newPermission = $(object).attr('value');
+                $.ajax({
+                    url: "../../system/file_system/share/edit",
+                    data: {uuid: shareEditingUUID, mode: newPermission},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                            return;
+                        }
+                        $("#udpateNotification").slideDown("fast").delay(3000).slideUp("fast");
+                    }
+                });
+            }   
+
+            function updateShareLinkInfo(uuid){
+                $("#qrcode").html("");
+                let protocol = "https://";
+                if (location.protocol !== 'https:') {
+                    protocol = "http://";
+                }
+                var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share?id=" + uuid;
+                shareEditingUUID = uuid;
+                fileSharingURL = shareURL;
+                new QRCode(document.getElementById("qrcode"), shareURL);
+                $("#sharelink").text(shareURL);
+                $("#sharelink").attr("href", shareURL)
+            }
+
+            /*
+                Dynamic Script Loader
+
+                This is a really experimental implementation of importing a script from anywhere
+                under the ArozOS web root. This section of code must be written in plain JS to make sure
+                it works without jQuery and other libraries.
+
+                This function try to load jQuery and ao_module from the script folder.
+                Also loading the semantic js and the css main body
+            */
+            //The possible location for desktop.system, standard webapp module, SystemAO interfaces and iui sub-interfaces
+            let possibleLocations = ["script/", "../script/", "../../script/", "../../../script/"];
+            let loopCount = Math.min(possibleLocations.length, JSON.parse(JSON.stringify(window.location.toString())).split("/").length - 3);
+            function tryLoad(relpath, filename, successCallback=undefined){
+                var request = new XMLHttpRequest();  
+                request.open('GET', relpath + filename, true);
+                request.onreadystatechange = function(){
+                    if (request.readyState === 4){
+                        if (request.status == 200 || request.status == 304) {  
+                            if (typeof(successCallback) != "undefined"){
+                                successCallback(relpath, filename);
+                            }
+                        }
+                    }
+                };
+                request.send();
+            }
+
+            function injectOtherJavaScriptLibrary(relpath){
+                //Check if ao_module is loaded
+                if (typeof(ao_module_virtualDesktop) == "undefined"){
+                    var script = document.createElement('script');
+                    script.setAttribute('src', relpath + "ao_module.js");
+                    document.getElementsByTagName('head')[0].appendChild(script);
+                }else{
+                    //This routine already run
+                    return;
+                }
+
+                //Inject QR Code library
+                var script = document.createElement('script');
+                script.setAttribute('src', relpath + "qrcode.min.js");
+                document.getElementsByTagName('head')[0].appendChild(script);
+
+                //Inject semmantic css and js anyway
+                var head  = document.getElementsByTagName('head')[0];
+                var link  = document.createElement('link');
+                link.id   = "semantic";
+                link.rel  = 'stylesheet';
+                link.type = 'text/css';
+                link.href = relpath + 'semantic/semantic.min.css';
+                link.media = 'all';
+                head.appendChild(link);
+
+                var script = document.createElement('script');
+                script.setAttribute('src', relpath + "semantic/semantic.min.js");
+                document.getElementsByTagName('head')[0].appendChild(script);
+
+                setTimeout(function(){
+                    PageReady();
+                }, 1000);
+            }
+
+            //Load jQuery first
+            if (typeof(window.jQuery) == "undefined"){
+                //jQuery not found. Laod it
+                for (var i = 0; i < loopCount; i++){
+                    var relpath = possibleLocations[i];
+                    tryLoad(relpath, "jquery.min.js", function(relpath, filename){
+                        //Generate the jquery script element
+                        var script = document.createElement('script');
+                        
+                        script.setAttribute('src', relpath + filename);
+                        document.getElementsByTagName('head')[0].appendChild(script);
+                        
+                        doAfterJqueryLoaded(function(){
+                            injectOtherJavaScriptLibrary(relpath);
+                        });
+                        
+                        
+                    });
+                }
+            }else{
+                //jQuery exists. Load ao_module
+                dynamicLoadAoModule();
+            }
+
+            function doAfterJqueryLoaded(callback){
+                setTimeout(function(){
+                    //Wait until it is loaded
+                    if (typeof(window.jQuery) == "undefined"){
+                        doAfterJqueryLoaded(callback);
+                        return
+                    }else{
+                        callback();
+                    }
+                }), 300;
+            }
+
+            function copyLinkToClipboard(btn){
+                //Copy text
+                const area = document.createElement('textarea');
+                document.body.appendChild(area);
+
+                area.value = fileSharingURL;
+                area.select();
+                document.execCommand('copy');
+
+                document.body.removeChild(area);
+
+                //Do visual feedback
+                let oldContent = $(btn).html();
+                $(btn).html(`<i class="green checkmark icon"></i> Copied!`);
+                setTimeout(function(){
+                    $(btn).html(oldContent);
+                }, 3000);
+            }
+
+        </script>
+    </body>
+</html>

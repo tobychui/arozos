@@ -8,27 +8,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
 
-/*
-	SYSTEM COMMON FUNCTIONS
-
-	This is a system function that put those we usually use function but not belongs to
-	any module / system.
-
-	E.g. fileExists / IsDir etc
-
-*/
-
-/*
-	Basic Response Functions
-
-	Send response with ease
-*/
 //Send text response with given w and message as string
 func sendTextResponse(w http.ResponseWriter, msg string) {
 	w.Write([]byte(msg))
@@ -175,4 +161,24 @@ func LoadImageAsBase64(filepath string) (string, error) {
 func newUUIDv4() string {
 	thisuuid := uuid.NewV4().String()
 	return thisuuid
+}
+
+//Check if the target path is escaping the rootpath, accept relative and absolute path
+func (g *Gateway) checkRootEscape(rootPath string, targetPath string) (bool, error) {
+	rootAbs, err := filepath.Abs(rootPath)
+	if err != nil {
+		return true, err
+	}
+
+	targetAbs, err := filepath.Abs(targetPath)
+	if err != nil {
+		return true, err
+	}
+
+	if len(targetAbs) < len(rootAbs) || targetAbs[:len(rootAbs)] != rootAbs {
+		//Potential path escape. Return true
+		return true, nil
+	}
+
+	return false, nil
 }

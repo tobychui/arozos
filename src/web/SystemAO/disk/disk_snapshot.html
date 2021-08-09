@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Snapshot Summary</title>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+	<meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script src="../../script/jquery.min.js"></script>
+	<script src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <style>
+        .unchaged{
+            display:none;
+        }
+    </style>
+</head>
+<body>
+    <br>
+    <div class="ui container">
+        <h3 class="ui header">
+            Snapshot <span id="snapshotName"></span>
+            <div class="sub header">Snapshot Summary</div>
+        </h3>
+        <div class="ui divider"></div>
+            <div id="content">
+                <p><i class="question icon"></i> Snapshot summary is empty.</p>
+            </div>
+            <div id="summary" style="display:none;">
+                <div class="ui checkbox">
+                    <input type="checkbox" onchange="toggleUnchageFileVisibility(this.checked);">
+                    <label>Show Unchanged Files</label>
+                </div>
+                <table class="ui striped celled green table">
+                    <thead>
+                        <tr>
+                        <th>#</th>
+                        <th>Relative Path</th>
+                        <th>Link To Snapshot</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filelist">
+                        
+                    </tbody>
+                </table>
+            </div>
+        <br>
+           <button class="ui right floated button" onclick="ao_module_close();">Close</button>
+        <br>
+    </div>
+        
+    <br><br>
+    <script>
+        
+        //Get window hash data and start the request
+        if (window.location.hash.length > 1){
+            var snapshotInfo = window.location.hash.substr(1);
+            snapshotInfo = JSON.parse(decodeURIComponent(snapshotInfo));
+            $("#snapshotName").text(snapshotInfo.SnapshotName);
+            getSnapshotSummary(snapshotInfo.SnapshotDisk, snapshotInfo.SnapshotName);
+        }else{
+            //Invalid usage
+        }
+
+        function getSnapshotSummary(diskID, name){
+            $.ajax({
+                url: "../../system/backup/snapshotSummary",
+                data: {bdid: diskID, snapshot: name},
+                success: function(data){
+                    if (data.error !== undefined){
+                        $("#content").html(` <div class="ui red inverted segment">  
+                                <h5><i class="remove icon"></i> ${data.error}</h5>
+                            </div>`);
+                    }else{
+                        console.log(data);
+                        $("#summary").show();
+                        $("#content").hide();
+                        $("#filelist").html("");
+
+                        var totalChangeCount = 0;
+                        for (let relpath in data.ChangedFiles){
+                            $("#filelist").append(`<tr class="positive changed">
+                                <td><i class="add icon"></i></td>
+                                <td>${relpath}</td>
+                                <td>${data.ChangedFiles[relpath]}</td>
+                            </tr>`);
+                            totalChangeCount++;
+                        }
+
+                        for (let relpath in data.DeletedFiles){
+                            $("#filelist").append(`<tr class="negative">
+                                <td><i class="minus icon"></i></td>
+                                <td>${relpath}</td>
+                                <td>${data.DeletedFiles[relpath]}</td>
+                            </tr>`);
+                            totalChangeCount++;
+                        }
+
+                        if (totalChangeCount == 0){
+                            $("#filelist").append(`<tr class="">
+                                <td><i class="clock outline icon"></i></td>
+                                <td>No Changed / Deleted File in this snapshot</td>
+                                <td></td>
+                            </tr>`);
+                        }
+
+                        for (let relpath in data.UnchangedFiles){
+                            $("#filelist").append(`<tr class="unchaged">
+                                <td></td>
+                                <td>${relpath}</td>
+                                <td>${data.UnchangedFiles[relpath]}</td>
+                            </tr>`);
+                        }
+                    }   
+                }
+            });
+        }
+
+        $(".ui.checkbox").checkbox();
+        function toggleUnchageFileVisibility(showUnchanged){
+            if (showUnchanged){
+                $(".unchaged").show();
+            }else{
+                $(".unchaged").hide();
+            }
+            
+        }
+    </script>
+</body>
+</html>

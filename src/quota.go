@@ -29,7 +29,7 @@ func DiskQuotaInit() {
 	})
 
 	//Register the timer for running the global user quota recalculation
-	RegisterNightlyTask(system_disk_quota_updateAllUserQuotaEstimation)
+	nightlyManager.RegisterNightlyTask(system_disk_quota_updateAllUserQuotaEstimation)
 }
 
 //Register the handler for automatically updating all user storage quota

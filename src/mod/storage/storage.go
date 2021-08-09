@@ -9,15 +9,18 @@ package storage
 */
 
 import (
+	"log"
 	"os"
 
+	"imuslab.com/arozos/mod/disk/hybridBackup"
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
 type StoragePool struct {
-	Owner           string                  //Owner of the storage pool, also act as the resolver's username
-	OtherPermission string                  //Permissions on other users but not the owner
-	Storages        []*fs.FileSystemHandler //Storage pool accessable by this owner
+	Owner              string                  //Owner of the storage pool, also act as the resolver's username
+	OtherPermission    string                  //Permissions on other users but not the owner
+	Storages           []*fs.FileSystemHandler //Storage pool accessable by this owner
+	HyperBackupManager *hybridBackup.Manager   //HyperBackup Manager
 }
 
 /*
@@ -34,18 +37,55 @@ func init() {
 
 //Create a new StoragePool objects with given uuids
 func NewStoragePool(fsHandlers []*fs.FileSystemHandler, owner string) (*StoragePool, error) {
+	//Create new HypberBackup Manager
+	backupManager := hybridBackup.NewHyperBackupManager()
+
 	//Move all fshandler into the storageHandler
 	storageHandlers := []*fs.FileSystemHandler{}
 	for _, fsHandler := range fsHandlers {
 		//Move the handler pointer to the target
 		storageHandlers = append(storageHandlers, fsHandler)
+
+		if fsHandler.Hierarchy == "backup" {
+			//Backup disk. Build the Hierarchy Config for this drive
+			backupConfig := fsHandler.HierarchyConfig.(hybridBackup.BackupTask)
+
+			//Resolve parent path for backup File System Handler
+			parentExists := false
+			for _, potentialParnet := range fsHandlers {
+				if potentialParnet.UUID == backupConfig.ParentUID {
+					//This is the parent
+					backupConfig.ParentPath = potentialParnet.Path
+					parentExists = true
+				}
+			}
+
+			if parentExists {
+				backupManager.AddTask(&backupConfig)
+			} else {
+				log.Println("*ERROR* Backup disk " + backupConfig.DiskUID + ":/ source disk not found: " + backupConfig.ParentUID + ":/ not exists or it is from other storage pool!")
+			}
+
+		}
 	}
 
 	return &StoragePool{
-		Owner:           owner,
-		OtherPermission: "readonly",
-		Storages:        storageHandlers,
+		Owner:              owner,
+		OtherPermission:    "readonly",
+		Storages:           storageHandlers,
+		HyperBackupManager: backupManager,
 	}, nil
+}
+
+//Check if this storage pool contain this particular disk ID
+func (s *StoragePool) ContainDiskID(diskID string) bool {
+	for _, fsh := range s.Storages {
+		if fsh.UUID == diskID {
+			return true
+		}
+	}
+
+	return false
 }
 
 //Use to compare two StoragePool permissions leve
@@ -60,9 +100,13 @@ func (s *StoragePool) HasHigherOrEqualPermissionThan(a *StoragePool) bool {
 
 //Close all fsHandler under this storage pool
 func (s *StoragePool) Close() {
+	//For each storage pool, close it
 	for _, fsh := range s.Storages {
 		fsh.Close()
 	}
+
+	//Close the running backup tasks
+	s.HyperBackupManager.Close()
 }
 
 //Helper function

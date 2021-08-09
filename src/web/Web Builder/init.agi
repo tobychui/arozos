@@ -1,0 +1,21 @@
+/*
+	Web Builder initiation script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Web Builder",
+	Desc: "The basic Web builder for writing HTML code",
+	Group: "Office",
+	IconPath: "Web%20Builder/img/module_icon.png",
+	Version: "0.1.0",
+	StartDir: "Web%20Builder/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Web%20Builder/index.html",
+	InitFWSize: [1080, 580],
+	SupportedExt: [".html",".htm"]
+}
+
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

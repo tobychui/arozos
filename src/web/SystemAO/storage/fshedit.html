@@ -43,6 +43,10 @@
         .true{
             color: #05b074;
         }
+
+        .backuponly{
+            display:none;
+        }
     </style>
 </head>
 <body>
@@ -88,16 +92,42 @@
             </div>
             <div class="field">
                 <label>Storage Hierarchy</label>
-                <div id="hierarchyfield" class="ui selection dropdown">
+                <div id="hierarchyfield" class="ui selection dropdown" onchange="handleHierarchyChange(this);">
                 <input type="hidden" name="hierarchy" value="user">
                 <i class="dropdown icon"></i>
                 <div class="default text">Storage Hierarchy</div>
                 <div class="menu">
                     <div class="item" data-value="user">Isolated User Folders</div>
                     <div class="item" data-value="public">Public Access Folders</div>
+                    <div class="item" data-value="backup">Backup Storage</div>
                 </div>
                 </div>
             </div>
+            <p class="backuponly">Backup Settings</p>
+            <div class="field backuponly">
+                <label>Backup Virtual Disk UID</label>
+                <div class="ui selection dropdown disabled">
+                    <input type="hidden" autocomplete="false" name="parentuid" value="" readonly="true">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Storage Hierarchy</div>
+                    <div class="menu" id="backupIdList">
+                        
+                    </div>
+                </div>
+                </div>
+                <div class="field backuponly">
+                <label>Backup Mode</label>
+                <div class="ui selection dropdown">
+                    <input id="backupmode" type="hidden" autocomplete="false" name="backupmode" value="">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Storage Hierarchy</div>
+                    <div class="menu">
+                        <div class="item" data-value="basic">Basic</div>
+                        <div class="item" data-value="nightly">Nightly</div>
+                        <div class="item" data-value="version">Versioning</div>
+                    </div>
+                </div>
+                </div>
             <div class="ui divider"></div>
             <p>Physical Disks Settings</p>
             <div class="field">
@@ -155,9 +185,29 @@
         $(".ui.checkbox").checkbox();
 
         if (window.location.hash.length > 0){
+            //Get a list of vroot from system
+            $("#backupIdList").html(``);
+            $.get("../../system/storage/pool/list", function(data){
+                data.forEach(usergroup => {
+                    if (usergroup.Storages != null){
+                        usergroup.Storages.forEach(storage => {
+                            $("#backupIdList").append(`<div class="item" data-value="${storage.UUID}">${storage.Name} (${storage.UUID}:/)</div>`);
+                        });
+                    }
+                    
+                });
+                $("#backupIdList").parent().dropdown();
+                renderFSHCurrentSettings();
+            });
+
+            
+        }
+
+        function renderFSHCurrentSettings(){
+            //Request server side to provide info on this FSH
             var input = JSON.parse(decodeURIComponent(window.location.hash.substr(1)));
             $("#groupfield").val(input.group);
-            //Request server side to provide info on this FSH
+
             $.ajax({
                 url: "../../system/storage/pool/edit",
                 method: "GET",
@@ -170,6 +220,17 @@
             $("#mainForm").attr("action", "../../system/storage/pool/edit?opr=set&uuid=" + input.uuid + "&group=" + input.group);
         }
 
+        function handleHierarchyChange(object){
+            var newHierarcy = $(object).find("input").val();
+            //Force access mode to readonly if backup mode
+            if (newHierarcy == "backup"){
+                $("#accessfield").dropdown("set selected", "readonly")
+                $("#accessfield").addClass("disabled");
+            }else{
+                $("#accessfield").removeClass("disabled");
+            }
+        }
+
         function renderOptionsToForm(option){
             console.log(option);
             $("input[name=name]").val(option.name);
@@ -177,6 +238,18 @@
             $("input[name=path]").val(option.path);
             $("#accessfield").dropdown("set selected", option.access);
             $("#hierarchyfield").dropdown("set selected", option.hierarchy);
+            if (option.hierarchy == "backup"){
+                //Show backup drive options
+                $(".backuponly").slideDown("fast");
+                //Set backup mode
+                $("input[name=backupmode]").dropdown("set selected",option.backupmode);
+                $("#backupIdList").parent().dropdown();
+                //Set parent id and backup mode from dropdown
+                $("#backupIdList").parent().dropdown("set selected",option.parentuid);
+                $("#backupmode").parent().dropdown("set selected",option.backupmode);
+                //Disable the readonly settings
+                $("#accessfield").addClass("disabled");
+            }
             $("#fstype").dropdown("set selected",option.filesystem);
             $("input[name=mountdev]").val(option.mountdev);
             $("input[name=mountpt]").val(option.mountpt);

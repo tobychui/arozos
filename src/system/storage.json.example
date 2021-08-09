@@ -1,48 +1,60 @@
 [
   {
-    "name":"Storage 1",
-    "uuid":"S1",
-    "path":"/media/storage1/public/",
-    "access":"readwrite",
-    "hierarchy":"public",
-    "automount":true,
-    "filesystem":"ntfs",
-    "mountdev":"/dev/sdb1",
-    "mountpt":"/media/storage1"
-  },
+    "name": "Storage 1",
+    "uuid": "S1",
+    "path": "/media/storage1/",
+    "access": "readwrite",
+    "hierarchy": "public",
+    "automount": true,
+    "filesystem": "ntfs",
+    "mountdev": "/dev/sdb1",
+    "mountpt": "/media/storage1"
+  }, 
   {
-    "name":"Storage 2",
-    "uuid":"S2",
-    "path":"/media/storage2",
-    "access":"readwrite",
-    "hierarchy":"public",
-    "automount":true,
-    "filesystem":"ntfs",
-    "mountdev":"/dev/sdc1",
-    "mountpt":"/media/storage2"
-  },
+    "name": "Storage 2",
+    "uuid": "S2",
+    "path": "/media/storage2",
+    "access": "readwrite",
+    "hierarchy": "public",
+    "automount": true,
+    "filesystem": "ntfs",
+    "mountdev": "/dev/sdc1",
+    "mountpt": "/media/storage2"
+  }, 
   {
-    "name":"Storage 3",
-    "uuid":"S3",
-    "path":"/media/storage3",
-    "access":"readwrite",
-    "hierarchy":"public",
-    "automount":false
-  },
+    "name": "Storage 3",
+    "uuid": "S3",
+    "path": "/media/storage3",
+    "access": "readwrite",
+    "hierarchy": "public",
+    "automount": false
+  }, 
   {
-    "name":"Storage 4",
-    "uuid":"S4",
-    "path":"/media/storage4",
-    "access":"readwrite",
-    "hierarchy":"public",
-    "automount":false
-  },
+    "name": "Storage 4",
+    "uuid": "S4",
+    "path": "/media/storage4",
+    "access": "readwrite",
+    "hierarchy": "public",
+    "automount": false
+  }, 
   {
-    "name":"web",
-    "uuid":"web",
-    "path":"web/",
-    "access":"readwrite",
-    "hierarchy":"public",
-    "automount":false
+    "name": "source",
+    "uuid": "src",
+    "path": "test/source",
+    "access": "readwrite",
+    "hierarchy": "user",
+    "automount": false,
+    "filesystem": "ntfs"
+  }, 
+  {
+    "name": "Backup",
+    "uuid": "backup",
+    "path": "test/backup",
+    "access": "readonly",
+    "hierarchy": "backup",
+    "automount": false,
+    "filesystem": "ntfs",
+    "parentuid": "src",
+    "backupmode": "version"
   }
 ]

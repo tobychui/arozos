@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#ff9224">
+		<script src="../script/jquery.min.js"></script>
+		
+		<!-- Editor -->
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<link href="script/suneditor/suneditor.min.css" rel="stylesheet">
+	
+		<script src="script/suneditor/suneditor.min.js"></script>
+
+		<script src="script/suneditor/en.js"></script>
+
+		<style>
+			body{
+				margin: 0px;
+			}
+			#editorWrapper{
+				position: fixed;
+				left: 0px;
+				top: 0px;
+				width: 100%;
+				height: 100%;
+			}
+
+			#maineditor{
+				width: calc(100% - 10px);
+				height: 300px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="editorWrapper">
+			<textarea id="maineditor"></textarea>
+		</div>
+		
+		<script>
+			//Start a new editor if there is no file ported in
+			var editor;
+			if (parent.inputFiles == null){
+				//New Editor
+				initEditor();
+				parent.handleWindowResize();
+			}else{
+				//Get the filepath and load it
+				var file = parent.inputFiles;
+				//Load the given file
+				$.ajax({
+					url: "../media?file=" + file.filepath, 
+					success: function(data){
+						var body = data.substring(data.indexOf("<body>")+6,data.indexOf("</body>"));
+
+						//Check if the html include title. If yes, grab it as well
+						if (data.includes("<title>") && data.includes("</title>")){
+							var title = data.substring(data.indexOf("<title>")+7,data.indexOf("</title>"));
+							parent.updateTitle(title);
+						}
+						
+						$("#maineditor").html(body);
+						parent.editingFile = file.filepath;
+						
+						initEditor();
+						parent.handleWindowResize();
+					}
+				});
+			}
+			
+			
+			function getContent(){
+				return editor.getContents();
+			}
+
+			function initEditor(){
+				editor = SUNEDITOR.create(document.getElementById('maineditor'),
+					{	
+						lang: SUNEDITOR_LANG['en'],
+						buttonList: [
+							['undo', 'redo', 'save',  'preview'],
+							['font', 'fontSize', 'formatBlock'],
+							['paragraphStyle', 'blockquote'],
+							['bold', 'underline', 'italic', 'strike', 'subscript', 'superscript'],
+							['fontColor', 'hiliteColor'],
+							['removeFormat'],
+							'/', // Line break
+							['outdent', 'indent'],
+							['align', 'horizontalRule', 'list', 'lineHeight'],
+							['table', 'link', 'image', 'video', 'audio' /** ,'math' */], // You must add the 'katex' library at options to use the 'math' plugin.
+							/** ['imageGallery'] */ // You must add the "imageGalleryUrl".
+							['showBlocks', 'codeView']
+						],
+						paragraphStyles : [
+							{
+								name: 'Segment',
+								class: '__se__ ui segment',
+							},
+							{
+								name: 'Red Segment',
+								class: '__se__ ui red segment',
+							},
+							{
+								name: 'Blue Segment',
+								class: '__se__ ui blue segment',
+							},
+							{
+								name: 'Green Segment',
+								class: '__se__ ui green segment',
+							},
+							{
+								name: 'Message',
+								class: '__se__ ui message',
+							},
+							{
+								name: 'Red Message',
+								class: '__se__ ui red message',
+							},
+							{
+								name: 'Blue Message',
+								class: '__se__ ui blue message',
+							},
+							{
+								name: 'Green Message',
+								class: '__se__ ui green message',
+							}
+						],
+						"resizingBar": false,
+						callBackSave : function (contents, isChanged) {
+							parent.handleSavefile(contents);
+							return false;
+						}
+					}
+				);
+				return editor;
+			}
+
+		</script>
+	</body>
+</html>

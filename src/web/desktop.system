@@ -10,7 +10,6 @@
     <script type="text/javascript" src="script/tocas/tocas.js"></script>
     <script type="text/javascript" src="script/jquery.min.js"></script>
     <script type="text/javascript" src="script/ao_module.js"></script>
-    <script type="text/javascript" src="SystemAO/desktop/offline/pong.js"></script>
     <script type="text/javascript" src="SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <style>
         body {
@@ -683,6 +682,34 @@
             background-color:#f5f5f5 !important;
         }
 
+        .fileShareIndicator.small{
+            position: absolute;
+            top: calc(50% - 8px);
+            left: 8px;
+            height: 10px;
+            width: 10px;
+        }
+
+        .fileShareIndicator.medium{
+            position: absolute;
+            top: calc(50% - 8px);
+            left: 10px;
+            height: 16px;
+            width: 16px;
+        }
+
+        .fileShareIndicator.big{
+            position: absolute;
+            top: calc(50% - 8px);
+            left: 12px;
+            height: 18px;
+            width: 18px;
+        }
+
+        .fileShareIndicator img{
+            width: 100%;
+        }
+
          /* Offline blinking warning css */
          @-moz-keyframes blink {
                 0% {
@@ -896,7 +923,7 @@
         <div class="ts small single line items">
             <div class="item">
                 <div class="ts mini image">
-                    <img class="usericon" src="img/desktop/system_icon/user.svg">
+                    <img class="usericon" src="img/desktop/system_icon/user.png">
                 </div>
                 <div class="content">
                     <div id="username" class="header">User</div>
@@ -925,11 +952,6 @@
             <i class="maximize icon"></i> Toggle Fullscreen
         </div>
         <div class="ts divider"></div>
-        <!-- 
-            <div class="item" onclick="logout(); hideToolPanel();">
-                <i class="log out icon"></i> Logout
-            </div>
-        -->
         <div class="item hardware" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
             <i class="repeat icon"></i> Restart
         </div>
@@ -2687,6 +2709,11 @@
                     
                 }
 
+                //Update the desktop hash to prevent the auto refresh by hash
+                getDesktopHash(function(hash){
+                    desktopFileHash = hash;
+                });
+
                 if (callback !== undefined) {
                     //console.log(callback);
                     callback();
@@ -2851,6 +2878,7 @@
             var filepath = JSON.parse(JSON.stringify(filedata.Filepath));
             var isDir = JSON.parse(JSON.stringify(filedata.IsDir));
             var isEmptyDir = JSON.parse(JSON.stringify(filedata.IsEmptyDir));
+            var isShared = JSON.parse(JSON.stringify(filedata.IsShared));
             var maxlength = 12;
             var type = "file";
             let shortenedName = filename;
@@ -2934,6 +2962,7 @@
                         size: size,
                         imagePath: imagePath,
                         shortenedName: shortenedName,
+                        isShared: isShared,
                     });
                 }
 
@@ -2951,6 +2980,7 @@
                     size: size,
                     imagePath: imagePath,
                     shortenedName: shortenedName,
+                    isShared: isShared,
                 });
             }
            
@@ -2982,6 +3012,7 @@
             if (properties.type == "file" && isChrome){
                 htmlType = "a";
             }
+           
             var thisIcon = $(`<${htmlType} href="javascript:void(0);" class="launchIcon" 
                     type="${properties.type}" 
                     draggable="true" 
@@ -2995,11 +3026,18 @@
                     filepath="${properties.filepath}" 
                     filedata="${properties.compressedFiledata}" 
                     style="width:${properties.iwidth}px; height:${properties.iheight}px;left:${properties.screenX}px; top:${properties.screenY}px;">
-                    <span class="launchIconWrapper"><img class="launchIconImage ${properties.size}" src="${properties.imagePath}" draggable="false"></img>
-                        <p class="launchIconText ${properties.size} ">${properties.shortenedName}</p></span>
+                    <span class="launchIconWrapper">
+                        <img class="launchIconImage ${properties.size}" src="${properties.imagePath}" draggable="false"></img>
+                        <p class="launchIconText ${properties.size} ">${properties.shortenedName}</p>
+                    </span>
                     </${htmlType}>`);
 
             $(target).append(thisIcon);
+
+            //Updates 20 May 2021: Check if this file is shared. If yes, append the share icon
+            if (typeof(properties.isShared) != "undefined" && properties.isShared == true){
+                setFileShareIndicator(properties.filename);
+            }
             
             if (properties.type == "file" && isChrome){
                 console.log(isChrome);
@@ -3022,6 +3060,50 @@
                 evt.dataTransfer.setData("DownloadURL",targetMime+":"+ properties.filename +":"+ location.protocol + "//" + location.hostname + ":" + location.port + "/media/?file=" + encodeURIComponent(properties.filepath));
                 //evt.dataTransfer.setData("DownloadURL","video/mp4"+":"+"test.mp4"+":"+"data:"+"video/mp4"+";base64,"+fileBase64);
                 },false);
+            }
+        }
+
+        /*
+            Share indicator settings
+            This append or remove share from a particular file
+
+            Only require filename as all files here are on desktop
+        */
+
+        function getFileObjectByFilename(filename){
+            var result = null;
+            $(".launchIcon").each(function(){
+                var thisFilename = $(this).attr("filename");
+                if (thisFilename == filename){
+                    result = $(this);
+                }
+            });
+
+            return result;
+        }
+
+        function setFileShareIndicator(filename){
+            var targetFileObject = getFileObjectByFilename(filename);
+            if (targetFileObject == null){
+                return;
+            }
+            var sharedIcon = `<div class="fileShareIndicator ${desktopIconSize}">
+                <img src="img/desktop/system_icon/shared.png">
+            </div>`;
+
+            $(targetFileObject).find(".launchIconWrapper").append(sharedIcon);
+
+        }
+
+        function removeFileShareIndicator(filename){
+            var targetFileObject = getFileObjectByFilename(filename);
+            if (targetFileObject == null){
+                return;
+            }
+
+            var indicator = $(targetFileObject).find(".fileShareIndicator");
+            if (indicator.length > 0){
+                indicator.remove();
             }
         }
 
@@ -3243,7 +3325,7 @@
                                 title += " file";
                             }
 
-                            parent.newFloatWindow({
+                            newFloatWindow({
                                 url: "SystemAO/file_system/file_operation.html#" + configHash,
                                 width: 400,
                                 height: 220,
@@ -3854,18 +3936,21 @@
 
                 //Prase the filelist and pass to trash module
                 console.log(deleteFilelist);
-                $.ajax({
-                    url: "system/file_system/fileOpr",
-                    method:"POST",
-                    data: {opr: "recycle", src: JSON.stringify(deleteFilelist)},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            refresh(undefined, true);
+                generateCSRFToken(function(csrftoken){
+                    $.ajax({
+                        url: "system/file_system/fileOpr",
+                        method:"POST",
+                        data: {opr: "recycle", src: JSON.stringify(deleteFilelist), csrft: csrftoken},
+                        success: function(data){
+                            if (data.error !== undefined){
+                                alert(data.error);
+                            }else{
+                                refresh(undefined, true);
+                            }
                         }
-                    }
+                    });
                 });
+                
 
                 //Delete the file's desktop location
                 deleteFilenameList.forEach(file => {
@@ -3962,7 +4047,7 @@
                             //When the user selected more than one item on desktop
                             addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
                             addContextMenuItem($("#contextmenu"), 'Open With', "<i class='caret right icon'></i>", "handleOpenWith", true);
-                            addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
+                            //addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
                             addContextMenuSeperator($("#contextmenu"));
                             addContextMenuItem($("#contextmenu"), 'Download in Zip', "<i class='download icon'></i>", "downloadFile", false);
                             addContextMenuItem($("#contextmenu"), 'Make a Copy', "<i class='copy icon'></i>", "handleCloning", false);
@@ -4192,6 +4277,15 @@
 
         function handleOpenWith(target, event){
             $("#subcontextmenu").html("");
+            //Updates 19 May 2021: Added support for better parsing Open With List
+            var exts = [];
+            //Get all exts from the selected files
+            $(".launchIconWrapper.selected").each(function(){
+                var filename = $(this).parent().attr("filename");
+                var ext = "." + filename.split(".").pop();
+                exts.push(ext);
+            });
+
             $.get("system/modules/list",function(data){
                 if (data.error !== undefined){
                     alert(data.error);
@@ -4200,14 +4294,222 @@
                     var openWithTargets = [];
                     for (var i =0; i < data.length; i++){
                         var thisModule = data[i];
-                        if (thisModule.SupportEmb == true){
+
+                        //If this module support this ext, add it to list
+                        var thisModuleSupportExt = thisModule.SupportedExt;
+                        if (thisModule.Name == "File Manager"){
+                            //Exceptional case
                             addContextMenuItem($("#subcontextmenu"), thisModule.Name, "", "openSelectedWith", false);
                         }
+                        if (thisModuleSupportExt == null || thisModuleSupportExt.length == 0){
+                            //Not supporting anything
+                            continue;
+                        }
+                        thisModuleSupportExt.forEach(supportedExt => {
+                            if (exts.includes(supportedExt)){
+                                //Add this to the menu
+                                addContextMenuItem($("#subcontextmenu"), thisModule.Name, "", "openSelectedWith", false);
+                            }
+                        })
                         
+
+                        //if (thisModule.SupportEmb == true){
+                        //    addContextMenuItem($("#subcontextmenu"), thisModule.Name, "", "openSelectedWith", false);
+                        //}
                     }
+
+                    //Add select more opener option
+                    addContextMenuSeperator($("#subcontextmenu"));
+                    addContextMenuItem($("#subcontextmenu"), "Select Other WebApps", ``, "openOpenSelector", false);
                 }
                 showSubContextMenu(target);
             });
+        }
+
+        function handleFileShare(target, object){
+            $("#subcontextmenu").html("");
+            //Get the selected file
+            var targetFile = $(".launchIconWrapper.selected")[0];
+            var fileData = $(targetFile).parent().attr("filedata");
+            if (fileData != undefined){
+                fileData = JSON.parse(decodeURIComponent(fileData));
+                 //Check if the target file is shared
+                 $.ajax({
+                     url: "system/file_system/share/checkShared",
+                     data: {path: fileData.Filepath},
+                     success: function(data){
+                        if (data.IsShared == true){
+                            addContextMenuItem($("#subcontextmenu"), "Open Shared Link", `<i class="external icon"></i>`, "openSharedLink", false, {
+                                payload: {
+                                    uuid: data.ShareUUID.UUID
+                                }
+                            });
+                            addContextMenuItem($("#subcontextmenu"), "Copy Link", `<i class="copy icon"></i>`, "copySharedLink", false, {
+                                payload: {
+                                    uuid: data.ShareUUID.UUID
+                                }
+                            });
+                            addContextMenuSeperator($("#subcontextmenu"));
+                            addContextMenuTitle($("#subcontextmenu"), `<i class="share alternate icon"></i> Change Share Settings`);
+                        }else{
+                            addContextMenuTitle($("#subcontextmenu"), `<i class="share alternate icon"></i> Share this File`);
+                        }
+
+                        var checkmarkStyle = `style="color: #71ba68;"`;
+                        var anyoneClass = "";
+                        if (data.ShareUUID.Permission == "anyone"){
+                            anyoneClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
+                        }
+                        var signedinClass = "";
+                        if (data.ShareUUID.Permission == "signedin"){
+                            signedinClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
+                        }
+
+                        var sameGroupClass = "";
+                        if (data.ShareUUID.Permission == "samegroup"){
+                            samegroup = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
+                        }
+
+                        addContextMenuItem($("#subcontextmenu"), `<i class="globe icon"></i> Anyone with Link`, anyoneClass, "shareWithThisPermission", false, {
+                            payload: {
+                                type: "anyone"
+                            }
+                        });
+                        addContextMenuItem($("#subcontextmenu"), `<i class="user circle outline icon"></i> Anyone Signed In`, signedinClass, "shareWithThisPermission", false, {
+                            payload: {
+                                type: "signedin"
+                            }
+                        });
+                        addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> Same Group Users`, sameGroupClass, "shareWithThisPermission", false,{
+                            payload: {
+                                type: "samegroup"
+                            }
+                        });
+                        if (data.IsShared == true){
+                            //This file is shared.
+                            addContextMenuSeperator($("#subcontextmenu"));
+                            addContextMenuItem($("#subcontextmenu"), "Remove Share", `<i style="color: #d97762;" class="trash icon"></i>`, "shareWithThisPermission", false,{
+                                payload: {
+                                    type: "remove"
+                                }
+                            });
+                        }
+                     }
+                 });
+            }
+            
+            showSubContextMenu(target);
+        }
+
+        //Copy the shared link
+        function copySharedLink(target, event){
+            var payload = getContextMenuPayload(target);
+            if (payload == null){
+                //Something wrong
+                return;
+            }
+
+            //Generate the share link
+            let protocol = "https://";
+            if (location.protocol !== 'https:') {
+                protocol = "http://";
+            }
+            var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share?id=" + payload.uuid;
+
+            //Copy the text to clipboard
+            const area = document.createElement('textarea');
+            document.body.appendChild(area);
+
+            area.value = shareURL;
+            area.select();
+            document.execCommand('copy');
+
+            document.body.removeChild(area);
+
+            //Update status so it show the user it has been coped
+            $(target).html(`<i style="color: #71ba68;" class="checkmark icon"></i> Copied!`);
+            setTimeout(function(){
+                if ($(target).length > 0){
+                    $(target).html(`Copy Link
+                        <span class="description">
+                            <i class="copy icon"></i>
+                        </span>`);
+                }
+            }, 3000);
+        }
+
+        //Open the shared file link
+        function openSharedLink(target, event){
+            var payload = getContextMenuPayload(target);
+            if (payload == null){
+                //Something wrong
+                return;
+            }
+
+            var targetURL = "share?id=" + payload.uuid;
+            window.open(targetURL);
+
+            hideAllContextMenus();
+        }
+
+        function shareWithThisPermission(target, event){
+            var payload = getContextMenuPayload(target);
+            if (payload == null){
+                //Something wrong
+                return;
+            }
+
+            //Get the selected file
+            var selectedFileObjects = $(".launchIconWrapper.selected");
+            if (selectedFileObjects.length == 0){
+                //Not found
+                return
+            }else if (selectedFileObjects.length > 1){
+                //This should not happens. If it did happens, use the first one
+                selectedFileObjects = selectedFileObjects[0];
+            }
+
+            //Extract file information
+            var fileData = $(selectedFileObjects).parent().attr("filedata");
+            fileData = JSON.parse(decodeURIComponent(fileData));
+            
+            //Convert the desktop file data to ArozOS generic filedata
+            var afd = {
+                "filename": fileData.Filename,
+                "filepath": fileData.Filepath,
+                "shareMode": payload.type
+            };
+
+            //Create a new share for this
+            var targetURL = "SystemAO/file_system/file_share.html#" + encodeURIComponent(JSON.stringify([afd]));
+
+
+            //Calculate the window spawn position
+            var basePosition = $(selectedFileObjects).offset();
+            var left = basePosition.left + 100;
+            if (left + 320 > window.innerWidth){
+                left = basePosition.left - 350;
+            }
+
+            var top = basePosition.top;
+            if (top + 480 > window.innerHeight){
+                top = window.innerHeight - 480;
+            }
+
+            newFloatWindow({
+                url: targetURL,
+                width: 330,
+                height: 480,
+                left: left,
+                top: top,
+                appicon: "SystemAO/file_system/img/share.svg",
+                title: "Share File"
+            }, function(windowUUID){
+                //Set the window to fixed window
+                setFloatWindowResizePolicy(windowUUID, false);
+            });
+
+            hideAllContextMenus();
         }
 
         function openObjectProperty(target, object){
@@ -4224,6 +4526,27 @@
                 height: 480,
                 appicon: "SystemAO/file_system/img/properties.png",
                 title: "File Properties",
+            });
+
+            hideAllContextMenus();
+        }
+
+        //Open the file extension selector
+        function openOpenSelector(target, event){
+            var filedata = $($(".launchIconWrapper.selected")[0]).parent().attr("filedata")
+            filedata = JSON.parse(decodeURIComponent(filedata));
+            
+            var fileDescriptor = {
+                filepath: filedata.Filepath,
+                filename: filedata.Filename
+            }
+            
+            newFloatWindow({
+                url: "SystemAO/file_system/defaultOpener.html#" + encodeURIComponent(JSON.stringify(fileDescriptor)),
+                width: 320,
+                height: 510,
+                appicon: "SystemAO/file_system/img/opener.png",
+                title: "Select WebApp to Open File",
             });
 
             hideAllContextMenus();
@@ -4250,9 +4573,7 @@
 
            //Open the files with the given module
             openFileWithModule(targetModuleInfo, openFileList);
-
             hideAllContextMenus();
-
         }
 
         function getModuleInfoFromName(moduleName){
@@ -4265,22 +4586,45 @@
             return false
         }
 
+        /*
+            This function is used to generate menu items for context menu.
+            Options example
+            {
+                payload: {
+                    //Some JSON based payload here
+                }
+            }
+        */
 
-
-        function addContextMenuItem(target, keyword, hotkey = undefined, functionName, containSubMenu = false) {
+        function addContextMenuItem(target, keyword, hotkey = undefined, functionName, containSubMenu = false, options=undefined) {
             var itemClass = "item";
             if (containSubMenu) {
                 itemClass = "item submenu";
             }
+
+            var payload = "";
+            if (options != undefined && options.payload != undefined){ 
+                payload = encodeURIComponent(JSON.stringify(options.payload));
+            }
+
             if (hotkey !== undefined) {
-                target.append(`<div class="${itemClass}" onclick="${functionName}(this,event);">
+                target.append(`<div class="${itemClass}" onclick="${functionName}(this,event);" payload="${payload}">
                         ${keyword}
                         <span class="description">${hotkey}</span>
                     </div>`);
             } else {
-                target.append(`<div class="${itemClass}"  onclick="${functionName}(this,event);">
+                target.append(`<div class="${itemClass}"  onclick="${functionName}(this,event);" payload="${payload}">
                         ${keyword}
                     </div>`);
+            }
+        }
+
+        function getContextMenuPayload(object){
+            var encodedPayload = $(object).attr("payload");
+            if (encodedPayload != ""){
+                return JSON.parse(decodeURIComponent(encodedPayload));
+            }else{
+                return null;
             }
         }
 
@@ -4317,6 +4661,12 @@
 
         function addContextMenuSeperator(target) {
             $(target).append(`<div class="divider"></div>`);
+        }
+
+        function addContextMenuTitle(target, title){
+            $(target).append(`<div class="header">
+                ${title}
+            </div>`);
         }
 
         function downloadURL() {
@@ -4488,27 +4838,29 @@
                         }else{
                             //Normal typed files / folder. Rename the object
                             let currentInputTextArea = $(this);
-                            $.ajax({
-                                url: "./system/file_system/fileOpr",
-                                method: "POST",
-                                data: {opr: "rename", src: JSON.stringify([filepath]), new: JSON.stringify([newFilename])},
-                                success: function(data){
-                                    if (data.error !== undefined){
-                                        //Cancel the operation
-                                        console.log("*ERROR* " + data.error);
-                                        currentInputTextArea.remove();
-                                    }else{
-                                        //Update the new file position
-                                        let closestLocation = findClosestGrid($(currentInputTextArea).parent().offset().left, $(currentInputTextArea).parent().offset().top);
-                                        let closestGridIndexLocation = closestLocation[1];
-                                        setIconDesktopLocation(newFilename, closestGridIndexLocation[0], closestGridIndexLocation[1], function(){
-                                            //Callback after setting location
-                                            refresh(function() {
-                                                //Refresh the desktop
+                            generateCSRFToken(function(csrftoken){
+                                $.ajax({
+                                    url: "./system/file_system/fileOpr",
+                                    method: "POST",
+                                    data: {opr: "rename", src: JSON.stringify([filepath]), new: JSON.stringify([newFilename]), csrft: csrftoken},
+                                    success: function(data){
+                                        if (data.error !== undefined){
+                                            //Cancel the operation
+                                            console.log("*ERROR* " + data.error);
+                                            currentInputTextArea.remove();
+                                        }else{
+                                            //Update the new file position
+                                            let closestLocation = findClosestGrid($(currentInputTextArea).parent().offset().left, $(currentInputTextArea).parent().offset().top);
+                                            let closestGridIndexLocation = closestLocation[1];
+                                            setIconDesktopLocation(newFilename, closestGridIndexLocation[0], closestGridIndexLocation[1], function(){
+                                                //Callback after setting location
+                                                refresh(function() {
+                                                    //Refresh the desktop
+                                                });
                                             });
-                                        });
+                                        }
                                     }
-                                }
+                                });
                             });
                         }
                     }
@@ -4556,19 +4908,22 @@
                 deleteFileList.push(filedata.Filepath);
             });
             console.log(deleteFileList);
-            $.ajax({
-                url: "system/file_system/fileOpr",
-                method:"POST",
-                data: {opr: "recycle", src: JSON.stringify(deleteFileList)},
-                success: function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                       refresh(undefined, true);
+            generateCSRFToken(function(csrftoken){
+                $.ajax({
+                    url: "system/file_system/fileOpr",
+                    method:"POST",
+                    data: {opr: "recycle", src: JSON.stringify(deleteFileList), csrft: csrftoken},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                        refresh(undefined, true);
+                        }
                     }
-                }
+                });
+                hideAllContextMenus();
             });
-            hideAllContextMenus();
+            
         }
 
         //File Rename
@@ -4846,8 +5201,8 @@
         function uploadFile(file, callback=undefined) {
             let url = 'system/file_system/upload'
             let uploadCurrentPath = "user:/Desktop/";
-            let formData = new FormData()
-            let xhr = new XMLHttpRequest()
+            let formData = new FormData();
+            let xhr = new XMLHttpRequest();
             formData.append('file', file);
             formData.append('path', uploadCurrentPath);
 
@@ -5111,9 +5466,18 @@
             });
         }, 15000);
 
+        function generateCSRFToken(callback){
+            $.ajax({
+                url: "../../system/csrf/new",
+                success: function(token){
+                    callback(token);
+                }
+            })
+        }
+
         function getDesktopHash(callback){
             $.ajax({
-                url: "../../system/file_system/listDirHash",
+                url: "system/file_system/listDirHash",
                 data: {dir: "user:/Desktop/"},
                 success: function(data){
                     if (data.error !== undefined){

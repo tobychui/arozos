@@ -476,6 +476,56 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 }
 
+//Check if a file is shared
+func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
+	//Get the vpath from paramters
+	vpath, err := mv(r, "path", true)
+	if err != nil {
+		sendErrorResponse(w, "Invalid path given")
+		return
+	}
+
+	//Get userinfo
+	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	//Get realpath from userinfo
+	rpath, err := userinfo.VirtualPathToRealPath(vpath)
+	if err != nil {
+		sendErrorResponse(w, "Unable to resolve realpath")
+		return
+	}
+
+	type Result struct {
+		IsShared  bool
+		ShareUUID *ShareOption
+	}
+
+	//Check if share exists
+	shareExists := s.FileIsShared(rpath)
+	if !shareExists {
+		//Share not exists
+		js, _ := json.Marshal(Result{
+			IsShared:  false,
+			ShareUUID: &ShareOption{},
+		})
+		sendJSONResponse(w, string(js))
+
+	} else {
+		//Share exists
+		thisSharedInfo := s.GetShareObjectFromRealPath(rpath)
+		js, _ := json.Marshal(Result{
+			IsShared:  true,
+			ShareUUID: thisSharedInfo,
+		})
+		sendJSONResponse(w, string(js))
+	}
+
+}
+
 //Create new share from the given path
 func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 	//Get the vpath from paramters

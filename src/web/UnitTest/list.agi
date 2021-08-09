@@ -3,10 +3,6 @@
 
 */
 
-requirelib("filelib");
-var tests = filelib.glob("web:/UnitTest/backend/*.js")
-var results = [];
-for (var i = 0; i < tests.length; i++){
-	results.push(tests[i].replace("web:/",""))
-}
-sendJSONResp(JSON.stringify(results));
+requirelib("appdata");
+var tests = appdata.listDir("UnitTest/backend/");
+sendJSONResp(tests);

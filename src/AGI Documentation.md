@@ -458,7 +458,7 @@ requirelib("imagelib");
 
 #### ImageLib functions
 ```
-imagelib.getImageDimension("user:/Desktop/test.jpg"); 									//return {width, height}
+imagelib.getImageDimension("user:/Desktop/test.jpg"); 									//return [width, height]
 imagelib.resizeImage("user:/Desktop/input.png", "user:/Desktop/output.png", 500, 300); 	//Resize input.png to 500 x 300 pixal and write to output.png
 imagelib.loadThumbString("user:/Desktop/test.jpg"); //Load the given file's thumbnail as base64 string, return false if failed
 imagelib.cropImage("user:/Desktop/test.jpg", "user:/Desktop/out.jpg",100,100,200,200)); 

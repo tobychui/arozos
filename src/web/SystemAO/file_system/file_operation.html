@@ -223,14 +223,17 @@ mainloop:
             function unzip(srcList, dest, overwriteMode, callback=undefined){
                 if (legacyMode){
                     //Run in legacy mode
-                    $.ajax({
-                        type: 'POST',
-                        url: `../../system/file_system/fileOpr`,
-                        data: {opr: "unzip" ,src: JSON.stringify(srcList), dest: dest},
-                        success: function(data){
-                            handleFinish(data);
-                        }
+                    requestCSRFToken(function(token){
+                        $.ajax({
+                            type: 'POST',
+                            url: `../../system/file_system/fileOpr`,
+                            data: {opr: "unzip" ,src: JSON.stringify(srcList), dest: dest, csrft: token},
+                            success: function(data){
+                                handleFinish(data);
+                            }
+                        });
                     });
+                    
                 }else{
                     //Filter all + sign in the list
                     var filteredSrcList = [];
@@ -307,13 +310,15 @@ mainloop:
             function zip(srcList, dest, overwriteMode){
                 if (legacyMode){
                     //Run in legacy mode
-                    $.ajax({
-                        type: 'POST',
-                        url: `../../system/file_system/fileOpr`,
-                        data: {opr: "zip" ,src: JSON.stringify(srcList), dest: dest},
-                        success: function(data){
-                            handleFinish(data);
-                        }
+                    requestCSRFToken(function(token){
+                        $.ajax({
+                            type: 'POST',
+                            url: `../../system/file_system/fileOpr`,
+                            data: {opr: "zip" ,src: JSON.stringify(srcList), dest: dest, csrft: token},
+                            success: function(data){
+                                handleFinish(data);
+                            }
+                        });
                     });
                 }else{
                      //Replace all + sign with tag
@@ -397,15 +402,19 @@ mainloop:
 
             function cut(srcList, dest, overwriteMode){
                 if (legacyMode){
-                    console.log("WebSocket not found, Running in legacy mode")
-                    $.ajax({
-                        type: 'POST',
-                        url: `../../system/file_system/fileOpr`,
-                        data: {opr: "move" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode},
-                        success: function(data){
-                            handleFinish(data);
-                        }
+                    console.log("WebSocket not found, Running in legacy mode");
+                    requestCSRFToken(function(token){
+                        $.ajax({
+                            type: 'POST',
+                            url: `../../system/file_system/fileOpr`,
+                            data: {opr: "move" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode, csrft: token},
+                            success: function(data){
+                                handleFinish(data);
+                            }
+                        });
                     });
+
+                    
                 }else{
                     //Replace all + sign in srclist with {{plus_sign}}
                     var filteredSrcList = [];
@@ -477,15 +486,19 @@ mainloop:
             function copy(srcList, dest, overwriteMode){
                 if (legacyMode){
                     //Open operation in legacy mode
-                    console.log("WebSocket not found, Running in legacy mode")
-                    $.ajax({
-                        type: 'POST',
-                        url: `../../system/file_system/fileOpr`,
-                        data: {opr: "copy" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode },
-                        success: function(data){
-                            handleFinish(data);
-                        }
+                    console.log("WebSocket not found, Running in legacy mode");
+                    requestCSRFToken(function(token){
+                        $.ajax({
+                            type: 'POST',
+                            url: `../../system/file_system/fileOpr`,
+                            data: {opr: "copy" ,src: JSON.stringify(srcList), dest: dest,existsresp: overwriteMode , csrft: token},
+                            success: function(data){
+                                handleFinish(data);
+                            }
+                        });
                     });
+
+                    
                 }else{
                     var filteredSrcList = [];
                     srcList.forEach(src => {
@@ -641,7 +654,14 @@ mainloop:
                 console.log(data);
             }
 
-
+            function requestCSRFToken(callback){
+                $.ajax({
+                    url: "../../system/csrf/new",
+                    success: function(token){
+                        callback(token);
+                    }
+                })
+            }
           
         </script>
     </body>

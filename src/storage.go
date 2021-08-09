@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"imuslab.com/arozos/mod/permission"
 
@@ -161,6 +162,21 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		pg.StoragePool.OtherPermission = "denied"
 	}
 	return nil
+}
+
+func GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
+	//Filter out the :/ fropm uuid if exists
+	if strings.Contains(uuid, ":") {
+		uuid = strings.Split(uuid, ":")[0]
+	}
+
+	for _, fsh := range fsHandlers {
+		if fsh.UUID == uuid {
+			return fsh, nil
+		}
+	}
+
+	return nil, errors.New("Filesystem handler with given UUID not found")
 }
 
 func RegisterStorageSettings() {

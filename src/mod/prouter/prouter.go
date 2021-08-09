@@ -15,6 +15,7 @@ import (
 	"log"
 	"net/http"
 
+	"imuslab.com/arozos/mod/security/csrf"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -22,6 +23,8 @@ type RouterOption struct {
 	ModuleName    string                                   //The name of module that permission is based on
 	AdminOnly     bool                                     //Require admin permission to use this API endpoint
 	RequireLAN    bool                                     //Require LAN connection (aka no external access)
+	CSRFTManager  *csrf.TokenManager                       //The CSRF Token Manager, can be nil if CSRFT is false
+	RequireCSRFT  bool                                     //Require CSRF Token to be accessiable
 	UserHandler   *user.UserHandler                        //System user handler
 	DeniedHandler func(http.ResponseWriter, *http.Request) //Things to do when request is rejected
 }

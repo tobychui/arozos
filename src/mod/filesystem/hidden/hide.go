@@ -17,3 +17,11 @@ func hide(filename string) error {
 	}
 	return nil
 }
+
+func isHidden(filename string) (bool, error) {
+	if len(filepath.Base(filename)) > 0 && filepath.Base(filename)[0:1] == "." {
+		return true, nil
+	}
+
+	return false, nil
+}

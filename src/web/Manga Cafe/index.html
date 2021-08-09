@@ -4,19 +4,25 @@
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
         <meta charset="UTF-8">
-        <meta name="theme-color" content="#4b75ff">
+        <meta name="theme-color" content="#fcfcfc">
         <link rel="stylesheet" href="../script/semantic/semantic.min.css">
         <script src="../script/jquery.min.js"></script>
         <script src="../script/ao_module.js"></script>
         <script src="../script/semantic/semantic.min.js"></script>
+        <link rel="shortcut icon" type="image/png" href="img/small_icon.png"/>
+        <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
         <title>Manga Cafe</title>
         <style>
             body{
-                background-color:white;
+                background-color:#f0f0f0;
             }
 
             .manga{
                 margin-left: 8px !important;
+            }
+
+            .mangaTitle{
+                width: 100%;
             }
         </style>
     </head>
@@ -59,16 +65,16 @@
                     var defaultWidth = "200px";
                     var defaultImageHeight = "300px";
                     if (isMobile){
-                        $(".basic.segment").removeClass("segment");
-                        defaultWidth = "100%"
+                        defaultWidth = "150px";
+                        defaultImageHeight = "230px";
                     }
                     $("#mangalist").append(`<div class="ui card manga" style="width: ${defaultWidth}; display: inline-block;">
-                        <div class="content">
+                        <div class="content" style="border-bottom: 1px solid #bfbfbf;">
                             <div class="right floated meta">Ch#: ${manga[1]}</div>
                             ${title}
                         </div>
-                        <a class="image"  href="viewComic.html#${manga[3]}" style="text-align:center;">
-                            <img style="width: 200px; height: 300px; display:block; margin:auto;" src="${preview}">
+                        <a class="image" href="viewComic.html#${manga[3]}" style="text-align:center;">
+                            <img class="mangaTitle" src="${preview}" style="height: ${defaultImageHeight};"/>
                         </a> 
                     </div>`);
                 });

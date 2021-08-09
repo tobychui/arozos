@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -23,6 +24,7 @@ import (
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 
+	"imuslab.com/arozos/mod/disk/hybridBackup"
 	fs "imuslab.com/arozos/mod/filesystem"
 	fsp "imuslab.com/arozos/mod/filesystem/fspermission"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
@@ -167,6 +169,7 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/share/new", shareManager.HandleCreateNewShare)
 	router.HandleFunc("/system/file_system/share/delete", shareManager.HandleDeleteShare)
 	router.HandleFunc("/system/file_system/share/edit", shareManager.HandleEditShare)
+	router.HandleFunc("/system/file_system/share/checkShared", shareManager.HandleShareCheck)
 
 	//Handle the main share function
 	http.HandleFunc("/share", shareManager.HandleShareAccess)
@@ -179,11 +182,11 @@ func FileSystemInit() {
 	*/
 
 	//Clear tmp folder if files is placed here too long
-	RegisterNightlyTask(system_fs_clearOldTmpFiles)
+	nightlyManager.RegisterNightlyTask(system_fs_clearOldTmpFiles)
 
 	//Clear shares that its parent file no longer exists in the system
 	shareManager.ValidateAndClearShares()
-	RegisterNightlyTask(shareManager.ValidateAndClearShares)
+	nightlyManager.RegisterNightlyTask(shareManager.ValidateAndClearShares)
 
 }
 
@@ -500,7 +503,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 /*
 	Handle FORM POST based upload
 
-	This function is design for general SBCs or computers with more than 1GB of RAM
+	This function is design for general SBCs or computers with more than 2GB of RAM
 	(e.g. Raspberry Pi 4 / Linux Server)
 */
 func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -509,8 +512,6 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		sendErrorResponse(w, "User not logged in")
 		return
 	}
-
-	username := userinfo.Username
 
 	//Limit the max upload size to the user defined size
 	if max_upload_size != 0 {
@@ -533,7 +534,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	file, handler, err := r.FormFile("file")
 	if err != nil {
-		log.Println("Error Retrieving File from upload by user: " + username)
+		log.Println("Error Retrieving File from upload by user: " + userinfo.Username)
 		sendErrorResponse(w, "Unable to parse file from upload")
 		return
 	}
@@ -547,7 +548,6 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Translate the upload target directory
 	realUploadPath, err := userinfo.VirtualPathToRealPath(uploadTarget)
-
 	if err != nil {
 		sendErrorResponse(w, "Upload target is invalid or permission denied.")
 		return
@@ -653,7 +653,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	//fmt.Println("Upload target: " + realUploadPath)
 
 	//Fnish upload. Fix the tmp filename
-	log.Println(username + " uploaded a file: " + handler.Filename)
+	log.Println(userinfo.Username + " uploaded a file: " + handler.Filename)
 
 	//Do upload finishing stuff
 	//Perform a GC
@@ -663,6 +663,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	sendOK(w)
 
 	return
+
 }
 
 //Validate if the copy and target process will involve file overwriting problem.
@@ -1332,9 +1333,17 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 */
 //Handle file operations.
 func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
+	//Check if user logged in
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	//Validate the token
+	tokenValid := CSRFTokenManager.HandleTokenValidation(w, r)
+	if !tokenValid {
+		http.Error(w, "Invalid CSRF token", 401)
 		return
 	}
 
@@ -1841,16 +1850,39 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 		sendJSONResponse(w, string(jsonString))
 	} else {
 		type rootObject struct {
-			RootName string
-			RootPath string
+			rootID      string //The vroot id
+			RootName    string //The name of this vroot
+			RootPath    string //The path of this vroot
+			RootBackups bool   //If there are backup for this vroot
 		}
-		var roots []rootObject
+
+		roots := []*rootObject{}
+		backupRoots := []string{}
 		for _, store := range userinfo.GetAllFileSystemHandler() {
-			var thisDevice = new(rootObject)
-			thisDevice.RootName = store.Name
-			thisDevice.RootPath = store.UUID + ":/"
-			roots = append(roots, *thisDevice)
+			if store.Hierarchy == "user" || store.Hierarchy == "public" {
+				//Normal drives
+				var thisDevice = new(rootObject)
+				thisDevice.RootName = store.Name
+				thisDevice.RootPath = store.UUID + ":/"
+				thisDevice.rootID = store.UUID
+				roots = append(roots, thisDevice)
+			} else if store.Hierarchy == "backup" {
+				//Backup drive.
+				backupRoots = append(backupRoots, store.HierarchyConfig.(hybridBackup.BackupTask).ParentUID)
+			}
 		}
+
+		//Update root configs for backup roots
+		for _, backupRoot := range backupRoots {
+			//For this backup root, check if the parent root mounted
+			for _, root := range roots {
+				if root.rootID == backupRoot {
+					//Parent root mounted. Label the parent root as "have backup"
+					root.RootBackups = true
+				}
+			}
+		}
+
 		jsonString, _ := json.Marshal(roots)
 		sendJSONResponse(w, string(jsonString))
 	}
@@ -1863,6 +1895,8 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_specialGlob(path string) ([]string, error) {
+	//Quick fix for foldername containing -] issue
+	path = strings.ReplaceAll(path, "[", "[[]")
 	files, err := filepath.Glob(path)
 	if err != nil {
 		return []string{}, err
@@ -2053,6 +2087,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 			userinfo.GetHomeDirectory()
 		} else {
 			//Folder not exists
+			log.Println("[File Explorer] Requested path: ", realpath, " does not exists!")
 			sendJSONResponse(w, "{\"error\":\"Folder not exists\"}")
 			return
 		}

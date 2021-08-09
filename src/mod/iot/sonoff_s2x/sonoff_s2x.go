@@ -35,7 +35,7 @@ func NewProtocolHandler(scanner *mdns.MDNSHost) *Handler {
 }
 
 func (h *Handler) Start() error {
-	log.Println("*IoT* Sonoff Tasmoto S2X 6.4 scanner loaded")
+	log.Println("[IoT] Sonoff Tasmoto S2X 6.4 scanner loaded")
 	return nil
 }
 
@@ -44,6 +44,10 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 	scannedDevices := h.scanner.Scan(10, "")
 	for _, dev := range scannedDevices {
 		if dev.Port == 80 {
+			if len(dev.IPv4) == 0 {
+				//This device has no return IP???
+				continue
+			}
 			//This things has web UI. Check if it is sonoff by grabbing its index
 			value, err := tryGet("http://" + dev.IPv4[0].String() + "/")
 			if err != nil {

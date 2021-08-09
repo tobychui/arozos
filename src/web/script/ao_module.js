@@ -248,6 +248,30 @@ function ao_module_openPath(path, filename=undefined){
    
 }
 
+//Open a particular tab using System Setting module. Require 
+//1) Setting Group
+//2) Setting Name
+function ao_module_openSetting(group, name){
+    var requestObject = {
+        group: group,
+        name: name
+    }
+
+    requestObject = encodeURIComponent(JSON.stringify(requestObject));
+    var openURL = "SystemAO/system_setting/index.html#" + requestObject;
+    if (ao_module_virtualDesktop){
+        ao_module_newfw({
+            url: openURL,
+            width: 1080,
+            height: 580,
+            appicon: "SystemAO/system_setting/img/small_icon.png",
+            title: "System Setting"
+        });
+    }else{
+        window.open(ao_root + openURL)
+    }
+}
+
 
 /*
     ao_module_newfw(launchConfig) => Create a new floatWindow object from the given paramters
@@ -676,7 +700,8 @@ ao_module_utils.getIconFromExt(ext); //Get icon tag from file extension
 
 ao_module_utils.getDropFileInfo(dropEvent); //Get the filepath and filename list from file explorer drag drop
 ao_module_utils.formatBytes(byte, decimals); //Format file byte size to human readable size
- **/
+ao_module_utils.timeConverter(unix_timestamp); //Get human readable timestamp 
+**/
 class ao_module_utils{
     
     //Two simple functions for converting any Javascript object into string that can be put into the attr value of an DOM object
@@ -797,6 +822,19 @@ class ao_module_utils{
            
         };
 
+    }
+
+    static timeConverter(UNIX_timestamp){
+        var a = new Date(UNIX_timestamp * 1000);
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var year = a.getFullYear();
+        var month = months[a.getMonth()];
+        var date = a.getDate();
+        var hour = a.getHours().toString().padStart(2, "0");
+        var min = a.getMinutes().toString().padStart(2, "0");
+        var sec = a.getSeconds().toString().padStart(2, "0");
+        var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+        return time;
     }
     
     static formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}

@@ -5,6 +5,7 @@
 #Testing Folders
 test/deviceA/*
 test/deviceB/*
+test/
 tmp/*
 files/users*
 __debug_bin

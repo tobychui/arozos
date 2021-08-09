@@ -63,6 +63,7 @@
                     return "rgb(" + r + "," + g + "," + b + ")";
                 };
                 $.get("../../../system/disk/quota/quotaDist",function(list){
+                    accurateUsedSpace = 0;
                     if (list == null){
                         return;
                     }

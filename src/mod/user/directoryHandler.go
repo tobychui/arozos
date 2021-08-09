@@ -2,9 +2,10 @@ package user
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
-	"os"
+
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
@@ -81,10 +82,19 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 			if storage.Closed == true {
 				return "", errors.New("Request Filesystem Handler has been closed by another process")
 			}
+
+			//Check if this is a backup drive
+			if storage.Hierarchy == "backup" {
+				return "", errors.New("Request Filesystem Handler do not allow direct access")
+			}
+
+			//Handle general cases
 			if storage.Hierarchy == "user" {
-				return filepath.Clean(storage.Path) + "/users/" + u.Username + subpath, nil
+				return filepath.ToSlash(filepath.Clean(storage.Path) + "/users/" + u.Username + subpath), nil
+			} else if storage.Hierarchy == "public" {
+				return filepath.ToSlash(filepath.Clean(storage.Path) + subpath), nil
 			} else {
-				return filepath.Clean(storage.Path) + subpath, nil
+				return "", errors.New("Unknown Filesystem Handler Hierarchy")
 			}
 
 		}
@@ -102,7 +112,20 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 
 	//Check for path escape
 	if len(realPath) > 2 && realPath[:2] == ".." {
-		return "", errors.New("Request path out of storage root")
+		//Fix: 20 May 2021: Allow using ../folder as virtual root directory
+		//Check if there are vroots that actually use relative path as root directory.
+		allowSpecialCasePassThrough := false
+		for _, fsh := range userFsHandlers {
+			thisVrootPath := fsh.Path
+			if len(realPath) > len(thisVrootPath) && filepath.ToSlash(realPath[:len(thisVrootPath)]) == filepath.ToSlash(thisVrootPath) {
+				allowSpecialCasePassThrough = true
+			}
+		}
+
+		if !allowSpecialCasePassThrough {
+			return "", errors.New("Request path out of storage root")
+		}
+
 	}
 
 	//Look for a real path of a virtual device that the realpath is containing
@@ -117,18 +140,33 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 		thisStorageRootAbs = filepath.ToSlash(filepath.Clean(thisStorageRootAbs))
 		pathContained := false
 		subPath := ""
-		if len(realPath) > len(thisStorageRoot) && realPath[:len(thisStorageRoot)] == thisStorageRoot {
+		if len(realPath) > len(thisStorageRoot) && filepath.ToSlash(realPath[:len(thisStorageRoot)]) == filepath.ToSlash(thisStorageRoot) {
 			//This realpath is in contained inside this storage root
 			pathContained = true
 			subtractionPath := thisStorageRoot
 			if storage.Hierarchy == "user" {
+				//Check if this file is belongs to this user
+				startOffset := len(filepath.Clean(thisStorageRoot) + "/users/")
+				if len(realPath) < startOffset+len(u.Username) {
+					//This file is not owned by this user
+					return "", errors.New("File not owned by this user")
+				} else {
+					userNameMatch := realPath[startOffset : startOffset+len(u.Username)]
+					if userNameMatch != u.Username {
+						//This file is not owned by this user
+						return "", errors.New("File not owned by this user")
+					}
+				}
+
+				//Generate subtraction path
 				subtractionPath = thisStorageRoot + "/users/" + u.Username + "/"
 			}
 
 			if len(subtractionPath) < len(realPath) {
 				subPath = realPath[len(subtractionPath):]
 			}
-		} else if len(realPath) > len(thisStorageRootAbs) && realPath[:len(thisStorageRootAbs)] == thisStorageRootAbs {
+
+		} else if len(realPath) > len(thisStorageRootAbs) && filepath.ToSlash(realPath[:len(thisStorageRootAbs)]) == filepath.ToSlash(thisStorageRootAbs) {
 			//The realpath contains the absolute path of this storage root
 			pathContained = true
 			subtractionPath := thisStorageRootAbs
@@ -139,7 +177,7 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 			if len(subtractionPath) < len(realPath) {
 				subPath = realPath[len(subtractionPath):]
 			}
-		} else if realPath == thisStorageRoot {
+		} else if filepath.ToSlash(realPath) == filepath.ToSlash(thisStorageRoot) {
 			//Storage Root's root
 			pathContained = true
 			subPath = ""
@@ -210,7 +248,7 @@ func getIDFromVirtualPath(vpath string) (string, string, error) {
 		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
 	}
 
-	//Clean up the virutal path 
+	//Clean up the virutal path
 	vpath = filepath.ToSlash(filepath.Clean(vpath))
 
 	tmp := strings.Split(vpath, ":")

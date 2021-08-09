@@ -16,10 +16,10 @@ var moduleLaunchInfo = {
 	IconPath: "PDF Viewer/icons/module_icon.png",
 	Version: "2.7.570",
 	StartDir: "",
-	SupportFW: true,
-	LaunchFWDir: "PDF Viewer/viewer.html",
-	SupportEmb: false,
-	InitFWSize: [1024, 768],
+	SupportFW: false,
+	LaunchEmb: "PDF Viewer/viewer.html",
+	SupportEmb: true,
+	InitEmbSize: [1024, 768],
 	SupportedExt: [".pdf"]
 }
 

@@ -43,7 +43,7 @@ func (m *Manager) RegisterHandler(h ProtocolHandler) error {
 	err := h.Start()
 	if err != nil {
 		//Handler startup failed
-		log.Println("*IoT* Protocol Handler Startup Failed: ", err.Error())
+		log.Println("[IoT] *ERROR* Protocol Handler Startup Failed: ", err.Error())
 		return err
 	}
 
@@ -203,7 +203,7 @@ func (m *Manager) ScanDevices() []*Device {
 		//Scan devices using this handler
 		thisProtcolDeviceList, err := ph.Scan()
 		if err != nil {
-			log.Println("*IoT* Scan Error: " + err.Error())
+			log.Println("[IoT] *ERROR* Scan Error: " + err.Error())
 			continue
 		}
 

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+	<meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script src="../../script/jquery.min.js"></script>
+	<script src="../../script/semantic/semantic.min.js"></script>
+    <style>
+        .hidden{
+            display:none;
+        }
+
+        .disabled{
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <h3 class="ui header">
+                Backup Disk
+                <div class="sub header">Virtual Roots managed by Hybrid Backup Manager</div>
+            </h3>
+        </div>
+       
+        <table class="ui celled table">
+            <thead>
+              <tr><th>Backup Disk (UUID)</th>
+              <th>Source Disk (UUID)</th>
+              <th>Mode</th>
+              <th>Last Cycle Time</th>
+              <th>Cycle Counter*</th>
+              <th>Action</th>
+            </tr></thead>
+            <tbody id="diskTable">
+          
+            </tbody>
+        </table>
+        <small>*Cycle counter is not equal to the number of times the backup has executed. It is a reference number for developer only.</small>
+        <div class="ui divider"></div>
+        <button class="ui tiny right floated green button" onclick="initBackupDiskList();"><i class="refresh icon"></i> Refresh List</button>
+        <button class="ui tiny basic button" onclick="toggleModeInfo();"><i class="question icon"></i> Know more about backup modes</button>
+        <div class="ui message" id="modeInfo" style="display:none;">
+            <div class="header">
+                <i class="refresh icon"></i> Backup & Restore Modes
+            </div>
+            <p>There are 3 backup Modes under the ArozOS Hybrid Backup Manager. </p>
+            <ul class="list">
+                <li>Basic (Recommended)
+                    <ul class="list">
+                        <li>Backup newly created files within 5 minutes</li>
+                        <li>Deleted files will be kept 24 hours before it is deleted from backup storage</li>
+                        <li><i class="green checkmark icon"></i> Changes are backed up in near real time</li>
+                        <li><i class="green checkmark icon"></i> Suitable for recovering accidentally deleted files from other access methods (e.g. Samba delete)</li>
+                        <li><i class="red remove icon"></i> Only for disk with small number of files</li>
+                        <li><i class="red remove icon"></i> Frequent READ operations on disk (Recommended for SSD / SD cards only)</li>
+                    </ul>
+                </li>
+                <li>Nightly
+                    <ul class="list">
+                        <li>Backup newly created files every 24 hours</li>
+                        <li>Deleted files will be kept 24 - 48 hours before it is deleted from backup storage</li>
+                        <li><i class="green checkmark icon"></i> Allowing user to restore selected file vs (snapshot) restore the whole virtual root folder</li>
+                        <li><i class="green checkmark icon"></i> Suitable for recovering accidentally deleted files from other access methods (e.g. Samba delete)</li>
+                        <li><i class="red remove icon"></i> Changes might take 24 hours to back up</li>
+                    </ul>
+                </li>
+                <li>Version (Experimental)
+                    <ul class="list">
+                        <li>Snapshot based backup method</li>
+                        <li>All file changes are kept on disk</li>
+                        <li><i class="green checkmark icon"></i> Allowing user to restore to a specific snapshot</li>
+                        <li><i class="green checkmark icon"></i> Newly created files will be kept, files exists in snapshot will be restored / overwritten</li>
+                        <li><i class="red remove icon"></i> Require a lot of storage space</li>
+                        <li><i class="red remove icon"></i> Computational and IO access heavy, might not suitable for ARM SBCs.</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <script>
+        
+        function toggleModeInfo(){
+            $("#modeInfo").slideToggle('fast');
+        }
+
+        initBackupDiskList();
+       function initBackupDiskList(){
+            $("#diskTable").html(``);
+            $.get(`../../system/backup/listAll`, function(data){
+                if (data.error !== undefined){
+                    alert(data.error);
+                }else{
+                    //Render the list
+                    data.forEach(disk => {
+                        $("#diskTable").append(`<tr>
+                            <td data-label=""><img class="ui avatar image" style="border-radius: 0px;" src="../../img/system/drive-backup.svg"> ${disk.DiskName} (${disk.DiskUID}:/)</td>
+                            <td data-label=""><img class="ui avatar image" style="border-radius: 0px;" src="../../img/system/drive-virtual.svg"> ${disk.ParentName} (${disk.ParentUID}:/)</td>
+                            <td data-label="">${disk.BackupMode}</td>
+                            <td data-label="">${ao_module_utils.timeConverter(disk.LastBackupCycleTime)}</td>
+                            <td data-label="">${disk.BackupCycleCount}</td>
+                            <td data-label=""><button class="ui teal tiny button" onclick="openRestore('${disk.ParentUID}');">Restore Settings</button></td>
+                        </tr> `);
+                    });
+                    if (data.length == 0){
+                        $('#diskTable').append(`<tr>
+                            <td data-label=""col="5"><i class="red remove icon"></i> No backup disk found on this system</td>
+                        </tr> `);
+                    }
+                }
+            });
+       }
+
+       function openRestore(diskUUID){
+            var rootname = [diskUUID + ":/"];
+            console.log(rootname);
+            var hashPassthrough = encodeURIComponent(JSON.stringify(rootname));
+            ao_module_newfw({
+                url: "SystemAO/disk/disk_restore.html#" + hashPassthrough,
+                width: 410,
+                height: 580,
+                appicon: "img/system/backup.svg",
+                title: "Backup & Restore",
+            });
+       }
+    </script>
+</body>
+</html>

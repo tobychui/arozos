@@ -110,6 +110,19 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currentUserinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		//This user has not logged in
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	if currentUserinfo.Username == userinfo.Username {
+		//This user has not logged in
+		sendErrorResponse(w, "You can't remove yourself")
+		return
+	}
+
 	//Clear Core User Data
 	userinfo.RemoveUser()
 

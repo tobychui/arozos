@@ -1,0 +1,2 @@
+Hello World!
+This is an appdata file that should be accessiable via appdata API call
