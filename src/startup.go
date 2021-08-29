@@ -39,26 +39,28 @@ func RunStartup() {
 	StorageInit() //See storage.go
 
 	//5. Startup user and permission sytem
-	UserSystemInit()       //See user.go
-	permissionInit()       //Register permission interface after user
-	RegisterSystemInit()   //See register.go
-	OAuthInit()            //Oauth system init
-	GroupStoragePoolInit() //Register permission groups's storage pool, require permissionInit()
+	UserSystemInit()        //See user.go
+	permissionInit()        //Register permission interface after user
+	RegisterSystemInit()    //See register.go
+	OAuthInit()             //Oauth system init
+	GroupStoragePoolInit()  //Register permission groups's storage pool, require permissionInit()
+	BridgeStoragePoolInit() //Register the bridged storage pool based on mounted storage pools
 
 	//6. Start Modules and Package Manager
 	ModuleServiceInit() //Module Handler
 	PackagManagerInit() //Start APT service agent
 
 	//7. Kickstart the File System and Desktop
-	SchedulerInit()     //Start System Scheudler
-	FileSystemInit()    //Start FileSystem
-	DesktopInit()       //Start Desktop
-	HardwarePowerInit() //Start host power manager
+	SchedulerInit()  //Start System Scheudler
+	FileSystemInit() //Start FileSystem
+	DesktopInit()    //Start Desktop
+
 	//StorageDaemonInit() //Start File System handler daemon (for backup and other sync process)
 
 	//8 Start AGI and Subservice modules (Must start after module)
-	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
-	SubserviceInit() //Subservice Handler
+	AGIInit()          //ArOZ Javascript Gateway Interface, must start after fs
+	SubserviceInit()   //Subservice Handler
+	ReverseProxtInit() //Start Dynamic Reverse Proxy
 
 	//9. Initiate System Settings Handlers
 	SystemSettingInit()       //Start System Setting Core
@@ -70,6 +72,7 @@ func RunStartup() {
 	AuthSettingsInit()        //Authentication Settings Handler, must be start after user Handler
 	AdvanceSettingInit()      //System Advance Settings
 	StartupFlagsInit()        //System BootFlag settibg
+	HardwarePowerInit()       //Start host power manager
 	RegisterStorageSettings() //Storage Settings
 
 	//10. Startup network services and schedule services
@@ -96,5 +99,4 @@ func RunStartup() {
 
 	//Finally
 	moduleHandler.ModuleSortList() //Sort the system module list
-
 }

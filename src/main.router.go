@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
@@ -72,20 +73,20 @@ func mrouter(h http.Handler) http.Handler {
 			} else {
 				interfaceModule := userinfo.GetInterfaceModules()
 				if len(interfaceModule) == 1 && interfaceModule[0] == "Desktop" {
-					http.Redirect(w, r, "desktop.system", 307)
+					http.Redirect(w, r, "./desktop.system", 307)
 				} else if len(interfaceModule) == 1 {
 					//User with default interface module not desktop
 					modileInfo := moduleHandler.GetModuleInfoByID(interfaceModule[0])
 					http.Redirect(w, r, modileInfo.StartDir, 307)
 				} else if len(interfaceModule) > 1 {
 					//Redirect to module selector
-					http.Redirect(w, r, "SystemAO/boot/interface_selector.html", 307)
+					http.Redirect(w, r, "./SystemAO/boot/interface_selector.html", 307)
 				} else if len(interfaceModule) == 0 {
 					//Redirect to error page
-					http.Redirect(w, r, "SystemAO/boot/no_interfaceing.html", 307)
+					http.Redirect(w, r, "./SystemAO/boot/no_interfaceing.html", 307)
 				} else {
 					//For unknown operations, send it to desktop
-					http.Redirect(w, r, "desktop.system", 307)
+					http.Redirect(w, r, "./desktop.system", 307)
 				}
 			}
 		} else if ((len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/") || r.URL.Path == "/www") && *allow_homepage == true {
@@ -143,10 +144,9 @@ func mrouter(h http.Handler) http.Handler {
 				h.ServeHTTP(w, r)
 			} else {
 				//Other paths
-
 				//Rediect to login page
 				w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-				http.Redirect(w, r, "/login.system?redirect="+r.URL.Path, 307)
+				http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, 307)
 			}
 
 		}

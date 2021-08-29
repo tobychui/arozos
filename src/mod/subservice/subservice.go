@@ -91,21 +91,6 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		binaryExecPath = binaryExecPath + "_" + runtime.GOOS + "_" + runtime.GOARCH
 	}
 
-	/*if runtime.GOOS == "linux" {
-		if runtime.GOARCH == "arm" {
-			binaryExecPath = binaryExecPath + "_linux_arm"
-		} else if runtime.GOARCH == "arm64" {
-			binaryExecPath = binaryExecPath + "_linux_arm64"
-		} else if runtime.GOARCH == "386" {
-			binaryExecPath = binaryExecPath + "_linux_386"
-		} else if runtime.GOARCH == "amd64" {
-			binaryExecPath = binaryExecPath + "_linux_amd64"
-		}
-	} else if runtime.GOOS == "darwin" {
-
-	}
-	*/
-
 	if runtime.GOOS == "windows" && !fileExists(servicePath+"/"+binaryExecPath) {
 		if startupMode {
 			log.Println("Failed to load subservice: "+serviceRoot, " File not exists "+servicePath+"/"+binaryExecPath+". Skipping this service")
@@ -261,7 +246,12 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 			absolutePath, _ = filepath.Abs(initPath)
 		}
 
-		cmd := exec.Command(absolutePath, "-port", ":"+intToString(thisServicePort), "-rpt", "http://localhost:"+intToString(sr.listenPort)+"/api/ajgi/interface")
+		servicePort := ":" + intToString(thisServicePort)
+		if fileExists(filepath.Join(servicePath, "/.intport")) {
+			servicePort = intToString(thisServicePort)
+		}
+
+		cmd := exec.Command(absolutePath, "-port", servicePort, "-rpt", "http://localhost:"+intToString(sr.listenPort)+"/api/ajgi/interface")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Dir = filepath.ToSlash(servicePath + "/")

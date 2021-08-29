@@ -100,13 +100,14 @@ func (s *StoragePool) HasHigherOrEqualPermissionThan(a *StoragePool) bool {
 
 //Close all fsHandler under this storage pool
 func (s *StoragePool) Close() {
+	//Close the running backup tasks
+	s.HyperBackupManager.Close()
+
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
 		fsh.Close()
 	}
 
-	//Close the running backup tasks
-	s.HyperBackupManager.Close()
 }
 
 //Helper function

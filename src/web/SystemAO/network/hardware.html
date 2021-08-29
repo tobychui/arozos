@@ -6,8 +6,7 @@
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-     <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-    <title>WIFI</title>
+    <title>Network Interfaces</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <style>
         .ts.items>.item>.image:not(.ts):not(.flexible) {
@@ -20,18 +19,37 @@
 <body>
     <br>
     <div class="ui container">
-        <div class="ui divided items" id="wifi">
+        <div class="ui divided items" id="nics">
         </div>
     </div>
 
     <script>
-        var template = '<div class="item"><div class="image"><img style="height:64px;width:auto" src="/SystemAO/network/img/%image%.png"></div><div class="content"><p class="header">%interfacename%</p><div class="description">%data%</div></div></div>';
+        var template = '<div class="item"><div class="image"><img style="height:64px;width:auto" src="/SystemAO/network/img/%image%"></div><div class="content"><p class="header">%interfacename%</p><div class="description">%data%</div></div></div>';
 
-        $.getJSON("/system/network/getNICinfo", function(result) {
+        $.getJSON("../../system/network/getNICinfo", function(result) {
             $.each(result, function(i, field) {
-                $("#wifi").append(template.replace("%image%", "Unknown").replace("%interfacename%", field["Name"]).replace("%data%", "MAC Address : " + field["HardwareAddr"] + "<br>IPv4 Address : " + field["IPv4Addr"] + "<br>IPv6 Address : " + field["IPv6Addr"]));
+                var image = getImageFromName(field.Name);
+                $("#nics").append(template.replace("%image%", image).replace("%interfacename%", field["Name"]).replace("%data%", "MAC Address : " + field["HardwareAddr"] + "<br>IPv4 Address : " + field["IPv4Addr"] + "<br>IPv6 Address : " + field["IPv6Addr"]));
             });
         });
+
+        function getImageFromName(nicname){
+            nicname = nicname.toLowerCase().trim();
+            if (nicname.includes("loopback") || nicname == "lo"){
+                return "loopback.svg"
+            }else if (nicname.substr(0,3) == "enp" || nicname.substr(0,3) == "eth"){
+                return "ethernet.svg";
+            }else if (nicname.substr(0,3) == "wlp" || nicname.substr(0,4) == "wlan"){
+                return "wifi.svg";
+            }else if (nicname.includes("isatap")){
+                return "isatap.svg";
+            }else if (nicname.includes("hamachi") || nicname.includes("zerotier") || nicname.includes("openvpn")){
+                return "vpn.svg";
+            }else if (nicname.includes("hyper-v") || nicname.includes("virtualbox")){
+                return "virtualize.svg";
+            }
+            return "Unknown.png"
+        }
     </script>
 </body>
 

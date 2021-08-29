@@ -1,10 +1,10 @@
 <html>
 
 <head>
-    <title>ArOZ Online Audio Tools</title>
-    <link rel="stylesheet" href="../../../script/tocas/tocas.css">
-    <script src="../../../script/tocas/tocas.js"></script>
-    <script src="../../../script/jquery.min.js"></script>
+    <title>ArozOS Audio Test</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.js">
+    <script src="../../script/semantic/semantic.min.css"></script>
+    <script src="../../script/jquery.min.js"></script>
     <!--<script src="ao_module.js"></script> DOES NOT EXIST IN GOLANG VERSION-->
     <style>
         .flip {
@@ -30,24 +30,27 @@
 </head>
 
 <body>
-
-    <div class="ts container">
-        <div class="ts segment" align="center">
-            <p>System Audio Settings</p>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <div class="ui header">
+                System Audio
+                <div class="sub header">Test and adjust your global audio / volume settings</div>
+            </div>
         </div>
-        <div class="ts grid">
+       
+        <div class="ui grid">
             <div class="five wide column selectable" align="center" onClick="PlaySound('left');"><i class="volume up huge icon flip"></i><br>Left Speaker</div>
             <div class="six wide column selectable" align="center" onClick="PlaySound('both');"><i class="computer huge icon"></i><br>Speaker Test</div>
             <div class="five wide column selectable" align="center" onClick="PlaySound('right');"><i class="volume up huge icon"></i><br>Right Speaker</div>
         </div>
         <br>
-        <div class="ts segment">
-            <div class="ts horizontal divider">Master Volume</div>
-            <div class="ts slider">
-                <input id="gblvol" min="0" max="100" type="range" value="0">
-                <div id="numdis" class="ts basic left pointing label">0%</div>
+        <div class="ui segment">
+            <h5>Master Volume</h5>
+            <div class="ui slider">
+                <input id="gblvol" min="0" max="100" type="range" value="0" style="width: 40em;">
             </div>
-            <small style="font-size:70%;">Some modules use stand-alone volume management system. Master volume may not be able to control all module's volume.</small>
+            <p>This Device Global Volume: <span id="numdis">0%</span></p>
+            <small style="font-size:80%;">Some modules use stand-alone volume management system. Master volume may not be able to control all module's volume.</small>
         </div>
         <div style="display:none;">
             <audio id="both" controls><source src="../info/track/both.mp3" type="audio/mp3"></audio>

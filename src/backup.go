@@ -77,6 +77,8 @@ func backup_listAllBackupDisk(w http.ResponseWriter, r *http.Request) {
 		BackupMode          string //The backup mode of the drive
 		LastBackupCycleTime int64  //Last backup timestamp
 		BackupCycleCount    int64  //How many backup cycle has proceeded since the system startup
+		Error               bool   //If there are error occured in the last cycle
+		ErrorMessage        string //If there are any error msg
 	}
 
 	backupDrives := []*backupDrive{}
@@ -90,7 +92,7 @@ func backup_listAllBackupDisk(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		backupDrives = append(backupDrives, &backupDrive{
+		thisBackupDrive := backupDrive{
 			DiskUID:             diskFsh.UUID,
 			DiskName:            diskFsh.Name,
 			ParentUID:           parentFsh.UUID,
@@ -98,7 +100,11 @@ func backup_listAllBackupDisk(w http.ResponseWriter, r *http.Request) {
 			BackupMode:          task.Mode,
 			LastBackupCycleTime: task.LastCycleTime,
 			BackupCycleCount:    task.CycleCounter,
-		})
+			Error:               task.PanicStopped,
+			ErrorMessage:        task.ErrorMessage,
+		}
+
+		backupDrives = append(backupDrives, &thisBackupDrive)
 	}
 
 	js, _ := json.Marshal(backupDrives)

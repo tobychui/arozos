@@ -1,9 +1,7 @@
 <html>
 
 <head>
-    <title>ArOZ Online Display Test</title>
-    <link rel="stylesheet" href="../../../script/tocas/tocas.css">
-    <script src="../../../script/tocas/tocas.js"></script>
+    <title>ArozOS Display Test</title>
     <script src="../../../script/jquery.min.js"></script>
     <style>
         body {
@@ -25,16 +23,19 @@
     <div class="fs" onClick="nextColor(this);" style="display:none;">
 
     </div>
-    <div id="startui" class="ts container">
-        <br>
-        <div class="ts segment">
-            <div class="ts header">
+    <div id="startui" class="ui container">
+        <div class="ui basic segment">
+            <div class="ui header">
                 Display Testing
-                <div class="sub header">This is a function for user to quick test their display.</div>
+                <div class="sub header">Simple display testing tools</div>
             </div>
-            <p>This function will popup a new window. Please enter full screen with the new window and click anywhere on screen to change color.<br> Click the button below to start the test.</p>
-            <button class="ts primary button" onClick='startTest();'>Start Test</button>
         </div>
+      
+        <h4>Dead Pixel Test </h4>
+        <p>This test will popup a new window with full screen functionality. <br>
+            To exit the test, press ESC on keyboard or swap down & press the "close" button on touch screen devices.</p>
+        <button class="ui blue button" onClick='startTest();'><i class="external icon"></i> Start Test </button>
+      
     </div>
     <script>
         function startTest() {

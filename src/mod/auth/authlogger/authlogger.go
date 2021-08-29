@@ -30,6 +30,7 @@ type LoginRecord struct {
 	TargetUsername string
 	LoginSucceed   bool
 	IpAddr         string
+	AuthType       string
 	Port           int
 }
 
@@ -48,7 +49,11 @@ func NewLogger() (*Logger, error) {
 func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 	username, _ := mv(r, "username", true)
 	timestamp := time.Now().Unix()
+	return l.LogAuthByRequestInfo(username, r.RemoteAddr, timestamp, loginStatus, "web")
+}
 
+//Log the current authentication to record by custom filled information. Use LogAuth if your module is authenticating via web interface
+func (l *Logger) LogAuthByRequestInfo(username string, remoteAddr string, timestamp int64, loginSucceed bool, authType string) error {
 	//Get the current month as the table name, create table if not exists
 	current := time.Now().UTC()
 	tableName := current.Format("Jan-2006")
@@ -60,16 +65,16 @@ func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 
 	//Split the remote address into ipaddr and port
 	remoteAddrInfo := []string{"unknown", "N/A"}
-	if strings.Contains(r.RemoteAddr, ":") {
+	if strings.Contains(remoteAddr, ":") {
 		//For general IPv4  address
-		remoteAddrInfo = strings.Split(r.RemoteAddr, ":")
+		remoteAddrInfo = strings.Split(remoteAddr, ":")
 	}
 
 	//Check for IPV6
-	if strings.Contains(r.RemoteAddr, "[") && strings.Contains(r.RemoteAddr, "]") {
+	if strings.Contains(remoteAddr, "[") && strings.Contains(remoteAddr, "]") {
 		//This is an IPV6 address. Rewrite the split
 		//IPv6 should have the format of something like this [::1]:80
-		ipv6info := strings.Split(r.RemoteAddr, ":")
+		ipv6info := strings.Split(remoteAddr, ":")
 		port := ipv6info[len(ipv6info)-1:]
 		ipAddr := ipv6info[:len(ipv6info)-1]
 		remoteAddrInfo = []string{strings.Join(ipAddr, ":"), strings.Join(port, ":")}
@@ -85,8 +90,9 @@ func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 	thisRecord := LoginRecord{
 		Timestamp:      timestamp,
 		TargetUsername: username,
-		LoginSucceed:   loginStatus,
+		LoginSucceed:   loginSucceed,
 		IpAddr:         remoteAddrInfo[0],
+		AuthType:       authType,
 		Port:           port,
 	}
 
@@ -100,6 +106,7 @@ func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 	}
 
 	return nil
+
 }
 
 //Close the database when system shutdown

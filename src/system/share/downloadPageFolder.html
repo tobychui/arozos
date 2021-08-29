@@ -48,6 +48,18 @@
           -ms-user-select: none; /* Internet Explorer/Edge */
           user-select: none;
         }
+
+        #filelistWrapper{
+          position: relative;
+          padding: 12px;
+          border-top: 4px solid #ffe46c;
+          -webkit-box-shadow: 11px 9px 23px 0px rgba(54,54,54,0.31); 
+          box-shadow: 11px 9px 23px 0px rgba(54,54,54,0.31);
+        }
+
+        td{
+          word-break: break-all;
+        }
     </style>
     </head>
     <body>
@@ -86,11 +98,12 @@
                       </table>
                     <a href="{{downloadurl}}"><button class="button-primary">Download All</button></a>
                     <p style="font-size: 80%;"><b>Depending on folder size, zipping might take a while to complete.</b></p>
-                    <br>
-                    <p>Request File ID: {{reqid}}</p>
-                    <p>Request Timestamp: {{reqtime}}</p>
+                    <p>Request File ID: {{reqid}}<br>
+                    Request Timestamp: {{reqtime}}</p>
+                    <small>📂 Double click any item in the list to open or download</small>
+                    
                 </div>
-                <div class="one-half column" id="filelistWrapper" style="overflow-y: auto; padding-right: 0.5em;">
+                <div class="one-half column" id="filelistWrapper" style="overflow-y: auto; padding-right: 0.5em; min-height: 400px;">
                   <table class="u-full-width">
                     <thead>
                       <tr>
@@ -105,7 +118,7 @@
                   </table>
                 </div>
             </div>
-           
+          
         </div>
         <div class="footer">
             <div class="container">
@@ -119,7 +132,20 @@
       var selectedFile = null;
       renderFileList(treeFileList["."]);
 
-      console.log(treeFileList);
+      handleWindowResize();
+      $(window).on("resize", function(e){
+        handleWindowResize();
+      });
+
+      function handleWindowResize(){
+        if (window.innerWidth < 550){
+          //Assume mobile
+          $(".footer").css("height", "20px");
+        }else{
+          $(".footer").css("height", "50px");
+        }
+      }
+      
 
       function renderFileList(filelist){
         $("#folderList").html("");
@@ -134,10 +160,24 @@
           var filetype = "File";
           var displayName = "";
           if (file.IsDir == true){
+            //Folder
             filetype = "Folder";
             displayName = "📁 " + file.Filename;
           }else{
-            displayName = "📄 " + file.Filename;
+            //File
+            var ext = file.Filename.split(".").pop();
+            var icon = "📄"
+            ext = ext.toLowerCase();
+            if (ext == "mp3" || ext == "wav" || ext == "flac" || ext == "aac" || ext == "ogg" || ext == ""){
+              icon = "🎵";
+            }else if (ext == "mp4" || ext == "avi" || ext == "webm" || ext == "mkv" || ext == "mov" || ext == "rvmb"){
+              icon = "🎞️";
+            }else if (ext == "png" || ext == "jpeg" || ext == "jpg" || ext == "bmp" || ext == "gif"){
+              icon = "🖼️";
+            }
+
+            displayName =  icon + " " + file.Filename;
+            
           }
           $("#folderList").append(`<tr class="fileobject noselect" onclick="highlightThis(this);" filename="${file.Filename}" relpath="${file.RelPath}" type="${filetype.toLocaleLowerCase()}" ondblclick="event.preventDefault(); openThis(this);">
               <td style="padding-left: 8px;">${displayName}</td>

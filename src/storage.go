@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/permission"
+	"imuslab.com/arozos/mod/storage/bridge"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	storage "imuslab.com/arozos/mod/storage"
@@ -18,6 +19,8 @@ import (
 var (
 	baseStoragePool *storage.StoragePool    //base storage pool, all user can access these virtual roots
 	fsHandlers      []*fs.FileSystemHandler //All File system handlers. All opened handles must be registered in here
+	//storagePools    []*storage.StoragePool  //All Storage pool opened
+	bridgeManager *bridge.Record //Manager to handle bridged FSH
 )
 
 func StorageInit() {
@@ -31,6 +34,11 @@ func StorageInit() {
 	if err != nil {
 		panic(err)
 	}
+
+	//Create a brdige record manager
+	bm := bridge.NewBridgeRecord("system/bridge.json")
+	bridgeManager = bm
+
 }
 
 func LoadBaseStoragePool() error {
@@ -156,12 +164,48 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 
 		//Assign storage pool to group
 		pg.StoragePool = sp
+
 	} else {
 		//Storage configuration not exists. Fill in the basic information and move to next storage pool
-		pg.StoragePool.Owner = pg.Name
+
+		//Create a new empty storage pool for this group
+		sp, err := storage.NewStoragePool([]*fs.FileSystemHandler{}, pg.Name)
+		if err != nil {
+			log.Println("Failed to create empty storage pool for group: ", pg.Name)
+		}
+		pg.StoragePool = sp
 		pg.StoragePool.OtherPermission = "denied"
 	}
+
 	return nil
+}
+
+//Check if a storage pool exists by its group owner name
+func StoragePoolExists(poolOwner string) bool {
+	_, err := GetStoragePoolByOwner(poolOwner)
+	return err == nil
+}
+
+func GetAllStoragePools() []*storage.StoragePool {
+	//Append the base pool
+	results := []*storage.StoragePool{baseStoragePool}
+
+	//Add each permissionGroup's pool
+	for _, pg := range permissionHandler.PermissionGroups {
+		results = append(results, pg.StoragePool)
+	}
+
+	return results
+}
+
+func GetStoragePoolByOwner(owner string) (*storage.StoragePool, error) {
+	sps := GetAllStoragePools()
+	for _, pool := range sps {
+		if pool.Owner == owner {
+			return pool, nil
+		}
+	}
+	return nil, errors.New("Storage pool owned by " + owner + " not found")
 }
 
 func GetFsHandlerByUUID(uuid string) (*fs.FileSystemHandler, error) {
@@ -196,5 +240,11 @@ func RegisterStorageSettings() {
 func CloseAllStorages() {
 	for _, fsh := range fsHandlers {
 		fsh.FilesystemDatabase.Close()
+	}
+}
+
+func closeAllStoragePools() {
+	for _, sp := range GetAllStoragePools() {
+		sp.Close()
 	}
 }

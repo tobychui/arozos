@@ -4,6 +4,7 @@
 	<meta name="mobile-web-app-capable" content="yes">
 	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
 	<meta charset="UTF-8">
+    <title>Backup Disk</title>
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script src="../../script/jquery.min.js"></script>
 	<script src="../../script/semantic/semantic.min.js"></script>
@@ -15,6 +16,14 @@
         .disabled{
             opacity: 0.5;
             pointer-events: none;
+        }
+
+        td.green{
+            color: #5cad8b;
+        }
+
+        td.red{
+            color: #ff5c59;
         }
     </style>
 </head>
@@ -34,6 +43,7 @@
               <th>Mode</th>
               <th>Last Cycle Time</th>
               <th>Cycle Counter*</th>
+              <th>Status</th>
               <th>Action</th>
             </tr></thead>
             <tbody id="diskTable">
@@ -96,13 +106,24 @@
                     alert(data.error);
                 }else{
                     //Render the list
+                   
                     data.forEach(disk => {
+                        var statusText = `<i class="checkmark icon"></i> Normal`;
+                        var statusColor = "green";
+
+                        if (disk.Error == true){
+                            //Task execution error. 
+                            statusText = `<i class="exclamation triangle icon"></i> Stopped <br> ` + disk.ErrorMessage;
+                            statusColor = "red";
+                        }
+
                         $("#diskTable").append(`<tr>
                             <td data-label=""><img class="ui avatar image" style="border-radius: 0px;" src="../../img/system/drive-backup.svg"> ${disk.DiskName} (${disk.DiskUID}:/)</td>
                             <td data-label=""><img class="ui avatar image" style="border-radius: 0px;" src="../../img/system/drive-virtual.svg"> ${disk.ParentName} (${disk.ParentUID}:/)</td>
                             <td data-label="">${disk.BackupMode}</td>
                             <td data-label="">${ao_module_utils.timeConverter(disk.LastBackupCycleTime)}</td>
                             <td data-label="">${disk.BackupCycleCount}</td>
+                            <td class="${statusColor}" data-label="">${statusText}</td>
                             <td data-label=""><button class="ui teal tiny button" onclick="openRestore('${disk.ParentUID}');">Restore Settings</button></td>
                         </tr> `);
                     });

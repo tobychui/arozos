@@ -2,8 +2,10 @@ package hybridBackup
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 )
 
 /*
@@ -48,9 +50,43 @@ func readLinkFile(snapshotFolder string) (*LinkFileMap, error) {
 				return &lfContent, nil
 			}
 		}
+	} else {
+		return &result, errors.New("Linker file not exists")
 	}
 
 	return &result, nil
+}
+
+//Update the linker by given a snapshot name to a new one
+func updateLinkerPointer(snapshotFolder string, oldSnapshotLink string, newSnapshotLink string) error {
+	oldSnapshotLink = strings.TrimSpace(oldSnapshotLink)
+	newSnapshotLink = strings.TrimSpace(newSnapshotLink)
+
+	//Load the old linker file
+	oldlinkMap, err := readLinkFile(snapshotFolder)
+	if err != nil {
+		return err
+	}
+
+	//Iterate and replace all link that is pointing to the same snapshot
+	newLinkMap := LinkFileMap{
+		UnchangedFile: map[string]string{},
+		DeletedFiles:  map[string]string{},
+	}
+
+	for rel, link := range oldlinkMap.UnchangedFile {
+		if link == oldSnapshotLink {
+			link = newSnapshotLink
+		}
+		newLinkMap.UnchangedFile[rel] = link
+	}
+
+	for rel, ts := range oldlinkMap.DeletedFiles {
+		newLinkMap.DeletedFiles[rel] = ts
+	}
+
+	//Write it back to file
+	return generateLinkFile(snapshotFolder, newLinkMap)
 }
 
 //Check if a file exists in a linkFileMap. return boolean and its linked to snapshot name

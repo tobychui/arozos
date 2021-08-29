@@ -81,6 +81,22 @@
                 Loading...
             </div>
         </div>
+        <br>
+        <h3 class="ui header">Operation Time</h3>
+        <div class="ui grid">
+            <div class="six wide column">
+                Boot Time:
+            </div>
+            <div class="ten wide column" id="startup">
+                Loading...
+            </div>
+            <div class="six wide column">
+                Up Time :
+            </div>
+            <div class="ten wide column" id="operation">
+                Loading...
+            </div>
+        </div>
     </div>
     <div class="ui divider"></div>
     <img class="ui small image" id="icon"></img>
@@ -126,7 +142,27 @@
                 $("#usb").append(item + "<br>");
             });
         });
+
+        $.getJSON("../../system/info/getRuntimeInfo", function(data){
+            $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
+            $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
+            $("#operation").attr("startunix", data.StartupTime);
+            accumulateOperationTime();
+        });
     }
+
+    function accumulateOperationTime(){
+        setTimeout(function(){
+            if ($("#operation").length > 0){
+                var startUnix = $("#operation").attr("startunix");
+                startUnix = parseInt(startUnix);
+                var newOprTime = parseInt(Date.now()/1000) - startUnix
+                $("#operation").text(ao_module_utils.durationConverter(newOprTime));
+                accumulateOperationTime();
+            }
+        }, 1000);
+    }
+
     //https://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable-string/10420404
     function humanFileSize(bytes, si) {
         var thresh = si ? 1000 : 1024;

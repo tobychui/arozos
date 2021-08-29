@@ -556,6 +556,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 func desktop_preference_handler(w http.ResponseWriter, r *http.Request) {
 	preferenceType, _ := mv(r, "preference", false)
 	value, _ := mv(r, "value", false)
+	remove, _ := mv(r, "remove", false)
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		//user not logged in. Redirect to login page.
@@ -566,12 +567,17 @@ func desktop_preference_handler(w http.ResponseWriter, r *http.Request) {
 		//Invalid options. Return error reply.
 		sendTextResponse(w, "Error. Undefined paramter.")
 		return
-	} else if preferenceType != "" && value == "" {
+	} else if preferenceType != "" && value == "" && remove == "" {
 		//Getting config from the key.
 		result := ""
 		sysdb.Read("desktop", username+"/preference/"+preferenceType, &result)
 		jsonString, _ := json.Marshal(result)
 		sendJSONResponse(w, string(jsonString))
+		return
+	} else if preferenceType != "" && value == "" && remove == "true" {
+		//Remove mode
+		sysdb.Delete("desktop", username+"/preference/"+preferenceType)
+		sendOK(w)
 		return
 	} else if preferenceType != "" && value != "" {
 		//Setting config from the key

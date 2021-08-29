@@ -1,7 +1,10 @@
 <p>Audio File Preview</p>
 <audio id="audioplayer" src="{{preview_url}}" style="width: 100%" controls></audio>
+<textarea id="embeddedCode" class="u-full-width" style="height: 100px;"></textarea>
 <script>
     player=document.getElementById("audioplayer");
     player.volume=0.2;
+
+    $("#embeddedCode").text(`<audio id="audioplayer" src="${location.protocol}//${window.location.hostname}:${window.location.port}{{preview_url}}" style="width: 400px" controls></audio>`);
 </script>
     

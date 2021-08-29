@@ -56,7 +56,7 @@
                         <i class="pause icon"></i>
                     </button>
                     <button id="stopalarm" class="ts negative tiny icon button disabled" onClick="stopAlarm();" style="position:fixed;top:80px;right:3px;">
-                        <i class="volume down icon"></i>
+                        <i class="alarm mute icon"></i>
                     </button>
                 </div>
             </div>
@@ -181,8 +181,8 @@
                 if (alarmStartTime != 0){
                     stopAlarm();
                 }
-                audio = new Audio('sound/A Himitsu - Adventures [Argofox].mp3');
-                audio.volume = 0.1;
+                audio = new Audio('sound/imuslab_theme.mp3');
+                audio.volume = 0.02;
                 audio.play();
                 alarmStartTime = time();
                 volIncreaseInterval = setInterval( increaseVolumeALittleBit, 5000);
@@ -200,7 +200,7 @@
             }
             
             function increaseVolumeALittleBit(){
-                audio.volume += 0.05;
+                audio.volume += 0.02;
                 console.log("[Timer] Alarm volume increased to: " + audio.volume);
             }
             

@@ -31,6 +31,9 @@ ao_root = ao_module_getAORootFromScriptPath();
 
 document.addEventListener("DOMContentLoaded", function() {
     if (ao_module_virtualDesktop){
+        if (parent.window.ime == null){
+            return;
+        }
         //Add window focus handler
         document.addEventListener("mousedown", function(event) {
             //When click on this document, focus this
@@ -819,9 +822,53 @@ class ao_module_utils{
             }else{
                 console.log(reader.error);
             }
-           
         };
 
+    }
+
+    static durationConverter(seconds){
+        var days = Math.floor(seconds / 86400);
+        seconds -= days * 86400;
+        var hours = Math.floor(seconds / 3600) % 24;
+        seconds -= hours * 3600;
+        var minutes = Math.floor(seconds / 60) % 60;
+        seconds -= minutes * 60;
+        var seconds = seconds % 60;
+
+        var resultDuration = "";
+        if (days > 0){
+            resultDuration += days + " Day";
+            if (days > 1){
+                resultDuration+= "s"
+            }
+            resultDuration += " "
+        }
+
+        if (hours > 0){
+            resultDuration += hours + " Hour"
+            if (hours > 1){
+                resultDuration += "s"
+            }
+            resultDuration += " "
+        }
+
+        if (minutes > 0){
+            resultDuration += minutes + " Minute"
+            if (minutes > 1){
+                resultDuration += "s"
+            }
+            resultDuration += " "
+        }
+
+        if (seconds > 0){
+            resultDuration += seconds + " Secound"
+            if (seconds > 1){
+                resultDuration += "s"
+            }
+            resultDuration += " "
+        }
+        
+        return resultDuration;
     }
 
     static timeConverter(UNIX_timestamp){

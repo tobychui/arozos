@@ -25,21 +25,21 @@ require (
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/oliamb/cutter v0.2.2
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
-	github.com/ricochet2200/go-disk-usage v0.0.0-20150921141558-f0d1b743428f
 	github.com/robertkrimen/otto v0.0.0-20191219234010-c382bd3c16ff
 	github.com/satori/go.uuid v1.2.0
 	github.com/smartystreets/cproxy v1.0.2
 	github.com/smartystreets/logging v1.1.1 // indirect
 	github.com/spf13/afero v1.3.1
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/tidwall/pretty v1.0.2
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/valyala/fasttemplate v1.1.0
 	gitlab.com/NebulousLabs/fastrand v0.0.0-20181126182046-603482d69e40 // indirect
 	gitlab.com/NebulousLabs/go-upnp v0.0.0-20181011194642-3a71999ed0d3
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
+	golang.org/x/net v0.0.0-20210813160813-60bc85c4be6d // indirect
 	golang.org/x/oauth2 v0.0.0-20210615190721-d04028783cf1
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
+	golang.org/x/sys v0.0.0-20210817190340-bfb29a6856f2 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 )

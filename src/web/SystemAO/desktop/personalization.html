@@ -30,6 +30,7 @@
     <body>
         <div class="ui tabular menu" style="position:fixed; top:0px; left:0px; width: 100%;">
             <div class="active item" data-tab="wallpaper">Wallpaper</div>
+            <div class="item" data-tab="sound">Sound</div>
             <div class="item" data-tab="theme">Theme</div>
             <div class="item" data-tab="advance">Advance</div>
         </div>
@@ -123,6 +124,28 @@
                 </div>
                 <br><br><br>
             </div>
+            <div class="ui tab" data-tab="sound">
+                <br>
+                <div class="ui container">
+                    <h3 class="ui header">
+                        <i class="music icon"></i>
+                        <div class="content">
+                            System Sound
+                            <div class="sub header">Customize system sound effect</div>
+                        </div>
+                    </h3>
+                    <div class="ui divider"></div>
+                    <h4 class="ui header">
+                        Custom Startup Sound
+                        <div class="sub header">User defined startup sound to play when login to the web desktop</div>
+                    </h4>
+                    <h3 id="userSelectedStartupSound">Disabled</h3>
+                    <button class="ui small right floated button" onclick="clearStartupAudioSelection()"><i class="remove icon"></i> Clear Selection</button>
+                    <button class="ui small black right floated button" onclick="selectStartupAudio();"><i class="folder open icon"></i> Select File</button>
+                    <br><br>
+                    <div class="ui divider"></div>
+                </div>
+            </div>
             <div class="ui tab" data-tab="theme">
                 <!-- Theme Color Related !-->
                 <br>
@@ -190,6 +213,7 @@
                 initCurrentBackgroundPreview(themeName);
             });
             generateColorGrids();
+            getStartupAudio();
 
             //Return the data stored in the theme settings
             //Will return either theme pack name or path for user defined folder
@@ -222,6 +246,57 @@
                 }
             }
 
+            //Startup sound 
+            function selectStartupAudio(){
+                ao_module_openFileSelector(setStartupAudio, undefined,"file",{
+                    filter: ["mp3", "aac", "ogg", "wav"]
+                });
+            }
+
+            function setStartupAudio(filedata){
+                var filename = filedata[0].filename;
+                var filepath = filedata[0].filepath;
+                $("#userSelectedStartupSound").text(filepath);
+                $.ajax({
+                    url: "../../system/desktop/preference",
+                    method: "GET",
+                    data: {preference: "startup-audio", value: filepath},
+                    success: function(data){
+                        console.log(data);
+                    }
+                });
+            }
+
+            function getStartupAudio(callback=undefined){
+                $.ajax({
+                    url: "../../system/desktop/preference",
+                    method: "GET",
+                    data: {preference: "startup-audio"},
+                    success: function(data){
+                        if (data != undefined && data != ""){
+                            $("#userSelectedStartupSound").text(data);
+                        }
+                        
+                        if (callback != undefined){
+                            callback(data);
+                        }else{
+                            console.log(data);
+                        }
+                    }
+                });
+            }
+
+            function clearStartupAudioSelection(){
+                $.ajax({
+                    url: "../../system/desktop/preference",
+                    method: "GET",
+                    data: {preference: "startup-audio", remove: "true"},
+                    success: function(data){
+                        $("#userSelectedStartupSound").text("Disabled");
+                    }
+                });
+            }
+
             //Change the interval to the given 
             function handleIntervalChange(newInterval){
                 //Show change finsihed
@@ -237,7 +312,9 @@
                 //Restart desktop background changer interval
                 if (ao_module_virtualDesktop){
                     console.log("Restarting desktop background changer interval")
-                    parent.clearInterval(parent.backgroundIntervalCounter);
+                    if (parent.backgroundIntervalCounter){
+                        parent.clearInterval(parent.backgroundIntervalCounter);
+                    }
                     parent.initBackgroundSwitchingAnimation();
                 }
                 
@@ -277,7 +354,7 @@
                             parent.changeDesktopTheme("default");
                          }
 
-                          //Re-enable the default theme seelct
+                        //Re-enable the default theme seelct
                         $(".allowSelectDefaultThemes").removeClass("disabled");
                         $("#userSelectedFolderPath").text("Disabled");
 

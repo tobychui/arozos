@@ -43,6 +43,12 @@ func ValidateOption(options *FileSystemOption) error {
 	if options.Uuid == "" {
 		return errors.New("File System Handler uuid cannot be empty")
 	}
+
+	//Check if uuid is reserved by system
+	if inSlice([]string{"user", "tmp", "share", "network"}, options.Uuid) {
+		return errors.New("This File System Handler UUID is reserved by the system")
+	}
+
 	if !fileExists(options.Path) {
 		return errors.New("Path not exists, given: " + options.Path)
 	}

@@ -1,0 +1,4 @@
+imuslab_theme.mp3
+
+CopyRight tobychui, All Right Reserved
+If you are distributing the ArozOS, please replace this with your own music.

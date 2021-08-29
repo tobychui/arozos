@@ -14,6 +14,7 @@ import (
 	"net/url"
 
 	mimetype "github.com/gabriel-vasile/mimetype"
+	"imuslab.com/arozos/mod/filesystem/shortcut"
 )
 
 //Structure definations
@@ -27,6 +28,7 @@ type FileData struct {
 	Displaysize string
 	ModTime     int64
 	IsShared    bool
+	Shortcut    *shortcut.ShortcutData //This will return nil or undefined if it is not a shortcut file
 }
 
 type TrashedFile struct {
@@ -68,6 +70,15 @@ func GetFileDataFromPath(vpath string, realpath string, sizeRounding int) FileDa
 	fileSize := GetFileSize(realpath)
 	displaySize := GetFileDisplaySize(fileSize, sizeRounding)
 	modtime, _ := GetModTime(realpath)
+
+	var shortcutInfo *shortcut.ShortcutData = nil
+	if filepath.Ext(realpath) == ".shortcut" {
+		scd, err := shortcut.ReadShortcut(realpath)
+		if err == nil {
+			shortcutInfo = scd
+		}
+	}
+
 	return FileData{
 		Filename:    filepath.Base(realpath),
 		Filepath:    vpath,
@@ -77,6 +88,7 @@ func GetFileDataFromPath(vpath string, realpath string, sizeRounding int) FileDa
 		Displaysize: displaySize,
 		ModTime:     modtime,
 		IsShared:    false,
+		Shortcut:    shortcutInfo,
 	}
 
 }

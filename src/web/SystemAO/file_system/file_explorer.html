@@ -93,11 +93,13 @@
             }
 
             .rightPad{
-                margin-right:40px;
+                margin-right:37px;
             }
             .addressBar{
                 width:100%;
                 padding:3px;
+                padding-left: 0px;
+                padding-right: 0px;
                 min-height: 35px;
                 padding-top:6px;
             }
@@ -373,17 +375,6 @@
                 overflow:auto;
             }
 
-            /*
-            .popupheader.whiteTheme{
-                background-color:#eee;
-                color: #232322;
-            }
-            .popupheader.darkTheme{
-                background-color:#111017 !important;
-                color: white;
-            }
-            */
-
             .popupcloser{
                 position:absolute;
                 top:5px;
@@ -626,6 +617,10 @@
             .sharebtn.darkTheme:hover{
                 opacity: 0.5;
             }
+
+            i.blue{
+                color: #345eeb;
+            }
         </style>
     </head>
     <body class="whiteTheme">
@@ -656,16 +651,25 @@
              <button class="ts icon tiny negative button" title="Delete" onclick="deleteFile();"><i class="trash outline icon"></i></button>
 
              <button class="ts icon tiny button standard whiteTheme" title="Refresh" onclick="refreshList();"><i class="refresh icon"></i></button>
+             <button class="ts icon tiny button standard whiteTheme" title="Home" onclick="openHomeDir();"><i class="home icon"></i></button>
              <button class="ts icon tiny button standard whiteTheme" title="File Info" onclick="showFileProperties();"><i class="notice icon"></i></button>
-             <button class="ts icon tiny button standard whiteTheme" title="Help"><i class="help icon"></i></button>
+             
              
              <div class="addressBar">
                 <button class="ts icon tiny button standard whiteTheme" onclick="toggleSidebar();"  title="Toggle Folder List"><i class="content icon"></i></button>
                 <button  class="ts icon tiny button inverted" title="Dark Theme" onclick="toggleDarkTheme();"><i class="moon icon" id="darkthemebtn"></i></button>
-                <div class="ts breadcrumb whiteTheme addressText pathDisplay desktopOnly">
+                <button class="ts tiny icon button standard whiteTheme" title="Edit Path" onclick="showEditCurrentPathInput(event)"><i class="ui edit icon"></i></button>
+                <div id="pathDisplayField" class="ts breadcrumb whiteTheme addressText pathDisplay desktopOnly" ondblclick="showEditCurrentPathInput(event);">
                     <div class="section whiteTheme selectable"><i class="folder icon"></i> user</div>
                     <div class="divider whiteTheme">:/</div>
                     <div class="section whiteTheme selectable">Desktop</div>
+                </div>
+                
+                <div id="pathInputField" class="ts action mini input whiteTheme" style="display:none;">
+                    <input type="text" style="min-width: 200px;" class="whiteTheme" placeholder="Type a path and press enter" onkeydown="handleOpenPathKeydown(event);">
+                    <button class="ts icon button" title="Open" onclick="openEnteredPath(this);">
+                        <i class="checkmark icon"></i>
+                    </button>
                 </div>
                 <div class="rightAlign">
                     <select id="sortingMethodSelector" title="Sorting Method" class="ts basic borderless mini dropdown" onchange="updateSortingMethods();" autocomplete="off">
@@ -682,7 +686,7 @@
                 </div>
              </div>
              <div class="mobilePathDisplayWrapper">
-                <div style="width:100%;" class="ts pathDisplay breadcrumb whiteTheme addressText mobileOnly">
+                <div id="mobilePathDisplay" style="width:100%;" class="ts pathDisplay breadcrumb whiteTheme addressText mobileOnly">
                     <div class="section whiteTheme selectable"><i class="folder icon"></i> user</div>
                     <div class="divider whiteTheme">:/</div>
                     <div class="section whiteTheme selectable">Desktop</div>
@@ -742,10 +746,10 @@
                 </div>
             </div>
             <div id="folderView" class="whiteTheme" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div id="folderList">
+                <div id="folderList" class="ts segmented fluid list whiteTheme">
 
                 </div>
-                <div id="fileList">
+                <div id="fileList" class="ts segmented fluid list whiteTheme">
 
                 </div>
                 <br>
@@ -1135,6 +1139,7 @@
             let overwriteMode = "keep"; //Overwrite mode, support {skip, overwrite, keep}
             let thumbRenderWebSocket = null;
             let searchCaseSensitive = false;
+            let searchMode = false;
 
             //Keypress listeners
             let ctrlHold = false;
@@ -1181,9 +1186,14 @@
                 });
                 $(".desktopOnly").hide();
                 $(".mobileOnly").show();
+
+                //Adjust minor css on mobile devices
+                $(".rightPad").css("margin-right", "37px");
             }else{
                 $(".mobileOnly").hide();
                 $(".desktopOnly").show();
+
+                $(".rightPad").css("margin-right", "37px");
             }
             //Initialize view mode buttons
             updateViewmodeButtons();
@@ -1383,12 +1393,6 @@
 
             // ============================== FOLDER LISTING FUNCTIONS ====================
             function listDirectory(path, callback=undefined, recordUndo=true){
-                //If current mode is search mode, hide the serach bar
-                if (searchMode == true){
-                    //Hide searchbar and skip refresh list
-                    hideSearchBar(true);
-                }
-
                 var recordPreviousPage = true;
                 if (recordUndo == false){
                     recordPreviousPage = false;
@@ -1456,58 +1460,81 @@
                     </div>`);
                 }
                
+                //Get sort mode from server side
                 $.ajax({
-                    url: "../../system/file_system/listDir",
-                    method: "POST",
-                    data: {dir: decodeURIComponent(path), sort: sortMode},
+                    url: "../../system/file_system/sortMode",
+                    data: {opr: "get", folder: currentPath},
                     success: function(data){
-                        //Parse the filelist into global variable
-                        currentFilelist = [];
-                        if (data === null){
-                            //There is nothing is this folder.
-                            $("#folderList").hide();
-                            $("#fileList").hide();
-                            return;
+                        if (data.error == undefined){
+                            sortMode = data;
                         }
-
-                        if (data.error !== undefined){
-                            //Parse path error. Try to refresh the page
-                            console.log("Path parse error! Redirecting to parent directory.", data.error);
-                            var pdir = currentPath.split("/");
-                            pdir.pop(); pdir.pop();
-                            pdir = pdir.join("/");
-                            currentPath = pdir;
-
-                            //Check if it is already rooted and no more parent ahead
-                            if (currentPath == ""){
-                                currentPath = "user:/";
-                            }
-                            
-                            //listDirectory(currentPath, function(){
-                            //    window.location.reload();
-                            //});
-                            return;
-                        }else{
-                            //Filelist returned. Render it
-                            renderDirectory(data,function(){
-                                //Restore the selected file list
-                                $(".fileObject.item").each(function(){
-                                    for (var i = 0; i < selectedFiles.length; i++){
-                                        var thisFilename = selectedFiles[i];
-                                        if (thisFilename == $(this).attr("filename")){
-                                            $(this).addClass("selected");
-                                        }
-                                    }
-                                });
-                               
-
-                                //Perform the callback
-                                if (callback !== undefined){
-                                    callback();
+                        $("#sortingMethodSelector").val(sortMode);
+                        //Start listdir event
+                        $.ajax({
+                            url: "../../system/file_system/listDir",
+                            method: "POST",
+                            data: {dir: decodeURIComponent(path), sort: sortMode},
+                            success: function(data){
+                                //Parse the filelist into global variable
+                                currentFilelist = [];
+                                if (data === null){
+                                    //There is nothing is this folder.
+                                    $("#folderList").hide();
+                                    $("#fileList").hide();
+                                    return;
                                 }
-                            });
-                        }
-                    } 
+
+                                if (data.error !== undefined){
+                                    //Parse path error. Try to refresh the page
+                                    //console.log("Path parse error! Redirecting to parent directory.", data.error);
+                                    //var pdir = currentPath.split("/");
+                                    //pdir.pop(); pdir.pop();
+                                    //pdir = pdir.join("/");
+                                    //currentPath = pdir;
+                                    enableAutoRefresh = false;
+                                    //Check if it is already rooted and no more parent ahead
+                                    if (currentPath == ""){
+                                        currentPath = "user:/";
+                                    }
+                                    
+                                    //Print folder not found exceotion
+                                    $("#folderList").show();
+                                    $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
+                                        <div class="ts header">
+                                            <i class="remove icon ${currentTheme}"></i> <span class="${currentTheme}">This Folder Cannot Be Opened</span>
+                                            <div class="sub header ${currentTheme}" style="margin-top:12px;">The server return the following error message: <br><code>${data.error.toUpperCase()}</code><br>
+                                                ${ao_module_utils.timeConverter(Date.now()/1000)}</div>
+                                        </div>
+                                    </div>`);
+                                    $("#fileList").hide();
+
+                                    //listDirectory(currentPath, function(){
+                                    //    window.location.reload();
+                                    //});
+                                    return;
+                                }else{
+                                    enableAutoRefresh = true;
+                                    //Filelist returned. Render it
+                                    renderDirectory(data,function(){
+                                        //Restore the selected file list
+                                        $(".fileObject.item").each(function(){
+                                            for (var i = 0; i < selectedFiles.length; i++){
+                                                var thisFilename = selectedFiles[i];
+                                                if (thisFilename == $(this).attr("filename")){
+                                                    $(this).addClass("selected");
+                                                }
+                                            }
+                                        });
+                                        
+                                        //Perform the callback
+                                        if (callback !== undefined){
+                                            callback();
+                                        }
+                                    });
+                                }
+                            } 
+                        });
+                    }
                 });
             }
 
@@ -1544,16 +1571,6 @@
 
                 if (isMobile){
                     //Update 3/5/2021: Optimize the width calculation method to best fit
-                    /*
-                    if (window.innerWidth > window.innerHeight){
-                        //Screen using in horizontal mode
-                        gridSize = window.innerWidth /4 - 20 ;
-                    }else{
-                        //Screen using in vertical mode
-                        gridSize = window.innerWidth /2 - 20 ;
-                    }
-                    */
-
                     //A hack to align the divs to center of the container
                     $("#folderView").attr("align", "center");
                     $("#folderList").attr("align", "left");
@@ -1623,7 +1640,7 @@
                         $("#folderList").append(`
                         <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="folder" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:15em; margin-top:0px !important; overflow:hidden;">
                             <div class="image" style="text-align: center;">
-                                <img draggable="true"ondragstart="disableDrag(event);" src="../../../img/desktop/files_icon/${filesIconTheme}/folder.png" style="height: 148px; width: 148px; display: inline-block;">
+                                <img draggable="true"ondragstart="disableDrag(event);" src="../../img/desktop/files_icon/${filesIconTheme}/folder.png" style="height: 148px; width: 148px; display: inline-block;">
                             </div>
                             <div class="content" style="font-size: 12px;">
                                 <div class="header ${currentTheme} ${textclass}" title="${filename}">${displayName} ${shareicon}</div>
@@ -1648,10 +1665,20 @@
                     var Displaysize = files[i].Displaysize;
                     var isShared = files[i].IsShared;
                     var ext = getExtFromPath(filepath);
+                    var icon = "file outline";
                     if (ext == ""){
-                        var icon = "file outline";
+                        icon = "file outline";
+                    }else if (ext == "shortcut"){
+                        //Use the default shortcut icon
+                        icon = ao_module_utils.getIconFromExt(ext);
+
+                        //Check if the shortcut object exists
+                        if (files[i].Shortcut != undefined){
+                            icon = files[i].Shortcut.Icon;
+                        }
+
                     }else{
-                        var icon = ao_module_utils.getIconFromExt(ext);
+                        icon = ao_module_utils.getIconFromExt(ext);
                     }
 
                     var shareicon = "";
@@ -1672,6 +1699,24 @@
                         if (currentTheme == "darkTheme"){
                             textclass += " darkTheme";
                         }
+
+                        if (ext == "shortcut"){
+                            //This is a shortcut file
+                            displayName = files[i].Shortcut.Name;
+
+                            //Adjust the icon based on its shortcut ype
+                            switch(files[i].Shortcut.Type){
+                                case "folder":
+                                    icon = "blue folder";
+                                    break;
+                                case "module":
+                                    icon = "play circle";
+                                    break;
+                                default: 
+                                    icon = "external";
+                            }
+                        }
+
                         if (enableBetaFilename){
                             decodedName = ao_module_codec.decodeUmFilename(displayName);
                             if (decodedName != displayName){
@@ -1687,8 +1732,19 @@
                             </span>
                         </div>`);
                     }else if (viewMode == "grid"){
-                        var imagePath = "../../../img/desktop/files_icon/" + filesIconTheme + "/" + icon + ".png";
+                        //Update the icon path depends on the type of file
+                        var imagePath = "../../img/desktop/files_icon/" + filesIconTheme + "/" + icon + ".png";
                         var displayName = JSON.parse(JSON.stringify(filename));
+                        if (ext == "shortcut"){
+                            //This is a shortcut file. Treat it specially
+                            imagePath = "../../" + icon;
+                            displayName = files[i].Shortcut.Name;
+                            ext = files[i].Shortcut.Type;
+                            ext = ext.charAt(0).toUpperCase() + ext.slice(1);
+                        }else{
+                            ext = "." + ext;
+                        }
+
                         var textclass = "normal object";
                         if (enableBetaFilename){
                             decodedName = ao_module_codec.decodeUmFilename(displayName);
@@ -1702,6 +1758,9 @@
                         if (displayName.length > 20){
                             displayName = displayName.substring(0,20) + "...";
                         }
+
+                       
+                        
                         $("#fileList").append(`
                         <div class="ts card fileObject ${currentTheme}" draggable="true" ondragstart="onFileObjectDragStart(this,event);" fileID="${fl + i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event);" type="${fileType}" style="width:${gridSize}px; display:inline-block !important;vertical-align:top; height:20em;  margin-top:0px !important;  overflow:hidden;">
                             <div class="image" style="text-align: center !important;">
@@ -1710,7 +1769,7 @@
                             <div class="content">
                                 <div class="header ${currentTheme} ${textclass}" title="${filename}" style="text-overflow: ellipsis; font-size: 100%">${displayName} ${shareicon}</div>
                                 <div class="meta ${currentTheme}">
-                                    <div>.${ext}</div>
+                                    <div>${ext}</div>
                                 </div>
                                 <div class="description ${currentTheme}">
                                     ${Displaysize}
@@ -1776,7 +1835,6 @@
                           
                         });
                     }
-                    
                 };
 
                 thumbRenderWebSocket.onclose = function(event) {
@@ -1784,8 +1842,31 @@
                 };
 
                 thumbRenderWebSocket.onerror = function(error) {
-                    console.log(error);
+                    //Cache render on websocket failed. Fallback to AJAX request
+                    console.log("Cannot connect to WebSocket cache renderer. Falling back to AJAX request");
+                    startFallbackThumbnailLoader();
                 };
+            }
+
+            function startFallbackThumbnailLoader(){
+                let startingCurrentDir = currentPath;
+                $(".fileObject").each(function(){
+                    let filepath = $(this).attr("filepath");
+                    let targetDOM = $(this);
+                    $.ajax({
+                        url: "../../system/file_system/loadThumbnail",
+                        data: {vpath: filepath},
+                        success: function(data){
+                            if (startingCurrentDir == currentPath){
+                                //User still not changed page
+                                if (data.error == undefined && typeof data != "undefined" && data != ""){
+                                    $(targetDOM).find("img").attr("src","data:image/jpg;base64," + data);
+                                }
+                            }
+                            
+                        }
+                    })
+                });
             }
 
             //Make an div not draggable
@@ -2139,6 +2220,44 @@
                 listDirectory(rootDir);
             }
 
+            function showEditCurrentPathInput(e){
+                e.preventDefault();
+                $("#pathInputField").find("input").val(currentPath);
+                if (isMobile){
+                    $("#mobilePathDisplay").hide();
+                    $(".mobilePathDisplayWrapper").append($("#pathInputField"));
+                    $("#pathInputField").find("input").css("width", window.innerWidth - 54 + "px");
+                }else{
+                    //Desktop
+                    $("#pathInputField").find("input").css("width", $("#pathDisplayField").width() - 24+ "px");
+                    $("#pathDisplayField").hide();
+                }
+                $("#pathInputField").show();
+            }
+
+            function handleOpenPathKeydown(e){
+                if (e.key == "enter" | e.keyCode == 13){
+                    //Etner pressed
+                    openEnteredPath($("#pathInputField").find("button"));
+                }
+            }
+            function openEnteredPath(object){
+                var newPath = $(object).parent().find("input").val();
+                //Filter out the path
+                newPath = newPath.split("\\").join("/");
+                listDirectory(newPath);
+                hideManualOpenPathInput();
+            }
+
+            function hideManualOpenPathInput(){
+                $("#pathInputField").hide();
+                if (isMobile){
+                    $("#mobilePathDisplay").show();
+                }else{
+                    $("#pathDisplayField").show();
+                }
+            }
+
             function checkIfParentDirExists(path){
                 if (path.includes("/")){
                     pathInfo = path.split("/");
@@ -2175,9 +2294,24 @@
                 })
             }
 
+            function openHomeDir(){
+                listDirectory("user:/", function(){
+                    hideManualOpenPathInput();
+                    hideSearchBar();
+                })
+            }
+
             //=================================== FILE OPERATIONS ========================
 
             function refreshList(){
+                if (searchMode == true){
+                    //Refresh the search result
+                    if ($("#searchInput").val().length >  0){
+                        handleSearch();
+                    }
+                    return;
+                }
+
                 shiftHold = false;
                 ctrlHold = false;
                 let currentScrollTop = JSON.parse(JSON.stringify($("#folderView").scrollTop()));
@@ -2256,6 +2390,7 @@
                 if (newName == oldName){
                     msgbox("remove","New filename is identical to the original filename.")
                     $("#renameBox").fadeOut(100);
+                    $(".popupWrapper").fadeOut(100);
                     return;
                 }
                 var newNameWithoutExt = newName;
@@ -2298,12 +2433,16 @@
                         success: function(data){
                             if (data.error !== undefined){
                                 msgbox("remove",data.error);
-                                $("#renameBox").fadeOut(100);
                             }else{
                                 refreshList();
                                 msgbox("checkmark","Rename suceed");
-                                $("#renameBox").fadeOut(100);
                             }
+                            $("#renameBox").fadeOut(100);
+                            $(".popupWrapper").fadeOut(100);
+                        },
+                        error: function(){
+                            $("#renameBox").fadeOut(100);
+                            $(".popupWrapper").fadeOut(100);
                         }
                     });
                     renameFileObjects = [];
@@ -2401,7 +2540,7 @@
                         url: `../../system/file_system/validateFileOpr`,
                         data: {src: JSON.stringify(fileList), dest: targetDir},
                         success: function(data){
-                           if (!nocheck && data !== null){
+                           if (!nocheck && data.length > 0){
                                //There are problem with the copy target. Pop up overwrite rule selector
                                 showDuplicateHandler(data);
                            }else{
@@ -2468,7 +2607,7 @@
                         url: `../../system/file_system/validateFileOpr`,
                         data: {src: JSON.stringify(fileList), dest: targetDir},
                         success: function(data){
-                           if (!nocheck && data !== null){
+                           if (!nocheck && data.length > 0){
                                //There are problem with the copy target. Pop up overwrite rule selector
                                 showDuplicateHandler(data);
                            }else{
@@ -2693,6 +2832,9 @@
                     //E.g. user:/Desktop or user:/
                     $(".pathDisplay").append(`<div class="section ${currentTheme} selectable" onclick="refreshList();">${shortenLongFoldername(pathInfo[1], 80)}</div>`);
                 }
+
+                //Update the manual input field as well
+                $("#pathInputField").find("input").val(path);
             }
 
             function shortenLongFoldername(name, maxchar = 20){
@@ -2916,35 +3058,21 @@
                 $("#createNewFileName").parent().removeClass("error");
                 //Update the newfile list
                 $("#newFile").find(".newfilelist").html("");
-                $.ajax({
-                    url: "../../system/file_system/newItem",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            return;
-                        }
-                        for (var i =0; i < data.length; i++){
-                            var desc = data[i].Desc;
-                            var ext = data[i].Ext;
-                            var icon = ao_module_utils.getIconFromExt(ext);
-                            $("#newFile").find(".newfilelist").append(`<div class="item newFileFormat" ext="${ext}"><i class="${icon} icon" style="margin-right:12px;"></i> ${desc}</div>`);
-                        }
-                        //Initialize the new file as txt
-                        var filename = "newfile";
-                        var finalFilename = filename; 
-                        var i = 0;
-                        while (currentFilelist.includes(finalFilename)){
-                            finalFilename = finalFilename + "(" + i + ")";
-                            i++;
-                        }  
-                        $("#createNewFileName").val(finalFilename + ".txt");
-
-                        //Hook events for on click
-                        $(".newFileFormat").off("click").on("click",function(data){
-                            $(".newFileFormat").removeClass("selected");
-                            $(this).addClass("selected");
-
-                            //Parse the newfilename
-                            var selectedExt = $(this).attr("ext");
+                requestCSRFToken(function(token){
+                    $.ajax({
+                        url: "../../system/file_system/newItem",
+                        data: {csrft: token},
+                        success: function(data){
+                            if (data.error !== undefined){
+                                return;
+                            }
+                            for (var i =0; i < data.length; i++){
+                                var desc = data[i].Desc;
+                                var ext = data[i].Ext;
+                                var icon = ao_module_utils.getIconFromExt(ext);
+                                $("#newFile").find(".newfilelist").append(`<div class="item newFileFormat" ext="${ext}"><i class="${icon} icon" style="margin-right:12px;"></i> ${desc}</div>`);
+                            }
+                            //Initialize the new file as txt
                             var filename = "newfile";
                             var finalFilename = filename; 
                             var i = 0;
@@ -2952,9 +3080,26 @@
                                 finalFilename = finalFilename + "(" + i + ")";
                                 i++;
                             }  
-                            $("#createNewFileName").val(filename + "." + selectedExt);
-                        });
-                    }
+                            $("#createNewFileName").val(finalFilename + ".txt");
+
+                            //Hook events for on click
+                            $(".newFileFormat").off("click").on("click",function(data){
+                                $(".newFileFormat").removeClass("selected");
+                                $(this).addClass("selected");
+
+                                //Parse the newfilename
+                                var selectedExt = $(this).attr("ext");
+                                var filename = "newfile";
+                                var finalFilename = filename; 
+                                var i = 0;
+                                while (currentFilelist.includes(finalFilename)){
+                                    finalFilename = finalFilename + "(" + i + ")";
+                                    i++;
+                                }  
+                                $("#createNewFileName").val(filename + "." + selectedExt);
+                            });
+                        }
+                    });
                 });
             }
 
@@ -3005,26 +3150,30 @@
                     //OK to proceed.
                     $("#createNewFolder").parent().removeClass("error").addClass("success");
                     $("#newFolder").find(".duplicateWarning").hide();
-                    $.ajax({
-                        url: "../../system/file_system/newItem",
-                        data: {type: "folder", src: currentPath, filename: newFoldername},
-                        success: function(data){
-                            if (data.error !== undefined){
-                                msgbox("remove", data.error);
-                            }else{
-                                msgbox("checkmark","New folder created.");
-                                refreshList();
+                    requestCSRFToken(function(token){
+                        $.ajax({
+                            url: "../../system/file_system/newItem",
+                            data: {type: "folder", src: currentPath, filename: newFoldername, csrft: token},
+                            success: function(data){
+                                if (data.error !== undefined){
+                                    msgbox("remove", data.error);
+                                }else{
+                                    msgbox("checkmark","New folder created.");
+                                    refreshList();
+                                }
+                                $("#newFolder").fadeOut('fast');
+                                hideAllPopupWindows();
+                                if (currentPath == "user:/"){
+                                    //Reload the User root folder list
+                                    initRootDirs();
+                                }
                             }
-                            $("#newFolder").fadeOut('fast');
-                            hideAllPopupWindows();
-                            if (currentPath == "user:/"){
-                                //Reload the User root folder list
-                                initRootDirs();
-                            }
-                        }
+                        });
                     });
+                    
                 }
             }
+
 
             function confirmNewFile(){
                 var filename = $("#createNewFileName").val();
@@ -3040,18 +3189,21 @@
                 }
                 $("#createNewFileName").parent().removeClass("error");
                 //Ok to proceed
-                $.ajax({
-                    url: "../../system/file_system/newItem",
-                    data: {type: "file", src: currentPath, filename:filename},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            msgbox("remove",data.error);
-                        }else{
-                            msgbox("checkmark",filename + " created.");
-                            refreshList();
+                requestCSRFToken(function(token){
+                    $.ajax({
+                        url: "../../system/file_system/newItem",
+                        data: {type: "file", src: currentPath, filename:filename,csrft: token},
+                        success: function(data){
+                            if (data.error !== undefined){
+                                msgbox("remove",data.error);
+                            }else{
+                                msgbox("checkmark",filename + " created.");
+                                refreshList();
+                            }
                         }
-                    }
+                    });
                 });
+                
                 hideAllPopupWindows();
                 $("#newFile").fadeOut('fast');
             }
@@ -3632,6 +3784,8 @@
                     if (ao_module_virtualDesktop){
                         parent.initTheme("whiteTheme");
                     }
+
+                    $(".rightPad").css("margin-right", "37px");
                     
                 }else{
                     //Set to DarkTheme
@@ -3646,6 +3800,8 @@
                      if (ao_module_virtualDesktop){
                         parent.initTheme("darkTheme");
                     }
+
+                    $(".rightPad").css("margin-right", "40px");
                 }
                
             }
@@ -4190,8 +4346,7 @@
         function uploadFile(file, uuid=undefined, targetDir=undefined) {
             if (lowMemoryMode){
                  /*
-                    Low Memory Upload Mode (Experimental)
-                    (For host with less than 2GB RAM)
+                    Low Memory Upload Mode
                 */
                 var filename = encodeURIComponent(file.name);
                 var filesize = file.size;
@@ -4559,7 +4714,6 @@
             
         }
 
-        var searchMode = false;
         function toggleSearch(){
             //Start search mode
             $(".searchbar").slideDown("fast", function(){
@@ -4573,6 +4727,11 @@
                  $(this).addClass('disabled');
             });
             searchMode = true;
+            
+            //Adjust the css for mobile interface
+            if (isMobile){
+                $("#searchInput").parent().parent().css("width", window.innerWidth - 135 + "px");
+            }
 
             //Clear current folderlist
             $("#folderList").show();
@@ -4656,7 +4815,7 @@
         }
 
         function handleSearchBarPress(e){
-            if (e.keyCode == 13){
+            if (e.keyCode == 13 || e.key == "Enter"){
                 e.preventDefault();
                 handleSearch();
             }
@@ -4838,7 +4997,17 @@
             function updateSortingMethods(){
                 var method = $("#sortingMethodSelector").val();
                 sortMode = method;
-                refreshList();
+
+                //Save it to server side
+                $.ajax({
+                    url: "../../system/file_system/sortMode",
+                    method: "POST",
+                    data: {opr: "set", folder: currentPath, mode: sortMode},
+                    success: function(data){
+                        //console.log("Sort mode saved: " + data)
+                        refreshList();
+                    }
+                });
             }
 
             function requestCSRFToken(callback){

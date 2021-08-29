@@ -2,46 +2,131 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
 <html>
-
 <head>
     <meta charset="UTF-8">
     <meta name="theme-color" content="#4b75ff">
-    <!-- <link rel="stylesheet" href="../script/tocas/tocas.css"> -->
-    <script src="../script/tocas/tocas.js"></script>
+    <title>Photo Preview</title>
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
     <link rel="manifest" href="manifest.json">
+    <style>
+        .arrow{
+            width: 2em;
+            opacity: 0.5;
+            position: fixed;
+            top: calc(50% - 1em);
+            cursor: pointer;
+        }
 
+        .left.arrow{
+            left: 2em;
+        }
+
+        .right.arrow{
+            right: 2em;
+        }
+    </style>
 </head>
-
 <body style="background:rgba(34,34,34,1);overflow:hidden;">
     <img id="img" style="max-height: 100vh;max-width: 100vw;">
+    <img class="left arrow" onclick="previousImage();" src="embedded/arrow-left.svg">
+    <img class="right arrow" onclick="nextImage();" src="embedded/arrow-right.svg">
     <script>
         //Get file playback info from hash
         var playbackFile = ao_module_loadInputFiles();
+        var nearbyFileList = [];
+        var currentViewingIndex = 0;
         //Only handle one file
         playbackFile = playbackFile[0];
-
-        //Update title name
-        ao_module_setWindowTitle("Photo - " + playbackFile.filename);
-        setTimeout(function() {
-            updateImgSize();
-        }, 500);
-        //Setup img src
-        $("#img").attr("src", '../media?file=' + encodeURIComponent(playbackFile.filepath))
-
-        //realigin to center
-        $('img').on('load', function() {
-            updateImgSize();
-        });
+        loadImage(playbackFile.filename, playbackFile.filepath);
+        
         $(window).on("resize ", function() {
             updateImgSize();
         });
 
+        //Load the nearby image files and allow swapping using <- and -> key
+        function loadNearbyFiles(filepath){
+            ao_module_agirun("Photo/embedded/listNearbyImage.js", {
+                path: filepath
+            }, function(data){
+                if (data.error != undefined){
+                    alert(data.error);
+                }else{
+                    nearbyFileList = data;
+
+                    //Track which index currently the user is viewing
+                    for (var i = 0; i < nearbyFileList.length; i++){
+                        var thisPath = nearbyFileList[i];
+                        if (thisPath == filepath.split("\\").join("/")){
+                            currentViewingIndex = i;
+                        }
+                    }
+                }
+            })
+        }
+
+        function nextImage(){
+            nextPhoto = currentViewingIndex + 1;
+            if (nextPhoto > nearbyFileList.length - 1){
+                nextPhoto = nearbyFileList.length - 1;
+            }
+
+            var filepath = nearbyFileList[nextPhoto];
+            var filename = filepath.split('/').pop();
+            if (nextPhoto != currentViewingIndex){
+                //Change in photo index
+                loadImage(filename, filepath);
+                 currentViewingIndex = nextPhoto;
+            }
+        }
+
+        function previousImage(){
+            nextPhoto = currentViewingIndex - 1;
+            if (nextPhoto < 0){
+                nextPhoto = 0;
+            }
+
+            var filepath = nearbyFileList[nextPhoto];
+            var filename = filepath.split('/').pop();
+            if (nextPhoto != currentViewingIndex){
+                //Change in photo index
+                loadImage(filename, filepath);
+                 currentViewingIndex = nextPhoto;
+            }
+        }
+
+        //Bind arrow key events
+        $("body").on("keydown", function(e){
+            var nextPhoto = currentViewingIndex;
+            if (e.keyCode == 37){
+                //<-
+                previousImage();
+            }else if (e.keyCode == 39){
+                //->
+                nextImage();
+            }else{
+                //Invalid keycode to operate
+                return;
+            }
+        })
+
+        loadNearbyFiles(playbackFile.filepath);
+
+        function loadImage(filename, filepath){
+            $("#img").hide();
+            ao_module_setWindowTitle("Photo - " + filename);
+            $("#img").attr("src", '../media?file=' + encodeURIComponent(filepath))
+            
+            //realigin to center
+            $('#img').on('load', function() {
+                updateImgSize();
+                $("#img").show();
+            });
+        }
 
         function updateImgSize() {
-            $('#img').css("margin-top", (window.innerHeight - $("#img").height()) / 2);
-            $('#img').css("margin-left", (window.innerWidth - $("#img").width()) / 2);
+            $('#img').css("margin-top", (window.innerHeight - $("#img").height()) / 2 - 6);
+            $('#img').css("margin-left", (window.innerWidth - $("#img").width()) / 2 - 6);
         }
     </script>
 </body>

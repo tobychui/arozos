@@ -25,6 +25,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/auth"
+	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/database"
 	filesystem "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/user"
@@ -121,7 +122,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, "/login.system?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
 				}
 				return
 			} else {
@@ -134,7 +135,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, "/login.system?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
 				}
 				return
 			}
@@ -174,7 +175,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, "/login.system?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
 				}
 				return
 			}
@@ -200,7 +201,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, "/login.system?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
 				}
 				return
 			}
@@ -370,12 +371,14 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 			}
 		} else {
-			if directDownload == true {
+			if directDownload {
 				//Serve the file directly
 				w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(shareOption.FileRealPath)), "+", "%20"))
 				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 				http.ServeFile(w, r, shareOption.FileRealPath)
-			} else if directServe == true {
+			} else if directServe {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 				http.ServeFile(w, r, shareOption.FileRealPath)
 			} else {

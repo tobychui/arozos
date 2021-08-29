@@ -42,7 +42,7 @@
     "uuid": "src",
     "path": "test/source",
     "access": "readwrite",
-    "hierarchy": "user",
+    "hierarchy": "public",
     "automount": false,
     "filesystem": "ntfs"
   }, 
@@ -55,6 +55,17 @@
     "automount": false,
     "filesystem": "ntfs",
     "parentuid": "src",
+    "backupmode": "version"
+  }, 
+  {
+    "name": "User Backup",
+    "uuid": "userback",
+    "path": "test/userback",
+    "access": "readonly",
+    "hierarchy": "backup",
+    "automount": false,
+    "filesystem": "ntfs",
+    "parentuid": "user",
     "backupmode": "version"
   }
 ]

@@ -40,6 +40,7 @@
                         <th>Timestamp</th>
                         <th>Requested Account</th>
                         <th>IP Address</th>
+                        <th>Connection Type</th>
                         <th>Access Port</th>
                     </tr>
                 </thead>
@@ -128,11 +129,24 @@
                                 if (entry.LoginSucceed == false){
                                     statusIcon = `<i class="red remove icon"></i>`;
                                 }
+
+                                var authType = entry.AuthType;
+                                if (authType == ""){
+                                    authType = "N/A"
+                                }else if (authType == "web"){
+                                    authType = `<i class="blue globe icon"></i> Web Interface`
+                                }else if (authType == "ftp"){
+                                    authType = `<i class="yellow folder icon"></i> FTP`
+                                }else if (authType == "webdav"){
+                                    authType = `<i class="blue folder icon"></i> WebDAV`
+                                }
+
                                 $("#records").append(`<tr>
                                     <td data-label="status">${statusIcon}</td>
                                     <td data-label="timestamp">${timestamp}</td>
                                     <td data-label="acc">${entry.TargetUsername}</td>
                                     <td data-label="ip">${entry.IpAddr}</td>
+                                    <td data-label="authtype">${authType}</td>
                                     <td data-label="port">${entry.Port}</td>
                                 </tr>`);
                             });

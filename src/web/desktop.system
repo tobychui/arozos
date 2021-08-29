@@ -4,13 +4,13 @@
     <title>ArozOS Desktop</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="script/tocas/tocas.css">
-    <link id="fwcss" rel="stylesheet" href="script/ao.css">
-    <link rel="stylesheet" href="SystemAO/desktop/script/jsCalendar/source/jsCalendar.css">
-    <script type="text/javascript" src="script/tocas/tocas.js"></script>
-    <script type="text/javascript" src="script/jquery.min.js"></script>
-    <script type="text/javascript" src="script/ao_module.js"></script>
-    <script type="text/javascript" src="SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
+    <link rel="stylesheet" href="./script/tocas/tocas.css">
+    <link id="fwcss" rel="stylesheet" href="./script/ao.css">
+    <link rel="stylesheet" href="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.css">
+    <script type="text/javascript" src="./script/tocas/tocas.js"></script>
+    <script type="text/javascript" src="./script/jquery.min.js"></script>
+    <script type="text/javascript" src="./script/ao_module.js"></script>
+    <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <style>
         body {
             background-repeat: no-repeat;
@@ -923,7 +923,7 @@
         <div class="ts small single line items">
             <div class="item">
                 <div class="ts mini image">
-                    <img class="usericon" src="img/desktop/system_icon/user.png">
+                    <img class="usericon" src="img/desktop/system_icon/user.svg">
                 </div>
                 <div class="content">
                     <div id="username" class="header">User</div>
@@ -1023,6 +1023,9 @@
             focus: null
         };
 
+        //Upload related
+        let uploadFileChunkSize = 1024 * 512; //512KB per chunk in low memory upload
+
         //Others
         var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -1030,21 +1033,28 @@
         var userInfo = {};
         var hardwareman = false;
         var downloadMode = false;
-        var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        var lowMemoryMode = true;
 
+        //Browser detection
+        var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+        var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        var isMacOS = (navigator.appVersion.indexOf("Mac")!=-1);
 
         //Initiation functions
         initDesktopTheme();
         initDesktopHostInfo();
         initDesktopUserInfo();
         initBackgroundSwitchingAnimation();
-        //initDesktopFiles();               //Will be called in initDesktopIconPreference() -> refresh()
+        //Commented for debug purpose
+        initUploadMode();
         initModuleList();
         initDesktopIconPreference()
         initUserDefinedThemeColor();
         hookFloatWindowEvents();
         hookLaunchMenuEvents();
         initTheme();
+        initStartupSounds();
 
         //Login cookie expire check
         setInterval(function() {
@@ -1126,6 +1136,29 @@
         }
         function hideToolPanel(){
             $("#quickAccessPanel").slideUp("fast");
+        }
+
+        function initStartupSounds(){
+            $.ajax({
+                url: "system/desktop/preference",
+                method: "GET",
+                data: {preference: "startup-audio"},
+                success: function(data){
+                    if (data == undefined || data == ""){
+                        return;
+                    }
+                    var currentGlobalVol = localStorage.getItem("global_volume");
+                    if (currentGlobalVol != null && currentGlobalVol != undefined && currentGlobalVol != ""){
+                        
+                    }else{
+                        currentGlobalVol = 0;
+                    }
+
+                    var audio = new Audio("media?file=" + data);
+                    audio.volume = currentGlobalVol;
+                    audio.play();
+                }
+            });
         }
 
         function initDesktopUserInfo(){
@@ -1660,6 +1693,10 @@
             event.stopImmediatePropagation();
             var targetWFID = $(object).attr("windowId");
             var targetFW = getFloatWindowByID(targetWFID);
+            if (targetFW == undefined){
+                //fw not found
+                return;
+            }
             $(targetFW).fadeIn(100);
             MoveFloatWindowToTop(targetFW);
             stackedFloatWindowListShwon = false;
@@ -1671,6 +1708,10 @@
             event.stopImmediatePropagation();
             var targetWFID = $(object).parent().attr("windowId");
             var targetFW = getFloatWindowByID(targetWFID);
+            if (targetFW == undefined){
+                //fw not found
+                return;
+            }
             closeFloatWindow(targetFW.find(".close"), event);
             $(object).parent().remove();
             if ($("#stackedWindowList").find(".item").length == 0) {
@@ -2884,6 +2925,7 @@
             let shortenedName = filename;
             screenX += iconOffsetXY[0];
             screenY += iconOffsetXY[1];
+            
             if (isDir) {
                 //Folder objects
                 icon = "folder outline";
@@ -3008,7 +3050,6 @@
 
         function appendDesktopIcon(target, properties){
             var htmlType = "div";
-            var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
             if (properties.type == "file" && isChrome){
                 htmlType = "a";
             }
@@ -3194,8 +3235,6 @@
             if (sourceFilelist !== ""){
                 sourceFilelist = JSON.parse(sourceFilelist);
             }
-            console.log(sourceFilelist);
-
 
             //Drop opererations
             if (target.attr("id") == "bgwrapper") {
@@ -3249,6 +3288,7 @@
                         let thisFilename = files[j].name;
                         let x = parseInt(locations[j][0]);
                         let y = parseInt(locations[j][1]);
+                        let uploadIconUUID = generateUploadingIcon(thisFile.name, [x,y]);
                         uploadFile(thisFile,function(){
                             console.log("Uploader callback");
                             $.ajax({
@@ -3257,10 +3297,10 @@
                                 data: {"set": thisFilename, "x": x, "y": y},
                                 success: function(data) {
                                     //Refresh the desktop
-                                    refresh(undefined, true);
+                                    refresh(undefined, false);
                                 }
                             });
-                        });
+                        }, uploadIconUUID);
                         
                     }
                 }else if (sourceFilelist.length > 0 && Array.isArray(sourceFilelist)){
@@ -3288,20 +3328,6 @@
                                 mode = "move"
                                 title = "Moving "
                             }
-
-                            //Check if any of the files already exists on desktop
-                            /*
-                            var duplicateFound = false;
-                            filelist.forEach(file => {
-                                var thisFilename = file.filename;
-                                desktopFileList.forEach(desktopFile => {
-                                    if (desktopFile == thisFilename){
-                                        //Diplicate
-                                        duplicateFound = true;
-                                    }
-                                });
-                            });
-                            */
 
                             var filepathList = [];
                             filelist.forEach(file => {
@@ -3390,14 +3416,6 @@
                             let thisIconObject = getObjectFromPath(filepath);
                             let caluclatedLocation = [$(sourceObject).offset().left - offset.dx, $(sourceObject).offset().top - offset.dy];
                             let finalIconLocation = findClosestGrid(caluclatedLocation[0], caluclatedLocation[1]);
-                            //Check for duplication
-                            /*
-                            var duplicateObject = getObjectFromLocation(finalIconLocation[0][0]  + iconOffsetXY[0], finalIconLocation[0][1] + iconOffsetXY[1]);
-                            if (duplicateObject !== undefined) {
-                                //There are already object there. Relocate this object later
-                                relocatePendingObjects.push(duplicateObject)
-                            }
-                            */
                         
                             //Move this icon to designed location
                             $(thisIconObject).css({
@@ -3493,7 +3511,23 @@
                 }
             } else if (target.attr("type") == "folder") {
                 //Move this file or folder into the target folder
-                //WIP
+                var moveSources = [sourceFilepath];
+                if ($(".launchIconWrapper.selected").length > 1){
+                    //Multi move operations
+                    moveSources = [];
+                    $(".launchIconWrapper.selected").each(function(){
+                        var thisFileData = $(this).parent().attr("filedata");
+                        thisFileData = JSON.parse(decodeURIComponent(thisFileData));
+                        moveSources.push(thisFileData.Filepath);
+                    });
+                }
+
+                //Get the move target location
+                var targetFd = $(target).attr("filedata");
+                targetFd = JSON.parse(decodeURIComponent(targetFd));
+
+                //Move it
+                moveSourceFilesToTarget(moveSources, targetFd.Filepath)
 
             } else if (target.attr("type") == "shortcut") {
                 //Opening with the shortcut
@@ -3532,14 +3566,78 @@
                     openFileWithModule(shortcutModule, openFileList);
                 } else if (shortcutType == "folder") {
                     //Move the source file into this folder
+                    var moveSources = [sourceFilepath];
+                    if ($(".launchIconWrapper.selected").length > 1){
+                        //Multi move operations
+                        moveSources = [];
+                        $(".launchIconWrapper.selected").each(function(){
+                            var thisFileData = $(this).parent().attr("filedata");
+                            thisFileData = JSON.parse(decodeURIComponent(thisFileData));
+                            moveSources.push(thisFileData.Filepath);
+                        });
+                    }
 
+                    //Extract shortcut info from the target
+                    var targetPath = shortcutData.ShortcutPath;
+                    moveSourceFilesToTarget(moveSources, targetPath);
                 }
 
             } else {
-                console.log("Unknown reaction type: ", target.attr("type"));
+                console.log("Unknown action type: ", target.attr("type"));
             }
         }
 
+        
+        //Use move if it is folder on desktop, use copy if it is a shortcut
+        function moveSourceFilesToTarget(sourceList, target, opr="move"){
+            var oprConfig = {
+                opr: opr,
+                src: sourceList,
+                dest: target,
+                callbackWindowID: "desktop",
+                callbackFunction: `refresh(undefined, true)`
+            }
+            var configHash = encodeURIComponent(JSON.stringify(oprConfig));
+            var title = "Copying " + sourceList.length;
+            if (sourceList.length > 1){
+                title += " files";
+            }else{
+                title += " file";
+            }
+
+            //Create FloatWindow to handle the file operations
+            newFloatWindow({
+                url: "SystemAO/file_system/file_operation.html#" + configHash,
+                width: 400,
+                height: 220,
+                appicon: "SystemAO/file_system/img/selector.png",
+                title: title
+            });
+
+            //Delete the file location from db
+            sourceList.forEach(file => {
+                let filename = file.split("/").pop();
+                $.ajax({
+                    url: "system/desktop/files",
+                    data: {del: filename},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            console.log(data.error);
+                        }
+                    }
+                });
+            });
+        }
+
+        function requestCSRFToken(callback){
+            $.ajax({
+                url: "system/csrf/new",
+                success: function(token){
+                    callback(token);
+                }
+            });
+        }
+        
         function getModuleFromShortcutInfo(shortcutInfo) {
             var ShortcutPath = shortcutInfo["ShortcutPath"];
             if (ShortcutPath.includes("/") == false) {
@@ -3683,6 +3781,7 @@
             return targetLocation;
         }
 
+        //Convert location to grid index
         function getGridIndexFromLocation(x,y){
             var gridIndex = [-1,-1];
             for (var i = 0; i < desktopGrids.length; i++){
@@ -3701,6 +3800,38 @@
             }
             return gridIndex;
         }
+
+        //Convert grid index to location
+        function getLocationFromGridIndex(x, y){
+            var location = [-1,-1];
+            
+            //Calculate the usable grid on screen
+            var iheight = 106;
+            var iwidth = 70;
+            var padding = 16;
+            if (desktopIconSize == "small") {
+                iheight = 82;
+                iwidth = 50;
+            } else if (desktopIconSize == "medium") {
+                iheight = 106;
+                iwidth = 70;
+            } else if (desktopIconSize == "big") {
+                iheight = 124;
+                iwidth = 84;
+            }
+
+            var screenHeight = window.innerHeight;
+            var screenWidth = window.innerWidth;
+
+            var vc = Math.floor((screenHeight - 20 - padding) / iheight);
+            var hc = Math.floor((screenWidth - padding) / iwidth);
+
+            //Calculate the position of this icon on the grid
+            var resultX = padding + iwidth * x + iconOffsetXY[0];
+            var resultY = padding + iheight * y + iconOffsetXY[1];
+
+            return [resultX, resultY];
+        }   
 
 
         //Set allow overshoot to allow drop point to get closest grid with x / y > cursor posx /y
@@ -4014,7 +4145,7 @@
             loggingOut = true;
             if (confirm("Exiting Session. Confirm?")){
                 $.get("system/auth/logout", function() {
-                    window.location.href = "/";
+                    window.location.href = "./";
                 });
             }
             hideAllContextMenus();
@@ -4111,7 +4242,7 @@
                     }
                     showMenu = true;
 
-                } else if (clickTarget.hasClass("backgroundFrame") || (isSafari && $(clickTarget).attr("id") == "selectionPanel")) {
+                } else if (clickTarget.hasClass("backgroundFrame") || ((isSafari || (isMacOS && isChrome)) && $(clickTarget).attr("id") == "selectionPanel")) {
                     //Click on the background. Load background context menu.
                     addContextMenuItem($("#contextmenu"), 'New', "<i class='caret right icon'></i>", "newitemmenu", true);
                     addContextMenuItem($("#contextmenu"), 'Refresh', "<i class='refresh icon'></i>", "handleMenuRefresh", false);
@@ -4731,26 +4862,29 @@
             }
 
             //Create the folder
-            $.post("system/file_system/newItem", {
-                type: "folder",
-                src: "user:/Desktop/",
-                filename: newFolderName
-            }).done(function(data) {
-                if (data.error !== undefined) {
-                    console.log(data.error);
-                } else {
-                    if (createObjectLocation) {
-                        setIconDesktopLocation(newFolderName, closestGridIndexLocation[0], closestGridIndexLocation[1], function() {
-                            //After set Desktop icon, refresh the page 
-                            refresh(function() {
-                                //After refresh the page, highlight the new folder and set it to rename mode
-                                var targetFolderObject = getObjectFromGridLocation(closestGridIndexLocation[0], closestGridIndexLocation[1]);
-                                console.log(targetFolderObject);
-                                enableRenameOnLaunchIconObject(targetFolderObject);
+            requestCSRFToken(function(token){
+                $.post("system/file_system/newItem", {
+                    type: "folder",
+                    src: "user:/Desktop/",
+                    filename: newFolderName,
+                    csrft: token
+                }).done(function(data) {
+                    if (data.error !== undefined) {
+                        alert(data.error);
+                    } else {
+                        if (createObjectLocation) {
+                            setIconDesktopLocation(newFolderName, closestGridIndexLocation[0], closestGridIndexLocation[1], function() {
+                                //After set Desktop icon, refresh the page 
+                                refresh(function() {
+                                    //After refresh the page, highlight the new folder and set it to rename mode
+                                    var targetFolderObject = getObjectFromGridLocation(closestGridIndexLocation[0], closestGridIndexLocation[1]);
+                                    console.log(targetFolderObject);
+                                    enableRenameOnLaunchIconObject(targetFolderObject);
+                                });
                             });
-                        });
+                        }
                     }
-                }
+                });
             });
 
             /*
@@ -4846,6 +4980,7 @@
                                     success: function(data){
                                         if (data.error !== undefined){
                                             //Cancel the operation
+                                            alert(data.error);
                                             console.log("*ERROR* " + data.error);
                                             currentInputTextArea.remove();
                                         }else{
@@ -4946,17 +5081,21 @@
             addContextMenuItem($("#subcontextmenu"), 'Folder', "<i class='folder icon'></i>", "newfolder", true);
             addContextMenuItem($("#subcontextmenu"), 'Shortcut', "<i class='external icon'></i>", "newshortcut", true);
             addContextMenuSeperator($("#subcontextmenu"));
-            $.get("system/file_system/newItem", function(data) {
-                for (var i = 0; i < data.length; i++) {
-                    var thisNewFile = data[i];
-                    var icon = ao_module_utils.getIconFromExt(thisNewFile.Ext);
-                    addContextMenuItem($("#subcontextmenu"), `<i class="${icon} icon" ext="${thisNewFile.Ext}"></i> ${thisNewFile.Desc}`, undefined, "newitem");
-                }
-                //Show sub-context menu
-                showSubContextMenu(target);
+            requestCSRFToken(function(token){
+                $.ajax({
+                    url: "system/file_system/newItem",
+                    data: {csrft: token},
+                    success: function(data){
+                        for (var i = 0; i < data.length; i++) {
+                            var thisNewFile = data[i];
+                            var icon = ao_module_utils.getIconFromExt(thisNewFile.Ext);
+                            addContextMenuItem($("#subcontextmenu"), `<i class="${icon} icon" ext="${thisNewFile.Ext}"></i> ${thisNewFile.Desc}`, undefined, "newitem");
+                        }
+                        //Show sub-context menu
+                        showSubContextMenu(target);
+                    }
+                })
             });
-
-            
         }
 
         function showSubContextMenu(target) {
@@ -4993,7 +5132,7 @@
             //Request backend to generate the new file
             $.ajax({
                 url: "system/file_system/newItem",
-                data: {type: "file",src: "user:/Desktop/",filename: newfn},
+                data: {type: "file",src: "user:/Desktop/",filename: newfn, csrft: token},
                 success: function(data){
                     if (data.error !== undefined){
                         alert(data.error);
@@ -5067,13 +5206,108 @@
                 $(".launchIcon").remove();
             }
             if (callback == undefined) {
-                initDesktopFiles(launchOption);
+                initDesktopFiles(launchOption, function(){
+                    startThumbnailLoader();
+                });
             } else {
-                initDesktopFiles(launchOption, callback);
+                initDesktopFiles(launchOption, function(){
+                    startThumbnailLoader();
+                    callback()
+                });
             }
 
             hideAllContextMenus();
         }
+
+        function startThumbnailLoader(){
+            let path = "user:/Desktop";
+            let protocol = "wss://";
+            if (location.protocol !== 'https:') {
+                protocol = "ws://";
+            }
+
+            var port = window.location.port;
+            if (window.location.port == ""){
+                port = "80";
+            }
+
+            thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/handleCacheRender?folder=" + path);
+
+            thumbRenderWebSocket.onopen = function(e) {
+
+            };
+
+            thumbRenderWebSocket.onmessage = function(event) {
+                //Find the correct file in the current directory and place its image
+                let thumbData = JSON.parse(event.data);
+                $(".launchIcon").each(function(){
+                    if (thumbData[1].length > 0){
+                        if ($(this).attr("filename") == thumbData[0]){
+                            let imageContainer = $(this).find(".launchIconImage");
+                            imageContainer.attr("src","data:image/jpg;base64," + thumbData[1]);
+                            imageContainer.css("padding", "0.6em");
+
+                            //Load the application icon on this file
+                            let filedata = $(this).attr("filedata");
+                            filedata = JSON.parse(decodeURIComponent(filedata));
+                            $.ajax({
+                                url: "system/modules/getDefault",
+                                data: {opr: "launch", ext: filedata.Ext},
+                                method: "GET",
+                                success: function(data){
+                                    if (data.error == undefined){
+                                        let iconSize = 20;
+                                        let topOffset = $(imageContainer).height() - iconSize/2 + 2;
+                                        $(imageContainer).parent().append(`<img src="${data.IconPath}" style="position: absolute; right: 0px; top: ${topOffset}px; width: ${iconSize}px; height: ${iconSize}px; pointer-events:none;"></img>`);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+            };
+
+            thumbRenderWebSocket.onclose = function(event) {
+                //Transfer ended
+            };
+
+            thumbRenderWebSocket.onerror = function(error) {
+                console.log("Cannot connect to WebSocket cache renderer. Falling back to AJAX request");
+                startFallbackThumbnailLoader();
+            };
+        }
+
+        function startFallbackThumbnailLoader(){
+                $(".launchIcon").each(function(){
+                    let fd = JSON.parse(decodeURIComponent($(this).attr("filedata"))) 
+                    let filepath = fd.Filepath;
+                    let targetDOM = $(this);
+                    $.ajax({
+                        url: "system/file_system/loadThumbnail",
+                        data: {vpath: filepath},
+                        success: function(data){
+                            if (data.error == undefined && data != undefined && data != ""){
+                                let imageContainer = $(targetDOM).find(".launchIconImage");
+                                imageContainer.attr("src","data:image/jpg;base64," + data);
+                                imageContainer.css("padding", "0.6em"); 
+                                
+                                $.ajax({
+                                    url: "system/modules/getDefault",
+                                    data: {opr: "launch", ext: fd.Ext},
+                                    method: "GET",
+                                    success: function(data){
+                                        if (data.error == undefined){
+                                            let iconSize = 20;
+                                            let topOffset = $(imageContainer).height() - iconSize/2 + 2;
+                                            $(imageContainer).parent().append(`<img src="${data.IconPath}" style="position: absolute; right: 0px; top: ${topOffset}px; width: ${iconSize}px; height: ${iconSize}px; pointer-events:none;"></img>`);
+                                        }
+                                    }
+                                });
+                            }      
+                        }
+                    })
+                });
+            }
 
 
         function openfm() {
@@ -5158,20 +5392,25 @@
             if (!hardwareman){
                 return
             }
-
-            if (confirm("Confirm Restart?")){
-                $.ajax({
-                    url: "system/power/restart",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }
-                    },
-                    error: function(){
-
-                    }
-                });
+            var apiObject = {
+                api: "/system/power/restart",
+                data: {},
+                title: "Password Required",
+                desc: "for restarting the ArozOS Host",
+                thisuser: true, //This username as default, set to false for entering other user
+                method: "GET"
             }
+
+            apiObject = encodeURIComponent(JSON.stringify(apiObject));
+            newFloatWindow({
+                url: "SystemAO/security/authreq.html#" + apiObject,
+                width: 480,
+                height: 300,
+                appicon: "SystemAO/security/img/lock.svg",
+                title: "Restart - Authentication Required",
+                parent: ao_module_windowID,
+                callback: "handleRestartCallback"
+            });
         }
 
         function shutdown(){
@@ -5179,49 +5418,227 @@
                 return
             }
 
-            if (confirm("Confirm Poweroff?")){
-                $.ajax({
-                    url: "system/power/shutdown",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            //Shutdown suceed
-                        }
-                    },
-                    error: function(){
-                        //Shutdown suceed
-                    }
-                });
+            var apiObject = {
+                api: "/system/power/shutdown",
+                data: {},
+                title: "<i class='red exclamation triangle icon'></i> Shutdown Host <i class='red exclamation triangle icon'></i>",
+                desc: "Please enter your password to confirm operation.",
+                thisuser: true, //This username as default, set to false for entering other user
+                method: "GET"
             }
+            apiObject = encodeURIComponent(JSON.stringify(apiObject));
 
+            newFloatWindow({
+                url: "SystemAO/security/authreq.html#" + apiObject,
+                width: 480,
+                height: 300,
+                appicon: "SystemAO/security/img/lock.svg",
+                title: "Shutdown - Authentication Required",
+                parent: ao_module_windowID,
+                callback: "handleShutdownCallback"
+            })
            
         }
 
-        function uploadFile(file, callback=undefined) {
-            let url = 'system/file_system/upload'
-            let uploadCurrentPath = "user:/Desktop/";
-            let formData = new FormData();
-            let xhr = new XMLHttpRequest();
-            formData.append('file', file);
-            formData.append('path', uploadCurrentPath);
-
-            xhr.open('POST', url, true)
-            xhr.upload.addEventListener("progress", function(e) {
-                console.log((e.loaded * 100.0 / e.total) || 100)
-            })
-
-            xhr.addEventListener('readystatechange', function(e) {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    if (callback !== undefined){
-                        callback(e.target.response);
+        //Check if this server is a low memory one
+        function initUploadMode(){
+            $.ajax({
+                url: "system/info/getRAMinfo",
+                success: function(data){
+                    if (data.error !== undefined){
+                        //Permission denied or other reasons that cannot access harwdare info. Use default mode
+                        lowMemoryMode = true;
+                    }else{
+                        //Check if ramsize > 1.8 GB (2GB). If yes, switch to large memory upload mode
+                        var memsize = JSON.parse(data);
+                        if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 3.8){
+                            console.log("[Desktop] Setting upload mode to large memory mode")
+                            lowMemoryMode = false;
+                        }
                     }
+                },
+                error: function(){
+                    //Hardware mode disabled. Always use low memory upload mode instead
+                    lowMemoryMode = true;
                 }
-                else if (xhr.readyState == 4 && xhr.status != 200) {
-                    console.log("Upload failed :" + xhr.status);
+            });
+        }
+
+        //Generate a loading icon for this upload task
+        function generateUploadingIcon(filename, position){
+            //Get position for appending
+            var onScreenLocation = getLocationFromGridIndex(position[0], position[1]);
+            //Append to UI
+            var uploadIconUUID = Date.now();
+            $("#iconwrapper").append(`<div href="javascript:void(0);" class="${uploadIconUUID} launchIcon" type="dummy" filename="${filename}" filepath="user:/Desktop/${filename}"  style="width:70px; height:106px;left:${onScreenLocation[0]}px; top:${onScreenLocation[1]}px;">
+                <span class="launchIconWrapper">
+                    <img class="launchIconImage medium" src="img/desktop/files_icon/${desktopIconPack}/file upload.png" draggable="false">
+                    <p class="launchIconText ${desktopIconSize}" >Uploading</p>
+                    <div class="ts tiny primary progress" style="margin-top: -4px;">
+                        <div class="bar" style="min-width: 0px !important; width: 0%;"></div>
+                    </div>
+                </span>
+            </div>`);
+            return uploadIconUUID;
+        }
+
+        function uploadFile(file, callback=undefined, uploadingIconUUID = undefined) {
+            if (lowMemoryMode){
+                /*
+                    Low Memory Upload Mode
+                */
+                var filename = encodeURIComponent(file.name);
+                var filesize = file.size;
+
+                //Open the websocket
+                let path = "user:/Desktop";
+                let protocol = "wss://";
+                if (location.protocol !== 'https:') {
+                    protocol = "ws://";
                 }
-            })
-            xhr.send(formData);
+
+                var port = window.location.port;
+                if (window.location.port == ""){
+                    port = "80";
+                }
+
+                let uploadDir = "user:/Desktop";
+    
+                //Fixing Firefox path issues on or above FF48.0
+                if (isFirefox && file.webkitRelativePath != ""){
+                    //Use the webkitRelativePath instead of the name, this is a folder upload
+                    let pathinfo = file.webkitRelativePath.split("/");
+                    pathinfo.pop();
+                    let subpath = pathinfo.join("/");
+                    uploadDir = uploadDir + subpath;
+                }
+
+                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir);
+                let currentSendingIndex = 0;
+                let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
+                
+                //Define a function for sending a particular chunk
+                function sendChunk(id, uploadingIconUUID){
+                    var offsetStart = id*uploadFileChunkSize;
+                    var offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
+                    var thisblob = file.slice(offsetStart,offsetEnd);
+                    socket.send(thisblob);
+                    //console.log(id + "/" + chunks);
+
+                    //Update progress to first percentage
+                    var progress = id / (chunks-1) * 100.0;
+                    if (progress > 100){
+                        progress = 100;
+                    }
+
+
+                    if (uploadingIconUUID != undefined){
+                        //Update the progress on the object
+                        $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", progress + "%");
+                        if (progress == 100){
+                            $("." + uploadingIconUUID + ".launchIcon").find(".progress").addClass("indeterminate");
+                        }
+                    }
+                 
+                }
+
+                //Start sending
+                socket.onopen = function(e) {
+                    if (filesize < uploadFileChunkSize){
+                        //This file is smaller than chunk size, set it to somwhere within 10% - 20% so it doesn't look like it is stuck
+                        $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "15%");
+                    }
+                    
+                    //Send the first chunk
+                    sendChunk(0, uploadingIconUUID);
+                    currentSendingIndex++;
+                };
+
+                socket.onmessage = function(event) {
+                    //Append to the send index
+                    var incomingValue = event.data;
+
+                    if (incomingValue == "next"){
+                        if (currentSendingIndex == chunks + 1){
+                            //Already finished
+                            socket.send("done");
+                        }else{
+                            //Send next chunk
+                            sendChunk(currentSendingIndex, uploadingIconUUID);
+                            currentSendingIndex++;
+                        }
+                      
+                    }else if (incomingValue == "OK"){
+                        //Merge completed
+                        
+                    }else{
+                        //Try to parse it as JSON
+                        try{
+                            var resp = JSON.parse(incomingValue.split('\\' + '"').join("\""));
+                            console.log(resp);
+                            if (resp.error !== undefined){
+                                //This is an error message
+                                sendNotification("Upload Failed", resp.error, "remove")
+
+                                //Update the progress bar to error
+                               
+                            }
+                        }catch(ex){
+                            //Something else
+                            console.log(incomingValue);
+                            console.log(ex);
+                        }
+                    }
+
+                };
+
+                socket.onclose = function(event) {
+                    if (callback != undefined){
+                        callback();
+                    }
+                };
+
+                socket.onerror = function(error) {
+                    console.log(error.message);
+                    console.log("[Desktop] Unable to open WebSocket connection. Fall back to FORM POST upload mode. (Check your nginx / reverse proxy settings!!!)")
+                    //Try to fallback to FORM POST upload mode
+                    lowMemoryMode = false;
+                    uploadFile(thisFile, callback)
+                    return
+                };
+            }else{
+                let url = 'system/file_system/upload'
+                let uploadCurrentPath = "user:/Desktop/";
+                let formData = new FormData();
+                let xhr = new XMLHttpRequest();
+                formData.append('file', file);
+                formData.append('path', uploadCurrentPath);
+
+                xhr.open('POST', url, true)
+                xhr.upload.addEventListener("progress", function(e) {
+                    console.log((e.loaded * 100.0 / e.total) || 100)
+                    var progress = (e.loaded * 100.0 / e.total) || 100;
+                    if (uploadingIconUUID != undefined){
+                        //Update the progress on the object
+                        $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", progress + "%");
+                        if (progress == 100){
+                            $("." + uploadingIconUUID + ".launchIcon").find(".progress").addClass("indeterminate");
+                        }
+                    }
+                })
+
+                xhr.addEventListener('readystatechange', function(e) {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+                        if (callback !== undefined){
+                            callback(e.target.response);
+                        }
+                    }
+                    else if (xhr.readyState == 4 && xhr.status != 200) {
+                        console.log("Upload failed :" + xhr.status);
+                    }
+                })
+                xhr.send(formData);
+            }
         }
 
         function setStorage(key, value, callback = undefined) {
@@ -5252,7 +5669,7 @@
 
         function initTheme(targetTheme=undefined){
             if (targetTheme == undefined){
-                $.get("../../system/file_system/preference?key=file_explorer/theme", function(data){
+                $.get("system/file_system/preference?key=file_explorer/theme", function(data){
                     if (data == "darkTheme"){
                         setDarkTheme();
                     }
@@ -5338,7 +5755,7 @@
         //Load the user define theme color to overwrite the default color if exists
         function initUserDefinedThemeColor(){
             $.ajax({
-                url: "../../system/file_system/preference",
+                url: "system/file_system/preference",
                 data: {key: "themecolor"},
                 success: function(data){
                     if (data.error == undefined && data != ""){
@@ -5458,7 +5875,7 @@
                     desktopFileHash = hash;
                 }else if (desktopFileHash != hash){
                     //Changed on desktop files. Refresh
-                    refresh();
+                    refresh(undefined, true);
                     desktopFileHash = hash;
                 }
 

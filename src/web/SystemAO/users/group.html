@@ -117,10 +117,10 @@
 
             function openEditWindow(){
                 ao_module_newfw({
-                    url: "SystemAO/users/editgroup.html#" + currentSelectedGroup,
+                    url: "SystemAO/users/editgroup.html#" + encodeURIComponent(JSON.stringify(currentSelectedGroup)),
                     width: 560,
                     height: 768,
-                    appicon: "SystemAO/users/img/group_white.png",
+                    appicon: "SystemAO/users/img/users-white.svg",
                     title: "Edit User Group",
                     parent: ao_module_windowID,
                     callback: "confirmCreateHandler"
@@ -152,7 +152,7 @@
                     url: "SystemAO/users/newgroup.html",
                     width: 560,
                     height: 768,
-                    appicon: "SystemAO/users/img/group_white.png",
+                    appicon: "SystemAO/users/img/users-white.svg",
                     title: "Create User Group",
                     parent: ao_module_windowID,
                     callback: "confirmCreateHandler"

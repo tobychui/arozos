@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -116,4 +117,17 @@ func LoadImageAsBase64(filepath string) (string, error) {
 	content, _ := ioutil.ReadAll(reader)
 	encoded := base64.StdEncoding.EncodeToString(content)
 	return string(encoded), nil
+}
+
+//Use for redirections
+func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation string) string {
+	if strings.Count(requestURI, "/") == 1 {
+		//Already root level
+		return redirectionLocation
+	}
+	for i := 0; i < strings.Count(requestURI, "/")-1; i++ {
+		redirectionLocation = "../" + redirectionLocation
+	}
+
+	return redirectionLocation
 }

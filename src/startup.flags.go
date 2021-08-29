@@ -20,7 +20,7 @@ func StartupFlagsInit() {
 	//Create a admin permission router for handling requests
 	//Register a boot flag modifier
 	registerSetting(settingModule{
-		Name:         "Startup",
+		Name:         "Runtime",
 		Desc:         "Change startup paramter in runtime",
 		IconPath:     "SystemAO/info/img/small_icon.png",
 		Group:        "Info",

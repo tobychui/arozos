@@ -36,7 +36,7 @@ if (filelib.fileExists(targetFilepath)){
     var actualCommand = decodeURIComponent(command);
     actualCommand = actualCommand.replace('{filepath}',srcReal);
     actualCommand = actualCommand.replace('{filename}',dir(srcReal) + "/" + base(srcReal))
-    
+
     //Register this task in on-going task list
     newDBTableIfNotExists("FFmpeg Factory")
     var ts = Math.round((new Date()).getTime() / 1000);
@@ -47,7 +47,7 @@ if (filelib.fileExists(targetFilepath)){
     var results = execpkg("ffmpeg",actualCommand);
 
     //Deregister this task from on-going task list
-
+    deleteDBItem("FFmpeg Factory",taskKey,targetFilepath);
 
     sendJSONResp(JSON.stringify({
         status: "ok",

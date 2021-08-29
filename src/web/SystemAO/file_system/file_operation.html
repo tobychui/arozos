@@ -385,9 +385,7 @@ mainloop:
                             $("#progressbar").css("background-color", "#2bba35");
                             $("#progressbar").css("width", "100%");
                             $("#progress").text("100%")
-                            setTimeout(function(){
-                                ao_module_close();
-                            }, 1000);
+                            handleFinish({});
                         }
                     };
 
@@ -464,9 +462,7 @@ mainloop:
                             $("#progressbar").css("background-color", "#2bba35");
                             $("#progressbar").css("width", "100%");
                             $("#progress").text("100%")
-                            setTimeout(function(){
-                                ao_module_close();
-                            }, 1000);
+                            handleFinish({});
                         }
                      
                         
@@ -546,10 +542,8 @@ mainloop:
                         if (!enterErrorMode){
                             $("#progressbar").css("background-color", "#2bba35");
                             $("#progressbar").css("width", "100%");
-                            $("#progress").text("100%")
-                            setTimeout(function(){
-                                ao_module_close();
-                            }, 1000);
+                            $("#progress").text("100%");
+                            handleFinish({});
                         }
                     };
 
@@ -626,12 +620,21 @@ mainloop:
                         //Action completed. close window.
                         setTimeout(function(){
                             //Do callback if exists
-                            if (operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
+                            if (operationConfig.callbackWindowID == "desktop"){
+                                //Special call from desktop
+                                parent.eval(operationConfig.callbackFunction);
+                            }else if (operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
                                 var callbackWindowObject = parent.getFloatWindowByID(operationConfig.callbackWindowID)
                                 var windowObject = $(callbackWindowObject).find("iframe")[0];
                                 console.log(windowObject.contentWindow, operationConfig.callbackFunction);
                                 windowObject.contentWindow.eval(operationConfig.callbackFunction);
                             }
+
+                            //If the target or src is desktop, refresh desktop as well
+                            if(pathIsOnDesktop(operationConfig.dest) || pathIsOnDesktop(operationConfig.src[0])){
+                                parent.refresh(undefined, true);
+                            }
+
                             ao_module_close();
                         }, 1000);
                     }else if (opr == "download"){
@@ -652,6 +655,22 @@ mainloop:
                     }
                 }
                 console.log(data);
+            }
+
+            function pathIsOnDesktop(path){
+                var filteredDest = path;
+                if (filteredDest.substr(filteredDest.length - 1) == "/"){
+                    filteredDest = filteredDest.substr(0, filteredDest.length - 1);
+                }
+                var dirChunk = filteredDest.split("/");
+                console.log(dirChunk);
+                if (dirChunk.length == 2 || dirChunk.length == 3){
+                    if (dirChunk[0].toLowerCase() == "user:" && dirChunk[1].toLowerCase() == "desktop"){
+                        //This is a direct access desktop file
+                        return true;
+                    }
+                }
+                return false;
             }
 
             function requestCSRFToken(callback){

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"time"
 
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
 	usage "imuslab.com/arozos/mod/info/usageinfo"
@@ -16,18 +17,20 @@ func SystemInfoInit() {
 	log.Println("Operation System: " + runtime.GOOS)
 	log.Println("System Architecture: " + runtime.GOARCH)
 
-	if *allow_hardware_management {
-		//Updates 5 Dec 2020, Added permission router
-		router := prout.NewModuleRouter(prout.RouterOption{
-			AdminOnly:   false,
-			UserHandler: userHandler,
-			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				sendErrorResponse(w, "Permission Denied")
-			},
-		})
+	//Updates 5 Dec 2020, Added permission router
+	router := prout.NewModuleRouter(prout.RouterOption{
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			sendErrorResponse(w, "Permission Denied")
+		},
+	})
 
-		//Create Info Server Object
-		infoServer := info.NewInfoServer(info.ArOZInfo{
+	//Create Info Server Object
+	var infoServer *info.Server = nil
+
+	if *allow_hardware_management {
+		infoServer = info.NewInfoServer(info.ArOZInfo{
 			BuildVersion: build_version + "." + internal_version,
 			DeviceVendor: deviceVendor,
 			DeviceModel:  deviceModel,
@@ -43,9 +46,6 @@ func SystemInfoInit() {
 		router.HandleFunc("/system/info/getDriveStat", info.GetDriveStat)
 		router.HandleFunc("/system/info/usbPorts", info.GetUSB)
 		router.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
-
-		//ArOZ Info do not need permission router
-		http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
 
 		//Register as a system setting
 		registerSetting(settingModule{
@@ -71,8 +71,50 @@ func SystemInfoInit() {
 
 		router.HandleFunc("/system/info/getUsageInfo", InfoHandleTaskInfo)
 
+	} else {
+		//Make a simpler page for the information of system for hardware management disabled nodes
+		registerSetting(settingModule{
+			Name:     "Overview",
+			Desc:     "Overview for user information",
+			IconPath: "SystemAO/info/img/small_icon.png",
+			Group:    "Info",
+			StartDir: "SystemAO/info/overview.html",
+		})
+
+		//Remve hardware information from the infoServer
+		infoServer = info.NewInfoServer(info.ArOZInfo{
+			BuildVersion: build_version + "." + internal_version,
+			DeviceVendor: deviceVendor,
+			DeviceModel:  deviceModel,
+			VendorIcon:   "../../" + iconVendor,
+			SN:           deviceUUID,
+			HostOS:       "virtualized",
+			CPUArch:      "generic",
+			HostName:     *host_name,
+		})
 	}
 
+	//Register endpoints that do not involve hardware management
+	router.HandleFunc("/system/info/getRuntimeInfo", InfoHandleGetRuntimeInfo)
+
+	//ArOZ Info do not need permission router
+	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
+
+}
+
+func InfoHandleGetRuntimeInfo(w http.ResponseWriter, r *http.Request) {
+	type RuntimeInfo struct {
+		StartupTime      int64
+		ContinuesRuntime int64
+	}
+
+	runtimeInfo := RuntimeInfo{
+		StartupTime:      startupTime,
+		ContinuesRuntime: time.Now().Unix() - startupTime,
+	}
+
+	js, _ := json.Marshal(runtimeInfo)
+	sendJSONResponse(w, string(js))
 }
 
 func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {

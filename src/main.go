@@ -41,9 +41,9 @@ func executeShutdownSequence() {
 	log.Println("\r- Shutting down auth gateway")
 	authAgent.Close()
 
-	//Shutdown file system handler db
-	log.Println("\r- Shutting down fsdb")
-	CloseAllStorages()
+	//Shutdown all storage pools
+	log.Println("\r- Shutting down storage pools")
+	closeAllStoragePools()
 
 	//Shutdown Subservices
 	log.Println("\r- Shutting down background subservices")

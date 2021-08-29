@@ -96,14 +96,17 @@
             function createFolder(){
                 var foldername = $("#fname").val().trim();
                 //Create a folder via file system api
-                $.post("../../system/file_system/newItem",{type: "folder", src: vsrc, filename: foldername}).done(function(data){
-                    if (data.error !== undefined){
-                        console.log(data.error);
-                    }else{
-                        parent.refresh();
-                        ao_module_close();
-                    }
+                requestCSRFToken(function(token){
+                    $.post("../../system/file_system/newItem",{type: "folder", src: vsrc, filename: foldername, csrft: token}).done(function(data){
+                        if (data.error !== undefined){
+                            console.log(data.error);
+                        }else{
+                            parent.refresh();
+                            ao_module_close();
+                        }
+                    });
                 });
+                
             }
 
         </script>

@@ -25,6 +25,7 @@ system/network/wifi/ap/*
 system/storage.json
 system/dev.uuid
 system/storage.json
+system/bridge.json
 system/storage/*.json
 system/cron.json
 

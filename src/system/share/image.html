@@ -1,1 +1,7 @@
 <img src="{{preview_url}}" style="width: 100%"/>
+<textarea id="embeddedCode" class="u-full-width" style="height: 100px;">
+    
+</textarea>
+<script>
+     $("#embeddedCode").text(`<img src="${location.protocol}//${window.location.hostname}:${window.location.port}{{preview_url}}" style="width: 30em"/>`);
+</script>

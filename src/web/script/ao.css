@@ -1,6 +1,6 @@
 @font-face {
     font-family: 'TaipeiSansTCBeta-Regular';
-    src: url('/script/font/TaipeiSansTCBeta-Regular.ttf');
+    src: url('font/TaipeiSansTCBeta-Regular.ttf');
 }
 
 h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}

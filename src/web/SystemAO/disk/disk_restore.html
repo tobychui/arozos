@@ -162,8 +162,6 @@
            <button class="ui right floated button" onclick="ao_module_close();">Close</button>
         <br>
     </div>
-        
-    <br><br>
     <script>
         var vrootID = "";
         var viewingFileInfo = {};
@@ -244,7 +242,15 @@
 
             var hDisplay = h > 0 ? h.toString().padStart(2, "0") + (h == 1 ? " hour, " : " hours, ") : "";
             var mDisplay = m > 0 ? m.toString().padStart(2, "0") + (m == 1 ? " minute, " : " minutes") : "";
-            return hDisplay + mDisplay; 
+            
+            if (h > 24){
+                var days = Math.floor(h/24);
+                days = days + (days == 1 ? " day, " : " days, ")
+                var hours = h % 24 + (h == 1 ? " hour, " : " hours, ");
+                return days + hours + mDisplay; 
+            } else{
+                return hDisplay + mDisplay; 
+            }
         }
 
         function timeConverter(UNIX_timestamp){

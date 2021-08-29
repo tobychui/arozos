@@ -15,6 +15,8 @@ import (
 	This script handle basic backup process
 */
 
+var autoDeleteTime int64 = 86400 * 30
+
 func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 	copiedFileList := []string{}
 
@@ -23,25 +25,31 @@ func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 	//Check if the backup parent root is identical / within backup disk
 	parentRootAbs, err := filepath.Abs(backupConfig.ParentPath)
 	if err != nil {
+		backupConfig.PanicStopped = true
 		return "", errors.New("Unable to resolve parent disk path")
 	}
 
 	backupRootAbs, err := filepath.Abs(filepath.Join(backupConfig.DiskPath, "/backup/"))
 	if err != nil {
+		backupConfig.PanicStopped = true
 		return "", errors.New("Unable to resolve backup disk path")
 	}
 
 	if len(parentRootAbs) >= len(backupRootAbs) {
 		if parentRootAbs[:len(backupRootAbs)] == backupRootAbs {
 			//parent root is within backup root. Raise configuration error
-			log.Println("*HyperBackup* Invalid backup cycle: Parent drive is located inside backup drive")
+			log.Println("[HyperBackup] Invalid backup cycle: Parent drive is located inside backup drive")
+			backupConfig.PanicStopped = true
 			return "", errors.New("Configuration Error. Skipping backup cycle.")
 		}
 	}
 
+	backupConfig.PanicStopped = false
+
 	//Add file cycles
+	//log.Println("[Debug] Cycle 1: Adding files")
 	fastWalk(rootPath, func(filename string) error {
-		if filepath.Base(filename) == "aofs.db" || filepath.Base(filename) == "aofs.db.lock" {
+		if filepath.Ext(filename) == ".db" || filepath.Ext(filename) == ".lock" {
 			//Reserved filename, skipping
 			return nil
 		}
@@ -110,7 +118,7 @@ func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 					}
 
 					if srcHash != targetHash {
-						log.Println("[Debug] Hash mismatch. Copying ", fileAbs)
+						//log.Println("[Debug] Hash mismatch. Copying ", fileAbs)
 						//This file has been recently changed. Copy it to new location
 						err = BufferedLargeFileCopy(fileAbs, assumedTargetPosition, 1024)
 						if err != nil {
@@ -125,6 +133,7 @@ func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 						if ok {
 							//File exists. remove it from delete file amrker
 							delete(backupConfig.DeleteFileMarkers, relPath)
+							backupConfig.Database.Delete("DeleteMarkers", relPath)
 							log.Println("Removing ", relPath, " from delete marker list")
 						}
 					}
@@ -133,47 +142,56 @@ func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 			}
 		}
 
-		///Remove file cycle
-		backupDriveRootPath := filepath.ToSlash(filepath.Clean(filepath.Join(backupConfig.DiskPath, "/backup/")))
-		fastWalk(backupConfig.DiskPath, func(filename string) error {
-			if filepath.Base(filename) == "aofs.db" || filepath.Base(filename) == "aofs.db.lock" {
-				//Reserved filename, skipping
-				return nil
-			}
-			//Get the target paste location
-			rootAbs, _ := filepath.Abs(backupDriveRootPath)
-			fileAbs, _ := filepath.Abs(filename)
+		return nil
+	})
 
-			rootAbs = filepath.ToSlash(filepath.Clean(rootAbs))
-			fileAbs = filepath.ToSlash(filepath.Clean(fileAbs))
+	///Remove file cycle
+	//log.Println("[Debug] Cycle 2: Removing files")
+	backupDriveRootPath := filepath.ToSlash(filepath.Clean(filepath.Join(backupConfig.DiskPath, "/backup/")))
+	fastWalk(backupConfig.DiskPath, func(filename string) error {
+		if filepath.Ext(filename) == ".db" || filepath.Ext(filename) == ".lock" {
+			//Reserved filename, skipping
+			return nil
+		}
+		//Get the target paste location
+		rootAbs, _ := filepath.Abs(backupDriveRootPath)
+		fileAbs, _ := filepath.Abs(filename)
 
-			thisFileRel := filename[len(backupDriveRootPath):]
-			originalFileOnDiskPath := filepath.ToSlash(filepath.Clean(filepath.Join(backupConfig.ParentPath, thisFileRel)))
+		rootAbs = filepath.ToSlash(filepath.Clean(rootAbs))
+		fileAbs = filepath.ToSlash(filepath.Clean(fileAbs))
 
-			//Check if the taget file not exists and this file has been here for more than 24h
-			if !fileExists(originalFileOnDiskPath) {
-				//This file not exists. Check if it is in the delete file marker for more than 24 hours
-				val, ok := backupConfig.DeleteFileMarkers[thisFileRel]
-				if !ok {
-					//This file is newly deleted. Push into the marker map
-					backupConfig.DeleteFileMarkers[thisFileRel] = time.Now().Unix()
-					log.Println("[Debug] Adding " + filename + " to delete marker")
-				} else {
-					//This file has been marked. Check if it is time to delete
-					if time.Now().Unix()-val > 3600*24 {
-						log.Println("[Debug] Deleting " + filename)
+		thisFileRel := filename[len(backupDriveRootPath):]
+		originalFileOnDiskPath := filepath.ToSlash(filepath.Clean(filepath.Join(backupConfig.ParentPath, thisFileRel)))
 
-						//Remove the backup file
-						os.RemoveAll(filename)
+		//Check if the taget file not exists and this file has been here for more than 24h
+		if !fileExists(originalFileOnDiskPath) {
+			//This file not exists. Check if it is in the delete file marker for more than 24 hours
+			val, ok := backupConfig.DeleteFileMarkers[thisFileRel]
+			if !ok {
+				//This file is newly deleted. Push into the marker map
+				deleteTime := time.Now().Unix()
+				backupConfig.DeleteFileMarkers[thisFileRel] = deleteTime
 
-						//Remove file from delete file markers
-						delete(backupConfig.DeleteFileMarkers, thisFileRel)
-					}
+				//Write the delete marker to database
+				backupConfig.Database.Write("DeleteMarkers", thisFileRel, deleteTime)
+
+				log.Println("[HybridBackup] Adding " + filename + " to delete marker")
+			} else {
+				//This file has been marked for 30 days. Check if it is time to delete
+				if time.Now().Unix()-val > autoDeleteTime {
+					//log.Println("[Debug] Deleting " + filename)
+
+					//Remove the backup file
+					os.RemoveAll(filename)
+
+					//Remove file from delete file markers
+					delete(backupConfig.DeleteFileMarkers, thisFileRel)
+
+					//Remove file from database
+					backupConfig.Database.Delete("DeleteMarkers", thisFileRel)
 				}
 			}
-			return nil
-		})
-
+		}
 		return nil
 	})
 

@@ -225,7 +225,7 @@ func (a aofs) pathRewrite(path string) (string, *fs.FileSystemHandler, error) {
 		fsHandlers := a.userinfo.GetAllFileSystemHandler()
 		for _, fsh := range fsHandlers {
 			//Create a folder representation for this virtual directory
-			if fsh.UUID != "tmp" {
+			if !(fsh.UUID == "tmp" || fsh.Hierarchy == "backup") {
 				os.Mkdir(a.tmpFolder+fsh.UUID, 0755)
 			}
 

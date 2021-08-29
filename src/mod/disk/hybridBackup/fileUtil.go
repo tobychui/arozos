@@ -73,3 +73,13 @@ func isDir(filename string) bool {
 
 	return fileInfo.IsDir()
 }
+
+func fileSize(filename string) int64 {
+	fi, err := os.Stat("/path/to/file")
+	if err != nil {
+		return -1
+	}
+	// get the size
+	size := fi.Size()
+	return size
+}

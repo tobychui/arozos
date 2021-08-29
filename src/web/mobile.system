@@ -120,6 +120,9 @@
                 position:absolute;
                 bottom:12px;
                 left:12px;
+            }
+
+            .listMenuLauncher .functionbtn{
                 cursor:pointer;
             }
             
@@ -241,6 +244,10 @@
                 justify-content: flex-end;
                 pointer-events: none;
             }
+
+            .extendOnly{
+                display:none;
+            }
             
 
             /* Magic css to make the connection logo blink */
@@ -308,6 +315,39 @@
                 display:none;
             }
 
+            #userprofile{
+                z-index: 90;
+                position: fixed;
+                top: 0px;
+                left: 3em;
+                right: 3em;
+                background-color: rgba(255,255,255,0.95);
+                backdrop-filter: blur(4px);
+                border-bottom-left-radius: 20px;
+                border-bottom-right-radius: 20px;
+                padding-left: 1.2em;
+                padding-right: 1.2em;
+                padding-top: 1.2em;
+                display:none;
+
+                box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
+                -webkit-box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
+                -moz-box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
+            }
+
+            .clock{
+                position: fixed; 
+                left: 0px; 
+                width: 100%; 
+                top: 0px; 
+                padding-top: 0.3em;
+                padding-bottom: 0.7em;
+                color: white; 
+                text-align: center; 
+                pointer-events: none;
+                background: rgb(255,255,255);
+                background: linear-gradient(0deg, rgba(255,255,255,0) 2%, rgba(6,6,6,0.4479635060791801) 44%, rgba(29,29,29,1) 100%); 
+            }
         </style>
     </head>
     <body>
@@ -315,12 +355,37 @@
             <div class="toggleTaskBar themeColor" shown="false" onclick="toggleTaskBar(this);">
                 <img class="ui image sidebararrow" style="margin-top:8px; margin-left: -10px;" src="img/mobile/keyboard_arrow_right-white-48dp.svg"></img>
             </div>
-            <div class="listMenuLauncher" onclick="showListMenu();">
-                <img src="img/mobile/apps-white-48dp.svg" style="width: 30px;"/>
+            <div class="listMenuLauncher">
+                <img onclick="showListMenu();" class="functionbtn" src="img/mobile/apps-white-48dp.svg" style="width: 30px;"/>
+                <img onclick="showProfileInfo();" class="functionbtn extendOnly" src="img/mobile/account_circle_white_48dp.svg" style="width: 30px;"/>
+                <img onclick="openDesktopCustomization();" class="functionbtn extendOnly" src="img/mobile/palette_white_48dp.svg" style="width: 30px;"/>
+                <img onclick="openDesktopAsFolder();" class="functionbtn extendOnly" src="img/mobile/folder_open_white_24dp.svg" style="width: 30px;"/>
+                <img onclick="fullscreen();" class="functionbtn extendOnly" src="img/mobile/fullscreen_white_48dp.svg" style="width: 30px;"/>
+                <img onclick="openSystemSettings();" class="functionbtn extendOnly" src="img/mobile/tune_white_24dp.svg" style="width: 30px;"/>
+
+                <img onclick="showDesktop();" class="functionbtn extendOnly" src="img/mobile/layers_clear_white_48dp.svg" style="width: 30px;"/>
             </div>
             <div id="windowButtonWrapper">
                
             </div>
+        </div>
+
+        <div id="userprofile">
+            <div class="ui minimal comments">
+                <div class="ui comment">
+                    <div class="avatar">
+                        <img class="usericon" src="img/desktop/system_icon/user.svg">
+                    </div>
+                    <div class="content">
+                        <dic class="author" id="username">User</dic>
+                        <div class="text" id="usergroups">@user</div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="logout();" class="ui basic blue mini button" style="position: absolute; top: 1em; right: 1em;">Logout</button>
+            <button onclick="toggleProfileInfo();" class="circular ui themecolor icon button" style="position: absolute; bottom: 0px; right: 0px; margin-bottom: -10px; margin-right: -10px; color: white;">
+                <i class="remove icon"></i>
+              </button>
         </div>
 
         <div id="listMenu" style="left:-100%;">
@@ -357,6 +422,9 @@
             <div id="backdrop">
                 
             </div>
+            <div class="clock">
+                ArozOS Desktop
+            </div>
             <div id="windowWrapper">
                 
             </div>
@@ -375,6 +443,13 @@
             var listMenuShown = false;
             var hostInfo;
 
+            //IME mockup
+            window.ime = null;
+
+            //Clock related
+            var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
             //initiation Functions
             initHostInfo();
             initModuleList();
@@ -382,6 +457,8 @@
             initBackdropImage();
             initUserDefinedThemeColor();
             bindBackgroundClickActions();
+            initStartupSounds();
+            initDesktopUserInfo();
 
             //Bind background click
             function bindBackgroundClickActions(){
@@ -523,6 +600,7 @@
                 });
 
                 $("#sidebarToggleOverlay").hide();
+                $(".extendOnly").slideUp("fast");
             }
 
             function showTaskBar(){
@@ -535,6 +613,7 @@
                         $(this).find(".minimizedElements").hide();
                         $(this).find(".normalElements").show();
                      });
+                     $(".extendOnly").slideDown("fast");
                 });
                 $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_left-white-48dp.svg");
                 $(".taskBar").find(".toggleTaskBar").attr("shown","true");
@@ -689,8 +768,11 @@
                     $(".taskBar").animate({
                         width: "300px",
                     },300,"swing", function(){
+                        
                         if (typeof callback != "undefined"){
                             callback();
+                        }else{
+                            $(".extendOnly").slideDown("fast");
                         }
                     });
                     
@@ -717,8 +799,14 @@
                 if ($(evt.target).hasClass("taskBar")){
                         swipeTarget = evt.target;
                         targetType = "taskbar"
+                }else if ($(evt.target).hasClass("toggleTaskBar")){
+
+                
                 }else{
-                    swipeTarget = getFloatWindowObjectFromPath(evt.path);
+                    if (evt.path != undefined){
+                        swipeTarget = getFloatWindowObjectFromPath(evt.path);
+                    }
+                    
                 }
                 
                 xDown = firstTouch.clientX; 
@@ -989,8 +1077,11 @@
 
             function closeFloatWindow(windowID){
                 //Get the content iframe with that windowID
-                var contentWindow = getFloatWindowByID(windowID).find("iframe")[0].contentWindow;
-                console.log(contentWindow);
+                var contentWindow = getFloatWindowByID(windowID);
+                if (contentWindow == undefined){
+                    return;
+                }
+                contentWindow = contentWindow.find("iframe")[0].contentWindow;
                 try {
                     if (contentWindow.ao_module_close === undefined) {
                         //This module do not use ao_module wrapper. Close it directly.
@@ -1082,7 +1173,12 @@
                     }
                 }, 100);
                 
+                
             }
+
+            function bindObjectToIMEEvents(object){
+                console.log("IME not supported in mobile desktop mode")
+            };
 
             function openFileWithModule(moduleLaunchInfo, openFileList) {
                 var url = moduleLaunchInfo["StartDir"];
@@ -1110,7 +1206,7 @@
                 var openParamter = encodeURIComponent(JSON.stringify(openFileList));
 
                 //Add launch files info and launch floatWindow
-                parent.newFloatWindow({
+                newFloatWindow({
                     url: url + "#" + openParamter,
                     width: size[0],
                     height: size[1],
@@ -1126,7 +1222,169 @@
             function UnpinFloatWindowFromTopMostMode(object){
 
             }
+
+            /*
+                List Menu Specific function groups
+            */
+
+            function openDesktopAsFolder(){
+                newFloatWindow({
+                    url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent("user:/Desktop/"),
+                    appicon: "SystemAO/file_system/img/small_icon.png",
+                    width:1080,
+                    height:580,
+                    title: "File Manager"
+                });
+
+                hideTaskBar();
+            }
+
+            function openDesktopCustomization(){
+                newFloatWindow({
+                    url: "SystemAO/desktop/personalization.html",
+                    appicon: "SystemAO/desktop/img/personalization.png",
+                    width:640,
+                    height:480,
+                    title: "Personalization"
+                });
+
+                hideTaskBar();
+            }
+
+            function showDesktop(){
+                $(".floatWindowWrapper").fadeOut("fast");
+                hideTaskBar();
+            }
+
+            //Theme color placeholder functions
+            function setThemeColor(color){
+                $(".themeColor").css("background-color", color);
+            }
+
+            //Startup sound
+            function initStartupSounds(){
+                $.ajax({
+                    url: "../../system/desktop/preference",
+                    method: "GET",
+                    data: {preference: "startup-audio"},
+                    success: function(data){
+                        if (data == undefined || data == ""){
+                            return;
+                        }
+                        var currentGlobalVol = localStorage.getItem("global_volume");
+                        if (currentGlobalVol != null && currentGlobalVol != undefined && currentGlobalVol != ""){
+                            
+                        }else{
+                            currentGlobalVol = 0;
+                        }
+
+                        var audio = new Audio("media?file=" + data);
+                        audio.volume = currentGlobalVol;
+                        audio.play();
+                    }
+                });
+            }
+
+            function fullscreen() {
+                //Opening full screen will lead to hidden of all iframe for unknown reasons
+                var isInFullScreen = (document.fullscreenElement && document.fullscreenElement !== null) ||
+                    (document.webkitFullscreenElement && document.webkitFullscreenElement !== null) ||
+                    (document.mozFullScreenElement && document.mozFullScreenElement !== null) ||
+                    (document.msFullscreenElement && document.msFullscreenElement !== null);
+                var elem = document.documentElement;
+                if (!isInFullScreen) {
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.mozRequestFullScreen) { /* Firefox */
+                        elem.mozRequestFullScreen();
+                    } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.msRequestFullscreen) { /* IE/Edge */
+                        elem.msRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+
+                hideTaskBar();
+            }
+
+            function initDesktopUserInfo(){
+                $.get("system/desktop/user", function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        userInfo = data;
+                        //Update the user tag
+                        $("#username").text(userInfo.Username);
+                        $("#usergroups").text("@" + userInfo.UserGroups.join("/"));
+                        $("#usergroups").attr("title",userInfo.UserGroups.join(" / "));
+                        if (data.UserIcon !== ""){
+                            $(".usericon").attr("src",data.UserIcon);
+                        }
+                    }
+                });
+            }
+
+            function showProfileInfo(){
+                hideTaskBar();
+                setTimeout(function(){
+                    toggleProfileInfo();
+                }, 500);
+            }
+
+            function toggleProfileInfo(){
+                $("#userprofile").transition('drop');
+            }
+
+            function openSystemSettings(){
+                openModule("System Setting");
+            }
+
+            function logout() {
+                loggingOut = true;
+                if (confirm("Exiting Session. Confirm?")){
+                    $.get("system/auth/logout", function() {
+                        window.location.href = "/";
+                    });
+                    toggleProfileInfo();
+                }
+                
+            }
             
+            //Keep the clock updated
+            setInterval(function(){
+                updateClockTime();
+            },5000);
+            updateClockTime();
+            function updateClockTime(){
+                var d = new Date();
+                var display = monthNames[d.getMonth()] + " " + d.getDate() + " " + zeropad(d.getHours(),2) + ":" + zeropad(d.getMinutes(),2);
+                
+                if ($(".notification.object").length > 0){
+                    display += `<span style="color: #f54242; margin-left: 8px; float: center;"><i class="notice circle icon"></i></span>`;
+                }
+                $(".clock").html(display);
+                var largedate = monthNames[d.getMonth()] + " " + d.getDate() + " " + d.getFullYear() 
+                $("#largedate").text(largedate);
+                var dow = daysNames[d.getDay()];
+                $("#dayofweek").text(dow);
+            }
+
+            function zeropad(n, width, z) {
+                z = z || '0';
+                n = n + '';
+                return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+            }
+
         </script>
     </body>
 </html>

@@ -68,10 +68,6 @@ func (u *UserHandler) UpdateStoragePool(newpool *storage.StoragePool) {
 	u.basePool = newpool
 }
 
-func (u *User) Parent() *UserHandler {
-	return u.parent
-}
-
 //Get User object from username
 func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 	//Check if user exists
@@ -155,27 +151,4 @@ func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Requ
 		return &User{}, err
 	}
 	return userObject, nil
-}
-
-//Remove the current user
-func (u *User) RemoveUser() {
-	//Remove the user storage quota settings
-	log.Println("Removing User Quota: ", u.Username)
-	u.StorageQuota.RemoveUserQuota()
-
-	//Remove the user authentication register
-	u.parent.authAgent.UnregisterUser(u.Username)
-}
-
-//Get the current user icon
-func (u *User) GetUserIcon() string {
-	var userIconpath []byte
-	u.parent.database.Read("auth", "profilepic/"+u.Username, &userIconpath)
-	return string(userIconpath)
-}
-
-//Set the current user icon
-func (u *User) SetUserIcon(base64data string) {
-	u.parent.database.Write("auth", "profilepic/"+u.Username, []byte(base64data))
-	return
 }

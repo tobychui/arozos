@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"imuslab.com/arozos/mod/network/webdav"
 	"imuslab.com/arozos/mod/user"
@@ -230,7 +231,8 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	authAgent := s.userHandler.GetAuthAgent()
 	passwordValid := authAgent.ValidateUsernameAndPassword(username, password)
 	if !passwordValid {
-		log.Println("Someone try to log into " + username + " WebDAV endpoint with incorrect password")
+		authAgent.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "webdav")
+		log.Println("Someone from " + r.RemoteAddr + " try to log into " + username + " WebDAV endpoint with incorrect password")
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}

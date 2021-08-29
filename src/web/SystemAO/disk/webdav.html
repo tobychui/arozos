@@ -162,7 +162,11 @@
                 $("#vrootList").html("");
                 var port = (window.location.port);
                 if (window.location.port == ""){
-                    port = 80;
+                    if (location.protocol == 'https:') {
+                        port = 443;
+                    }else{
+                        port = 80;
+                    }
                 }
                 data.forEach(vroot => {
                     $("#vrootList").append(`<div class="item">

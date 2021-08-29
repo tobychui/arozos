@@ -59,11 +59,24 @@
 			<a id="displayFilepath" style="cursor: pointer;" onclick="openThisFileInFM(this);"></a>
 			<p>{model_dimension}</p>
 			<p id="filesize"></p>
+			<div>
+				<input type="checkbox" id="showWireframe" name="showWireframe" onchange="setMeshToWireframe(this.checked);">
+				<label for="showWireframe">Show Wireframe</label>
+			</div>
+			<br>
 		</div>
 		<script>
 			//Get file information from the hash info
 			var files = ao_module_loadInputFiles();
 			var file = "";
+
+			//Rendering materials
+			var outlineMaterial = new THREE.MeshBasicMaterial( { color: 0x1f1f1f, side: THREE.BackSide, wireframe: true } );
+			var mainMaterial = new THREE.MeshPhongMaterial( { 
+				color: 0x70721e, 
+				specular: 0x050505, 
+				shininess: 100,
+			});
 			if (files.length > 0){
 				file = files[0];
 				$("#filename").text(file.filename);
@@ -114,24 +127,27 @@
 			function round(value){
 				return Math.round(value * 100) / 100;
 			}
+
+			var stlMesh = undefined;
 			function init() {
 
 				container = document.createElement( 'div' );
 				document.body.appendChild( container );
 
 				camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 1, 1500 );
-				camera.position.set( 0, 0, 30 );
-				cameraTarget = new THREE.Vector3( 0, 0, 0 );
+				camera.position.set( 0, 30, 30 );
+				//cameraTarget = new THREE.Vector3( 0, 0, 0 );
 
+				
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0xf7f7f7 );
 				//scene.fog = new THREE.Fog( 0xc9c9c9, 2, 15 );
 
 				var loader = new THREE.STLLoader();
+				
 				loader.load( filename, function ( geometry ) {
-
-					var material = new THREE.MeshPhongMaterial( { color: 0x70721e, specular: 0x0c0c0c, shininess: 100 } );
-					var mesh = new THREE.Mesh( geometry, material );
+					var mesh = new THREE.Mesh( geometry, mainMaterial );
+					stlMesh = mesh;
 					const center = new THREE.Vector3();
 
 					//Scsale it down to original's 10%
@@ -141,18 +157,18 @@
 					//Move the mesh to scene center
 					console.log(bbox);
 					mesh.updateMatrixWorld();
-					console.log(-1 * (bbox.max.x + bbox.min.x));
-					mesh.position.set(-1 * (bbox.max.x + bbox.min.x) / 2, -1 * (bbox.max.y + bbox.min.y) / 2, -1 * (bbox.max.z + bbox.min.z) / 2);
+					console.log((bbox.max.x - bbox.min.x));
+					mesh.rotateOnAxis(new THREE.Vector3( 1, 0, 0 ), -1.57079633);
+					mesh.geometry.center()
+				
 					mesh.updateMatrixWorld();
 					console.log("Setting mesh world position: ", mesh.getWorldPosition())
-					mesh.rotation.set( 0,  0, 0);
-					
 					render();
 
 					var box = new THREE.Box3().setFromObject(mesh);
 					console.log( box.min, box.max, box.getSize(center) );
 					objectSize = box.getSize(center);
-					fillValue("model_dimension","W,D,H: " + round(objectSize.x * 10) + ", " + round(objectSize.z * 10) + ", " + round(objectSize.y * 10) + " mm");
+					fillValue("model_dimension",round(objectSize.x * 10) + " x " + round(objectSize.z * 10) + " x " + round(objectSize.y * 10) + " mm");
 					
 					var helper = new THREE.Box3Helper( box, 0xffff00 );
 					scene.add( helper );
@@ -160,15 +176,18 @@
 					mesh.castShadow = true;
 					mesh.receiveShadow = true;
 					scene.add( mesh );
+
+					controls.target = mesh.getWorldPosition();
+					
 				} );
 
 
 				// Lights
-				scene.add( new THREE.HemisphereLight( 0x898989, 0x3f3f3f ) );
-				addShadowedLight( 1, 1, 1, 0x898989, 1.35 );
-				addShadowedLight( 0.5, 1, - 1, 0xcccccc, 1 );
-				// renderer
+				scene.add( new THREE.HemisphereLight( 0x898989, 0x3f3f3f, 2) );
+				addShadowedLight( -50, 30, -100, 0xfafafa, 1 );
+				addShadowedLight( 50, -10, 100, 0xcccccc, 0.6);
 
+				//Create renderer
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
@@ -184,6 +203,7 @@
 				controls = new THREE.OrbitControls( camera, renderer.domElement );
 				controls.minDistance = 3;
 				controls.maxDistance = 100;
+				controls.update();
 			}
 
 			function addShadowedLight( x, y, z, color, intensity ) {
@@ -210,6 +230,14 @@
 
 			}
 
+			function setMeshToWireframe(isWireframe){
+				if (isWireframe){
+					stlMesh.material = outlineMaterial;
+				}else{
+					stlMesh.material = mainMaterial;
+				}
+			}
+
 			function onWindowResize() {
 
 				camera.aspect = window.innerWidth / window.innerHeight;
@@ -220,9 +248,7 @@
 			}
 
 			function animate() {
-
 				requestAnimationFrame( animate );
-
 				render();
 
 			}
@@ -234,7 +260,8 @@
 				//camera.position.x = Math.cos( timer ) * 3;
 				//camera.position.z = Math.sin( timer ) * 3;
 
-				camera.lookAt( cameraTarget );
+				//camera.lookAt( cameraTarget );
+				controls.update();
 				renderer.render( scene, camera );
 
 			}

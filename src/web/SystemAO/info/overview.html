@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html ng-app="App">
+<head>
+    <title>System Info</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+</head>
+
+<body>
+    <div class="ui container">
+        <br>
+        <div class="ui stackable grid">
+            <div class="six wide column">
+                <div class="ui fluid card">
+                    <div class="image">
+                      <img id="avator" src="../../SystemAO/users/img/user.svg">
+                    </div>
+                    <div class="content">
+                      <a id="username" class="header">USER</a>
+                      <div class="meta">
+                        <span id="usergroup" class="date">@usergroup</span>
+                      </div>
+                    </div>
+                    <div class="extra content">
+                      <a href="#" onclick="parent.logout();">
+                        <i class="logout icon"></i>
+                        Logout
+                      </a>
+                    </div>
+                  </div>
+            </div>
+            <div class="ten wide column">
+                <div class="ui segment">
+                    <h3 class="ui header"><i class="yellow folder icon"></i> Storage</h3>
+                    <div class="ui divider"></div>
+                    <div class="ui grid">
+                        <div class="six wide column">
+                            Used Storage:
+                        </div>
+                        <div class="ten wide column" id="usedStorage">
+                            Loading...
+                        </div>
+                        <div class="six wide column">
+                            Total Storage:
+                        </div>
+                        <div class="ten wide column" id="totalStorage">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+                <div class="ui segment">
+                    <h3 class="ui header"><i class="blue globe icon"></i> Personal Homepage</h3>
+                    <div class="ui divider"></div>
+                    <div class="ui grid">
+                        <div class="six wide column">
+                            Status:
+                        </div>
+                        <div class="ten wide column" id="homepageStatus">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+                <div class="ui segment">
+                    <h3 class="ui header"><i class="teal clock icon"></i>  Operation Time</h3>
+                    <div class="ui divider"></div>
+                    <div class="ui grid">
+                        <div class="six wide column">
+                            Online Since:
+                        </div>
+                        <div class="ten wide column" id="startup">
+                            Loading...
+                        </div>
+                        <div class="six wide column">
+                            Up Time :
+                        </div>
+                        <div class="ten wide column" id="operation">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+        
+    </div>
+    <div class="ui divider"></div>
+    <div style="float: right; text-align: right; color: #9c9c9c; margin-right: 1.5em;" >
+        <p><span id="hostname"></span><br>
+        <span id="version"></span></p>
+    </div>
+    <img class="ui small image" id="icon"></img>
+    
+    <br>
+</body>
+<script>
+    $(document).ready(function() {
+        $.getJSON("../../system/info/getRuntimeInfo", function(data){
+            $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
+            $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
+            $("#operation").attr("startunix", data.StartupTime);
+            accumulateOperationTime();
+        });
+
+        initUserInfo();
+        initStorageInfo();
+        initHomepageState();
+        initHostInfo();
+    });
+
+    function initHostInfo(){
+        $.get("../../system/info/getArOZInfo", function(data){
+            $("#icon").attr('src', data.VendorIcon);
+            $("#hostname").text(data.HostName);
+            $("#version").text(data.BuildVersion);
+        });
+    }
+
+    function initUserInfo(){
+        $.get("../../system/users/userinfo", function(data){
+            $("#username").text(data.Username);
+            $("#usergroup").text("@" + data.Usergroup.join(","));
+            if (data.Icondata != ""){
+                $("#avator").attr("src", data.Icondata);
+            }
+        });
+    }
+
+    function initStorageInfo(){
+        $.get("../../system/disk/quota/quotaInfo", function(data){
+            let percentageText = "0%";
+            if (data.Total == -1){
+                $("#totalStorage").text("Unlimited");
+            }else if (data.Total == 0){
+                $("#totalStorage").text("Read Only");
+                percentageText = "100%";
+            }else{
+                $("#totalStorage").text(ao_module_utils.formatBytes(data.Total, 2));
+                percentageText = parseInt((data.Used / data.Total) * 100).toFixed(2) + "%";
+            }
+            $("#usedStorage").text(ao_module_utils.formatBytes(data.Used, 2) + ` ( ${percentageText} )`);
+        });
+    }
+
+    function initHomepageState(){
+        $.get("../../system/network/www/toggle", function(data){
+            if (data == true){
+                $("#homepageStatus").html(`<h5><i class="green circle icon"></i> Online</h5>`);
+            }else{
+                $("#homepageStatus").html(`<h5><i class="red circle icon"></i> Offline</h5>`);
+            }
+           
+        });
+    }
+
+    function accumulateOperationTime(){
+        setTimeout(function(){
+            if ($("#operation").length > 0){
+                var startUnix = $("#operation").attr("startunix");
+                startUnix = parseInt(startUnix);
+                var newOprTime = parseInt(Date.now()/1000) - startUnix
+                $("#operation").text(ao_module_utils.durationConverter(newOprTime));
+                accumulateOperationTime();
+            }
+        }, 1000);
+    }
+
+    //https://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable-string/10420404
+    function humanFileSize(bytes, si) {
+        var thresh = si ? 1000 : 1024;
+        if (Math.abs(bytes) < thresh) {
+            return bytes + ' B';
+        }
+        var units = si ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+        var u = -1;
+        do {
+            bytes /= thresh;
+            ++u;
+        } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+        return bytes.toFixed(1) + ' ' + units[u];
+    }
+</script>
+
+</html>

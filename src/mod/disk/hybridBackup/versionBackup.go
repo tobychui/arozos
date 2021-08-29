@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/disk/diskcapacity/dftool"
 )
 
 /*
@@ -20,30 +22,43 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 	//Check if the backup parent root is identical / within backup disk
 	parentRootAbs, err := filepath.Abs(backupConfig.ParentPath)
 	if err != nil {
+		backupConfig.PanicStopped = true
 		return "", errors.New("Unable to resolve parent disk path")
 	}
 
 	backupRootAbs, err := filepath.Abs(filepath.Join(backupConfig.DiskPath, "/version/"))
 	if err != nil {
+		backupConfig.PanicStopped = true
 		return "", errors.New("Unable to resolve backup disk path")
 	}
 
 	if len(parentRootAbs) >= len(backupRootAbs) {
 		if parentRootAbs[:len(backupRootAbs)] == backupRootAbs {
 			//parent root is within backup root. Raise configuration error
-			log.Println("*HyperBackup* Invalid backup cycle: Parent drive is located inside backup drive")
+			log.Println("[HyperBackup] Invalid backup cycle: Parent drive is located inside backup drive")
+			backupConfig.PanicStopped = true
 			return "", errors.New("Configuration Error. Skipping backup cycle.")
 		}
 	}
 
+	backupConfig.PanicStopped = false
+
 	todayFolderName := time.Now().Format("2006-01-02")
+	lastSnapshotTime := int64(0)
 	previousSnapshotExists := true
 	previousSnapshotName, err := getPreviousSnapshotName(backupConfig, todayFolderName)
 	if err != nil {
 		previousSnapshotExists = false
 	}
+
 	snapshotLocation := filepath.Join(backupConfig.DiskPath, "/version/", todayFolderName)
-	previousSnapshotLocation := filepath.Join(backupConfig.DiskPath, "/version/", previousSnapshotName)
+	previousSnapshotLocation := ""
+	var previousSnapshotMap *LinkFileMap
+	if previousSnapshotExists {
+		previousSnapshotLocation = filepath.Join(backupConfig.DiskPath, "/version/", previousSnapshotName)
+		previousSnapshotMap, _ = readLinkFile(previousSnapshotLocation)
+		lastSnapshotTime = lastModTime(previousSnapshotLocation)
+	}
 
 	//Create today folder if not exist
 	if !fileExists(snapshotLocation) {
@@ -51,7 +66,6 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 	}
 
 	//Read the previous snapshot datalink into a LinkFileMap and use binary search for higher performance
-	previousSnapshotMap, _ := readLinkFile(previousSnapshotLocation)
 
 	/*
 		Run a three pass compare logic between
@@ -64,86 +78,115 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 	deletedFileList := map[string]string{}
 
 	//First pass: Check if there are any updated file from source and backup it to backup drive
-	fastWalk(parentRootAbs, func(filename string) error {
-		if filepath.Base(filename) == "aofs.db" || filepath.Base(filename) == "aofs.db.lock" {
+	log.Println("[HybridBackup] Snapshot Stage 1 - Started " + backupConfig.JobName)
+	rootAbs, _ := filepath.Abs(backupConfig.ParentPath)
+	rootAbs = filepath.ToSlash(filepath.Clean(rootAbs))
+	err = fastWalk(parentRootAbs, func(filename string) error {
+		if filepath.Ext(filename) == ".db" || filepath.Ext(filename) == ".lock" {
+			//Reserved filename, skipping
+			return nil
+		}
+
+		if filepath.Ext(filename) == ".datalink" {
 			//Reserved filename, skipping
 			return nil
 		}
 
 		//Get the target paste location
-		rootAbs, _ := filepath.Abs(backupConfig.ParentPath)
 		fileAbs, _ := filepath.Abs(filename)
-
-		rootAbs = filepath.ToSlash(filepath.Clean(rootAbs))
 		fileAbs = filepath.ToSlash(filepath.Clean(fileAbs))
 
 		relPath := strings.ReplaceAll(fileAbs, rootAbs, "")
 		fileBackupLocation := filepath.Join(backupConfig.DiskPath, "/version/", todayFolderName, relPath)
 		yesterdayBackupLocation := filepath.Join(previousSnapshotLocation, relPath)
 
-		//Check if the file exists
+		//Check if the file exists in previous snapshot folder
 		if !fileExists(yesterdayBackupLocation) {
-			//This file not in last snapshot location.
-			//Check if it is in previous snapshot map
+			//Not exists in snapshot folder. Search the link file
+			//fmt.Println("File not in last snapshot", yesterdayBackupLocation, previousSnapshotLocation, relPath)
+
 			fileFoundInSnapshotLinkFile, nameOfSnapshot := previousSnapshotMap.fileExists(relPath)
 			if fileFoundInSnapshotLinkFile {
 				//File found in the snapshot link file. Compare the one in snapshot
 				linkedSnapshotLocation := filepath.Join(backupConfig.DiskPath, "/version/", nameOfSnapshot)
 				linkedSnapshotOriginalFile := filepath.Join(linkedSnapshotLocation, relPath)
 				if fileExists(linkedSnapshotOriginalFile) {
-					//Linked file exists. Compare hash
-					fileHashMatch, err := fileHashIdentical(fileAbs, linkedSnapshotOriginalFile)
-					if err != nil {
-						return nil
+					//Linked file exists. Check for changes
+					if lastModTime(fileAbs) > lastModTime(linkedSnapshotLocation) {
+						//This has changed recently. Match their hash to see if it is identical
+						fileHashMatch, err := fileHashIdentical(fileAbs, linkedSnapshotOriginalFile)
+						if err != nil {
+							return nil
+						}
+
+						if fileHashMatch {
+							//append this record to this snapshot linkdata file
+							linkedFileList[relPath] = nameOfSnapshot
+						} else {
+							//File hash mismatch. Do file copy to renew data
+							err = copyFileToBackupLocation(backupConfig, filename, fileBackupLocation)
+							if err != nil {
+								return err
+							}
+							copiedFileList = append(copiedFileList, fileBackupLocation)
+						}
+					} else {
+						//It hasn't been changed since last snapshot
+						linkedFileList[relPath] = nameOfSnapshot
 					}
 
-					if fileHashMatch {
-						//append this record to this snapshot linkdata file
-						linkedFileList[relPath] = nameOfSnapshot
-					} else {
-						//File hash mismatch. Do file copy to renew data
-						copyFileToBackupLocation(filename, fileBackupLocation)
-						copiedFileList = append(copiedFileList, fileBackupLocation)
-					}
 				} else {
 					//Invalid snapshot linkage. Assume new and do copy
 					log.Println("[HybridBackup] Link lost. Cloning source file to snapshot.")
-					copyFileToBackupLocation(filename, fileBackupLocation)
+					err = copyFileToBackupLocation(backupConfig, filename, fileBackupLocation)
+					if err != nil {
+						return err
+					}
 					copiedFileList = append(copiedFileList, fileBackupLocation)
 				}
 
 			} else {
 				//This file is not in snapshot link file.
 				//This is new file. Copy it to backup
-				copyFileToBackupLocation(filename, fileBackupLocation)
+				err = copyFileToBackupLocation(backupConfig, filename, fileBackupLocation)
+				if err != nil {
+					return err
+				}
 				copiedFileList = append(copiedFileList, fileBackupLocation)
 			}
 
 		} else if fileExists(yesterdayBackupLocation) {
 			//The file exists in the last snapshot
-			//Check if their hash is the same. If no, update it
-			fileHashMatch, err := fileHashIdentical(fileAbs, yesterdayBackupLocation)
-			if err != nil {
-				return nil
-			}
-
-			if !fileHashMatch {
-				//Hash mismatch. Overwrite the file
-				if !fileExists(filepath.Dir(fileBackupLocation)) {
-					os.MkdirAll(filepath.Dir(fileBackupLocation), 0755)
-				}
-
-				err = BufferedLargeFileCopy(filename, fileBackupLocation, 4096)
+			if lastModTime(fileAbs) > lastSnapshotTime {
+				//Check if their hash is the same. If no, update it
+				fileHashMatch, err := fileHashIdentical(fileAbs, yesterdayBackupLocation)
 				if err != nil {
-					log.Println("[HybridBackup] Copy Failed for file "+filepath.Base(fileAbs), err.Error(), " Skipping.")
-				} else {
-					//No problem. Add this filepath into the list
-					copiedFileList = append(copiedFileList, fileBackupLocation)
+					return nil
 				}
+
+				if !fileHashMatch {
+					//Hash mismatch. Overwrite the file
+					if !fileExists(filepath.Dir(fileBackupLocation)) {
+						os.MkdirAll(filepath.Dir(fileBackupLocation), 0755)
+					}
+
+					err = BufferedLargeFileCopy(filename, fileBackupLocation, 4096)
+					if err != nil {
+						log.Println("[HybridBackup] Copy Failed for file "+filepath.Base(fileAbs), err.Error(), " Skipping.")
+					} else {
+						//No problem. Add this filepath into the list
+						copiedFileList = append(copiedFileList, fileBackupLocation)
+					}
+				} else {
+					//Create a link file for this relative path
+					linkedFileList[relPath] = previousSnapshotName
+				}
+
 			} else {
-				//Create a link file for this relative path
+				//Not modified
 				linkedFileList[relPath] = previousSnapshotName
 			}
+
 		} else {
 			//Default case
 			lastModTime := lastModTime(fileAbs)
@@ -180,11 +223,17 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 		return nil
 	})
 
+	if err != nil {
+		//Copy error. Mostly because of disk fulled
+		return err.Error(), err
+	}
+
 	//2nd pass: Check if there are anything exists in the previous backup but no longer exists in the source now
 	//For case where the file is backed up in previous snapshot but now the file has been removed
+	log.Println("[HybridBackup] Snapshot Stage 2 - Started " + backupConfig.JobName)
 	if previousSnapshotExists {
 		fastWalk(previousSnapshotLocation, func(filename string) error {
-			if filepath.Base(filename) == "snapshot.datalink" {
+			if filepath.Ext(filename) == ".datalink" {
 				//System reserved file. Skip this
 				return nil
 			}
@@ -202,7 +251,6 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 			if !fileExists(sourcAssumeLocation) {
 				//File exists in yesterday snapshot but not in the current source
 				//Assume it has been deleted, create a dummy indicator file
-				//ioutil.WriteFile(todaySnapshotLocation+".deleted", []byte(""), 0755)
 				deletedFileList[relPath] = todayFolderName
 			}
 			return nil
@@ -218,10 +266,11 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 		}
 	}
 
-	//3rd pass: Check if there are anything (except file with .deleted) in today backup drive that didn't exists in the source drive
+	//3rd pass: Check if there are anything in today backup drive that didn't exists in the source drive
 	//For cases where the backup is applied to overwrite an eariler backup of the same day
+	log.Println("[HybridBackup] Snapshot Stage 3 - Started " + backupConfig.JobName)
 	fastWalk(snapshotLocation, func(filename string) error {
-		if filepath.Base(filename) == "aofs.db" || filepath.Base(filename) == "aofs.db.lock" {
+		if filepath.Ext(filename) == ".db" || filepath.Ext(filename) == ".lock" {
 			//Reserved filename, skipping
 			return nil
 		}
@@ -249,12 +298,14 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 	})
 
 	//Generate linkfile for this snapshot
+	log.Println("[HybridBackup] Snapshot - Generating Linker File")
 	generateLinkFile(snapshotLocation, LinkFileMap{
 		UnchangedFile: linkedFileList,
 		DeletedFiles:  deletedFileList,
 	})
 
 	if err != nil {
+		log.Println("[HybridBackup] Error! ", err.Error())
 		return "", err
 	}
 
@@ -303,12 +354,47 @@ func getPreviousSnapshotName(backupConfig *BackupTask, currentSnapshotName strin
 	return previousSnapshotName, nil
 }
 
-func copyFileToBackupLocation(filename string, fileBackupLocation string) error {
+func copyFileToBackupLocation(task *BackupTask, filename string, fileBackupLocation string) error {
+	//Make dir the target dir if not exists
 	if !fileExists(filepath.Dir(fileBackupLocation)) {
 		os.MkdirAll(filepath.Dir(fileBackupLocation), 0755)
 	}
 
-	err := BufferedLargeFileCopy(filename, fileBackupLocation, 4096)
+	//Check if the target disk can fit the new file
+	capinfo, err := dftool.GetCapacityInfoFromPath(filepath.Dir(fileBackupLocation))
+	if err == nil {
+		//Capacity info return normally. Estimate if the file will fit
+		srcSize := fileSize(filename)
+		diskSpace := capinfo.Avilable
+		if diskSpace < srcSize {
+			//Merge older snapshots. Maxium merging is 1 week
+			for i := 0; i < 6; i++ {
+				//Merge the oldest snapshot
+				err = mergeOldestSnapshots(task)
+				if err != nil {
+					log.Println("[HybridBackup] " + err.Error())
+					return errors.New("No space left on device")
+				}
+
+				//Check if there are enough space again
+				capinfo, err := dftool.GetCapacityInfoFromPath(filepath.Dir(fileBackupLocation))
+				if err != nil {
+					log.Println("[HybridBackup] " + err.Error())
+					return errors.New("No space left on device")
+				}
+				srcSize = fileSize(filename)
+				diskSpace = capinfo.Avilable
+				if diskSpace > srcSize {
+					//Space enough. Break out
+					break
+				}
+			}
+			log.Println("[HybridBackup] Error: No space left on device! Require ", srcSize, "bytes but only ", diskSpace, " bytes left")
+			return errors.New("No space left on device")
+		}
+	}
+
+	err = BufferedLargeFileCopy(filename, fileBackupLocation, 4096)
 	if err != nil {
 		log.Println("[HybridBackup] Failed to copy file: ", filepath.Base(filename)+". "+err.Error())
 		return err

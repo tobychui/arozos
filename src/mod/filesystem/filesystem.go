@@ -116,10 +116,10 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 				ParentUID:         option.Parentuid,
 				Mode:              option.BackupMode,
 				DeleteFileMarkers: map[string]int64{},
+				PanicStopped:      false,
 			}
 
 		}
-
 		//Create the fsdb for this handler
 		fsdb, err := db.NewDatabase(filepath.ToSlash(filepath.Join(filepath.Clean(option.Path), "aofs.db")), false)
 		if err != nil {

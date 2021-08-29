@@ -3,6 +3,7 @@ package hybridBackup
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"log"
@@ -10,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/database"
 )
 
 /*
@@ -41,16 +44,19 @@ type Manager struct {
 }
 
 type BackupTask struct {
-	JobName           string           //The name used by the scheduler for executing this config
-	CycleCounter      int64            //The number of backup executed in the background
-	LastCycleTime     int64            //The execution time of the last cycle
-	Enabled           bool             //Check if the task is enabled. Will not execute if this is set to false
-	DiskUID           string           //The UID of the target fsandlr
-	DiskPath          string           //The mount point for the disk
-	ParentUID         string           //Parent virtal disk UUID
-	ParentPath        string           //Parent disk path
-	DeleteFileMarkers map[string]int64 //Markers for those files delete pending, [file path (relative)] time
-	Mode              string           //Backup mode
+	JobName           string             //The name used by the scheduler for executing this config
+	CycleCounter      int64              //The number of backup executed in the background
+	LastCycleTime     int64              //The execution time of the last cycle
+	Enabled           bool               //Check if the task is enabled. Will not execute if this is set to false
+	DiskUID           string             //The UID of the target fsandlr
+	DiskPath          string             //The mount point for the disk
+	ParentUID         string             //Parent virtal disk UUID
+	ParentPath        string             //Parent disk path
+	DeleteFileMarkers map[string]int64   //Markers for those files delete pending, [file path (relative)] time
+	Database          *database.Database //The database for storing requried data
+	Mode              string             //Backup mode
+	PanicStopped      bool               //If the backup process has been stopped due to panic situationc
+	ErrorMessage      string             //Panic stop message
 }
 
 //A snapshot summary
@@ -96,13 +102,18 @@ func NewHyperBackupManager() *Manager {
 
 	///Create task executor
 	go func() {
-		defer log.Println("[HybridBackup] Ticker Stopped")
+		defer log.Println("HybridBackup stopped")
 		for {
 			select {
 			case <-ticker.C:
 				for _, task := range newManager.Tasks {
 					if task.Enabled == true {
-						task.HandleBackupProcess()
+						output, err := task.HandleBackupProcess()
+						if err != nil {
+							task.Enabled = false
+							task.PanicStopped = true
+							task.ErrorMessage = output
+						}
 					}
 				}
 			case <-stopper:
@@ -117,12 +128,38 @@ func NewHyperBackupManager() *Manager {
 
 func (m *Manager) AddTask(newtask *BackupTask) error {
 	//Create a job for this
-	newtask.JobName = "backup-[" + newtask.DiskUID + "]"
+	newtask.JobName = "backup-" + newtask.DiskUID + ""
 
 	//Check if the same job name exists
 	for _, task := range m.Tasks {
 		if task.JobName == newtask.JobName {
 			return errors.New("Task already exists")
+		}
+	}
+
+	//Create / Load a backup database for the task
+	dbPath := filepath.Join(newtask.DiskPath, newtask.JobName+".db")
+	thisdb, err := database.NewDatabase(dbPath, false)
+	if err != nil {
+		log.Println("[HybridBackup] Failed to create database for backup tasks. Running without one.")
+	} else {
+		newtask.Database = thisdb
+		thisdb.NewTable("DeleteMarkers")
+	}
+
+	if newtask.Mode == "basic" || newtask.Mode == "nightly" {
+		//Load the delete marker from the database if exists
+		if thisdb.TableExists("DeleteMarkers") {
+			//Table exists. Read all its content to delete markers
+			entries, _ := thisdb.ListTable("DeleteMarkers")
+			for _, keypairs := range entries {
+				relPath := string(keypairs[0])
+				delTime := int64(0)
+				json.Unmarshal(keypairs[1], &delTime)
+
+				//Add this to delete marker
+				newtask.DeleteFileMarkers[relPath] = delTime
+			}
 		}
 	}
 
@@ -144,8 +181,16 @@ func (m *Manager) StartTask(jobname string) {
 			//Enable to job
 			task.Enabled = true
 
-			//Run it once
-			task.HandleBackupProcess()
+			//Run it once in go routine
+			go func() {
+				output, err := task.HandleBackupProcess()
+				if err != nil {
+					task.Enabled = false
+					task.PanicStopped = true
+					task.ErrorMessage = output
+				}
+			}()
+
 		}
 	}
 }
@@ -161,8 +206,14 @@ func (m *Manager) StopTask(jobname string) {
 
 //Stop all managed handlers
 func (m *Manager) Close() error {
+	//Stop the schedule
 	if m != nil {
 		m.StopTicker <- true
+
+		//Close all database opened by backup task
+		for _, task := range m.Tasks {
+			task.Database.Close()
+		}
 	}
 
 	return nil
@@ -175,7 +226,7 @@ func (backupConfig *BackupTask) HandleBackupProcess() (string, error) {
 		//This parent filesystem is mounted
 
 	} else {
-		//File system not mounted even after 3 backup cycle. Terminate backup scheduler
+		//Parent File system not mounted.Terminate backup scheduler
 		log.Println("[HybridBackup] Skipping backup cycle for " + backupConfig.ParentUID + ":/")
 		return "Parent drive (" + backupConfig.ParentUID + ":/) not mounted", nil
 	}
@@ -199,12 +250,15 @@ func (backupConfig *BackupTask) HandleBackupProcess() (string, error) {
 
 		//Add one to the cycle counter
 		backupConfig.CycleCounter++
-		executeBackup(backupConfig, deepBackup)
+		_, err := executeBackup(backupConfig, deepBackup)
+		if err != nil {
+			log.Println("[HybridBackup] Backup failed: " + err.Error())
+		}
 	} else if backupConfig.Mode == "nightly" {
 		if time.Now().Unix()-backupConfig.LastCycleTime >= 86400 {
 			//24 hours from last backup. Execute deep backup now
-			executeBackup(backupConfig, true)
 			backupConfig.LastCycleTime = time.Now().Unix()
+			executeBackup(backupConfig, true)
 			log.Println("[HybridBackup] Executing nightly backup: " + backupConfig.ParentUID + ":/ -> " + backupConfig.DiskUID + ":/")
 
 			//Add one to the cycle counter
@@ -213,10 +267,10 @@ func (backupConfig *BackupTask) HandleBackupProcess() (string, error) {
 
 	} else if backupConfig.Mode == "version" {
 		//Do a versioning backup every 6 hours
-		if time.Now().Unix()-backupConfig.LastCycleTime >= 21600 || backupConfig.CycleCounter == 0 {
+		if time.Now().Unix()-backupConfig.LastCycleTime >= 21600 {
 			//Scheduled backup or initial backup
-			executeVersionBackup(backupConfig)
 			backupConfig.LastCycleTime = time.Now().Unix()
+			executeVersionBackup(backupConfig)
 			log.Println("[HybridBackup] Executing backup schedule: " + backupConfig.ParentUID + ":/ -> " + backupConfig.DiskUID + ":/")
 
 			//Add one to the cycle counter

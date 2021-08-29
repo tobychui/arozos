@@ -45,7 +45,7 @@ func (t *BackupTask) compareRootPaths() ([]*RestorableFile, error) {
 				RelpathOnDisk: filepath.ToSlash(key),
 				RestorePoint:  filepath.ToSlash(assumedSourcePosition),
 				BackupDiskUID: t.DiskUID,
-				RemainingTime: 86400 - (time.Now().Unix() - value),
+				RemainingTime: autoDeleteTime - (time.Now().Unix() - value),
 				DeleteTime:    value,
 				IsSnapshot:    false,
 			}

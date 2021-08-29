@@ -1,5 +1,11 @@
 <p>Video File Preview</p>
 <video src="{{preview_url}}" style="width:100%" volume="0" controls></video>
+<textarea id="embeddedCode" class="u-full-width" style="height: 100px;">
+    
+</textarea>
 <script>
     document.getElementsByTagName('video')[0].volume = 0.2;
+
+    //Render an embedded code for this video preview
+    $("#embeddedCode").text(`<video src="${location.protocol}//${window.location.hostname}:${window.location.port}{{preview_url}}" style="width:560px; height: 340px; background-color: #000000;" controls></video>`);
 </script>

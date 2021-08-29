@@ -29,6 +29,7 @@ import (
 	fsp "imuslab.com/arozos/mod/filesystem/fspermission"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/filesystem/shortcut"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/share"
@@ -91,6 +92,10 @@ func FileSystemInit() {
 	//Thumbnail caching functions
 	router.HandleFunc("/system/file_system/handleFolderCache", system_fs_handleFolderCache)
 	router.HandleFunc("/system/file_system/handleCacheRender", system_fs_handleCacheRender)
+	router.HandleFunc("/system/file_system/loadThumbnail", system_fs_handleThumbnailLoad)
+
+	//Directory specific config
+	router.HandleFunc("/system/file_system/sortMode", system_fs_handleFolderSortModePreference)
 
 	//Register the module
 	moduleHandler.RegisterModule(module.ModuleInfo{
@@ -141,6 +146,13 @@ func FileSystemInit() {
 
 	//Create database table if not exists
 	err = sysdb.NewTable("fs")
+	if err != nil {
+		log.Println("Failed to create table for file system")
+		panic(err)
+	}
+
+	//Create new table for sort preference
+	err = sysdb.NewTable("fs-sortpref")
 	if err != nil {
 		log.Println("Failed to create table for file system")
 		panic(err)
@@ -675,7 +687,7 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	}
 	vsrcFiles, _ := mv(r, "src", true)
 	vdestFile, _ := mv(r, "dest", true)
-	var duplicateFiles []string
+	var duplicateFiles []string = []string{}
 
 	//Loop through all files are see if there are duplication during copy and paste
 	sourceFiles := []string{}
@@ -725,8 +737,19 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 	scanningRoots := []string{}
 	//Get all roots to scan
 	for _, storage := range userinfo.GetAllFileSystemHandler() {
-		storageRoot := storage.Path
-		scanningRoots = append(scanningRoots, storageRoot)
+		if storage.Hierarchy == "backup" {
+			//Skip this fsh
+			continue
+		}
+
+		if storage.Hierarchy == "user" {
+			storageRoot := filepath.ToSlash(filepath.Join(storage.Path, "users", userinfo.Username))
+			scanningRoots = append(scanningRoots, storageRoot)
+		} else {
+			storageRoot := storage.Path
+			scanningRoots = append(scanningRoots, storageRoot)
+		}
+
 	}
 
 	for _, rootPath := range scanningRoots {
@@ -917,8 +940,19 @@ func system_fs_listTrash(username string) ([]string, error) {
 	scanningRoots := []string{}
 	//Get all roots to scan
 	for _, storage := range userinfo.GetAllFileSystemHandler() {
-		storageRoot := storage.Path
-		scanningRoots = append(scanningRoots, storageRoot)
+		if storage.Hierarchy == "backup" {
+			//Skip this fsh
+			continue
+		}
+
+		if storage.Hierarchy == "user" {
+			storageRoot := filepath.ToSlash(filepath.Join(storage.Path, "users", userinfo.Username))
+			scanningRoots = append(scanningRoots, storageRoot)
+		} else {
+			storageRoot := storage.Path
+			scanningRoots = append(scanningRoots, storageRoot)
+		}
+
 	}
 
 	files := []string{}
@@ -952,6 +986,13 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	//Validate the token
+	tokenValid := CSRFTokenManager.HandleTokenValidation(w, r)
+	if !tokenValid {
+		http.Error(w, "Invalid CSRF token", 401)
 		return
 	}
 
@@ -2085,10 +2126,13 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		if filepath.Clean(realpath) == filepath.Clean(userRoot) {
 			//Initiate user folder (Initiaed in user object)
 			userinfo.GetHomeDirectory()
+		} else if !strings.Contains(filepath.ToSlash(filepath.Clean(currentDir)), "/") {
+			//User root not created. Create the root folder
+			os.MkdirAll(filepath.Clean(realpath), 0775)
 		} else {
 			//Folder not exists
 			log.Println("[File Explorer] Requested path: ", realpath, " does not exists!")
-			sendJSONResponse(w, "{\"error\":\"Folder not exists\"}")
+			sendErrorResponse(w, "Folder not exists")
 			return
 		}
 
@@ -2101,12 +2145,30 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	files, _ := system_fs_specialGlob(filepath.Clean(realpath) + "/*")
 
 	var parsedFilelist []fs.FileData
-
+	var shortCutInfo *shortcut.ShortcutData = nil
 	for _, v := range files {
-		if showHidden != "true" && filepath.Base(v)[:1] == "." {
+		//Check if it is hidden file
+		isHidden, _ := hidden.IsHidden(v, false)
+		if showHidden != "true" && isHidden {
 			//Skipping hidden files
 			continue
 		}
+
+		//Check if this is an aodb file
+		if filepath.Base(v) == "aofs.db" || filepath.Base(v) == "aofs.db.lock" {
+			//Database file (reserved)
+			continue
+		}
+
+		//Check if it is shortcut file. If yes, render a shortcut data struct
+		if filepath.Ext(v) == ".shortcut" {
+			//This is a shortcut file
+			shorcutData, err := shortcut.ReadShortcut(v)
+			if err == nil {
+				shortCutInfo = shorcutData
+			}
+		}
+
 		rawsize := fs.GetFileSize(v)
 		modtime, _ := fs.GetModTime(v)
 		thisFile := fs.FileData{
@@ -2118,6 +2180,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 			Displaysize: fs.GetFileDisplaySize(rawsize, 2),
 			ModTime:     modtime,
 			IsShared:    shareManager.FileIsShared(v),
+			Shortcut:    shortCutInfo,
 		}
 
 		parsedFilelist = append(parsedFilelist, thisFile)
@@ -2337,6 +2400,31 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 
 	//Perform cache rendering
 	thumbRenderHandler.HandleLoadCache(w, r, rpath)
+}
+
+//Handle loading of one thumbnail
+func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
+	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
+	vpath, err := mv(r, "vpath", false)
+	if err != nil {
+		sendErrorResponse(w, "vpath not defined")
+		return
+	}
+
+	rpath, err := userinfo.VirtualPathToRealPath(vpath)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	thumbnailPath, err := thumbRenderHandler.LoadCache(rpath, false)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	js, _ := json.Marshal(thumbnailPath)
+	sendJSONResponse(w, string(js))
 
 }
 
@@ -2356,8 +2444,52 @@ func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
 	}
 
 	thumbRenderHandler.BuildCacheForFolder(rpath)
-
 	sendOK(w)
+}
+
+//Handle the get and set of sort mode of a particular folder
+func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, "User not logged in")
+		return
+	}
+	folder, err := mv(r, "folder", true)
+	if err != nil {
+		sendErrorResponse(w, "Invalid folder given")
+		return
+	}
+
+	opr, _ := mv(r, "opr", true)
+
+	folder = filepath.ToSlash(filepath.Clean(folder))
+
+	if opr == "" || opr == "get" {
+		sortMode := "default"
+		if sysdb.KeyExists("fs-sortpref", userinfo.Username+"/"+folder) {
+			sysdb.Read("fs-sortpref", userinfo.Username+"/"+folder, &sortMode)
+		}
+
+		js, _ := json.Marshal(sortMode)
+		sendJSONResponse(w, string(js))
+	} else if opr == "set" {
+		sortMode, err := mv(r, "mode", true)
+		if err != nil {
+			sendErrorResponse(w, "Invalid sort mode given")
+			return
+		}
+
+		if !stringInSlice(sortMode, []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent"}) {
+			sendErrorResponse(w, "Not supported sort mode: "+sortMode)
+			return
+		}
+
+		sysdb.Write("fs-sortpref", userinfo.Username+"/"+folder, sortMode)
+		sendOK(w)
+	} else {
+		sendErrorResponse(w, "Invalid opr mode")
+		return
+	}
 }
 
 //Handle setting and loading of file permission on Linux
