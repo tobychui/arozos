@@ -50,15 +50,16 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 
 |Version|Download|Mirror|Remarks|
 |---|---|---|---|
-|arozos v1.113|https://wdfiles.ru/917904|https://www.mediafire.com/file/u42ha6ljfq6q0g9/arozos_v1.113.7z/file||
-|arozos v1.112 (Stable)|https://wdfiles.ru/740970|https://www.mediafire.com/file/eonn1weu8jvfz29/arozos_v1.112.7z/file|Bug fix and patches for v1.111|
-|arozos v1.111 (Stable)|https://wdfiles.ru/ead4e3|https://www.mediafire.com/file/cusm5jwsuey6b4k/arozos_v1.111.7z/file|IoT Hub Added|
-|arozos v1.110 (Stable)|https://wdfiles.ru/0412fd|http://www.mediafire.com/file/r7l40jv727covej/arozos_v1.110.7z/file||
-|arozos v1.109|https://wdfiles.ru/c5556b4473c75f6d|https://www.mediafire.com/file/mmjyv77ei9fwab5/arozos_v1.109.7z/file||
-|arozos v1.108|https://wdfiles.ru/4053d3bfd730aa60|https://www.mediafire.com/file/aa8176setz3ljtv/arozos_v1.108.7z/file|WebDAV Support Added|
-|arozos v1.107|https://wdfiles.ru/jv2x|https://www.mediafire.com/file/0ybduxs9db3j6ai/arozos_v1.107.7z/file|Samba Supported Added|
-|arozos v1.106|https://wdfiles.ru/b49v|https://www.mediafire.com/file/ov58z14eo90b6g9/arozos_v1.106.7z/file||
-|arozos v1.103|https://wdfiles.ru/b49b|https://www.mediafire.com/file/bw34ov9ugxefqjz/arozos_v1.103.7z/file||
+|arozos v1.115 (Stable)|https://wdfiles.ru/84cb6b|https://www.mediafire.com/file/zbhieo59fq2sw80/arozos_v1.115.7z/file|Build in [WsTTY](https://github.com/aroz-online/WsTTY)|
+|arozos v1.114|EOL|EOL|Unstable, upgrade to 1.115 if you are still using this version|
+|arozos v1.113|https://wdfiles.ru/75372e|https://www.mediafire.com/file/u42ha6ljfq6q0g9/arozos_v1.113.7z/file||
+|arozos v1.112 (Stable)|EOL|https://www.mediafire.com/file/eonn1weu8jvfz29/arozos_v1.112.7z/file|Bug fix and patches for v1.111|
+|arozos v1.111 (Stable)|EOL|https://www.mediafire.com/file/cusm5jwsuey6b4k/arozos_v1.111.7z/file|IoT Hub Added|
+|arozos v1.110 (Stable)|EOL|http://www.mediafire.com/file/r7l40jv727covej/arozos_v1.110.7z/file||
+|arozos v1.109|EOL|https://www.mediafire.com/file/mmjyv77ei9fwab5/arozos_v1.109.7z/file||
+|arozos v1.108|EOL|https://www.mediafire.com/file/aa8176setz3ljtv/arozos_v1.108.7z/file|WebDAV Support Added|
+|arozos v1.107|EOL|https://www.mediafire.com/file/0ybduxs9db3j6ai/arozos_v1.107.7z/file|Samba Supported Added|
+|arozos v1.106|EOL|https://www.mediafire.com/file/ov58z14eo90b6g9/arozos_v1.106.7z/file||
 
 *Yes, the download site is in Russia. No, I am not Russian, I use this site because they offer 80GB of storage for free*
 **All the image listed above require 8GB or above microSD card**
