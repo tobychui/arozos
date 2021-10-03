@@ -49,7 +49,7 @@
                         <label>I agree to the <a href="../../SystemAO/vendor/public/termsAndConditions.html" target="_blank">Terms and Conditions</a></label>
                         </div>
                     </div>
-                    <button id="submitbtn" class="ui disabled button" type="submit">Sign Up</button>
+                    <button disabled="disabled" id="submitbtn" class="ui disabled button" type="submit">Sign Up</button>
                 </form>
                 <div id="errmsg" class="ui red inverted segment" style="display:none;">
                     <i class="remove icon"></i> Internal Server Error
@@ -85,9 +85,11 @@
 
             function toggleSignupBox(toggle){
                 if (toggle){
-                    $("#submitbtn").removeClass('disabled')
+                    $("#submitbtn").removeAttr('disabled');
+                    $("#submitbtn").removeClass('disabled');
                 }else{
-                    $("#submitbtn").addClass('disabled')
+                    $("#submitbtn").attr('disabled','disabled');
+                    $("#submitbtn").addClass('disabled');
                 }
             }
 

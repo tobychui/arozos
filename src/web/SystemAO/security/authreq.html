@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Authentication Required</title>
+    <title locale="page/title">Authentication Required</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
     <style>
         .topSlate{
             background-image: url("img/auth_slate.png");
@@ -47,8 +48,8 @@
         </div>
         <br>
         <div align="right">
-            <button class="ui blue button" onclick="confirm()">Confirm</button>
-            <button class="ui button" onclick="cancel()">Cancel</button>
+            <button class="ui black button" locale="button/confirm" onclick="confirm()">Confirm</button>
+            <button class="ui button" locale="button/cancel" onclick="cancel()">Cancel</button>
         </div>
         
     </div>
@@ -57,12 +58,13 @@
         /*
             Usage Example:
             var apiObject = {
-                api: "/system/myfunction",
+                api: "system/myfunction",
                 data: {message: "Hello World"},
                 title: "<i class='red exclamation triangle icon'></i> Danger Operation <i class='red exclamation triangle icon'></i>",
                 desc: "Please enter your password to confirm operation.",
                 thisuser: true, //This username as default, set to false for allowing other user name to be entered
-                method: "GET"
+                method: "GET",
+                success: "systemAO/myfunction/succ.html" //Redirection if success
             }
 
             ao_module_newfw({
@@ -128,9 +130,14 @@
                         if ($("#username").parent().hasClass("disabled") == false){
                             $("#username").parent().addClass("error");
                         }
+
                     }else{
                         if (ao_module_hasParentCallback()){
                             ao_module_parentCallback(data);
+                        }
+
+                        if (actionObject.success != undefined){
+                            window.top.location = "../../" + actionObject.success;
                         }
 
                         ao_module_close();
@@ -147,6 +154,20 @@
 
             ao_module_close();
        }
+
+       if (applocale){
+            //Applocale found. Do localization
+            applocale.init("../locale/authreq.json", function(){
+                applocale.translate();
+            });
+        }else{
+            //Applocale not found. Is this a trim down version of ArozOS?
+            var applocale = {
+                getString: function(key, original){
+                    return original;
+                }
+            }
+        }
     </script>
 </body>
 </html>

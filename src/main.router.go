@@ -23,8 +23,8 @@ func mrouter(h http.Handler) http.Handler {
 			You can also check the path for url using r.URL.Path
 		*/
 
-		if r.URL.Path == "/favicon.ico" || r.URL.Path == "/manifest.webmanifest" {
-			//Serving favicon or manifest. Allow no auth access.
+		if r.URL.Path == "/favicon.ico" || r.URL.Path == "/manifest.webmanifest" || r.URL.Path == "/robots.txt" || r.URL.Path == "/humans.txt" {
+			//Serving web specification files. Allow no auth access.
 			h.ServeHTTP(w, r)
 		} else if r.URL.Path == "/login.system" {
 			//Login page. Require special treatment for template.

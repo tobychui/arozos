@@ -72,7 +72,7 @@
                 }
 
                 //Load the file into the textarea
-                $.get("../../media?file=" + files[0].filepath,function(data){
+                $.get("../../media?file=" + files[0].filepath + "#" + Date.now(),function(data){
                     if (isJson){
                         data = JSON.stringify(data);
                     }

@@ -1,0 +1,71 @@
+<html>
+    <head>
+        <title>Shutting Down</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <style>
+            body{
+                background-color: #0f0f0f;
+            }
+
+            .main{
+                width: 400px;
+                height: 100px;
+                padding: 20px;
+                position: absolute;
+                top: 30%;
+                left: calc(50% - 200px);
+                color: white;
+                font-family: monospace;
+                text-align: center;
+            }
+
+            .brandicon{
+                width: 70%;
+
+            }
+        </style>
+    </head>
+    <body>
+        <br><br><br>
+        <div class="main">
+            <img class="brandicon" src="../../img/vendor/vendor_icon.png">
+            <p id="countdown">Host server is shutting down in 60 seconds</p>
+        </div>
+        <script>
+            //ArozOS default shutdown after 60 seconds after shutdown request has been made.
+            //Shut it down
+            let counter = 60;
+            function handleCountdown(){
+                setTimeout(function(){
+                    counter--;
+                    if (counter == 0){
+                        setTimeout(function(){
+                            $.ajax({
+                                url: "../../system/auth/checkLogin",
+                                success: function(data){
+                                    $("#countdown").text("Shutdown failed. Please try again later");
+                                    document.title = "Shutdown Failed";
+                                },
+                                error: function(){
+                                    //Server connection lost. Should have been shutted down
+                                    $("#countdown").text("Shutdown Succeed: Host offline");
+                                    document.title = "Offline";
+                                },
+                                timeout: 2000
+                            });
+                        }, 3000);
+                        $("#countdown").text("Checking Connection State...");
+                    }else{
+                        $("#countdown").text(`Host server is shutting down in ${counter} seconds`);
+                        handleCountdown();
+                    
+                    }
+                }, 1000);
+            }
+
+            handleCountdown();
+        </script>
+    </body>
+</html>

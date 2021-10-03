@@ -434,8 +434,8 @@ if (!requirelib("filelib")){
 	filelib.deleteFile("user:/Desktop/test.txt"); 						//Delete a file by given path
 	filelib.readdir("user:/Desktop/"); 									//List all subdirectories within this directory
 	filelib.walk("user:/Desktop/"); 									//Recursive scan dir and return all files and folder in subdirs
-	filelib.glob("user:/Desktop/*.jpg");
-	filelib.aglob("user:/Desktop/*.jpg");
+	filelib.glob("user:/Desktop/*.jpg", "smallToLarge");
+	filelib.aglob("user:/Desktop/*.jpg", "user");
 	filelib.filesize("user:/Desktop/test.jpg");
 	filelib.fileExists("user:/Desktop/test.jpg");
 	filelib.isDir("user:/Desktop/NewFolder/");
@@ -445,8 +445,48 @@ if (!requirelib("filelib")){
 	filelib.rname("user:/Deskop"); 										//Get Rootname, return "User"
 ```
 
+##### Special sorting mode for glob and aglob
+
+For glob and aglob, developer can pass in the following sorting modes (case sensitive)
+
+- default
+- reverse
+- smallToLarge
+- largeToSmall
+- mostRecent
+- leastRecent
+
+```
+//Example for sorting the desktop files to largeToSmall
+filelib.aglob("user:/Desktop/*", "largeToSmall");
+```
+
+To use the user default option which user has set in File Manager WebApp, pass in "user". Default sorting method is "default"
+
+```
+//Example of using user's selected mode
+filelib.aglob("user:/Desktop/*.jpg", "user");
+```
+
+### appdata
+
+An API for access files inside the web folder. This API only provide read only functions. Include the appdata lib as follows.
+
+```
+requirelib("appdata");
+```
+
+#### appdata functions
+
+```
+appdata.readFile("UnitTest/appdata.txt"); //Return false (boolean) if read failed
+appdata.listDir("UnitTest/backend/"); //Return a list of files in JSON string
+```
+
+
 
 ### imagelib
+
 A basic image handling library to process images. Allowing basic image resize,
 get image dimension and others (to be expanded)
 

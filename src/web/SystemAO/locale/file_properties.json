@@ -1,0 +1,82 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "檔案內容",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title":"檔案內容",
+                "title/desc": "檔案基本內容及描述",
+
+                "properties/key/Default WebApp": "預設開啟應用",
+                "properties/key/Virtual Path": "虛擬存取路徑",
+                "properties/key/Storage Path": "磁碟儲存路徑",
+                "properties/key/File Size": "檔案大小",
+                "properties/key/Folder Size": "資料夾大小",
+                "properties/key/Permission": "存取權限",
+                "properties/key/Last Modified": "最後修改",
+                "properties/key/File Type": "檔案類型",
+                "properties/key/Owner": "擁有者",
+                "properties/key/Total Size": "總共大小",
+                "properties/key/Virtual Directory": "虛擬存放位置",
+                "properties/key/Storage Directory": "磁碟存放位置",
+
+                "lastmod/time/year": " 年",
+                "lastmod/time/month": " 個月",
+                "lastmod/time/days": " 日",
+                "lastmod/time/today": "今天",
+                "lastmod/time/s": "",
+                "lastmod/time/ago": "前",
+
+                "button/changeDefault":"更改預設啟動應用",
+                "button/changeFilePermission":"更改檔案存取權限",
+                "loader/loadingFileSize": "正在計算檔案大小",
+                "selection/multi": "已選擇多個檔案",
+
+                "counter/files": " 個檔案",
+                "counter/folders": " 個資料夾",
+
+                "":""
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "檔案內容",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title":"檔案內容",
+                "title/desc": "檔案基本內容及描述",
+
+                "properties/key/Default WebApp": "預設開啟應用",
+                "properties/key/Virtual Path": "虛擬存取路徑",
+                "properties/key/Storage Path": "磁碟儲存路徑",
+                "properties/key/File Size": "檔案大小",
+                "properties/key/Folder Size": "資料夾大小",
+                "properties/key/Permission": "存取權限",
+                "properties/key/Last Modified": "最後修改",
+                "properties/key/File Type": "檔案類型",
+                "properties/key/Owner": "擁有者",
+                "properties/key/Total Size": "總共大小",
+                "properties/key/Virtual Directory": "虛擬存放位置",
+                "properties/key/Storage Directory": "磁碟存放位置",
+
+                "lastmod/time/year": " 年",
+                "lastmod/time/month": " 個月",
+                "lastmod/time/days": " 日",
+                "lastmod/time/today": "今天",
+                "lastmod/time/s": "",
+                "lastmod/time/ago": "前",
+
+                "button/changeDefault":"更改預設啟動應用",
+                "button/changeFilePermission":"更改檔案存取權限",
+                "loader/loadingFileSize": "正在計算檔案大小",
+                "selection/multi": "已選擇多個檔案",
+
+                "counter/files": " 個檔案",
+                "counter/folders": " 個資料夾",
+
+                "":""
+            }
+        }
+    }
+}

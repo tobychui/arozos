@@ -49,7 +49,17 @@ func NewLogger() (*Logger, error) {
 func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 	username, _ := mv(r, "username", true)
 	timestamp := time.Now().Unix()
-	return l.LogAuthByRequestInfo(username, r.RemoteAddr, timestamp, loginStatus, "web")
+	//handling the reverse proxy remote IP issue
+	remoteIP := r.Header.Get("X-FORWARDED-FOR")
+	if remoteIP != "" {
+		//grab the last known remote IP from header
+		remoteIPs := strings.Split(remoteIP, ", ")
+		remoteIP = remoteIPs[len(remoteIPs)-1]
+	} else {
+		//if there is no X-FORWARDED-FOR, use default remote IP
+		remoteIP = r.RemoteAddr
+	}
+	return l.LogAuthByRequestInfo(username, remoteIP, timestamp, loginStatus, "web")
 }
 
 //Log the current authentication to record by custom filled information. Use LogAuth if your module is authenticating via web interface

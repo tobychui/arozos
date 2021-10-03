@@ -194,7 +194,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	//log.Println("Request Method: ", r.Method)
 
 	//Check if this is enabled
-	if s.Enabled == false {
+	if !s.Enabled {
 		http.NotFound(w, r)
 		return
 	}
@@ -212,8 +212,8 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Windows File Explorer. Handle with special case
-	if r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir") && s.tlsMode == false {
-		//log.Println("Windows File Explorer Connection. Routing using alternative handler")
+	if r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir") && r.TLS == nil {
+		log.Println("Windows File Explorer Connection. Routing using alternative handler")
 		s.HandleWindowClientAccess(w, r, reqRoot)
 		return
 	}

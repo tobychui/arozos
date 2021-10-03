@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"time"
 
 	ftp "github.com/fclairamb/ftpserverlib"
 )
@@ -60,6 +61,8 @@ func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ft
 		accessOK := userinfo.UserIsInOneOfTheGroupOf(allowedPgs)
 
 		if !accessOK {
+			//log the signin request
+			m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")
 			//Disconnect this user as he is not in the group that is allowed to access ftp
 			log.Println(userinfo.Username + " tries to access FTP endpoint with invalid permission settings.")
 			return nil, errors.New("User " + userinfo.Username + " has no permission to access FTP endpoint")
@@ -71,13 +74,16 @@ func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ft
 
 		//Record username into connected user list
 		m.connectedUserList.Store(cc.ID(), userinfo.Username)
-
+		//log the signin request
+		m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(userinfo.Username, cc.RemoteAddr().String(), time.Now().Unix(), true, "ftp")
 		//Return the aofs object
 		return aofs{
 			userinfo:  userinfo,
 			tmpFolder: tmpFolder,
 		}, nil
 	} else {
+		//log the signin request
+		m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")
 		return nil, errors.New("Invalid username or password")
 	}
 }

@@ -84,4 +84,21 @@ func util_init() {
 		SupportedExt: []string{".gcode", ".gco"},
 	})
 
+	/*
+		Gcode File Viewer - Plotted from ArOZ Online Beta
+	*/
+	moduleHandler.RegisterModule(module.ModuleInfo{
+		Name:         "Image Paste",
+		Desc:         "Paste image from clipboard to cloud storage",
+		Group:        "Utilities",
+		IconPath:     "SystemAO/utilities/img/ImagePaste.png",
+		Version:      "1.0",
+		StartDir:     "SystemAO/utilities/imgPaste.html",
+		SupportFW:    true,
+		SupportEmb:   false,
+		LaunchFWDir:  "SystemAO/utilities/imgPaste.html",
+		InitFWSize:   []int{720, 480},
+		SupportedExt: []string{".png", ".jpg", ".jpeg", ".webp"},
+	})
+
 }

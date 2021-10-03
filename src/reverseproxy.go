@@ -16,7 +16,8 @@ var (
 
 //Add user customizable reverse proxy
 func ReverseProxtInit() {
-	return //Disabled in v1.115 release
+
+	return
 	dprouter, err := dynamicproxy.NewDynamicProxy(80)
 	if err != nil {
 		log.Println(err.Error())

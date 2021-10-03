@@ -11,6 +11,7 @@
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/forge-sha256.min.js"></script>
         <script type="text/javascript" src="../../script/qrcode.min.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <script>
              window.mobilecheck = function() {
                 var check = false;
@@ -597,7 +598,7 @@
                 color: #69aaff !important;
             }
 
-            .dropdown.inverted{
+            .dropdown.inverted:not(.icon){
                 background-color: #17161f !important;
             }
 
@@ -621,6 +622,20 @@
             i.blue{
                 color: #345eeb;
             }
+
+            .fileObject.whiteTheme.hotSearchHighlight{
+                background-color: #d2f2f7 !important;
+            }
+            .fileObject.darkTheme.hotSearchHighlight span{
+                background-color: #d2f2f7 !important;
+            }
+
+            .fileObject.darkTheme.hotSearchHighlight{
+                background-color: #100f16 !important;
+            }
+            .fileObject.darkTheme.hotSearchHighlight span{
+                background-color: #100f16 !important;
+            }
         </style>
     </head>
     <body class="whiteTheme">
@@ -635,7 +650,7 @@
             <button class="ts icon tiny button standard whiteTheme singleObjectOnly" title="Share File" onclick="shareFile();"><i class="share alternate icon"></i></button>
             <button class="ts labeled icon tiny button standard whiteTheme" style="width:154px;"  title="Download" onclick="downloadFile();">
                 <i class="download icon"></i>
-                Download
+                <span locale="menu/button/download">Download</span>
             </button>
 
              <!-- File Edit Operations -->
@@ -673,12 +688,12 @@
                 </div>
                 <div class="rightAlign">
                     <select id="sortingMethodSelector" title="Sorting Method" class="ts basic borderless mini dropdown" onchange="updateSortingMethods();" autocomplete="off">
-                        <option value="default">Ascending</option>
-                        <option value="reverse">Descending</option>
-                        <option value="smallToLarge">Smallest</option>
-                        <option value="largeToSmall"> Largest</option>
-                        <option value="mostRecent">Most Recent</option>
-                        <option value="leastRecent">Least Recent</option>
+                        <option value="default" locale="menu/sort/asc">Ascending</option>
+                        <option value="reverse" locale="menu/sort/desc">Descending</option>
+                        <option value="smallToLarge" locale="menu/sort/small">Smallest</option>
+                        <option value="largeToSmall" locale="menu/sort/large"> Largest</option>
+                        <option value="mostRecent" locale="menu/sort/mostrecent">Most Recent</option>
+                        <option value="leastRecent" locale="menu/sort/leastrecent">Least Recent</option>
                     </select>
                     <button id="searhbtn" class="ts icon tiny button standard whiteTheme"  title="Search" onclick="toggleSearch();"><i class="search icon"></i></button>
                     <button class="ts icon tiny button standard whiteTheme videmode" mode="grid" title="Block View" onclick="changeViewMode(this);"><i class="block layout icon"></i></button>
@@ -713,18 +728,18 @@
                 <div class="ts list">
                     <details class="ts accordion fluid whiteTheme" open>
                         <summary>
-                            <i class="dropdown icon"></i> User
+                            <i class="dropdown icon"></i> <span locale="sidebar/vroot/user">User</span>
                         </summary>
                         <div id="userroot" class="ts list" style="padding-top:0px !important;">
-                            <div class="dir item whiteTheme"><i class="loading circle notched rightmargin icon"></i> Initiating</div>
+                            <div class="dir item whiteTheme"><i class="loading circle notched rightmargin icon"></i> <span locale="message/initiating">Initiating</span></div>
                         </div>
                     </details>
                     <details class="ts accordion fluid whiteTheme" open>
                         <summary>
-                            <i class="dropdown icon"></i> Storage
+                            <i class="dropdown icon"></i> <span locale="sidebar/vroot/fsh">Storage</span>
                         </summary>
                         <div id="storageroot" class="ts list" style="padding-top:0px !important;">
-                            <div class="dir item whiteTheme"><i class="loading circle notched rightmargin icon"></i> Initiating</div>
+                            <div class="dir item whiteTheme"><i class="loading circle notched rightmargin icon"></i> <span locale="message/initiating">Initiating</span></div>
                         </div>
                     </details>
                     <!-- 
@@ -760,44 +775,44 @@
         <!-- Overwrite Selection Box-->
         <div id="overwriteModeSelection" class="popup whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="paste icon"></i> Replace, Keep or Skip Files
+                <i class="paste icon"></i> <span locale="opr/overwrite/title">Replace, Keep or Skip Files</span> 
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-                <small style="font-size:80%;">Copying <span class="owm-fc"></span> files from <span class="owm-srcdir"></span> to <span class="owm-destdir"></span>.</small>
-                <p>The destination has <span class="owm-fc"></span> files with the same names.</p>
+                <small style="font-size:80%;"><span locale="opr/overwrite/copying">Copying</span> <span class="owm-fc"></span> <span locale="opr/overwrite/files">files from</span> <span class="owm-srcdir"></span> <span locale="opr/overwrite/to">to</span> <span class="owm-destdir"></span></small>
+                <p><span locale="opr/overwrite/dest">The destination has </span><span class="owm-fc"></span> <span locale="opr/overwrite/samename">files with the same names.</span></p>
 
                 <div class="popupbuttons whiteTheme allowHover primary" onclick="changeOverwriteRule(0,true);">
-                    <i class="checkmark icon"></i> Replace the files in the destination
+                    <i class="checkmark icon"></i> <span locale="opr/overwrite/replace">Replace the files in the destination</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="changeOverwriteRule(1,true);">
-                    <i class="reply icon"></i> Skip these files
+                    <i class="reply icon"></i> <span locale="opr/overwrite/skip">Skip these files</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="changeOverwriteRule(2,true);">
-                    <i class="undo icon"></i> Rename and keep the files
+                    <i class="undo icon"></i> <span locale="opr/overwrite/keep">Rename and keep the files</span>
                 </div>
             </div>
         </div>
         <!-- Force delete confirmation box -->
         <div id="forceDeleteConfirmBox" class="popup whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="trash icon"></i> Permanently Remove Files
+                <i class="trash icon"></i> <span locale="opr/per-remove/title">Permanently Remove Files</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-                <p>Are you sure you want to remove these files <u>permanently?</u><br>This action is <u>irreversible</u>.</p>
+                <p locale="opr/per-remove/questions">Are you sure you want to remove these files <u>permanently?</u><br>This action is <u>irreversible</u>.</p>
                 <div class="ts list whiteTheme deleteFilelist" style="max-height:350px;overflow-y:auto; ">
 
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" style="background-color: #eb4034 !important;" onclick="forceDelete(true);";>
-                <i class="trash icon"></i> Confirm
+                <i class="trash icon"></i> <span locale="opr/per-remove/confirm">Confirm</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="cancelForceDelete();hideAllPopupWindows();">
-                    <i class="remove icon"></i> Cancel
+                    <i class="remove icon"></i> <span locale="opr/per-remove/cancel">Cancel</span>
                 </div>
 
             </div>
@@ -806,21 +821,21 @@
         <!-- Delete confirm box -->
         <div id="deleteConfirmBox" class="popup whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="recycle icon"></i> Move files to Trash Bin
+                <i class="recycle icon"></i> <span locale="opr/remove/title">Move files to Trash Bin</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-                <p>Are you sure you want to move these files to trash bin?</p>
+                <p locale="opr/remove/question">Are you sure you want to move these files to trash bin?</p>
                 <div class="ts list whiteTheme deleteFilelist" style="max-height:350px;overflow-y:auto; ">
 
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" style="color: #2bbbdf !important;" onclick="deleteFile(true);";>
-                <i class="recycle icon"></i> Move to Trash
+                <i class="recycle icon"></i> <span locale="opr/remove/confirm">Move to Trash</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="cancelDelete();hideAllPopupWindows();">
-                    <i class="remove icon"></i> Cancel
+                    <i class="remove icon"></i> <span locale="opr/remove/cancel">Cancel</span>
                 </div>
 
             </div>
@@ -829,13 +844,13 @@
         <!-- Rename tool box -->
         <div id="renameBox" class="popup whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="text cursor icon"></i> Rename Files
+                <i class="text cursor icon"></i> <span locale="opr/rename/title">Rename Files</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-                <p>Enter the new filename for renaming. </p>
+                <p locale="opr/rename/instruction">Enter the new filename for renaming. </p>
                 <p class="multifileWarning"><i class="notice icon"></i> Other files will be named as file(#)</p>
                 <div class="ts left icon small fluid input" style="margin-bottom:12px;">
                     <input type="text" class="whiteTheme orgfn" placeholder="Original Filename" readonly="true">
@@ -846,10 +861,10 @@
                     <i class="add square icon" style="color:rgb(122, 176, 247)"></i>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover primary"  onclick="confirmRename(true);";>
-                <i class="checkmark icon"></i> OK
+                <i class="checkmark icon"></i> <span locale="opr/rename/ok">OK</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="hideAllPopupWindows();">
-                    <i class="remove icon"></i> Cancel
+                    <i class="remove icon"></i> <span locale="opr/rename/cancel">Cancel</span>
                 </div>
 
             </div>
@@ -858,27 +873,27 @@
         <!-- New File Dialog-->
         <div id="newFile" class="popup whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="add icon"></i> New File
+                <i class="add icon"></i> <span locale="opr/newfile/title">New File</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-                <p>Please select a type of file to be created.</p>
+                <p locale="opr/newfile/instruction">Select a type of file to be created.</p>
                 <div class="ts segmented list whiteTheme newfilelist" style="max-height:18em; overflow-y:scroll">
                     <div class="item newFileFormat" ext="php">No Item</div>
                 </div>
-                <p>Or create an empty file with given filename:</p>
+                <p locale="opr/newfile/newempty">Or create an empty file with given filename:</p>
                 <div class="ts left icon small fluid input" style="margin-bottom:12px;">
                     <input id="createNewFileName" type="text" class="whiteTheme" placeholder="New Filename" onkeydown="handleEnterKeyDown(event, confirmNewFile);">
                     <i class="add square icon" style="color:rgb(122, 176, 247)"></i>
                 </div>
                 <p class="duplicateWarning" style="color:#CE5F58; display:none;"><i class="caution sign icon"></i> The given filename already exist.</p>
                 <div class="popupbuttons whiteTheme allowHover primary"  onclick="confirmNewFile();";>
-                    <i class="add icon"></i> Create
+                    <i class="add icon"></i> <span locale="opr/newfile/create">Create</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="hideAllPopupWindows();">
-                    <i class="remove icon"></i> Cancel
+                    <i class="remove icon"></i> <span locale="opr/newfile/cancel">Cancel</span>
                 </div>
             </div>
         </div>
@@ -886,23 +901,23 @@
         <!-- New Folder Dialog-->
         <div id="newFolder" class="popup whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="folder icon"></i> New Folder
+                <i class="folder icon"></i> <span locale="opr/newfolder/title">New Folder</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-                <p>Please enter the new folder name to be created.</p>
+                <p locale="opr/newfolder/desc">Enter the new folder name to be created.</p>
                 <div class="ts left icon small fluid input" style="margin-bottom:12px;">
                     <input id="createNewFolder" type="text" class="whiteTheme" placeholder="New Folder Name" onkeydown="handleEnterKeyDown(event, function(){newFolder(true);});">
                     <i class="add square icon" style="color:rgb(122, 176, 247)"></i>
                 </div>
-                <p class="duplicateWarning" style="color:#CE5F58; display:none;"><i class="caution sign icon"></i> The given folder already exist.</p>
+                <p class="duplicateWarning" style="color:#CE5F58; display:none;"><i class="caution sign icon"></i> <span locale="opr/newfolder/alreadyExists">The given folder already exist.</span></p>
                 <div class="popupbuttons whiteTheme allowHover primary"  onclick="newFolder(true);";>
-                    <i class="add icon"></i> Create
+                    <i class="add icon"></i> <span locale="opr/newfolder/create">Create</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="hideAllPopupWindows();">
-                    <i class="remove icon"></i> Cancel
+                    <i class="remove icon"></i> <span locale="opr/newfolder/cancel">Cancel</span>
                 </div>
             </div>
         </div>
@@ -910,7 +925,7 @@
         <!-- Share File Dialog-->
         <div id="shareFile" class="popup wide whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="external icon"></i> Share File
+                <i class="external icon"></i> <span locale="opr/share/title">Share File</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
@@ -927,20 +942,20 @@
                     </div>
                     <div class="eight wide column" style="padding-left: 12px;">
                         <div class="ts header whiteTheme">
-                            Share Settings
-                            <div class="sub header whiteTheme">Change who can see this file</div>
+                            <span locale="opr/share/settings">Share Settings</span>
+                            <div class="sub header whiteTheme" locale="opr/share/setdesc">Change who can see this file</div>
                         </div>
                         <div id="shareSettingForm" class="ts form">
                             <div class="field">
-                                <label><p class="whiteTheme">Visable options:</p></label>
+                                <label><p class="whiteTheme" locale="opr/share/visableoption">Visable options:</p></label>
                                 <div class="ts checkboxes">
                                     <div class="ts radio checkbox">
                                         <input id="anyone" type="radio" class="shareoption" name="shareopt" value="anyone" checked="true">
                                         <label for="anyone">
                                             <div class="ts header">
                                                 <div class="content whiteTheme">
-                                                    <i class="globe icon"></i> Anyone with the link
-                                                    <div class="sub header whiteTheme">Anyone who has the link can access this file</div>
+                                                    <i class="globe icon"></i> <span locale= "opr/share/anyone">Anyone with the link</span>
+                                                    <div class="sub header whiteTheme" locale="opr/share/anyonedesc">Anyone who has the link can access this file</div>
                                                 </div>
                                             </div>
                                         </label>
@@ -950,8 +965,8 @@
                                         <label for="signedin">
                                             <div class="ts header">
                                                 <div class="content whiteTheme">
-                                                    <i class="user circle outline icon"></i> Anyone signed in
-                                                    <div class="sub header whiteTheme">Anyone who has signed in can access this file</div>
+                                                    <i class="user circle outline icon"></i> <span locale="opr/share/signedin">Anyone signed in</span>
+                                                    <div class="sub header whiteTheme" locale="opr/share/signedindesc">Anyone who has signed in can access this file</div>
                                                 </div>
                                             </div>
                                         </label>
@@ -961,14 +976,14 @@
                                         <label for="samegroup">
                                             <div class="ts header">
                                                 <div class="content whiteTheme">
-                                                    <i class="users icon"></i> Users in the same group
-                                                    <div class="sub header whiteTheme">Anyone who is in the same group as you do</div>
+                                                    <i class="users icon"></i> <span locale="opr/share/samegroup">Users in the same group</span>
+                                                    <div class="sub header whiteTheme" locale="opr/share/samegroupdesc">Anyone who is in the same group as you do</div>
                                                 </div>
                                             </div>
                                         </label>
                                     </div>
                                     <br>
-                                    <button class="ts small button" onclick="updateShareSettings(this)" style="border: 0px solid transparent;">Update</button>
+                                    <button class="ts small button" onclick="updateShareSettings(this)" locale="opr/share/update" style="border: 0px solid transparent;">Update</button>
                                 </div>
                             </div>
                         </div>
@@ -977,10 +992,10 @@
                 
                 <div class="ts divider"></div>
                 <div id="sharingRemoveBtn" class="popupbuttons negative whiteTheme allowHover" onclick="removeSharing()">
-                    <i class="remove icon"></i> Remove Sharing
+                    <i class="remove icon"></i> <span locale="opr/share/remove">Remove Sharing</span>
                 </div> 
                 <div class="popupbuttons whiteTheme allowHover" onclick="hideShare()">
-                    <i class="checkmark icon"></i> OK
+                    <i class="checkmark icon"></i> <span locale="opr/share/ok">OK</span>
                 </div> 
             </div>
         </div>
@@ -994,25 +1009,25 @@
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-               <p>Select a module from the list below:</p>
+               <p locale="opr/openwith/desc">Select a module from the list below:</p>
                 <div id="openWithModuleList" class="ts segment whiteTheme" style="padding:0px;">
                     <div class="item selectable">
                         <div class="content" style="padding-left:12px;">
-                            <div class="header">Loading...</div>
+                            <div class="header" locale="opr/openwith/loading">Loading...</div>
                         </div>
                     </div>
                 </div>
                 <div class="openWithModule popupbuttons whiteTheme allowHover primary" onclick="openWithSelectedModule(this);";>
-                    <i class="external icon"></i> Open with Selected Module
+                    <i class="external icon"></i> <span locale="opr/openwith/openWithWebApp">Open with Selected Module</span>
                 </div> 
                 <div class="openWithModule popupbuttons whiteTheme allowHover" onclick="openFileWithModuleInNewTab(this);">
-                    <i class="add icon"></i> Open in new tab
+                    <i class="add icon"></i> <span locale="opr/openwith/openWithWebAppInNewWindow">Open in new tab</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover vdonly" onclick="openRawFileInFloatWindow(this);">
-                    <i class="window restore outline icon"></i> Open File directly in floatWindow
+                    <i class="window restore outline icon"></i> <span locale="opr/openwith/openInNewWindow">Open File directly in floatWindow</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="hideAllPopupWindows();">
-                    <i class="remove icon"></i> Cancel
+                    <i class="remove icon"></i> <span locale="opr/openwith/cancel">Cancel</span>
                 </div>
             </div>
         </div>
@@ -1020,87 +1035,87 @@
         <!-- Context Menu -->
         <div id="contextmenu" class="ts small contextmenu visible whiteTheme" style="min-width:250px;">
             <div class="item" onclick="openViaButton();">
-                <i class="folder open icon"></i>  Open
+                <i class="folder open icon"></i> <span locale="contextmenu/open">Open</span>
             </div>
             <div class="item fileonly" onclick="openWith();">
-                <i class="external icon"></i> Open With
+                <i class="external icon"></i> <span locale="contextmenu/openWith">Open With</span>
             </div>
             <div class="item folderonly" onclick="openSelectedFolderInNewWindow();">
-                <i class="external icon"></i> Open In New Window
+                <i class="external icon"></i> <span locale="contextmenu/openNewWindow">Open In New Window</span>
             </div>
             <!-- This is the vroot alternative new windows-->
             <div class="item vrootonly" onclick="openSelectedVroot();">
-                <i class="external icon"></i> Open In New Window
+                <i class="external icon"></i> <span locale="contextmenu/openNewWindowVroot">Open In New Window</span>
             </div>
             <div class="item shareonly" onclick="openFileLocation();">
-                <i class="folder outline icon"></i> Open File Location
+                <i class="folder outline icon"></i> <span locale="contextmenu/openFileLocation">Open File Location</span>
             </div>
             <div class="item singleObjectOnlyHide" onclick="shareFile();">
-                <i class="share alternate icon"></i> Share
+                <i class="share alternate icon"></i> <span locale="contextmenu/Share">Share</span>
             </div>
             <div class="item mobileonly" onclick="toggleCtrl();">
-                <i class="mouse pointer icon"></i> Multi-select
+                <i class="mouse pointer icon"></i> <span locale="contextmenu/MuitSelect">Multi-select</span>
             </div>
             <div class="item" onclick="copy();">
-                <i class="copy icon"></i> Copy
+                <i class="copy icon"></i> <span locale="contextmenu/copy">Copy</span>
                 <span class="description">Ctrl + C</span>
             </div>
             <div class="item allowNoSelection" onclick="paste();">
-                <i class="paste icon"></i> Paste
+                <i class="paste icon"></i> <span locale="contextmenu/paste">Paste</span>
                 <span class="description">Ctrl + V</span>
             </div>
             <div class="item" onclick="cut();">
-                <i class="cut icon"></i> Cut
+                <i class="cut icon"></i> <span locale="contextmenu/cut">Cut</span>
                 <span class="description">Ctrl + X</span>
             </div>
             <div class="divider vroothide noSelectionOnly"></div>
             <div class="item noSelectionOnly" onclick="newfile();">
-                <i class="file outline icon"></i>  New File
+                <i class="file outline icon"></i>  <span locale="contextmenu/newFile">New File</span>
             </div>
             <div class="item noSelectionOnly" onclick="newFolder();">
-                <i class="folder outline icon"></i> New Folder
+                <i class="folder outline icon"></i> <span locale="contextmenu/newFolder">New Folder</span>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="upload();">
-                <i class="upload icon"></i>  Upload
+                <i class="upload icon"></i>  <span locale="contextmenu/upload">Upload</span>
             </div>
             <div class="item" onclick="zipFile();">
-                <i class="zip file icon"></i> Create Zip
+                <i class="zip file icon"></i> <span locale="contextmenu/zip">Create Zip</span>
             </div>
             <div class="item" onclick="rename();">
-                <i class="i cursor icon"></i> Rename
+                <i class="i cursor icon"></i> <span locale="contextmenu/rename">Rename</span>
             </div>
             <div class="item" onclick="deleteFile();">
-                <i class="trash icon"></i> Delete
+                <i class="trash icon"></i> <span locale="contextmenu/delete">Delete</span>
             </div>
             <div class="item backuponly" onclick="openBackupManager();">
-                <i class="block layout icon"></i> Backup & Restore
+                <i class="block layout icon"></i> <span locale="contextmenu/backup">Backup & Restore</span>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="refreshList();">
-                <i class="refresh icon"></i> Refresh
+                <i class="refresh icon"></i> <span locale="contextmenu/refresh">Refresh</span>
             </div>
             <div class="item" onclick="downloadFile();">
-                <i class="download icon"></i> Download
+                <i class="download icon"></i> <span locale="contextmenu/download">Download</span>
             </div>
             <div class="item" onclick="showFileProperties();">
-                <i class="notice icon"></i> Properties
+                <i class="notice icon"></i> <span locale="contextmenu/properties">Properties</span>
             </div>
             <!-- This properties shows the currentDirectory properties instead of the selected file properties-->
             <div class="item noSelectionOnly" onclick="showCurrentDirectoryProperties();">
-                <i class="notice icon"></i> Properties
+                <i class="notice icon"></i> <span locale="contextmenu/properties">Properties</span>
             </div>
             <!-- This properties show the vroot properties -->
              <!-- This properties shows the currentDirectory properties instead of the selected file properties-->
              <div class="item vrootonly" onclick="showVrootProperties();">
-                <i class="notice icon"></i> Properties
+                <i class="notice icon"></i> <span locale="contextmenu/properties">Properties</span>
             </div>
         </div>
 
         <!-- Upload Progress Bars-->
         <div id="uploadTab" class="ts segment whiteTheme" style="display:none;">
             <div class="statusBar whiteTheme">
-                <i class="upload icon"></i><span id="uploadCount">0</span> Files / <i class="wait icon"></i> <span id="waitingCount">0</span> Files
+                <i class="upload icon"></i><span id="uploadCount">0</span> <span locale="upload/count/uploading">Files</span> / <i class="wait icon"></i> <span id="waitingCount">0</span> <span locale="upload/count/pending">Files</span>
                 <div class="hideUploadButton" onclick="toggleUploadList();">
                     <i class="caret down icon"></i>
                 </div>
@@ -1109,11 +1124,6 @@
               
             </div>
             <br>
-            <!-- 
-            <div class="clearallButton">
-                <a onclick="clearAllUploadTask();">Clear All</a>
-            </div>
-            -->
         </div>
 
            
@@ -1138,8 +1148,13 @@
             let useLocalstorage = lscheck();
             let overwriteMode = "keep"; //Overwrite mode, support {skip, overwrite, keep}
             let thumbRenderWebSocket = null;
+
+            //Searching related
             let searchCaseSensitive = false;
             let searchMode = false;
+            let hotSearchBuffer = "";
+            let hotSearchTimer = null;
+            let hotSearchOffsetIndex = 0;
 
             //Keypress listeners
             let ctrlHold = false;
@@ -1168,124 +1183,142 @@
             let isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
             //Intiiation functions
-            initRootDirs();
-            initSystemInfo();
-            initUploadMode();
-
-            if (isMobile){
-                //Mobile css adjustment
-                sideBarShown = false;
-                $("#directorySidebar").hide();
-                $("#directorySidebar").css("width",window.innerWidth + "px");
-                $("body").css("overflow","hidden");
-                directorySidebarWidth = window.innerWidth;
-                $("#folderView").css({
-                    "padding-right":"1em",
-                    "padding-left":"1em",
-                    "padding-top":"1em",
-                });
-                $(".desktopOnly").hide();
-                $(".mobileOnly").show();
-
-                //Adjust minor css on mobile devices
-                $(".rightPad").css("margin-right", "37px");
-            }else{
-                $(".mobileOnly").hide();
-                $(".desktopOnly").show();
-
-                $(".rightPad").css("margin-right", "37px");
-            }
-            //Initialize view mode buttons
-            updateViewmodeButtons();
-            loadListModeFromDB();
-
-            //Initialize system theme
-            loadPreference("file_explorer/theme",function(data){
-                if (data.error === undefined){
-                    if (data == "darkTheme"){
-                        toggleDarkTheme();
-                    }else{
-                        //White theme
-                       
-                    }
-                }
-            });
-
-            if (window.location.hash != ""){
-                //Check if the hash is standard open protocol. If yes, translate it
-                if (ao_module_loadInputFiles() === null){
-                    //Window location hash set. List the desire directory
-                    currentPath = window.location.hash.substring(1,window.location.hash.length);
-                    if (currentPath.substring(currentPath.length -1) != "/"){
-                        currentPath = currentPath + "/";
-                    }
-                    currentPath = decodeURIComponent(currentPath);
-                    loadListModeFromDB(function(){
-                        listDirectory(currentPath);
+            $(document).ready(function(){
+                if (applocale){
+                    //Applocale found. Do localization
+                    applocale.init("../locale/file_explorer.json", function(){
+                        applocale.translate();
+                        initRootDirs();
+                        initSystemInfo();
+                        initUploadMode();
                     });
-                    
                 }else{
-                    //This is ao_module load file input. Handle the file opening
-                    var filelist = ao_module_loadInputFiles();
-                    if (filelist.length > 0){
-                        filelist = filelist[0];
-                        //Check if this is folder or file. Only opendir when it is folder
-                        //Updates 27-12-2020: Open folder and highlight the file if it is file
-                        if (filelist.filename.includes(".") == false){
-                            //Try to open it and overwrite the hash to filesystem hash
-                            loadListModeFromDB(function(){
-                                listDirectory(filelist.filepath);
-                            });
-                        }else{
-                            //File. Open its parent folder and highlight the target file if exists
-                            var parentdir = filelist.filepath.split("/");
-                            let focusFilename = JSON.parse(JSON.stringify(filelist.filename));
-                            parentdir.pop();
-                            parentdir = parentdir.join("/");
-                            loadListModeFromDB(function(){
-                                listDirectory(parentdir, function(){
-                                    focusFileObject(focusFilename);
-                                });
-                            });
+                    //Applocale not found. Is this a trim down version of ArozOS?
+                    applocale = {
+                        getString: function(key, original){
+                            return original;
                         }
                     }
+                    initRootDirs();
+                    initSystemInfo();
+                    initUploadMode();
                 }
-            }else{
+           
+                if (isMobile){
+                    //Mobile css adjustment
+                    sideBarShown = false;
+                    $("#directorySidebar").hide();
+                    $("#directorySidebar").css("width",window.innerWidth + "px");
+                    $("body").css("overflow","hidden");
+                    directorySidebarWidth = window.innerWidth;
+                    $("#folderView").css({
+                        "padding-right":"1em",
+                        "padding-left":"1em",
+                        "padding-top":"1em",
+                    });
+                    $(".desktopOnly").hide();
+                    $(".mobileOnly").show();
 
-                //Initialized directory views
-                loadListModeFromDB(function(){
-                    listDirectory(currentPath);
+                    //Adjust minor css on mobile devices
+                    $(".rightPad").css("margin-right", "37px");
+                }else{
+                    $(".mobileOnly").hide();
+                    $(".desktopOnly").show();
+
+                    $(".rightPad").css("margin-right", "37px");
+                }
+                //Initialize view mode buttons
+                updateViewmodeButtons();
+                loadListModeFromDB();
+
+                //Initialize system theme
+                loadPreference("file_explorer/theme",function(data){
+                    if (data.error === undefined){
+                        if (data == "darkTheme"){
+                            toggleDarkTheme();
+                        }else{
+                            //White theme
+                        
+                        }
+                    }
                 });
-            }
-            
 
-            
-            
-            //Create a timer to check change in current folder
-            setInterval(function(){
-                if (enableAutoRefresh == false){
-                    return;
-                }
-                getDirHash(function(hash){
-                    if (hash.error !== undefined){
-                        //Something went wrong. Ignore this request
-                        console.log(hash.error)
+                if (window.location.hash != ""){
+                    //Check if the hash is standard open protocol. If yes, translate it
+                    if (ao_module_loadInputFiles() === null){
+                        //Window location hash set. List the desire directory
+                        currentPath = window.location.hash.substring(1,window.location.hash.length);
+                        if (currentPath.substring(currentPath.length -1) != "/"){
+                            currentPath = currentPath + "/";
+                        }
+                        currentPath = decodeURIComponent(currentPath);
+                        loadListModeFromDB(function(){
+                            listDirectory(currentPath);
+                        });
+                        
                     }else{
-                        //Check if the hash match with the last hash.
-                        if (hash != currentPathHash){
-                            //console.log(currentPathHash, hash);
-                            refreshList();
-                            currentPathHash = hash;
-                            if (currentPath == "user:/"){
-                                //Reload the User root folder list
-                                initRootDirs();
+                        //This is ao_module load file input. Handle the file opening
+                        var filelist = ao_module_loadInputFiles();
+                        if (filelist.length > 0){
+                            filelist = filelist[0];
+                            //Check if this is folder or file. Only opendir when it is folder
+                            //Updates 27-12-2020: Open folder and highlight the file if it is file
+                            if (filelist.filename.includes(".") == false){
+                                //Try to open it and overwrite the hash to filesystem hash
+                                loadListModeFromDB(function(){
+                                    listDirectory(filelist.filepath);
+                                });
+                            }else{
+                                //File. Open its parent folder and highlight the target file if exists
+                                var parentdir = filelist.filepath.split("/");
+                                let focusFilename = JSON.parse(JSON.stringify(filelist.filename));
+                                parentdir.pop();
+                                parentdir = parentdir.join("/");
+                                loadListModeFromDB(function(){
+                                    listDirectory(parentdir, function(){
+                                        focusFileObject(focusFilename);
+                                    });
+                                });
                             }
                         }
                     }
+                }else{
 
-                });
-            }, 5000)
+                    //Initialized directory views
+                    loadListModeFromDB(function(){
+                        listDirectory(currentPath);
+                    });
+                }
+                
 
+                
+                
+                //Create a timer to check change in current folder
+                setInterval(function(){
+                    if (enableAutoRefresh == false){
+                        return;
+                    }
+                    getDirHash(function(hash){
+                        if (hash.error !== undefined){
+                            //Something went wrong. Ignore this request
+                            console.log(hash.error)
+                        }else{
+                            //Check if the hash match with the last hash.
+                            if (hash != currentPathHash){
+                                //console.log(currentPathHash, hash);
+                                refreshList();
+                                currentPathHash = hash;
+                                if (currentPath == "user:/"){
+                                    //Reload the User root folder list
+                                    initRootDirs();
+                                }
+                            }
+                        }
+
+                    });
+                }, 5000)
+
+            });
 
             //END OF INIT FUNCTIONS
 
@@ -1312,8 +1345,9 @@
                             var thisRootObject = data[i];
                             if (thisRootObject.IsDir == true && !(thisRootObject.Filename == ".cache" || thisRootObject.Filename == ".trash")){
                                 //Files will not be listed in the root directory list
-                                var icon = getUserRootIcons(thisRootObject.Filename);
-                                var displayName = thisRootObject.Filename;
+                                var specifcRootInfo = getUserRootIcons(thisRootObject.Filename);
+                                var icon = specifcRootInfo[0];
+                                var displayName = specifcRootInfo[1];
                                 var vpath = thisRootObject.Filepath;
                                 $("#userroot").append(`<div class="dir item ${currentTheme}" filepath="${vpath}" type="folder" onclick="openthis(this);"><i class="${icon} rightmargin icon"></i> ${displayName}</div>`);
                             }
@@ -1366,29 +1400,40 @@
 
             function getUserRootIcons(foldername){
                 var icon = "folder open";
+                var name = foldername;
                 foldername = foldername.toLowerCase();
                 if (foldername == "desktop"){
                     icon = "computer";
+                    name = applocale.getString("sidebar/vroot/desktop", name);
                 }else if (foldername == "document"){
                     icon = "file text outline";
+                    name = applocale.getString("sidebar/vroot/document", name);
                 }else if (foldername == "music" || foldername == "audio"){
                     icon = "music";
+                    name = applocale.getString("sidebar/vroot/music", name);
                 }else if (foldername == "photo" || foldername == "picture"){
                     icon = "image";
+                    name = applocale.getString("sidebar/vroot/photo", name);
                 }else if (foldername == "video" || foldername == "film"){
                     icon = "video";
+                    name = applocale.getString("sidebar/vroot/video", name);
                 }else if (foldername == "trash" || foldername == "bin" || foldername == "rubbish"){
                     icon = "trash"
+                    name = applocale.getString("sidebar/vroot/trash", name);
                 }else if (foldername == "download"){
                     icon = "download"
+                    name = applocale.getString("sidebar/vroot/download", name);
                 }else if (foldername == "www" || foldername == "web" || foldername == "mysite"){
                     icon = "globe"
+                    name = applocale.getString("sidebar/vroot/web", name);
                 }else if (foldername == "model"){
                     icon = "cube"
+                    name = applocale.getString("sidebar/vroot/model", name);
                 }else if (foldername == "appdata"){
                     icon = "code"
+                    name = applocale.getString("sidebar/vroot/appdata", name);
                 }
-                return icon;
+                return [icon, name];
             }
 
             // ============================== FOLDER LISTING FUNCTIONS ====================
@@ -1396,6 +1441,10 @@
                 var recordPreviousPage = true;
                 if (recordUndo == false){
                     recordPreviousPage = false;
+                }
+
+                if (searchMode){
+                    hideSearchBar(true);
                 }
 
                 //Backup the current selected files if it is an refresh operation
@@ -1426,12 +1475,14 @@
                 window.location.hash = path;
                 updatePathDisplay(path);
                 currentPath = path;
+
                 //Update floatWindow title if exists
                 if (ao_module_virtualDesktop){
                     var tmp = path.split("/");
                     tmp.pop();
-                    ao_module_setWindowTitle("File Manager - " + tmp.pop());
+                    ao_module_setWindowTitle(applocale.getString("title/title", "File Manager") + " - " + tmp.pop());
                 }
+
                 //Check if there are parent path for curret path
                 if (checkIfParentDirExists(currentPath)){
                     $("#ppbtn").removeClass("disabled");
@@ -1449,13 +1500,13 @@
                 if (currentTheme == "darkTheme"){
                     $("#folderList").html(`<div style="height: 100px;">
                         <div class="ts active dimmer">
-                            <div class="ts text loader">Loading</div>
+                            <div class="ts text loader">${applocale.getString("message/loading", "Loading")}</div>
                         </div>
                     </div>`);
                 }else{
                     $("#folderList").html(`<div style="height: 100px;">
                         <div class="ts active inverted dimmer">
-                            <div class="ts text loader">Loading</div>
+                            <div class="ts text loader">${applocale.getString("message/loading", "Loading")}</div>
                         </div>
                     </div>`);
                 }
@@ -1813,7 +1864,11 @@
 
                 var port = window.location.port;
                 if (window.location.port == ""){
-                    port = "80";
+                    if (location.protocol !== 'https:') {
+                        port = "80";
+                    }else{
+                        port = "443";
+                    }
                 }
 
                 thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/handleCacheRender?folder=" + path);
@@ -1828,14 +1883,18 @@
                         var thumbData = JSON.parse(event.data);
                         $(".fileObject").each(function(){
                             if (thumbData[1].length > 0){
+                                //Extract image type from base64
+                                let ext = getThumbnailExtensionFromBase64String(thumbData[1]);
+                                //Put the image data to image element
                                 if ($(this).attr("filename") == thumbData[0]){
-                                    $(this).find("img").attr("src","data:image/jpg;base64," + thumbData[1]);
+                                    $(this).find("img").attr("src","data:image/" + ext + ";base64," + thumbData[1]);
                                 }
                             }
                           
                         });
                     }
                 };
+
 
                 thumbRenderWebSocket.onclose = function(event) {
                     //Transfer ended
@@ -1848,24 +1907,60 @@
                 };
             }
 
+            function getThumbnailExtensionFromBase64String(base64String){
+                let tid = base64String.charAt(0);
+                let ext = "jpg";
+                if (tid == "i"){
+                    ext = "png";
+                }else if (tid == "R"){
+                    ext = "gif";
+                }else if (tid == "U"){
+                    ext = "webp";
+                }
+
+                return ext;
+            }
+
+            
             function startFallbackThumbnailLoader(){
                 let startingCurrentDir = currentPath;
+                let fallbackRenderList = [];
                 $(".fileObject").each(function(){
                     let filepath = $(this).attr("filepath");
                     let targetDOM = $(this);
-                    $.ajax({
-                        url: "../../system/file_system/loadThumbnail",
-                        data: {vpath: filepath},
-                        success: function(data){
-                            if (startingCurrentDir == currentPath){
-                                //User still not changed page
-                                if (data.error == undefined && typeof data != "undefined" && data != ""){
-                                    $(targetDOM).find("img").attr("src","data:image/jpg;base64," + data);
-                                }
+                    if ($(this).attr("type") != "folder"){
+                        fallbackRenderList.push([filepath, targetDOM]);
+                    }
+                });
+
+                doThumbnailSequentialLoading(startingCurrentDir, fallbackRenderList, 0);
+            }
+
+            function doThumbnailSequentialLoading(startingCurrentDir, renderlist, index){
+                if (renderlist[index] == undefined){
+                    //Starting index out of range
+                    return;
+                }
+                let filepath = renderlist[index][0];
+                let targetDOM = renderlist[index][1];
+                $.ajax({
+                    url: "../../system/file_system/loadThumbnail",
+                    data: {vpath: filepath},
+                    success: function(data){
+                        if (startingCurrentDir == currentPath){
+                            //User still not changed page
+                            let ext = getThumbnailExtensionFromBase64String(data);
+                            if (data.error == undefined && typeof data != "undefined" && data != ""){
+                                $(targetDOM).find("img").attr("src","data:image/" + ext + ";base64," + data);
                             }
                             
+                            if (index + 1 < renderlist.length){
+                                doThumbnailSequentialLoading(startingCurrentDir, renderlist, index + 1);
+                            }
+                        }else{
+                            //User changed page. End the sequence
                         }
-                    })
+                    }
                 });
             }
 
@@ -2191,12 +2286,22 @@
                 $(".fileObject").each(function(){
                     if ($(this).attr("filename") == targetFileName){
                         $(this).addClass("selected");
-                        //Trying to vertically align the directory from its parent list
-                        $("#folderView").stop().finish().animate({
-                            scrollTop: $(this).offset().top - $("#folderView").offset().top - (window.innerHeight - $("#navibar").height())/2 + $(this).height()
-                        }, 300);
+                        scrollToFileLocation(this);
                     }
                 });
+            }
+
+            function scrollToFileLocation(DOMElement){
+                if (DOMElement === undefined || $(DOMElement).offset() == undefined){
+                    //DOM Element no longer exists
+                    return;
+                }
+                //Trying to vertically align the directory from its parent list
+                let topPos = $("#folderView").scrollTop() + $(DOMElement).offset().top - $("#folderView").height()/2 - $(DOMElement).height()/2 - 28;
+                window.debug = $(DOMElement);
+                $("#folderView").stop().animate({
+                    scrollTop: topPos
+                }, 300);
             }
 
             function loadListModeFromDB(callback = undefined){
@@ -2341,11 +2446,11 @@
                     callbackFunction: `callRefresh("${currentPath}")`
                 }
                 var configHash = encodeURIComponent(JSON.stringify(oprConfig));
-                var title = "Zipping " + zippingFiles.length;
+                var title = applocale.getString("opr/zip/zipping","Zipping ") +  zippingFiles.length;
                 if (fileList.length > 1){
-                    title += " files";
+                    title += applocale.getString("opr/zip/files", " files");
                 }else{
-                    title += " file";
+                    title += applocale.getString("opr/zip/file"," file");
                 }
                 parent.newFloatWindow({
                     url: "SystemAO/file_system/file_operation.html#" + configHash,
@@ -2388,7 +2493,7 @@
                 var oldName = $("#renameBox").find(".orgfn").val();
                 var newName = $("#renameBox").find(".newfn").val();
                 if (newName == oldName){
-                    msgbox("remove","New filename is identical to the original filename.")
+                    msgbox("remove",applocale.getString("message/newFilenameIdentical", "New filename is identical to the original filename."));
                     $("#renameBox").fadeOut(100);
                     $(".popupWrapper").fadeOut(100);
                     return;
@@ -2435,7 +2540,7 @@
                                 msgbox("remove",data.error);
                             }else{
                                 refreshList();
-                                msgbox("checkmark","Rename suceed");
+                                msgbox("checkmark",applocale.getString("message/rename/success", "Rename suceed"));
                             }
                             $("#renameBox").fadeOut(100);
                             $(".popupWrapper").fadeOut(100);
@@ -2488,7 +2593,7 @@
                     localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
                     localStorage.setItem("ao/file_system/cutmode","false");
                 }
-                msgbox("copy",clipboard.length + " objects copied.")
+                msgbox("copy",clipboard.length + applocale.getString("message/copy/success", " objects copied."))
             }
 
             function cut(){
@@ -2505,7 +2610,7 @@
                     localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
                     localStorage.setItem("ao/file_system/cutmode","true");
                 }
-                msgbox("cut",clipboard.length + " objects ready to be moved.")
+                msgbox("cut",clipboard.length + applocale.getString("message/move/success", " objects ready to be moved."))
             }
 
             function paste(redirectPasteTarget="", nocheck=false){
@@ -2529,7 +2634,7 @@
                 }
                 if (fileList.length == 0){
                     //There are nothing to paste
-                    msgbox("question","There are nothing to paste.")
+                    msgbox("question",applocale.getString("message/paste/nothing", "There are nothing to paste."))
                     return;
                 }
                 //console.log(fileList,JSON.stringify(fileList));
@@ -2562,7 +2667,7 @@
                                                     msgbox("remove",data.error);
                                                 }else{
                                                     //OK
-                                                    msgbox("checkmark",fileList.length + " objects moved.")
+                                                    msgbox("checkmark",fileList.length + applocale.getString("message/move/success", " objects moved."))
                                                     refreshList();
                                                 }
                                                 hideAllPopupWindows();
@@ -2623,7 +2728,7 @@
                                                     msgbox("remove",data.error);
                                                 }else{
                                                     //OK
-                                                    msgbox("checkmark",fileList.length + " objects copied.")
+                                                    msgbox("checkmark",fileList.length + applocale.getString("message/copy/success", " objects copied."))
                                                     refreshList();
                                                 }
                                                 hideAllPopupWindows();
@@ -2720,7 +2825,7 @@
                                     msgbox("caution",data.error);
                                 }else{
                                     refreshList();
-                                    msgbox("checkmark",fdlistLength + " objects removed.")
+                                    msgbox("checkmark",fdlistLength + applocale.getString("message/remove/success", " objects removed."))
                                 }
                                 hideAllPopupWindows();
                             }
@@ -2764,7 +2869,7 @@
                                     msgbox("caution",data.error);
                                 }else{
                                     refreshList();
-                                    msgbox("checkmark",fdlistLength + " objects moved to trash bin.")
+                                    msgbox("checkmark",fdlistLength + applocale.getString("message/recycle/success", " objects moved to trash bin."))
                                 }
 
                                 if (currentPath == "user:/"){
@@ -2797,7 +2902,7 @@
                 input.multiple = true;
                 input.onchange = e => { 
                     var files = e.target.files; 
-                    msgbox("upload","Upload Started");
+                    msgbox("upload",applocale.getString("message/upload/started", "Upload Started"));
                     for (var i = 0; i < files.length; i++){
                         uploadFile(files[i]);
                     }
@@ -2967,7 +3072,7 @@
                 var fileList = [];
                 if ($(".fileObject.selected").length == 1 && $(".fileObject.selected").attr("type") == "file"){
                     //One file. Download directly.
-                    var downloadURL = "/media?file=" + encodeURIComponent($(".fileObject.selected").attr("filepath")) + "&download=true";
+                    var downloadURL = "../../media?file=" + encodeURIComponent($(".fileObject.selected").attr("filepath")) + "&download=true";
                     var filename = $(".fileObject.selected").attr("filename");
                     generateDownloadFromURL(downloadURL,escape(filename));
                 }else if ($(".fileObject.selected").length > 1 || ($(".fileObject.selected").length == 1 && $(".fileObject.selected").attr("type") == "folder")){
@@ -2980,10 +3085,10 @@
                     //Add a display for file compression
                     var fileCount = $(".fileObject.selected").length;
                     
-                    var displayString = "Zipping " + fileCount + " files";
+                    var displayString = applocale.getString("opr/zip/zipping", "Zipping ") + fileCount + applocale.getString("opr/zip/files", " files");
                     if (fileCount == 1){
                         //Use the filename as task name
-                        displayString = "Zipping " + $(".fileObject.selected").attr("filename");
+                        displayString = applocale.getString("opr/zip/zipping", "Zipping ") + $(".fileObject.selected").attr("filename");
                     }
          
                     var taskUUID = appendUploadFileItem(displayString, -1);
@@ -3033,7 +3138,7 @@
                         error: function(){
                             targetTaskDisplayObject.find(".progress").removeClass("preparing").removeClass("primary").addClass("negative");
                             targetTaskDisplayObject.find(".bar").css("width", "100%");
-                            msgbox("remove","Zipping failed due to unknown reason");
+                            msgbox("remove",applocale.getString("message/zip/fail", "Zipping failed due to unknown reason"));
 
                             setTimeout(function(){
                                 if ($(".uploadTask").length == 0){
@@ -3158,7 +3263,7 @@
                                 if (data.error !== undefined){
                                     msgbox("remove", data.error);
                                 }else{
-                                    msgbox("checkmark","New folder created.");
+                                    msgbox("checkmark",applocale.getString("message/newfolder/success", "New folder created."));
                                     refreshList();
                                 }
                                 $("#newFolder").fadeOut('fast');
@@ -3197,7 +3302,7 @@
                             if (data.error !== undefined){
                                 msgbox("remove",data.error);
                             }else{
-                                msgbox("checkmark",filename + " created.");
+                                msgbox("checkmark",filename + applocale.getString("message/newItem/success", " created."));
                                 refreshList();
                             }
                         }
@@ -3225,7 +3330,7 @@
             //OpenWith dialog
             function openWith(){
                 if ($(".selected.fileObject").length == 0){
-                    msgbox("question","No file selected");
+                    msgbox("question",applocale.getString("message/nofileSelected", "No file selected"));
                     return;
                 }
                 //Get a list of modules and append it into the selection list
@@ -3306,7 +3411,7 @@
                     //Launch with default mode
 
                 }else{
-                    msgbox("remove","This module has no endpoint for opening a file.");
+                    msgbox("remove",applocale.getString("message/moduleNotSupport", "This module has no endpoint for opening a file."));
                     return;
                 }   
 
@@ -3809,7 +3914,9 @@
             function msgbox(icon, text){
                 $($(".msgbox").find("span")[0]).text(text);
                 $($(".msgbox").find("i")[0]).attr("class", icon + " icon");
-                $(".msgbox").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
+                $(".msgbox").stop().finish().slideDown('fast').delay(3000).slideUp('fast', function(){
+                    initWindowSizes(false);
+                });
             }
 
             //Keyboard hotkey events
@@ -3887,13 +3994,33 @@
                     //Enter key
                     if ($(".fileObject.selected").length > 0){
                         openViaButton();
+                    }else if ($(".fileObject.hotSearchHighlight").length > 0 && $(".fileObject.selected").length == 0){
+                        //Hot search selection mode
+
                     }
                 }else if (event.which == 27){
                     //Esc key
                     hideAllPopupWindows();
                     $(".fileObject.selected").removeClass("selected");
                 }else{
-                    //console.log(event.which);
+                    //Handle generic file search by consecutive typing
+                    if (hotSearchTimer != null){
+                        clearTimeout(hotSearchTimer);
+                    }
+                    $(".fileObject.selected").removeClass("selected");
+                    hotSearchTimer = setTimeout(function(){
+                        exitHotSearch();
+                    }, 1000);
+
+                    if (hotSearchBuffer.length > 0 && event.key == hotSearchBuffer.substr(hotSearchBuffer.length - 1, 1)){
+                        //Jump to next result
+                        hotSearchOffsetIndex++;
+                    }else{
+                        hotSearchOffsetIndex = 0;
+                        hotSearchBuffer+= event.key;
+                    }
+                   
+                    handleHotSearch(hotSearchBuffer, hotSearchOffsetIndex);
                 }
             });
 
@@ -4116,7 +4243,7 @@
                 let files = dt.files
                 if (files.length > 0){
                     //Upload file via dragdrop
-                    msgbox("upload","Upload Started");
+                    msgbox("upload",applocale.getString("message/upload/started", "Upload Started"));
                     let items = event.dataTransfer.items;
                     for (let i=0; i<items.length; i++) {
                         let item = items[i].webkitGetAsEntry();
@@ -4159,7 +4286,7 @@
                                 firstFileDirname = firstFileDirname.join("/");
                                 if (currentDirname == firstFileDirname){
                                     //Drag start and drop location are the same directory
-                                    msgbox("remove","Source and destination file names are the same")
+                                    msgbox("remove",applocale.getString("message/destIdentical", "Source and destination file names are the same"));
                                     return;
                                 }
 
@@ -4196,7 +4323,7 @@
 
                         }catch(ex){
                             console.log(ex);
-                            msgbox("remove","File drop failed. Unable to decode filelist.");
+                            msgbox("remove",applocale.getString("message/decodeFilelistFail", "File drop failed. Unable to decode filelist."));
                         }
                     }
                     
@@ -4275,7 +4402,7 @@
             var hashPassthrough = encodeURIComponent(JSON.stringify(rootname));
             ao_module_newfw({
                 url: "SystemAO/disk/diskprop.html#" + hashPassthrough,
-                width: 410,
+                width: 420,
                 height: 580,
                 appicon: "img/system/drive.svg",
                 title: "Disk Properties",
@@ -4407,7 +4534,11 @@
 
                 var port = window.location.port;
                 if (window.location.port == ""){
-                    port = "80";
+                    if (location.protocol !== 'https:') {
+                        port = "80";
+                    }else{
+                        port = "443";
+                    }
                 }
 
                 let uploadDir = currentPath;
@@ -4673,7 +4804,7 @@
                         }, 100)
                         
                     }else if (xhr.readyState == 4 && xhr.status != 200) {
-                        msgbox("remove","File too big or the target disk is fulled");
+                        msgbox("remove",applocale.getString( "message/uploadFailed", "File too big or the target disk is fulled"));
                         console.log(xhr);
                         $(".uploadTask").each(function(){
                             if ($(this).attr("taskID") == taskUUID){
@@ -4737,9 +4868,9 @@
             $("#folderList").show();
             $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
                 <div class="ts header">
-                    <i class="arrow up icon ${currentTheme}"></i> <span class="${currentTheme}">Type to Start Search</span>
-                    <div class="sub header ${currentTheme}" style="margin-top:12px;">Type something in the search bar to start searching.<br>
-                        Start wildcard matching with "/" (slash) and your wildcard string (e.g. /*.mp3)</div>
+                    <i class="arrow up icon ${currentTheme}"></i> <span class="${currentTheme}">${applocale.getString("func/search/typeToStart", "Type to Start Search")}</span>
+                    <div class="sub header ${currentTheme}" style="margin-top:12px;">${applocale.getString("func/search/tip1", "Type something in the search bar to start searching.")}<br>
+                        ${applocale.getString("func/search/tip2", `Start wildcard matching with "/" (slash) and your wildcard string (e.g. /*.mp3)`)}</div>
                 </div>
             </div>`);
             $("#fileList").hide();
@@ -4771,6 +4902,44 @@
                 $(btn).addClass("active");
                 searchCaseSensitive = true;
             }
+        }
+
+        function exitHotSearch(){
+            hotSearchBuffer = "";
+            hotSearchTimer = null;
+            //Move the file to "selected" mode
+            $(".hotSearchHighlight").addClass("selected");
+            $(".hotSearchHighlight").removeClass("hotSearchHighlight");
+        }
+
+        function handleHotSearch(starting, offset){
+            if (offset < 0){
+                offset = 0;
+            }
+
+            starting = starting.toLowerCase();
+            console.log(starting);
+            $(".hotSearchHighlight").removeClass("hotSearchHighlight");
+            let files =  $(".fileObject");
+            let matchingFiles = [];
+            for (var i = 0; i < files.length; i++){
+                let thisFile = files[i];
+                if ($(thisFile).attr("filename") != undefined && $(thisFile).attr("filename").length > starting.length && $(thisFile).attr("filename").substr(0, starting.length).toLowerCase() == starting){
+                    matchingFiles.push(thisFile);
+                }
+            }
+
+            //Loopback if offset overflow
+            let newOffset = offset;
+            if (offset > matchingFiles.length - 1){
+                newOffset =offset % matchingFiles.length;
+            }
+
+            var targetHighlightingFile = matchingFiles[newOffset];
+            $(targetHighlightingFile).addClass("hotSearchHighlight");
+            scrollToFileLocation($(targetHighlightingFile));
+            return;
+            
         }
 
         function handleSearch(){
@@ -4807,7 +4976,7 @@
                     $("#folderList").html(`<div class="ts basic segment">
                     <div class="ts header">
                         <i class="remove icon"></i> Search Error
-                        <div class="sub header">Search timeout has occurred during file searching.</div>
+                        <div class="sub header">Search timeout</div>
                     </div>
                 </div>`);
                 }
@@ -4840,7 +5009,7 @@
             var newuuid = uuidv4();
             var humanReadableFilesize = 0;
             if (filesize < 0){
-                humanReadableFilesize = "Unknown Size"
+                humanReadableFilesize = applocale.getString("message/unknownSize", "Unknown Size")
             }else{
                 humanReadableFilesize = bytesToSize(filesize);
             }
@@ -4887,7 +5056,7 @@
         }
 
         function bytesToSize(bytes) {
-            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
             if (bytes == 0) return '0 Byte';
             var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
             return Math.round(bytes / Math.pow(1024, i) * 100, 2) / 100 + ' ' + sizes[i];
@@ -4900,124 +5069,124 @@
             });
         }
 
-           function dropToFolder(event){
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                console.log("Drop to folder detected");
+        function dropToFolder(event){
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            console.log("Drop to folder detected");
 
-                //Extract target folder path from object
-                var targetPath = $(event.target).attr("filepath");
-                if (targetPath == ""){
-                    return
+            //Extract target folder path from object
+            var targetPath = $(event.target).attr("filepath");
+            if (targetPath == ""){
+                return
+            }
+            
+            //Check if this is upload or file move drag
+            var files = event.dataTransfer.files;
+            if (files.length > 0){
+                //Upload mode. Extract the target folder basename from path
+                if (targetPath.substr(targetPath.length -1,1) == "/"){
+                    targetPath = targetPath.substr(0, targetPath.length-1);
                 }
-               
-                //Check if this is upload or file move drag
-                var files = event.dataTransfer.files;
-                if (files.length > 0){
-                    //Upload mode. Extract the target folder basename from path
-                    if (targetPath.substr(targetPath.length -1,1) == "/"){
-                        targetPath = targetPath.substr(0, targetPath.length-1);
+                var folderBase = targetPath.split("/").pop() + "/";
+                var items = event.dataTransfer.items;
+                for (let i=0; i<items.length; i++) {
+                    let item = items[i].webkitGetAsEntry();
+                    if (item) {
+                        recursiveScanFilesUpload(item, folderBase, folderBase);
                     }
-                    var folderBase = targetPath.split("/").pop() + "/";
-                    var items = event.dataTransfer.items;
-                    for (let i=0; i<items.length; i++) {
-                        let item = items[i].webkitGetAsEntry();
-                        if (item) {
-                            recursiveScanFilesUpload(item, folderBase, folderBase);
-                        }
-                    }
-                }else if (event.dataTransfer.getData("filedata") != ""){
-                    var targetVroot = targetPath.split(":/").shift();
-                    //Get the source files
-                    var filelist = JSON.parse(event.dataTransfer.getData("filedata"));
-                    if (filelist.length > 0){
-                        var srcVroot = filelist[0].filepath.split(":/").shift();
-                        if (srcVroot == targetVroot){
-                            //Use move mode
-                            cutMode = true;
-                            
-                        }else{
-                            //Use copy mode
-                            cutMode = false;
-                        }
-
-                        //Parse the filelist
-                        clipboard = [];
-                        filelist.forEach(file=>{
-                            clipboard.push(file.filepath);
-                        });
-                        if (useLocalstorage){
-                            localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
-                            localStorage.setItem("ao/file_system/cutmode","true");
-                        }
+                }
+            }else if (event.dataTransfer.getData("filedata") != ""){
+                var targetVroot = targetPath.split(":/").shift();
+                //Get the source files
+                var filelist = JSON.parse(event.dataTransfer.getData("filedata"));
+                if (filelist.length > 0){
+                    var srcVroot = filelist[0].filepath.split(":/").shift();
+                    if (srcVroot == targetVroot){
+                        //Use move mode
+                        cutMode = true;
                         
-                        //Perform operations
-                        paste(targetPath, false)
+                    }else{
+                        //Use copy mode
+                        cutMode = false;
                     }
+
+                    //Parse the filelist
+                    clipboard = [];
+                    filelist.forEach(file=>{
+                        clipboard.push(file.filepath);
+                    });
+                    if (useLocalstorage){
+                        localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
+                        localStorage.setItem("ao/file_system/cutmode","true");
+                    }
+                    
+                    //Perform operations
+                    paste(targetPath, false)
                 }
-           }
+            }
+        }
 
-           function allowDrop(event){
-                event.preventDefault();
-           }
+        function allowDrop(event){
+            event.preventDefault();
+        }
 
-           $(".popupWrapper").on("click",function(){
-                hideAllPopupWindows();
-           });
+        $(".popupWrapper").on("click",function(){
+            hideAllPopupWindows();
+        });
 
-           function hideAllPopupWindows(){
-               $(".popup").fadeOut(100);
-               $(".popupWrapper").fadeOut(100);
-               $('body').css("overflow","");
-           }
+        function hideAllPopupWindows(){
+            $(".popup").fadeOut(100);
+            $(".popupWrapper").fadeOut(100);
+            $('body').css("overflow","");
+        }
 
-           function showPopupWrapper(){
-                $(".popupWrapper").fadeIn('fast');
-                $('body').css("overflow","hidden");
-           }
+        function showPopupWrapper(){
+            $(".popupWrapper").fadeIn('fast');
+            $('body').css("overflow","hidden");
+        }
 
-           //Handle keydown of enter on certain input boxes
-           function handleEnterKeyDown(event, handler){
-                if (event.which == 13){
-                    handler();
+        //Handle keydown of enter on certain input boxes
+        function handleEnterKeyDown(event, handler){
+            if (event.which == 13){
+                handler();
+            }
+        }
+
+        //Generate a download link and press it
+        function generateDownloadFromURL(url, filename){
+            let a = document.createElement('a')
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+        }
+
+        //Update sorting method for file listing
+        function updateSortingMethods(){
+            var method = $("#sortingMethodSelector").val();
+            sortMode = method;
+
+            //Save it to server side
+            $.ajax({
+                url: "../../system/file_system/sortMode",
+                method: "POST",
+                data: {opr: "set", folder: currentPath, mode: sortMode},
+                success: function(data){
+                    //console.log("Sort mode saved: " + data)
+                    refreshList();
                 }
-           }
+            });
+        }
 
-           //Generate a download link and press it
-           function generateDownloadFromURL(url, filename){
-                let a = document.createElement('a')
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a)
-                a.click()
-                document.body.removeChild(a)
-            }
-
-            //Update sorting method for file listing
-            function updateSortingMethods(){
-                var method = $("#sortingMethodSelector").val();
-                sortMode = method;
-
-                //Save it to server side
-                $.ajax({
-                    url: "../../system/file_system/sortMode",
-                    method: "POST",
-                    data: {opr: "set", folder: currentPath, mode: sortMode},
-                    success: function(data){
-                        //console.log("Sort mode saved: " + data)
-                        refreshList();
-                    }
-                });
-            }
-
-            function requestCSRFToken(callback){
-                $.ajax({
-                    url: "../../system/csrf/new",
-                    success: function(token){
-                        callback(token);
-                    }
-                })
-            }
+        function requestCSRFToken(callback){
+            $.ajax({
+                url: "../../system/csrf/new",
+                success: function(token){
+                    callback(token);
+                }
+            })
+        }
 
         </script>
     </body>

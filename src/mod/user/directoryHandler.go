@@ -22,6 +22,19 @@ func (u *User) GetHomeDirectory() (string, error) {
 	return "", errors.New("User root not found. Is this a permission group instead of a real user?")
 }
 
+//Get all user Acessible file system handlers (ignore special fsh like backups)
+func (u *User) GetAllAccessibleFileSystemHandler() []*fs.FileSystemHandler {
+	results := []*fs.FileSystemHandler{}
+	fshs := u.GetAllFileSystemHandler()
+	for _, fsh := range fshs {
+		if fsh.Hierarchy != "backup" {
+			results = append(results, fsh)
+		}
+	}
+
+	return results
+}
+
 func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	results := []*fs.FileSystemHandler{}
 	uuids := []string{}

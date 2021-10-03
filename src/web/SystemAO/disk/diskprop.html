@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>File Properties</title>
+    <title locale="title/title">File Properties</title>
 	<meta name="mobile-web-app-capable" content="yes">
 	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
 	<meta charset="UTF-8">
@@ -9,10 +9,12 @@
     <script src="../../script/jquery.min.js"></script>
 	<script src="../../script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
     <style>
         .hidden{
             display:none;
         }
+        
 
         .disabled{
             opacity: 0.5;
@@ -54,8 +56,8 @@
     <br>
     <div class="ui container">
         <h3 class="ui header">
-            Virtual Disk Properties
-            <div class="sub header">Show information about vroot mount points</div>
+            <span locale="title/title">Virtual Disk Properties</span>
+            <div class="sub header" locale="title/desc">Show information about vroot mount points</div>
         </h3>
         <div class="ui divider"></div>
         <div class="ui container">
@@ -75,7 +77,7 @@
         <table class="ui very basic collapsing compact unstackable table" style="vertical-align: middle;">
             <tbody>
             <tr>
-                <td>
+                <td locale="diskinfo/physical">
                     Physical Disk: 
                 </td>
                 <td id="phydisk">
@@ -83,7 +85,7 @@
                 </td>
             </tr>
             <tr>
-                <td>
+                <td locale="diskinfo/hierarchy">
                     Disk Hierarchy: 
                 </td>
                 <td id="hierarchy">
@@ -96,10 +98,10 @@
             <tbody>
             <tr>
                 <td>
-                    <div class="blue colorblock"></div>Total Used Space:
+                    <div class="blue colorblock"></div><span locale="spaceinfo/totalUsed">Total Used Space:</span>
                 </td>
                 <td>
-                    <span id="usedSpaceInBytes"></span> Bytes
+                    <span id="usedSpaceInBytes"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
                     <span id="usedSpaceInHumanReadableFormat"></span>
@@ -107,10 +109,10 @@
             </tr>
             <tr>
                 <td>
-                    <div class="yellow colorblock"></div>User Used Space:
+                    <div class="yellow colorblock"></div><span locale="spaceinfo/userUsed">User Used Space:</span>
                 </td>
                 <td>
-                    <span id="usedVirtualSpaceInByte"></span> Bytes
+                    <span id="usedVirtualSpaceInByte"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
                     <span id="usedVirtualSpaceInHumanReadableFormat"></span>
@@ -118,10 +120,10 @@
             </tr>
             <tr>
                 <td>
-                    <div class="grey colorblock"></div>Usable Space:
+                    <div class="grey colorblock"></div><span locale="spaceinfo/Usable">Usable Space:</span>
                 </td>
                 <td>
-                    <span id="usableSpaceInBytes"></span> Bytes
+                    <span id="usableSpaceInBytes"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
                     <span id="usableSpaceInHumanReadableFormat"></span>
@@ -129,10 +131,10 @@
             </tr>
             <tr>
                 <td>
-                    <div class="transparent colorblock"></div>Capacity:
+                    <div class="transparent colorblock"></div><span locale="spaceinfo/Capacity">Capacity:</span>
                 </td>
                 <td>
-                    <span id="totalSpaceInBytes"></span> Bytes
+                    <span id="totalSpaceInBytes"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
                     <span id="totalSpaceInHumanReadableFormat"></span>
@@ -152,7 +154,7 @@
         </div>
         <div class="ui divider" style="margin-top: 8px; margin-bottom: 8px;"></div>
         <br>
-           <button class="ui right floated button" onclick="ao_module_close();">Close</button>
+           <button class="ui right floated button" onclick="ao_module_close();" locale="button/close">Close</button>
         <br>
     </div>
         
@@ -164,51 +166,64 @@
         var fileInfo = {};
         var diskInfo = {};
 
-        //There are something to load. Load the vroot properties
-        if (window.location.hash.length > 0 && typeof(files) != null){
-            var rootName = files[0].split("/")[0];
-            $("#vrootName").val(rootName + "/");
-
-            getDiskProp(files[0], function(data){
-                if (data.error !== undefined){
-                    $("#phydisk").text(data.error);
-                    $("#hierarchy").text("Unknown");
-                    $("#usedSpaceInBytes").text("Not Available");
-                    $("#usableSpaceInBytes").text("Not Available");
-                    $("#totalSpaceInBytes").text("Not Available");
-                    
-                }else{
-                    $("#usedSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Used));
-                    $("#usedSpaceInHumanReadableFormat").text(bytesToSize(data.Used));
-
-                    $("#usableSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Avilable));
-                    $("#usableSpaceInHumanReadableFormat").text(bytesToSize(data.Avilable));
-
-                    $("#totalSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Total));
-                    $("#totalSpaceInHumanReadableFormat").text(bytesToSize(data.Total));
-
-                    $("#phydisk").text(data.PhysicalDevice + "/");
-                    var s = data.MountingHierarchy;
-                    $("#hierarchy").text(s[0].toUpperCase() + s.slice(1));
-                    
-                    $("#totalUsedSpace").css("width", (data.Used / data.Total) * 100 + "%");
-                }
-
-                getFileProp(files[0], function(folderdata){
-                    //User Used Space
-                    $("#usedVirtualSpaceInByte").text(new Intl.NumberFormat('en-US').format(folderdata.Filesize));
-                    $("#usedVirtualSpaceInHumanReadableFormat").text(bytesToSize(folderdata.Filesize));
-                    
-                    if (data.Total != undefined){
-                        $("#userUsedSpace").css("width", (folderdata.Filesize / data.Total) * 100 + "%");
-                    }else{
-                        //Error when reading disk size. Just make it full width
-                        $("#userUsedSpace").css("width", "100%");
-                    }
-                    
-                });
+        try{
+            applocale.init("../locale/disk_properties.json", function(){
+                applocale.translate();
+                init();
             });
+        }catch(ex){
+            init();
         }
+        
+
+       function init(){
+            //There are something to load. Load the vroot properties
+            if (window.location.hash.length > 0 && typeof(files) != null){
+                var rootName = files[0].split("/")[0];
+                $("#vrootName").val(rootName + "/");
+
+                getDiskProp(files[0], function(data){
+                    if (data.error !== undefined){
+                        $("#phydisk").text(data.error);
+                        $("#hierarchy").text("Unknown");
+                        $("#usedSpaceInBytes").text("Not Available");
+                        $("#usableSpaceInBytes").text("Not Available");
+                        $("#totalSpaceInBytes").text("Not Available");
+                        
+                    }else{
+                        $("#usedSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Used));
+                        $("#usedSpaceInHumanReadableFormat").text(bytesToSize(data.Used));
+
+                        $("#usableSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Avilable));
+                        $("#usableSpaceInHumanReadableFormat").text(bytesToSize(data.Avilable));
+
+                        $("#totalSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Total));
+                        $("#totalSpaceInHumanReadableFormat").text(bytesToSize(data.Total));
+
+                        $("#phydisk").text(data.PhysicalDevice + "/");
+                        var s = data.MountingHierarchy;
+                        s = s[0].toUpperCase() + s.slice(1);
+                        $("#hierarchy").text(applocale.getString("hierarchy/" + s, s));
+                        
+                        $("#totalUsedSpace").css("width", (data.Used / data.Total) * 100 + "%");
+                    }
+
+                    getFileProp(files[0], function(folderdata){
+                        //User Used Space
+                        $("#usedVirtualSpaceInByte").text(new Intl.NumberFormat('en-US').format(folderdata.Filesize));
+                        $("#usedVirtualSpaceInHumanReadableFormat").text(bytesToSize(folderdata.Filesize));
+                        
+                        if (data.Total != undefined){
+                            $("#userUsedSpace").css("width", (folderdata.Filesize / data.Total) * 100 + "%");
+                        }else{
+                            //Error when reading disk size. Just make it full width
+                            $("#userUsedSpace").css("width", "100%");
+                        }
+                        
+                    });
+                });
+            }
+       }
 
         function bytesToSize(bytes) {
             var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];

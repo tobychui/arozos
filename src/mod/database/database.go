@@ -165,6 +165,11 @@ func (d *Database) Read(tableName string, key string, assignee interface{}) erro
 
 func (d *Database) KeyExists(tableName string, key string) bool {
 	resultIsNil := false
+	if !d.TableExists(tableName) {
+		//Table not exists. Do not proceed accessing key
+		log.Println("[DB] ERROR: Requesting key from table that didn't exist!!!")
+		return false
+	}
 	err := d.Db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(tableName))
 		v := b.Get([]byte(key))

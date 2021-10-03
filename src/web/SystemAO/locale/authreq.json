@@ -1,0 +1,33 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "page/title" : "管理員身份驗證 ",
+                "button/confirm":"確認",
+                "button/cancel":"取消",
+                "":""
+            },
+            "placeholder":{
+                "Username":"使用者名稱",
+                "Password":"密碼"
+            }
+        }, 
+        "zh-hk": {
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "page/title" : "管理員身份驗證 ",
+                "button/confirm":"確認",
+                "button/cancel":"取消",
+                "":""
+            },
+            "placeholder":{
+                "Username":"使用者名稱",
+                "Password":"密碼"
+            }
+        }
+
+    }
+}

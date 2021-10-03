@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>ImagePaste</title>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="./img/ImagePaste.png">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #f5f5f5;
+				margin: 0px;
+			}
+
+			#pasteInstructin{
+				font-size: 2em;
+				position: absolute;
+				bottom: 0.3em;
+				right: 1em;
+				pointer-events: none;
+				color: #adadad;
+
+			}
+
+			#preview{
+				max-width: 100%;
+				max-height: 50vh;
+			}
+		</style>
+		<link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+		<script src="../../script/jquery.min.js"></script>
+		<script src="../../script/semantic/semantic.min.js"></script>
+		<script src="../../script/ao_module.js"></script>
+	</head>
+	<body>
+		<br>
+		<div class="ui container">
+			<p id="instruction">Copy an image from somewhere else and press Ctrl+V in the box below to save it in this Server</p>
+			<div class="ui basic message" style="height: 60vh;">
+				<div style="width: 100%;" align="center">
+					<img id="preview" src=""></img>
+				</div>
+				
+				<p id="pasteInstructin">Ctrl + V</p>
+			</div>
+			<button class="ui mini basic green button pasteOnly" onclick="uploadImageToTarget();">Upload</button>
+			<div class="ui checkbox pasteOnly" style="margin-left: 1em;">
+				<input type="checkbox" id="uploadOnPaste" onchange="toggleUploadOnPaste(this.checked);">
+				<label>Upload on paste</label>
+			</div>
+			<div class="ui icon mini input pasteOnly" style="margin-left: 1em; width: 50%">
+				<input ondblclick="openCurrentPath();" type="text" id="savepath" placeholder="user:/Desktop" readonly>
+				<i onclick="pickSavePath();" title="Pick save location" class="circular folder link icon"></i>
+			</div>
+			<div style="float: right; display:none;" id="uploadSuccIcon">
+				<i class="ui green checkmark icon"></i> Uploaded
+			</div>
+			
+		</div>
+		<script>
+			var uploadOnPaste = false;
+			var savePath = "user:/Desktop";
+			var currentViewingPhotoBlob = undefined;
+
+			//Get file information from the hash info
+			var files = ao_module_loadInputFiles();
+			if (files != null && files.length > 0){
+				//Copy Mode
+				var file = files[0]
+				$("#preview").attr("src", "../../../media?file=" + file.filepath);
+				$(".pasteOnly").hide();
+				$("#pasteInstructin").text("Copy Image");
+				$("#instruction").text(`Right click the image and select "Copy Image" to copy the image to clipboard.`);
+			}else{
+				//Paste Mode
+				document.onpaste = function(event){
+					var items = (event.clipboardData || event.originalEvent.clipboardData).items;
+					console.log(JSON.stringify(items)); // will give you the mime types
+						for (index in items) {
+							var item = items[index];
+							if (item.kind === 'file') {
+								var blob = item.getAsFile();
+								var reader = new FileReader();
+								reader.onload = function(event){
+									console.log(event.target.result);
+									$("#preview").attr("src", event.target.result);
+									if (uploadOnPaste){
+										uploadImageToTarget();
+									}
+									
+								}; // data url!
+								reader.readAsDataURL(blob);
+								currentViewingPhotoBlob = blob;
+							}
+							
+						}
+				}
+			}
+
+			//Load previous configs
+			ao_module_storage.loadStorage("imgPaste", "uploadOnPaste", function(data){
+				if (data == "true"){
+					$("#uploadOnPaste")[0].checked = true;
+				}else{
+					$("#uploadOnPaste")[0].checked = false;
+				}
+			});
+
+			ao_module_storage.loadStorage("imgPaste", "savepath", function(data){
+				savePath = data || "user:/Desktop";
+				$("#savepath").val(savePath);
+			});
+			
+			function toggleUploadOnPaste(checked){
+				uploadOnPaste = checked;
+				if (checked){
+					ao_module_storage.setStorage("imgPaste", "uploadOnPaste", "true");
+				}else{
+					ao_module_storage.setStorage("imgPaste", "uploadOnPaste", "false");
+				}
+			}
+
+			function pickSavePath(){
+				ao_module_openFileSelector(fileSelected, savePath, "folder",false);
+			}
+
+			function openCurrentPath(){
+				ao_module_openPath(savePath);
+			}
+
+			function fileSelected(filedata){
+				for (var i=0; i < filedata.length; i++){
+					var filename = filedata[i].filename;
+					var filepath = filedata[i].filepath;
+					$("#savepath").val(filepath);
+					savePath = filepath;
+				}
+
+				//Save the value to storage
+				ao_module_storage.setStorage("imgPaste", "savepath", savePath);
+			}
+
+			function uploadImageToTarget(){
+				//Convert the image to file object
+				if (currentViewingPhotoBlob == undefined){
+					return;
+				}
+				var now = new Date();
+				var currentUnix = Date.now()+"";
+				var filename = "ImagePaste " + now.getUTCFullYear() + "-" + now.getUTCMonth() + "-" + now.getUTCDate() + (currentUnix).substr(currentUnix.length-6) + ".png";
+				var imageFile = new File([currentViewingPhotoBlob], filename);
+				ao_module_uploadFile(imageFile, savePath, function(data){
+					if (data.error !== undefined){
+						alert(data.error);
+					}else{
+						$("#uploadSuccIcon").slideDown("fast").delay(3000).slideUp("fast");
+					}
+				});
+			}
+		</script>
+	</body>
+</html>

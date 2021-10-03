@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#4b75ff">
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="../script/semantic/semantic.min.js"></script>
+    <title>WebSocket Test</title>
+</head>
+
+<body>
+    <br><br>
+    <div class="ui container">
+        <div class="ui three statistics" id="stat">
+            <div class="statistic">
+                <div class="value" id="dl" style="padding: 5px;">
+                    -
+                </div>
+                <div class="label" id="dll">
+                    Download
+                </div>
+            </div>
+            <div class="statistic">
+                <div class="value" id="ul" style="padding: 5px;">
+                    -
+                </div>
+                <div class="label" id="ull">
+                    Upload
+                </div>
+            </div>
+            <div class="statistic">
+                <div class="value" id="ping" style="padding: 5px;">
+                    -
+                </div>
+                <div class="label" id="pingl">
+                    Ping
+                </div>
+            </div>
+        </div>
+        <br>
+        <div>
+            <div class="ui top attached teal progress" id="progressbar" style="display: none">
+                <div class="bar">
+                    <div class="progress"></div>
+                </div>
+            </div>
+            <button class="ui fluid button" onclick="startBench();" id="startbtn">Test</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    ao_module_setFixedWindowSize();
+    autoResize();
+    $('#progressbar').progress({
+        label: 'ratio',
+        text: {
+            ratio: ''
+        },
+        total: 100,
+        percent: 0
+    });
+
+    $(window).on('resize', function() {
+        autoResize();
+    });
+
+    function autoResize() {
+        if ($(window).width() < 550) {
+            $("#stat").attr("class", "ui three horizontal statistics");
+        } else {
+            $("#stat").attr("class", "ui three statistics");
+        }
+    }
+
+    function startBench() {
+        $('#progressbar').removeAttr('style');
+        $('#progressbar').progress('set progress', 0);
+        $("#startbtn").attr('disabled', 'disabled');
+        $("#startbtn").html('Testing...');
+        downloadBench();
+    }
+
+    function downloadBench() {
+        $("#dl").text("⏱️");
+        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+
+        socket.onopen = function(e) {
+            $("#dl").text("⌛");
+            socket.send("DWL");
+            $('#progressbar').progress('set progress', 0);
+        };
+
+        socket.onmessage = function(event) {
+            if (event.data.indexOf("DATA:") == -1) {
+                if (event.data.indexOf("TTL_BANDWIDTH") != -1) {
+                    let bandwidth = event.data.split("=")[1].split(" ");
+                    $("#dl").text(bandwidth[0]);
+                    $("#dll").text("Download (" + bandwidth[1] + ")");
+                    uploadBench();
+                }
+                if (event.data.indexOf("TIME_DIFF") != -1) {
+                    let timediff = parseInt(event.data.split("=")[1]);
+                    $('#progressbar').progress('increment', timediff / 5 * 100);
+                }
+            }
+        };
+
+        socket.onerror = function(error) {
+            if ($("#dl").text() != "⌛") {
+                $("#dl").text("❌");
+            }
+        };
+    }
+
+    function uploadBench() {
+        $("#ul").text("⏱️");
+        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+
+        socket.onopen = function(e) {
+            $("#ul").text("⌛");
+            socket.send("UPL");
+            setTimeout(executeULTest, 1000, socket);
+        };
+
+        socket.onerror = function(error) {
+            if ($("#ul").text() != "⌛") {
+                $("#ul").text("❌");
+            }
+        };
+    }
+
+    function executeULTest(socket) {
+        $('#progressbar').progress('set progress', 0);
+        let CurrentMB = 0;
+        let start = new Date();
+        while (socket.bufferedAmount < 10485760 * 10) {
+            socket.send(new ArrayBuffer(32768));
+            CurrentMB += 32768;
+        }
+        let checker = setInterval(function() {
+            if (socket.bufferedAmount == 0) {
+                let end = new Date();
+                CurrentDif = (end.getTime() - start.getTime()) / 1000;
+                socket.send("stop");
+                let bandwidth = bytesToSpeed(CurrentMB / CurrentDif).split(" ");
+                $("#ul").text(bandwidth[0]);
+                $("#ull").text("Upload (" + bandwidth[1] + ")");
+                $('#progressbar').progress('set progress', 0);
+                clearInterval(checker);
+                pingTest();
+            } else {
+                //(1 - (socket.bufferedAmount / (10485760 * 10))) * 100
+                $('#progressbar').progress('set progress', 100 - (socket.bufferedAmount / 1048576));
+            }
+        }, 100);
+    }
+
+    function pingTest() {
+        $('#progressbar').progress('set progress', 0);
+        let clientSendTimeStamp = [];
+        let serverResponseTimeStamp = [];
+        let clientReceiveTimeStamp = [];
+        $("#ping").text("⏱️");
+        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+
+        socket.onopen = function(e) {
+            $("#ping").text("⌛");
+            socket.send("PING");
+            setTimeout(executePingTest, 500, socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, 0);
+        };
+
+        socket.onmessage = function(event) {
+            clientReceiveTimeStamp.push(new Date().getTime());
+            serverResponseTimeStamp.push(event.data);
+            if (clientReceiveTimeStamp.length == 5) {
+                setTimeout(showPingResult, 2000, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp);
+            }
+            $('#progressbar').progress('increment', 16.67);
+        };
+
+        socket.onerror = function(error) {
+            if ($("#ping").text() != "⌛") {
+                $("#ping").text("❌");
+            }
+        };
+    }
+
+    function executePingTest(socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, count) {
+        let clientTime = new Date();
+        socket.send(clientTime);
+        clientSendTimeStamp.push(clientTime.getTime());
+        count++;
+        $('#progressbar').progress('increment', 16.67);
+        if (count < 3) {
+            setTimeout(executePingTest, 1000, socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, count);
+        }
+    }
+
+    function showPingResult(clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp) {
+        serverResponseTimeStamp.shift();
+        serverResponseTimeStamp.shift();
+        clientReceiveTimeStamp.shift();
+        clientReceiveTimeStamp.shift();
+        let diff = 0;
+        for (let i = 0; i < clientSendTimeStamp.length; i++) {
+            diff += (clientReceiveTimeStamp[i] - clientSendTimeStamp[i]) - (serverResponseTimeStamp[i].split(",")[1] - serverResponseTimeStamp[i].split(",")[0]);
+        }
+        $("#ping").text(Math.round((diff / clientSendTimeStamp.length) * 100) / 100);
+        $("#pingl").text("Ping (ms)");
+        //restart the test
+        $('#progressbar').attr('style', 'display: none');
+        $("#startbtn").html('Re-Test');
+        $("#startbtn").attr('onclick', 'location.reload();');
+        $("#startbtn").removeAttr('disabled');
+    }
+
+    function getWSEndpoint() {
+        //Open opeartion in websocket
+        let protocol = "wss://";
+        if (location.protocol !== 'https:') {
+            protocol = "ws://";
+        }
+        wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port);
+        return wsControlEndpoint;
+    }
+
+    //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
+    function bytesToSize(bytes) {
+        let sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        if (bytes == 0) return '0 Byte';
+        let i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+        return Math.round((bytes / Math.pow(1024, i)) * 100, 3) / 100 + ' ' + sizes[i];
+    }
+
+    function bytesToSpeed(bytes) {
+        bytes = bytes * 8;
+        let sizes = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
+        if (bytes == 0) return '0 Byte';
+        let i = parseInt(Math.floor(Math.log(bytes) / Math.log(1000)));
+        return Math.round((bytes / Math.pow(1000, i)) * 100, 3) / 100 + ' ' + sizes[i];
+    }
+</script>
+
+</html>

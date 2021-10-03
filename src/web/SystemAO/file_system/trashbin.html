@@ -209,7 +209,18 @@
                 if (location.protocol !== 'https:') {
                     protocol = "ws://";
                 }
-                wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port);
+
+                var port = window.location.port;
+                if (window.location.port == ""){
+                    if (location.protocol !== 'https:') {
+                        port = "80";
+                    }else{
+                        port = "443";
+                    }
+                    
+                }
+
+                wsControlEndpoint = (protocol + window.location.hostname + ":" + port);
                 return wsControlEndpoint;
             }
             

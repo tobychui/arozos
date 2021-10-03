@@ -187,7 +187,7 @@
                         $("#videolist").find(".search").val(nextPlayObject.Filename);
                         $(".playing").removeClass("playing");
                         $(".videoObject").each(function(){
-                            if ($(this).attr("filename") == nextPlayObject.Filename){
+                            if ($(this).attr("filename") + $(this).attr("ext") == nextPlayObject.Filename){
                                 $(this).addClass("playing");
                             }
                         });
@@ -271,26 +271,6 @@
                 });
             }
 
-            /*
-            function listUnsortedFiles(){
-                 //Append unsorted files
-                 $("#videolist").html("");
-                 currentPlaylist = unsortedVideoFiles;
-                 for (var k = 0; k < unsortedVideoFiles.length; k++){
-                    var thisVideoName = unsortedVideoFiles[k].Filename;
-                    var thisFilePath = unsortedVideoFiles[k].Filepath;
-                    var ext = unsortedVideoFiles[k].Ext;
-                    $("#videolist").append(`<div class="item videoObject" onclick="playThisFile(this);" filename="${thisVideoName}" filepath="${thisFilePath}" ext="${ext}" playlist="Unsorted">
-                        <i class="file icon"></i>
-                        <div class="content">
-                            <a class="header">${thisVideoName}</a>
-                            <div class="description">${thisFilePath} / [${ext}]</div>
-                        </div>
-                    </div>`);
-                }
-            }
-            */
-
             function listPlayList(playlistName){
                 $("#videolist").html("");
                 var targetPlaylist;
@@ -340,7 +320,7 @@
                 $("#videoname").text(fileDescriptor.attr("filename"));
                 $("#playlistName").text(fileDescriptor.attr("playlist"));
                 $("#ext").text("[" + fileDescriptor.attr("ext") + "]" );
-                currentPlaying = fileDescriptor.attr('filename');
+                currentPlaying = fileDescriptor.attr('filename') + fileDescriptor.attr("ext");
                 playVideo("../media?file=" + encodeURIComponent(fileDescriptor.attr("filepath")));
                 $(fileDescriptor).addClass("playing");
                 window.scrollTo(0, 0); 

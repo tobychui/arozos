@@ -544,24 +544,47 @@ class ao_module_storage {
     	return true;
     }
     
-    static loadStorage(moduleName, configName){
-    	var result = "";
-    	$.ajax({
-    	  type: 'GET',
-    	  url: ao_root + "system/file_system/preference",
-    	  data: {key: moduleName + "/" + configName},
-    	  success: function(data){
-				if (data.error !== undefined){
-					result = "";
-				}else{
-					result = data;
-				}
-			  },
-    	  error: function(data){result = "";},
-    	  async:false,
-    	  timeout: 3000
-    	});
-    	return result;
+    static loadStorage(moduleName, configName, callback=undefined){
+        var result = "";
+        if (callback == undefined){
+            //Do not use async
+            $.ajax({
+                type: 'GET',
+                url: ao_root + "system/file_system/preference",
+                data: {key: moduleName + "/" + configName},
+                success: function(data){
+                        if (data.error !== undefined){
+                            result = "";
+                        }else{
+                            result = data;
+                        }
+                    },
+                error: function(data){result = "";},
+                async:false,
+                timeout: 3000
+            });
+              return result;
+        }else{
+            //Use sync method
+            $.ajax({
+                type: 'GET',
+                url: ao_root + "system/file_system/preference",
+                data: {key: moduleName + "/" + configName},
+                success: function(data){
+                        if (data.error !== undefined){
+                            callback("");
+                        }else{
+                            callback(data);
+                        }
+                    },
+                error: function(evt){
+                    callback("");
+                },
+                timeout: 30000
+            });
+        }
+    	
+    	
     }
 }
 
@@ -882,6 +905,24 @@ class ao_module_utils{
         var sec = a.getSeconds().toString().padStart(2, "0");
         var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
         return time;
+    }
+
+    static getWebSocketEndpoint(){
+        let protocol = "wss://";
+        if (location.protocol !== 'https:') {
+            protocol = "ws://";
+        }
+        var port = window.location.port;
+        if (window.location.port == ""){
+            if (location.protocol !== 'https:') {
+                port = "80";
+            }else{
+                port = "443";
+            }
+            
+        }
+        wsept = (protocol + window.location.hostname + ":" + port);
+        return wsept;
     }
     
     static formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}

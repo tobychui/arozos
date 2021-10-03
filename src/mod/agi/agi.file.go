@@ -6,11 +6,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
 	"github.com/robertkrimen/otto"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/fssort"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -255,6 +254,8 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 	//Glob
 	//glob("user:/Desktop/*.mp3") => return fileList in array
 	//glob("/") => return a list of root directories
+	//glob("user:/Desktop/*", "mostRecent") => return fileList in mostRecent sorting mode
+	//glob("user:/Desktop/*", "user") => return fileList in array in user prefered sorting method
 	vm.Set("_filelib_glob", func(call otto.FunctionCall) otto.Value {
 		regex, err := call.Argument(0).ToString()
 		if err != nil {
@@ -263,13 +264,20 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
+		userSortMode, err := call.Argument(1).ToString()
+		if err != nil || userSortMode == "" || userSortMode == "undefined" {
+			userSortMode = "default"
+		}
+
 		//Handle when regex = "." or "./" (listroot)
 		if filepath.ToSlash(filepath.Clean(regex)) == "/" || filepath.Clean(regex) == "." {
 			//List Root
 			rootDirs := []string{}
 			fileHandlers := u.GetAllFileSystemHandler()
 			for _, fsh := range fileHandlers {
-				rootDirs = append(rootDirs, fsh.UUID+":/")
+				if fsh.Hierarchy != "backup" {
+					rootDirs = append(rootDirs, fsh.UUID+":/")
+				}
 			}
 
 			reply, _ := vm.ToValue(rootDirs)
@@ -282,6 +290,22 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			//This function can only handle wildcard in filename but not in dir name
 			vrootPath := filepath.Dir(regex)
 			regexFilename := filepath.Base(regex)
+
+			//Rewrite and validate the sort mode
+			if userSortMode == "user" {
+				//Use user sorting mode.
+				if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", u.Username+"/"+filepath.ToSlash(vrootPath)) {
+					g.Option.UserHandler.GetDatabase().Read("fs-sortpref", u.Username+"/"+filepath.ToSlash(vrootPath), &userSortMode)
+				} else {
+					userSortMode = "default"
+				}
+			}
+
+			if !fssort.SortModeIsSupported(userSortMode) {
+				log.Println("[AGI] Sort mode: " + userSortMode + " not supported. Using default")
+				userSortMode = "default"
+			}
+
 			//Translate the virtual path to realpath
 			rrootPath, err := virtualPathToRealPath(vrootPath, u)
 			if err != nil {
@@ -297,8 +321,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 				return reply
 			}
 
+			//Sort the files
+			newFilelist := fssort.SortFileList(suitableFiles, userSortMode)
+
+			//Return the results in virtual paths
 			results := []string{}
-			for _, file := range suitableFiles {
+			for _, file := range newFilelist {
 				thisRpath, _ := realpathToVirtualpath(filepath.ToSlash(file), u)
 				results = append(results, thisRpath)
 			}
@@ -316,7 +344,10 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
-		sortMode, _ := call.Argument(1).ToString()
+		userSortMode, err := call.Argument(1).ToString()
+		if err != nil || userSortMode == "" || userSortMode == "undefined" {
+			userSortMode = "default"
+		}
 
 		if regex != "/" && !u.CanRead(regex) {
 			panic(vm.MakeCustomError("PermissionDenied", "Path access denied"))
@@ -325,8 +356,23 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 		//This function can only handle wildcard in filename but not in dir name
 		vrootPath := filepath.Dir(regex)
 		regexFilename := filepath.Base(regex)
-		//Translate the virtual path to realpath
 
+		//Rewrite and validate the sort mode
+		if userSortMode == "user" {
+			//Use user sorting mode.
+			if g.Option.UserHandler.GetDatabase().KeyExists("fs-sortpref", u.Username+"/"+filepath.ToSlash(vrootPath)) {
+				g.Option.UserHandler.GetDatabase().Read("fs-sortpref", u.Username+"/"+filepath.ToSlash(vrootPath), &userSortMode)
+			} else {
+				userSortMode = "default"
+			}
+		}
+
+		if !fssort.SortModeIsSupported(userSortMode) {
+			log.Println("[AGI] Sort mode: " + userSortMode + " not supported. Using default")
+			userSortMode = "default"
+		}
+
+		//Translate the virtual path to realpath
 		rrootPath, err := virtualPathToRealPath(vrootPath, u)
 		if err != nil {
 			g.raiseError(err)
@@ -341,55 +387,14 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
-		type SortingFileData struct {
-			Filename string
-			Filepath string
-			Filesize int64
-			ModTime  int64
-		}
-
-		parsedFilelist := []fs.FileData{}
-		for _, file := range suitableFiles {
-			vpath, err := realpathToVirtualpath(filepath.ToSlash(file), u)
-			if err != nil {
-				g.raiseError(err)
-				reply, _ := vm.ToValue(false)
-				return reply
-			}
-			modtime, _ := fs.GetModTime(file)
-			parsedFilelist = append(parsedFilelist, fs.FileData{
-				Filename: filepath.Base(file),
-				Filepath: vpath,
-				Filesize: fs.GetFileSize(file),
-				ModTime:  modtime,
-			})
-		}
-
-		if sortMode != "" {
-			if sortMode == "reverse" || sortMode == "descending" {
-				//Sort by reverse name
-				sort.Slice(parsedFilelist, func(i, j int) bool {
-					return strings.ToLower(parsedFilelist[i].Filename) > strings.ToLower(parsedFilelist[j].Filename)
-				})
-			} else if sortMode == "smallToLarge" {
-				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].Filesize < parsedFilelist[j].Filesize })
-			} else if sortMode == "largeToSmall" {
-				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].Filesize > parsedFilelist[j].Filesize })
-			} else if sortMode == "mostRecent" {
-				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime > parsedFilelist[j].ModTime })
-			} else if sortMode == "leastRecent" {
-				sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime })
-			} else {
-				sort.Slice(parsedFilelist, func(i, j int) bool {
-					return strings.ToLower(parsedFilelist[i].Filename) < strings.ToLower(parsedFilelist[j].Filename)
-				})
-			}
-		}
+		//Sort the files
+		newFilelist := fssort.SortFileList(suitableFiles, userSortMode)
 
 		//Parse the results (Only extract the filepath)
 		results := []string{}
-		for _, fileData := range parsedFilelist {
-			results = append(results, fileData.Filepath)
+		for _, filename := range newFilelist {
+			thisVpath, _ := u.RealPathToVirtualPath(filename)
+			results = append(results, thisVpath)
 		}
 
 		reply, _ := vm.ToValue(results)

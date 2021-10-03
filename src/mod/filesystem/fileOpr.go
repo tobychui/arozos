@@ -354,18 +354,6 @@ func insideHiddenFolder(path string) bool {
 		return true
 	}
 	return FileIsHidden
-
-	/*
-		thisPathInfo := filepath.ToSlash(filepath.Clean(path))
-		pathData := strings.Split(thisPathInfo, "/")
-		for _, thispd := range pathData {
-			if len(thispd) > 0 && thispd[:1] == "." {
-				//This path contain one of the folder is hidden
-				return true
-			}
-		}
-		return false
-	*/
 }
 
 func ViewZipFile(filepath string) ([]string, error) {
@@ -390,7 +378,7 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 	//Check if the copy destination file already have an identical file
 	copiedFilename := filepath.Base(src)
 
-	if fileExists(dest + filepath.Base(src)) {
+	if fileExists(filepath.Join(dest, filepath.Base(src))) {
 		if mode == "" {
 			//Do not specific file exists principle
 			return errors.New("Destination file already exists.")
@@ -401,7 +389,7 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 		} else if mode == "overwrite" {
 			//Continue with the following code
 			//Check if the copy and paste dest are identical
-			if src == (dest + filepath.Base(src)) {
+			if filepath.ToSlash(filepath.Clean(src)) == filepath.ToSlash(filepath.Clean(filepath.Join(dest, filepath.Base(src)))) {
 				//Source and target identical. Cannot overwrite.
 				return errors.New("Source and destination paths are identical.")
 
@@ -412,7 +400,7 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 			newFilename := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy" + filepath.Ext(src)
 			//Check if the newFilename already exists. If yes, continue adding suffix
 			duplicateCounter := 0
-			for fileExists(dest + newFilename) {
+			for fileExists(filepath.Join(dest, newFilename)) {
 				duplicateCounter++
 				newFilename = strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy(" + strconv.Itoa(duplicateCounter) + ")" + filepath.Ext(src)
 				if duplicateCounter > 1024 {
@@ -439,7 +427,7 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 	if IsDir(src) {
 		//Source file is directory. CopyFolder
 
-		realDest := dest + copiedFilename
+		realDest := filepath.Join(dest, copiedFilename)
 
 		//err := dircpy.Copy(src, realDest)
 
@@ -451,7 +439,7 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 
 	} else {
 		//Source is file only. Copy file.
-		realDest := dest + copiedFilename
+		realDest := filepath.Join(dest, copiedFilename)
 		source, err := os.Open(src)
 		if err != nil {
 			return err
@@ -502,7 +490,7 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 	//Check if the target file already exists.
 	movedFilename := filepath.Base(src)
 
-	if fileExists(dest + filepath.Base(src)) {
+	if fileExists(filepath.Join(dest, filepath.Base(src))) {
 		//Handle cases where file already exists
 		if mode == "" {
 			//Do not specific file exists principle
@@ -513,7 +501,7 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 		} else if mode == "overwrite" {
 			//Continue with the following code
 			//Check if the copy and paste dest are identical
-			if src == (dest + filepath.Base(src)) {
+			if filepath.ToSlash(filepath.Clean(src)) == filepath.ToSlash(filepath.Clean(filepath.Join(dest, filepath.Base(src)))) {
 				//Source and target identical. Cannot overwrite.
 				return errors.New("Source and destination paths are identical.")
 			}
@@ -523,7 +511,7 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 			newFilename := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy" + filepath.Ext(src)
 			//Check if the newFilename already exists. If yes, continue adding suffix
 			duplicateCounter := 0
-			for fileExists(dest + newFilename) {
+			for fileExists(filepath.Join(dest, newFilename)) {
 				duplicateCounter++
 				newFilename = strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy(" + strconv.Itoa(duplicateCounter) + ")" + filepath.Ext(src)
 				if duplicateCounter > 1024 {

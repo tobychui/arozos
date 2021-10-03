@@ -133,3 +133,14 @@ func removeFromSliceIfExists(slice []string, target string) []string {
 
 	return newSlice
 }
+
+func mtime(filename string) int64 {
+	file, err := os.Stat(filename)
+
+	if err != nil {
+		return 0
+	}
+
+	modifiedtime := file.ModTime()
+	return modifiedtime.Unix()
+}

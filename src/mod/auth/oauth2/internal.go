@@ -33,7 +33,7 @@ func sendOK(w http.ResponseWriter) {
 }
 
 func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
-	if postMode == false {
+	if !postMode {
 		//Access the paramter via GET
 		keys, ok := r.URL.Query()[getParamter]
 

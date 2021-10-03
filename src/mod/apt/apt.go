@@ -33,38 +33,17 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	pkgname = strings.ReplaceAll(pkgname, "&", "")
 	pkgname = strings.ReplaceAll(pkgname, "|", "")
 
-	if runtime.GOOS == "windows" {
-		//Check if the command already exists in windows path paramters.
-		cmd := exec.Command("where", pkgname, "2>", "nul")
-		_, err := cmd.CombinedOutput()
-		if err != nil {
-			return errors.New("Package " + pkgname + " not found in Windows %PATH%.")
-		}
-		return nil
-	} else if runtime.GOOS == "darwin" {
-		//Mac OS. Check if package exists
-		cmd := exec.Command("whereis", pkgname)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return errors.New("Package " + pkgname + " not found in MacOS ENV variable.")
-		}
-
-		if strings.TrimSpace(string(out)) == "" {
-			//Package not exists
-			return errors.New("Package " + pkgname + " not installed on this Mac")
-		}
-		return nil
-	}
-
 	if a.AllowAutoInstall == false {
 		return errors.New("Package auto install is disabled")
 	}
 
-	cmd := exec.Command("which", pkgname)
-	out, _ := cmd.CombinedOutput()
+	installed, err := PackageExists(pkgname)
+	if err != nil {
+		log.Println(err.Error())
+	}
 
 	//log.Println(packageInfo)
-	if len(string(out)) > 1 {
+	if installed {
 		return nil
 	} else {
 		//Package not installed. Install if now if running in sudo mode
@@ -76,11 +55,10 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 		if err != nil {
 			if mustComply {
 				//Panic and terminate server process
-				log.Println("Installation failed on package: "+pkgname, string(out))
+				log.Println("Installation failed on package: " + pkgname)
 				os.Exit(0)
 			} else {
 				log.Println("Installation failed on package: " + pkgname)
-				log.Println(string(out))
 			}
 			return err
 		}
@@ -88,6 +66,56 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	}
 
 	return nil
+}
+
+func PackageExists(pkgname string) (bool, error) {
+	if runtime.GOOS == "windows" {
+		//Check if the command already exists in windows path paramters.
+		cmd := exec.Command("where", pkgname, "2>", "nul")
+		_, err := cmd.CombinedOutput()
+		if err != nil {
+			return false, errors.New("Package " + pkgname + " not found in Windows %PATH%.")
+		}
+		return true, nil
+	} else if runtime.GOOS == "darwin" {
+		//Mac OS. Check if package exists
+		cmd := exec.Command("whereis", pkgname)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return false, errors.New("Package " + pkgname + " not found in MacOS ENV variable.")
+		}
+
+		if strings.TrimSpace(string(out)) == "" {
+			//Package not found by whereis. Try brew
+			cmd := exec.Command("bash", "-c", "brew list | grep "+pkgname)
+			out, err = cmd.CombinedOutput()
+			if err != nil {
+				return false, errors.New("Package " + pkgname + " not found in MacOS ENV variable.")
+			}
+
+			if strings.TrimSpace(string(out)) != "" {
+				//Exists!
+				return true, nil
+			} else {
+				return false, errors.New("Package " + pkgname + " not installed on this Mac")
+			}
+
+		}
+	} else if runtime.GOOS == "linux" {
+		cmd := exec.Command("which", pkgname)
+		out, _ := cmd.CombinedOutput()
+
+		if len(string(out)) > 1 {
+			return true, nil
+		} else {
+			return false, errors.New("Package " + pkgname + " not installed on this Linux Host")
+		}
+
+	} else {
+		return false, errors.New("Unsupported Platform")
+	}
+
+	return false, errors.New("Unknown error occured when checking package installed")
 }
 
 func HandlePackageListRequest(w http.ResponseWriter, r *http.Request) {

@@ -12,7 +12,7 @@ function listNearby(){
     dirpath = dirpath.join("/");
 
     //Get nearby files and filter out the one that is web supported photo format
-    var nearbyFiles = filelib.aglob(dirpath + "/*")
+    var nearbyFiles = filelib.aglob(dirpath + "/*", "user")
     for (var i = 0; i < nearbyFiles.length; i++){
         var ext = nearbyFiles[i].split(".").pop();
         ext = ext.toLowerCase();

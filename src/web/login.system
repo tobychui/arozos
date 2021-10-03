@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="robots" content="noindex" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="author" href="humans.txt"/>
     <title>ArozOS - Login</title>
     <link rel="stylesheet" href="script/tocas/tocas.css">
     <link rel="stylesheet" href="script/ao.css">
@@ -72,6 +73,13 @@
     .loginbtn{
         color:white !important;
         margin-top:4em;
+        background-color:#686c89 !important;
+    }
+
+    .oauthbtn{
+        color:white !important;
+        margin-top:1em;
+        background-color:#a45b6a !important;
     }
 
     </style>
@@ -86,6 +94,9 @@
 
             <div class="ts borderless basic segment">
                 <p><i class="key icon"></i> Sign in <span class="hostname">ArozOS</span> with your username and password</p>
+                <div class="oauthonly" style="display:none;">
+                    <a class="ts fluid small button oauthbtn" href="system/auth/oauth/login">Sign In via OAuth 2.0</a><br>
+                </div>
                 <br>
                 <div class="ts fluid input textbox">
                     <input id="username" type="text" placeholder="Username">
@@ -100,13 +111,11 @@
                 </div>
                 
                 <br>
-                <button id="loginbtn" class="ts button loginbtn" style="background-color:#686c89 !important;">Sign In</button><br>
+                <button id="loginbtn" class="ts button loginbtn">Sign In</button><br>
                 <div class="ts breadcrumb" style="margin-top:12px;">
                     <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
                     <div class="divider signup"> / </div>
                     <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
-                    <div class="divider signin"> / </div>
-                    <a class="section signin" style="cursor:pointer; display:none;" href="system/auth/oauth/login">Signin via External account</a>
                 </div>
                 <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span id="errmsg">Error. Incorrect username or password.</span></p>
                
@@ -121,6 +130,7 @@
     <script>
         var redirectionAddress = "{{redirection_addr}}";
         var systemUserCount = "{{usercount}}" - 0; //Magic way to convert string to int :)
+        var autoRedirectTimer;
         var isMobile = false; //initiate as false
         // device detection
         if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent) 
@@ -177,15 +187,34 @@
             });
 
             //OAuth related code, check if system is open for ext login
-            $.get("system/auth/oauth/checkoauth",function(data){
-                if (data == true){
-                    $(".signin").show();
+            $.getJSON("system/auth/oauth/checkoauth",function(data){
+                if (data.enabled == true){
+                    $(".oauthonly").show();
                 }else{
-                    $(".signin").remove();
+                    $(".oauthonly").hide();
+                }
+                //if auto redirect is on
+                if(data.auto_redirect == true) {
+                    //checking if they come from desktop.system or mobile.system
+                    //if they come from that two pages, usually mean they are just logged out.
+                    if(document.referrer != ''){
+                        var path = new URL(document.referrer);
+                    } else {
+                        var path = new URL('http://0.0.0.0');
+
+                    }
+                    if(document.referrer != window.location.origin + "/desktop.system" && document.referrer != window.location.origin + "/mobile.system" && path.origin + path.pathname !=  window.location.origin + "/system/auth/oauth/authorize"){
+                        $(".ts.borderless.basic.segment").attr("style","display: none;");
+                        $(".ts.borderless.basic.segment").attr("id","aoLogin");
+                        $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ts borderless basic segment"><p><i class="key icon"></i>Redirecting to organization sign-in page in 5 seconds...</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">Cancel</a></div>');
+                        autoRedirectTimer = setTimeout(function(){
+                            window.location.href = "system/auth/oauth/login?redirect=" + redirectionAddress;
+                        }, 5000);
+                    }
                 }
             });
             if(get('redirect') != undefined){
-                $(".section.signin").attr("href","system/auth/oauth/login?redirect=" + get('redirect'));
+                $(".section.signin").attr("href","system/auth/oauth/login?redirect=" + redirectionAddress);
             }
 
             //Get the system hostname and replace the hostname fields
@@ -242,6 +271,12 @@
         function get(name){
             if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
                 return decodeURIComponent(name[1]);
+        }
+
+        function stopAutoRedirect(){
+            clearTimeout(autoRedirectTimer);
+            $("#aoLogin").removeAttr("style");
+            $("#autoRedirectSegment").attr("style", "display:none");
         }
 
         $(".thisyear").text(new Date().getFullYear());

@@ -55,3 +55,8 @@ arozos.exe
 */arozos.exe
 arozos
 upx.exe
+
+#Script related
+start.sh.backup
+*.backup
+system/bridge.json

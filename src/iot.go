@@ -52,7 +52,7 @@ func IoTHubInit() {
 
 		//Register IoT Devices Endpoints
 		router := prout.NewModuleRouter(prout.RouterOption{
-			ModuleName:  "IoT Panel",
+			ModuleName:  "IoT Hub",
 			AdminOnly:   false,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {

@@ -373,7 +373,7 @@
         <div id="userprofile">
             <div class="ui minimal comments">
                 <div class="ui comment">
-                    <div class="avatar">
+                    <div class="avatar" style="height: 2.5em">
                         <img class="usericon" src="img/desktop/system_icon/user.svg">
                     </div>
                     <div class="content">

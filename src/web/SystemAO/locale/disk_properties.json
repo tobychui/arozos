@@ -1,0 +1,69 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "磁碟概覽",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title/title":"磁碟概覽",
+                "title/desc":"關於此虛擬儲存裝置對應之磁碟機掛載點",
+
+                "diskinfo/physical":"物理磁碟機",
+                "diskinfo/hierarchy":"儲存裝置結構",
+
+                "hierarchy/User":"使用者分隔",
+                "hierarchy/Public":"共用磁碟區",
+                "hierarchy/Backup":"備份磁碟區",
+
+                "spaceinfo/totalUsed":"已使用磁碟空間",
+                "spaceinfo/userUsed":"使用者磁碟空間",
+                "spaceinfo/Usable":"可用磁碟空間",
+                "spaceinfo/Capacity":"磁碟容量",
+
+                "unit/bytes":" 個位元組",
+
+                "button/close":"確認",
+
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "磁碟概覽",
+            "strings":{
+                "title/title":"磁碟概覽",
+                "title/desc":"關於此虛擬儲存裝置對應之磁碟機掛載點",
+
+                "diskinfo/physical":"物理磁碟機",
+                "diskinfo/hierarchy":"儲存裝置結構",
+
+                "hierarchy/User":"使用者分隔",
+                "hierarchy/Public":"共用磁碟區",
+                "hierarchy/Backup":"備份磁碟區",
+
+                "spaceinfo/totalUsed":"已使用磁碟空間",
+                "spaceinfo/userUsed":"使用者磁碟空間",
+                "spaceinfo/Usable":"可用磁碟空間",
+                "spaceinfo/Capacity":"磁碟容量",
+
+                "unit/bytes":" 個位元組",
+
+                "button/close":"確認",
+
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

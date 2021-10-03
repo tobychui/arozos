@@ -78,6 +78,8 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 	ext, _ := mv(r, "ext", false)
 	moduleName, _ := mv(r, "module", false)
 
+	ext = strings.ToLower(ext)
+
 	//Check if the default folder exists.
 	if opr == "get" {
 		//Get the opener for this file type

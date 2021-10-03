@@ -382,6 +382,12 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	//Start websocket connection
 	var upgrader = websocket.Upgrader{}
 	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Failed to upgrade websocket connection: ", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 WebSocket upgrade failed"))
+		return
+	}
 	defer c.Close()
 
 	//Handle WebSocket upload
@@ -476,7 +482,6 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		c.Close()
 		return
 	}
-	defer out.Close()
 
 	for _, filesrc := range chunkName {
 		srcChunkReader, err := os.Open(filesrc)
@@ -489,6 +494,22 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		srcChunkReader.Close()
 	}
 
+	out.Close()
+
+	//Check if the size fit in user quota
+	fi, err := os.Stat(targetUploadLocation)
+	if err != nil {
+		// Could not obtain stat, handle error
+		log.Println("Failed to validate uploaded file: ", targetUploadLocation, ". Error Message: ", err.Error())
+		c.WriteMessage(1, []byte(`{\"error\":\"Failed to validate uploaded file\"}`))
+		return
+	}
+
+	if !userinfo.StorageQuota.HaveSpace(fi.Size()) {
+		c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
+		return
+	}
+
 	//Set owner of the new uploaded file
 	userinfo.SetOwnerOfFile(targetUploadLocation)
 
@@ -499,7 +520,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	done <- true
 
 	//Clear the tmp folder
-	time.Sleep(1 * time.Second)
+	time.Sleep(300 * time.Millisecond)
 	err = os.RemoveAll(uploadFolder)
 	if err != nil {
 		log.Println(err)
@@ -507,7 +528,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Close WebSocket connection after finished
 	c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
-	time.Sleep(1 * time.Second)
+	time.Sleep(300 * time.Second)
 	c.Close()
 
 }
@@ -585,7 +606,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	//Check for storage quota
 	uploadFileSize := handler.Size
 	if !userinfo.StorageQuota.HaveSpace(uploadFileSize) {
-		sendErrorResponse(w, "Storage Quota Full")
+		sendErrorResponse(w, "User Storage Quota Exceeded")
 		return
 	}
 
@@ -701,7 +722,7 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	rdestFile, _ := userinfo.VirtualPathToRealPath(vdestFile)
 	for _, file := range sourceFiles {
 		rsrcFile, _ := userinfo.VirtualPathToRealPath(string(file))
-		if fileExists(rdestFile + filepath.Base(rsrcFile)) {
+		if fileExists(filepath.Join(rdestFile, filepath.Base(rsrcFile))) {
 			//File exists already.
 			vpath, _ := userinfo.RealPathToVirtualPath(rsrcFile)
 			duplicateFiles = append(duplicateFiles, vpath)
@@ -1162,7 +1183,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 
 	//Permission checking
 	if !userinfo.CanWrite(vdestFile) {
-		log.Println(vdestFile)
+		log.Println("Access denied for " + userinfo.Username + " try to access " + vdestFile)
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 - Access Denied"))
 		return
@@ -1327,6 +1348,10 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					c.Close()
 					return
 				}
+
+				//Remove the cache for the original file
+				metadata.RemoveCache(rsrcFile)
+
 			} else if operation == "copy" {
 				err := fs.FileCopy(rsrcFile, rdestFile, existsOpr, func(progress int, currentFile string) {
 					//Multply child progress to parent progress
@@ -1517,6 +1542,9 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+				//Remove the cache for the original file
+				metadata.RemoveCache(rsrcFile)
+
 			} else if operation == "move" {
 				//File move operation. Check if the source file / dir and target directory exists
 				/*
@@ -1593,6 +1621,8 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//Set user to own the new file
 				userinfo.SetOwnerOfFile(filepath.ToSlash(filepath.Clean(rdestFile)) + "/" + filepath.Base(rsrcFile))
 
+				//Remove cache for the original file
+				metadata.RemoveCache(rsrcFile)
 			} else if operation == "copy" {
 				//Copy file. See move example and change 'opr' to 'copy'
 				if !fileExists(rsrcFile) {
@@ -1642,17 +1672,6 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 				}
 
-				//Check if the desintation is read only.
-				/*
-					accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
-					if accmode == "readonly" {
-						sendErrorResponse(w, "This directory is Read Only.")
-						return
-					} else if accmode == "denied" {
-						sendErrorResponse(w, "Access Denied")
-						return
-					}
-				*/
 				if !userinfo.CanWrite(vsrcFile) {
 					sendErrorResponse(w, "Access Denied.")
 					return
@@ -1666,9 +1685,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 				//Check if this file has any cached files. If yes, remove it
-				if fileExists(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg") {
-					os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
-				}
+				metadata.RemoveCache(rsrcFile)
 
 				//Clear the cache folder if there is no files inside
 				fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
@@ -1704,9 +1721,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 				//Check if this file has any cached files. If yes, remove it
-				if fileExists(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg") {
-					os.Remove(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/" + filepath.Base(rsrcFile) + ".jpg")
-				}
+				metadata.RemoveCache(rsrcFile)
 
 				//Clear the cache folder if there is no files inside
 				fc, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.cache/*")
@@ -2398,8 +2413,15 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Get folder sort mode
+	sortMode := "default"
+	folder := filepath.ToSlash(filepath.Clean(vpath))
+	if sysdb.KeyExists("fs-sortpref", userinfo.Username+"/"+folder) {
+		sysdb.Read("fs-sortpref", userinfo.Username+"/"+folder, &sortMode)
+	}
+
 	//Perform cache rendering
-	thumbRenderHandler.HandleLoadCache(w, r, rpath)
+	thumbRenderHandler.HandleLoadCache(w, r, rpath, sortMode)
 }
 
 //Handle loading of one thumbnail

@@ -542,16 +542,16 @@
                            }
 
                            $("#diskInfoTable").append('<tr>\
-                            <td class="collapsing">\
-                                <i class="disk outline icon"></i>' + thisDisk[0] + '\
-                            </td>\
-                            <td class="">' + driveName + '</td>\
-                            <td class="collapsing">' + thisDisk[1] + '</td>\
-                            <td class="right aligned collapsing">' + thisDisk[3] + '</td>\
-                            <td class="right aligned collapsing">' + cap + '</td>\
-                            <td class="right aligned collapsing">' + free + '</td>\
-                            <td class="right aligned collapsing">' + perc + '%</td>\
-                        </tr>');
+                                <td class="collapsing">\
+                                    <i class="disk outline icon"></i>' + thisDisk[0] + '\
+                                </td>\
+                                <td class="">' + driveName + '</td>\
+                                <td class="collapsing">' + thisDisk[1] + '</td>\
+                                <td class="right aligned collapsing">' + thisDisk[3] + '</td>\
+                                <td class="right aligned collapsing">' + cap + '</td>\
+                                <td class="right aligned collapsing">' + free + '</td>\
+                                <td class="right aligned collapsing">' + perc + '%</td>\
+                            </tr>');
                        }
                     }
                 });
@@ -565,8 +565,21 @@
                         var partitions = data[1];
                        for (var i = 0; i < disks.length; i++){
                            var thisDisk = disks[i]["children"];
-                           if (thisDisk === undefined){
-                               break;
+                           if (thisDisk === undefined || thisDisk === null){
+                                let thisSize = disks[i]["size"] || 0;
+                                let thisPartitionID = disks[i]["name"] || "✖";
+                                let mountPoint = disks[i]["mountpoint"] || "[NO PARTITION]";
+                                $("#diskInfoTable").append('<tr>\
+                                    <td class="collapsing">\
+                                        <i class="disk outline icon"></i>' + thisPartitionID + '\
+                                    </td>\
+                                    <td class="">' +  mountPoint + '</td>\
+                                    <td class="right aligned collapsing"></td>\
+                                    <td class="right aligned collapsing">' + bytesToSize(thisSize) + '</td>\
+                                    <td class="right aligned collapsing">' + bytesToSize(0) + '</td>\
+                                    <td class="right aligned collapsing"></td>\
+                                </tr>');
+                               continue;
                            }
                            for (var j =0; j < thisDisk.length; j++){
                                var thisPartition = thisDisk[j];
@@ -646,17 +659,27 @@
                       var disks = {};
                       var diskInfo = data[0]["blockdevices"];
                       for (var i =0; i < diskInfo.length; i++){
-                          var thisDisk = diskInfo[i];
-                          var diskID = thisDisk["name"];
-                          if (thisDisk["children"] === undefined){
+                          let thisDisk = diskInfo[i];
+                          let diskID = thisDisk["name"];
+                          if (thisDisk["children"] === undefined || thisDisk["children"] === null){
                               //This disk do not have any child. Assume a large read-only raw partition.
-                              disks[diskID] = {"partitionsTotalSize":0,"partitionNames":["Hotplug"],"partitionID":["✖"],"partitionVolume":[0],"Type":[thisPart["type"]],"Mounted":[thisPart["mountpoint"] !== null],"Format":[""]};
-                              break;
+                              let thisSize = thisDisk["size"] || 0;
+                              let thisPartitionID = thisDisk["name"] || "✖";
+                              disks[diskID] = {
+                                  "partitionsTotalSize":thisSize,
+                                  "partitionNames":[""],
+                                  "partitionID":[thisPartitionID],
+                                  "partitionVolume":[thisSize],
+                                  "Type":[thisDisk["type"]],
+                                  "Mounted":[thisDisk["mountpoint"] !== null],
+                                  "Format":["raw"]
+                                };
+                                continue;
+                             
                           }
                           for (var j =0; j < thisDisk["children"].length;j++){
                             var thisPart = thisDisk["children"][j];
                             var disksFormats = data[1]["blockdevices"][i]["children"][j];
-                            console.log(thisPart["name"], thisPart);
                             if (disks == undefined || disks[diskID] == undefined){
                                 disks[diskID] = {
                                         "partitionsTotalSize":thisPart["size"],
@@ -736,6 +759,10 @@
                     }else if (diskInfo["partitionNames"][k] == "" && mode == "linux"){
                         topbarExtraClass = " unmounted";
                         diskInfo["partitionNames"][k] = "Not Mounted";
+                        if (diskInfo.Format.length == 1 && diskInfo.Format[0] == "raw"){
+                            topbarExtraClass = " unallocate"
+                            diskInfo["partitionNames"][k] = "Unallocated / Unpartitioned";
+                        }
                     }else if (diskInfo["partitionNames"][k] == "" && mode == "windows"){
                         //All viewable disks on Windows must be mounted
                         if (diskInfo["partitionID"][0] == "C:"){

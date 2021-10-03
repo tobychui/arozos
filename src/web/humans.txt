@@ -1,1 +1,18 @@
-ArozOS is a web desktop online system that provide native desktop like experience through the latest web technology. Protecting your privacy while reducing your dependencies over large company's cloud service. If you'd like to help us out, see github.com/tobychui/arozos.
+                                                               
+                                                               
+      db                                  .g8""8q.    .M"""bgd 
+     ;MM:                               .dP'    `YM. ,MI    "Y 
+    ,V^MM.    `7Mb,od8 ,pW"Wq.  M"""MMV dM'      `MM `MMb.     
+   ,M  `MM      MM' "'6W'   `Wb '  AMV  MM        MM   `YMMNq. 
+   AbmmmqMA     MM    8M     M8   AMV   MM.      ,MP .     `MM 
+  A'     VML    MM    YA.   ,A9  AMV  , `Mb.    ,dP' Mb     dM 
+.AMA.   .AMMA..JMML.   `Ybmd9'  AMMmmmM   `"bmmd"'   P"Ybmmd"  
+                                                               
+                                                               
+Congratulation! You find the magic file hidden in the ArozOS system.
+
+ArozOS is a web desktop online system that provide native desktop like experience through 
+the latest web technology. Protecting your privacy while reducing your dependencies over 
+large company's cloud service. 
+
+If you'd like to help us out on this open souce project, see github.com/tobychui/arozos.

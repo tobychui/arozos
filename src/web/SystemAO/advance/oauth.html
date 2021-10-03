@@ -80,6 +80,12 @@
                 </div>
             </div>
             <div class="field">
+                <div class="ui toggle checkbox">
+                    <input type="checkbox" id="autoredirect" name="autoredirect">
+                    <label>Auto redirect</label>
+                </div>
+            </div>
+            <div class="field">
                 <label>Select OAuth IdP (aka Service provider)</label>
                 <div class="ui selection fluid dropdown" autocomplete="false">
                     <input type="hidden" id="idp" name="idp" autocomplete="false">
@@ -91,9 +97,15 @@
                 </div>
             </div>
             <div class="field">
-                <label>Redirect URL (you have to provide https://YOUR_DOMAIN/system/auth/oauth/authorize at the 3rd auth rely)</label>
+                <label>Redirect URL (you have to provide <span id="redirectspan">https://YOUR_DOMAIN/system/auth/oauth/authorize</span> at the 3rd auth rely)</label>
                 <div class="ui fluid input">
                     <input type="text" id="redirecturl" placeholder="https://YOUR_DOMAIN/">
+                </div>
+            </div>
+            <div class="field" id="server" style="display: none;">
+                <label>Server URL</label>
+                <div class="ui fluid input">
+                    <input type="text" id="serverurl" placeholder="http://YOUR_DOMAIN/">
                 </div>
             </div>
             <div class="field">
@@ -108,17 +120,6 @@
                     <input type="text" id="clientsecret" placeholder="Client Secret">
                 </div>
             </div>
-            <div class="field">
-                <label>Default user group</label>
-                <div class="ui selection fluid dropdown" autocomplete="false">
-                    <input type="hidden" id="group" name="group" autocomplete="false">
-                    <i class="dropdown icon"></i>
-                    <div class="default text">Select user group</div>
-                    <div id="grouplist" class="menu">
-
-                    </div>
-                </div>
-            </div>
             <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
         </div>
         <div class="ui divider"></div>
@@ -129,8 +130,24 @@
     <script>
         $(document).ready(function() {
             loadIdpList();
-            loadGroupList();
             read();
+            initPlaceholder();
+        });
+
+        $("#idp").change(function() {
+            if ($("#idp").val() == "Gitlab") {
+                $("#server").removeAttr("style");
+            } else {
+                $("#server").attr("style", "display:none;");
+            }
+        });
+
+        $("#redirecturl").on('input propertychange', function() {
+            if ($("#redirecturl").val() == "") {
+                $("#redirectspan").text(window.location.origin + "/system/auth/oauth/authorize");
+            } else {
+                $("#redirectspan").text($("#redirecturl").val() + "/system/auth/oauth/authorize");
+            }
         });
 
         function read() {
@@ -138,27 +155,31 @@
                 if (data.enabled) {
                     $("#enable").parent().checkbox("check")
                 }
+                if (data.autoredirect) {
+                    $("#autoredirect").parent().checkbox("check")
+                }
                 $("#idp").parent().dropdown("set selected", data.idp);
+                $("#serverurl").val(data.server_url);
                 $("#redirecturl").val(data.redirect_url);
                 $("#clientid").val(data.client_id);
                 $("#clientsecret").val(data.client_secret);
-                $("#group").parent().dropdown("set selected", data.default_user_group);
             });
         }
 
         function update() {
             $.post("../../system/auth/oauth/config/write", {
                     enabled: $("#enable").parent().checkbox("is checked"),
+                    autoredirect: $("#autoredirect").parent().checkbox("is checked"),
                     idp: $("#idp").val(),
                     redirecturl: $("#redirecturl").val(),
                     clientid: $("#clientid").val(),
                     clientsecret: $("#clientsecret").val(),
-                    defaultusergroup: $("#group").val()
+                    serverurl: $("#serverurl").val()
                 })
                 .done(function(data) {
-                    if (data.error != undefined){
+                    if (data.error != undefined) {
                         alert(data.error);
-                    }else{
+                    } else {
                         //OK!
                         $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
                     }
@@ -167,7 +188,7 @@
 
         function loadIdpList() {
             $("#idplist").html("");
-            var data = ["Google", "Microsoft", "Github"];
+            var data = ["Google", "Microsoft", "Github", "Gitlab"];
             if (data.error !== undefined) {
                 alert(data.error);
             } else {
@@ -179,19 +200,10 @@
             $("#idplist").parent().dropdown();
         }
 
-        function loadGroupList() {
-            $("#grouplist").html("");
-            $.get("../../system/permission/listgroup", function(data) {
-                if (data.error !== undefined) {
-                    alert(data.error);
-                } else {
-                    for (var i = 0; i < data.length; i++) {
-                        let groupinfo = data[i];
-                        $("#grouplist").append(`<div class="item" data-value="${groupinfo}">${groupinfo}</div>`);
-                    }
-                }
-                $("#grouplist").parent().dropdown();
-            });
+        function initPlaceholder() {
+            $("#redirectspan").text(window.location.origin + "/system/auth/oauth/authorize");
+            $("#redirecturl").attr("placeholder", window.location.origin);
+            $("#serverurl").attr("placeholder", "https://gitlab.com");
         }
     </script>
 </body>

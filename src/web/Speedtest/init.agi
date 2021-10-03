@@ -1,0 +1,21 @@
+/*
+	Unit Testing Module for AGI 
+
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Speedtest",
+	Group: "Development",
+	IconPath: "Speedtest/img/small_icon.png",
+	Version: "1.0",
+	StartDir: "Speedtest/index.html"
+	SupportFW: true,
+	LaunchFWDir: "Speedtest/index.html",
+	SupportEmb: false,
+	InitFWSize: [600, 220]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

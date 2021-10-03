@@ -1,0 +1,170 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "個人化",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "menu/wallpaper":"壁紙",
+                "menu/sound":"音效",
+                "menu/theme":"主題",
+                "menu/advance":"進階",
+
+                "wallpaper/title":"桌面壁紙圖包",
+                "wallpaper/desc":"使用內置桌面壁紙圖包",
+                "wallpaper/option/title": "桌面壁紙背景",
+                "wallpaper/option/desc": "如果您已在進階頁面選擇從自定資料夾載入壁紙圖包，此項將會自動禁用。",
+                "wallpaper/option/apply": "<i class=\"checkmark icon\"></i> 更新壁紙",
+                "wallpaper/option/updated": "桌面壁紙已更新",
+                "wallpaper/option/updateddesc": "您應該很快便能在桌面看到你的新背景",
+                "wallpaper/option/interval": "桌面壁紙替換間隔",
+                "wallpaper/option/intervaldesc": "設定多久之後自動替換為下一張壁紙",
+
+                "wallpaper/interval/10s":"10 秒",
+                "wallpaper/interval/30s":"30 秒",
+                "wallpaper/interval/60s":"60 秒",
+                "wallpaper/interval/3min":"3 分鐘",
+                "wallpaper/interval/5min":"5 分鐘",
+                "wallpaper/interval/10min":"10 分鐘",
+                "wallpaper/interval/30min":"30 分鐘",
+                "wallpaper/interval/1h":"1 小時",
+
+                "wallpaper/interval/succ":"壁紙替換間隔設定已更新",
+                "wallpaper/interval/succdesc":"注意：此設定只適用於此瀏覽器。",
+
+                "sound/title":"系統音效",
+                "sound/desc":"自定系統音效設定",
+                "sound/custom/title":"自定啟動音效",
+                "sound/custom/desc":"設定使用者進入網頁桌面時的啟動音效",
+                "sound/custom/disable":"停用",
+                "sound/custom/clear":"清除所選",
+                "sound/custom/select":"選擇檔案",
+                "sound/disabled": "已停用",
+
+                "themecolor/title":"主題顏色",
+                "themecolor/desc":"變更系統主題配色",
+                "themecolor/color/Red":"紅色系",
+                "themecolor/color/Pink":"粉色系",
+                "themecolor/color/Purple":"紫色系",
+                "themecolor/color/Deeppurple":"深紫色系",
+                "themecolor/color/Indigo":"靛青色系",
+                "themecolor/color/Blue":"藍色系",
+                "themecolor/color/Lightblue":"淺藍色系",
+                "themecolor/color/Cyan":"淺青色系",
+                "themecolor/color/Teal":"深青色系",
+                "themecolor/color/Green":"綠色系",
+                "themecolor/color/Lightgreen":"淺綠色系",
+                "themecolor/color/Lime":"黃綠色系",
+                "themecolor/color/Yellow":"黃色系",
+                "themecolor/color/Amber":"琥珀色系",
+                "themecolor/color/Orange":"橘橙色系",
+                "themecolor/color/Deeporange":"深橙色系",
+                "themecolor/color/Brown":"棕色系",
+                "themecolor/color/Grey":"灰色系",
+                "themecolor/color/Bluegrey":"灰藍色系",
+                "themecolor/color/Default":"還原預設主題配色",
+
+
+                "advance/title":"進階個人化選項",
+                "advance/desc":"管理您的桌面選項",
+                "advance/wallpaper/title":"自定桌面圖包",
+                "advance/wallpaper/desc":"使用自定義資料夾作為桌面圖包的存取路徑",
+                "advance/wallpaper/disabled":"已停用",
+                "advance/wallpaper/reminder":"如果您選擇從個人資料夾載入照片作桌面壁紙圖包，系統將會自動停用 <code>壁紙 > 桌面壁紙圖包 </code> 內之選項。",
+                "advance/wallpaper/clear":"清除選項",
+                "advance/wallpaper/select":"選擇資料夾",
+                
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "個人化",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "menu/wallpaper":"壁紙",
+                "menu/sound":"音效",
+                "menu/theme":"主題",
+                "menu/advance":"進階",
+
+                "wallpaper/title":"桌面壁紙圖包",
+                "wallpaper/desc":"使用內置桌面壁紙圖包",
+                "wallpaper/option/title": "桌面壁紙背景",
+                "wallpaper/option/desc": "如果您已在進階頁面選擇從自定資料夾載入壁紙圖包，此項將會自動禁用。",
+                "wallpaper/option/apply": "<i class=\"checkmark icon\"></i> 更新壁紙",
+                "wallpaper/option/updated": "桌面壁紙已更新",
+                "wallpaper/option/updateddesc": "您應該很快便能在桌面看到你的新背景",
+                "wallpaper/option/interval": "桌面壁紙替換間隔",
+                "wallpaper/option/intervaldesc": "設定多久之後自動替換為下一張壁紙",
+
+                "wallpaper/interval/10s":"10 秒",
+                "wallpaper/interval/30s":"30 秒",
+                "wallpaper/interval/60s":"60 秒",
+                "wallpaper/interval/3min":"3 分鐘",
+                "wallpaper/interval/5min":"5 分鐘",
+                "wallpaper/interval/10min":"10 分鐘",
+                "wallpaper/interval/30min":"30 分鐘",
+                "wallpaper/interval/1h":"1 小時",
+
+                "wallpaper/interval/succ":"壁紙替換間隔設定已更新",
+                "wallpaper/interval/succdesc":"注意：此設定只適用於此瀏覽器。",
+
+                "sound/title":"系統音效",
+                "sound/desc":"自定系統音效設定",
+                "sound/custom/title":"自定啟動音效",
+                "sound/custom/desc":"設定使用者進入網頁桌面時的啟動音效",
+                "sound/custom/disable":"停用",
+                "sound/custom/clear":"清除所選",
+                "sound/custom/select":"選擇檔案",
+                "sound/disabled": "已停用",
+
+                "themecolor/title":"主題顏色",
+                "themecolor/desc":"變更系統主題配色",
+                "themecolor/color/Red":"紅色系",
+                "themecolor/color/Pink":"粉色系",
+                "themecolor/color/Purple":"紫色系",
+                "themecolor/color/Deeppurple":"深紫色系",
+                "themecolor/color/Indigo":"靛青色系",
+                "themecolor/color/Blue":"藍色系",
+                "themecolor/color/Lightblue":"淺藍色系",
+                "themecolor/color/Cyan":"淺青色系",
+                "themecolor/color/Teal":"深青色系",
+                "themecolor/color/Green":"綠色系",
+                "themecolor/color/Lightgreen":"淺綠色系",
+                "themecolor/color/Lime":"黃綠色系",
+                "themecolor/color/Yellow":"黃色系",
+                "themecolor/color/Amber":"琥珀色系",
+                "themecolor/color/Orange":"橘橙色系",
+                "themecolor/color/Deeporange":"深橙色系",
+                "themecolor/color/Brown":"棕色系",
+                "themecolor/color/Grey":"灰色系",
+                "themecolor/color/Bluegrey":"灰藍色系",
+                "themecolor/color/Default":"還原預設主題配色",
+
+
+                "advance/title":"進階個人化選項",
+                "advance/desc":"管理您的桌面選項",
+                "advance/wallpaper/title":"自定桌面圖包",
+                "advance/wallpaper/desc":"使用自定義資料夾作為桌面圖包的存取路徑",
+                "advance/wallpaper/disabled":"已停用",
+                "advance/wallpaper/reminder":"如果您選擇從個人資料夾載入照片作桌面壁紙圖包，系統將會自動停用 <code>壁紙 > 桌面壁紙圖包 </code> 內之選項。",
+                "advance/wallpaper/clear":"清除選項",
+                "advance/wallpaper/select":"選擇資料夾",
+                
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

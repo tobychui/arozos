@@ -50,16 +50,15 @@
         <script>
             $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now()/1000));
 
-            
-
             function shutdown(){
                 var apiObject = {
-                    api: "/system/power/shutdown",
+                    api: "system/power/shutdown",
                     data: {},
                     title: "<i class='red exclamation triangle icon'></i> Shutdown Host <i class='red exclamation triangle icon'></i>",
                     desc: "Please enter your password to confirm operation.",
                     thisuser: true, //This username as default, set to false for entering other user
-                    method: "GET"
+                    method: "GET",
+                    success: "SystemAO/boot/shutdown.html"
                 }
 
                 apiObject = encodeURIComponent(JSON.stringify(apiObject));
@@ -77,7 +76,7 @@
 
             function restart(){
                 var apiObject = {
-                    api: "/system/power/restart",
+                    api: "system/power/restart",
                     data: {},
                     title: "Password Required",
                     desc: "for restarting the ArozOS Host",

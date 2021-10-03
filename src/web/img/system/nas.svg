@@ -3,10 +3,10 @@
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 width="128px" height="128px" viewBox="0 0 128 128" enable-background="new 0 0 128 128" xml:space="preserve">
-<rect x="15.49" y="12.625" fill="#727171" width="79.344" height="102.833"/>
+<rect x="15.49" y="12.625" fill="#3E3A39" width="79.344" height="102.833"/>
 <path fill="#FFFFFF" d="M41.144,105.691c0,3.358,2.174,6.082,4.856,6.082h40.651c2.68,0,4.854-2.724,4.854-6.082V33.053
 	c0-3.359-2.175-6.083-4.854-6.083H46c-2.682,0-4.856,2.724-4.856,6.083V105.691z"/>
-<polygon fill="#DCDDDD" points="112.51,96.458 112.51,30.292 94.834,12.626 94.834,115.458 "/>
+<polygon fill="#C9CACA" points="112.51,96.458 112.51,30.292 94.834,12.626 94.834,115.458 "/>
 <path fill="#3E3A39" d="M70.303,109.527c-1.399,0-2.532-1.1-2.532-2.457V32.105c0-1.357,1.133-2.458,2.532-2.458h16.044
 	c1.4,0,2.533,1.101,2.533,2.458v74.965c0,1.359-1.133,2.459-2.533,2.459L70.303,109.527z"/>
 <circle fill="#00A0E9" cx="78.326" cy="39.904" r="3.708"/>

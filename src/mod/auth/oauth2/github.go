@@ -68,10 +68,15 @@ func githubEndpoint() oauth2.Endpoint {
 func githubUserInfo(accessToken string) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://api.github.com/user", nil)
+	if err != nil {
+		return "", err
+	}
 	req.Header.Set("Authorization", "token "+accessToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	response, err := client.Do(req)
-
+	if err != nil {
+		return "", err
+	}
 	defer response.Body.Close()
 	contents, err := ioutil.ReadAll(response.Body)
 	var data GithubField

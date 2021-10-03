@@ -5,11 +5,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="theme-color" content="#4b75ff">
-    <title>Photo Preview</title>
+    <title>Photo Viewer</title>
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
     <link rel="manifest" href="manifest.json">
     <style>
+        body{
+            margin: 0px !important;
+            background:rgba(34,34,34,1);
+            overflow: hidden;
+        }
         .arrow{
             width: 2em;
             opacity: 0.5;
@@ -27,8 +32,8 @@
         }
     </style>
 </head>
-<body style="background:rgba(34,34,34,1);overflow:hidden;">
-    <img id="img" style="max-height: 100vh;max-width: 100vw;">
+<body>
+    <img id="img" style="max-height: 100vh;max-width: 100%;">
     <img class="left arrow" onclick="previousImage();" src="embedded/arrow-left.svg">
     <img class="right arrow" onclick="nextImage();" src="embedded/arrow-right.svg">
     <script>
@@ -125,9 +130,65 @@
         }
 
         function updateImgSize() {
-            $('#img').css("margin-top", (window.innerHeight - $("#img").height()) / 2 - 6);
-            $('#img').css("margin-left", (window.innerWidth - $("#img").width()) / 2 - 6);
+            $('#img').css("margin-top", (window.innerHeight - $("#img").height()) / 2);
+            $('#img').css("margin-left", (window.innerWidth - $("#img").width()) / 2);
         }
+
+        //Touch gesture detections
+        document.addEventListener('touchstart', handleTouchStart, false);        
+        document.addEventListener('touchmove', handleTouchMove, false);
+
+        var xDown = null;                                                        
+        var yDown = null;
+
+        function getTouches(evt) {
+        return evt.touches ||             // browser API
+                evt.originalEvent.touches; // jQuery
+        }                                                     
+                                                                                
+        function handleTouchStart(evt) {
+            const firstTouch = getTouches(evt)[0];                                      
+            xDown = firstTouch.clientX;
+            yDown = firstTouch.clientY;
+        };
+
+
+        function handleTouchMove(evt) {
+            if ( ! xDown || ! yDown ) {
+                return;
+            }
+
+            var xUp = evt.touches[0].clientX;                                    
+            var yUp = evt.touches[0].clientY;
+
+            var xDiff = xDown - xUp;
+            var yDiff = yDown - yUp;
+                                                                                
+            if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
+                if ( xDiff > 0 ) {
+                    /* right swipe */ 
+                    nextImage();
+                } else {
+                    /* left swipe */
+                    previousImage();
+                }                       
+            } else {
+                if ( yDiff > 0 ) {
+                    /* down swipe */ 
+                } else { 
+                    /* up swipe */
+                }                                                                 
+            }
+
+            /* reset values */
+            xDown = null;
+            yDown = null;                        
+        };
+
+        function isZoomed(){
+            return window.matchMedia('(max--moz-device-pixel-ratio:0.99), (min--moz-device-pixel-ratio:1.01)').matches;
+        }
+
     </script>
 </body>
 

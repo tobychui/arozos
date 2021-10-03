@@ -31,9 +31,14 @@ func microsoftEndpoint() oauth2.Endpoint {
 func microsoftUserInfo(accessToken string) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://graph.microsoft.com/oidc/userinfo", nil)
+	if err != nil {
+		return "", err
+	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	response, err := client.Do(req)
-
+	if err != nil {
+		return "", err
+	}
 	defer response.Body.Close()
 	contents, err := ioutil.ReadAll(response.Body)
 	var data MicrosoftField

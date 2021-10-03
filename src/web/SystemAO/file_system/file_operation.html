@@ -579,7 +579,18 @@ mainloop:
                 if (location.protocol !== 'https:') {
                     protocol = "ws://";
                 }
-                wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port + "/system/file_system/ws/fileOpr");
+
+                var port = window.location.port;
+                if (window.location.port == ""){
+                    if (location.protocol !== 'https:') {
+                        port = "80";
+                    }else{
+                        port = "443";
+                    }
+                    
+                }
+
+                wsControlEndpoint = (protocol + window.location.hostname + ":" + port + "/system/file_system/ws/fileOpr");
                 return wsControlEndpoint;
             }
 
@@ -626,8 +637,15 @@ mainloop:
                             }else if (operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
                                 var callbackWindowObject = parent.getFloatWindowByID(operationConfig.callbackWindowID)
                                 var windowObject = $(callbackWindowObject).find("iframe")[0];
-                                console.log(windowObject.contentWindow, operationConfig.callbackFunction);
-                                windowObject.contentWindow.eval(operationConfig.callbackFunction);
+                                if (windowObject == undefined || windowObject == null){
+                                    //Caller no longer exists.
+                                    
+                                }else{
+                                    //Caller still exists. Do callback events
+                                    //console.log(windowObject.contentWindow, operationConfig.callbackFunction);
+                                    windowObject.contentWindow.eval(operationConfig.callbackFunction);
+                                }
+                                
                             }
 
                             //If the target or src is desktop, refresh desktop as well

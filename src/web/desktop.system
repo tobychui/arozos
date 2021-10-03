@@ -11,6 +11,7 @@
     <script type="text/javascript" src="./script/jquery.min.js"></script>
     <script type="text/javascript" src="./script/ao_module.js"></script>
     <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
+    <script type="text/javascript" src="./script/applocale.js"></script>
     <style>
         body {
             background-repeat: no-repeat;
@@ -821,10 +822,10 @@
             <div id="notificationlist" style="width: calc(100% - 302px); padding:8px; margin-top:5px; padding-top:22px; overflow-y:auto; overflow-x:hidden; height: calc(100% - 12px);">
                 <div class="nonotification">
                     <h4 class="ts center aligned icon header">
-                        <i class="bell icon"></i>No Notification
+                        <i class="bell icon"></i><span locale="notification/nonotification">No Notification</span>
                     </h4>
                 </div>
-                <a class="clearall" onclick="clearAllNotification();">Clear All</a>
+                <a class="clearall" onclick="clearAllNotification();" locale="notification/clear">Clear All</a>
             </div>
             <div style="position:absolute; right:3px; top:3px; padding-top:8px;">
                 <div class="ts header" style="padding-left:22px;">
@@ -871,19 +872,19 @@
         </div>
         <dib class="listItemWrapper">
             <div class="groups">
-                <div id="searchResults" class="item" style="display:none;">Search Results</div>
-                <div class="item groupType selected" group="All">All</div>
-                <div class="item groupType" group="Media">Media</div>
-                <div class="item groupType" group="Office">Office</div>
-                <div class="item groupType" group="Download">Download</div>
-                <div class="item groupType" group="Files">Files</div>
-                <div class="item groupType" group="Internet">Internet</div>
-                <div class="item groupType" group="System Settings">System Settings</div>
-                <div class="item groupType" group="System Tools">System Tools</div>
-                <div class="item groupType" group="Utilities">Utilities</div>
-                <div class="item groupType" group="Other">Other</div>
+                <div locale="listmenu/catergory/searchResults" id="searchResults" class="item" style="display:none;">Search Results</div>
+                <div locale="listmenu/catergory/all" class="item groupType selected" group="All">All</div>
+                <div locale="listmenu/catergory/media" class="item groupType" group="Media">Media</div>
+                <div locale="listmenu/catergory/office" class="item groupType" group="Office">Office</div>
+                <div locale="listmenu/catergory/download" class="item groupType" group="Download">Download</div>
+                <div locale="listmenu/catergory/files" class="item groupType" group="Files">Files</div>
+                <div locale="listmenu/catergory/internet" class="item groupType" group="Internet">Internet</div>
+                <div locale="listmenu/catergory/settings" class="item groupType" group="System Settings">System Settings</div>
+                <div locale="listmenu/catergory/tools" class="item groupType" group="System Tools">System Tools</div>
+                <div locale="listmenu/catergory/utils" class="item groupType" group="Utilities">Utilities</div>
+                <div locale="listmenu/catergory/other" class="item groupType" group="Other">Other</div>
                 <div class="poweroption">
-                    <img id="powerIcon" style="width:18px; vertical-align: top; margin-right:4px;" src="img/system/power.svg"></img> Exit
+                    <img id="powerIcon" style="width:18px; vertical-align: top; margin-right:4px;" src="img/system/power.svg"></img> <span locale="listmenu/catergory/exit">Exit</span>
                 </div>
             </div>
             <div id="listMenuItem" class="items">
@@ -905,14 +906,14 @@
     <div id="connectionLost">
         <div class="ts inverted card themeColor" style="width: 300px; background-color: rgba(14,14,14,0.5);">
             <div class="content">
-                <div class="header"><img class="ts mini image blink-image" style="vertical-align:bottom; padding-right: 0.5em;" src="SystemAO/desktop/icons/connlost.svg"> Connection Lost</div>
-                <div class="description">
+                <div class="header"><img class="ts mini image blink-image" style="vertical-align:bottom; padding-right: 0.5em;" src="SystemAO/desktop/icons/connlost.svg"><span locale="error/connlost/title">Connection Lost</span></div>
+                <div class="description" locale="error/connlost">
                     Connection to server is lost. Please wait until this warning disappear before further operations.
                 </div>
             </div>
             <div class="ts fluid bottom attached buttons">
-                <button class="ts opinion button" onclick="handleManualCheckReconnect(this);">Check Again</button>
-                <button class="ts secondary opinion button">Wait</button>
+                <button locale="error/connlost/recheck" class="ts opinion button" onclick="handleManualCheckReconnect(this);">Check Again</button>
+                <button locale="error/connlost/wait" class="ts secondary opinion button">Wait</button>
             </div>
         </div>
         
@@ -933,30 +934,30 @@
                 </div>
                 <div class="actions">
                     <div class="ts button" onclick="logout(); hideToolPanel();">
-                        <i class="log out icon"></i> Logout
+                        <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
                     </div>
                 </div>
             </div>
         </div>
         <div class="item" style="padding-bottom:12px;">
-            <i class="volume up icon"></i> System Global Volume
+            <i class="volume up icon"></i> <span locale="quickAccess/sysvol">System Global Volume</span>
             <div class="ts fluid small progress" style="margin-top:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
                 <div id="volumebar" class="bar" style="width: 0%; background-color:#52C9FF;  cursor:pointer;"></div>
             </div>
         </div>
         <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
-            <i class="setting icon"></i> System Settings
+            <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
             <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
         </div>
         <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
-            <i class="maximize icon"></i> Toggle Fullscreen
+            <i class="maximize icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
         </div>
         <div class="ts divider"></div>
         <div class="item hardware" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
-            <i class="repeat icon"></i> Restart
+            <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
         </div>
         <div class="item hardware" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
-            <i class="power icon"></i> Power Off
+            <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
         </div>
     </div>
 
@@ -1041,25 +1042,44 @@
         var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
         var isMacOS = (navigator.appVersion.indexOf("Mac")!=-1);
 
-        //Initiation functions
-        initDesktopTheme();
-        initDesktopHostInfo();
-        initDesktopUserInfo();
-        initBackgroundSwitchingAnimation();
-        //Commented for debug purpose
-        initUploadMode();
-        initModuleList();
-        initDesktopIconPreference()
-        initUserDefinedThemeColor();
-        hookFloatWindowEvents();
-        hookLaunchMenuEvents();
-        initTheme();
-        initStartupSounds();
+        //Check and prepare localization
+        if (applocale){
+            //Applocale found. Do localization
+            applocale.init("./SystemAO/locale/desktop.json", function(){
+                applocale.translate();
+                initDesktop();
+            });
+        }else{
+            //Applocale not found. Is this a trim down version of ArozOS?
+            var applocale = {
+                getString: function(key, original){
+                    return original;
+                }
+            }
+            initDesktop();
+        }
 
-        //Login cookie expire check
-        setInterval(function() {
-            checkConnection();
-        }, 15000);
+        function initDesktop(){
+            //Initiation functions
+            initDesktopTheme();
+            initDesktopHostInfo();
+            initDesktopUserInfo();
+            initBackgroundSwitchingAnimation();
+            //Commented for debug purpose
+            initUploadMode();
+            initModuleList();
+            initDesktopIconPreference()
+            initUserDefinedThemeColor();
+            hookFloatWindowEvents();
+            hookLaunchMenuEvents();
+            initTheme();
+            initStartupSounds();
+
+            //Login cookie expire check
+            setInterval(function() {
+                checkConnection();
+            }, 15000);
+        }
 
         function handleManualCheckReconnect(button){
             $(button).addClass("loading");
@@ -1462,9 +1482,11 @@
                     var title = data["Name"];
                     //Check if the module support fw mode. If yes, launch with fwmode url. IF not, launch to index
                     if (data["SupportFW"] == true) {
-                        if (data["LaunchFWDir"] != null) {
+                        console.log(data["LaunchFWDir"]);
+                        if (data["LaunchFWDir"] != null && data["LaunchFWDir"] != "") {
                             url = data["LaunchFWDir"];
                         }
+
                         if (data["InitFWSize"] != null) {
                             size = data["InitFWSize"];
                         }
@@ -2086,6 +2108,7 @@
 
             //Find the btn object that contains the windowID
             var closingWindowID = $(fw).attr("windowId");
+            $("#stackedWindowList").hide();
             resizeAllFloatWindowButtons();
             hideAllContextMenus();
         }
@@ -2205,17 +2228,21 @@
             
             focusedWindow = $(object);
             
-            //Check if this div is hidden. If not, fade it in.
+            //Check if this div is hidden. If yes, fade it in.
             if ($(object).is(":hidden")) {
                 $(object).fadeIn(100);
             }
+
+            //Focus on the top most floatWindow
+            var iframe = focusedWindow.find("iframe")[0];
+            iframe.contentWindow.focus();
 
         }
 
         function newFloatWindow(config, callback=undefined) {
             //Check if the number of floatWindow already reaching its maxmium
             if ($(".floatWindow").length > maxWindowCount){
-                console.log("Max number of floatWindow reached.")
+                console.log("Max number of floatWindow reached.");
                 return;
             }
             //Generate new floatwindow startup config from object
@@ -2268,26 +2295,26 @@
 
             //Append the floatWindow into the body
             $("body").append(`<div class="floatWindow" windowId="${uuid}" parent="${parentWindowID}" callback="${callbackFunctionName}" style="z-index:0; width:${width}px; height:${height}px; left:${left}px; top:${top}px;${backgroundStyle}">
-                                    <div class="controls fwdragger themeColorSolid" style="${overWriteThemeColor}">
-                                        <img class="moduleicon" src="${moduleIcon}"></img>
-                                        <div class="title">${title}</div>
-                                        <div class="fwcontrol">
-                                            <div class="buttons mintoggle">
-                                                <img src="img/system/min.png"></img>
-                                            </div>
-                                            <div class="buttons maxtoggle">
-                                                <img class="maxToogleButton" src="img/system/max.png"></img>
-                                            </div>
-                                            <div class="buttons closetoggle close">
-                                                <img src="img/system/close.png"></img>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="iframewrapper">
-                                        <iframe src="${url}" allowfullscreen="true"></iframe>
-                                        <div class="iframecover"></div>
-                                    </div>
-                                </div>`);
+                <div class="controls fwdragger themeColorSolid" style="${overWriteThemeColor}">
+                    <img class="moduleicon" src="${moduleIcon}"></img>
+                    <div class="title">${title}</div>
+                    <div class="fwcontrol">
+                        <div class="buttons mintoggle">
+                            <img src="img/system/min.png"></img>
+                        </div>
+                        <div class="buttons maxtoggle">
+                            <img class="maxToogleButton" src="img/system/max.png"></img>
+                        </div>
+                        <div class="buttons closetoggle close">
+                            <img src="img/system/close.png"></img>
+                        </div>
+                    </div>
+                </div>
+                <div class="iframewrapper">
+                    <iframe src="${url}" allowfullscreen="true"></iframe>
+                    <div class="iframecover"></div>
+                </div>
+            </div>`);
             var newWindowObject = getFloatWindowByID(uuid);
             //console.log(newWindowObject);
             MoveFloatWindowToTop(newWindowObject);
@@ -2628,7 +2655,13 @@
                     });
                 }else{
                     //Cleanup all previous icons
-                    $("#iconwrapper").html("");
+                    $("#iconwrapper").children().each(function(){
+                        if ($(this).hasClass("launchIcon") && $(this).attr("type") == "dummy"){
+                            //Special kind of launchIcon. Skip this
+                            return;
+                        }
+                        $(this).remove();
+                    });
                 }
                 //Allocate new items location
                 var iheight = 106;
@@ -4176,63 +4209,63 @@
                     //Check if selected more than one object
                     if ($(".launchIconWrapper.selected").length > 1){
                             //When the user selected more than one item on desktop
-                            addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
-                            addContextMenuItem($("#contextmenu"), 'Open With', "<i class='caret right icon'></i>", "handleOpenWith", true);
+                            addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Open With'), "<i class='caret right icon'></i>", "handleOpenWith", true);
                             //addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
                             addContextMenuSeperator($("#contextmenu"));
-                            addContextMenuItem($("#contextmenu"), 'Download in Zip', "<i class='download icon'></i>", "downloadFile", false);
-                            addContextMenuItem($("#contextmenu"), 'Make a Copy', "<i class='copy icon'></i>", "handleCloning", false);
-                            addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Download in Zip'), "<i class='download icon'></i>", "downloadFile", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Make a Copy'), "<i class='copy icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             addContextMenuSeperator($("#contextmenu"));
-                            addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Properties'), undefined, "openObjectProperty", false);
 
                     }else{
                         //When the user only selected one item
                         if (objectType == "file") {
-                            addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
-                            addContextMenuItem($("#contextmenu"), 'Open With', "<i class='caret right icon'></i>", "handleOpenWith", true);
-                            addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
+                            addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Open With'), "<i class='caret right icon'></i>", "handleOpenWith", true);
+                            addContextMenuItem($("#contextmenu"), lcontex('Share'), "<i class='caret right icon'></i>", "handleFileShare", true);
                             addContextMenuSeperator($("#contextmenu"));
-                            addContextMenuItem($("#contextmenu"), 'Download', "<i class='download icon'></i>", "downloadFile", false);
-                            addContextMenuItem($("#contextmenu"), 'Make a Copy', "<i class='copy icon'></i>", "handleCloning", false);
-                            addContextMenuItem($("#contextmenu"), 'Rename', undefined, "handleRename", false);
-                            addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Download'), "<i class='download icon'></i>", "downloadFile", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Make a Copy'), "<i class='copy icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             addContextMenuSeperator($("#contextmenu"));
-                            addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Properties'), undefined, "openObjectProperty", false);
 
                         } else if (objectType == "folder") {
-                            addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
-                            addContextMenuItem($("#contextmenu"), 'Zip here', "<i class='zip icon'></i>", "handleZipFolder", false);
-                            addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
+                            addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Zip here'), "<i class='zip icon'></i>", "handleZipFolder", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Share'), "<i class='caret right icon'></i>", "handleFileShare", true);
                             addContextMenuSeperator($("#contextmenu"));
-                            addContextMenuItem($("#contextmenu"), 'Download as Zip', "<i class='download icon'></i>", "downloadFile", false);
-                            addContextMenuItem($("#contextmenu"), 'Make a Copy', "<i class='caret right icon'></i>", "handleCloning", false);
-                            addContextMenuItem($("#contextmenu"), 'Rename', undefined, "handleRename", false);
-                            addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Download as Zip'), "<i class='download icon'></i>", "downloadFile", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Make a Copy'), "<i class='caret right icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             addContextMenuSeperator($("#contextmenu"));
-                            addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Properties'), undefined, "openObjectProperty", false);
                         } else if (objectType == "shortcut") {
                             var fd = JSON.parse(decodeURIComponent($(clickTarget).attr("filedata")));
                             console.log(fd);
                             if (fd.ShortcutType == "module"){
                                 //Public WebApp
-                                addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
-                                addContextMenuItem($("#contextmenu"), 'Open in New Tab', "<i class='external icon'></i>", "openWebAppInNewTab", false);
-                                addContextMenuItem($("#contextmenu"), 'Rename', undefined, "handleRename", false);
-                                addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Open in New Tab'), "<i class='external icon'></i>", "openWebAppInNewTab", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
 
                             }else if (fd.ShortcutType == "folder"){
                                 //Folder
-                                addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
-                                addContextMenuItem($("#contextmenu"), 'Open File Location', "<i class='folder open icon'></i>", "handleShortcutFolderOpen", false);
-                                addContextMenuItem($("#contextmenu"), 'Rename', undefined, "handleRename", false);
-                                addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Open File Location'), "<i class='folder open icon'></i>", "handleShortcutFolderOpen", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                                 addContextMenuSeperator($("#contextmenu"));
-                                addContextMenuItem($("#contextmenu"), 'Properties', undefined, "openObjectProperty", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Properties'), undefined, "openObjectProperty", false);
                           
                             }else{
-                                addContextMenuItem($("#contextmenu"), 'Open', undefined, "openIconViaMenu", false);
-                                addContextMenuItem($("#contextmenu"), 'Delete', "<i class='trash icon'></i>", "handleFileDelete", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             }
                             
                           
@@ -4244,34 +4277,34 @@
 
                 } else if (clickTarget.hasClass("backgroundFrame") || ((isSafari || (isMacOS && isChrome)) && $(clickTarget).attr("id") == "selectionPanel")) {
                     //Click on the background. Load background context menu.
-                    addContextMenuItem($("#contextmenu"), 'New', "<i class='caret right icon'></i>", "newitemmenu", true);
-                    addContextMenuItem($("#contextmenu"), 'Refresh', "<i class='refresh icon'></i>", "handleMenuRefresh", false);
-                    addContextMenuItem($("#contextmenu"), 'Open File Manager', undefined, "openfm", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('New'), "<i class='caret right icon'></i>", "newitemmenu", true);
+                    addContextMenuItem($("#contextmenu"), lcontex('Refresh'), "<i class='refresh icon'></i>", "handleMenuRefresh", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Open File Manager'), undefined, "openfm", false);
                     //addContextMenuItem($("#contextmenu"), 'Get File from URL', "<i class='download icon'></i>", "downloadURL", false);
-                    addContextMenuItem($("#contextmenu"), 'Personalization', "<i class='paint brush icon'></i>", "personalization", false);
-                    addContextMenuItem($("#contextmenu"), 'Background', "<i class='caret right icon'></i>", "background", true);
-                    addContextMenuItem($("#contextmenu"), 'Icon Size', "<i class='caret right icon'></i>", "listIconsize", true);
-                    addContextMenuItem($("#contextmenu"), 'Toggle FullScreen', "<i class='maximize icon'></i>", "fullscreen", false);
-                    addContextMenuItem($("#contextmenu"), 'Exit', undefined, "logout", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Personalization'), "<i class='paint brush icon'></i>", "personalization", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Background'), "<i class='caret right icon'></i>", "background", true);
+                    addContextMenuItem($("#contextmenu"), lcontex('Icon Size'), "<i class='caret right icon'></i>", "listIconsize", true);
+                    addContextMenuItem($("#contextmenu"), lcontex('Toggle FullScreen'), "<i class='maximize icon'></i>", "fullscreen", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Exit'), undefined, "logout", false);
                     showMenu = true;
                 }else if (clickTarget.hasClass("fwdragger") || (clickTarget.hasClass("title") && clickTarget.parent().hasClass("fwdragger"))){
                     //Click on the floatWindow object 
-                    addContextMenuItem($("#contextmenu"), 'Open in New Tab', "<i class='external icon'></i>", "openSelectedFloatWindowInNewTab", false);
-                    addContextMenuItem($("#contextmenu"), 'Refresh', "<i class='refresh icon'></i>", "refreshSelectedFloatWindow", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Open in New Tab'), "<i class='external icon'></i>", "openSelectedFloatWindowInNewTab", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Refresh'), "<i class='refresh icon'></i>", "refreshSelectedFloatWindow", false);
                     addContextMenuSeperator($("#contextmenu"));
-                    addContextMenuItem($("#contextmenu"), 'Minimize', "<i class='window minimize icon'></i>", "minimizeSelectedFloatWindow", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Minimize'), "<i class='window minimize icon'></i>", "minimizeSelectedFloatWindow", false);
 
                     if ($(clickTarget).parent().hasClass("fixedsize") == false && $(clickTarget).parent().parent().hasClass("fixedsize") == false){
                         //This FloatWindow is resizable
                         console.log($(clickTarget).parent());
                         if ($(clickTarget).parent().attr("max") !== undefined && $(clickTarget).parent().attr("max") == "true"){
-                            addContextMenuItem($("#contextmenu"), 'Restore', "<i class='window window restore icon'></i>", "maximizeSelectedFloatWindow", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Restore'), "<i class='window window restore icon'></i>", "maximizeSelectedFloatWindow", false);
                         }else{
-                            addContextMenuItem($("#contextmenu"), 'Maximize', "<i class='window maximize icon'></i>", "maximizeSelectedFloatWindow", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Maximize'), "<i class='window maximize icon'></i>", "maximizeSelectedFloatWindow", false);
                         }
                         
                     }
-                    addContextMenuItem($("#contextmenu"), 'Close', "<i class='remove icon'></i>", "closeSelectedFloatWindow", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Close'), "<i class='remove icon'></i>", "closeSelectedFloatWindow", false);
                     showMenu = true;
                 }
 
@@ -4294,8 +4327,17 @@
                     });
                     menuStartLocation = [e.pageX, e.pageY];
                 }
-                
-            }, true);
+            }
+        , true);
+        
+        //Localize context menu items using applocale
+        function lcontex(key){
+            if (applocale){
+                return applocale.getString("contextmenu/" + key, key);
+            }else{
+                return key;
+            }
+        }
 
         function handleMenuRefresh() {
             //This function is here to remove the object and event passed in from menu pressed object
@@ -4336,6 +4378,8 @@
                     }
                 });
             });
+
+            hideAllContextMenus();
         }
 
         function downloadFile(target, event){
@@ -4451,7 +4495,7 @@
 
                     //Add select more opener option
                     addContextMenuSeperator($("#subcontextmenu"));
-                    addContextMenuItem($("#subcontextmenu"), "Select Other WebApps", ``, "openOpenSelector", false);
+                    addContextMenuItem($("#subcontextmenu"), lcontex("Select Other WebApps"), ``, "openOpenSelector", false);
                 }
                 showSubContextMenu(target);
             });
@@ -4470,20 +4514,20 @@
                      data: {path: fileData.Filepath},
                      success: function(data){
                         if (data.IsShared == true){
-                            addContextMenuItem($("#subcontextmenu"), "Open Shared Link", `<i class="external icon"></i>`, "openSharedLink", false, {
+                            addContextMenuItem($("#subcontextmenu"), lcontex("Open Shared Link"), `<i class="external icon"></i>`, "openSharedLink", false, {
                                 payload: {
                                     uuid: data.ShareUUID.UUID
                                 }
                             });
-                            addContextMenuItem($("#subcontextmenu"), "Copy Link", `<i class="copy icon"></i>`, "copySharedLink", false, {
+                            addContextMenuItem($("#subcontextmenu"),  lcontex("Copy Link"), `<i class="copy icon"></i>`, "copySharedLink", false, {
                                 payload: {
                                     uuid: data.ShareUUID.UUID
                                 }
                             });
                             addContextMenuSeperator($("#subcontextmenu"));
-                            addContextMenuTitle($("#subcontextmenu"), `<i class="share alternate icon"></i> Change Share Settings`);
+                            addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Change Share Settings", "Change Share Settings")}]`));
                         }else{
-                            addContextMenuTitle($("#subcontextmenu"), `<i class="share alternate icon"></i> Share this File`);
+                            addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Share this File", "Share this File")}`));
                         }
 
                         var checkmarkStyle = `style="color: #71ba68;"`;
@@ -4501,17 +4545,17 @@
                             samegroup = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
                         }
 
-                        addContextMenuItem($("#subcontextmenu"), `<i class="globe icon"></i> Anyone with Link`, anyoneClass, "shareWithThisPermission", false, {
+                        addContextMenuItem($("#subcontextmenu"), `<i class="globe icon"></i> ${applocale.getString("contextmenu/share/link","Anyone with Link")}`, anyoneClass, "shareWithThisPermission", false, {
                             payload: {
                                 type: "anyone"
                             }
                         });
-                        addContextMenuItem($("#subcontextmenu"), `<i class="user circle outline icon"></i> Anyone Signed In`, signedinClass, "shareWithThisPermission", false, {
+                        addContextMenuItem($("#subcontextmenu"), `<i class="user circle outline icon"></i> ${applocale.getString( "contextmenu/share/signedin","Anyone Signed In")}`, signedinClass, "shareWithThisPermission", false, {
                             payload: {
                                 type: "signedin"
                             }
                         });
-                        addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> Same Group Users`, sameGroupClass, "shareWithThisPermission", false,{
+                        addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> ${applocale.getString("contextmenu/share/samegroup","Same Group Users")}`, sameGroupClass, "shareWithThisPermission", false,{
                             payload: {
                                 type: "samegroup"
                             }
@@ -4519,7 +4563,7 @@
                         if (data.IsShared == true){
                             //This file is shared.
                             addContextMenuSeperator($("#subcontextmenu"));
-                            addContextMenuItem($("#subcontextmenu"), "Remove Share", `<i style="color: #d97762;" class="trash icon"></i>`, "shareWithThisPermission", false,{
+                            addContextMenuItem($("#subcontextmenu"), lcontex("Remove Share"), `<i style="color: #d97762;" class="trash icon"></i>`, "shareWithThisPermission", false,{
                                 payload: {
                                     type: "remove"
                                 }
@@ -4774,9 +4818,9 @@
             if (desktopIconSize == "big") {
                 bigCheckmark = "<i class='checkmark icon'></i>";
             }
-            addContextMenuItem($("#subcontextmenu"), "Small", smallCheckmark, "setDesktopIconSize", false);
-            addContextMenuItem($("#subcontextmenu"), "Medium", mediumCheckmark, "setDesktopIconSize", false);
-            addContextMenuItem($("#subcontextmenu"), "Big", bigCheckmark, "setDesktopIconSize", false);
+            addContextMenuItem($("#subcontextmenu"), lcontex("Small"), smallCheckmark, "setDesktopIconSize", false);
+            addContextMenuItem($("#subcontextmenu"), lcontex("Medium"), mediumCheckmark, "setDesktopIconSize", false);
+            addContextMenuItem($("#subcontextmenu"), lcontex("Big"), bigCheckmark, "setDesktopIconSize", false);
             showSubContextMenu(target);
         }
 
@@ -5078,8 +5122,8 @@
         function newitemmenu(target, event) {
             $("#subcontextmenu").html("");
             //Append the new folder option first
-            addContextMenuItem($("#subcontextmenu"), 'Folder', "<i class='folder icon'></i>", "newfolder", true);
-            addContextMenuItem($("#subcontextmenu"), 'Shortcut', "<i class='external icon'></i>", "newshortcut", true);
+            addContextMenuItem($("#subcontextmenu"), lcontex('Folder'), "<i class='folder icon'></i>", "newfolder", true);
+            addContextMenuItem($("#subcontextmenu"), lcontex('Shortcut'), "<i class='external icon'></i>", "newshortcut", true);
             addContextMenuSeperator($("#subcontextmenu"));
             requestCSRFToken(function(token){
                 $.ajax({
@@ -5203,7 +5247,13 @@
                     noflash: true
                 };
             }else{
-                $(".launchIcon").remove();
+                $(".launchIcon").each(function*(){
+                    if ($(this).attr("tyoe") == "dummy"){
+                        //Do not remove this
+                        return;
+                    }
+                    $(this).remove();
+                });
             }
             if (callback == undefined) {
                 initDesktopFiles(launchOption, function(){
@@ -5228,7 +5278,11 @@
 
             var port = window.location.port;
             if (window.location.port == ""){
-                port = "80";
+                if (location.protocol !== 'https:') {
+                    port = "80";
+                }else{
+                    port = "443";
+                }
             }
 
             thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/handleCacheRender?folder=" + path);
@@ -5395,8 +5449,8 @@
             var apiObject = {
                 api: "/system/power/restart",
                 data: {},
-                title: "Password Required",
-                desc: "for restarting the ArozOS Host",
+                title: applocale.getString("power/restart/text", "Password Required"),
+                desc: applocale.getString("power/restart/instruction", "for restarting the ArozOS Host"),
                 thisuser: true, //This username as default, set to false for entering other user
                 method: "GET"
             }
@@ -5407,7 +5461,7 @@
                 width: 480,
                 height: 300,
                 appicon: "SystemAO/security/img/lock.svg",
-                title: "Restart - Authentication Required",
+                title: applocale.getString("power/restart/title", "Restart - Authentication Required"),
                 parent: ao_module_windowID,
                 callback: "handleRestartCallback"
             });
@@ -5419,12 +5473,13 @@
             }
 
             var apiObject = {
-                api: "/system/power/shutdown",
+                api: "system/power/shutdown",
                 data: {},
-                title: "<i class='red exclamation triangle icon'></i> Shutdown Host <i class='red exclamation triangle icon'></i>",
-                desc: "Please enter your password to confirm operation.",
+                title: `<i class='red exclamation triangle icon'></i> ${applocale.getString("power/shutdown/text", "Shutdown Host")} <i class='red exclamation triangle icon'></i>`,
+                desc: applocale.getString("power/shutdown/instruction", "Please enter your password to confirm operation."),
                 thisuser: true, //This username as default, set to false for entering other user
-                method: "GET"
+                method: "GET",
+                success: "SystemAO/boot/shutdown.html" //Success redirection
             }
             apiObject = encodeURIComponent(JSON.stringify(apiObject));
 
@@ -5433,10 +5488,10 @@
                 width: 480,
                 height: 300,
                 appicon: "SystemAO/security/img/lock.svg",
-                title: "Shutdown - Authentication Required",
+                title: applocale.getString("power/shutdown/title", "Shutdown - Authentication Required"),
                 parent: ao_module_windowID,
                 callback: "handleShutdownCallback"
-            })
+            });
            
         }
 
@@ -5473,7 +5528,7 @@
             $("#iconwrapper").append(`<div href="javascript:void(0);" class="${uploadIconUUID} launchIcon" type="dummy" filename="${filename}" filepath="user:/Desktop/${filename}"  style="width:70px; height:106px;left:${onScreenLocation[0]}px; top:${onScreenLocation[1]}px;">
                 <span class="launchIconWrapper">
                     <img class="launchIconImage medium" src="img/desktop/files_icon/${desktopIconPack}/file upload.png" draggable="false">
-                    <p class="launchIconText ${desktopIconSize}" >Uploading</p>
+                    <p class="launchIconText ${desktopIconSize}" >${applocale.getString( "upload/message/uploading", "Uploading")}</p>
                     <div class="ts tiny primary progress" style="margin-top: -4px;">
                         <div class="bar" style="min-width: 0px !important; width: 0%;"></div>
                     </div>
@@ -5499,7 +5554,11 @@
 
                 var port = window.location.port;
                 if (window.location.port == ""){
-                    port = "80";
+                    if (location.protocol !== 'https:') {
+                        port = "80";
+                    }else{
+                        port = "443";
+                    }
                 }
 
                 let uploadDir = "user:/Desktop";
@@ -5519,14 +5578,14 @@
                 
                 //Define a function for sending a particular chunk
                 function sendChunk(id, uploadingIconUUID){
-                    var offsetStart = id*uploadFileChunkSize;
-                    var offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
-                    var thisblob = file.slice(offsetStart,offsetEnd);
+                    let offsetStart = id*uploadFileChunkSize;
+                    let offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
+                    let thisblob = file.slice(offsetStart,offsetEnd);
                     socket.send(thisblob);
                     //console.log(id + "/" + chunks);
 
                     //Update progress to first percentage
-                    var progress = id / (chunks-1) * 100.0;
+                    let progress = id / (chunks-1) * 100.0;
                     if (progress > 100){
                         progress = 100;
                     }
@@ -5581,7 +5640,11 @@
                                 sendNotification("Upload Failed", resp.error, "remove")
 
                                 //Update the progress bar to error
-                               
+                                $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
+                                $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
+                                setTimeout(function(){
+                                    $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000,function() { $(this).remove(); });
+                                }, 2000);
                             }
                         }catch(ex){
                             //Something else
@@ -5635,6 +5698,12 @@
                     }
                     else if (xhr.readyState == 4 && xhr.status != 200) {
                         console.log("Upload failed :" + xhr.status);
+                        //Set upload progress bar to error
+                        $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
+                        $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
+                        setTimeout(function(){
+                            $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000,function() { $(this).remove(); });
+                        }, 2000);
                     }
                 })
                 xhr.send(formData);

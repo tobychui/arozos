@@ -23,11 +23,11 @@ func NewSyncDB() *SyncDB {
 	//Put the newly craeted syncmap into the db object
 	newSyncDB := SyncDB{db: &newDB} //!!! USE POINTER HERE INSTEAD OF THE SYNC MAP ITSELF
 	//Return the pointer of the new SyncDB object
-	newSyncDB.AutoClening()
+	newSyncDB.AutoCleaning()
 	return &newSyncDB
 }
 
-func (p SyncDB) AutoClening() {
+func (p SyncDB) AutoCleaning() {
 	//create the routine for auto clean trash
 	go func() {
 		for {

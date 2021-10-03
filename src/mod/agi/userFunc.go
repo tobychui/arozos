@@ -28,7 +28,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, scriptFile string, scriptSc
 	vm.Set("USERICON", u.GetUserIcon())
 	vm.Set("USERQUOTA_TOTAL", u.StorageQuota.TotalStorageQuota)
 	vm.Set("USERQUOTA_USED", u.StorageQuota.UsedStorageQuota)
-	vm.Set("USER_VROOTS", u.GetAllFileSystemHandler())
+	vm.Set("USER_VROOTS", u.GetAllAccessibleFileSystemHandler())
 	vm.Set("USER_MODULES", u.GetUserAccessibleModules())
 
 	//File system and path related

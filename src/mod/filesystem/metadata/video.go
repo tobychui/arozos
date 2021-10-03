@@ -9,9 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 
 	"github.com/oliamb/cutter"
+	"imuslab.com/arozos/mod/apt"
 )
 
 func generateThumbnailForVideo(cacheFolder string, file string, generateOnly bool) (string, error) {
@@ -75,23 +75,6 @@ func generateThumbnailForVideo(cacheFolder string, file string, generateOnly boo
 }
 
 func pkg_exists(pkgname string) bool {
-	if runtime.GOOS == "windows" {
-		//Check if the command already exists in windows path paramters.
-		cmd := exec.Command("where", pkgname, "2>", "nul")
-		_, err := cmd.CombinedOutput()
-		if err != nil {
-			return false
-		}
-		return true
-	} else if runtime.GOOS == "linux" {
-		cmd := exec.Command("which", pkgname)
-		out, _ := cmd.CombinedOutput()
-
-		if len(string(out)) > 1 {
-			return true
-		} else {
-			return false
-		}
-	}
-	return false
+	installed, _ := apt.PackageExists(pkgname)
+	return installed
 }

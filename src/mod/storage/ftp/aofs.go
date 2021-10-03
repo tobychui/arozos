@@ -39,6 +39,19 @@ func (a aofs) Create(name string) (afero.File, error) {
 	return fd, nil
 }
 
+func (a aofs) Chown(name string, uid, gid int) error {
+	rewritePath, _, err := a.pathRewrite(name)
+	if err != nil {
+		return err
+	}
+
+	if !a.checkAllowAccess(rewritePath, "write") {
+		return errors.New("Permission Denied")
+	}
+
+	return os.Chown(name, uid, gid)
+}
+
 func (a aofs) Mkdir(name string, perm os.FileMode) error {
 	rewritePath, _, err := a.pathRewrite(name)
 	if err != nil {

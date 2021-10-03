@@ -31,7 +31,9 @@ func googleEndpoint() oauth2.Endpoint {
 
 func googleUserInfo(accessToken string) (string, error) {
 	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + accessToken)
-
+	if err != nil {
+		return "", err
+	}
 	defer response.Body.Close()
 	contents, err := ioutil.ReadAll(response.Body)
 	var data GoogleField

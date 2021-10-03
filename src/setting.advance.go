@@ -64,5 +64,4 @@ func AdvanceSettingInit() {
 			RequireAdmin: true,
 		})
 	}
-
 }

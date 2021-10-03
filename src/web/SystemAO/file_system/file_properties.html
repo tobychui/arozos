@@ -1,12 +1,13 @@
 <html>
     <head>
-        <title>File Properties</title>
+        <title locale="title/title">File Properties</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <link rel="stylesheet" href="../../script/semantic/semantic.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
             body{
                 overflow:hidden;
@@ -18,20 +19,20 @@
         <br>
         <div class="ui container">
             <h3 class="ui header">
-                File Properties
-                <div class="sub header">Basic File Information</div>
+                <span locale="title/title">File Properties</span>
+                <div class="sub header" locale="title/desc">Basic File Information</div>
             </h3>
             <div class="ui divider"></div>
             <div id="properties">
 
             </div>
             <br>
-            <button style="display:none;" class="ui small blue fluid button singleFileOnly" onclick="changeDefaultWebApp();">Change Default WebApp</button>
-            <button style="margin-top: 4px;" class="ui small fluid button linuxonly" onclick="openFilePermissionPanel();">Change File Permissions</button>
+            <button style="display:none;" class="ui small blue fluid button singleFileOnly" onclick="changeDefaultWebApp();" locale="button/changeDefault">Change Default WebApp</button>
+            <button style="margin-top: 4px;" class="ui small fluid button linuxonly" onclick="openFilePermissionPanel();" locale="button/changeFilePermission">Change File Permissions</button>
             <br>
         </div>
         <div id="filesizeLoader" class="ui active dimmer">
-            <div class="ui indeterminate text loader">Calculating File Size</div>
+            <div class="ui indeterminate text loader" locale="loader/loadingFileSize">Calculating File Size</div>
         </div>
         <script>
             //Initiate the view model
@@ -55,7 +56,12 @@
                 }
             }
 
-            initFileProperties();
+            applocale.init("../locale/file_properties.json", function(){
+                applocale.translate();
+                initFileProperties();
+            });
+
+           
           
 
             //Hide windows / linux only operations
@@ -114,9 +120,9 @@
                         filecount++;
                     }
                 }
-                $("#properties").append(ui_getText("Multiple selections"));
-                $("#properties").append(ui_getText(filecount + " Files"));
-                $("#properties").append(ui_getText(foldercount + " Folders"));
+                $("#properties").append(ui_getText(applocale.getString("selection/multi", "Multiple selections")));
+                $("#properties").append(ui_getText(filecount + applocale.getString("counter/files", " Files")));
+                $("#properties").append(ui_getText(foldercount + applocale.getString("counter/folders", " Folders")));
 
                 //Append other properties as table
                 $("#properties").append(ui_getTable(
@@ -278,7 +284,11 @@
                 for (var i =0; i < table.length; i++){
                     html += `<tr>`;
                     for (var j =0; j < table[i].length; j++){
-                        html += `<td style="word-break: break-all;">${table[i][j]}</td>`
+                        var keyString = table[i][j];
+                        if (j == 0 && applocale){
+                            keyString = applocale.getString("properties/key/" + keyString.trim(), keyString);
+                        }
+                        html += `<td style="word-break: break-all;">${keyString}</td>`
                     }
                     html += `</tr>`;
                 }
@@ -357,8 +367,6 @@
             */
 
             function generateDisplayLastModTime(lastModTime){
-                console.log(lastModTime);
-
                 //Try to split the date into js date format
                 var dateInfo = (lastModTime.split(" ")[0]).split("-");
                 var modTime = new Date(dateInfo[0],dateInfo[1],dateInfo[2]);
@@ -366,32 +374,32 @@
                 var displayText = "Unknown";
                 if (diff[2] > 0){
                     //years
-                    displayText = diff[2] + " year";
+                    displayText = diff[2] + applocale.getString("lastmod/time/year", " year");
                     if (diff[2] > 1){
-                        displayText += "s"
+                        displayText += applocale.getString("lastmod/time/s", "s")
                     }
 
-                    displayText += " ago";
+                    displayText += applocale.getString("lastmod/time/ago", " ago");
                     
                 }else if (diff[1] > 0){
                     //months
-                    displayText = diff[1] + "  month";
+                    displayText = diff[1] +  applocale.getString("lastmod/time/month", "  month");
                     if (diff[1] > 1){
-                        displayText += "s"
+                        displayText += applocale.getString("lastmod/time/s", "s")
                     }
 
-                    displayText += " ago";
+                    displayText += applocale.getString("lastmod/time/ago", " ago");
                 }else if (diff [0] > 0){
                     //days
-                    displayText = diff[0] + "  day";
+                    displayText = diff[0] + applocale.getString("lastmod/time/days", "  day");
                     if (diff[0] > 1){
-                        displayText += "s"
+                        displayText += applocale.getString("lastmod/time/s", "s");
                     }
 
-                    displayText += " ago";
+                    displayText += applocale.getString("lastmod/time/ago", " ago");
                 }else{
                     //just now
-                    displayText = "Today"
+                    displayText = applocale.getString("lastmod/time/today", "Today");
                 }
 
                 return displayText + " (" + lastModTime + ")";

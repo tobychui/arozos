@@ -8,6 +8,7 @@
         <script src="../../script/jquery.min.js"></script>
         <script src="../../script/semantic/semantic.min.js"></script>
         <script src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
             .hidden{
                 display:none;
@@ -25,14 +26,15 @@
             .colorpallete:hover{
                 border: 1px solid white;
             }
+
         </style>
     </head>
     <body>
         <div class="ui tabular menu" style="position:fixed; top:0px; left:0px; width: 100%;">
-            <div class="active item" data-tab="wallpaper">Wallpaper</div>
-            <div class="item" data-tab="sound">Sound</div>
-            <div class="item" data-tab="theme">Theme</div>
-            <div class="item" data-tab="advance">Advance</div>
+            <div class="active item" data-tab="wallpaper" locale="menu/wallpaper">Wallpaper</div>
+            <div class="item" data-tab="sound" locale="menu/sound">Sound</div>
+            <div class="item" data-tab="theme" locale="menu/theme">Theme</div>
+            <div class="item" data-tab="advance" locale="menu/advance">Advance</div>
         </div>
         <div style="position:fixed; top: 42px; left:0px; width: 100%; height: calc(100% - 42px); overflow-y:auto;">
             <div class="ui active tab" data-tab="wallpaper">
@@ -42,8 +44,8 @@
                     <h3 class="ui header">
                         <i class="image outline icon"></i>
                         <div class="content">
-                            Wallpapers
-                            <div class="sub header">Manage your desktop preferences</div>
+                            <span locale="wallpaper/title">Wallpapers</span>
+                            <div locale="wallpaper/desc" class="sub header">Manage your desktop preferences</div>
                         </div>
                     </h3>
                     <div class="ui divider"></div>
@@ -75,22 +77,22 @@
 
                     <div class="ui divider"></div>
                     <h4 class="ui header">
-                        Background Wallpaper
-                        <div class="sub header">Set your desktop background wallpaper theme.</div>
+                        <span locale="wallpaper/title">Background Wallpaper</span>
+                        <div locale="wallpaper/desc" class="sub header">Set your desktop background wallpaper theme.</div>
                     </h4>
                     <select id="wallpaperlist" class="ui fluid dropdown allowSelectDefaultThemes" onchange="handleBackgroundSelectionChange(this.value);">
-                        <option value="">Wallpaper Packs</option>
+                        <option value="" locale="wallpaper/option/title">Wallpaper Packs</option>
                     </select>
-                    <small>This option will be disabled by default if you have set your "User Defined Wallpaper" in Advance tab.</small>
+                    <small locale="wallpaper/option/desc">This option will be disabled by default if you have set your "User Defined Wallpaper" in Advance tab.</small>
                     <br> <br>
-                    <button class="ui small green right floated button allowSelectDefaultThemes" onclick="applyWallpaper();"><i class="checkmark icon"></i> Apply Wallpaper</button>
+                    <button class="ui small green right floated button allowSelectDefaultThemes" onclick="applyWallpaper();" locale="wallpaper/option/apply"><i class="checkmark icon"></i> Apply Wallpaper</button>
                     <br><br><br>
                     <div class="ui green segment" style="display:none" id="wallpaperChangeConfirm">
                         <h4 class="ui header">
                             <i class="checkmark green icon"></i>
                             <div class="content">
-                            Wallpaper Updated
-                            <div class="sub header">You should be seeing your desktop wallpaper change in a moment.</div>
+                            <span locale="wallpaper/option/updated">Wallpaper Updated</span>
+                            <div class="sub header" locale="wallpaper/option/updateddesc">You should be seeing your desktop wallpaper change in a moment.</div>
                             </div>
                         </h4>
                     </div>
@@ -98,26 +100,26 @@
                     <!-- Wallpaper change interval-->
                     <div class="ui divider"></div>
                     <h4 class="ui header">
-                        Wallpaper Interval
-                        <div class="sub header">Set the interval between the wallpaper image cycles.</div>
+                        <span locale="wallpaper/option/interval">Wallpaper Interval</span>
+                        <div class="sub header" locale="wallpaper/option/intervaldesc">Set the interval between the wallpaper image cycles.</div>
                     </h4>
                     <select id="changeInterval" class="ui fluid dropdown" onchange="handleIntervalChange(this.value);">
-                        <option value="10">10 seconds</option>
-                        <option value="30">30 seconds</option>
-                        <option value="60">60 seconds</option>
-                        <option value="180">3 minutes</option>
-                        <option value="300">5 minutes</option>
-                        <option value="600">10 minutes</option>
-                        <option value="1800">30 minutes</option>
-                        <option value="3600">1 hour</option>
+                        <option value="10" locale="wallpaper/interval/10s">10 seconds</option>
+                        <option value="30" locale="wallpaper/interval/30s">30 seconds</option>
+                        <option value="60" locale="wallpaper/interval/60s">60 seconds</option>
+                        <option value="180" locale="wallpaper/interval/3min">3 minutes</option>
+                        <option value="300" locale="wallpaper/interval/5min">5 minutes</option>
+                        <option value="600" locale="wallpaper/interval/10min">10 minutes</option>
+                        <option value="1800" locale="wallpaper/interval/30min">30 minutes</option>
+                        <option value="3600" locale="wallpaper/interval/1h">1 hour</option>
                     </select>
 
                     <div class="ui green segment" style="display:none" id="interfaceChangeConfirm">
                         <h4 class="ui header">
                             <i class="checkmark green icon"></i>
                             <div class="content">
-                            Wallpaper Interval Updated
-                            <div class="sub header">This setting will only apply to this browser</div>
+                            <span locale="wallpaper/interval/succ">Wallpaper Interval Updated</span>
+                            <div class="sub header" locale="wallpaper/interval/succdesc">This setting will only apply to this browser</div>
                             </div>
                         </h4>
                     </div>
@@ -130,18 +132,18 @@
                     <h3 class="ui header">
                         <i class="music icon"></i>
                         <div class="content">
-                            System Sound
-                            <div class="sub header">Customize system sound effect</div>
+                            <span locale="sound/title">System Sound</span>
+                            <div class="sub header" locale="sound/desc">Customize system sound effect</div>
                         </div>
                     </h3>
                     <div class="ui divider"></div>
                     <h4 class="ui header">
-                        Custom Startup Sound
-                        <div class="sub header">User defined startup sound to play when login to the web desktop</div>
+                        <span locale="sound/custom/title">Custom Startup Sound</span>
+                        <div class="sub header" locale="sound/custom/desc">User defined startup sound to play when login to the web desktop</div>
                     </h4>
-                    <h3 id="userSelectedStartupSound">Disabled</h3>
-                    <button class="ui small right floated button" onclick="clearStartupAudioSelection()"><i class="remove icon"></i> Clear Selection</button>
-                    <button class="ui small black right floated button" onclick="selectStartupAudio();"><i class="folder open icon"></i> Select File</button>
+                    <h3 id="userSelectedStartupSound" locale="sound/custom/disable">Disabled</h3>
+                    <button class="ui small right floated button" onclick="clearStartupAudioSelection()"><i class="remove icon"></i> <span locale="sound/custom/clear">Clear Selection</span></button>
+                    <button class="ui small black right floated button" onclick="selectStartupAudio();"><i class="folder open icon"></i> <span locale="sound/custom/select">Select File</span></button>
                     <br><br>
                     <div class="ui divider"></div>
                 </div>
@@ -153,8 +155,8 @@
                     <h3 class="ui header">
                         <i class="paint brush icon"></i>
                         <div class="content">
-                            Theme Color
-                            <div class="sub header">Change the system theme color settings</div>
+                            <span locale="themecolor/title">Theme Color</span>
+                            <div class="sub header" locale="themecolor/desc">Change the system theme color settings</div>
                         </div>
                     </h3>
 
@@ -166,7 +168,7 @@
                     </div>
                     <br>
                     <div class="ui divider"></div>
-                    <button class="ui small basic black button" onclick="restoreDefaultThemeColor();">Restore Default</button>
+                    <button class="ui small basic black button" onclick="restoreDefaultThemeColor();" locale="themecolor/color/Default">Restore Default</button>
                     <br><br><br>
                     
                 </div>
@@ -178,19 +180,19 @@
                     <h3 class="ui header">
                         <i class="setting icon"></i>
                         <div class="content">
-                            Advance Customization
-                            <div class="sub header">Manage your desktop preferences</div>
+                            <span locale="advance/title">Advance Customization</span>
+                            <div class="sub header" locale="advance/desc">Manage your desktop preferences</div>
                         </div>
                     </h3>
                     <div class="ui divider"></div>
                     <h4 class="ui header">
-                        User Defined Wallpaper
-                        <div class="sub header">Advanced user customization function for desktop interface</div>
+                        <span locale="advance/wallpaper/title">User Defined Wallpaper</span>
+                        <div class="sub header" locale="advance/wallpaper/desc">Advanced user customization function for desktop interface</div>
                     </h4>
-                    <h3 id="userSelectedFolderPath">Disabled</h3>
-                    <p>If you have set a folder for loading desktop wallpapers, the image files from that folder will be used instead of the system build in wallpapers.</p>
-                    <button class="ui small right floated button" onclick="clearUserSelectedFolder();"><i class="remove icon"></i> Clear Selection</button>
-                    <button class="ui small black right floated button" onclick="selectUserFolder();"><i class="folder open icon"></i> Select Folder</button>
+                    <h3 id="userSelectedFolderPath" locale="advance/wallpaper/disabled">Disabled</h3>
+                    <p locale="advance/wallpaper/reminder">If you have set a folder for loading desktop wallpapers, the image files from that folder will be used instead of the system build in wallpapers.</p>
+                    <button class="ui small right floated button" onclick="clearUserSelectedFolder();"><i class="remove icon"></i><span locale="advance/wallpaper/clear">Clear Selection</span></button>
+                    <button class="ui small black right floated button" onclick="selectUserFolder();"><i class="folder open icon"></i> <span locale="advance/wallpaper/select">Select Folder</span></button>
         
                     <br><br>
                 </div>
@@ -207,13 +209,28 @@
             $('.tabular.menu .item').tab();
 
 
-            //Startup process
-            initDefaultBackgroundChangeValue();
-            initUserDefinedWallpaperFolder(function(themeName){
-                initCurrentBackgroundPreview(themeName);
-            });
-            generateColorGrids();
-            getStartupAudio();
+            try{
+                applocale.init("../locale/personalization.json", function(){
+                    applocale.translate();
+                    init();
+                });
+            }catch(ex){
+                //fail to load localization file. Use default
+                init()
+            }
+            
+
+            function init(){
+                //Startup process
+                initDefaultBackgroundChangeValue();
+                initUserDefinedWallpaperFolder(function(themeName){
+                    initCurrentBackgroundPreview(themeName);
+                });
+                generateColorGrids();
+                getStartupAudio();
+            }
+
+           
 
             //Return the data stored in the theme settings
             //Will return either theme pack name or path for user defined folder
@@ -224,7 +241,7 @@
                         $("#userSelectedFolderPath").text(data);
                         $(".allowSelectDefaultThemes").addClass("disabled");
                     }else{
-                        $("#userSelectedFolderPath").text("Disabled");
+                        $("#userSelectedFolderPath").text(applocale.getString("advance/wallpaper/disabled", "Disabled"));
                     }
 
                     if (callback != undefined){
@@ -292,7 +309,7 @@
                     method: "GET",
                     data: {preference: "startup-audio", remove: "true"},
                     success: function(data){
-                        $("#userSelectedStartupSound").text("Disabled");
+                        $("#userSelectedStartupSound").text(applocale.getString("sound/disabled", "Disabled"));
                     }
                 });
             }
@@ -356,7 +373,7 @@
 
                         //Re-enable the default theme seelct
                         $(".allowSelectDefaultThemes").removeClass("disabled");
-                        $("#userSelectedFolderPath").text("Disabled");
+                        $("#userSelectedFolderPath").text(applocale.getString("advance/wallpaper/select", "Disabled"));
 
                         initUserDefinedWallpaperFolder();
                         initCurrentBackgroundPreview();
@@ -456,9 +473,10 @@
                     for (let key in data) {
                         let colorcodes = data[key];
                         let thisSection = '';
+                        let thisColorKey = key.charAt(0).toUpperCase() + key.slice(1);
                         thisSection += (`<div class="ui grid">`);
                         thisSection += (`<div class="five wide column">
-                            ${key.charAt(0).toUpperCase() + key.slice(1)}
+                            ${applocale.getString("themecolor/color/" + thisColorKey, thisColorKey)}
                         </div>`);
                         for (let colorIndex in colorcodes) {
                             if (colorIndex < 300){
