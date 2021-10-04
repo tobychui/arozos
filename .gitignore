@@ -3,8 +3,9 @@
 */._*
 
 # Files that should not go into the main branch
-src/aroz_online.exe
-src/aroz_online
+src/arozos.exe
+src/arozos_*
+src/arozos
 src/localhost.crt
 src/localhost.key
 src/system/dev.uuid
