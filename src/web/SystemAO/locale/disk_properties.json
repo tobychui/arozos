@@ -64,6 +64,37 @@
             "placeholder":{
 
             }
+        },
+        "zh-cn": {
+            "fwtitle" : "硬盘概览",
+            "strings":{
+                "title/title":"硬盘概览",
+                "title/desc":"关于此虚拟储存装置对应的硬盘挂载点",
+
+                "diskinfo/physical":"物理硬盘",
+                "diskinfo/hierarchy":"储存装置结构",
+
+                "hierarchy/User":"使用者分隔",
+                "hierarchy/Public":"共用硬盘",
+                "hierarchy/Backup":"備份硬盘",
+
+                "spaceinfo/totalUsed":"已使用硬盘空間",
+                "spaceinfo/userUsed":"使用者硬盘空間",
+                "spaceinfo/Usable":"可用硬盘空間",
+                "spaceinfo/Capacity":"硬盘容量",
+
+                "unit/bytes":" 个位元组",
+
+                "button/close":"确认",
+
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
         }
     }
 }

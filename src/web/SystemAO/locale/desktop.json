@@ -178,6 +178,95 @@
             "placeholder":{
                 "Search": "搜尋"
             }
+        },
+        "zh-cn": {
+            "strings":{
+                "topbar/welcome":"欢迎回来",
+                "topbar/arozos":"ArozOS 网页桌面模式",
+
+                "notification/clear": "全部清除",
+                "notification/nonotification":"没有通知",
+
+                "listmenu/catergory/searchResults": "搜索结果",
+                "listmenu/catergory/all": "全部",
+                "listmenu/catergory/media": "媒体",
+                "listmenu/catergory/office": "办公",
+                "listmenu/catergory/download": "下载",
+                "listmenu/catergory/files": "文件",
+                "listmenu/catergory/internet": "网络",
+                "listmenu/catergory/settings": "设置",
+                "listmenu/catergory/tools": "系统程序",
+                "listmenu/catergory/utils": "附属程序",
+                "listmenu/catergory/other": "其他",
+                "listmenu/catergory/exit": "退出",
+
+                "error/connlost/title": "连接中断",
+                "error/connlost":"与服务器的联接中断。请等待此警告牌消失再作进一步操作",
+                "error/connlost/recheck":"重試",
+                "error/connlost/wait":"等待",
+
+                "quickAccess/logout": "退出",
+                "quickAccess/sysvol":"系统音量",
+                "quickAccess/settings":"系统设置",
+                "quickAccess/fullscreen":"切换全屏幕",
+                "quickAccess/restart":"服务器重启",
+                "quickAccess/poweroff":"服务器关机",
+
+                "contextmenu/New": "新增",
+                "contextmenu/Open": "打开",
+                "contextmenu/Open With": "使用 … 打开",
+                "contextmenu/Download in Zip": "压缩并下载",
+                "contextmenu/Make a Copy": "制作副本",
+                "contextmenu/Delete": "删除",
+                "contextmenu/Properties": "内容",
+                "contextmenu/Share": "分享",
+                "contextmenu/Download": "下载",
+                "contextmenu/Rename": "重新命名",
+                "contextmenu/Zip here": "压缩至此",
+                "contextmenu/Open in New Tab": "在新分页打开",
+                "contextmenu/Download as Zip": "压缩并下载",
+                "contextmenu/Refresh": "重新整理",
+                "contextmenu/Open File Manager": "打开文件管理器",
+                "contextmenu/Open File Location": "打开文件位置",
+                "contextmenu/Personalization": "个人化",
+                "contextmenu/Background": "桌面背景",
+                "contextmenu/Icon Size": "图标大小",
+                "contextmenu/Exit": "退出",
+                "contextmenu/Toggle FullScreen": "切换全屏幕",
+                "contextmenu/Minimize": "最小化",
+                "contextmenu/Restore": "还原大小",
+                "contextmenu/Maximize": "最大化",
+                "contextmenu/Close": "关闭",
+                "contextmenu/Select Other WebApps": "选择预设应用程序",
+                "contextmenu/Open Shared Link": "打开分享连接",
+                "contextmenu/Copy Link": "复制链接",
+                "contextmenu/Change Share Settings": "更改分享设置",
+                "contextmenu/Share this File": "分享此文件",
+                "contextmenu/share/link": "任何拥有连接的使用者",
+                "contextmenu/share/signedin": "任何已登入的使用者",
+                "contextmenu/share/samegroup": "拥有相同权限的使用者",
+                "contextmenu/Remove Share": "移除文件分享",
+                "contextmenu/Small": "小",
+                "contextmenu/Medium": "中",
+                "contextmenu/Big": "大",
+                "contextmenu/Folder": "文件夹",
+                "contextmenu/Shortcut": "捷径",
+
+                "power/shutdown/title":"关机-输入密码以作确认",
+                "power/shutdown/text":"服务器关机",
+                "power/shutdown/instruction":"請輸入你的管理員密碼以啟動關機程序",
+
+                "power/restart/title":"重新启动-输入密码以作确认",
+                "power/restart/text":"服务器重启",
+                "power/restart/instruction":"请输入你的管理员密码以确认重启服务器",
+
+                "upload/message/uploading": "上传中…",
+                "upload/message/failed": "上传失败",
+                "":""
+            },
+            "placeholder":{
+                "Search": "搜索"
+            }
         }
     }
 }
