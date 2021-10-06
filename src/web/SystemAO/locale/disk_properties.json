@@ -67,6 +67,7 @@
         },
         "zh-cn": {
             "fwtitle" : "硬盘概览",
+            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings":{
                 "title/title":"硬盘概览",
                 "title/desc":"关于此虚拟储存装置对应的硬盘挂载点",

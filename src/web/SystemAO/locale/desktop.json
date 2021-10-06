@@ -3,6 +3,7 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
+            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
             "strings":{
                 "topbar/welcome":"歡迎回來",
                 "topbar/arozos":"ArozOS 網頁桌面模式",
@@ -91,6 +92,7 @@
             }
         },
         "zh-hk": {
+            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
             "strings":{
                 "topbar/welcome":"歡迎回來",
                 "topbar/arozos":"ArozOS 網頁桌面模式",
@@ -180,6 +182,7 @@
             }
         },
         "zh-cn": {
+            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings":{
                 "topbar/welcome":"欢迎回来",
                 "topbar/arozos":"ArozOS 网页桌面模式",

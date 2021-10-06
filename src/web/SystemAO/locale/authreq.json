@@ -29,7 +29,7 @@
             }
         },
         "zh-cn": {
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings":{
                 "page/title" : "管理员身份验证 ",
                 "button/confirm":"确认",

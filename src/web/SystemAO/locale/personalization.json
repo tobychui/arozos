@@ -168,7 +168,7 @@
         },
         "zh-cn": {
             "fwtitle" : "个人化",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings":{
                 "menu/wallpaper":"壁纸",
                 "menu/sound":"音效",

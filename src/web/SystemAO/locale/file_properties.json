@@ -80,7 +80,7 @@
         },
         "zh-cn": {
             "fwtitle" : "文件内容",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings": {
                 "title/title":"文件内容",
                 "title/desc": "文件基本内容及描述",
