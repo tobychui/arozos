@@ -3,6 +3,7 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
+            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
             "strings": {
                 "title/title": "檔案管理員",
                 "menu/button/download": "下載所選",
@@ -176,6 +177,7 @@
             }
         },
         "zh-hk": {
+            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
             "strings": {
                 "title/title": "檔案管理員",
                 "menu/button/download": "下載所選",
