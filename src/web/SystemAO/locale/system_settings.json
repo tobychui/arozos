@@ -13,6 +13,30 @@
             "placeholder":{
 
             }
+        },
+        "zh-hk": {
+            "fwtitle" : "",
+            "strings":{
+
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "",
+            "strings":{
+
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
         }
     }
 }

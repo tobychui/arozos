@@ -165,6 +165,88 @@
             "placeholder":{
 
             }
+        },
+        "zh-cn": {
+            "fwtitle" : "个人化",
+            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
+            "strings":{
+                "menu/wallpaper":"壁纸",
+                "menu/sound":"音效",
+                "menu/theme":"主题",
+                "menu/advance":"进阶",
+
+                "wallpaper/title":"桌面壁纸图包",
+                "wallpaper/desc":"使用内置桌面壁纸图包",
+                "wallpaper/option/title": "桌面壁纸背景",
+                "wallpaper/option/desc": "如果您已在进阶页面选择从自定文件夹加载壁纸图包，此项将会自动禁用。",
+                "wallpaper/option/apply": "<i class=\"checkmark icon\"></i> 更新壁纸",
+                "wallpaper/option/updated": "桌面壁纸已更新",
+                "wallpaper/option/updateddesc": "您应该很快便能在桌面看到你的新背景",
+                "wallpaper/option/interval": "桌面壁纸替换间隔",
+                "wallpaper/option/intervaldesc": "设定多久之后自动替换为下一张壁纸",
+
+                "wallpaper/interval/10s":"10 秒",
+                "wallpaper/interval/30s":"30 秒",
+                "wallpaper/interval/60s":"60 秒",
+                "wallpaper/interval/3min":"3 分钟",
+                "wallpaper/interval/5min":"5 分钟",
+                "wallpaper/interval/10min":"10 分钟",
+                "wallpaper/interval/30min":"30 分钟",
+                "wallpaper/interval/1h":"1 小时",
+
+                "wallpaper/interval/succ":"壁纸替换间隔设定已更新",
+                "wallpaper/interval/succdesc":"注意：此设定只适用于此浏览器。",
+
+                "sound/title":"系统音效",
+                "sound/desc":"自定系统音效设置",
+                "sound/custom/title":"自定启动音效",
+                "sound/custom/desc":"设定使用者进入网页桌面时的启动音效",
+                "sound/custom/disable":"停用",
+                "sound/custom/clear":"清除所选",
+                "sound/custom/select":"选择档案",
+                "sound/disabled": "已停用",
+
+                "themecolor/title":"主题颜色",
+                "themecolor/desc":"变更系统主题配色",
+                "themecolor/color/Red":"红色系",
+                "themecolor/color/Pink":"粉色系",
+                "themecolor/color/Purple":"紫色系",
+                "themecolor/color/Deeppurple":"深紫色系",
+                "themecolor/color/Indigo":"靛青色系",
+                "themecolor/color/Blue":"蓝色系",
+                "themecolor/color/Lightblue":"浅蓝色系",
+                "themecolor/color/Cyan":"浅青色系",
+                "themecolor/color/Teal":"深青色系",
+                "themecolor/color/Green":"绿色系",
+                "themecolor/color/Lightgreen":"浅绿色系",
+                "themecolor/color/Lime":"黄绿色系",
+                "themecolor/color/Yellow":"黄色系",
+                "themecolor/color/Amber":"琥珀色系",
+                "themecolor/color/Orange":"橘橙色系",
+                "themecolor/color/Deeporange":"深橙色系",
+                "themecolor/color/Brown":"棕色系",
+                "themecolor/color/Grey":"灰色系",
+                "themecolor/color/Bluegrey":"灰蓝色系",
+                "themecolor/color/Default":"还原预设主题配色",
+
+
+                "advance/title":"进阶个人化选项",
+                "advance/desc":"管理您的桌面选项",
+                "advance/wallpaper/title":"自定桌面图包",
+                "advance/wallpaper/desc":"使用自定义文件夹作为桌面图包的存取路径",
+                "advance/wallpaper/disabled":"已停用",
+                "advance/wallpaper/reminder":"如果您选择从个人资料夹加载照片作桌面壁纸图包，系统将会自动停用 <code>壁纸 > 桌面壁纸图包 </code> 内的选项。",
+                "advance/wallpaper/clear":"清除选项",
+                "advance/wallpaper/select":"选择文件夹",
+                
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
         }
     }
 }

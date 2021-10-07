@@ -77,6 +77,44 @@
 
                 "":""
             }
+        },
+        "zh-cn": {
+            "fwtitle" : "文件内容",
+            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title":"文件内容",
+                "title/desc": "文件基本内容及描述",
+
+                "properties/key/Default WebApp": "预设启动应用",
+                "properties/key/Virtual Path": "虚拟存取路径",
+                "properties/key/Storage Path": "磁盘储存路径",
+                "properties/key/File Size": "文件大小",
+                "properties/key/Folder Size": "文件夹大小",
+                "properties/key/Permission": "存取权限",
+                "properties/key/Last Modified": "最后修改",
+                "properties/key/File Type": "文件类型",
+                "properties/key/Owner": "拥有者",
+                "properties/key/Total Size": "总共大小",
+                "properties/key/Virtual Directory": "虚拟存放位置",
+                "properties/key/Storage Directory": "磁盘存放位置",
+
+                "lastmod/time/year": " 年",
+                "lastmod/time/month": " 个月",
+                "lastmod/time/days": " 日",
+                "lastmod/time/today": "今天",
+                "lastmod/time/s": "",
+                "lastmod/time/ago": "前",
+
+                "button/changeDefault":"更改预设启动应用",
+                "button/changeFilePermission":"更改文件存取权限",
+                "loader/loadingFileSize": "正在计算文件大小",
+                "selection/multi": "已选择多个文件",
+
+                "counter/files": " 个文件",
+                "counter/folders": " 个文件夹",
+
+                "":""
+            }
         }
     }
 }

@@ -25,6 +25,18 @@
             "placeholder":{
 
             }
+        },
+        "zh-cn": {
+            "fwtitle" : "",
+            "strings":{
+
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
         }
     }
 }
