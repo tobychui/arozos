@@ -41,6 +41,8 @@ Run the following the command to build the system
 git clone https://github.com/tobychui/arozos
 cd ./arozos/src/
 go build
+./arozos 
+#sudo ./arozos for enabling hardware and WiFi management features
 ```
 (Yes, it is that simple)
 
