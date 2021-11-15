@@ -1,13 +1,14 @@
 1. CD into systemd service folder
 	cd /etc/systemd/system/
 
+1.5 Enable these two services (if you havn't enable it yet)
+	sudo systemctl enable systemd-networkd.service systemd-networkd-wait-online.service
+	
 2. Create the file like arozos.service
 	sudo nano arozos.service
 
-3.1 Enable these two services
-	sudo systemctl enable systemd-networkd.service systemd-networkd-wait-online.service
 
-3.2. Write the service content as follow (replace your startup directories)
+3. Write the service content as follow (replace your startup directories)
 
 [Unit]
 Description=ArozOS Cloud Service
