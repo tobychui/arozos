@@ -44,28 +44,28 @@ func NewWebRootHandler(options Options) *Handler {
 
 func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	//Check if it is reaching www root folder or any files directly under www.
-	if filepath.ToSlash(filepath.Clean(r.RequestURI)) == "/www" {
+	if filepath.ToSlash(filepath.Clean(r.URL.Path)) == "/www" {
 		//Direct access of the root folder. Serve the homepage description.
 		http.ServeFile(w, r, "web/SystemAO/www/index.html")
 		return
-	} else if filepath.ToSlash(filepath.Dir(r.RequestURI)) == "/www" {
-		//Reaching file under www root and not root. Redirect to www root
-		http.Redirect(w, r, "/www/", 307)
+	} else if filepath.ToSlash(filepath.Dir(r.URL.Path)) == "/www" {
+		//Missing the last / at the end of the path
+		r.URL.Path = r.URL.Path + "/"
+		http.Redirect(w, r, filepath.ToSlash(filepath.Dir(r.URL.Path))+"/", http.StatusTemporaryRedirect)
 		return
 	}
 
 	//Escape the URL
-	decodedValue, err := url.QueryUnescape(r.RequestURI)
+	decodedValue, err := url.QueryUnescape(r.URL.Path)
 	if err != nil {
 		//failed to decode. Just use its raw value
-		decodedValue = r.RequestURI
+		decodedValue = r.URL.Path
 	}
 
 	//Check the user name of the user root
 	parsedRequestURL := strings.Split(filepath.ToSlash(filepath.Clean(decodedValue)[1:]), "/")
 	//Malparsed URL. Ignore request
 	if len(parsedRequestURL) < 2 {
-
 		http.NotFound(w, r)
 		return
 	}

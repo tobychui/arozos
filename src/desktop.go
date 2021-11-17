@@ -77,6 +77,7 @@ func desktop_initUserFolderStructure(username string) {
 	if !fileExists(filepath.Join(homedir, "Desktop")) {
 		//Desktop directory not exists. Create one and copy a template desktop
 		os.MkdirAll(homedir+"Desktop", 0755)
+
 		templateFolder := "./system/desktop/template/"
 		if fileExists(templateFolder) {
 			templateFiles, _ := filepath.Glob(templateFolder + "*")

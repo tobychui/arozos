@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nfnt/resize"
 )
@@ -47,8 +48,8 @@ func generateThumbnailForFolder(cacheFolder string, file string, generateOnly bo
 	resultThumbnail := image.NewRGBA(b)
 	draw.Draw(resultThumbnail, b, baseTemplate, image.ZP, draw.Over)
 
-	//Get cached file inside this folder
-	contentCache, _ := filepath.Glob(filepath.Join(cacheFolderInsideThisFolder, "/*.jpg"))
+	//Get cached file inside this folder, only include jpg (non folder)
+	contentCache, _ := wGlob(filepath.Join(cacheFolderInsideThisFolder, "/*.jpg"))
 
 	//Check if there are more than 1 file inside this folder that is cached
 	if len(contentCache) > 1 {
@@ -95,4 +96,33 @@ func generateThumbnailForFolder(cacheFolder string, file string, generateOnly bo
 
 	ctx, err := getImageAsBase64(cacheFolder + filepath.Base(file) + ".png")
 	return ctx, err
+}
+
+//Special glob function to handle file name containing wildcard characters
+func wGlob(path string) ([]string, error) {
+	files, err := filepath.Glob(path)
+	if err != nil {
+		return []string{}, err
+	}
+
+	if strings.Contains(path, "[") == true || strings.Contains(path, "]") == true {
+		if len(files) == 0 {
+			//Handle reverse check. Replace all [ and ] with ?
+			newSearchPath := strings.ReplaceAll(path, "[", "?")
+			newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
+			//Scan with all the similar structure except [ and ]
+			tmpFilelist, _ := filepath.Glob(newSearchPath)
+			for _, file := range tmpFilelist {
+				file = filepath.ToSlash(file)
+				if strings.Contains(file, filepath.ToSlash(filepath.Dir(path))) {
+					files = append(files, file)
+				}
+			}
+		}
+	}
+	//Convert all filepaths to slash
+	for i := 0; i < len(files); i++ {
+		files[i] = filepath.ToSlash(files[i])
+	}
+	return files, nil
 }

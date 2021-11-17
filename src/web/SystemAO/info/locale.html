@@ -37,9 +37,8 @@
                     <input id="language" type="hidden" name="language">
                     <i class="dropdown icon"></i>
                     <div class="default text">Language</div>
-                    <div class="menu">
+                    <div class="menu" id="langlist">
                         <div class="item" data-value="default">Browser Default</div>
-                        <div class="item" data-value="zh-TW">繁體中文</div>
                     </div>
                 </div>
             </div>
@@ -54,6 +53,18 @@
             localStorage.setItem('global_language', $("#language").val());
             $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
         }
+
+        //Updates 13 Nov: Remove hardcoded lang option and get lang option from file manager's localization file
+        $.getJSON("../locale/file_explorer.json", function(data){
+            for (let [key, value] of Object.entries(data.keys)) {
+                let langName = value.name;
+                if (langName == undefined || langName == null){
+                    langName = key;
+                }
+                console.log(langName, key);
+                $("#langlist").append(`<div class="item" data-value="${key}">${langName}</div>`);
+            }
+        });
     </script>
 </body>
 

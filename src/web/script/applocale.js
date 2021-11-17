@@ -40,7 +40,7 @@ var applocale = {
                     //This language has a prefered font family. Inject it
                     $("h1, h2, h3, p, span, div, span").css({
                         "font-family":data.keys[applocale.lang].fontFamily
-                    })
+                    });
                 }
               
             }

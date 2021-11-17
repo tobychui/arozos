@@ -1,0 +1,111 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "選擇檔案",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title":"選擇檔案",
+                "roots/user":"使用者",
+                "roots/storage":"虛擬儲存裝置",
+                "message/loading":"載入中…",
+                "message/waitingResp":"正在確認選擇…",
+
+                "sidebar/vroot/desktop": "桌面",
+                "sidebar/vroot/document": "文件",
+                "sidebar/vroot/music": "音樂",
+                "sidebar/vroot/photo": "圖片",
+                "sidebar/vroot/video": "影片",
+                "sidebar/vroot/trash": "回收箱",
+                "sidebar/vroot/download": "下載",
+                "sidebar/vroot/web": "網頁",
+                "sidebar/vroot/model": "模型",
+                "sidebar/vroot/appdata": "程序數據",
+
+                "":""
+            },
+            "titles":{
+                "Back":"上一頁",
+                "Parent":"返回上層目錄",
+                "Refresh":"重新整理",
+                "Create Folder":"建立資料夾",
+                "New Folder":"新增資料夾"
+            },
+            "placeholder":{
+                "New Filename":"新增檔案",
+                "New Folder":"新增資料夾"
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "選擇檔案",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title":"選擇檔案",
+                "roots/user":"使用者",
+                "roots/storage":"虛擬儲存裝置",
+                "message/loading":"載入中…",
+                "message/waitingResp":"正在確認選擇…",
+
+                "sidebar/vroot/desktop": "桌面",
+                "sidebar/vroot/document": "文件",
+                "sidebar/vroot/music": "音樂",
+                "sidebar/vroot/photo": "圖片",
+                "sidebar/vroot/video": "影片",
+                "sidebar/vroot/trash": "回收箱",
+                "sidebar/vroot/download": "下載",
+                "sidebar/vroot/web": "網頁",
+                "sidebar/vroot/model": "模型",
+                "sidebar/vroot/appdata": "程序數據",
+                
+                "":""
+            },
+            "titles":{
+                "Back":"上一頁",
+                "Parent":"返回上層目錄",
+                "Refresh":"重新整理",
+                "Create Folder":"建立資料夾",
+                "New Folder":"新增資料夾"
+            },
+            "placeholder":{
+                "New Filename":"新增檔案",
+                "New Folder":"新增資料夾"
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "选择文件",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title":"选择文件",
+                "roots/user":"使用者",
+                "roots/storage":"虚拟储存装置",
+                "message/loading":"载入中…",
+                "message/waitingResp":"正在确认选择…",
+
+                "sidebar/vroot/desktop": "桌面",
+                "sidebar/vroot/document": "文件",
+                "sidebar/vroot/music": "音乐",
+                "sidebar/vroot/photo": "图片",
+                "sidebar/vroot/video": "影片",
+                "sidebar/vroot/trash": "回收箱",
+                "sidebar/vroot/download": "下载",
+                "sidebar/vroot/web": "网页",
+                "sidebar/vroot/model": "模型",
+                "sidebar/vroot/appdata": "程序数据",
+                
+                "":""
+            },
+            "titles":{
+                "Back":"上一页",
+                "Parent":"返回上层目录",
+                "Refresh":"重新整理",
+                "Create Folder":"建立资料夹",
+                "New Folder":"新增资料夹"
+            },
+            "placeholder":{
+                "New Filename":"新增档案",
+                "New Folder":"新增资料夹"
+            } 
+        }
+    }
+}

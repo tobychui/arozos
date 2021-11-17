@@ -80,8 +80,8 @@ func (sr *SubServiceRouter) LoadSubservicesFromRootPath(rootpath string) {
 }
 
 func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
-
 	//Get the executable name from its path
+	servicePath = filepath.ToSlash(servicePath)
 	binaryname := filepath.Base(servicePath)
 	serviceRoot := filepath.Base(servicePath)
 	binaryExecPath := filepath.ToSlash(binaryname)
@@ -91,34 +91,51 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		binaryExecPath = binaryExecPath + "_" + runtime.GOOS + "_" + runtime.GOARCH
 	}
 
-	if runtime.GOOS == "windows" && !fileExists(servicePath+"/"+binaryExecPath) {
-		if startupMode {
-			log.Println("Failed to load subservice: "+serviceRoot, " File not exists "+servicePath+"/"+binaryExecPath+". Skipping this service")
-			return errors.New("Failed to load subservice")
-		} else {
+	//Check if startscript exists. If no, try to launch the binaries
+	if fileExists(servicePath + "/.startscript") {
+		//Launch from start.bat or start.sh
+		if !(fileExists(servicePath+"/start.sh") || fileExists(servicePath+"/start.bat")) {
+			log.Println("Failed to load subservice: " + serviceRoot + ", .startscript flag is TRUE but no start script found")
 			return errors.New("Failed to load subservice")
 		}
 
-	} else if runtime.GOOS == "linux" {
-		//Check if service installed using which
-		cmd := exec.Command("which", serviceRoot)
-		searchResults, _ := cmd.CombinedOutput()
-		if len(strings.TrimSpace(string(searchResults))) == 0 {
-			//This is not installed. Check if it exists as a binary (aka ./myservice)
-			if !fileExists(servicePath + "/" + binaryExecPath) {
-				if startupMode {
-					log.Println("Package not installed. " + serviceRoot)
-					return errors.New("Failed to load subservice: Package not installed")
-				} else {
-					return errors.New("Package not installed.")
+		startScriptName := "start.sh"
+		if runtime.GOOS == "windows" {
+			startScriptName = "start.bat"
+		}
+
+		binaryExecPath = startScriptName
+	} else {
+		//No startscript defined. Start from binary files if exists
+		if runtime.GOOS == "windows" && !fileExists(servicePath+"/"+binaryExecPath) {
+			if startupMode {
+				log.Println("Failed to load subservice: "+serviceRoot, " File not exists "+servicePath+"/"+binaryExecPath+". Skipping this service")
+				return errors.New("Failed to load subservice")
+			} else {
+				return errors.New("Failed to load subservice")
+			}
+
+		} else if runtime.GOOS == "linux" {
+			//Check if service installed using which
+			cmd := exec.Command("which", serviceRoot)
+			searchResults, _ := cmd.CombinedOutput()
+			if len(strings.TrimSpace(string(searchResults))) == 0 {
+				//This is not installed. Check if it exists as a binary (aka ./myservice)
+				if !fileExists(servicePath + "/" + binaryExecPath) {
+					if startupMode {
+						log.Println("Package not installed. " + serviceRoot)
+						return errors.New("Failed to load subservice: Package not installed")
+					} else {
+						return errors.New("Package not installed.")
+					}
 				}
 			}
-		}
-	} else if runtime.GOOS == "darwin" {
-		//Skip the whereis approach that linux use
-		if !fileExists(servicePath + "/" + binaryExecPath) {
-			log.Println("Failed to load subservice: "+serviceRoot, " File not exists "+servicePath+"/"+binaryExecPath+". Skipping this service")
-			return errors.New("Failed to load subservice")
+		} else if runtime.GOOS == "darwin" {
+			//Skip the whereis approach that linux use
+			if !fileExists(servicePath + "/" + binaryExecPath) {
+				log.Println("Failed to load subservice: "+serviceRoot, " File not exists "+servicePath+"/"+binaryExecPath+". Skipping this service")
+				return errors.New("Failed to load subservice")
+			}
 		}
 	}
 

@@ -1,14 +1,13 @@
 1. CD into systemd service folder
 	cd /etc/systemd/system/
 
-1.5 Enable these two services (if you havn't enable it yet)
+2 Enable these two services
 	sudo systemctl enable systemd-networkd.service systemd-networkd-wait-online.service
-	
-2. Create the file like arozos.service
+
+3. Create the file like arozos.service
 	sudo nano arozos.service
 
-
-3. Write the service content as follow (replace your startup directories)
+4. Write the service content as follow (replace with your startup directories, use "/home/pi/arozos/src/" instead of "/home/pi/arozos/" if you are cloning from Github)
 
 [Unit]
 Description=ArozOS Cloud Service
@@ -17,7 +16,7 @@ Wants=systemd-networkd-wait-online.service
 
 [Service]
 Type=simple
-ExecStartPre=/bin/sleep 30
+ExecStartPre=/bin/sleep 10
 WorkingDirectory=/home/pi/arozos/
 ExecStart=/bin/bash /home/pi/arozos/start.sh
 

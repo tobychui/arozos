@@ -59,6 +59,16 @@ func (rh *RenderHandler) BuildCacheForFolder(path string) error {
 	return nil
 }
 
+func (rh *RenderHandler) LoadCacheAsBytes(file string, generateOnly bool) ([]byte, error) {
+	b64, err := rh.LoadCache(file, generateOnly)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	resultingBytes, _ := base64.StdEncoding.DecodeString(b64)
+	return resultingBytes, nil
+}
+
 //Try to load a cache from file. If not exists, generate it now
 func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, error) {
 	//Create a cache folder

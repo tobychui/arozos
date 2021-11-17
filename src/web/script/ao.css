@@ -1,9 +1,4 @@
-@font-face {
-    font-family: 'TaipeiSansTCBeta-Regular';
-    src: url('font/TaipeiSansTCBeta-Regular.ttf');
-}
-
-h1, h2, h3, p, span, div { font-family: 'TaipeiSansTCBeta-Regular'}
+h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple LiGothic Medium", "STHeiti"}
 
 .ts.primary.button{
     background-color:#4287f5;

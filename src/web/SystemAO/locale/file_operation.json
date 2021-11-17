@@ -1,0 +1,96 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "檔案操作",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title":"檔案操作",
+                "banner/title":"正在計算檔案操作需時",
+                "info/from":"來源：",
+                "info/to":"目的地：",
+                "info/progress":"進度：",
+                "info/calculating":"計算中",
+                "dup/question":"目的地存在至少一個具有重複檔名的檔案。 <b>應對該檔案使用以下哪種操作？</b>",
+                "dup/overwrite":"覆寫",
+                "dup/skip":"跳過",
+                "dup/renameAndKeep":"更名並保留",
+                "title/moving":"正在移動 ",
+                "title/copying":"正在複製",
+                "title/zipping":"正在壓縮 ",
+                "title/downloading":"正在下載 ",
+                "title/unzipping":"正在解壓 ",
+                "title/file":" 個檔案",
+                "title/files":" 個檔案",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "檔案操作",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title":"檔案操作",
+                "banner/title":"正在計算檔案操作需時",
+                "info/from":"來源：",
+                "info/to":"目的地：",
+                "info/progress":"進度：",
+                "info/calculating":"計算中",
+                "dup/question":"目的地存在至少一個具有重複檔名的檔案。 <b>應對該檔案使用以下哪種操作？</b>",
+                "dup/overwrite":"覆寫",
+                "dup/skip":"跳過",
+                "dup/renameAndKeep":"更名並保留",
+                "title/moving":"正在移動 ",
+                "title/copying":"正在複製",
+                "title/zipping":"正在壓縮 ",
+                "title/downloading":"正在下載 ",
+                "title/unzipping":"正在解壓 ",
+                "title/file":" 個檔案",
+                "title/files":" 個檔案",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "文件操作",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title":"文件操作",
+                "banner/title":"正在计算文件操作需时",
+                "info/from":"来源：",
+                "info/to":"目的地：",
+                "info/progress":"进度：",
+                "info/calculating":"计算中",
+                "dup/question":"目的地存在至少一个具有重复档名的文件。 <b>应对该文件使用以下哪种操作？</b>",
+                "dup/overwrite":"覆写",
+                "dup/skip":"跳过",
+                "dup/renameAndKeep":"更名并保留",
+                "title/moving":"正在移动 ",
+                "title/copying":"正在复制",
+                "title/zipping":"正在压缩 ",
+                "title/downloading":"正在下载 ",
+                "title/unzipping":"正在解压 ",
+                "title/file":" 个档案",
+                "title/files":" 个档案",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            } 
+        }
+    }
+}

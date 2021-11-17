@@ -192,7 +192,7 @@ func WGlob(path string) ([]string, error) {
 
 	if strings.Contains(path, "[") == true || strings.Contains(path, "]") == true {
 		if len(files) == 0 {
-			//Handle reverse check. Replace all [ and ] with *
+			//Handle reverse check. Replace all [ and ] with ?
 			newSearchPath := strings.ReplaceAll(path, "[", "?")
 			newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
 			//Scan with all the similar structure except [ and ]

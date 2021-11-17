@@ -382,11 +382,8 @@
 	var isAndroid = ua.indexOf("android") > -1; //&& ua.indexOf("mobile");
 	var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
 
-	//Embed native mediaSession for Android 
-	if (isChrome){
-		initNativeMediaPlayer();
-	}
-
+	//Embed native mediaSession for any device that supports it 
+	initNativeMediaPlayer();
 
 	//Update implementatio nof user agent detection
 	if (typeof InstallTrigger !== 'undefined'){
@@ -1114,7 +1111,10 @@
 		}
 
 	    updateMiniPlayerUI(displayName,info,id);
-	    updateMainPlayerUI(displayName,info,id);
+
+		//Seperate out the filepath without media server path
+		var fileVpath = filepath.split("=")[1];
+	    updateMainPlayerUI(displayName,info,id, fileVpath);
 	    loadAndPlayAudioFile(filepath, !startPaused);
 	    if (!currentPlaying && !startPaused){
 	        setPlaying(true);
@@ -1153,7 +1153,7 @@
 			if (data.error !== undefined){
 				console.log(data.error)
 				$("#albumnArtImage").attr("src","img/default.png");
-				if (isAndroid && navigator.mediaSession.metadata){
+				if (navigator.mediaSession.metadata){
 					navigator.mediaSession.metadata.artwork = [
 						{ src: "img/default.png",   sizes: '512x512',   type: 'image/png' }
 					]
@@ -1161,6 +1161,7 @@
 			}else{
 				$("#albumnArtImage").attr("src","data:image/jpg;base64," + data);
 				if (isAndroid && navigator.mediaSession.metadata){
+					//Android
 					navigator.mediaSession.metadata.artwork = [
 						{ src: "data:image/jpg;base64," + data,   sizes: '480x480',   type: 'image/jpg' }
 					]
@@ -1197,7 +1198,10 @@
     	    var info = nextSong[2] + " / " + nextSong[3];
     	    var id = nextSongIndex + 1;
     	    updateMiniPlayerUI(displayName,info,id);
-    	    updateMainPlayerUI(displayName,info,id);
+
+			//Seperate out the filepath without media server path
+			var fileVpath = filepath.split("=")[1];
+    	    updateMainPlayerUI(displayName,info,id, fileVpath);
     	    if (forcePlayEvenStopped){
     	        loadAndPlayAudioFile(filepath,true);
     	    }else{
@@ -1239,7 +1243,10 @@
     	    var info = nextSong[2] + " / " + nextSong[3];
     	    var id = nextSongIndex;
     	    updateMiniPlayerUI(displayName,info,id);
-    	    updateMainPlayerUI(displayName,info,id);
+
+			//Seperate out the filepath without media server path
+			var fileVpath = filepath.split("=")[1];
+    	    updateMainPlayerUI(displayName,info,id, fileVpath);
     	    loadAndPlayAudioFile(filepath,!currentPaused);
     	    if (currentPlaying){
     	        setPlaying(true);
@@ -1352,13 +1359,13 @@
 	    $("#miniPlayerIDtab").text(id + "/" + totalMusicCount);
 	}
 	
-	function updateMainPlayerUI(songname, fileinfo, id){
+	function updateMainPlayerUI(songname, fileinfo, id, filepath){
 	    $("#mainPlayerSongTitle").text(songname);
 	    $("#mainPlayerSongDesc").text(fileinfo);
 	    $("#mainPlayerMiniTab").text(id + "/" + totalMusicCount);
-		if (isAndroid && 'mediaSession' in navigator){
+		if ('mediaSession' in navigator){
 			var infoRewrite = fileinfo.split(" / ")
-			updateTitle(songname, infoRewrite[1] + " (" + infoRewrite[0] + ")", id + "/" + totalMusicCount);
+			updateTitle(songname, infoRewrite[1] + " (" + infoRewrite[0] + ")", id + "/" + totalMusicCount, filepath);
 		}
 	}
 

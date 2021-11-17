@@ -19,6 +19,7 @@ func SystemInfoInit() {
 
 	//Updates 5 Dec 2020, Added permission router
 	router := prout.NewModuleRouter(prout.RouterOption{
+		ModuleName:  "System Setting",
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {

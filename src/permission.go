@@ -41,7 +41,13 @@ func permissionInit() {
 		} else {
 			//There are already users in the system. Only allow authorized users
 			if authAgent.CheckAuth(r) {
-				permissionHandler.HandleListGroup(w, r)
+				requestingUser, _ := userHandler.GetUserInfoFromRequest(w, r)
+				if requestingUser != nil && requestingUser.IsAdmin() == true {
+					permissionHandler.HandleListGroup(w, r)
+				} else {
+					errorHandleNotLoggedIn(w, r)
+				}
+
 			} else {
 				errorHandleNotLoggedIn(w, r)
 				return

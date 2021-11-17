@@ -39,7 +39,7 @@
                 <ul class="list">
                     <li>You can host a static website using ArozOS</li>
                     <li>All website source are accessiable by your File Manager located inside your user file system</li>
-                    <li>Everyone can access your home page using <a><span class=".protocol">http:</span>//<span class="hostname"></span>:<span class="port"></span>/www/<span class="username">{your_username}</span>/</a></li>
+                    <li>Everyone can access your home page using <a id="homepageLink" target="_blank"><span class=".protocol">http:</span>//<span class="hostname"></span>:<span class="port"></span>/www/<span class="username">{your_username}</span>/</a></li>
                 </ul>
             </div>
             <div class="ui container">
@@ -69,6 +69,7 @@
             $.get("../../../system/desktop/user", function(data){
                 if (data.error == undefined){
                     $(".username").text(data.Username);
+                    $("#homepageLink").attr('href', $("#homepageLink").text());
                 }
             });
 

@@ -1,12 +1,13 @@
 [Unit]
-Description=AROZOS Cloud Service
-Wants=network-online.target
-After=network-online.target
+Description=ArozOS Cloud Service
+After=systemd-networkd-wait-online.service
+Wants=systemd-networkd-wait-online.service
 
 [Service]
 Type=simple
-WorkingDirectory=/home/pi/aroz_online/
-ExecStart=/bin/bash /home/pi/aroz_online/start.sh
+ExecStartPre=/bin/sleep 10
+WorkingDirectory=/home/pi/arozos/src/
+ExecStart=/bin/bash /home/pi/arozos/src/start.sh
 
 Restart=always
 RestartSec=10

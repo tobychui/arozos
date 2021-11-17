@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/ao_module.js"></script>
+        <script src="../../script/semantic/semantic.min.js"></script>
+        <title>Reverse Proxy</title>
+        <style>
+            body{
+                background-color:white;
+            }
+            
+            .functiontab{
+                display:none;
+            }
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="ui container">
+            <h3><img class="ui middle aligned mini image" src="img/desktop_icon.png" style="margin-right: 4px;"> Reverse Proxy Settings</h3>
+            <div class="ui divider"></div>
+            <div id="errmsg" class="ui red message" style="display: none;"></div>
+            <div class="ui stackable grid">
+                <div class="four wide column">
+                    <div id="mainmenu" class="ui secondary vertical pointing menu">
+                        <a class="item active" tag="status">
+                            Status
+                        </a>
+                        <a class="item" tag="vdir">
+                            Virtual Directory
+                        </a>
+                        <a class="item" tag="subd">
+                            Subdomain Proxy
+                        </a>
+                        <a class="item" tag="rules">
+                            Create Proxy Rules
+                        </a>
+                        <a class="item" tag="setroot">
+                            Set Proxy Root
+                        </a>
+                    </div>
+                </div>
+                <div class="twelve wide column">
+                   
+                    
+                    <!-- Status Tab -->
+                    <div id="status" class="functiontab">
+                        <div id="serverstatus" class="ui message">
+                            <h3 class="ui header">
+                                <i class="power off icon"></i>
+                                <div class="content">
+                                  <span id="statusTitle">Offline</span>
+                                  <div class="sub header" id="statusText">Reverse proxy server is offline</div>
+                                </div>
+                            </h3>
+                        </div>
+                        <div class="ui divider"></div>
+                        <button id="startbtn" class="ui teal button" onclick="startService();">Start Service</button>
+                        <button id="stopbtn" class="ui red disabled button" onclick="stopService();">Stop Service</button>
+                    </div>
+
+                    <!-- Virtual Directory Tab -->
+                    <div id="vdir" class="functiontab">
+                        <table class="ui celled table">
+                            <thead>
+                                <tr>
+                                    <th>Virtual Directory</th>
+                                    <th>Proxy To</th>
+                                    <th>Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td data-label="">test</td>
+                                    <td data-label="">test</td>
+                                    <td data-label=""><button class="ui circular mini red basic button"><i class="remove icon"></i> Remove Proxy</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Subdomain Proxy -->
+                    <div id="subd" class="functiontab">
+                        <table class="ui celled table">
+                            <thead>
+                                <tr>
+                                    <th>Subdomain</th>
+                                    <th>Proxy To</th>
+                                    <th>Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                               
+                            </tbody>
+                        </table>
+                    </div>
+
+                     <!-- Create Rules -->
+                     <div id="rules" class="functiontab">
+                        <div class=""> 
+                            <h3><i class="ui exchange icon"></i> New Proxy Endpoint</h3>
+                            <p>You can create a proxy endpoing by subdomain or virtual directories</p>
+                            <form class="ui form">
+                                <div class="field">
+                                    <label>Proxy Type</label>
+                                    <div class="ui selection dropdown">
+                                        <input type="hidden" name="ptype">
+                                        <i class="dropdown icon"></i>
+                                        <div class="default text">Proxy Type</div>
+                                        <div class="menu">
+                                            <div class="item" data-value="domain">Sub-domain</div>
+                                            <div class="item" data-value="vdir">Virtual Directory</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label>Subdomain Matching Keyword / Virtual Directory Name</label>
+                                    <input type="text" name="first-name" placeholder="First Name">
+                                    <div class="ui message">
+                                        Example of subdomain matching keyword:<br>
+                                        <code>s1.arozos.com</code> (Any access starting with s1.arozos.com will be proxy to the IP address below)<br>
+                                        Example of virtual directory name: <br>
+                                        <code>s1</code> (Any access to {this_server}/s1/ will be proxy to the IP address below)
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label>Last Name</label>
+                                    <input type="text" name="last-name" placeholder="Last Name">
+                                </div>
+                                
+                                <button class="ui teal button" type="submit">Create Proxy Endpoint</button>
+                            </form>
+                        </div>
+                     </div>
+
+                    <!-- Set proxy root -->
+                    <div id="setroot" class="functiontab">
+                        <h3><i class="ui home icon"></i> Set Proxy Root</h3>
+                        <p>For all routing not found in the proxy rule, will be redirected to the proxy root server.</p>
+                        <button class="ui button" onclick=""><i class="edit icon"></i> Set Proxy Root</button>
+                    </div>
+                </div>
+              </div>
+            </div>
+            <br><br>
+        </div>
+        
+        <script>
+            initRPStaste();
+            $("#status").slideDown('fast');
+            $(".ui.dropdown").dropdown();
+
+            $("#mainmenu").find(".item").each(function(){
+                $(this).on("click", function(e){
+                    $("#mainmenu").find(".item").removeClass("active");
+                    $(this).addClass("active");
+                    let targetOpeningTab = $(this).attr("tag");
+                    $(".functiontab").hide();
+                    $("#" + targetOpeningTab).slideDown('fast');
+                });
+            });
+
+            function initRPStaste(){
+                $.get("../../system/proxy/status", function(data){
+                    if (data.Running == true){
+                        $("#startbtn").addClass("disabled");
+                        $("#stopbtn").removeClass("disabled");
+                        $("#serverstatus").addClass("green");
+                    }else{
+                        $("#startbtn").removeClass("disabled");
+                        $("#stopbtn").addClass("disabled");
+                        $("#statusTitle").text("Offline");
+                        $("#statusText").text("Reverse proxy server is offline");
+                        $("#serverstatus").removeClass("green");
+                    }
+                });
+            }
+
+            function startService(){
+                $.post("../../system/proxy/enable", {enable: true}, function(data){
+                    if (data.error != undefined){
+                        errmsg(data.error);
+                    }
+                    initRPStaste();
+                });
+            }   
+
+            function stopService(){
+                $.post("../../system/proxy/enable", {enable: false}, function(data){
+                    if (data.error != undefined){
+                        errmsg(data.error);
+                    }
+                    initRPStaste();
+                });
+            }
+
+            function errmsg(message){
+                $("#errmsg").html(`<i class="red remove icon"></i> ${message}`);
+                $("#errmsg").slideDown('fast').delay(5000).slideUp('fast');
+            }
+        </script>
+    </body>
+</html>

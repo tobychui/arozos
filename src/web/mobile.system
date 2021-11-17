@@ -9,6 +9,7 @@
         <script type="text/javascript" src="script/jquery.min.js"></script>
         <script type="text/javascript" src="script/semantic/semantic.js"></script>
         <script type="text/javascript" src="script/ao_module.js"></script>
+        <script type="text/javascript" src="./script/applocale.js"></script>
         <style>
 
             document, body{
@@ -382,7 +383,7 @@
                     </div>
                 </div>
             </div>
-            <button onclick="logout();" class="ui basic blue mini button" style="position: absolute; top: 1em; right: 1em;">Logout</button>
+            <button locale="quickAccess/logout" onclick="logout();" class="ui basic blue mini button" style="position: absolute; top: 1em; right: 1em;">Logout</button>
             <button onclick="toggleProfileInfo();" class="circular ui themecolor icon button" style="position: absolute; bottom: 0px; right: 0px; margin-bottom: -10px; margin-right: -10px; color: white;">
                 <i class="remove icon"></i>
               </button>
@@ -397,20 +398,19 @@
             </div>
             <dib class="listItemWrapper">
                 <div class="groups">
-                    <div id="searchResults" class="item" style="display:none;">Search Results</div>
-                    <div class="item groupType selected" group="All">All</div>
-                    <div class="item groupType" group="Media">Media</div>
-                    <div class="item groupType" group="Office">Office</div>
-                    <div class="item groupType" group="Download">Download</div>
-                    <div class="item groupType" group="Files">Files</div>
-                    <div class="item groupType" group="Internet">Internet</div>
-                    <div class="item groupType" group="System Settings">System Settings</div>
-                    <div class="item groupType" group="System Tools">System Tools</div>
-                    <div class="item groupType" group="Utilities">Utilities</div>
-                    <div class="item groupType" group="Other">Other</div>
+                    <div locale="listmenu/catergory/searchResults" id="searchResults" class="item" style="display:none;">Search Results</div>
+                    <div locale="listmenu/catergory/all" class="item groupType selected" group="All">All</div>
+                    <div locale="listmenu/catergory/media" class="item groupType" group="Media">Media</div>
+                    <div locale="listmenu/catergory/office" class="item groupType" group="Office">Office</div>
+                    <div locale="listmenu/catergory/download" class="item groupType" group="Download">Download</div>
+                    <div locale="listmenu/catergory/files" class="item groupType" group="Files">Files</div>
+                    <div locale="listmenu/catergory/internet" class="item groupType" group="Internet">Internet</div>
+                    <div locale="listmenu/catergory/settings" class="item groupType" group="System Settings">System Settings</div>
+                    <div locale="listmenu/catergory/tools" class="item groupType" group="System Tools">System Tools</div>
+                    <div locale="listmenu/catergory/utils" class="item groupType" group="Utilities">Utilities</div>
+                    <div locale="listmenu/catergory/other" class="item groupType" group="Other">Other</div>
                     <div class="hideListMenuButton" onclick="closeListMenu();">
                         <img class="ui image" src="img/mobile/cancel-black-48dp.svg"></img>
-                        <p>Close Menu</p>
                     </div>
                 </div>
                 <div id="listMenuItem" class="items" align="left">
@@ -437,6 +437,13 @@
        
 
         <script>
+            /*
+                ArOZ Online Mobile Interfacae
+
+                This script must maintain compatibility to the desktop.system interface
+                regarding all cross iframe access functions.
+
+            */
             var isDesktopMode = true;   //Try to emulate Desktop mode
             var moduleInstalled = [];   //List of installed modules on the system
             var desktopThemeList = [];  //List of themes installed, same as desktop theme
@@ -448,7 +455,7 @@
 
             //Clock related
             var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
             //initiation Functions
             initHostInfo();
@@ -478,6 +485,20 @@
                 });
             }
            
+            //Check and prepare localization
+            if (applocale){
+                //Applocale found. Do localization
+                applocale.init("./SystemAO/locale/desktop.json", function(){
+                    applocale.translate();
+                });
+            }else{
+                //Applocale not found. Is this a trim down version of ArozOS?
+                var applocale = {
+                    getString: function(key, original){
+                        return original;
+                    }
+                }
+            }
 
             //Connection check
             setInterval(function() {

@@ -14,8 +14,7 @@
         .hidden{
             display:none;
         }
-        
-
+    
         .disabled{
             opacity: 0.5;
             pointer-events: none;
@@ -49,6 +48,10 @@
             position: absolute !important; 
             top:0px; 
             left: 0px;
+        }
+
+        .smallerFont{
+            font-size: 98%;
         }
     </style>
 </head>
@@ -101,10 +104,10 @@
                     <div class="blue colorblock"></div><span locale="spaceinfo/totalUsed">Total Used Space:</span>
                 </td>
                 <td>
-                    <span id="usedSpaceInBytes"></span> <span locale="unit/bytes">Bytes</span>
+                    <span id="usedSpaceInBytes"  class="smallerFont"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
-                    <span id="usedSpaceInHumanReadableFormat"></span>
+                    <span id="usedSpaceInHumanReadableFormat" class="smallerFont"></span>
                 </td>
             </tr>
             <tr>
@@ -112,10 +115,10 @@
                     <div class="yellow colorblock"></div><span locale="spaceinfo/userUsed">User Used Space:</span>
                 </td>
                 <td>
-                    <span id="usedVirtualSpaceInByte"></span> <span locale="unit/bytes">Bytes</span>
+                    <span id="usedVirtualSpaceInByte" class="smallerFont"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
-                    <span id="usedVirtualSpaceInHumanReadableFormat"></span>
+                    <span id="usedVirtualSpaceInHumanReadableFormat"  class="smallerFont"></span>
                 </td>
             </tr>
             <tr>
@@ -123,10 +126,10 @@
                     <div class="grey colorblock"></div><span locale="spaceinfo/Usable">Usable Space:</span>
                 </td>
                 <td>
-                    <span id="usableSpaceInBytes"></span> <span locale="unit/bytes">Bytes</span>
+                    <span id="usableSpaceInBytes" class="smallerFont"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
-                    <span id="usableSpaceInHumanReadableFormat"></span>
+                    <span id="usableSpaceInHumanReadableFormat" class="smallerFont"></span>
                 </td>
             </tr>
             <tr>
@@ -134,10 +137,10 @@
                     <div class="transparent colorblock"></div><span locale="spaceinfo/Capacity">Capacity:</span>
                 </td>
                 <td>
-                    <span id="totalSpaceInBytes"></span> <span locale="unit/bytes">Bytes</span>
+                    <span id="totalSpaceInBytes" class="smallerFont"></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
-                    <span id="totalSpaceInHumanReadableFormat"></span>
+                    <span id="totalSpaceInHumanReadableFormat" class="smallerFont"></span>
                 </td>
             </tr>
         </table>

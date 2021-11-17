@@ -74,7 +74,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	for _, script := range startupScripts {
 		scriptContentByte, _ := ioutil.ReadFile(script)
 		scriptContent := string(scriptContentByte)
-		log.Println("[AGI] Gatewat script loaded (" + script + ")")
+		log.Println("[AGI] Gateway script loaded (" + script + ")")
 		//Create a new vm for this request
 		vm := otto.New()
 

@@ -3,7 +3,7 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings":{
                 "topbar/welcome":"歡迎回來",
                 "topbar/arozos":"ArozOS 網頁桌面模式",
@@ -31,6 +31,7 @@
 
                 "quickAccess/logout": "登出",
                 "quickAccess/sysvol":"系統音量",
+				"quickAccess/brightness":"亮度",
                 "quickAccess/settings":"系統設定",
                 "quickAccess/fullscreen":"切換全螢幕",
                 "quickAccess/restart":"重新啟動伺服器",
@@ -92,7 +93,7 @@
             }
         },
         "zh-hk": {
-            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings":{
                 "topbar/welcome":"歡迎回來",
                 "topbar/arozos":"ArozOS 網頁桌面模式",
@@ -120,6 +121,7 @@
 
                 "quickAccess/logout": "登出",
                 "quickAccess/sysvol":"系統音量",
+				"quickAccess/brightness":"亮度",
                 "quickAccess/settings":"系統設定",
                 "quickAccess/fullscreen":"切換全螢幕",
                 "quickAccess/restart":"重新啟動伺服器",
@@ -210,6 +212,7 @@
 
                 "quickAccess/logout": "退出",
                 "quickAccess/sysvol":"系统音量",
+				"quickAccess/brightness":"亮度",
                 "quickAccess/settings":"系统设置",
                 "quickAccess/fullscreen":"切换全屏幕",
                 "quickAccess/restart":"服务器重启",

@@ -1,12 +1,13 @@
 <html>
     <head>
-        <title>File Operation</title>
+        <title locale="title">File Operation</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
             .banner{
                 background-color:#4287f5;
@@ -40,13 +41,13 @@
     </head>
     <body>
         <div class="banner">
-            <div class="title">Calculating Operation</div>
+            <div class="title" locale="banner/title">Calculating Operation</div>
             <img id="opricon" src="img/loading.png" class="ui image"></img>
         </div>
         <div class="content">
-            <div class="info">From: <span id="src"></span></div>
-            <div class="info">To: <span id="dest"></span></div>
-            <div class="info">Progress: <span id="progress"> <i class="loading spinner icon"></i> Calculating</span></div>
+            <div class="info"><span locale="info/from">From:</span> <span id="src"></span></div>
+            <div class="info"><span locale="info/to">To:</span> <span id="dest"></span></div>
+            <div class="info"><span locale="info/progress">Progress:</span> <span id="progress"> <i class="loading spinner icon"></i> <span>Calculating</span></div>
             <div class="ui active small progress" style="margin-top:18px;">
                 <div id="progressbar" class="bar" style="width:100%; background-color:#4287f5;"></div>
             </div>
@@ -54,7 +55,7 @@
         <div class="ui modal" id="duplicateAction">
             <div class="content">
                 <div class="description" style="padding: 0px !important;">
-                    <p><i class="big exclamation triangle icon"></i> At least one file has the same filename with another existsing file. <b>Which action should be taken?</b></p><br>
+                    <p><i class="big exclamation triangle icon"></i> <span>At least one file has the same filename with another existsing file. <b>Which action should be taken?</b></span></p><br>
                 </div>
             </div>
             <div class="actions">
@@ -100,8 +101,24 @@
             //Initalized floatWindow events
             ao_module_setFixedWindowSize();
             ao_module_setWindowSize(400,220);
+            
+            if (applocale){
+                //Applocale found. Do localization
+                applocale.init("../locale/file_operation.json", function(){
+                    applocale.translate();
+                    init();
+                });
+            }else{
+                //Applocale not found. Is this a trim down version of ArozOS?
+                applocale = {
+                    getString: function(key, original){
+                        return original;
+                    }
+                }
+                init();
+            }
 
-            init();
+            
             function init(){
                 console.log("Checking launch parameters...");
                 if (window.location.hash.length > 0){
@@ -597,22 +614,22 @@ mainloop:
             function updateTitle(fileNumber, opr){
                 var title = "";
                 if (opr == "move"){
-                    title = "Moving ";
+                    title = applocale.getString("title/moving","Moving ");
                 }else if (opr == "copy"){
-                    title = "Copying ";
+                    title = applocale.getString("title/copying","Copying ");
                 }else if (opr == "zip" || opr == "zipAndDownload"){
-                    title = "Zipping ";
+                    title = applocale.getString("title/zipping","Zipping ");
                 }else if (opr == "download"){
-                    title = "Downloading ";
+                    title = applocale.getString("title/downloading","Downloading ");
                 }else if (opr == "unzip" || opr == "unzipAndOpen"){
-                    title = "Unzipping ";
+                    title = applocale.getString("title/unzipping","Unzipping ");
                 }
 
                 title += fileNumber + " ";
                 if (fileNumber == 1){
-                    title += " File";
+                    title += applocale.getString("title/file"," File");
                 }else{
-                    title += " Files";
+                    title += applocale.getString("title/files"," Files");
                 }
 
                 $(".title").text(title);

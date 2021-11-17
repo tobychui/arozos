@@ -24,11 +24,7 @@
                 color:black;
                 height:100%;
             }
-            @font-face {
-                font-family: 'TaipeiSansTCBeta-Regular';
-                src: url('../../script/font/TaipeiSansTCBeta-Regular.ttf');
-            }
-            h1, h2, h3, p, span, div,span { font-family: 'TaipeiSansTCBeta-Regular',"Lucida Console", "Courier New", monospace;}
+            h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple LiGothic Medium", "STHeiti"}
             html{
                 height:100%;
                 overflow:hidden;
@@ -1999,8 +1995,8 @@
             var lastClickedFileID = 0;
             function bindFileObjectEvents(){
                 $(".fileObject").off("click").on('click',function(evt){
-                    if (!ctrlHold && isMobile){
-                        //If on mobile, click means open
+                    if (!ctrlHold && isMobile && !ctrlHold){
+                        //If on mobile, click means open (only on not muilti selection mode)
                         openthis(this,evt);
                         return
                     }
@@ -2419,6 +2415,7 @@
 
                 shiftHold = false;
                 ctrlHold = false;
+                updateCtrlDisplay();
                 let currentScrollTop = JSON.parse(JSON.stringify($("#folderView").scrollTop()));
                 listDirectory(currentPath, function(){
                     //Scroll back to the original height
@@ -3927,8 +3924,10 @@
                 }
                 if(event.which==17 || event.which == 91){
                     ctrlHold = true;
+                    updateCtrlDisplay();
                 }else if (event.which == 16){
                     shiftHold = true;
+                    updateCtrlDisplay();
                 }else if (event.which == 67 && ctrlHold == true){
                     //Ctrl + C
                     if (!$(".popup").is(":visible")){
@@ -4027,6 +4026,7 @@
             $(document).keyup(function(event){
                 if(event.which==17 || event.which == 91){
                     ctrlHold = false;
+                    updateCtrlDisplay();
                 }else if (event.which == 16){
                     shiftHold = false;
                 }
@@ -4037,6 +4037,7 @@
                 $(".fileObject.selected").removeClass("selected");
                 shiftHold = false;
                 ctrlHold = false;
+                updateCtrlDisplay();
             });
 
             //Check if localstorage is availble
@@ -4992,6 +4993,18 @@
 
         function toggleCtrl(){
             ctrlHold = !ctrlHold;
+            updateCtrlDisplay();
+        }
+
+        function updateCtrlDisplay(){
+            if (isMobile){
+                //Change color of the navibar based on selection mode
+                if (ctrlHold){
+                    $("#navibar").css("border-bottom","2px solid #6c06ba");
+                }else{
+                    $("#navibar").css("border-bottom","2px solid #34b7eb");
+                }
+            }
         }
 
         function getUploadTaskByID(taskUUID){

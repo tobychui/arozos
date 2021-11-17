@@ -58,9 +58,8 @@ func RunStartup() {
 	//StorageDaemonInit() //Start File System handler daemon (for backup and other sync process)
 
 	//8 Start AGI and Subservice modules (Must start after module)
-	AGIInit()          //ArOZ Javascript Gateway Interface, must start after fs
-	SubserviceInit()   //Subservice Handler
-	ReverseProxtInit() //Start Dynamic Reverse Proxy
+	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
+	SubserviceInit() //Subservice Handler
 
 	//9. Initiate System Settings Handlers
 	SystemSettingInit()       //Start System Setting Core

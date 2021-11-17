@@ -207,8 +207,11 @@
             var moduleInfo =  JSON.parse(decodeURIComponent($("#moduleList").val()));
             //Use the startup path for embeded > fw > default
             var moduleIcon = moduleInfo.IconPath;
-            if (imageExists("../../" + moduleIcon.replace("small_icon","desktop_icon"))){
-                moduleIcon = moduleIcon.replace("small_icon","desktop_icon");
+            var moduleIconDir = moduleIcon.split("/");
+            moduleIconDir.pop();
+            moduleIconDir.join("/");
+            if (imageExists("../../" + moduleIconDir + "desktop_icon.png")){
+                moduleIcon = moduleIconDir + "desktop_icon.png";
             }
             generateShortcutFile("module",moduleInfo.Name, moduleInfo.Name, moduleIcon);
             $(".stageTwo").slideUp();

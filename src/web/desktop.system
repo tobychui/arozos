@@ -20,6 +20,7 @@
             background-image: url('img/desktop/bg/init.jpg');
             width: 100%;
             height: 100%;
+            overflow: hidden;
         }
         
         .backgroundFrame {
@@ -132,6 +133,12 @@
         .launchIconText.big {
             margin-top: -6px;
             font-size: 110%;
+        }
+
+        .launchIconText.longTextSplit{
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .navimenu {
@@ -766,13 +773,31 @@
                 animation: blink normal 2s infinite ease-in-out; /* Opera and prob css3 final iteration */
             }
 
+            /*
+                Hover file decriptor UI
+            */
+            .fileDescription {
+                width:200px;
+                position:fixed;
+                z-index:10;
+                background:white;
+                padding: 10px;
+                border: 1px solid #2c2c2c;
+                -webkit-box-shadow: 6px 5px 10px -3px rgba(0,0,0,0.75);
+                -moz-box-shadow: 6px 5px 10px -3px rgba(0,0,0,0.75);
+                box-shadow: 6px 5px 10px -3px rgba(0,0,0,0.75);
+                padding:2px;
+                word-wrap: break-word;
+            }
+
+
 
         /*
                 Z-index layering
                 Layer -1 : Background Images
                 Layer 0 - 99: Not focused tab
                 Layer 100: Focused tab drag drop layer
-                Layer 101: Focused Tab
+                Layer 101: Focused Tab / File Descriptor Tag
                 ...
                 Layer 400 - 499: Non-focused top most FloatWindows
                 Layer 500: Top Mot FloatWindow drag drop layer
@@ -843,7 +868,10 @@
     <div id="iconwrapper">
         
     </div>
-    
+
+    <!-- File Descriptors -->
+    <div id="fileDescriptor" class="fileDescription" style="font-size: 80%;display:none;z-index:101;">No Information</div>
+
     <!-- Navigation Menu-->
     <div id="navimenu" class="navimenu themeColor">
         <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" >
@@ -917,7 +945,7 @@
             </div>
         </div>
         
-      
+        
     </div>
 
     <div id="quickAccessPanel" class="" style="display:none;">
@@ -945,6 +973,12 @@
                 <div id="volumebar" class="bar" style="width: 0%; background-color:#52C9FF;  cursor:pointer;"></div>
             </div>
         </div>
+        <div class="item" style="padding-bottom:12px;">
+            <i class="lightbulb icon"></i> <span locale="quickAccess/brightness">Brightness</span>
+            <div class="ts fluid small progress" style="margin-top:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
+                <div id="brightnessbar" class="bar" style="width: 100%; background-color:#52C9FF;  cursor:pointer;"></div>
+            </div>
+        </div>
         <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
             <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
             <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
@@ -960,7 +994,6 @@
             <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
         </div>
     </div>
-
     <script>
 
         /*
@@ -998,7 +1031,7 @@
         var movingWindow = false;
         var resizingWindow = false;
         var resizingEdgeID = 0; //Resizing edge. {0, 1, 2, 3, 4, 5} => None, Right, Right Bottom Corner, Bottom, Left Bottom Corner, Left 
-        var stackedFloatWindowListShwon = false;
+        var stackedFloatWindowListShown = false;
 
         //Laucnh icon related
         var multiSelecting = false;
@@ -1006,6 +1039,7 @@
         var clickDownOffset = [-1, -1];
         var renameMode = false;
         var operationTargetLaunchIcon;
+        var currentMousePosition = [-1, -1];
 
         //Document key bindings
         var ctrlHold = false;
@@ -1222,6 +1256,17 @@
                 currentGlobalVol = 0;
                 localStorage.setItem("global_volume",currentGlobalVol);
             }
+
+            //Setup brightness
+            var currentBrightness = localStorage.getItem("brightness");
+            if (currentBrightness != null && currentBrightness != undefined && currentBrightness != ""){
+                $("#brightnessbar").css("width", currentBrightness * 100 + "%");
+                $("body").css("filter", `brightness(${currentBrightness * 100}%)`);
+            }else{
+                currentBrightness = 1;
+                localStorage.setItem("brightness",currentBrightness);
+            }
+            
 
             //Check if hardware management mode is enabled. Hide buttons if needed
             $.get("system/power/accessCheck",function(data){
@@ -1658,11 +1703,16 @@
                 //Generate the stackedWindowList
                 var windowIdList = JSON.parse(decodeURIComponent($(this).attr("windowidgroup")));
                 if (windowIdList.length == 1) {
-                    //There are only one window in this group. Show it anyway
+                    //There are only one window in this group. Focus that floatWindow
                     var targetFW = getFloatWindowByID(windowIdList[0]);
                     $(targetFW).fadeIn(100);
                     MoveFloatWindowToTop(targetFW);
-                    stackedFloatWindowListShwon = false;
+                    stackedFloatWindowListShown = false;
+
+                    if (checkIfFloatWindowOutsideWindowArea(targetFW)){
+                        //This floatWindow is outside of the display area.
+                        resetFloatWindowPosition(targetFW);
+                    }
                     $("#stackedWindowList").hide();
                 } else {
                     //Get icon for each windows and build the list objects
@@ -1673,7 +1723,7 @@
                         $("#stackedWindowList").append(`<div class="item clickable" windowId="${windowIdList[i]}" onclick="bringFloatWindowToFrontByFWB(this,event);"  ontouchstart="bringFloatWindowToFrontByFWB(this,event);"><span><img src="${iconURL}"></img>${title}</span><div class="closebtn" onclick="closeFWviaFWB(this,event);"><img src="img/system/close.png"></img></div></div>`);
                     }
                     $("#stackedWindowList").show();
-                    stackedFloatWindowListShwon = true;
+                    stackedFloatWindowListShown = true;
                 }
 
             });
@@ -1721,7 +1771,7 @@
             }
             $(targetFW).fadeIn(100);
             MoveFloatWindowToTop(targetFW);
-            stackedFloatWindowListShwon = false;
+            stackedFloatWindowListShown = false;
             $("#stackedWindowList").hide();
         }
 
@@ -1738,11 +1788,56 @@
             $(object).parent().remove();
             if ($("#stackedWindowList").find(".item").length == 0) {
                 //There are no more things in this tab. Close this list as well.
-                stackedFloatWindowListShwon = false;
+                stackedFloatWindowListShown = false;
                 $("#stackedWindowList").hide();
             }
         }
 
+        //Check if the given floatWindow DOM object is located outside the screen area.
+        function checkIfFloatWindowOutsideWindowArea(targetFW, checkForCompletelyOutside=true){
+            let fwTop = $(targetFW).offset().top;
+            let fwLeft = $(targetFW).offset().left;
+            let fwBottom = $(targetFW).offset().left + $(targetFW).width();
+            let fwRight = $(targetFW).offset().top + $(targetFW).height();
+
+            //Check for floatWindow complete
+            if (checkForCompletelyOutside){
+                if (fwBottom < 0 || fwTop > window.innerHeight + 1){
+                    return true;
+                }else if (fwRight < 0 || fwLeft > window.innerWidth + 1){
+                    return true;
+                }
+                return false;
+            }else{
+                //Check if any edge of the fw is outside of the document window
+                if (fwTop < 0 || fwBottom > window.innerHeight + 1){
+                    return true;
+                }else if (fwLeft < 0 || fwRight > window.innerWidth + 1){
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        //Reset the given floatWindow object position on screen
+        function resetFloatWindowPosition(targetFW, center=true){
+            if (center == true){
+                //Calculate the corner position of the target
+                var newTop = window.innerHeight/2 - $(targetFW).height()/2;
+                var newLeft = window.innerWidth/2 - $(targetFW).width()/2;
+                $(targetFW).css({
+                    left: newLeft,
+                    top: newTop,
+                });
+            }else{
+                //Reset to origin + 10
+                $(targetFW).css({
+                    left: 10,
+                    top: 10,
+                });
+            }
+        }
 
         //Handle floatWindow resize events
         let resizingWindowTarget;
@@ -1877,16 +1972,16 @@
 
         //Hook body clicke vents
         $("body").on("click", function(evt) {
-            if (stackedFloatWindowListShwon == true) {
+            if (stackedFloatWindowListShown == true) {
                 //Hide the stacked Float Window list if it is shown
                 $("#stackedWindowList").hide();
-                stackedFloatWindowListShwon = false;
+                stackedFloatWindowListShown = false;
             }
 
             if (renameMode == true){
                 //Exit rename mode if the target is not on the editing launchIcon
                 console.log(evt.target);
-                if ($(evt.target).is("body")){
+                if ($(evt.target).is("body") || $(evt.target).attr("id") == "dbg1" || $(evt.target).attr("id") == "dbg2"){
                     //End rename mode
                     exitRenameMode();
                 }
@@ -3102,7 +3197,7 @@
                     style="width:${properties.iwidth}px; height:${properties.iheight}px;left:${properties.screenX}px; top:${properties.screenY}px;">
                     <span class="launchIconWrapper">
                         <img class="launchIconImage ${properties.size}" src="${properties.imagePath}" draggable="false"></img>
-                        <p class="launchIconText ${properties.size} ">${properties.shortenedName}</p>
+                        <p class="launchIconText ${properties.size}">${properties.shortenedName}</p>
                     </span>
                     </${htmlType}>`);
 
@@ -3135,6 +3230,54 @@
                 //evt.dataTransfer.setData("DownloadURL","video/mp4"+":"+"test.mp4"+":"+"data:"+"video/mp4"+";base64,"+fileBase64);
                 },false);
             }
+        }
+
+        //Folder description box
+        var timeoutId;
+        function attachDescriptionBoxEvents(){
+            $(".launchIcon").off("hover").hover(function(event) {
+                let modulePath = $(this).attr("filepath");
+                let filename = $(this).attr("filename");
+                let filedata = JSON.parse( decodeURIComponent($(this).attr("filedata")));
+                
+                if (!timeoutId) {
+                    if (renameMode == true){
+                        //Renaming. Do not show hover info tab
+                        return;
+                    }
+                    timeoutId = window.setTimeout(function() {
+                        let position = [currentMousePosition[0] + 10, currentMousePosition[1] + 10];
+                        timeoutId = null;
+                        console.log(filedata, position);
+                        $('#fileDescriptor').css('left',position[0] + "px");
+                        $('#fileDescriptor').css('top',position[1] + "px");
+                        if (filedata.IsShortcut){
+                            $('#fileDescriptor').html(`<p><i class="linkify icon"></i> ${filedata.ShortcutName}<br><i class="folder icon"></i> ${filedata.ShortcutPath}</p>`);
+                            $('#fileDescriptor').show();
+                        }else{
+                            $.ajax({
+                                url: "system/file_system/getProperties",
+                                data: {path: filedata.Filepath},
+                                success: function(data){
+                                    $('#fileDescriptor').html(`<p>${filedata.Filename}<br><i class="file outline icon"></i> ${formatBytes(data.Filesize)} (${data.MimeType})<br><i class="time icon"></i> ${data.LastModTime}</p>`);
+                                    $('#fileDescriptor').show();
+                                }
+                            })
+                            
+                        }
+                        
+                        
+                    }, 1500);
+                }
+            },
+            function () {
+                if (timeoutId) {
+                    window.clearTimeout(timeoutId);
+                    timeoutId = null;
+                }else {
+                    $('#fileDescriptor').hide();
+                }
+            });
         }
 
         /*
@@ -3927,6 +4070,7 @@
                 }
                 
             }
+        
             //Clicked on a launch icon.
             var alreadyHighlighted = $(object).find(".launchIconWrapper").hasClass("selected");
             if (alreadyHighlighted){
@@ -3945,8 +4089,6 @@
                     $(".launchIconWrapper.selected").removeClass("selected");
                     $(object).find(".launchIconWrapper").addClass("selected");
                 }
-                
-
             }
         }
 
@@ -4060,18 +4202,20 @@
         }
 
         $(window).on("resize", function(event) {
-                redrawDesktopGrids();
-                resizeAllFloatWindowButtons();
-            })
-            // ======================= DOCUMENT KEY BINDING =====================
-        $(document).keydown(function(event) {
-            if (event.which == "17") {
+            redrawDesktopGrids();
+            resizeAllFloatWindowButtons();
+        })
+
+        // ======================= DOCUMENT KEY BINDING =====================
+        document.addEventListener('keydown', function(event) {
+            let keycode = event.which || event.keyCode;
+            if (keycode == "17") {
                 //Pressdown of Ctrl key
                 ctrlHold = true;
-            } else if (event.which == "16") {
+            } else if (keycode == "16") {
                 //Pressdown of Shift key
                 shiftHold = true;
-            }else if (event.which == "27"){
+            }else if (keycode == "27"){
                 //Cancel all floatwindow events and key events
                 $("#fwdragpanel").hide();
                 $("#tfwdragpanel").hide();
@@ -4082,7 +4226,7 @@
                 multiSelecting = false;
                 ctrlHold = false;
                 shiftHold = false;
-            }else if (event.which == "46"){
+            }else if (keycode == "46"){
                 //Delete key
 
                 if (renameMode){
@@ -4129,7 +4273,7 @@
                     });
                 })
                
-            }else if (event.which == "13"){
+            }else if (keycode == "112"){
                 //Enter key
                 if (!renameMode){
                     //Open selected object by emulating double click
@@ -4147,12 +4291,23 @@
                 //console.log(event.which);
             }
         });
+        
+        $(document).on("mousemove", function(event){
+            currentMousePosition = [event.clientX, event.clientY];
+        });
 
         $(document).keyup(function(event) {
-            if (event.which == "17") {
+            let keycode = event.which || event.keyCode;
+            if (keycode == "17") {
                 ctrlHold = false;
-            } else if (event.which == "16") {
+            } else if (keycode == "16") {
                 shiftHold = false;
+            }else if (keycode == "27"){
+                //ESC key, stop all floatWindow operations
+                console.log("%c[Desktop] Dragging function killed. Restarting all dragging elements.", 'color: #e64747');
+                movingWindow = false;
+                resizingWindow = false;
+                event.preventDefault();
             }
         });
 
@@ -4818,14 +4973,15 @@
             if (desktopIconSize == "big") {
                 bigCheckmark = "<i class='checkmark icon'></i>";
             }
-            addContextMenuItem($("#subcontextmenu"), lcontex("Small"), smallCheckmark, "setDesktopIconSize", false);
-            addContextMenuItem($("#subcontextmenu"), lcontex("Medium"), mediumCheckmark, "setDesktopIconSize", false);
-            addContextMenuItem($("#subcontextmenu"), lcontex("Big"), bigCheckmark, "setDesktopIconSize", false);
+            addContextMenuItem($("#subcontextmenu"), lcontex("Small"), smallCheckmark, "setDesktopIconSize", false, {payload: "small"});
+            addContextMenuItem($("#subcontextmenu"), lcontex("Medium"), mediumCheckmark, "setDesktopIconSize", false, {payload: "medium"});
+            addContextMenuItem($("#subcontextmenu"), lcontex("Big"), bigCheckmark, "setDesktopIconSize", false, {payload: "big"});
             showSubContextMenu(target);
         }
 
         function setDesktopIconSize(target, evt) {
-            var targetSize = $(target).text().trim().toLowerCase();
+            var targetSize = $(target).attr("payload");
+            targetSize = JSON.parse(decodeURIComponent(targetSize));
             if (["small", "medium", "big"].includes(targetSize)) {
                 desktopIconSize = targetSize;
             }
@@ -5201,6 +5357,12 @@
             updateVolume( document.getElementById("volumebar").parentNode, e);
         });
 
+        document.getElementById("brightnessbar").parentNode.addEventListener("touchstart", function(e){
+            updateBrightness( document.getElementById("brightnessbar").parentNode, e);
+        });
+
+        
+
         function getCoordinateFromEvent(e){
             var x = -1;
             var y = -1;
@@ -5237,6 +5399,32 @@
             localStorage.setItem("global_volume", clickRel / width);
         }
 
+        //Update screen brightness, for those who use ArozOS on their TV
+        function updateBrightness(object, event){
+            var width = $(object).width();
+            var left = $(object).offset().left;
+            var clickPosition = getCoordinateFromEvent(event)[0];
+            var clickRel = clickPosition - left;
+            var percentage = clickRel / width * 100;
+            if (percentage < 0){
+                percentage = 0;
+            }else if (percentage > 100){
+                percentage = 100;
+            }
+
+            //Min is 3%
+            if (percentage < 3){
+                percentage = 3;
+            }
+
+            //Set body brightness filter
+            $("body").css("filter", `brightness(${percentage}%)`);
+
+            //Save changes to localStorage
+            currentBrightness = percentage;
+            $(object).find(".bar").css("width",percentage + "%");
+            localStorage.setItem("brightness", clickRel / width);
+        }
 
 
         function refresh(callback = undefined, noflash=false) {
@@ -5258,10 +5446,12 @@
             if (callback == undefined) {
                 initDesktopFiles(launchOption, function(){
                     startThumbnailLoader();
+                    attachDescriptionBoxEvents();
                 });
             } else {
                 initDesktopFiles(launchOption, function(){
                     startThumbnailLoader();
+                    attachDescriptionBoxEvents();
                     callback()
                 });
             }
@@ -5303,6 +5493,9 @@
 
                             //Load the application icon on this file
                             let filedata = $(this).attr("filedata");
+                            if (filedata == undefined){
+                                return;
+                            }
                             filedata = JSON.parse(decodeURIComponent(filedata));
                             $.ajax({
                                 url: "system/modules/getDefault",
@@ -5507,7 +5700,7 @@
                         //Check if ramsize > 1.8 GB (2GB). If yes, switch to large memory upload mode
                         var memsize = JSON.parse(data);
                         if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 3.8){
-                            console.log("[Desktop] Setting upload mode to large memory mode")
+                            console.log("%c[Desktop] Setting upload mode to large memory mode", 'color: #2ba16e');
                             lowMemoryMode = false;
                         }
                     }
@@ -5656,6 +5849,7 @@
                 };
 
                 socket.onclose = function(event) {
+                    $("." + uploadingIconUUID).remove();
                     if (callback != undefined){
                         callback();
                     }
@@ -5692,6 +5886,8 @@
 
                 xhr.addEventListener('readystatechange', function(e) {
                     if (xhr.readyState == 4 && xhr.status == 200) {
+                        //Upload Succ
+                        $("." + uploadingIconUUID).remove();
                         if (callback !== undefined){
                             callback(e.target.response);
                         }
@@ -5816,6 +6012,7 @@
             //List menu theme color bar
             $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
             $("#volumebar").css("background-color", newThemeColor);
+            $("#brightnessbar").css("background-color", newThemeColor);
 
             //Connection lost notification css
             $("#connectionLost").find(".ts.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
@@ -5929,7 +6126,8 @@
             hideAllContextMenus();
         }
 
-
+        //Function for converting bytes to human readable sizes
+        function formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}
 
         /*
             Background services for keeping desktop files updated

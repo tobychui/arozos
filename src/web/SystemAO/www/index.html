@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- Meta headers for mobile devices-->
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="icon" href="favicon.png">
+
+        <!-- CSS and JavaScript, access to scripe folder is not blocked for non logged in users-->
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <title>Web Root</title>
+        <style>
+            body{
+                background-color:white;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="ui container" id="particles-js">
+            <br><br>
+            <a class="ui basic right floated button" href="../"><i class="home icon"></i>Back</a>
+            <h1>Web Root Document</h1>
+            <div class="ui divider"></div>
+
+            This is the root document of the home page service for this ArozOS Host.<br>
+            To browse a user's homepage, enter the username as subpath for the URL (i.e. www/username)<br><br>
+            To shutdown the homepage feature, set -enable_homepage flag to false from your startup script and restart. <br>
+            All users that are not logged in will be redirected to login page instead.
+
+            <div class="ui divider"></div>
+            <p>To change this file, edit web/SystemAO/www/index.html<br>
+            ArozOS Project, CopyRight tobychui 2016 - <span class="year"></span></p>
+        </div>
+        <script>
+            $(".year").text(new Date().getFullYear());
+        </script>
+    </body>
+</html>

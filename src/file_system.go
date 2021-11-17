@@ -2439,15 +2439,26 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	thumbnailPath, err := thumbRenderHandler.LoadCache(rpath, false)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
+	byteMode, _ := mv(r, "bytes", false)
+	if byteMode == "true" {
+		thumbnailBytes, err := thumbRenderHandler.LoadCacheAsBytes(rpath, false)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+		filetype := http.DetectContentType(thumbnailBytes)
+		w.Header().Add("Content-Type", filetype)
+		w.Write(thumbnailBytes)
+	} else {
+		thumbnailPath, err := thumbRenderHandler.LoadCache(rpath, false)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+
+		js, _ := json.Marshal(thumbnailPath)
+		sendJSONResponse(w, string(js))
 	}
-
-	js, _ := json.Marshal(thumbnailPath)
-	sendJSONResponse(w, string(js))
-
 }
 
 //Handle file thumbnail caching

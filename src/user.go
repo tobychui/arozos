@@ -70,11 +70,6 @@ func UserSystemInit() {
 		RequireAdmin: true,
 	})
 
-	//Handle db / auth / permissions related functions that requires user permission systems. See user.go
-	user_createPostUserHandlers()
-}
-
-func user_createPostUserHandlers() {
 	//Register auth management events that requires user handler
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Settings",

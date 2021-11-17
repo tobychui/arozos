@@ -17,8 +17,6 @@ function error(message){
 }
 
 
-
-
 function main(){
     //Require libraries
     if (!requirelib("filelib")){

@@ -1,6 +1,6 @@
 <html>
     <head>
-        <title>File Selector</title>
+        <title locale="title">File Selector</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <link rel="stylesheet" href="../../script/tocas/tocas.css">
@@ -8,6 +8,7 @@
         <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
             body{
                 background-color:white;
@@ -87,10 +88,10 @@
                 </div>
             </div>
 
-            <div id="newFolderInput" style="width:100%; margin-top:12px; display:none;" align="right">
+            <div id="newFolderInput" style="width:100%; margin-top:4px; display:none;" align="right">
                 <div  class="ts fluid action tiny input" style="width: calc(100% - 180px); float: right;">
                     <input id="foldername" type="text" placeholder="New Folder" value="">
-                    <button class="ts icon button" onclick="createFolder()"><i class="add icon"></i></button>
+                    <button class="ts icon button" onclick="createFolder()" title="Create Folder"><i class="add icon"></i></button>
                 </div>
             </div>
         </div>
@@ -98,7 +99,7 @@
             <div id="sidebarPadder" style="height:46px;"></div>
             <details class="ts accordion" open>
                 <summary>
-                    <i class="dropdown icon"></i> User
+                    <i class="dropdown icon"></i> <span locale="roots/user">User</span>
                 </summary>
                 <div class="content" >
                     <div class="ts list" id="userlist">
@@ -107,7 +108,7 @@
             </details>
             <details class="ts accordion" open>
                 <summary>
-                    <i class="dropdown icon"></i> Storage
+                    <i class="dropdown icon"></i> <span locale="roots/storage">Storage</span>
                 </summary>
                 <div class="content">
                     <div class="ts list" id="storagelist">
@@ -121,7 +122,7 @@
             <div class="fileListWrapper" style="min-height:300px; width:100%;">
                 <div id="folderList" class="ts segmented basic fluid list whiteTheme">
                     <div class="fileObject">
-                        <span class="fileInfo"><i class="loading spinner icon" style="margin-right:12px;"></i>  Loading</span>
+                        <span class="fileInfo"><i class="loading spinner icon" style="margin-right:12px;"></i>  <span locale="message/loading">Loading</span></span>
                     </div>
                 </div>
                 <div id="fileList" class="ts segmented fluid list whiteTheme">
@@ -132,7 +133,7 @@
             <br><br>
         </div>
         <div id="waitloader" class="ts active dimmer" style="display:none; z-index:999;">
-            <div id="waitloadertext" class="ts indeterminate text loader">Waiting Response</div>
+            <div id="waitloadertext" class="ts indeterminate text loader" locale="message/waitingResp">Waiting Response</div>
         </div>
         <script>
             var multiSelect = false;
@@ -146,8 +147,23 @@
             var listenerUUID = "";
             var fileOptions = {};
 
+            if (applocale){
+                //Applocale found. Do localization
+                applocale.init("../locale/file_selector.json", function(){
+                    applocale.translate();
+                    initRoots();
+                });
+            }else{
+                //Applocale not found. Is this a trim down version of ArozOS?
+                applocale = {
+                    getString: function(key, original){
+                        return original;
+                    }
+                }
+                initRoots();
+            }
+
             initSelectorObject();
-            initRoots();
             updateWindowResize();
 
             function initSelectorObject(){
@@ -638,11 +654,53 @@
                                 //Do not show hidden files
                                 continue;
                             }
-                            $('#userlist').append(`<div class="item extrapadding" filepath="${data[i]["Filepath"]}" onclick="openShortcut(this);"><i class="folder icon" style="margin-right:8px;"></i> ${data[i]["Filename"]}</div>`);
+
+                            //Get the icon and the localization of this user root
+                            var iconAndFolderName = getUserRootIcons(data[i]["Filename"]);
+                            console.log(iconAndFolderName);
+                            $('#userlist').append(`<div class="item extrapadding" filepath="${data[i]["Filepath"]}" onclick="openShortcut(this);"><i class="${iconAndFolderName[0]} icon" style="margin-right:8px;"></i> ${iconAndFolderName[1]}</div>`);
                         }
                         
                     }
                 });
+            }
+
+            function getUserRootIcons(foldername){
+                var icon = "folder open";
+                var name = foldername;
+                foldername = foldername.toLowerCase();
+                if (foldername == "desktop"){
+                    icon = "computer";
+                    name = applocale.getString("sidebar/vroot/desktop", name);
+                }else if (foldername == "document"){
+                    icon = "file text outline";
+                    name = applocale.getString("sidebar/vroot/document", name);
+                }else if (foldername == "music" || foldername == "audio"){
+                    icon = "music";
+                    name = applocale.getString("sidebar/vroot/music", name);
+                }else if (foldername == "photo" || foldername == "picture"){
+                    icon = "image";
+                    name = applocale.getString("sidebar/vroot/photo", name);
+                }else if (foldername == "video" || foldername == "film"){
+                    icon = "video";
+                    name = applocale.getString("sidebar/vroot/video", name);
+                }else if (foldername == "trash" || foldername == "bin" || foldername == "rubbish"){
+                    icon = "trash"
+                    name = applocale.getString("sidebar/vroot/trash", name);
+                }else if (foldername == "download"){
+                    icon = "download"
+                    name = applocale.getString("sidebar/vroot/download", name);
+                }else if (foldername == "www" || foldername == "web" || foldername == "mysite"){
+                    icon = "globe"
+                    name = applocale.getString("sidebar/vroot/web", name);
+                }else if (foldername == "model"){
+                    icon = "cube"
+                    name = applocale.getString("sidebar/vroot/model", name);
+                }else if (foldername == "appdata"){
+                    icon = "code"
+                    name = applocale.getString("sidebar/vroot/appdata", name);
+                }
+                return [icon, name];
             }
 
             function openShortcut(object){

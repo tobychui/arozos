@@ -101,6 +101,7 @@
 			ao_module_storage.loadStorage("imgPaste", "uploadOnPaste", function(data){
 				if (data == "true"){
 					$("#uploadOnPaste")[0].checked = true;
+					uploadOnPaste = true;
 				}else{
 					$("#uploadOnPaste")[0].checked = false;
 				}

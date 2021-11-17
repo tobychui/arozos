@@ -58,22 +58,23 @@ function initNativeMediaPlayer(){
     }
 }
 
-function updateTitle(title, artist, albumn){
+function updateTitle(title, artist, albumn, filepath=""){
     if ('mediaSession' in navigator) {
-        if (navigator.mediaSession.metadata){
+        if (isAndroid && navigator.mediaSession.metadata){
             //Media Session created. Update the existsing one instead
             navigator.mediaSession.metadata.title = title;
             navigator.mediaSession.metadata.artist = artist;
             navigator.mediaSession.metadata.album = albumn;
         }else{
-            //Media Session not created. Creat one
+            let nohashURL = window.location.hash.split("#")[0];
             navigator.mediaSession.metadata = new MediaMetadata({
-            title: title,
-            artist: artist,
-            album: albumn,
-            /*artwork: [
-                { src: artwork,   sizes: '480x480',   type: 'image/jpg' }
-            ]*/
+                title: title,
+                artist: artist,
+                album: albumn,
+                /* artwork: [
+                    { src: nohashURL + "img/default.png"}
+                ]
+                */
             });
         }
 

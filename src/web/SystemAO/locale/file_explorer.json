@@ -3,7 +3,8 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
                 "title/title": "檔案管理員",
                 "menu/button/download": "下載所選",
@@ -26,7 +27,7 @@
                 "sidebar/vroot/download": "下載",
                 "sidebar/vroot/web": "網頁",
                 "sidebar/vroot/model": "模型",
-                "sidebar/vroot/appdata": "應用",
+                "sidebar/vroot/appdata": "程序數據",
 
                 "func/search/typeToStart": "輸入關鍵字以開始搜尋",
                 "func/search/tip1": "在上面的輸入欄位輸入關鍵字，然後按「搜尋」按鈕以開始搜尋",
@@ -120,8 +121,8 @@
                 "upload/count/pending": " 等待中",
 
                 "message/rename/success": "重新命名成功",
-                "message/copy/success": " 個檔案已準備複製",
-                "message/move/success": " 個檔案已準備移動",
+                "message/copy/success": " 個檔案已複製",
+                "message/move/success": " 個檔案已移動",
                 "message/paste/nothing": "沒有可貼上的檔案",
                 "message/remove/success": " 個檔案已被成功刪除",
                 "message/recycle/success": " 個檔案已被成功移動到資源回收箱",
@@ -177,7 +178,8 @@
             }
         },
         "zh-hk": {
-            "fontFamily":"\"TaipeiSansTCBeta-Regular\"",
+            "name": "繁體中文（香港）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
                 "title/title": "檔案管理員",
                 "menu/button/download": "下載所選",
@@ -200,7 +202,7 @@
                 "sidebar/vroot/download": "下載",
                 "sidebar/vroot/web": "網頁",
                 "sidebar/vroot/model": "模型",
-                "sidebar/vroot/appdata": "應用",
+                "sidebar/vroot/appdata": "程序數據",
 
                 "func/search/typeToStart": "輸入關鍵字以開始搜尋",
                 "func/search/tip1": "在上面的輸入欄位輸入關鍵字，然後按「搜尋」按鈕以開始搜尋",
@@ -294,8 +296,8 @@
                 "upload/count/pending": " 等待中",
 
                 "message/rename/success": "重新命名成功",
-                "message/copy/success": " 個檔案已準備複製",
-                "message/move/success": " 個檔案已準備移動",
+                "message/copy/success": " 個檔案已複製",
+                "message/move/success": " 個檔案已移動",
                 "message/paste/nothing": "沒有可貼上的檔案",
                 "message/remove/success": " 個檔案已被成功刪除",
                 "message/recycle/success": " 個檔案已被成功移動到資源回收箱",
@@ -351,6 +353,7 @@
             }
         },
         "zh-cn": {
+            "name": "简体中文",
             "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings": {
                 "title/title": "文件管理器",
@@ -374,7 +377,7 @@
                 "sidebar/vroot/download": "下载",
                 "sidebar/vroot/web": "网页",
                 "sidebar/vroot/model": "模型",
-                "sidebar/vroot/appdata": "应用",
+                "sidebar/vroot/appdata": "程序数据",
 
                 "func/search/typeToStart": "输入关键字以开始搜索",
                 "func/search/tip1": "在上面的输入字段输入关键字，然后按「搜索」按钮以开始搜索",
@@ -468,8 +471,8 @@
                 "upload/count/pending": " 等待中",
 
                 "message/rename/success": "重新命名成功",
-                "message/copy/success": " 个文件已准备复制",
-                "message/move/success": " 个文件已准备移动",
+                "message/copy/success": " 个文件已复制",
+                "message/move/success": " 个文件已移动",
                 "message/paste/nothing": "没有可粘贴的文件",
                 "message/remove/success": " 个文件已被成功删除",
                 "message/recycle/success": " 个文件已被成功移动到资源回收箱",
