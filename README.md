@@ -240,11 +240,32 @@ If you are looking for other WebApps (Installed via System Setting) or subservic
 https://github.com/aroz-online/WebApp-and-Subservice-Index
 
 ## Community / Q&A
-Find us on [Telegram](https://t.me/ArOZBeta)! We welcome all kind of feedbacks and questions.
+### 💬 Direct Contact
+You can reach the authors using [Telegram](https://t.me/ArOZBeta)! We welcome all kind of feedbacks and questions.
 
-Already using ArozOS? Show us your server configuration!
+### 🖥️ Device Compatibility Showcase
+Using ArozOS on something other than Raspberry Pis? Show us your server configuration & hardware specs!
 
 https://github.com/tobychui/arozos/issues/50
+
+### 📝 Related Articles
+If you are looking for tutorials or need help on debugging some minor issues, feel free to take a look at these articles written by our users. (Thank you so much for sharing this project :D )
+
+#### English
+- [I write my own web desktop OS for 3 years and this is what it looks like now ](https://dev.to/tobychui/i-write-my-own-web-desktop-os-for-3-years-and-this-is-what-it-looks-like-now-2903)
+
+#### Chinese
+- [ArozOS+树莓派打造随身NAS（避坑专用）](https://blog.csdn.net/m0_37728676/article/details/113876815)
+- [ArozOS+树莓派小型NAS](http://www.huajia.online/2021/10/23/ArozOS-%E6%A0%91%E8%8E%93%E6%B4%BE%E5%B0%8F%E5%9E%8BNAS/)
+- [树莓派 Arozos 指北](https://blog.pi-dal.com/%E9%80%82%E7%94%A8%E4%BA%8E%E6%A0%91%E8%8E%93%E6%B4%BE%E7%9A%84%E9%80%9A%E7%94%A8Web%E6%A1%8C%E9%9D%A2%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F)
+- [Linux:ArozOS 安裝與建立開機自啟動服務](https://pvecli.xuan2host.com/linux-arozos-install-service/)
+
+
+
+#### Portuguese
+- [DESKTOP WEB construído e desenvolvido na LINGUAGEM GO](https://www.youtube.com/watch?v=C42UdgOySY)
+
+Feel free to create a PR if you have written an article for ArozOS!
 
 ## License
 
