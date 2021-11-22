@@ -13,7 +13,9 @@
   <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
 
   <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i|Roboto:100,300,400,500,700|Philosopher:400,400i,700,700i" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&display=swap" rel="stylesheet">
 
   <!-- Bootstrap css -->
   <!-- <link rel="stylesheet" href="css/bootstrap.css"> -->
@@ -29,12 +31,22 @@
   <!-- Main Stylesheet File -->
   <link href="css/style.css" rel="stylesheet">
 
+  <!-- Additional stuffs for TC support-->
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100;300;400&display=swap" rel="stylesheet">
+
   <!-- =======================================================
     Theme Name: eStartup
     Theme URL: https://bootstrapmade.com/estartup-bootstrap-landing-page-template/
     Author: BootstrapMade.com
     License: https://bootstrapmade.com/license/
   ======================================================= -->
+
+  <style>
+    p,a,div,span,h1,h2,h3,h4,h5,h6{
+      font-family: 'Noto Sans SC', sans-serif !important;
+    }
+  </style>
 </head>
 
 <body>
@@ -50,13 +62,13 @@
 
       <nav id="nav-menu-container">
         <ul class="nav-menu">
-          <li class="menu-active"><a href="#hero">Home</a></li>
-          <li><a href="#about-us">About</a></li>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#screenshots">Screenshots</a></li>
-          <li><a href="#docs">Documents</a></li>
-          <li><a href="#contact">Source</a></li>
-          <li><a href="#" onclick="window.location.href='lang.html';">English (US)</a></li>
+          <li class="menu-active"><a href="#hero">主页</a></li>
+          <li><a href="#about-us">关于</a></li>
+          <li><a href="#features">功能</a></li>
+          <li><a href="#screenshots">系统截图</a></li>
+          <li><a href="#docs">说明文档</a></li>
+          <li><a href="#contact">源码</a></li>
+          <li><a href="#" onclick="window.location.href='lang.html';">中文（简体）</a></li>
         </ul>
       </nav><!-- #nav-menu-container -->
     </div>
@@ -68,13 +80,13 @@
   <section id="hero" class="wow fadeIn">
     <div class="hero-container">
       <h1>ArozOS</h1>
-      <h2>A Web Desktop Operating System for YOUR Personal Cloud</h2>
+      <h2>一个属于你的云端桌面作业平台</h2>
       <img src="img/banner.png" alt="Hero Imgs">
-      <a href="#get-started" class="btn-get-started scrollto">Get Started</a>
+      <a href="#get-started" class="btn-get-started scrollto">了解更多</a>
       <div class="btns">
         <a href="https://github.com/tobychui/arozos"><i class="fa fa-github fa-3x"></i> Github</a>
-        <a href="https://github.com/tobychui/arozos/releases"><i class="fa fa-download fa-3x"></i> Download</a>
-        <a href="docs/"><i class="fa fa-book fa-3x"></i> Documentation</a>
+        <a href="https://github.com/tobychui/arozos/releases"><i class="fa fa-download fa-3x"></i> 下载</a>
+        <a href="docs/"><i class="fa fa-book fa-3x"></i> 说明文档</a>
       </div>
     </div>
   </section><!-- #hero -->
@@ -88,7 +100,7 @@
       <div class="section-title text-center">
 
         <h2></h2>
-        <p class="separator">Why ArozOS?</p>
+        <p class="separator">为何选用 ArozOS?</p>
 
       </div>
     </div>
@@ -100,8 +112,8 @@
           <div class="feature-block">
 
             <img src="img/svg/cloud.svg" alt="img" class="img-fluid">
-            <h4>Cloud Desktop</h4>
-            <p>Simple and elegant web desktop interface for your daily tasks</p>
+            <h4>云端桌面</h4>
+            <p>简单又优美的网页桌面界面，让你可以轻鬆完成日常生活上的简单工作</p>
 
           </div>
         </div>
@@ -110,8 +122,8 @@
           <div class="feature-block">
 
             <img src="img/rpi.png" alt="img" class="img-fluid">
-            <h4>Design for Raspberry Pi</h4>
-            <p>System compatible with many brands of single board computers</p>
+            <h4>为「树莓派」而设计</h4>
+            <p>系统适用於 树莓派 等资源有限的单片电脑，也能在一般电脑和伺服器上执行 </p>
 
           </div>
         </div>
@@ -120,8 +132,8 @@
           <div class="feature-block">
 
             <img src="img/os.png" alt="img" class="img-fluid">
-            <h4>Open Source</h4>
-            <p>ArozOS's components is open source on Github</p>
+            <h4>开源</h4>
+            <p>ArozOS 的部分组件是开源项目，并在 Github 开放免费使用</p>
 
           </div>
         </div>
@@ -145,16 +157,16 @@
         <div class="col-md-7 col-lg-5">
           <div class="about-content">
 
-            <h2><span>ArozOS</span>PC<br> Web Desktop </h2>
-            <p>Turn any PC with browser into your Web Desktop client. Access all your files anytime, anywhere.
+            <h2><span>ArozOS</span>主机<br> 网页桌面系统 </h2>
+            <p>快速让任何安装了瀏览器和连接互联网的电脑变成属於你的个人装置，随时随地存取你在云端上的档案。
             </p>
             
             <ul class="list-unstyled">
-              <li><i class="fa fa-angle-right"></i>No Setup and special user permission</li>
-              <li><i class="fa fa-angle-right"></i>Support Chrome, Firefox and Safari</li>
-              <li><i class="fa fa-angle-right"></i>Access via Web UI, FTP or WebDAV</li>
-              <li><i class="fa fa-angle-right"></i>One of the best Web based File Manager</li>
-              <li><i class="fa fa-angle-right"></i>WebApps powered by HTML5</li>
+              <li><i class="fa fa-angle-right"></i>无需要特别的使用者权限</li>
+              <li><i class="fa fa-angle-right"></i>支援 Chrome， Firefox 及 Safari 瀏览器</li>
+              <li><i class="fa fa-angle-right"></i>可透过网页桌面、FTP 及 WebDAV 存取档案</li>
+              <li><i class="fa fa-angle-right"></i>可能是世界上最好的网页档案管理员</li>
+              <li><i class="fa fa-angle-right"></i>基於 HTML5 的现代化 WebApps</li>
               
             </ul>
 
@@ -174,16 +186,16 @@
         <div class="col-md-7 col-lg-5">
           <div class="about-content">
 
-            <h2><span>ArozOS</span>Mobile Web Desktop </h2>
-            <p>Supporting web desktop on mobile using PWA technology, making file access between devices much easier and smooth.
+            <h2><span>ArozOS</span>手机 <br>网页桌面系统 </h2>
+            <p>使用 PWA 技术，让你的桌面也能在手机上开啟，让装置之间传送档案更加方便快捷。
             </p>
 
             <ul class="list-unstyled">
-              <li><i class="fa fa-angle-right"></i>No App Installation Required</li>
-              <li><i class="fa fa-angle-right"></i>Support Android and iOS</li>
-              <li><i class="fa fa-angle-right"></i>Works on Chrome and Safari</li>
-              <li><i class="fa fa-angle-right"></i>Window based operations</li>
-              <li><i class="fa fa-angle-right"></i>Synchronize between devices</li>
+              <li><i class="fa fa-angle-right"></i>无需安装任何 App</li>
+              <li><i class="fa fa-angle-right"></i>支援 Android 及 iOS 装置</li>
+              <li><i class="fa fa-angle-right"></i>支援 Chrome 及 Safari</li>
+              <li><i class="fa fa-angle-right"></i>类视窗型作业模式</li>
+              <li><i class="fa fa-angle-right"></i>可在多台装置之间进行即时同步</li>
             </ul>
 
           </div>
@@ -201,8 +213,8 @@
 
     <div class="container">
       <div class="section-title text-center">
-        <h2>Amazing Features</h2>
-        <p class="separator">Full fledged Desktop Experience with diverse range of Web Applications</p>
+        <h2>丰富的内置功能</h2>
+        <p class="separator">应有尽有的各种 WebApp 功能，让您在网页上拥有桌面般的使用者体验</p>
       </div>
     </div>
 
@@ -212,64 +224,65 @@
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/icons/work_desk_kirei.png" alt="img" class="img-fluid">
-            <h4>Simple & Beautiful</h4>
-            <p>Glassy and rounded corner Windows with ntuitive WebApp naming</p>
+            <h4>简单而洁净</h4>
+            <p>仿玻璃和圆角风格的视窗，简单直接的 WebApp 命名方式</p>
           </div>
         </div>
 
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/icons/computer_cloud_storage.png" alt="img" class="img-fluid">
-            <h4>Multimedia</h4>
-            <p>Build in Music, Photo and Audio WebApp for multimedia streaming</p>
+            <h4>支援多媒体</h4>
+            <p>内置音乐、图片及音乐播放器，适合用作多媒体串流之用</p>
           </div>
         </div>
 
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/icons/envelop_paper.png" alt="img" class="img-fluid">
-            <h4>File Manager</h4>
-            <p>One of the Best File Manager you could find on Web Desktop OS</p>
+            <h4>档案管理员</h4>
+            <p>可能是你能在网页桌面环境裡找到的，最好的一个档案管理员</p>
           </div>
         </div>
 
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/svg/design-tool.svg" alt="img" class="img-fluid">
-            <h4>Easy to use</h4>
-            <p>Support drag drop operations with touchpad or touch screen</p>
+            <h4>简单易用</h4>
+            <p>支援在笔记本电脑、手机等上的拖拉操作</p>
           </div>
         </div>
 
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/svg/cloud-computing.svg" alt="img" class="img-fluid">
-            <h4>Git Install</h4>
-            <p>Modules can be installed via git clone using the build in Module Installer</p>
+            <h4>Git 安装</h4>
+            <p>开源的 WebApp 模组可以透过内置的 模组安装器，使用 Git Clone 方法下载</p>
           </div>
         </div>
 
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/icons/computer_tethering.png" alt="img" class="img-fluid">
-            <h4>Easy Connect</h4>
-            <p>Support Web, FTP and WebDAV for easy access on any Operating Systems</p>
+            <h4>快速连接</h4>
+            <p>支援 Windows 、Mac 跟 Linux 透过网页界面、FTP 或 WebDAV 连接到 ArozOS 主机</p>
           </div>
         </div>
 
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/os.png" alt="img" class="img-fluid">
-            <h4>Open Source</h4>
-            <p>Change whatever you want to fit your ever changing needs and use cases</p>
+            <h4>开源</h4>
+            <p>有不合用的地方？自己随便改写吧！</p>
           </div>
         </div>
 
         <div class="col-md-6 col-lg-3">
           <div class="feature-block">
             <img src="img/svg/code.svg" alt="img" class="img-fluid">
-            <h4>Written in Go</h4>
-            <p>Allowing great use of system resources while maintaining portability</p>
+            <h4>使用 Go 语言开发
+            </h4>
+            <p>比起其他语言如 PHP，Go 更能榨乾树莓派的处理能力，使系统运行效率更佳</p>
           </div>
         </div>
 
@@ -284,8 +297,8 @@
 
     <div class="container">
       <div class="section-title text-center">
-        <h2>Screenshots</h2>
-        <p class="separator">A quick overview of the ArozOS Web Desktop System</p>
+        <h2>系统截图</h2>
+        <p class="separator">简单的看一看 ArozOS 的网页桌面环境</p>
       </div>
     </div>
 
@@ -337,8 +350,8 @@
                 <div class="carousel-item  active">
                   <div class="top-top">
 
-                    <h2>This is very underrated</h2>
-                    <p>To be honest, this is very underrated right now and I wish more people see this work.</p>
+                    <h2>这是一个应该出名的项目 </h2>
+                    <p>老实说，这是一个现在被低估了的系统，我希望更多人能够看到这套 ArozOS 系统。 </p>
                     <h4>CrazyCoder009</span></h4>
 
                   </div>
@@ -347,24 +360,22 @@
                 <div class="carousel-item ">
                   <div class="top-top">
 
-                    <h2>It's very smooth and wonderful</h2>
-                    <p>Work on RPi 4B. Have used for a while, it's very smooth and wonderful, thanks TC!</p>
+                    <h2>ArozOS 非常的顺畅和美好</h2>
+                    <p>能完美在 Rpi 4B 上运作。用了好一段时间，系统用起来非常的顺畅和美好，谢谢 TC（作者）！</p>
                     <h4>jimting</span></h4>
 
                   </div>
                 </div>
 
-
                 <div class="carousel-item ">
                   <div class="top-top">
 
-                    <h2>Finally I got my own NAS</h2>
-                    <p> NAS are expensive and this is my first time in my life to use a NAS.</p>
-                    <h4>Wei Vi</h4>
+                    <h2>终於有属於自己的 NAS 了</h2>
+                    <p>这还是我人生中第一次用 NAS，毕竟买一台 NAS 太贵了 </p>
+                    <h4>Wei Vi</span></h4>
 
                   </div>
                 </div>
-
 
               </div>
 
@@ -394,8 +405,8 @@
     <div class="container">
       <div class="section-title text-center">
 
-        <h2>Wanna Get Started?</h2>
-        <p class="separator">Take a look at our <a href="https://github.com/tobychui/arozos/blob/master/README.md">Github README</a> file</p>
+        <h2>有点想试试看了？</h2>
+        <p class="separator">来看看 <a href="https://github.com/tobychui/arozos/blob/master/README.md">Github 上的 README</a> 档案吧</p>
 
       </div>
     </div>
@@ -410,9 +421,9 @@
     <div class="overlay padd-section">
       <div class="container">
         <div class="section-title text-center">
-          <h2>Documentation</h2>
-          <p>Want to develop on the ArozOS system? Maybe you are looking for the documentation.</p>
-          <a href="docs/" class="glass btn-get-started scrollto" target="_blank">Take a look</a>
+          <h2>说明文档</h2>
+          <p>想开发你自己的 ArozOS 功能？ 你可以来看看这个系统的设计文档</p>
+          <a href="docs/" class="glass btn-get-started scrollto" target="_blank">打开看看</a>
         </div>
       </div>
     </div>
@@ -425,8 +436,8 @@
 
     <div class="container">
       <div class="section-title text-center">
-        <h2>View the Source</h2>
-        <p class="separator">Take a look at the source code here. <br>If you like this project, please feel free to give us a star.</p>
+        <h2>查看源码</h2>
+        <p class="separator">你对源码有兴趣？ 下面的传送门会带你找到本系统的源码 <br> 如果你喜欢这个项目，请给我一个 ⭐星星⭐</p>
       </div>
     </div>
 

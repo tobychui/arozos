@@ -66,7 +66,7 @@
           <li><a href="#screenshots">系統截圖</a></li>
           <li><a href="#docs">說明文檔</a></li>
           <li><a href="#contact">源碼</a></li>
-          <li><a><ea onclick="window.location.href='index.html';">ENG</ea> / 中文</a></li>
+          <li><a id="lang" href="#" onclick="window.location.href='lang.html';">中文（繁體）</a></li>
         </ul>
       </nav><!-- #nav-menu-container -->
     </div>
@@ -510,6 +510,15 @@
 
   <!-- Template Main Javascript File -->
   <script src="js/main.js"></script>
-
+  <script>
+    var userLang = navigator.language || navigator.userLanguage; 
+    if (userLang == "zh-CN"){
+      $("#lang").text("中文（繁體）");
+    }else if (userLang == "zh-HK"){
+      $("#lang").text("中文（正體）");
+    }else if (userLang == "zh-TW"){
+      $("#lang").text("中文（台灣）");
+    }
+  </script>
 </body>
 </html>
