@@ -103,6 +103,7 @@ See his repo over [here](https://github.com/Saren-Arterius/aroz-dockerize)
 ![Image](img/screenshots/4.png?raw=true)
 ![Image](img/screenshots/5.png?raw=true)
 ![Image](img/screenshots/6.png?raw=true)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftobychui%2Farozos.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftobychui%2Farozos?ref=badge_shield)
 
 ## Start the ArozOS Platform
 
@@ -269,6 +270,9 @@ Feel free to create a PR if you have written an article for ArozOS!
 
 ## License
 
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftobychui%2Farozos.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftobychui%2Farozos?ref=badge_large)
+
 ### Source Code
 
 ArozOS - General purpose cloud desktop platform
@@ -297,4 +301,4 @@ Copyright (C)  2021 tobychui, All Right Reserved
 
 
 ## Buy me a coffee
-I am working on this project as a hobby / side project and I am not really into collecting donation from this project. 
+I am working on this project as a hobby / side project and I am not really into collecting donation from this project.
