@@ -60,10 +60,24 @@ type FileProperties struct {
 
 //Check if the two file system are identical.
 func MatchingFileSystem(fsa *FileSystemHandler, fsb *FileSystemHandler) bool {
-	if fsa.Filesystem == fsb.Filesystem {
-		return true
+	return fsa.Filesystem == fsb.Filesystem
+}
+
+//Get the ID part of a virtual path, return ID, subpath and error
+func GetIDFromVirtualPath(vpath string) (string, string, error) {
+	if !strings.Contains(vpath, ":") {
+		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
 	}
-	return false
+
+	//Clean up the virutal path
+	vpath = filepath.ToSlash(filepath.Clean(vpath))
+
+	tmp := strings.Split(vpath, ":")
+	vdID := tmp[0]
+	pathSlice := tmp[1:]
+	path := strings.Join(pathSlice, ":")
+
+	return vdID, path, nil
 }
 
 func GetFileDataFromPath(vpath string, realpath string, sizeRounding int) FileData {

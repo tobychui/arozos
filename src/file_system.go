@@ -24,7 +24,9 @@ import (
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 
+	"imuslab.com/arozos/mod/compatibility"
 	"imuslab.com/arozos/mod/disk/hybridBackup"
+	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
 	fsp "imuslab.com/arozos/mod/filesystem/fspermission"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
@@ -33,12 +35,14 @@ import (
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/share"
+	"imuslab.com/arozos/mod/share/shareEntry"
 	storage "imuslab.com/arozos/mod/storage"
 	user "imuslab.com/arozos/mod/user"
 )
 
 var (
 	thumbRenderHandler *metadata.RenderHandler
+	shareEntryTable    *shareEntry.ShareEntryTable
 	shareManager       *share.Manager
 )
 
@@ -169,12 +173,13 @@ func FileSystemInit() {
 
 	*/
 	//Create a share manager to handle user file sharae
+	shareEntryTable = shareEntry.NewShareEntryTable(sysdb)
 	shareManager = share.NewShareManager(share.Options{
-		AuthAgent:   authAgent,
-		Database:    sysdb,
-		UserHandler: userHandler,
-		HostName:    *host_name,
-		TmpFolder:   *tmp_directory,
+		AuthAgent:       authAgent,
+		ShareEntryTable: shareEntryTable,
+		UserHandler:     userHandler,
+		HostName:        *host_name,
+		TmpFolder:       *tmp_directory,
 	})
 
 	//Share related functions
@@ -184,7 +189,8 @@ func FileSystemInit() {
 	router.HandleFunc("/system/file_system/share/checkShared", shareManager.HandleShareCheck)
 
 	//Handle the main share function
-	http.HandleFunc("/share", shareManager.HandleShareAccess)
+	//Share function is now routed by the main router
+	//http.HandleFunc("/share", shareManager.HandleShareAccess)
 
 	/*
 		Nighly Tasks
@@ -233,16 +239,37 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 	//Check if case sensitive is enabled
 	casesensitve, _ := mv(r, "casesensitive", true)
 
-	//Translate the vpath to realpath
-	rpath, err := userinfo.VirtualPathToRealPath(vpath)
+	vrootID, subpath, err := fs.GetIDFromVirtualPath(vpath)
+	var targetFSH *filesystem.FileSystemHandler = nil
 	if err != nil {
+
 		sendErrorResponse(w, "Invalid path given")
 		return
+	} else {
+		targetFSH, _ = GetFsHandlerByUUID(vrootID)
+	}
+	rpath := ""
+	if targetFSH != nil && targetFSH.Filesystem != "virtual" {
+		//Translate the vpath to realpath if this is an actual path on disk
+		resolvedPath, err := userinfo.VirtualPathToRealPath(vpath)
+		if err != nil {
+			sendErrorResponse(w, "Invalid path given")
+			return
+		}
+
+		rpath = resolvedPath
 	}
 
 	//Check if the search mode is recursive keyword or wildcard
 	if len(keyword) > 1 && keyword[:1] == "/" {
 		//Wildcard
+
+		//Updates 31-12-2021: Do not allow wildcard search on virtual type's FSH
+		if targetFSH != nil && targetFSH.Filesystem == "virtual" {
+			sendErrorResponse(w, "This virtual storage device do not allow wildcard search")
+			return
+		}
+
 		wildcard := keyword[1:]
 		matchingFiles, err := filepath.Glob(filepath.Join(rpath, wildcard))
 		if err != nil {
@@ -281,25 +308,39 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 		//Recursive keyword
 		results := []fs.FileData{}
 		var err error = nil
-		if casesensitve == "true" {
-			//Require case sensitive match
-			err = filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
-				if strings.Contains(filepath.Base(path), keyword) {
-					//This is a matching file
-					if !fs.IsInsideHiddenFolder(path) {
-						thisVpath, _ := userinfo.RealPathToVirtualPath(path)
-						results = append(results, fs.GetFileDataFromPath(thisVpath, path, 2))
-					}
-
+		if targetFSH != nil && targetFSH.Filesystem == "virtual" {
+			//To be done: Move hardcoded vroot ID to interface for all virtual storage devices
+			if vrootID == "share" {
+				if casesensitve != "true" {
+					keyword = strings.ToLower(keyword)
 				}
-				return nil
-			})
+				err = shareEntryTable.Walk(subpath, userinfo.Username, userinfo.GetUserPermissionGroupNames(), func(fileData fs.FileData) error {
+					filename := filepath.Base(fileData.Filename)
+					if casesensitve != "true" {
+						filename = strings.ToLower(filename)
+					}
+					if strings.Contains(filename, keyword) {
+						//This is a matching file
+						if !fs.IsInsideHiddenFolder(fileData.Filepath) {
+							results = append(results, fileData)
+						}
+					}
+					return nil
+				})
+			} else {
+				log.Println("Dynamic virtual root walk is not supported yet: ", vrootID)
+			}
 		} else {
-			//Require general match
-			keywordLower := strings.ToLower(keyword)
-			err = filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
+			if casesensitve != "true" {
+				keyword = strings.ToLower(keyword)
+			}
 
-				if strings.Contains(strings.ToLower(filepath.Base(path)), keywordLower) {
+			err = filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
+				thisFilename := filepath.Base(path)
+				if casesensitve != "true" {
+					thisFilename = strings.ToLower(thisFilename)
+				}
+				if strings.Contains(thisFilename, keyword) {
 					//This is a matching file
 					if !fs.IsInsideHiddenFolder(path) {
 						thisVpath, _ := userinfo.RealPathToVirtualPath(path)
@@ -315,7 +356,6 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 			sendErrorResponse(w, err.Error())
 			return
 		}
-
 		//OK. Tidy up the results
 		js, _ := json.Marshal(results)
 		sendJSONResponse(w, string(js))
@@ -587,10 +627,28 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	storeFilename := handler.Filename //Filename of the uploaded file
+
+	//Update for Firefox 94.0.2 (x64) -> Now firefox put its relative path inside Content-Disposition -> filename
+	//Skip this handler logic if Firefox version is in between 84.0.2 to 94.0.2
+	bypassMetaCheck := compatibility.FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(r.UserAgent())
+	if !bypassMetaCheck && strings.Contains(handler.Header["Content-Disposition"][0], "filename=") && strings.Contains(handler.Header["Content-Disposition"][0], "/") {
+		//This is a firefox MIME Header for file inside folder. Look for the actual filename
+		headerFields := strings.Split(handler.Header["Content-Disposition"][0], "; ")
+		possibleRelativePathname := ""
+		for _, hf := range headerFields {
+			if strings.Contains(hf, "filename=") && len(hf) > 11 {
+				//Found. Overwrite original filename with the latest one
+				possibleRelativePathname = hf[10 : len(hf)-1]
+				storeFilename = possibleRelativePathname
+				break
+			}
+		}
+	}
+
 	destFilepath := filepath.ToSlash(filepath.Clean(realUploadPath)) + "/" + storeFilename
 
 	if !fileExists(filepath.Dir(destFilepath)) {
-		os.MkdirAll(filepath.Dir(destFilepath), 0755)
+		os.MkdirAll(filepath.Dir(destFilepath), 0775)
 	}
 
 	//Check if the upload target is read only.
@@ -679,11 +737,12 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Finish up the upload
-
-	//fmt.Printf("Uploaded File: %+v\n", handler.Filename)
-	//fmt.Printf("File Size: %+v\n", handler.Size)
-	//fmt.Printf("MIME Header: %+v\n", handler.Header)
-	//fmt.Println("Upload target: " + realUploadPath)
+	/*
+		fmt.Printf("Uploaded File: %+v\n", handler.Filename)
+		fmt.Printf("File Size: %+v\n", handler.Size)
+		fmt.Printf("MIME Header: %+v\n", handler.Header)
+		fmt.Println("Upload target: " + realUploadPath)
+	*/
 
 	//Fnish upload. Fix the tmp filename
 	log.Println(userinfo.Username + " uploaded a file: " + handler.Filename)
@@ -694,9 +753,6 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Completed
 	sendOK(w)
-
-	return
-
 }
 
 //Validate if the copy and target process will involve file overwriting problem.
@@ -732,7 +788,6 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 
 	jsonString, _ := json.Marshal(duplicateFiles)
 	sendJSONResponse(w, string(jsonString))
-	return
 }
 
 //Scan all directory and get trash file and send back results with WebSocket
@@ -1057,14 +1112,14 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 		//Translate the path to realpath
 		rpath, err := userinfo.VirtualPathToRealPath(vsrc)
 		if err != nil {
-			sendErrorResponse(w, "Invalid path given.")
+			sendErrorResponse(w, "Invalid path given")
 			return
 		}
 
 		//Check if directory is readonly
 		accmode := userinfo.GetPathAccessPermission(vsrc)
 		if accmode == "readonly" {
-			sendErrorResponse(w, "This directory is Read Only.")
+			sendErrorResponse(w, "This directory is Read Only")
 			return
 		} else if accmode == "denied" {
 			sendErrorResponse(w, "Access Denied")
@@ -1075,7 +1130,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 
 		if fileType == "file" {
 			for fileExists(newfilePath) {
-				sendErrorResponse(w, "Given filename already exists.")
+				sendErrorResponse(w, "Given filename already exists")
 				return
 			}
 			ext := filepath.Ext(filename)
@@ -1114,7 +1169,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 
 		} else if fileType == "folder" {
 			if fileExists(newfilePath) {
-				sendErrorResponse(w, "Given folder already exists.")
+				sendErrorResponse(w, "Given folder already exists")
 				return
 			}
 			//Create the folder at target location
@@ -1494,7 +1549,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				if fileExists(edgeCaseFilename) {
 					rsrcFile = edgeCaseFilename
 				} else {
-					sendErrorResponse(w, "Source file not exists.")
+					sendErrorResponse(w, "Source file not exists")
 					return
 				}
 
@@ -1520,7 +1575,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//Check if the target dir is not readonly
 				accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
 				if accmode == "readonly" {
-					sendErrorResponse(w, "This directory is Read Only.")
+					sendErrorResponse(w, "This directory is Read Only")
 					return
 				} else if accmode == "denied" {
 					sendErrorResponse(w, "Access Denied")
@@ -1571,7 +1626,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//Check if the source file is read only.
 				accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
 				if accmode == "readonly" {
-					sendErrorResponse(w, "This source file is Read Only.")
+					sendErrorResponse(w, "This source file is Read Only")
 					return
 				} else if accmode == "denied" {
 					sendErrorResponse(w, "Access Denied")
@@ -1579,7 +1634,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if rdestFile == "" {
-					sendErrorResponse(w, "Undefined dest location.")
+					sendErrorResponse(w, "Undefined dest location")
 					return
 				}
 
@@ -1632,14 +1687,14 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 				//Check if the desintation is read only.
 				if !userinfo.CanWrite(vdestFile) {
-					sendErrorResponse(w, "Access Denied.")
+					sendErrorResponse(w, "Access Denied")
 					return
 				}
 
 				if !fileExists(rdestFile) {
 					if fileExists(filepath.Dir(rdestFile)) {
 						//User pass in the whole path for the folder. Report error usecase.
-						sendErrorResponse(w, "Dest location should be an existing folder instead of the full path of the copied file.")
+						sendErrorResponse(w, "Dest location should be an existing folder instead of the full path of the copied file")
 						return
 					}
 					sendErrorResponse(w, "Dest folder not found")
@@ -1673,7 +1728,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if !userinfo.CanWrite(vsrcFile) {
-					sendErrorResponse(w, "Access Denied.")
+					sendErrorResponse(w, "Access Denied")
 					return
 				}
 
@@ -1716,7 +1771,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 						return
 					}*/
 				if !userinfo.CanWrite(vsrcFile) {
-					sendErrorResponse(w, "Access Denied.")
+					sendErrorResponse(w, "Access Denied")
 					return
 				}
 
@@ -1739,7 +1794,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 				//Check if the user can write to the target dest file
 				if userinfo.CanWrite(string(vdestFile)) == false {
-					sendErrorResponse(w, "Access Denied.")
+					sendErrorResponse(w, "Access Denied")
 					return
 				}
 
@@ -1760,7 +1815,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 			} else {
-				sendErrorResponse(w, "Unknown file opeartion given.")
+				sendErrorResponse(w, "Unknown file opeartion given")
 				return
 			}
 		}
@@ -1925,6 +1980,13 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 			} else if store.Hierarchy == "backup" {
 				//Backup drive.
 				backupRoots = append(backupRoots, store.HierarchyConfig.(hybridBackup.BackupTask).ParentUID)
+			} else if store.Hierarchy == "share" {
+				//Share emulated drive
+				var thisDevice = new(rootObject)
+				thisDevice.RootName = store.Name
+				thisDevice.RootPath = store.UUID + ":/"
+				thisDevice.rootID = store.UUID
+				roots = append(roots, thisDevice)
 			}
 		}
 
@@ -1992,14 +2054,6 @@ func system_fs_specialURIEncode(inputPath string) string {
 	inputPath, _ = url.QueryUnescape(inputPath)
 	inputPath = strings.ReplaceAll(inputPath, "{{space_sign}}", "%20")
 	return inputPath
-}
-
-func system_fs_matchFileExt(inputFilename string, extArray []string) bool {
-	inputExt := filepath.Ext(inputFilename)
-	if stringInSlice(inputExt, extArray) {
-		return true
-	}
-	return false
 }
 
 //Handle file properties request
@@ -2071,8 +2125,22 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 
 	//Get file owner
 	owner := userinfo.GetFileOwner(rpath)
+
 	if owner == "" {
-		owner = "Unknown"
+		//Handle special virtual roots
+		vrootID, subpath, _ := filesystem.GetIDFromVirtualPath(vpath)
+		if vrootID == "share" {
+			//Share objects
+			shareOption, _ := shareEntryTable.ResolveShareOptionFromShareSubpath(subpath)
+			if shareOption != nil {
+				owner = shareOption.Owner
+			} else {
+				owner = "Unknown"
+			}
+		} else {
+			owner = "Unknown"
+		}
+
 	}
 
 	result := fileProperties{
@@ -2106,7 +2174,6 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
-
 	currentDir, _ := mv(r, "dir", true)
 	//Commented this line to handle dirname that contains "+" sign
 	//currentDir, _ = url.QueryUnescape(currentDir)
@@ -2128,77 +2195,93 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	if currentDir[len(currentDir)-1:] != "/" {
 		currentDir = currentDir + "/"
 	}
-	//Convert the virutal path to realpath
-	realpath, err := userinfo.VirtualPathToRealPath(currentDir)
 
+	VirtualRootID, subpath, err := fs.GetIDFromVirtualPath(currentDir)
 	if err != nil {
-		sendErrorResponse(w, "Error. Unable to parse path. "+err.Error())
+		sendErrorResponse(w, "Unable to resolve requested path: "+err.Error())
 		return
 	}
 
-	if !fileExists(realpath) {
-		userRoot, _ := userinfo.VirtualPathToRealPath("user:/")
-		if filepath.Clean(realpath) == filepath.Clean(userRoot) {
-			//Initiate user folder (Initiaed in user object)
-			userinfo.GetHomeDirectory()
-		} else if !strings.Contains(filepath.ToSlash(filepath.Clean(currentDir)), "/") {
-			//User root not created. Create the root folder
-			os.MkdirAll(filepath.Clean(realpath), 0775)
-		} else {
-			//Folder not exists
-			log.Println("[File Explorer] Requested path: ", realpath, " does not exists!")
-			sendErrorResponse(w, "Folder not exists")
+	var parsedFilelist []fs.FileData
+	var realpath string = ""
+	//Handle some special virtual file systems / mount points
+	if VirtualRootID == "share" && subpath == "" {
+		userpgs := userinfo.GetUserPermissionGroupNames()
+		files := shareEntryTable.ListRootForUser(userinfo.Username, userpgs)
+		parsedFilelist = files
+	} else {
+		//Normal file systems
+
+		//Convert the virutal path to realpath
+		realpath, err = userinfo.VirtualPathToRealPath(currentDir)
+
+		if err != nil {
+			sendErrorResponse(w, err.Error())
 			return
 		}
 
-	}
-	if sortMode == "" {
-		sortMode = "default"
-	}
-
-	//Check for really special exception in where the path contains [ or ] which cannot be handled via Golang Glob function
-	files, _ := system_fs_specialGlob(filepath.Clean(realpath) + "/*")
-
-	var parsedFilelist []fs.FileData
-	var shortCutInfo *shortcut.ShortcutData = nil
-	for _, v := range files {
-		//Check if it is hidden file
-		isHidden, _ := hidden.IsHidden(v, false)
-		if showHidden != "true" && isHidden {
-			//Skipping hidden files
-			continue
-		}
-
-		//Check if this is an aodb file
-		if filepath.Base(v) == "aofs.db" || filepath.Base(v) == "aofs.db.lock" {
-			//Database file (reserved)
-			continue
-		}
-
-		//Check if it is shortcut file. If yes, render a shortcut data struct
-		if filepath.Ext(v) == ".shortcut" {
-			//This is a shortcut file
-			shorcutData, err := shortcut.ReadShortcut(v)
-			if err == nil {
-				shortCutInfo = shorcutData
+		if !fileExists(realpath) {
+			userRoot, _ := userinfo.VirtualPathToRealPath("user:/")
+			if filepath.Clean(realpath) == filepath.Clean(userRoot) {
+				//Initiate user folder (Initiaed in user object)
+				userinfo.GetHomeDirectory()
+			} else if !strings.Contains(filepath.ToSlash(filepath.Clean(currentDir)), "/") {
+				//User root not created. Create the root folder
+				os.MkdirAll(filepath.Clean(realpath), 0775)
+			} else {
+				//Folder not exists
+				log.Println("[File Explorer] Requested path: ", realpath, " does not exists!")
+				sendErrorResponse(w, "Folder not exists")
+				return
 			}
+
+		}
+		if sortMode == "" {
+			sortMode = "default"
 		}
 
-		rawsize := fs.GetFileSize(v)
-		modtime, _ := fs.GetModTime(v)
-		thisFile := fs.FileData{
-			Filename:    filepath.Base(v),
-			Filepath:    currentDir + filepath.Base(v),
-			Realpath:    v,
-			IsDir:       IsDir(v),
-			Filesize:    rawsize,
-			Displaysize: fs.GetFileDisplaySize(rawsize, 2),
-			ModTime:     modtime,
-			IsShared:    shareManager.FileIsShared(v),
-			Shortcut:    shortCutInfo,
-		}
+		//Check for really special exception in where the path contains [ or ] which cannot be handled via Golang Glob function
+		files, _ := system_fs_specialGlob(filepath.Clean(realpath) + "/*")
+		var shortCutInfo *shortcut.ShortcutData = nil
+		for _, v := range files {
+			//Check if it is hidden file
+			isHidden, _ := hidden.IsHidden(v, false)
+			if showHidden != "true" && isHidden {
+				//Skipping hidden files
+				continue
+			}
 
-		parsedFilelist = append(parsedFilelist, thisFile)
+			//Check if this is an aodb file
+			if filepath.Base(v) == "aofs.db" || filepath.Base(v) == "aofs.db.lock" {
+				//Database file (reserved)
+				continue
+			}
+
+			//Check if it is shortcut file. If yes, render a shortcut data struct
+			if filepath.Ext(v) == ".shortcut" {
+				//This is a shortcut file
+				shorcutData, err := shortcut.ReadShortcut(v)
+				if err == nil {
+					shortCutInfo = shorcutData
+				}
+			}
+
+			rawsize := fs.GetFileSize(v)
+			modtime, _ := fs.GetModTime(v)
+			thisFile := fs.FileData{
+				Filename:    filepath.Base(v),
+				Filepath:    currentDir + filepath.Base(v),
+				Realpath:    v,
+				IsDir:       IsDir(v),
+				Filesize:    rawsize,
+				Displaysize: fs.GetFileDisplaySize(rawsize, 2),
+				ModTime:     modtime,
+				IsShared:    shareManager.FileIsShared(v),
+				Shortcut:    shortCutInfo,
+			}
+
+			parsedFilelist = append(parsedFilelist, thisFile)
+		}
 	}
 
 	//Sort the filelist
@@ -2238,6 +2321,12 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		sendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	VirtualRootID, subpath, _ := fs.GetIDFromVirtualPath(currentDir)
+	if VirtualRootID == "share" && subpath == "" {
+		sendTextResponse(w, hex.EncodeToString([]byte("0")))
 		return
 	}
 

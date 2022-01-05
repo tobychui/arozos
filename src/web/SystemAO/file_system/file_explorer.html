@@ -999,7 +999,7 @@
         <!-- Open With Dialog-->
         <div id="openWith" class="popup whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
-                <i class="external icon"></i> Open File With
+                <i class="external icon"></i> <span locale="opr/openwith/title">Open File With</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
@@ -1533,6 +1533,22 @@
 
                                 if (data.error !== undefined){
                                     //Parse path error. Try to refresh the page
+                                    if (data.error.length >= "Redirect:".length && data.error.substr(0,9) == "Redirect:"){
+                                        var redirectAction = data.error.substr(9).trim();
+                                        if (redirectAction == "parent"){
+                                            var pdir = currentPath.split("/");
+                                            pdir.pop(); pdir.pop();
+                                            pdir = pdir.join("/");
+                                            currentPath = pdir;
+                                            listDirectory(currentPath);
+                                        }else if (redirectAction == "root"){
+                                            var currentRoot = currentPath.split("/").shift();
+                                            listDirectory(currentRoot);
+                                        }else if (redirectAction == "userroot"){
+                                            listDirectory("user:/")
+                                        }
+                                        return
+                                    }
                                     //console.log("Path parse error! Redirecting to parent directory.", data.error);
                                     //var pdir = currentPath.split("/");
                                     //pdir.pop(); pdir.pop();
@@ -1856,6 +1872,12 @@
                 let protocol = "wss://";
                 if (location.protocol !== 'https:') {
                     protocol = "ws://";
+                }
+
+                if (path == "share:/"){
+                    //Share root do not contains any actual folder. Fallback to file based rendering
+                    startFallbackThumbnailLoader();
+                    return
                 }
 
                 var port = window.location.port;
@@ -2534,7 +2556,7 @@
                         data: {opr: "rename", src: JSON.stringify(srclist), new: JSON.stringify(newnamelist), csrft: token},
                         success: function(data){
                             if (data.error !== undefined){
-                                msgbox("remove",data.error);
+                                msgbox("remove",applocale.getString("message/" + data.error, data.error));
                             }else{
                                 refreshList();
                                 msgbox("checkmark",applocale.getString("message/rename/success", "Rename suceed"));
@@ -2661,7 +2683,7 @@
                                             data: {opr: "move" ,src: JSON.stringify(fileList), dest: targetDir,existsresp: overwriteMode, csrft: token},
                                             success: function(data){
                                                 if (data.error !== undefined){
-                                                    msgbox("remove",data.error);
+                                                    msgbox("remove",applocale.getString("message/" + data.error, data.error));
                                                 }else{
                                                     //OK
                                                     msgbox("checkmark",fileList.length + applocale.getString("message/move/success", " objects moved."))
@@ -2722,7 +2744,7 @@
                                             data: {opr: "copy" ,src: JSON.stringify(fileList), dest: targetDir,existsresp: overwriteMode, csrft: token},
                                             success: function(data){
                                                 if (data.error !== undefined){
-                                                    msgbox("remove",data.error);
+                                                    msgbox("remove",applocale.getString("message/" + data.error,data.error));
                                                 }else{
                                                     //OK
                                                     msgbox("checkmark",fileList.length + applocale.getString("message/copy/success", " objects copied."))
@@ -2819,7 +2841,7 @@
                             data: {opr: "delete", src: JSON.stringify(forceDeleteList), csrft: token},
                             success: function(data){
                                 if (data.error !== undefined){
-                                    msgbox("caution",data.error);
+                                    msgbox("remove",applocale.getString("message/" + data.error,data.error));
                                 }else{
                                     refreshList();
                                     msgbox("checkmark",fdlistLength + applocale.getString("message/remove/success", " objects removed."))
@@ -2863,7 +2885,7 @@
                             data: {opr: "recycle", src: JSON.stringify(deleteFileList), csrft: token},
                             success: function(data){
                                 if (data.error !== undefined){
-                                    msgbox("caution",data.error);
+                                    msgbox("remove",applocale.getString("message/" + data.error,data.error));
                                 }else{
                                     refreshList();
                                     msgbox("checkmark",fdlistLength + applocale.getString("message/recycle/success", " objects moved to trash bin."))
@@ -3104,8 +3126,7 @@
                             if (data.error !== undefined){
                                 //Error
                                 targetTaskDisplayObject.find(".progress").removeClass("preparing").removeClass("primary").addClass("negative");
-                               
-                                msgbox("remove",data.error);
+                                msgbox("remove",applocale.getString("message/" + data.error,data.error));
                             }else{
                                 //Zip completed.
                                 targetTaskDisplayObject.find(".progress").removeClass("preparing").removeClass("primary").addClass("positive");
@@ -3258,7 +3279,7 @@
                             data: {type: "folder", src: currentPath, filename: newFoldername, csrft: token},
                             success: function(data){
                                 if (data.error !== undefined){
-                                    msgbox("remove", data.error);
+                                    msgbox("remove",applocale.getString("message/" + data.error,data.error));
                                 }else{
                                     msgbox("checkmark",applocale.getString("message/newfolder/success", "New folder created."));
                                     refreshList();
@@ -3297,7 +3318,7 @@
                         data: {type: "file", src: currentPath, filename:filename,csrft: token},
                         success: function(data){
                             if (data.error !== undefined){
-                                msgbox("remove",data.error);
+                                msgbox("remove",applocale.getString("message/" + data.error,data.error));
                             }else{
                                 msgbox("checkmark",filename + applocale.getString("message/newItem/success", " created."));
                                 refreshList();
@@ -3662,7 +3683,6 @@
                 }
             });
 
-
             function handleShareFilebuttonClick(event, object){
                 event.preventDefault(); 
                 event.stopImmediatePropagation();
@@ -3698,7 +3718,7 @@
                     data: {path: selectedFile},
                     success: function(data){
                         if (data.error !== undefined){
-                            alert(data.error);
+                            msgbox("remove",applocale.getString("message/" + data.error,data.error), 5000);
                         }else{
                             //Build the predicted share endpoint
                             let protocol = "https://";
@@ -3708,7 +3728,11 @@
 
                             //Continue to render QR Code and UI contents
                             $("#qrcode").html("");
-                            var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share?id=" + data.UUID;
+                            var port = ":" + window.location.port;
+                            if (window.location.port == ""){
+                                port = "";
+                            }
+                            var shareURL = protocol + window.location.hostname + port + "/share/" + data.UUID;
                             shareEditingUUID = data.UUID;
                             new QRCode(document.getElementById("qrcode"), shareURL);
                             $("#sharelink").text(shareURL);
@@ -3908,10 +3932,10 @@
                
             }
 
-            function msgbox(icon, text){
+            function msgbox(icon, text, delay=3000){
                 $($(".msgbox").find("span")[0]).text(text);
                 $($(".msgbox").find("i")[0]).attr("class", icon + " icon");
-                $(".msgbox").stop().finish().slideDown('fast').delay(3000).slideUp('fast', function(){
+                $(".msgbox").stop().finish().slideDown('fast').delay(delay).slideUp('fast', function(){
                     initWindowSizes(false);
                 });
             }
@@ -4956,7 +4980,8 @@
                 data: {path: currentPath, keyword: keyword, casesensitive: searchCaseSensitive},
                 success: function(data){
                     if (data.error !== undefined){
-                        msgbox("remove", data.error);
+                        msgbox("remove", applocale.getString("message/" + data.error, data.error));
+                        hideSearchBar();
                     }else{
                         //Render the filelist
                         console.log(data);

@@ -639,7 +639,9 @@ mainloop:
                 if (data.error !== undefined){
                     $("#progressbar").css("background-color","#db2828");
                     $("#progressbar").parent().removeClass('active');
-                    $(".title").html(`<i class="remove icon"></i>` + data.error);
+                    $(".title").html(`<i class="remove icon"></i>` + applocale.getString("error/" + data.error,data.error));
+                    enterErrorMode = true;
+                    return
                 }else{
                     $("#progressbar").css("background-color","#21ba45");
                     $("#progressbar").parent().removeClass('active');
@@ -670,7 +672,9 @@ mainloop:
                                 parent.refresh(undefined, true);
                             }
 
-                            ao_module_close();
+                            if (!enterErrorMode){
+                                ao_module_close();
+                            }
                         }, 1000);
                     }else if (opr == "download"){
                         //Create download from buffer

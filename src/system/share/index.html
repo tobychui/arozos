@@ -1,0 +1,70 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{hostname}} File Share</title>
+    <link rel="stylesheet" href="../script/skeleton/offline.css">
+    <link rel="stylesheet" href="../script/skeleton/normalize.css">
+    <link rel="stylesheet" href="../script/skeleton/skeleton.css">
+    <script type="application/javascript" src="../script/jquery.min.js"></script>
+    <style>
+        .bar{
+            height: 12px;
+            background-color: #1a1a1a;
+            width: 100%;
+        }
+
+        .footer{
+            position: fixed;
+            left: 0px;
+            bottom: 0px;
+            height: 100px;
+            width: 100%;
+            background-color: #1a1a1a;
+            padding: 20px;
+            color: white;
+        }
+    </style>
+    </head>
+    <body>
+        <div class="bar"></div>
+        <br>
+        <div class="container" style="padding-bottom: 150px;">
+            <div class="row">
+                <div class="one-half column">
+                    <h5>{{hostname}} File Sharing</h5>
+                    <p>You are seeing this page because you are requesting the share API without a proper share ID. Enter a share code to continue:</p>
+                    <div>
+                        <label for="exampleEmailInput">Share Code (UUIDv4)</label>
+                        <input class="u-full-width" type="text" placeholder="00000000-0000-0000-0000-000000000000" onkeydown="handleKeyDown(event);" id="shareCodeID">
+                        <small>Example: 8dfb688c-a6da-4dd5-b657-fe21f9fbe2b1</small>
+                    </div>
+                    <button class="button-primary" onclick="gotoShare();">Continue</button>
+                </div>
+                <div class="one-half column">
+                    <img style="pointer-events: none; width: 100%;" src="../../img/public/share/noID.png">
+                </div>
+            </div>
+           
+        </div>
+        <div class="footer">
+            <div class="container">
+                Cloud File Sharing Interface, <br>Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
+            </div>
+        </div>
+    <script>
+
+        function handleKeyDown(e){
+            if (e.keyCode == 13){
+                //Enter
+                gotoShare();
+            }
+        }
+        function gotoShare(){
+            var shareCode = $("#shareCodeID").val();
+            window.location.href = "./" + shareCode + "/";
+        }
+    </script>
+    </body>
+</html>

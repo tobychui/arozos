@@ -58,10 +58,27 @@ func LoadBaseStoragePool() error {
 	})
 
 	if err != nil {
-		log.Println("Failed to initiate user root storage directory: " + *root_directory)
+		log.Println("Failed to initiate user root storage directory: "+*root_directory, err.Error())
 		return err
 	}
 	fsHandlers = append(fsHandlers, baseHandler)
+
+	//Load the special share folder as storage unit
+	shareHandler, err := fs.NewFileSystemHandler(fs.FileSystemOption{
+		Name:       "Share",
+		Uuid:       "share",
+		Path:       filepath.ToSlash(filepath.Clean(*tmp_directory)) + "/",
+		Access:     "readonly",
+		Hierarchy:  "share",
+		Automount:  false,
+		Filesystem: "virtual",
+	})
+
+	if err != nil {
+		log.Println("Failed to initiate share virtual storage directory: " + err.Error())
+		return err
+	}
+	fsHandlers = append(fsHandlers, shareHandler)
 
 	//Load the tmp folder as storage unit
 	tmpHandler, err := fs.NewFileSystemHandler(fs.FileSystemOption{
@@ -74,7 +91,7 @@ func LoadBaseStoragePool() error {
 	})
 
 	if err != nil {
-		log.Println("Failed to initiate tmp storage directory: " + *tmp_directory)
+		log.Println("Failed to initiate tmp storage directory: "+*tmp_directory, err.Error())
 		return err
 	}
 	fsHandlers = append(fsHandlers, tmpHandler)

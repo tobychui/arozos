@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>{{hostname}} File Share</title>
-    <link rel="stylesheet" href="script/skeleton/offline.css">
-    <link rel="stylesheet" href="script/skeleton/normalize.css">
-    <link rel="stylesheet" href="script/skeleton/skeleton.css">
-    <script type="application/javascript" src="script/jquery.min.js"></script>
+    <link rel="stylesheet" href="../../script/skeleton/offline.css">
+    <link rel="stylesheet" href="../../script/skeleton/normalize.css">
+    <link rel="stylesheet" href="../../script/skeleton/skeleton.css">
+    <script type="application/javascript" src="../../script/jquery.min.js"></script>
     <style>
 
         body{
@@ -177,10 +177,14 @@
             }
 
             displayName =  icon + " " + file.Filename;
-            
+          }
+
+          var filenameLinker = `<a href="../../share/download/${downloadUUID}/${file.RelPath}">${displayName}</a>`;
+          if (file.IsDir == true){
+            filenameLinker = `${displayName}`;
           }
           $("#folderList").append(`<tr class="fileobject noselect" onclick="highlightThis(this);" filename="${file.Filename}" relpath="${file.RelPath}" type="${filetype.toLocaleLowerCase()}" ondblclick="event.preventDefault(); openThis(this);">
-              <td style="padding-left: 8px;">${displayName}</td>
+              <td style="padding-left: 8px;">${filenameLinker}</td>
               <td>${filetype}</td>
               <td>${file.Filesize}</td>
             </tr>`);
@@ -231,7 +235,7 @@
           
         }else{
           //File. Download it
-          window.open("./share?id=" + downloadUUID + "&download=true&rel=" + targetRelPath)
+          window.open("../../share/download/" + downloadUUID + "/" + targetRelPath)
         }
       }
 

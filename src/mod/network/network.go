@@ -2,9 +2,14 @@ package network
 
 import (
 	"encoding/json"
+	"errors"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"strings"
+
+	"gitlab.com/NebulousLabs/go-upnp"
 )
 
 type NICS struct {
@@ -19,7 +24,7 @@ type NICS struct {
 	Name               string
 }
 
-func GetNICInfo(w http.ResponseWriter, r *http.Request){
+func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		sendJSONResponse(w, err.Error())
@@ -120,6 +125,70 @@ func GetOutboundIP() (net.IP, error) {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
 	return localAddr.IP, nil
+}
+
+//Get External IP address, will require 3rd party services
+func GetExternalIPAddr() (string, error) {
+	u, err := upnp.Discover()
+	if err != nil {
+		return "", err
+	}
+	// discover external IP
+	ip, err := u.ExternalIP()
+	if err != nil {
+		return "", err
+	}
+	return ip, nil
+}
+
+func GetExternalIPAddrVia3rdPartyServices() (string, error) {
+	//Fallback to using Amazon AWS IP resolve service
+	resp, err := http.Get("http://checkip.amazonaws.com/")
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(body)), nil
+}
+
+func IsPublicIP(IP net.IP) bool {
+	if IP.IsLoopback() || IP.IsLinkLocalMulticast() || IP.IsLinkLocalUnicast() {
+		return false
+	}
+	if ip4 := IP.To4(); ip4 != nil {
+		switch {
+		case ip4[0] == 10:
+			return false
+		case ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31:
+			return false
+		case ip4[0] == 192 && ip4[1] == 168:
+			return false
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func IsIPv6Addr(ip string) (bool, error) {
+	if net.ParseIP(ip) == nil {
+		return false, errors.New("Address parsing failed")
+	}
+	for i := 0; i < len(ip); i++ {
+		switch ip[i] {
+		case '.':
+			return false, nil
+		case ':':
+			return true, nil
+		}
+	}
+	return false, errors.New("Unable to determine address type")
 }
 
 func GetPing(w http.ResponseWriter, r *http.Request) {

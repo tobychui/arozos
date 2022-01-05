@@ -19,6 +19,7 @@ system/ao.db.lock
 *aofs.db.lock
 ./web/aofs.db
 system/auth/authlog.db
+fsdb/*
 
 #Setting related
 system/network/wifi/ap/*
@@ -53,6 +54,7 @@ aroz_online.exe
 aroz_online
 arozos.exe
 */arozos.exe
+arozos_*_*
 arozos
 upx.exe
 

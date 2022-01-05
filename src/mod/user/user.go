@@ -12,6 +12,7 @@ import (
 	db "imuslab.com/arozos/mod/database"
 	permission "imuslab.com/arozos/mod/permission"
 	quota "imuslab.com/arozos/mod/quota"
+	"imuslab.com/arozos/mod/share/shareEntry"
 	storage "imuslab.com/arozos/mod/storage"
 )
 
@@ -31,19 +32,21 @@ type User struct {
 }
 
 type UserHandler struct {
-	authAgent *auth.AuthAgent
-	database  *db.Database
-	phandler  *permission.PermissionHandler
-	basePool  *storage.StoragePool
+	authAgent       *auth.AuthAgent
+	database        *db.Database
+	phandler        *permission.PermissionHandler
+	basePool        *storage.StoragePool
+	shareEntryTable **shareEntry.ShareEntryTable
 }
 
 //Initiate a new user handler
-func NewUserHandler(systemdb *db.Database, authAgent *auth.AuthAgent, permissionHandler *permission.PermissionHandler, baseStoragePool *storage.StoragePool) (*UserHandler, error) {
+func NewUserHandler(systemdb *db.Database, authAgent *auth.AuthAgent, permissionHandler *permission.PermissionHandler, baseStoragePool *storage.StoragePool, shareEntryTable **shareEntry.ShareEntryTable) (*UserHandler, error) {
 	return &UserHandler{
-		authAgent: authAgent,
-		database:  systemdb,
-		phandler:  permissionHandler,
-		basePool:  baseStoragePool,
+		authAgent:       authAgent,
+		database:        systemdb,
+		phandler:        permissionHandler,
+		basePool:        baseStoragePool,
+		shareEntryTable: shareEntryTable,
 	}, nil
 }
 

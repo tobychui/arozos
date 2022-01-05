@@ -151,7 +151,7 @@ function ao_module_setWindowTheme(newtheme="dark"){
 }   
 
 //Check if there are any windows with the same path. 
-//If yes, replace its hash content and reload to the new one and clise the current floatWindow
+//If yes, replace its hash content and reload to the new one and close the current floatWindow
 function ao_module_makeSingleInstance(){
     $(window.parent.document).find(".floatWindow").each(function(){
         if ($(this).attr("windowid") == ao_module_windowID){
@@ -172,6 +172,28 @@ function ao_module_makeSingleInstance(){
     });
     return false
 }
+
+//Use for cross frame communication, example: 
+//let targetOpeningInstances = ao_module_getInstanceByPath("NotepadA/index.html")
+function ao_module_getInstanceByPath(matchingPath){
+    let targetInstance = "";
+    $(window.parent.document).find(".floatWindow").each(function(){
+        if ($(this).attr("windowid") == ao_module_windowID){
+            return
+        }
+        let thisfwPath = $(this).find("iframe").attr('src').split("#").shift();
+        if (thisfwPath == matchingPath){
+            targetInstance = $(this).attr("windowid");
+        }
+    });
+
+    if (targetInstance == ""){
+        return null;
+    }
+        
+    return parent.getFloatWindowByID(targetInstance);
+}
+
 
 //Close the current window
 function ao_module_close(){

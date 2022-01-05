@@ -62,7 +62,10 @@ func mrouter(h http.Handler) http.Handler {
 			h.ServeHTTP(w, r)
 
 		} else if len(r.URL.Path) >= len("/webdav") && r.URL.Path[:7] == "/webdav" {
+			//WebDAV special handler
 			WebDavHandler.HandleRequest(w, r)
+		} else if len(r.URL.Path) >= len("/share") && r.URL.Path[:6] == "/share" {
+			shareManager.HandleShareAccess(w, r)
 		} else if r.URL.Path == "/" && authAgent.CheckAuth(r) {
 			//Use logged in and request the index. Serve the user's interface module
 			w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
@@ -77,6 +80,11 @@ func mrouter(h http.Handler) http.Handler {
 				} else if len(interfaceModule) == 1 {
 					//User with default interface module not desktop
 					modileInfo := moduleHandler.GetModuleInfoByID(interfaceModule[0])
+					if modileInfo == nil {
+						//The module is not found or not enabled
+						http.Redirect(w, r, "./SystemAO/boot/interface_disabled.html", 307)
+						return
+					}
 					http.Redirect(w, r, modileInfo.StartDir, 307)
 				} else if len(interfaceModule) > 1 {
 					//Redirect to module selector

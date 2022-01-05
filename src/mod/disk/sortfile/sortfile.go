@@ -2,6 +2,7 @@ package sortfile
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -56,6 +57,11 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 	fileList := []*FileObject{}
 	for _, fsh := range fsHandlers {
 		err := filepath.Walk(fsh.Path, func(path string, info os.FileInfo, err error) error {
+			if info == nil || err != nil {
+				//Disk IO Error
+				return errors.New("Disk IO Error: " + err.Error())
+			}
+
 			if info.IsDir() {
 				return nil
 			}

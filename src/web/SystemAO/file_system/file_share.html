@@ -265,7 +265,7 @@
                 if (location.protocol !== 'https:') {
                     protocol = "http://";
                 }
-                var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share?id=" + uuid;
+                var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share/" + uuid;
                 shareEditingUUID = uuid;
                 fileSharingURL = shareURL;
                 new QRCode(document.getElementById("qrcode"), shareURL);

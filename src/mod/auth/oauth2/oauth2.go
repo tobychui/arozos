@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -140,7 +141,17 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 	} else {
 		log.Println(username + " logged in via OAuth.")
 		oh.ag.LoginUserByRequest(w, r, username, true)
-		oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), true, "web")
+		//handling the reverse proxy remote IP issue
+		remoteIP := r.Header.Get("X-FORWARDED-FOR")
+		if remoteIP != "" {
+			//grab the last known remote IP from header
+			remoteIPs := strings.Split(remoteIP, ", ")
+			remoteIP = remoteIPs[len(remoteIPs)-1]
+		} else {
+			//if there is no X-FORWARDED-FOR, use default remote IP
+			remoteIP = r.RemoteAddr
+		}
+		oh.ag.Logger.LogAuthByRequestInfo(username, remoteIP, time.Now().Unix(), true, "web")
 		//clear the cooke
 		oh.addCookie(w, "uuid_login", "-invaild-", -1)
 		//read the value from db and delete it from db

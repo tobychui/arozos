@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="notepadA.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <style>
+            body{
+                background-color:#292929;
+                color:white;
+            }
+        </style>
+        </head>
+        <body>
+            <br>
+            <div class="ui container" align="center">
+                <img class="ui image" src="img/banner.png"/>
+                <p>Loading launch information...</p>
+            </div>
+            <script>
+                ao_module_setFixedWindowSize();
+
+                //Check if another window already exists
+                var openLocally = true;
+
+                //Start one instance launching
+                $(parent.window.document.body).find(".floatWindow").each(function(){
+                    var iframeURL = $(this).find("iframe").attr('src');
+                    if (iframeURL.includes("Code Studio/index.html")){
+                        //There are already one instance of Code Studio running. Send open command to that window.
+                        openLocally = false;
+                        var files = ao_module_loadInputFiles();
+                        if (files.length > 0){
+                            for (var i=0; i<files.length; i++){
+                                $(this).find("iframe")[0].contentWindow.openFile(files[i].filepath);
+                            }
+                        }
+                        //Focus the target floatWindow
+                        $(this).find("iframe")[0].contentWindow.ao_module_focus();
+                        ao_module_close();
+                    }
+                });
+
+                //Open the NotepadA with this window
+                if (openLocally){
+                    ao_module_setWindowSize(1024,768);
+                    ao_module_setResizableWindowSize();
+                    //Update the iframe url as well
+                    hash = window.location.hash;
+                    $(parent.getFloatWindowByID(ao_module_windowID)).find("iframe").attr('src',"Code Studio/index.html" + hash);
+                    //Move the hash value as well
+                    window.location.href = "index.html" + hash;
+                }
+            </script>
+        </body>
+</html>

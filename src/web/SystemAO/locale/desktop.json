@@ -28,6 +28,8 @@
                 "error/connlost":"與伺服器的連線中斷。請等待此警告牌消失再作進一步操作",
                 "error/connlost/recheck":"重試",
                 "error/connlost/wait":"等待",
+                "error/connlost/readonly":"[唯讀] 帳戶",
+                "error/connlost/readonl/infoy":"由於此帳戶被鎖定在唯讀狀態，因此你無法在桌面進行任何檔案操作。",
 
                 "quickAccess/logout": "登出",
                 "quickAccess/sysvol":"系統音量",
@@ -65,6 +67,7 @@
                 "contextmenu/Select Other WebApps": "選擇預設應用程式",
                 "contextmenu/Open Shared Link": "開啟分享鏈接",
                 "contextmenu/Copy Link": "複製鏈接",
+                "contextmenu/Copied": "已複製",
                 "contextmenu/Change Share Settings": "更改分享設定",
                 "contextmenu/Share this File": "分享此檔案",
                 "contextmenu/share/link": "任何擁有鏈接的使用者",
@@ -76,6 +79,7 @@
                 "contextmenu/Big": "大",
                 "contextmenu/Folder": "資料夾",
                 "contextmenu/Shortcut": "捷徑",
+                "contextmenu/Upload": "上載",
 
                 "power/shutdown/title":"關機 - 輸入密碼以作確認",
                 "power/shutdown/text":"關閉伺服器主機",
@@ -155,6 +159,7 @@
                 "contextmenu/Select Other WebApps": "選擇預設應用程式",
                 "contextmenu/Open Shared Link": "開啟分享鏈接",
                 "contextmenu/Copy Link": "複製鏈接",
+                "contextmenu/Copied": "已複製",
                 "contextmenu/Change Share Settings": "更改分享設定",
                 "contextmenu/Share this File": "分享此檔案",
                 "contextmenu/share/link": "任何擁有鏈接的使用者",
@@ -166,6 +171,7 @@
                 "contextmenu/Big": "大",
                 "contextmenu/Folder": "資料夾",
                 "contextmenu/Shortcut": "捷徑",
+                "contextmenu/Upload": "上載",
 
                 "power/shutdown/title":"關機 - 輸入密碼以作確認",
                 "power/shutdown/text":"關閉伺服器主機",
@@ -245,7 +251,8 @@
                 "contextmenu/Close": "关闭",
                 "contextmenu/Select Other WebApps": "选择预设应用程序",
                 "contextmenu/Open Shared Link": "打开分享连接",
-                "contextmenu/Copy Link": "复制链接",
+                "contextmenu/Copy Link": "拷贝链接",
+                "contextmenu/Copied": "已拷贝",
                 "contextmenu/Change Share Settings": "更改分享设置",
                 "contextmenu/Share this File": "分享此文件",
                 "contextmenu/share/link": "任何拥有连接的使用者",
@@ -257,6 +264,7 @@
                 "contextmenu/Big": "大",
                 "contextmenu/Folder": "文件夹",
                 "contextmenu/Shortcut": "捷径",
+                "contextmenu/Upload": "上传",
 
                 "power/shutdown/title":"关机-输入密码以作确认",
                 "power/shutdown/text":"服务器关机",

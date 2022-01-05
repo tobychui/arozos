@@ -14,6 +14,7 @@ import (
 	auth "imuslab.com/arozos/mod/auth"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/iot"
+	"imuslab.com/arozos/mod/share"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -48,6 +49,7 @@ type AgiSysInfo struct {
 	AuthAgent            *auth.AuthAgent
 	FileSystemRender     *metadata.RenderHandler
 	IotManager           *iot.Manager
+	ShareManager         *share.Manager
 
 	//Scanning Roots
 	StartupRoot   string
@@ -93,6 +95,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	gatewayObject.ImageLibRegister()
 	gatewayObject.FileLibRegister()
 	gatewayObject.HTTPLibRegister()
+	gatewayObject.ShareLibRegister()
 	gatewayObject.IoTLibRegister()
 	gatewayObject.AppdataLibRegister()
 

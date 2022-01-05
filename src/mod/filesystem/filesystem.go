@@ -139,6 +139,24 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 			Filesystem:         fstype,
 			Closed:             false,
 		}, nil
+	} else if option.Filesystem == "virtual" {
+		//Virtual filesystem, use custom mapping logic to handle file access
+		if option.Hierarchy == "share" {
+			//Emulated share virtual file system. Use Share Manager structure
+			return &FileSystemHandler{
+				Name:               option.Name,
+				UUID:               option.Uuid,
+				Path:               "",
+				ReadOnly:           option.Access == "readonly",
+				Parentuid:          option.Parentuid,
+				Hierarchy:          option.Hierarchy,
+				HierarchyConfig:    nil,
+				InitiationTime:     time.Now().Unix(),
+				FilesystemDatabase: nil,
+				Filesystem:         fstype,
+				Closed:             false,
+			}, nil
+		}
 	}
 
 	return nil, errors.New("Not supported file system: " + fstype)
@@ -195,7 +213,10 @@ func (fsh *FileSystemHandler) DeleteFileRecord(realpath string) error {
 //Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
 	//Close the fsh database
-	fsh.FilesystemDatabase.Close()
+	if fsh.FilesystemDatabase != nil {
+		fsh.FilesystemDatabase.Close()
+	}
+
 }
 
 //Helper function

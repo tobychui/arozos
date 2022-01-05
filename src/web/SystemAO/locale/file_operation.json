@@ -23,6 +23,14 @@
                 "title/unzipping":"正在解壓 ",
                 "title/file":" 個檔案",
                 "title/files":" 個檔案",
+                "error/Access Denied":"存取被拒",
+                "error/Source file not exists":"來源檔案不存在",
+                "error/Storage Quota Full":"儲存空間已滿",
+                "error/Dest folder not found":"目標資料夾不存在",
+                "error/Undefined dest location":"目標路徑錯誤",
+                "error/This source file is Read Only":"此來源檔案是唯讀檔案",
+                "error/File already exists":"檔案已經存在",
+                "error/This directory is Read Only":"此資料夾是唯讀檔案",
                 "":""
             },
             "titles":{
@@ -53,6 +61,14 @@
                 "title/unzipping":"正在解壓 ",
                 "title/file":" 個檔案",
                 "title/files":" 個檔案",
+                "error/Access Denied":"存取被拒",
+                "error/Source file not exists":"來源檔案不存在",
+                "error/Storage Quota Full":"儲存空間已滿",
+                "error/Dest folder not found":"目標資料夾不存在",
+                "error/Undefined dest location":"目標路徑錯誤",
+                "error/This source file is Read Only":"此來源檔案是唯讀檔案",
+                "error/File already exists":"檔案已經存在",
+                "error/This directory is Read Only":"此資料夾是唯讀檔案",
                 "":""
             },
             "titles":{
@@ -81,8 +97,16 @@
                 "title/zipping":"正在压缩 ",
                 "title/downloading":"正在下载 ",
                 "title/unzipping":"正在解压 ",
-                "title/file":" 个档案",
-                "title/files":" 个档案",
+                "title/file":" 个文件",
+                "title/files":" 个文件",
+                "error/Access Denied":"存取被拒",
+                "error/Source file not exists":"来源文件不存在",
+                "error/Storage Quota Full":"储存空间已满",
+                "error/Dest folder not found":"目标资料夹不存在",
+                "error/Undefined dest location":"目标路径错误",
+                "error/This source file is Read Only":"此来源文件是唯读档案",
+                "error/File already exists":"文件已经存在",
+                "error/This directory is Read Only":"此资料夹是唯读档案", 
                 "":""
             },
             "titles":{

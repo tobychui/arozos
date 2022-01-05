@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <title>Paint</title>
+    <style>
+        body{
+            background-color: #999999;
+        }
+    </style>
+</head>
+<body>
+    <script src="./js/painterro-1.2.66.min.js"></script>
+    <script>
+    var saveFilename = "";
+    var saveFilepath = "";
+    var savePendingBlob = null;
+    //Initiate the Painterro Object
+    var painterroObject = Painterro({
+        onClose: function(){
+            ao_module_close();
+        },
+        saveHandler: function(drawing, callback){
+            //window.open(drawing.asDataURL());
+            var blob = drawing.asBlob();
+            if (saveFilepath == ""){
+                //Popup file save selector
+                savePendingBlob = blob;
+                ao_module_openFileSelector(fileSelected, "user:/Desktop", "new" ,false,{
+                    defaultName: "Untitled.png",
+                });
+                callback();
+            }else{
+                //Convert the image to file
+                var imageFile = ao_module_utils.blobToFile(blob, saveFilename);
+                //Write to source
+                ao_module_uploadFile(imageFile, saveFilepath, function(){
+                    callback();
+                });
+            }
+            console.log(drawing);
+            
+            
+        }
+    });
+
+    function fileSelected(filedata){
+        for (var i=0; i < filedata.length; i++){
+            var filename = filedata[i].filename;
+            var filepath = filedata[i].filepath;
+            //Save the temp blob to there
+            if (savePendingBlob != null){
+                //Extract filepath dirname
+                saveFilepath = filepath;
+                saveFilepath = saveFilepath.split("/");
+                saveFilepath.pop();
+                saveFilepath = saveFilepath.join("/");
+                saveFilename = filename;
+                ao_module_setWindowTitle("Paint - " + saveFilename);
+
+                //Convert the save pending blob to 
+                let imageFile = ao_module_utils.blobToFile(savePendingBlob, filename);
+                //Save to server
+                ao_module_uploadFile(imageFile, saveFilepath, function(){
+                    //Reset the savePendingFile
+                    savePendingBlob = null;
+                });
+
+              
+            }
+        }
+    }
+
+    //Check if there are any file loading from ao_module
+    var inputFiles = ao_module_loadInputFiles();
+    if (inputFiles == null){
+        //Nothing is loaded. Use blank canvas
+        painterroObject.show()
+    }else{
+        //Something is loaded. Use the first image to load
+        var openingFile = inputFiles[0];
+        var filename = openingFile.filename;
+        saveFilename = filename;
+        ao_module_setWindowTitle("Paint - " + saveFilename);
+
+        //Filter out the filepath to get its parent dir
+        var filepath = openingFile.filepath;
+        saveFilepath = filepath;
+        saveFilepath = saveFilepath.split("/");
+        saveFilepath.pop();
+        saveFilepath = saveFilepath.join("/");
+
+        painterroObject.show("../media?file=" + filepath);
+    }
+    
+    
+    </script>
+</body>
+</html>

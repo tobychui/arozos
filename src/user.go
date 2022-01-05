@@ -23,7 +23,7 @@ import (
 
 func UserSystemInit() {
 	//Create a new User Handler
-	uh, err := user.NewUserHandler(sysdb, authAgent, permissionHandler, baseStoragePool)
+	uh, err := user.NewUserHandler(sysdb, authAgent, permissionHandler, baseStoragePool, &shareEntryTable)
 	if err != nil {
 		panic(err)
 	}

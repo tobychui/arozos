@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <title>Code Studio</title>
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="CodeStudio.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <link data-name="vs/editor/editor.main" rel="stylesheet" href="script/monaco/vs/editor/editor.main.css">
+       <style>
+           html{
+               height:100%;
+           }
+           body{
+               height:100%;
+               overflow-y:hidden;
+               padding:1px;
+               background-color:#292929;
+           }
+           #terminals{
+               position: fixed;
+               right: 0px;
+               bottom: 24px;
+               width: calc(100% - 240px);
+               
+           }
+       </style>
+    </head>
+    <body>
+        <!-- Main Menu -->
+        <div class="npa menu">
+            <div class="item"><img class="ui image" src="img/module_icon.png" style="height:20px;"></img></div>
+            <div class="item selectable" onclick="initContextMenu('file',this);">File</div>
+            <div class="item selectable" onclick="initContextMenu('edit',this);">Edit</div>
+            <div class="item selectable" onclick="initContextMenu('view',this);">View</div>
+            <div class="item selectable" onclick="initContextMenu('fontsize',this);">Font Size</div>
+            <div class="item selectable" onclick="initContextMenu('tools',this);">Tools</div>
+            <div class="item selectable" onclick="initContextMenu('help',this);">Help</div>
+        </div>
+        <div id="directoryList" onclick="hideContextMenu();">
+            <div class="banner">Directory Listing</div>
+            <div class="title item" onclick="event.preventDefault(); $('#openeditors').stop().finish().slideToggle('fast');"><i class="caret down icon"></i> OPEN EDITORS</div>
+            <div class="subgroup" id="openeditors">
+                
+            </div>
+            <div class="title item" onclick="toggleDirectoryExplorer(this);"><i class="caret down icon"></i><span id="openFolderTitle">NO FOLDER</span></div>
+            <div class="subgroup" id="directoryExplorer">
+              
+            </div>
+        </div>
+        <div id="codeArea" onclick="hideContextMenu();">
+
+            <div id="ca1" class="codeBoard">
+                <div class="tabs" editorUID="mainEditor" ondrop="TabDrop(event)" ondragover="allowDrop(event)">
+                  
+                </div>
+                <div class="editor" editorUID="mainEditor" onclick="focusThisEditor(this);"></div>
+                <div class="editorcover" editorUID="mainEditor" onclick="focusThisEditor(this);"></div>
+            </div>
+            <div id="ca2" class="codeBoard splitMode right" style="display:none;">
+                <div class="tabs" editorUID="subEditor" ondrop="TabDrop(event)" ondragover="allowDrop(event)">
+
+                </div>
+                <div class="editor"  editorUID="subEditor" onclick="focusThisEditor(this);"></div>
+                <div class="editorcover" editorUID="subEditor" onclick="focusThisEditor(this);"></div>
+            </div>
+            <div id="terminals" style="display:none;">
+                <div class="menubar"> 
+                    <p>TERMINAL</p> 
+                    <div style="position: absolute; right: 12px;">
+                        <i style="cursor: pointer;" onclick="restartTerminal();" class="refresh icon"></i>
+                        <i style="cursor: pointer;" onclick="closeTerminal();" class="remove icon"></i>
+                    </div>
+                    
+                </div>
+                <div class="terminalWindow focused">
+                    <iframe id="initTerminal" src="../wstty/">
+                        
+                    </iframe>
+                </div>
+            </div>
+        </div>
+        <div class="bottommenu">
+            <div class="item"><i class="exchange icon"></i><span id="pingStatus"></span></div>
+            <div class="item extrapadding" id="messageField" style="display:none;"><i class="checkmark icon"></i>Connected</div>
+            <div class="rightpadded">
+                <div class="item" id="filepath"><i class="code file icon"></i> user:/</div>
+                <div class="item" id="fileExt">N/A</div>
+                <div class="item">Code Studio</div>
+            </div>
+        </div>
+         <!-- Context Menu -->
+        <div id="contextMenu" class="contextMenu">
+            
+        </div>
+
+        <!-- Licnese information -->
+        <div id="licenseInfo" class="ui modal">
+            <i class="close icon"></i>
+            <div class="header">
+                Code Studio License
+            </div>
+            <div class="content">
+              <div class="description">
+                <div class="ui header">Copyright 2020-2021 Toby Chui</div>
+                <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+                    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+                    <br>
+                    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+                    </p>
+              </div>
+            </div>
+            <div class="actions">
+              <div class="ui positive right labeled icon button">
+                OK
+                <i class="checkmark icon"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- NotepadA Info-->
+        <div id="aboutnpa" class="ui basic modal">
+            <div class="ui icon header">
+                <i class="code icon"></i>
+                Code Studio Editor
+            </div>
+            <div class="content" align="center">
+                <p>The default code editor for ArozOS 1.0<br>Developed by Toby Chui</p>
+            </div>
+            <div class="actions">
+                <div class="ui green ok inverted button">
+                    <i class="checkmark icon"></i>
+                    OK
+                </div>
+            </div>
+        </div>
+
+        <!-- Copy and Paste menu reminder-->
+        <div id="clipboardReminder" class="ui basic modal">
+            <div class="ui icon header">
+                <i id="clipboardReminderIcon" class="archive icon"></i>
+                Keyboard Only
+            </div>
+            <div class="content" style="text-align:center;">
+                <p id="clipboardReminderText"></p>
+            </div>
+            <div class="actions">
+                <div class="ui green ok inverted button">
+                <i class="checkmark icon"></i>
+                OK
+                </div>
+            </div>
+        </div>
+
+        <script src="script/monaco/vs/loader.js"></script>
+        <script>
+            //Environment Paramters
+            let editors = [];                       //List of opened editor
+            let splitMode = false;                   //Split the screen into two half
+            let focusedEditor = "mainEditor";       //The editor currently is focused
+            let loadedModels = [];                  //Loaded models. Prevent duplicate loading problem
+            let focusedFileInfo = [];
+            let files = ao_module_loadInputFiles(); //Files imported from file system
+
+            //Terminal realted
+            let terminalStartingEndpoint = "../wstty/";
+
+            //Initiation functions  
+            initEditor($("#ca1").find(".editor")[0], "mainEditor", files, restoreEditorState);
+            initEditor($("#ca2").find(".editor")[0],"subEditor");
+
+            //Load ready page into the editorCover
+            $(".editorcover").load("home.html");
+           
+            //Get the editor by id
+            function getEditor(uuid){
+                var resultEditor = undefined;
+                editors.forEach(thisEditor => {
+                    if (thisEditor.uuid == uuid){
+                        resultEditor = thisEditor;
+                    }
+                });
+
+                return resultEditor;
+            }
+
+            //Restore the previous editor state
+            function restoreEditorState(editor){
+                //Load previous state if exists
+                if (window.location.hash.length > 1){
+                    var stateString = window.location.hash.substr(1);
+                    var oldState = JSON.parse(decodeURIComponent(stateString));
+
+                    //Load the previous statue opened folder
+                    if (oldState.folder !== undefined){
+                        //Load the previous opened folder
+                        var predictedName = oldState.folder.split("/").pop();
+                        if (oldState.folder.substr(oldState.folder.length -1) == "/"){
+                            var tmp = oldState.folder.split("/");
+                            tmp.pop();
+                            predictedName = tmp.pop();
+                        }
+                        
+                        openProjectFolder([{
+                            filename: predictedName,
+                            filepath: oldState.folder
+                        }], false);
+                    }
+
+                    //Open previous opened files
+                    if (oldState.files !== undefined){
+                        oldState.files.forEach(filepath => {
+                            openFile(filepath, false);
+                        })
+                    }
+
+                    //Open terminal if it is enabled previously
+                    if (oldState.terminal !== undefined && oldState.terminal == true){
+                        openTerminal();
+                    }
+                }
+            }
+            
+            //Restore previous editor states
+            function restoreUserPreference(){
+                getStorage("fontsize",function(fontsize){
+                    setFontSize(fontsize);
+                });
+
+                getStorage("splitmode",function(splitSetting){
+                    if (splitSetting.error !== undefined){
+                        return;
+                    }
+                    splitSetting = splitSetting.trim();
+                     if (splitSetting == "true"){
+                        splitMode = true;
+                        $("#ca1").attr("class","codeBoard splitMode left")
+                        $("#ca2").show();
+                     }else{
+                        splitMode = false;
+                        $("#ca1").attr("class","codeBoard")
+                        $("#ca2").hide();
+                     }
+
+                    //Update all editor's size
+                    for (var i =0; i < editors.length; i++){
+                        editors[i].editor.layout();
+                    }
+                });
+            }
+        
+            //Check if it is run under vdi mode. If not, establish checkauth ping to keep session alive
+            if (!ao_module_virtualDesktop){
+                setInterval(function(){
+                    $.get("../system/auth/checkLogin",function(data){
+                        if (data.error != undefined){
+                            $("#pingStatus").text(data.error);
+                        }else{
+                            var x = Date()
+                            $("#pingStatus").text(x);
+                        }
+                        
+                    });
+                },30000);
+            }else{
+                $("#pingStatus").text("Web Desktop Mode");
+            }
+
+            $.get("../system/auth/checkLogin",function(data){
+                var x = Date()
+                $("#pingStatus").text(x);
+            });
+
+            //Bind the events of the tab objects
+            function bindTabItemEvents(){
+                $(".tabs .item").off("click").on('click',function(evt){
+                    if ($(this).hasClass("selected")){
+                        //This tab is already in focus.
+                        return;
+                    }
+                    //Add focused class to the tab
+                    $(this).parent().find(".item.selected").removeClass("selected");
+                    $(this).addClass("selected");
+
+                    //Check which editor this tab belongs to
+                    var editorUUID = $(this).parent().parent().find(".editor").attr("editoruid");
+                    var tabUUID = $(this).attr("uuid");
+                    var targetEditor;
+                    
+                    for (var i =0; i < editors.length; i++){
+                        if (editors[i].uuid == editorUUID){
+                            targetEditor = editors[i];
+                        }
+                    }
+                    if (typeof targetEditor === undefined){
+                        console.log("Error when loading tab");
+                        return;
+                    }
+                    changeTab(targetEditor,tabUUID);
+
+                    //Update the selected item in opened editor as well
+                    $("#openeditors .item.selected").removeClass("selected");
+                    $("#openeditors .item").each(function(){
+                        if ($(this).attr("uuid") == tabUUID){
+                            $(this).addClass("selected");
+                        }
+                    });
+                });
+
+                $("#openeditors .item").off("click").on("click",function(evt){
+                    //Update UI to match selected tab
+                    $("#openeditors .item.selected").removeClass('selected');
+                    $(this).addClass("selected");
+
+                    //Get the target editor UUID
+                    var tabID = $(this).attr("uuid");
+                    var editorUUID = $(this).attr("editorUUID");
+                    var targetEditorObject;
+                    for (var i =0; i < editors.length; i++){
+                        if (editors[i].uuid == editorUUID){
+                            targetEditorObject = editors[i];
+                        }
+                    }
+                    if (typeof targetEditorObject === undefined){
+                        console.log("Error when loading tab");
+                        return;
+                    }
+
+                    changeTab(targetEditorObject,tabID);
+
+                    //Also highlight the tab menu as well
+                    $(targetEditorObject.tabsMenu).find(".item.selected").removeClass('selected');
+                    $(targetEditorObject.tabsMenu).find(".item").each(function(){
+                        if ($(this).attr("uuid") == tabID){
+                            $(this).addClass("selected");
+                        }
+                    });
+
+                });
+
+                $(".tabs .item .closebtn").off("click").on('click',function(evt){
+                    evt.preventDefault();
+                    evt.stopImmediatePropagation();
+                    var tabUUID = $(this).parent().attr("uuid");
+                    var editorUUID = $(this).parent().attr("editorUUID");
+
+                    closeTabWithUUIDAndEditorID(tabUUID, editorUUID);
+                });
+
+                $("#openeditors .closebtn").off("click").on("click",function(evt){
+                    evt.stopImmediatePropagation();
+                    evt.preventDefault();
+                    var tabUUID = $(this).parent().attr("uuid");
+                    var editorUUID = $(this).parent().attr("editorUUID");
+
+                    closeTabWithUUIDAndEditorID(tabUUID, editorUUID);
+                });
+            }
+
+            //Close a tab given the editorUUID and the tabUUID.
+            function closeTabWithUUIDAndEditorID(tabUUID, editorUUID){
+                 //Find the editor object related to this tab
+                 let targetEditorObject;
+                for (var i =0; i < editors.length; i++){
+                    if (editors[i].uuid == editorUUID){
+                        targetEditorObject = editors[i];
+                    }
+                }
+                if (targetEditorObject === undefined){
+                    console.log("Error when closing tab");
+                    return;
+                }
+                //Remove state and models from the editor object
+                delete targetEditorObject.state[tabUUID];
+                delete targetEditorObject.model[tabUUID];
+
+                //Remove this tab from the list
+                tabs = JSON.parse(JSON.stringify(targetEditorObject.tabs));
+                for (var i =0; i < tabs.length; i++){
+                    if (tabUUID == tabs[i].tabUUID){
+                        targetEditorObject.tabs.splice(i,1);
+                    }
+                }
+
+                //Remove the tab objects from DOM
+                removeTabFromDOMWithUUID(tabUUID);
+                
+                if (targetEditorObject.tabs.length > 0){
+                    //Switch to the first tab of the editor
+                    var newFocusedTabUUID = targetEditorObject.tabs[0].tabUUID;
+                    changeTab(targetEditorObject, newFocusedTabUUID);
+                    focusTabWithUUID(newFocusedTabUUID);
+                }else{
+                    //No more tab lefts. Show the editor cover
+                    $(targetEditorObject.tabsMenu).parent().find(".editorcover").show();
+                    $(targetEditorObject.tabsMenu).parent().find(".editorcover").load("home.html");
+                }
+            }
+
+            function getFocusedTabInfo(){
+                var focusedEditorObject = getFocusedEditorObject();
+                var focusedTabUUID = focusedEditorObject.currentTabUUID;
+                for (var i =0; i < focusedEditorObject.tabs.length; i++){
+                    var thistab = focusedEditorObject.tabs[i];
+                    if (thistab.tabUUID == focusedTabUUID){
+                         //Update the global focused tab info as the current working-on file
+                        focusedFileInfo = thistab;
+                        return thistab;
+                    }
+                }
+               
+            }
+
+            function getCodeAreaFromEditorUUID(editorUUID){
+                for (var i =0; i < editors.length; i++){
+                    if (editors[i].uuid == editorUUID){
+                        var tabsMenu = editors[i].tabsMenu;
+                        return $(tabsMenu).parent();
+                    }
+                }
+            }
+
+            function updateFileStatusDisplay(filepath){
+                $("#filepath").html(`<i class="code file icon"></i> ${filepath}`);
+                var ext = filepath.split(".").pop();
+                $("#fileExt").text(ext.toUpperCase());
+            }
+
+            function getFocusedEditorObject(){
+                for (var i =0; i < editors.length; i++){
+                    if (editors[i].uuid == focusedEditor){
+                        return editors[i];
+                    }
+                }
+            }
+
+            function focusThisEditor(object){
+                var editorUUID = $(object).attr("editorUID");
+                focusedEditor = editorUUID;
+                //Update the target file info
+                var tabInfo = getFocusedTabInfo();
+                if (tabInfo !== undefined){
+                    updateFileStatusDisplay(tabInfo.filepath);
+                    focusTabWithUUID(tabInfo.tabUUID);
+                }
+            }
+
+            function focusTabWithUUID(tabUUID){
+                $(".tabs .item.selected").removeClass("selected");
+                $(".tabs .item").each(function(){
+                    if ($(this).attr("uuid") == tabUUID){
+                        $(this).addClass("selected");
+                    }
+                });
+                $("#openeditors .item.selected").removeClass("selected");
+                 $("#openeditors .item").each(function(){
+                    if ($(this).attr("uuid") == tabUUID){
+                        $(this).addClass("selected");
+                    }
+                });
+            }
+
+            function removeTabFromDOMWithUUID(tabUUID){
+                $(".tabs .item").each(function(){
+                    if ($(this).attr("uuid") == tabUUID){
+                        $(this).remove();
+                    }
+                });
+                 //Remove the tab from OPEN EDITORS
+                 $("#openeditors .item").each(function(){
+                    if ($(this).attr("uuid") == tabUUID){
+                        $(this).remove();
+                    }
+                });
+            }
+
+            function focusTab(uuid){
+                $(".tabs .item").each(function(){
+                    if ($(this).attr("uuid") == uuid){
+                        $(this).addClass("selected");
+                    }
+                });
+
+                $("#openeditors .item.selected").removeClass("selected");
+                $("#openeditors .item").each(function(){
+                    if ($(this).attr("uuid") == uuid){
+                        $(this).addClass("selected");
+                    }
+                });
+            }
+
+            //Main script section for UI handling
+
+            
+            //Load context menu
+            function initContextMenu(target, object){
+                if (target == "file"){
+                    //List items in files
+                    $("#contextMenu").html(`
+                    <div class="item">New File 
+                        <div class="tips">Ctrl + N</div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="item" onclick="openFileWithSelector();">Open File
+                        <div class="tips">Ctrl + O</div>
+                    </div>
+                    <div class="item" onclick="openFolderWithSelector();">Open Folder
+                        <div class="tips">Ctrl + Shift + O</div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="item" onclick="saveCurrentFile();">Save</div>
+                    <div class="item" onclick="saveCurrentFileAs();">Save As</div>
+                    <div class="item" onclick="saveAllFiles();">Save All</div>
+                    <!--<div class="divider"></div>
+                    <div class="item">Preference</div>-->
+                    <div class="divider"></div>
+                    <div class="item" onclick="closeFileCurrentlyFocused();">Close File</div>
+                    <div class="item" onclick="closeAllFiles();">Close All Files</div>
+                    `);
+
+                    if (ao_module_virtualDesktop){
+                        $("#contextMenu").append(`<div class="item" onclick="hanleUserExit();">Exit</div>`);
+                    }
+                }else if (target == "edit"){
+                    $("#contextMenu").html(`
+                    <div class="item" onclick="undo();">Undo 
+                        <div class="tips">Ctrl + Z</div>
+                    </div>
+                    <div class="item" onclick="redo();">Redo 
+                        <div class="tips">Ctrl + Y</div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="item" onclick="showClipboardReminders(1);">Cut
+                        <div class="tips">Ctrl + X</div>
+                    </div>
+                    <div class="item" onclick="showClipboardReminders(2);">Copy
+                        <div class="tips">Ctrl + C</div>
+                    </div>
+                    <div class="item" onclick="showClipboardReminders(3);">Paste
+                        <div class="tips">Ctrl + V</div>
+                    </div>
+                    <div class="item" onclick="showClipboardReminders(4);">Find
+                        <div class="tips">Ctrl + F</div>
+                    </div>
+                    <div class="item" onclick="showClipboardReminders(5);">Replace
+                        <div class="tips">Ctrl + H</div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="item" onclick="toggleSplit(true);">Split WorkSpace</div>
+                    <div class="item" onclick="toggleSplit(false);">Merge WorkSpace</div>
+                   
+                    `);
+                }else if (target == "view"){
+                    $("#contextMenu").html(`
+                        <div class="item" onclick="newEditor(); hideContextMenu();">New Editor
+                            <div class="tips"><i class="add icon"></i></div>
+                        </div>
+                        <div class="item" onclick="openInNewTab(); hideContextMenu();">Open in new Tab
+                            <div class="tips"><i class="external icon"></i></div>    
+                        </div>
+                        <div class="item" onclick="openInNewFloatWindow(); hideContextMenu();">Open in floatWindow
+                            <div class="tips"><i class="window restore outline icon"></i></div>
+                        </div>
+                        <div class="item" onclick="openFileInFileManager(); hideContextMenu();">Reveal in File Manager 
+                            <div class="tips"><i class="folder outline icon"></i></div>
+                        </div>
+                        <div class="item" onclick="openTerminal(); hideContextMenu();">Open Terminal
+                            <div class="tips"><i class="code icon"></i></div>
+                        </div>
+                        <div class="divider"></div>
+                        <div class="item" onclick="downloadFile(); hideContextMenu();">Download
+                            <div class="tips"><i class="download icon"></i></div>    
+                        </div>
+                    `);
+                }else if (target == "fontsize"){
+                    $("#contextMenu").html('');
+                    for (var i = 8; i < 26; i++ ){
+                        $("#contextMenu").append(`<div class="item" style="font-size:${i}px;" onclick="setFontSize(${i});">${i} px</div>`);
+                    }
+                }else if (target == "tools"){
+                    $("#contextMenu").html('');
+                    $("#contextMenu").html(`
+                        <div class="item" onclick="showColorPicker(); hideContextMenu();">Color Picker
+                            <div class="tips"><i class="eyedropper icon"></i></div>
+                        </div>
+                        <div class="item" onclick="showMobiPreview(); hideContextMenu();">Responsive Design Viewer
+                            <div class="tips"><i class="mobile icon"></i></div>
+                        </div>
+                    `);
+                }else if (target == "help"){
+                    $("#contextMenu").html(`
+                    <div class="item" onclick="window.open('https://microsoft.github.io/monaco-editor/'); hideContextMenu();">About Monaco Editor</div>
+                    <div class="divider"></div>
+                    <div class="item" onclick="showLicense();">License</div>
+                    <div class="item" onclick="showAboutCodeStudio();">About Code Studio</div>
+                    `);
+                }
+
+                $("#contextMenu").show();
+                $("#contextMenu").css({
+                    left: $(object).offset().left,
+                    top: "28px"
+                })
+
+            }
+
+            function showLicense(){
+                $("#licenseInfo").modal("show");
+                hideContextMenu();
+            }
+
+            function showAboutCodeStudio(){
+                $("#aboutnpa").modal("show");
+                hideContextMenu();
+            }
+
+            function closeFileCurrentlyFocused(){
+                var focusedEditor = getFocusedEditorObject();
+                var editorUUID = focusedEditor.uuid;
+                var tabsMenu = focusedEditor.tabsMenu;
+                var focusedTabID = $(tabsMenu).find(".item.selected").attr("uuid");
+                closeTabWithUUIDAndEditorID(focusedTabID,editorUUID);
+                hideContextMenu();
+            }
+
+            function closeAllFiles(){
+                editors.forEach(editor => {
+                    var editorId = editor.uuid;
+                    editor.tabs.forEach(tab => {
+                        closeTabWithUUIDAndEditorID(tab.tabUUID, editorId);
+                    });
+                });
+                hideContextMenu();
+            }
+
+          
+            function saveAllFiles(){
+                //Store the editor object before saveall
+                let beforeTabInfo = getFocusedTabInfo();
+                let beforeEditor = getFocusedEditorObject();
+
+                //Iterate through all editors and all tabs to save
+                for (var i = 0; i < editors.length; i++){
+                    var thisEditor = editors[i];
+                    for (var j =0; j < thisEditor.tabs.length; j++){
+                        var tabUUID = thisEditor.tabs[j].tabUUID;
+                        changeTab(thisEditor, tabUUID);
+                        saveCurrentFile();
+                    }
+                }
+
+                //Restore the editor view
+                changeTab(beforeEditor, beforeTabInfo.tabUUID);
+                hideContextMenu();
+            }
+
+
+            function setFontSize(fontsize){
+                for (var i =0; i < editors.length; i++){
+                    var thisEditor = editors[i].editor;
+                    thisEditor.updateOptions({
+                        fontSize: fontsize
+                    });
+                }
+                setStorage("fontsize",fontsize);
+                hideContextMenu();
+            }
+
+            function toggleSplit(useSplitMode){
+                if (useSplitMode){
+                    $("#ca1").attr("class","codeBoard splitMode left")
+                    $("#ca2").show();
+                    setStorage("splitmode","true");
+                }else{
+                    $("#ca1").attr("class","codeBoard")
+                    $("#ca2").hide();
+                    setStorage("splitmode","false");
+
+                    //Move all tabs from subEditor to main editor
+                    var mainEditor = getEditor("mainEditor");
+                    var subEditor = getEditor("subEditor");
+                    subEditor.tabs.forEach(tab => {
+                        var filepath = tab.filepath;
+                        //Open tab in main editor
+                        openFile(filepath, false, mainEditor);
+
+                        //Close tab in sub editor
+                        closeTabWithUUIDAndEditorID(tab.tabUUID, "subEditor");
+                    });
+                }
+
+
+                //Update all editor's size
+                for (var i =0; i < editors.length; i++){
+                    editors[i].editor.layout();
+                }
+                
+                hideContextMenu();
+            }
+            
+            //Hide all the context menus
+            function hideContextMenu(){
+                $("#contextMenu").hide();
+            }
+
+            //open a file with a new editor by the given filepath
+            function openFile(filepath, updateHashStatus=true, overrideEditor=undefined){
+                //Get the focused editor
+                var targetEditorGroup = undefined;
+                if (overrideEditor == undefined){
+                    //Do not override editor
+                    for (var i =0; i < editors.length; i++){
+                        if (editors[i].uuid == focusedEditor){
+                            targetEditorGroup = editors[i];
+                        }
+                    }
+                }else{
+                    //Use override editor
+                    targetEditorGroup = overrideEditor;
+                }
+
+                if (targetEditorGroup === undefined){
+                    alert("Unable to load editor.");
+                    return;
+                }
+
+                //Check if the file is already loaded in this editor
+                for (var i = 0; i < targetEditorGroup.tabs.length; i++){
+                    var thisTab = targetEditorGroup.tabs[i];
+                    if (thisTab.filepath == filepath){
+                        //Focus this tab
+                        changeTab(targetEditorGroup, thisTab.tabUUID);
+                        return;
+                    }
+                }
+
+                //Get the file
+                ao_module_agirun("Code Studio/backend/read.agi",{
+                    file: filepath
+                }, function(filecontent){
+                    //Get the target Opening Editor
+                    let targetOpeningEditor = targetEditorGroup;
+                    
+                    if (typeof targetOpeningEditor === undefined){
+                        console.log("Error when trying to get editor info")
+                        return;
+                    }
+                    //Load the editor instances
+                    var editor = targetOpeningEditor.editor;
+                    var editorUUID = targetOpeningEditor.uuid;
+                    var models = targetOpeningEditor.model;
+                    var states = targetOpeningEditor.state;
+                    var currentTabUUID = targetOpeningEditor.currentTabUUID;
+                    var targetTabMenu =  targetOpeningEditor.tabsMenu;
+
+                    //Save the current editor status into the data
+                    var currentState = editor.saveViewState();
+                    var currentModel = editor.getModel();
+                    states[currentTabUUID] = currentState;
+                    models[currentTabUUID] = currentModel;
+                    
+                    //Create a tab for this file
+                    var tabUUID = new Date().getTime();
+                    var filename = filepath.split("/").pop();
+                    $(targetTabMenu).find(".item.selected").removeClass("selected");
+                    $(targetTabMenu).append(`<div class="item selected fileTab" title="${filepath}" draggable="true" ondragstart="fileTabDrag(event)" uuid="${tabUUID}"  editorUUID="${editorUUID}" filepath="${filepath}"><i class="code file icon"></i> ${filename} <div class="closebtn"><i class="remove icon"></i></i></div></div>`);
+
+                    //Add this tab into the open editor list
+                    $("#openeditors .item").removeClass("selected");
+                    $("#openeditors").append(`<div class="item selected" uuid="${tabUUID}" editorUUID="${editorUUID}"><div class="closebtn" style="display:inline-block;"><i class="remove icon"></i></div> <i class="code file icon"></i> ${filename} </div>`);
+
+                    //Update the current tag information
+                    targetOpeningEditor.currentTabUUID = tabUUID
+
+                    //Push the current tab into the array of tabs
+                    targetOpeningEditor.tabs.push({
+                        filename: filename,
+                        filepath: filepath,
+                        tabUUID: tabUUID,
+                        saveHash: filecontent.hashCode()
+                    });
+
+                        //Update title if nonVDI or update floatWindow title if under fdi
+                    if (ao_module_virtualDesktop){
+                        ao_module_setWindowTitle("Code Studio - " + filename);
+                    }else{
+                        document.title = "Code Studio - " + filename;
+                    }
+
+
+                    //Check if model is loaded before
+                    var model;
+                    if (loadedModels[filepath] === undefined){
+                            //Set the editor value and do model auto lanuage detection
+                        model = monaco.editor.createModel(
+                            filecontent,
+                            undefined,
+                            monaco.Uri.file("../media?file=" + encodeURIComponent(filepath))
+                        )
+                        loadedModels[filepath] = model;
+                    }else{
+                        //Load the already loaded model
+                        model = loadedModels[filepath];
+                    }
+                    editor.setModel(model)
+
+                    //Bind tab events
+                    bindTabItemEvents();
+
+                    //Update file info tab
+                    var tabInfo = getFocusedTabInfo();
+                    updateFileStatusDisplay(tabInfo.filepath);
+
+                    //Hide the editorCover
+                    var ca = getCodeAreaFromEditorUUID(editorUUID);
+                    $(ca).find(".editorcover").hide();
+
+                    //Write the opened filelist to window hash
+                    if (updateHashStatus){
+                        var currentState = getHashObject();
+                        currentState["files"] = getOpenedFiles();
+                        console.log(currentState);
+                        writeHashObject(currentState);
+                    }
+
+                    //Finally, focus on the newly opened tab
+                    focusTabWithUUID(tabUUID);
+                
+                });
+            }
+
+            function hash(s){
+                return s.split("").reduce(function(a,b){a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);              
+            }
+
+            //Open fileSelector
+            function openFileWithSelector(){
+                ao_module_openFileSelector(externalFileLoader, "user:/Document", "file",true);
+                hideContextMenu();
+            }
+
+            //Open folderSelector
+            function openFolderWithSelector(){
+                ao_module_openFileSelector(openProjectFolder, "user:/Document", "folder");
+                hideContextMenu();
+            }
+
+            //Handle fileSelector return value
+            function externalFileLoader(filedata){
+                if (filedata.length > 0){
+                    for (var i=0; i < filedata.length; i++){
+                        filepath = filedata[i].filepath;
+                        openFile(filepath);
+                    }
+                }
+            }
+
+            function openProjectFolder(filedata, rewriteHash=true){
+                for (var i=0; i < filedata.length; i++){
+                    folderpath = filedata[i].filepath;
+                    foldername = filedata[i].filename;
+                    //Load this as the folder 
+                    $("#openFolderTitle").text(foldername.toUpperCase());
+                    $("#directoryExplorer").html("");
+                    $.get("../system/file_system/listDir?dir=" + encodeURIComponent(folderpath),function(data){
+                        var folders = [];
+                        var files = [];
+                        if (data === null){
+                            data = [];
+                        }
+                        for (var i =0; i < data.length; i++){
+                            var filename = data[i].Filename;
+                            var ext = filename.split(".").pop();
+                            var icon = ao_module_utils.getIconFromExt(ext);
+                            var filepath = data[i].Filepath;
+                            if (data[i].IsDir){
+                                icon = "folder";
+                                folders.push(`
+                                <div class="folderObjectWrapper">
+                                    <div class="item" title="${filepath}" style="overflow:hidden;" onclick="listfolder(this);">
+                                        <div class="showmore" style="display:inline-block;"><i class="caret right icon"></i></div>
+                                        <i class="${icon} icon"></i> ${filename} 
+                                    </div>
+                                </div>
+                                `);
+                            }else{
+                                files.push(`
+                                <div class="item" title="${filepath}" draggable="true" ondragstart="directoryFileDrag(event)" filepath="${filepath}" filename="${filename}"  style="overflow:hidden;" onclick="openFileViaDirectoryExplorer(this, event);">
+                                    <i class="${icon} icon"></i> ${filename} 
+                                </div>
+                                `);
+                            }
+                           
+                        }
+                        $("#directoryExplorer").append(folders.join(""));
+                        $("#directoryExplorer").append(files.join(""));
+                    });
+
+                    if (rewriteHash){
+                        var currentState = getHashObject();
+                        currentState["folder"] = foldername;
+                        writeHashObject(currentState);
+                    }
+
+                }
+            }
+
+            function listfolder(folder){
+                var folderPath = $(folder).attr("title");
+
+                //Check if the folder is already list. If yes, toggle the list
+                if ($(folder).parent().find(".dirlist").length == 0){
+                    //Folder is not listed. Load from file system
+                    $(folder).parent().append(`<div class="dirlist"></div>`);
+                    $(folder).find(".showmore i").attr("class","caret down icon");
+                    var targetListObject = $(folder).parent().find(".dirlist");
+                    $.get("../system/file_system/listDir?dir=" + encodeURIComponent(folderPath),function(data){
+                        var folders = [];
+                        var files = [];
+                        if (data === null){
+                            data = [];
+                        }
+                        for (var i =0; i < data.length; i++){
+                            var filename = data[i].Filename;
+                            var ext = filename.split(".").pop();
+                            var icon = ao_module_utils.getIconFromExt(ext);
+                            var filepath = data[i].Filepath;
+                            if (data[i].IsDir){
+                                icon = "folder";
+                                folders.push(`
+                                <div class="folderObjectWrapper">
+                                    <div class="subitem" title="${filepath}" style="overflow:hidden;" onclick="listfolder(this);">
+                                        <div class="showmore" style="display:inline-block;"><i class="caret right icon"></i></div>
+                                        <i class="${icon} icon"></i> ${filename} 
+                                    </div>
+                                </div>
+                                `);
+                            }else{
+                                files.push(`
+                                <div class="subitem" title="${filepath}" style="overflow:hidden;" onclick="openFileViaDirectoryExplorer(this,event);">
+                                    <i class="${icon} icon"></i> ${filename} 
+                                </div>
+                                `);
+                            }
+                        }
+
+                        //Push the items into the list
+                        $(targetListObject).append(folders.join(""));
+                        $(targetListObject).append(files.join(""));
+
+                    });
+                }else{
+                    //Folder is already listed. Toggle show of filelist
+                    if ($(folder).find(".caret.down.icon").length > 0){
+                        //Folder list visiable. Hide it
+                        $(folder).parent().find(".dirlist").slideUp('fast');
+                        $(folder).find(".showmore i").attr("class","caret right icon");
+                    }else{
+                        //Folder list hidden. Show it
+                        $(folder).parent().find(".dirlist").slideDown('fast');
+                        $(folder).find(".showmore i").attr("class","caret down icon");
+                    }
+                }
+            }
+
+            function openFileViaDirectoryExplorer(object, event){
+                var filepath = $(object).attr('title');
+                openFile(filepath);
+            }
+
+            function toggleDirectoryExplorer(btn){
+                if ($(btn).find("i").hasClass("right")){
+                    $(btn).find("i").attr("class","caret down icon");
+                    $("#directoryExplorer").slideDown('fast'); 
+                }else{
+                    $(btn).find("i").attr("class","caret right icon");
+                    $("#directoryExplorer").slideUp('fast');
+                }
+            }
+
+            //Initiate an editor with the given uuid and targetDOM
+            function initEditor(targetDOM, editorUUID, loadPendingFiles = [], callback=undefined){
+                require.config({ paths: { 'vs': 'script/monaco/vs' }});
+                window.GlobalEnvironment = { getWorkerUrl: () => proxy };
+
+                let proxy = URL.createObjectURL(new Blob([`
+                    self.GlobalEnvironment = {
+                        baseUrl: 'script/monaco/'
+                    };
+                    
+                    importScripts('script/monaco/vs/base/worker/workerMain.js');
+                `], { type: 'text/javascript' }));
+                
+                require(["vs/editor/editor.main"], function () {
+                   let editor = monaco.editor.create(targetDOM, {
+                        value: "",
+                        language: 'javascript',
+                        automaticLayout: true,
+                        theme: 'vs-dark'
+                    });
+
+                    //Bind save event for this editor
+                    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KEY_S, function() {
+                        let thisEditor = editor;
+                        //Save this editor text to the current editor focused tab folder
+                        var tabInfo = getFocusedTabInfo();
+                        var filepath = tabInfo.filepath;
+                        var content = thisEditor.getValue();
+                        //console.log(filepath, content);
+                        saveContentToFile(tabInfo.tabUUID, filepath, content, function(data){
+                            if (data.error !== undefined){
+                                alert(data.error);
+                            }else{
+                                //OK
+                                console.log("File saved");
+                                msgbox("save","File Saved")
+                            }
+                        });
+                    });
+
+                    editors.push({
+                        uuid: editorUUID,
+                        tabsMenu: $(targetDOM).parent().find(".tabs"),
+                        editor: editor,
+                        currentTabUUID: "default",
+                        model: [],
+                        state: [],
+                        tabs: []
+                    });
+
+                    //Check if there are load pending files. If yes, load them into this editor
+                    if (loadPendingFiles !== null && loadPendingFiles.length > 0){
+                        for (var i =0; i < loadPendingFiles.length; i++){
+                            openFile(loadPendingFiles[i].filepath);
+                        }
+                    }
+
+                    //Initialize user settings
+                    restoreUserPreference();
+
+                    //Perform callback with editor object if required
+                    if (callback !== undefined){
+                        callback(editor);
+                    }
+                });
+                
+              
+            }
+
+            /*
+                Terminal Function Related
+
+            */
+
+            function terminalInit(){
+                $(".ui.dropdown").dropdown();
+            }
+
+            var codeAreaBottomOffset = 0;
+            function openTerminal(){
+                //Open WsTTY on the editor
+                codeAreaBottomOffset = 300;
+                $("#terminals").show();
+                updateCodeAreaSize();
+                hideContextMenu();
+                updateStatusHash("terminal",true);
+            }
+
+            function closeTerminal(){
+                codeAreaBottomOffset = 0;
+                $("#terminals").hide();
+                updateCodeAreaSize();
+                updateStatusHash("terminal",false);
+            }
+
+            function restartTerminal(){
+                $("#terminals").find(".terminalWindow.focused").find("iframe").attr("src","");
+                setTimeout(function(){
+                    $("#terminals").find(".terminalWindow.focused").find("iframe").attr("src",terminalStartingEndpoint);
+                }, 1000);
+                
+            }
+
+            $(window).on("resize", function(data){
+                updateCodeAreaSize();
+            });
+
+            updateCodeAreaSize();
+            function updateCodeAreaSize(){
+                $("#codeArea").css({
+                    "height":window.innerHeight - 52 - codeAreaBottomOffset
+                });
+
+                editors.forEach(editor => {
+                    editor.editor.layout();
+                })
+                
+            }
+
+            function openFileInFileManager(){
+                var tabInfo = getFocusedTabInfo();
+                var filepath = tabInfo.filepath;
+                var fileinfo = filepath.split("/");
+                var filename = fileinfo.pop();
+                var dirname = fileinfo.join("/");
+
+                ao_module_openPath(dirname, filename);
+            }
+
+            function getHashObject(){
+                if (window.location.hash.length > 1){
+                    var stateString = window.location.hash.substr(1);
+                    var currentState = JSON.parse(decodeURIComponent(stateString));
+                    return currentState
+                }else{
+                    return {};
+                }
+            }
+
+            function writeHashObject(newStateObject){
+                window.location.hash = JSON.stringify(newStateObject);
+            }
+
+            function updateStatusHash(key, value){
+                var currentState = getHashObject();
+                currentState[key] = value;
+                writeHashObject(currentState);
+            }
+
+            function getOpenedFiles(){
+                var openedFilepaths = [];
+                editors.forEach(editor => {
+                    editor.tabs.forEach(tab => {
+                        if (!openedFilepaths.includes(tab.filepath)){
+                            openedFilepaths.push(tab.filepath);
+                        }
+                        
+                    })
+                });
+
+                return openedFilepaths;
+            }
+
+            function changeTab(editorObject, targettabUUID) {
+                //Move focus to the selected editor
+                focusedEditor = editorObject.uuid;
+                //Get the basic information for the editor object
+                var editor = editorObject.editor;
+                var models = editorObject.model;
+                var states = editorObject.state;
+                var currentTabUUID = editorObject.currentTabUUID;
+
+                //save the current editor states
+                var currentState = editor.saveViewState();
+                var currentModel = editor.getModel();
+                states[currentTabUUID] = currentState;
+                models[currentTabUUID] = currentModel;
+
+                //Update the current Tab UUID
+                editorObject.currentTabUUID = targettabUUID;
+
+                //Load the content from the given uuid tab
+                editor.setModel(models[targettabUUID]);
+                editor.restoreViewState(states[targettabUUID]);
+                editor.focus();
+
+                //Update the target file info
+                var tabInfo = getFocusedTabInfo();
+                updateFileStatusDisplay(tabInfo.filepath);
+
+                //Update title if nonVDI or update floatWindow title if under fdi
+                if (ao_module_virtualDesktop){
+                    ao_module_setWindowTitle("Code Studio - " + tabInfo.filename);
+                }else{
+                    document.title = "Code Studio - " + tabInfo.filename
+                }
+
+                //Focus this tab
+                focusTabWithUUID(targettabUUID);
+            }
+
+            //Show clipboard reminders
+            function showClipboardReminders(rt){
+                var reminderText = "This function is keyboard shortcut only.";
+                var iconClass = "keyboard icon";
+                if (rt == 1){
+                    reminderText = "Use the keyboard shortcut Ctrl + X to cut text from the editor.";
+                    iconClass = "cut icon";
+                }else if (rt == 2){
+                    reminderText = "Use the keyboard shortcut Ctrl + C for copying text from the editor";
+                    iconClass = "copy icon";
+                }else if (rt == 3){
+                    reminderText = "Use the keyboard shortcut Ctrl + V for pasting to editor.";
+                    iconClass = "paste icon";
+                }else if (rt == 4){
+                    reminderText = "Press Ctrl + F on the editor to start searching.";
+                    iconClass = "search icon";
+                }else if (rt == 5){
+                    reminderText = "Press Ctrl + H on the editor to start replacing text.";
+                    iconClass = "sync alternate icon";
+                }
+
+                $("#clipboardReminderText").text(reminderText);
+                $("#clipboardReminderIcon").attr("class",iconClass)
+                $('#clipboardReminder').modal('show');
+                hideContextMenu();
+            }
+
+
+            //Editor function binding
+            function undo(){
+                editorObject = getFocusedEditorObject();
+                editorObject.editor.trigger('aaa','undo','aaa');
+		        editorObject.editor.focus();
+            }
+
+            function redo(){
+                editorObject = getFocusedEditorObject();
+                editorObject.editor.trigger('aaa','redo','aaa');
+		        editorObject.editor.focus();
+            }
+
+            //Save current file as a new file
+            function saveCurrentFileAs(){
+                var tabInfo = getFocusedTabInfo();
+                var filepath = tabInfo.filepath;
+                var fileinfo = filepath.split("/");
+                var filename = fileinfo.pop();
+                var dirname = fileinfo.join("/") + "/";
+                ao_module_openFileSelector(writeToSaveAsFile, dirname, "new",false,{
+                    defaultName: filename
+                });
+                hideContextMenu();
+            }
+
+            function writeToSaveAsFile(filedata){
+                for (var i=0; i < filedata.length; i++){
+                    var filename = filedata[i].filename;
+                    var filepath = filedata[i].filepath;
+                    var content = getFocusedEditorObject().editor.getValue();
+                    //Write to this filepath
+                    syscall("writeFile",{"filepath":filepath, "content":content}, function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //OK
+                            console.log("File saved");
+                            msgbox("save","File Saved")
+                        }
+                    });
+
+                    //Handle only one file write
+                    return
+                }
+            }
+
+
+
+            function saveCurrentFile(){
+                var tabInfo = getFocusedTabInfo();
+                var focusedEditor = getFocusedEditorObject();
+                var filepath = tabInfo.filepath;
+                var content = focusedEditor.editor.getValue();
+                saveContentToFile(tabInfo.tabUUID, filepath, content, function(data){
+                    if (data.error !== undefined){
+                        alert(data.error);
+                    }else{
+                        //OK
+                        console.log("File saved");
+                        msgbox("save","File Saved")
+                    }
+                });
+
+                hideContextMenu();
+            }
+
+            function getAllOpenedTabs(){
+                var results = [];
+                editors.forEach(editor => {
+                    let thisEditor = editor;
+                    editor.tabs.forEach(tab => {
+                        let thisTab = tab;
+                        results.push({
+                            editor: thisEditor,
+                            tab: thisTab
+                        })
+                    })
+                });
+
+                return results;
+            }
+
+            function saveContentToFile(tabUUID, filepath, content, callback=undefined){
+                syscall("writeFile",{"filepath":filepath, "content":content}, function(data){
+                    if (callback !== undefined){
+                        callback(data);
+                    }
+                    var contextHash = content.hashCode();
+                    //Update all the tabs that contains this filepath
+                    for (var i =0; i < editors.length; i++){
+                        var thisEditor = editors[i];
+                        for (var j =0; j < thisEditor.tabs.length; j++){
+                            var thisTab = thisEditor.tabs[j];
+                            if (thisTab.tabUUID == tabUUID){
+                                thisTab.saveHash = contextHash;
+                            }
+                        }
+                    }
+                });
+            }
+
+            function msgbox(icon, message){
+                $("#messageField").html(`<i class="${icon} icon"></i> ${message}`);
+                $("#messageField").stop().finish().hide().fadeIn('fast').delay(5000).fadeOut('fast');
+            }
+
+            function setStorage(key, value){
+                syscall("store",{opr:"set",key:key,value:value});
+                /*
+                $.post("./store",{opr: "set", key: key, value: value}).done(function(data){
+                    if (data.error !== undefined){
+                        console.log(data);
+                    }
+                });
+                */
+            }
+
+            function getStorage(key, callback){
+                syscall("store",{opr:"get",key:key}, callback);
+                //$.post("./store",{opr: "get", key: key}).done(callback);
+            }
+
+            function showColorPicker(){
+                ao_module_newfw({
+                    url: "Code Studio/tools/colorpicker/index.html",
+                    width: 365,
+                    height: 200,
+                    appicon: "Code Studio/img/module_icon.png",
+                    title: "Color Picker"
+                });
+            }
+
+            function showMobiPreview(){
+                var currentFileData = getCurrentFocusedFileData();
+                if (currentFileData == null){
+                    //No opened files
+                    alert("No editing file found!")
+                    return;
+                }
+
+                //Encode the filedata
+                var fd = encodeURIComponent(JSON.stringify([currentFileData]));
+
+                ao_module_newfw({
+                    url: "Code Studio/tools/mobipreview/index.html#" + fd,
+                    width: 350,
+                    height: 625,
+                    appicon: "Code Studio/img/module_icon.png",
+                    title: "Responsive Design Viewer"
+                });
+            }
+
+            function openInNewTab(){
+                //Open the editor in new tab
+                var currentFileData = getCurrentFocusedFileData();
+                if (currentFileData == null){
+                    //No opened files
+                    return;
+                }
+
+                //Encode the filedata
+                var fd = encodeURIComponent(JSON.stringify([currentFileData]));
+                window.open("./index.html#" + fd);
+            }
+
+            function openInNewFloatWindow(){
+                //Open the editor in new tab
+                var currentFileData = getCurrentFocusedFileData();
+                if (currentFileData == null){
+                    //No opened files
+                    return;
+                }
+
+                //Encode the filedata
+                var fd = encodeURIComponent(JSON.stringify([currentFileData]));
+                ao_module_newfw({
+                    url: "Code Studio/index.html#" + fd,
+                    width: 890,
+                    height: 625,
+                    appicon: "Code Studio/img/module_icon.png",
+                    title: "Code Studio"
+                });
+            }
+
+            function newEditor(){
+                ao_module_newfw({
+                    url: "Code Studio/index.html",
+                    width: 890,
+                    height: 625,
+                    appicon: "Code Studio/img/module_icon.png",
+                    title: "Code Studio"
+                });
+            }
+
+            function downloadFile(){
+                var currentFileData = getCurrentFocusedFileData();
+                if (currentFileData == null){
+                    //No opened files
+                    alert("No file selected")
+                    return;
+                }
+
+                window.open("../../../media?file=" + currentFileData.filepath+ "&download=true");
+            }
+
+            function getCurrentFocusedFileData(){
+                var currentEditor = getFocusedEditorObject();
+                var focusedTabUUID = currentEditor.currentTabUUID;
+                for (var i = 0; i < currentEditor.tabs.length; i++){
+                    if (currentEditor.tabs[i].tabUUID == focusedTabUUID){
+                        //This is the tab we are looking for!
+                        return {
+                            filepath: currentEditor.tabs[i].filepath,
+                            filename: currentEditor.tabs[i].filename
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            function hanleUserExit(){
+                //Check if there are opened files
+                var openedTabs = getAllOpenedTabs();
+                if (openedTabs.length > 0){
+                    if (confirm("Some files might not be saved. Confirm exit?")){
+                        ao_module_close();
+                    }
+                }else{
+                    ao_module_close();
+                }
+            }
+
+            //Hashcode function for comparing save stated
+            String.prototype.hashCode = function() {
+                var hash = 0;
+                if (this.length == 0) {
+                    return hash;
+                }
+                for (var i = 0; i < this.length; i++) {
+                    var char = this.charCodeAt(i);
+                    hash = ((hash<<5)-hash)+char;
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+                return hash;
+            }
+
+            //Call to the system core with AJGI script
+            function syscall(scriptName, data, callback=undefined){
+                $.ajax({
+                    url: "../system/ajgi/interface?script=Code Studio/backend/" + scriptName + ".agi",
+                    method: "POST",
+                    data: data,
+                    success: function(data){
+                        if (callback !== undefined){
+                            callback(data);
+                        }
+                    }
+                })
+            }
+
+            //Drag events for fileTabs
+            function allowDrop(ev) {
+                ev.preventDefault();
+            }
+
+            //Drag file from directory explorer to editor tabs
+            function directoryFileDrag(ev){
+                var tabFilepath = $(ev.target).attr("filepath");
+                var tabFilename = $(ev.target).attr("filename");
+                var uuid = Date.now(); //Generate a new UUID for this
+
+                ev.dataTransfer.setData("uuid", uuid);
+                ev.dataTransfer.setData("filename", tabFilename);
+                ev.dataTransfer.setData("filepath", tabFilepath);
+            }
+
+            //Drag tab from one editor top to another
+            function fileTabDrag(ev) {
+                var tabUUID = $(ev.target).attr("uuid");
+                var tabFilepath = $(ev.target).attr("filepath");
+                var tabFilename = $(ev.target).text();
+                
+                ev.dataTransfer.setData("uuid", tabUUID);
+                ev.dataTransfer.setData("filename", tabFilename);
+                ev.dataTransfer.setData("filepath", tabFilepath);
+            }
+
+            function TabDrop(ev) {
+                if ($(ev.target).hasClass("tabs") == false){
+                    return;
+                }
+                ev.preventDefault();
+                //Get the file information
+                var tabUUID = ev.dataTransfer.getData("uuid");
+                var tabFilename = ev.dataTransfer.getData("filename");
+                var tabFilepath = ev.dataTransfer.getData("filepath");
+                
+                if (tabFilename == "" || tabFilepath == ""){
+                    return;
+                }
+
+                //Get the target dropping editor
+                var targetEditor = getEditor($(ev.target).attr("editoruid"));
+                if (targetEditor == undefined){
+                    console.log("Editor with given ID not found");
+                    return
+                }
+
+                //Open the file in the given editor
+                openFile(tabFilepath, true, targetEditor);
+                console.log(targetEditor, tabUUID, tabFilename, tabFilepath);
+            }
+
+        </script>
+    </body>
+</html>

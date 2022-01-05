@@ -24,6 +24,7 @@ func AGIInit() {
 		StartupRoot:          "./web",
 		ActivateScope:        []string{"./web", "./subservice"},
 		FileSystemRender:     thumbRenderHandler,
+		ShareManager:         shareManager,
 	})
 	if err != nil {
 		log.Println("AGI Gateway Initialization Failed")

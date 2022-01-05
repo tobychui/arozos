@@ -105,6 +105,8 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 				return filepath.ToSlash(filepath.Clean(storage.Path) + "/users/" + u.Username + subpath), nil
 			} else if storage.Hierarchy == "public" {
 				return filepath.ToSlash(filepath.Clean(storage.Path) + subpath), nil
+			} else if storage.Hierarchy == "share" {
+				return (*u.parent.shareEntryTable).ResolveShareVrootPath(subpath, u.Username, u.GetUserPermissionGroupNames())
 			} else {
 				return "", errors.New("Unknown Filesystem Handler Hierarchy")
 			}

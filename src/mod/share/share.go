@@ -18,111 +18,152 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/valyala/fasttemplate"
 
-	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/auth"
 	"imuslab.com/arozos/mod/common"
-	"imuslab.com/arozos/mod/database"
 	filesystem "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/user"
 )
 
 type Options struct {
-	AuthAgent   *auth.AuthAgent
-	Database    *database.Database
-	UserHandler *user.UserHandler
-	HostName    string
-	TmpFolder   string
-}
-
-type ShareOption struct {
-	UUID             string
-	FileRealPath     string
-	Owner            string
-	Accessibles      []string //Use to store username or group names if permission is groups or users
-	Permission       string   //Access permission, allow {anyone / signedin / samegroup / groups / users}
-	AllowLivePreview bool
+	AuthAgent       *auth.AuthAgent
+	UserHandler     *user.UserHandler
+	ShareEntryTable *shareEntry.ShareEntryTable
+	HostName        string
+	TmpFolder       string
 }
 
 type Manager struct {
-	fileToUrlMap *sync.Map
-	urlToFileMap *sync.Map
-	options      Options
+	options Options
 }
 
 //Create a new Share Manager
 func NewShareManager(options Options) *Manager {
-	//Create the share table if not exists
-	db := options.Database
-	db.NewTable("share")
-
-	fileToUrlMap := sync.Map{}
-	urlToFileMap := sync.Map{}
-
-	//Load the old share links
-	entries, _ := db.ListTable("share")
-	for _, keypairs := range entries {
-		shareObject := new(ShareOption)
-		json.Unmarshal(keypairs[1], &shareObject)
-		if shareObject != nil {
-			//Append this to the maps
-			fileToUrlMap.Store(shareObject.FileRealPath, shareObject)
-			urlToFileMap.Store(shareObject.UUID, shareObject)
-		}
-
-	}
-
 	//Return a new manager object
 	return &Manager{
-		options:      options,
-		fileToUrlMap: &fileToUrlMap,
-		urlToFileMap: &urlToFileMap,
+		options: options,
 	}
 }
 
 //Main function for handle share. Must be called with http.HandleFunc (No auth)
 func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
-	id, err := mv(r, "id", false)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-
+	//New download method variables
+	subpathElements := []string{}
 	directDownload := false
 	directServe := false
-	download, _ := mv(r, "download", false)
-	if download == "true" {
-		directDownload = true
-	}
+	relpath := ""
 
-	serve, _ := mv(r, "serve", false)
-	if serve == "true" {
-		directServe = true
-	}
+	id, err := mv(r, "id", false)
+	if err != nil {
+		//ID is not defined in the URL paramter. New ID defination is based on the subpath content
+		requestURI := filepath.ToSlash(filepath.Clean(r.URL.Path))
+		subpathElements = strings.Split(requestURI[1:], "/")
+		if len(subpathElements) == 2 {
+			//E.g. /share/{id} => Show the download page
+			id = subpathElements[1]
 
-	relpath, _ := mv(r, "rel", false)
+			//Check if there is missing / at the end. Redirect if true
+			if r.URL.Path[len(r.URL.Path)-1:] != "/" {
+				http.Redirect(w, r, r.URL.Path+"/", http.StatusTemporaryRedirect)
+				return
+			}
+
+		} else if len(subpathElements) >= 3 {
+			//E.g. /share/download/{uuid} or /share/preview/{uuid}
+			id = subpathElements[2]
+			if subpathElements[1] == "download" {
+				directDownload = true
+
+				//Check if this contain a subpath
+				if len(subpathElements) > 3 {
+					relpath = strings.Join(subpathElements[3:], "/")
+				}
+			} else if subpathElements[1] == "preview" {
+				directServe = true
+			} else if len(subpathElements) == 3 {
+				//Check if the last element is the filename
+				if strings.Contains(subpathElements[2], ".") {
+					//Share link contain filename. Redirect to share interface
+					http.Redirect(w, r, "./", http.StatusTemporaryRedirect)
+					return
+				} else {
+					//Incorrect operation type
+					w.WriteHeader(http.StatusBadRequest)
+					w.Header().Set("Content-Type", "text/plain") // this
+					w.Write([]byte("400 - Operation type not supported: " + subpathElements[1]))
+					return
+				}
+			} else if len(subpathElements) >= 4 {
+				//Invalid operation type
+				w.WriteHeader(http.StatusBadRequest)
+				w.Header().Set("Content-Type", "text/plain") // this
+				w.Write([]byte("400 - Operation type not supported: " + subpathElements[1]))
+				return
+			}
+		} else if len(subpathElements) == 1 {
+			//ID is missing. Serve the id input page
+			content, err := ioutil.ReadFile("system/share/index.html")
+			if err != nil {
+				//Handling index not found. Is server updated correctly?
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - Internal Server Error"))
+				return
+			}
+
+			t := fasttemplate.New(string(content), "{{", "}}")
+			s := t.ExecuteString(map[string]interface{}{
+				"hostname": s.options.HostName,
+			})
+
+			w.Write([]byte(s))
+			return
+		} else {
+			http.NotFound(w, r)
+			return
+		}
+	} else {
+
+		//Parse and redirect to new share path
+		download, _ := mv(r, "download", false)
+		if download == "true" {
+			directDownload = true
+		}
+
+		serve, _ := mv(r, "serve", false)
+		if serve == "true" {
+			directServe = true
+		}
+
+		relpath, _ = mv(r, "rel", false)
+
+		redirectURL := "./" + id + "/"
+		if directDownload == true {
+			redirectURL = "./download/" + id + "/"
+		}
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	}
 
 	//Check if id exists
-	val, ok := s.urlToFileMap.Load(id)
+	val, ok := s.options.ShareEntryTable.UrlToFileMap.Load(id)
 	if ok {
 		//Parse the option structure
-		shareOption := val.(*ShareOption)
+		shareOption := val.(*shareEntry.ShareOption)
 
 		//Check for permission
 		if shareOption.Permission == "anyone" {
 			//OK to proceed
 		} else if shareOption.Permission == "signedin" {
-			if s.options.AuthAgent.CheckAuth(r) == false {
+			if !s.options.AuthAgent.CheckAuth(r) {
 				//Redirect to login page
 				if directDownload || directServe {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/preview/?id="+id, 307)
 				}
 				return
 			} else {
@@ -135,7 +176,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/preview/?id="+id, 307)
 				}
 				return
 			}
@@ -175,7 +216,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -201,7 +242,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share?id="+id, 307)
+					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -244,7 +285,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				Filesize string
 				IsDir    bool
 			}
-			if directDownload == true {
+			if directDownload {
 				if relpath != "" {
 					//User specified a specific file within the directory. Escape the relpath
 					targetFilepath := filepath.Join(shareOption.FileRealPath, relpath)
@@ -298,6 +339,11 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					http.ServeFile(w, r, targetZipFilename)
 				}
 
+			} else if directServe {
+				//Folder provide no direct serve method.
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("400 - Cannot preview folder type shares"))
+				return
 			} else {
 				//Show download page. Do not allow serving
 				content, err := ioutil.ReadFile("./system/share/downloadPageFolder.html")
@@ -345,6 +391,12 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					return nil
 				})
 
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("500 - Internal Server Error"))
+					return
+				}
+
 				tl, _ := json.Marshal(treeList)
 
 				//Get modification time
@@ -359,7 +411,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"size":         filesystem.GetFileDisplaySize(fsize, 2),
 					"filecount":    strconv.Itoa(fcount),
 					"modtime":      timeString,
-					"downloadurl":  "./share?id=" + id + "&download=true",
+					"downloadurl":  "../../share/download/" + id,
 					"filename":     filepath.Base(shareOption.FileRealPath),
 					"reqtime":      strconv.Itoa(int(time.Now().Unix())),
 					"treelist":     tl,
@@ -371,6 +423,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 			}
 		} else {
+			//This share is a file
 			if directDownload {
 				//Serve the file directly
 				w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(shareOption.FileRealPath)), "+", "%20"))
@@ -397,7 +450,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 				//Load the preview template
 				templateRoot := "./system/share/"
-				previewTemplate := filepath.Join(templateRoot, "defaultTemplate.html")
+				previewTemplate := ""
 				if ext == ".mp4" || ext == ".webm" {
 					previewTemplate = filepath.Join(templateRoot, "video.html")
 				} else if ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".ogg" {
@@ -426,16 +479,21 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				fmodtime, _ := filesystem.GetModTime(shareOption.FileRealPath)
 				timeString := time.Unix(fmodtime, 0).Format("02-01-2006 15:04:05")
 
+				//Check if ext match with filepath ext
+				displayExt := ext
+				if ext != filepath.Ext(shareOption.FileRealPath) {
+					displayExt = filepath.Ext(shareOption.FileRealPath) + " (" + ext + ")"
+				}
 				t := fasttemplate.New(string(content), "{{", "}}")
 				s := t.ExecuteString(map[string]interface{}{
 					"hostname":    s.options.HostName,
 					"reqid":       id,
 					"mime":        mime,
-					"ext":         ext,
+					"ext":         displayExt,
 					"size":        filesystem.GetFileDisplaySize(fsize, 2),
 					"modtime":     timeString,
-					"downloadurl": "/share?id=" + id + "&download=true",
-					"preview_url": "/share?id=" + id + "&serve=true",
+					"downloadurl": "../../share/download/" + id + "/" + filepath.Base(shareOption.FileRealPath),
+					"preview_url": "/share/preview/" + id + "/",
 					"filename":    filepath.Base(shareOption.FileRealPath),
 					"reqtime":     strconv.Itoa(int(time.Now().Unix())),
 				})
@@ -453,7 +511,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if directDownload == true {
+		if directDownload {
 			//Send 404 header
 			http.NotFound(w, r)
 			return
@@ -504,22 +562,22 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 
 	type Result struct {
 		IsShared  bool
-		ShareUUID *ShareOption
+		ShareUUID *shareEntry.ShareOption
 	}
 
 	//Check if share exists
-	shareExists := s.FileIsShared(rpath)
+	shareExists := s.options.ShareEntryTable.FileIsShared(rpath)
 	if !shareExists {
 		//Share not exists
 		js, _ := json.Marshal(Result{
 			IsShared:  false,
-			ShareUUID: &ShareOption{},
+			ShareUUID: &shareEntry.ShareOption{},
 		})
 		sendJSONResponse(w, string(js))
 
 	} else {
 		//Share exists
-		thisSharedInfo := s.GetShareObjectFromRealPath(rpath)
+		thisSharedInfo := s.options.ShareEntryTable.GetShareObjectFromRealPath(rpath)
 		js, _ := json.Marshal(Result{
 			IsShared:  true,
 			ShareUUID: thisSharedInfo,
@@ -543,6 +601,26 @@ func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sendErrorResponse(w, "User not logged in")
 		return
+	}
+
+	//Check if this is in the share folder
+	vrootID, subpath, err := filesystem.GetIDFromVirtualPath(vpath)
+	if err != nil {
+		sendErrorResponse(w, "Unable to resolve virtual path")
+		return
+	}
+	if vrootID == "share" {
+		shareObject, err := s.options.ShareEntryTable.ResolveShareOptionFromShareSubpath(subpath)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+
+		//Check if this share is own by or accessible by the current user. Reject share modification if not
+		if !shareObject.IsOwnedBy(userinfo.Username) && !userinfo.CanWrite(vpath) {
+			sendErrorResponse(w, "Permission Denied: You are not the file owner nor can write to this file")
+			return
+		}
 	}
 
 	share, err := s.CreateNewShare(userinfo, vpath)
@@ -583,7 +661,7 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if share exists
-	so := s.GetShareObjectFromUUID(uuid)
+	so := s.options.ShareEntryTable.GetShareObjectFromUUID(uuid)
 	if so == nil {
 		//This share url not exists
 		sendErrorResponse(w, "Share UUID not exists")
@@ -591,7 +669,7 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if the user has permission to edit this share
-	if so.Owner != userinfo.Username && userinfo.IsAdmin() == false {
+	if so.Owner != userinfo.Username && !userinfo.IsAdmin() {
 		//This file is not shared by this user and this user is not admin. Block this request
 		sendErrorResponse(w, "Permission denied")
 		return
@@ -619,7 +697,7 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Write changes to database
-		s.options.Database.Write("share", uuid, so)
+		s.options.ShareEntryTable.Database.Write("share", uuid, so)
 
 	} else if sharetype == "groups" || sharetype == "users" {
 		//Username or group is listed = ok
@@ -627,7 +705,7 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 		so.Accessibles = settings
 
 		//Write changes to database
-		s.options.Database.Write("share", uuid, so)
+		s.options.ShareEntryTable.Database.Write("share", uuid, so)
 	}
 
 	sendOK(w)
@@ -660,134 +738,15 @@ func (s *Manager) HandleDeleteShare(w http.ResponseWriter, r *http.Request) {
 }
 
 //Craete a new file or folder share
-func (s *Manager) CreateNewShare(userinfo *user.User, vpath string) (*ShareOption, error) {
+func (s *Manager) CreateNewShare(userinfo *user.User, vpath string) (*shareEntry.ShareOption, error) {
 	//Translate the vpath to realpath
 	rpath, err := userinfo.VirtualPathToRealPath(vpath)
 	if err != nil {
 		return nil, errors.New("Unable to find the file on disk")
 	}
 
-	rpath = filepath.ToSlash(filepath.Clean(rpath))
-	//Check if source file exists
-	if !fileExists(rpath) {
-		return nil, errors.New("Unable to find the file on disk")
-	}
+	return s.options.ShareEntryTable.CreateNewShare(rpath, userinfo.Username, userinfo.GetUserPermissionGroupNames())
 
-	//Check if the share already exists. If yes, use the previous link
-	val, ok := s.fileToUrlMap.Load(rpath)
-	if ok {
-		//Exists. Send back the old share url
-		ShareOption := val.(*ShareOption)
-		return ShareOption, nil
-
-	} else {
-		//Create new link for this file
-		shareUUID := uuid.NewV4().String()
-
-		//user groups when share
-		groups := []string{}
-		for _, pg := range userinfo.GetUserPermissionGroup() {
-			groups = append(groups, pg.Name)
-		}
-
-		//Create a share object
-		shareOption := ShareOption{
-			UUID:             shareUUID,
-			FileRealPath:     rpath,
-			Owner:            userinfo.Username,
-			Accessibles:      groups,
-			Permission:       "anyone",
-			AllowLivePreview: true,
-		}
-
-		//Store results on two map to make sure O(1) Lookup time
-		s.fileToUrlMap.Store(rpath, &shareOption)
-		s.urlToFileMap.Store(shareUUID, &shareOption)
-
-		//Write object to database
-		s.options.Database.Write("share", shareUUID, shareOption)
-
-		return &shareOption, nil
-	}
-}
-
-//Delete the share on this vpath
-func (s *Manager) DeleteShare(userinfo *user.User, vpath string) error {
-	//Translate the vpath to realpath
-	rpath, err := userinfo.VirtualPathToRealPath(vpath)
-	if err != nil {
-		return errors.New("Unable to find the file on disk")
-	}
-
-	//Check if the share already exists. If yes, use the previous link
-	val, ok := s.fileToUrlMap.Load(rpath)
-	if ok {
-		//Exists. Send back the old share url
-		uuid := val.(*ShareOption).UUID
-
-		//Remove this from the database
-		err = s.options.Database.Delete("share", uuid)
-		if err != nil {
-			return err
-		}
-
-		//Remove this form the current sync map
-		s.urlToFileMap.Delete(uuid)
-		s.fileToUrlMap.Delete(rpath)
-
-		return nil
-
-	} else {
-		//Already deleted from buffered record.
-		return nil
-	}
-
-}
-
-func (s *Manager) GetShareUUIDFromPath(rpath string) string {
-	targetShareObject := s.GetShareObjectFromRealPath(rpath)
-	if (targetShareObject) != nil {
-		return targetShareObject.UUID
-	}
-	return ""
-}
-
-func (s *Manager) GetShareObjectFromRealPath(rpath string) *ShareOption {
-	rpath = filepath.ToSlash(filepath.Clean(rpath))
-	var targetShareOption *ShareOption
-	s.fileToUrlMap.Range(func(k, v interface{}) bool {
-		filePath := k.(string)
-		shareObject := v.(*ShareOption)
-
-		if filepath.ToSlash(filepath.Clean(filePath)) == rpath {
-			targetShareOption = shareObject
-		}
-
-		return true
-	})
-
-	return targetShareOption
-}
-
-func (s *Manager) GetShareObjectFromUUID(uuid string) *ShareOption {
-	var targetShareOption *ShareOption
-	s.urlToFileMap.Range(func(k, v interface{}) bool {
-		thisUuid := k.(string)
-		shareObject := v.(*ShareOption)
-
-		if thisUuid == uuid {
-			targetShareOption = shareObject
-		}
-
-		return true
-	})
-
-	return targetShareOption
-}
-
-func (s *Manager) FileIsShared(rpath string) bool {
-	shareUUID := s.GetShareUUIDFromPath(rpath)
-	return shareUUID != ""
 }
 
 func ServePermissionDeniedPage(w http.ResponseWriter) {
@@ -841,45 +800,51 @@ func validateShareModes(mode string) (bool, string, []string) {
 	return false, "", []string{}
 }
 
-func (s *Manager) RemoveShareByRealpath(rpath string) error {
-	_, ok := s.fileToUrlMap.Load(rpath)
-	if ok {
-		s.fileToUrlMap.Delete(rpath)
-	} else {
-		return errors.New("Share with given realpath not exists")
-	}
-	return nil
-}
-
-func (s *Manager) RemoveShareByUUID(uuid string) error {
-	_, ok := s.urlToFileMap.Load(uuid)
-	if ok {
-		s.urlToFileMap.Delete(uuid)
-	} else {
-		return errors.New("Share with given uuid not exists")
-	}
-	return nil
-}
-
 //Check and clear shares that its pointinf files no longe exists
 func (s *Manager) ValidateAndClearShares() {
 	//Iterate through all shares within the system
-	s.fileToUrlMap.Range(func(k, v interface{}) bool {
+	s.options.ShareEntryTable.FileToUrlMap.Range(func(k, v interface{}) bool {
 		thisRealPath := k.(string)
 		if !fileExists(thisRealPath) {
 			//This share source file don't exists anymore. Remove it
-			thisFileShareOption := v.(*ShareOption)
-
-			//Delete this task from both sync map
-			s.RemoveShareByRealpath(thisRealPath)
-			s.RemoveShareByUUID(thisFileShareOption.UUID)
-
-			//Remove share from database
-			s.options.Database.Delete("share", thisFileShareOption.UUID)
-
+			s.options.ShareEntryTable.RemoveShareByRealpath(thisRealPath)
 			log.Println("*Share* Removing share to file: " + thisRealPath + " as it no longer exists")
 		}
 		return true
 	})
 
+}
+
+func (s *Manager) DeleteShare(userinfo *user.User, vpath string) error {
+	//Translate the vpath to realpath
+	rpath, err := userinfo.VirtualPathToRealPath(vpath)
+	if err != nil {
+		return errors.New("Unable to find the file on disk")
+	}
+
+	return s.options.ShareEntryTable.DeleteShare(rpath)
+}
+
+func (s *Manager) GetShareUUIDFromPath(rpath string) string {
+	return s.options.ShareEntryTable.GetShareUUIDFromPath(rpath)
+}
+
+func (s *Manager) GetShareObjectFromRealPath(rpath string) *shareEntry.ShareOption {
+	return s.options.ShareEntryTable.GetShareObjectFromRealPath(rpath)
+}
+
+func (s *Manager) GetShareObjectFromUUID(uuid string) *shareEntry.ShareOption {
+	return s.options.ShareEntryTable.GetShareObjectFromUUID(uuid)
+}
+
+func (s *Manager) FileIsShared(rpath string) bool {
+	return s.options.ShareEntryTable.FileIsShared(rpath)
+}
+
+func (s *Manager) RemoveShareByRealpath(rpath string) error {
+	return s.RemoveShareByRealpath(rpath)
+}
+
+func (s *Manager) RemoveShareByUUID(uuid string) error {
+	return s.options.ShareEntryTable.RemoveShareByUUID(uuid)
 }

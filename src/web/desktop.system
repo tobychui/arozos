@@ -1980,8 +1980,12 @@
 
             if (renameMode == true){
                 //Exit rename mode if the target is not on the editing launchIcon
-                console.log(evt.target);
-                if ($(evt.target).is("body") || $(evt.target).attr("id") == "dbg1" || $(evt.target).attr("id") == "dbg2"){
+                //console.log(evt.target);
+                var isBackground = false;
+                if ($(evt.target).attr("id") && $(evt.target).attr("id").length >= 4 &&  $(evt.target).attr("id").substr(0, 3) == "dbg"){
+                    isBackground = true;
+                }
+                if ($(evt.target).is("body") || isBackground){
                     //End rename mode
                     exitRenameMode();
                 }
@@ -2665,7 +2669,7 @@
                 for (var i = 0; i < currentBackgroundList.length; i++) {
                     var id = "dbg" + i;
                     var thisImage = "img/desktop/bg/" + currentUserTheme + "/" + currentBackgroundList[i];
-                    $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
+                    $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" onclick="this.focus();" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
                 }
                 setTimeout(function() {
                     $("#dbg0").addClass("showBackground");
@@ -4070,6 +4074,7 @@
                 }
                 
             }
+            hideAllContextMenus();
         
             //Clicked on a launch icon.
             var alreadyHighlighted = $(object).find(".launchIconWrapper").hasClass("selected");
@@ -4744,7 +4749,7 @@
             if (location.protocol !== 'https:') {
                 protocol = "http://";
             }
-            var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share?id=" + payload.uuid;
+            var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share/" + payload.uuid;
 
             //Copy the text to clipboard
             const area = document.createElement('textarea');
@@ -4757,10 +4762,10 @@
             document.body.removeChild(area);
 
             //Update status so it show the user it has been coped
-            $(target).html(`<i style="color: #71ba68;" class="checkmark icon"></i> Copied!`);
+            $(target).html(`<i style="color: #71ba68;" class="checkmark icon"></i> ${lcontex("Copied")}`);
             setTimeout(function(){
                 if ($(target).length > 0){
-                    $(target).html(`Copy Link
+                    $(target).html(`${lcontex("Copy Link")}
                         <span class="description">
                             <i class="copy icon"></i>
                         </span>`);
@@ -4776,7 +4781,7 @@
                 return;
             }
 
-            var targetURL = "share?id=" + payload.uuid;
+            var targetURL = "share/" + payload.uuid;
             window.open(targetURL);
 
             hideAllContextMenus();
@@ -5117,7 +5122,7 @@
                 originalName = filedata.ShortcutName;
             }
             $(object).find(".launchIconText").hide();
-            $(object).append(`<textarea class="renameInput ${desktopIconSize}" type="text" ondragstart="return false;" dblclick="event.stopImmediatePropagation(); event.stopImmediatePropagation();"maxlength="32">${originalName}</textarea>`);
+            $(object).append(`<textarea class="renameInput ${desktopIconSize}" type="text" onkeydown="handleRenameKeydown(event);" ondragstart="return false;" dblclick="event.stopImmediatePropagation(); event.stopImmediatePropagation();"maxlength="32">${originalName}</textarea>`);
             $(object).find(".renameInput")[0].select();
             var index = originalName.lastIndexOf(".");
             console.log(index);
@@ -5134,6 +5139,15 @@
                 }
             });
             window.ime.focus = $(object).find(".renameInput")[0];
+        }
+
+        //Handle enter keypress on the rename textarea
+        function handleRenameKeydown(e){
+            if (e.keyCode == 13){
+                //Enter pressed
+                e.preventDefault();
+                exitRenameMode();
+            }
         }
 
         function exitRenameMode() {
@@ -5172,6 +5186,16 @@
                         }else{
                             //Normal typed files / folder. Rename the object
                             let currentInputTextArea = $(this);
+
+                            //Check if new filename is identaical to the old filename
+                            var originalFilename = $(this).parent().attr("filename");
+                            console.log("Launch Icon object", $(this).parent());
+
+                            if (newFilename == originalFilename){
+                                //Filename has no changes
+                                currentInputTextArea.remove();
+                                return;
+                            }
                             generateCSRFToken(function(csrftoken){
                                 $.ajax({
                                     url: "./system/file_system/fileOpr",
@@ -5280,6 +5304,7 @@
             //Append the new folder option first
             addContextMenuItem($("#subcontextmenu"), lcontex('Folder'), "<i class='folder icon'></i>", "newfolder", true);
             addContextMenuItem($("#subcontextmenu"), lcontex('Shortcut'), "<i class='external icon'></i>", "newshortcut", true);
+            addContextMenuItem($("#subcontextmenu"), lcontex('Upload'), "<i class='cloud upload icon'></i>", "upload", true);
             addContextMenuSeperator($("#subcontextmenu"));
             requestCSRFToken(function(token){
                 $.ajax({
@@ -5330,24 +5355,26 @@
             let closestGridIndexLocation = closestLocation[1];
 
             //Request backend to generate the new file
-            $.ajax({
-                url: "system/file_system/newItem",
-                data: {type: "file",src: "user:/Desktop/",filename: newfn, csrft: token},
-                success: function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        //Set the icon location
-                        setIconDesktopLocation(newfn, closestGridIndexLocation[0], closestGridIndexLocation[1], function(){
-                            //Refresh the desktop
-                            refresh(function(){
-                                var targetNewFile = getObjectFromGridLocation(closestGridIndexLocation[0], closestGridIndexLocation[1]);
-                                console.log("Renaming ", targetNewFile);
-                                enableRenameOnLaunchIconObject(targetNewFile);
+            generateCSRFToken(function(token){
+                $.ajax({
+                    url: "system/file_system/newItem",
+                    data: {type: "file",src: "user:/Desktop/",filename: newfn, csrft: token},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            //Set the icon location
+                            setIconDesktopLocation(newfn, closestGridIndexLocation[0], closestGridIndexLocation[1], function(){
+                                //Refresh the desktop
+                                refresh(function(){
+                                    var targetNewFile = getObjectFromGridLocation(closestGridIndexLocation[0], closestGridIndexLocation[1]);
+                                    console.log("Renaming ", targetNewFile);
+                                    enableRenameOnLaunchIconObject(targetNewFile);
+                                });
                             });
-                        });
+                        }
                     }
-                }
+                });
             });
             hideAllContextMenus();
         }
@@ -5730,6 +5757,22 @@
             return uploadIconUUID;
         }
 
+        function upload(){
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.onchange = e => { 
+                var files = e.target.files; 
+                for (var i = 0; i < files.length; i++){
+                    uploadFile(files[i], function(){
+                        refresh(undefined, true);
+                    });
+                }
+            }
+            input.click();
+            hideAllContextMenus();
+        }
+
         function uploadFile(file, callback=undefined, uploadingIconUUID = undefined) {
             if (lowMemoryMode){
                 /*
@@ -5969,7 +6012,7 @@
             });
 
             if (!allowReadWrite){
-                sendNotification("READ ONLY Account", "This account is read only. You cannot perform any file operations on this desktop.");
+                sendNotification(applocale.getString("error/connlost/readonly", "READ ONLY Account"), applocale.getString("error/connlost/readonl/infoy", "This account is read only. You cannot perform any file operations on this desktop."));
             }
         }
 

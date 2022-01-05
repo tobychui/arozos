@@ -1,0 +1,28 @@
+/*
+	Code Studio Module Registration Information
+	
+	Do not try to call any AJGI users / filepath functions in this script.
+*/
+
+//Create database for this module
+newDBTableIfNotExists("Code Studio")
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Code Studio",
+	Desc: "The best code editor on ArozOS",
+	Group: "Office",
+	IconPath: "Code Studio/img/module_icon.png",
+	Version: "1.3",
+	StartDir: "Code Studio/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Code Studio/index.html",
+	SupportEmb: true,
+	LaunchEmb: "Code Studio/embedded.html",
+	InitFWSize: [1024, 768],
+	InitEmbSize: [360, 200],
+	SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".agi", ".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

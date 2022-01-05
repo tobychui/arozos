@@ -64,6 +64,11 @@ func (u *User) GetInterfaceModules() []string {
 
 	}
 
+	if len(results) == 0 && u.IsAdmin() {
+		//Critial error occured. Assign desktop module to admin
+		results = append(results, "desktop")
+	}
+
 	return results
 }
 
@@ -168,6 +173,14 @@ func (u *User) GetHighestAccessRightStoragePool(fsUUID string) (*storage.Storage
 
 func (u *User) GetUserPermissionGroup() []*permission.PermissionGroup {
 	return u.PermissionGroup
+}
+
+func (u *User) GetUserPermissionGroupNames() []string {
+	userPermissionGroups := []string{}
+	for _, pg := range u.PermissionGroup {
+		userPermissionGroups = append(userPermissionGroups, pg.Name)
+	}
+	return userPermissionGroups
 }
 
 //Check if the user is in one of the permission groups, require groupname

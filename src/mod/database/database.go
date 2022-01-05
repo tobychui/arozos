@@ -9,38 +9,17 @@ package database
 */
 
 import (
-	"encoding/json"
-	"errors"
-	"log"
 	"sync"
-
-	"github.com/boltdb/bolt"
 )
 
 type Database struct {
-	Db       *bolt.DB
+	Db       interface{} //This will be nil on openwrt and *bolt.DB in the rest of the systems
 	Tables   sync.Map
 	ReadOnly bool
 }
 
 func NewDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
-	db, err := bolt.Open(dbfile, 0600, nil)
-	log.Println("Key-value Database Service Started: " + dbfile)
-
-	tableMap := sync.Map{}
-	//Build the table list from database
-	err = db.View(func(tx *bolt.Tx) error {
-		return tx.ForEach(func(name []byte, _ *bolt.Bucket) error {
-			tableMap.Store(string(name), "")
-			return nil
-		})
-	})
-
-	return &Database{
-		Db:       db,
-		Tables:   tableMap,
-		ReadOnly: readOnlyMode,
-	}, err
+	return newDatabase(dbfile, readOnlyMode)
 }
 
 /*
@@ -56,63 +35,22 @@ func (d *Database) UpdateReadWriteMode(readOnly bool) {
 
 //Dump the whole db into a log file
 func (d *Database) Dump(filename string) ([]string, error) {
-	results := []string{}
-
-	d.Tables.Range(func(tableName, v interface{}) bool {
-		entries, err := d.ListTable(tableName.(string))
-		if err != nil {
-			log.Println("Reading table " + tableName.(string) + " failed: " + err.Error())
-			return false
-		}
-		for _, keypairs := range entries {
-			results = append(results, string(keypairs[0])+":"+string(keypairs[1])+"\n")
-		}
-		return true
-	})
-
-	return results, nil
+	return d.dump(filename)
 }
 
 //Create a new table
 func (d *Database) NewTable(tableName string) error {
-	if d.ReadOnly == true {
-		return errors.New("Operation rejected in ReadOnly mode")
-	}
-
-	err := d.Db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(tableName))
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-
-	d.Tables.Store(tableName, "")
-	return err
+	return d.newTable(tableName)
 }
 
 //Check is table exists
 func (d *Database) TableExists(tableName string) bool {
-	if _, ok := d.Tables.Load(tableName); ok {
-		return true
-	}
-	return false
+	return d.tableExists(tableName)
 }
 
 //Drop the given table
 func (d *Database) DropTable(tableName string) error {
-	if d.ReadOnly == true {
-		return errors.New("Operation rejected in ReadOnly mode")
-	}
-
-	err := d.Db.Update(func(tx *bolt.Tx) error {
-		err := tx.DeleteBucket([]byte(tableName))
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	return err
+	return d.dropTable(tableName)
 }
 
 /*
@@ -126,21 +64,7 @@ func (d *Database) DropTable(tableName string) error {
 	err := sysdb.Write("MyTable", "username/message",thisDemo);
 */
 func (d *Database) Write(tableName string, key string, value interface{}) error {
-	if d.ReadOnly == true {
-		return errors.New("Operation rejected in ReadOnly mode")
-	}
-
-	jsonString, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	err = d.Db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(tableName))
-		b := tx.Bucket([]byte(tableName))
-		err = b.Put([]byte(key), jsonString)
-		return err
-	})
-	return err
+	return d.write(tableName, key, value)
 }
 
 /*
@@ -154,40 +78,11 @@ func (d *Database) Write(tableName string, key string, value interface{}) error 
 */
 
 func (d *Database) Read(tableName string, key string, assignee interface{}) error {
-	err := d.Db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(tableName))
-		v := b.Get([]byte(key))
-		json.Unmarshal(v, &assignee)
-		return nil
-	})
-	return err
+	return d.read(tableName, key, assignee)
 }
 
 func (d *Database) KeyExists(tableName string, key string) bool {
-	resultIsNil := false
-	if !d.TableExists(tableName) {
-		//Table not exists. Do not proceed accessing key
-		log.Println("[DB] ERROR: Requesting key from table that didn't exist!!!")
-		return false
-	}
-	err := d.Db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(tableName))
-		v := b.Get([]byte(key))
-		if v == nil {
-			resultIsNil = true
-		}
-		return nil
-	})
-
-	if err != nil {
-		return false
-	} else {
-		if resultIsNil {
-			return false
-		} else {
-			return true
-		}
-	}
+	return d.keyExists(tableName, key)
 }
 
 /*
@@ -196,16 +91,7 @@ func (d *Database) KeyExists(tableName string, key string) bool {
 	err := sysdb.Delete("MyTable", "username/message");
 */
 func (d *Database) Delete(tableName string, key string) error {
-	if d.ReadOnly == true {
-		return errors.New("Operation rejected in ReadOnly mode")
-	}
-
-	err := d.Db.Update(func(tx *bolt.Tx) error {
-		tx.Bucket([]byte(tableName)).Delete([]byte(key))
-		return nil
-	})
-
-	return err
+	return d.delete(tableName, key)
 }
 
 /*
@@ -226,20 +112,9 @@ func (d *Database) Delete(tableName string, key string) error {
 */
 
 func (d *Database) ListTable(tableName string) ([][][]byte, error) {
-	var results [][][]byte
-	err := d.Db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(tableName))
-		c := b.Cursor()
-
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			results = append(results, [][]byte{k, v})
-		}
-		return nil
-	})
-	return results, err
+	return d.listTable(tableName)
 }
 
 func (d *Database) Close() {
-	d.Db.Close()
-	return
+	d.close()
 }

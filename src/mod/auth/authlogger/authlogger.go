@@ -38,7 +38,7 @@ type LoginRecord struct {
 func NewLogger() (*Logger, error) {
 	db, err := database.NewDatabase("./system/auth/authlog.db", false)
 	if err != nil {
-		return nil, errors.New("*ERROR* Failed to create database for login tracking")
+		return nil, errors.New("*ERROR* Failed to create database for login tracking: " + err.Error())
 	}
 	return &Logger{
 		database: db,

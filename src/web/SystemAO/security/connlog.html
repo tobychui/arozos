@@ -8,7 +8,29 @@
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
     <style>
-    
+        a.pageFocus {
+            background: #222222;
+            color: white !important;
+            border-radius: 50%;
+            -moz-border-radius: 50%;
+            -webkit-border-radius: 50%;
+            display: inline-block;
+            font-weight: bold;
+            line-height: 30px;
+            margin-right: 2px;
+            text-align: center;
+            width: 30px;
+        }
+
+        .noselect {
+            -webkit-touch-callout: none; /* iOS Safari */
+            -webkit-user-select: none; /* Safari */
+            -khtml-user-select: none; /* Konqueror HTML */
+            -moz-user-select: none; /* Old versions of Firefox */
+            -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                        supported by Chrome, Edge, Opera and Firefox */
+        }
     </style>
 </head>
 <body>
@@ -16,7 +38,7 @@
         <div>
             <p>Connection Attempts</p>
             <h1 class="ui header">
-                <span id="normalStatus">Analysising</span>
+                <span id="normalStatus">Analysing</span>
                 <div class="sub header">
                     <span id="loginAptCount"></span> login request logged this month with <span id="incorrectRatio"></span> incorrect password attempts.
                 </div>
@@ -48,13 +70,18 @@
                 
                 </tbody>
             </table>
+            <div style="width: 100%" align="center">
+                <div class="ui breadcrumb" id="pageIndexs">
+                </div>
+            </div>
         </div>
         <br><br>
     </div>
     
     <script>
         var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun","Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
+        var maxPage = 0;
+        var recordPerPage = 20;
         $(".ui.dropdown").dropdown();
         initMonthList();
        
@@ -110,6 +137,7 @@
                 data: {record: tableName},
                 success: function(data){
                     $("#records").html("");
+                    $("#pageIndexs").html("");
                     if (data.error !== undefined){
                         $("#records").html(`<tr>
                             <td data-label="status" colspan="5"><i class="remove icon"></i> ${data.error}</td>
@@ -122,6 +150,9 @@
                         }else{
                             //console.log(data);
                             //Reverse the array so the latest login on top
+                            var pageCounter = 1;
+                            var recordCounter = 0;
+                            var pageIndexs = [`<a class="active section pageLabel page1 noselect" onclick="showPage(1);">1</a>`];
                             data.reverse();
                             data.forEach(entry => {
                                 var timestamp = getDatetimeFromTimestamp(entry.Timestamp);
@@ -141,7 +172,7 @@
                                     authType = `<i class="blue folder icon"></i> WebDAV`
                                 }
 
-                                $("#records").append(`<tr>
+                                $("#records").append(`<tr class="recordItem page${pageCounter}">
                                     <td data-label="status">${statusIcon}</td>
                                     <td data-label="timestamp">${timestamp}</td>
                                     <td data-label="acc">${entry.TargetUsername}</td>
@@ -149,14 +180,39 @@
                                     <td data-label="authtype">${authType}</td>
                                     <td data-label="port">${entry.Port}</td>
                                 </tr>`);
+
+                                recordCounter++;
+                                if (recordCounter % recordPerPage == 0){
+                                    //Next page
+                                    pageCounter++;
+                                    pageIndexs.push(`<a class="section pageLabel page${pageCounter} noselect" onclick="showPage(${pageCounter});">${pageCounter}</a>`);
+                                }
                             });
 
+                            $("#pageIndexs").html(pageIndexs.join(`<span class="divider">/</span>`));
+
+                            maxPage = pageCounter;
                             updateSummaryText(data);
-                            
+                            showPage(1);
                         }
                     }
                 }
             });
+        }
+
+        function showPage(pageNumber){
+            if (pageNumber < 1){
+                pageNumber = 1;
+            }
+
+            if (pageNumber > maxPage){
+                pageNumber = maxPage;
+            }
+
+            $(".recordItem").hide();
+            $(`.recordItem.page${pageNumber}`).show();
+            $(".pageLabel.active").removeClass("active").removeClass("pageFocus");
+            $(`.pageLabel.page${pageNumber}`).addClass("active").addClass("pageFocus");
         }
 
         function loadRecords(object){

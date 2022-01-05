@@ -5,23 +5,23 @@
 */
 
 //Create database for this module
-newDBTableIfNotExists("NotepadA")
+newDBTableIfNotExists("Code Studio")
 
 //Define the launchInfo for the module
 var moduleLaunchInfo = {
     Name: "NotepadA",
-	Desc: "The best code editor on ArOZ Online",
+	Desc: "The legacy NotepadA from ArOZ Online Beta",
 	Group: "Office",
-	IconPath: "NotepadA/img/module_icon.png",
-	Version: "1.2",
+	IconPath: "NotepadA/img/small_icon.png",
+	Version: "2.0",
 	StartDir: "NotepadA/index.html",
 	SupportFW: true,
 	LaunchFWDir: "NotepadA/index.html",
 	SupportEmb: true,
 	LaunchEmb: "NotepadA/embedded.html",
-	InitFWSize: [1024, 768],
+	InitFWSize: [1024, 600],
 	InitEmbSize: [360, 200],
-	SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".agi", ".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
+	SupportedExt: [".txt", ".md", ".php", ".html", ".js", ".htm", ".csv", ".json", ".xml"]
 }
 
 //Register the module

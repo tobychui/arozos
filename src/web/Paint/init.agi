@@ -1,0 +1,21 @@
+/*
+	Simple Paint WebApps
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Paint",
+	Desc: "A basic drawing apps",
+	Group: "Utilities",
+	IconPath: "Paint/img/small_icon.png",
+	Version: "1.0",
+	StartDir: "Paint/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Paint/index.html",
+	SupportEmb: false,
+	InitFWSize: [870, 530]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));
