@@ -52,7 +52,7 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 
 |Version|Download|Mirror|Remarks|
 |---|---|---|---|
-|arozos v1.118||https://www.mediafire.com/file/kgfz7mzdydl28c7/arozos_v1.118.7z/file|Support Pi zero 2w|
+|arozos v1.118 (v2)||https://www.mediafire.com/file/f1i4xsp4rplwbko/arozos_v1.118_v2.7z/file|Support Pi zero 2w|
 |arozos v1.115 (Stable)|https://wdfiles.ru/84cb6b|https://www.mediafire.com/file/zbhieo59fq2sw80/arozos_v1.115.7z/file|Build in [WsTTY](https://github.com/aroz-online/WsTTY)|
 |arozos v1.114|EOL|EOL|Unstable, upgrade to 1.115 if you are still using this version|
 |arozos v1.113|https://wdfiles.ru/75372e|https://www.mediafire.com/file/u42ha6ljfq6q0g9/arozos_v1.113.7z/file||
