@@ -35,6 +35,7 @@ type Terminal struct {
 
 func NewWebSocketShellTerminal() *Terminal {
 	baseCWD, _ := filepath.Abs("./")
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	return &Terminal{
 		cwd: baseCWD,
 	}
@@ -58,7 +59,7 @@ func (t *Terminal) HandleOpen(w http.ResponseWriter, r *http.Request) {
 		cmd = exec.Command("/bin/bash")
 	} else {
 		//Currently not supported.
-		c.WriteMessage(1, []byte("[ERROR] Host Platform not supported: " + runtime.GOOS))
+		c.WriteMessage(1, []byte("[ERROR] Host Platform not supported: "+runtime.GOOS))
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Host OS Not supported"))
 		return

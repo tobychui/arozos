@@ -18,6 +18,7 @@ import (
 	"github.com/oliamb/cutter"
 	"github.com/robertkrimen/otto"
 
+	"imuslab.com/arozos/mod/neuralnet"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -256,6 +257,70 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 	})
 
+	vm.Set("_imagelib_classify", func(call otto.FunctionCall) otto.Value {
+		vsrc, err := call.Argument(0).ToString()
+		if err != nil {
+			g.raiseError(err)
+			return otto.FalseValue()
+		}
+
+		classifier, err := call.Argument(1).ToString()
+		if err != nil {
+			classifier = "default"
+		}
+
+		if classifier == "" || classifier == "undefined" {
+			classifier = "default"
+		}
+
+		//Convert the vsrc to real path
+		rsrc, err := virtualPathToRealPath(vsrc, u)
+		if err != nil {
+			g.raiseError(err)
+			return otto.FalseValue()
+		}
+
+		if classifier == "default" || classifier == "darknet19" {
+			//Use darknet19 for classification
+			r, err := neuralnet.AnalysisPhotoDarknet19(rsrc)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			result, err := vm.ToValue(r)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			return result
+
+		} else if classifier == "yolo3" {
+			//Use yolo3 for classification, return positions of object as well
+			r, err := neuralnet.AnalysisPhotoYOLO3(rsrc)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			result, err := vm.ToValue(r)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			return result
+
+		} else {
+			//Unsupported classifier
+			log.Println("[AGI] Unsupported image classifier name: " + classifier)
+			g.raiseError(err)
+			return otto.FalseValue()
+		}
+
+	})
+
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`
 		var imagelib = {};
@@ -263,5 +328,6 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 		imagelib.resizeImage = _imagelib_resizeImage;
 		imagelib.cropImage = _imagelib_cropImage;
 		imagelib.loadThumbString = _imagelib_loadThumbString;
+		imagelib.classify = _imagelib_classify;
 	`)
 }

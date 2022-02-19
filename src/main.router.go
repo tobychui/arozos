@@ -76,25 +76,25 @@ func mrouter(h http.Handler) http.Handler {
 			} else {
 				interfaceModule := userinfo.GetInterfaceModules()
 				if len(interfaceModule) == 1 && interfaceModule[0] == "Desktop" {
-					http.Redirect(w, r, "./desktop.system", 307)
+					http.Redirect(w, r, "./desktop.system", http.StatusTemporaryRedirect)
 				} else if len(interfaceModule) == 1 {
 					//User with default interface module not desktop
 					modileInfo := moduleHandler.GetModuleInfoByID(interfaceModule[0])
 					if modileInfo == nil {
 						//The module is not found or not enabled
-						http.Redirect(w, r, "./SystemAO/boot/interface_disabled.html", 307)
+						http.Redirect(w, r, "./SystemAO/boot/interface_disabled.html", http.StatusTemporaryRedirect)
 						return
 					}
-					http.Redirect(w, r, modileInfo.StartDir, 307)
+					http.Redirect(w, r, modileInfo.StartDir, http.StatusTemporaryRedirect)
 				} else if len(interfaceModule) > 1 {
 					//Redirect to module selector
-					http.Redirect(w, r, "./SystemAO/boot/interface_selector.html", 307)
+					http.Redirect(w, r, "./SystemAO/boot/interface_selector.html", http.StatusTemporaryRedirect)
 				} else if len(interfaceModule) == 0 {
 					//Redirect to error page
-					http.Redirect(w, r, "./SystemAO/boot/no_interfaceing.html", 307)
+					http.Redirect(w, r, "./SystemAO/boot/no_interfaceing.html", http.StatusTemporaryRedirect)
 				} else {
 					//For unknown operations, send it to desktop
-					http.Redirect(w, r, "./desktop.system", 307)
+					http.Redirect(w, r, "./desktop.system", http.StatusTemporaryRedirect)
 				}
 			}
 		} else if ((len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/") || r.URL.Path == "/www") && *allow_homepage == true {
@@ -112,7 +112,7 @@ func mrouter(h http.Handler) http.Handler {
 				w.Header().Add("Content-Type", "application/javascript; charset=UTF-8")
 			}
 
-			if *disable_subservices == false {
+			if !*disable_subservices {
 				//Enable subservice access
 				//Check if this path is reverse proxy path. If yes, serve with proxyserver
 				isRP, proxy, rewriteURL, subserviceObject := ssRouter.CheckIfReverseProxyPath(r)
@@ -125,7 +125,7 @@ func mrouter(h http.Handler) http.Handler {
 			}
 
 			//Not subservice routine. Handle file server
-			if *enable_dir_listing == false {
+			if !*enable_dir_listing {
 				if strings.HasSuffix(r.URL.Path, "/") {
 					//User trying to access a directory. Send NOT FOUND.
 					if fileExists("web" + r.URL.Path + "index.html") {
@@ -136,6 +136,11 @@ func mrouter(h http.Handler) http.Handler {
 						return
 					}
 				}
+			}
+			if !fileExists("web" + r.URL.Path) {
+				//File not found
+				errorHandleNotFound(w, r)
+				return
 			}
 			h.ServeHTTP(w, r)
 

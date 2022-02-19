@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/user"
 )
 
 type ModuleInfo struct {
@@ -23,17 +23,20 @@ type ModuleInfo struct {
 	InitFWSize   []int    //Floatwindow init size. [0] => Width, [1] => Height
 	InitEmbSize  []int    //Embedded mode init size. [0] => Width, [1] => Height
 	SupportedExt []string //Supported File Extensions. e.g. ".mp3", ".flac", ".wav"
+
+	//Hidden properties
+	allowReload bool //Allow module reload by user
 }
 
 type ModuleHandler struct {
-	LoadedModule []ModuleInfo
+	LoadedModule []*ModuleInfo
 	userHandler  *user.UserHandler
 	tmpDirectory string
 }
 
 func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *ModuleHandler {
 	return &ModuleHandler{
-		LoadedModule: []ModuleInfo{},
+		LoadedModule: []*ModuleInfo{},
 		userHandler:  userHandler,
 		tmpDirectory: tmpFolderPath,
 	}
@@ -41,7 +44,13 @@ func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *Modu
 
 //Register endpoint. Provide moduleInfo datastructure or unparsed json
 func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
-	m.LoadedModule = append(m.LoadedModule, module)
+	m.LoadedModule = append(m.LoadedModule, &module)
+
+	//Add the module into universal module if it is utilities or system tools
+	moduleGroupLowerCase := strings.ToLower(module.Group)
+	if moduleGroupLowerCase == "utilities" || moduleGroupLowerCase == "system tools" {
+		m.userHandler.UniversalModules = append(m.userHandler.UniversalModules, module.Name)
+	}
 }
 
 //Sort the module list
@@ -52,14 +61,41 @@ func (m *ModuleHandler) ModuleSortList() {
 }
 
 //Register a module from JSON string
-func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string) error {
+func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bool) error {
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
 	if err != nil {
 		return err
 	}
+
+	thisModuleInfo.allowReload = allowReload
 	m.RegisterModule(thisModuleInfo)
 	return nil
+}
+
+//Register a module from AGI script
+func (m *ModuleHandler) RegisterModuleFromAGI(jsonstring string) error {
+	var thisModuleInfo ModuleInfo
+	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
+	if err != nil {
+		return err
+	}
+
+	//AGI interface loaded module must allow runtime reload
+	thisModuleInfo.allowReload = true
+	m.RegisterModule(thisModuleInfo)
+	return nil
+}
+
+func (m *ModuleHandler) DeregisterModule(moduleName string) {
+	newLoadedModuleList := []*ModuleInfo{}
+	for _, thisModule := range m.LoadedModule {
+		if thisModule.Name != moduleName {
+			newLoadedModuleList = append(newLoadedModuleList, thisModule)
+		}
+	}
+
+	m.LoadedModule = newLoadedModuleList
 }
 
 //Get a list of module names
@@ -101,7 +137,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 			return
 		}
 		//Get the launch paramter of this module
-		var modInfo ModuleInfo
+		var modInfo *ModuleInfo = nil
 		modExists := false
 		for _, mod := range m.LoadedModule {
 			if mod.Name == value {
@@ -167,13 +203,10 @@ func (m *ModuleHandler) ListLoadedModules(w http.ResponseWriter, r *http.Request
 	userinfo, _ := m.userHandler.GetUserInfoFromRequest(w, r)
 
 	///Parse a list of modules where the user has permission to access
-	userAccessableModules := []ModuleInfo{}
+	userAccessableModules := []*ModuleInfo{}
 	for _, thisModule := range m.LoadedModule {
 		thisModuleName := thisModule.Name
 		if userinfo.GetModuleAccessPermission(thisModuleName) {
-			userAccessableModules = append(userAccessableModules, thisModule)
-		} else if thisModule.Group == "Utilities" {
-			//Always allow utilties to be loaded
 			userAccessableModules = append(userAccessableModules, thisModule)
 		}
 	}
@@ -185,7 +218,7 @@ func (m *ModuleHandler) ListLoadedModules(w http.ResponseWriter, r *http.Request
 func (m *ModuleHandler) GetModuleInfoByID(moduleid string) *ModuleInfo {
 	for _, module := range m.LoadedModule {
 		if module.Name == moduleid {
-			return &module
+			return module
 		}
 	}
 	return nil
@@ -199,7 +232,7 @@ func (m *ModuleHandler) GetLaunchParameter(w http.ResponseWriter, r *http.Reques
 	}
 
 	//Loop through the modules and see if the module exists.
-	var targetLaunchInfo ModuleInfo
+	var targetLaunchInfo *ModuleInfo = nil
 	found := false
 	for _, module := range m.LoadedModule {
 		thisModuleName := module.Name

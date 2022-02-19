@@ -301,7 +301,7 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 	sr.RunningSubService = append(sr.RunningSubService, thisSubService)
 
 	//Append this module into the loaded module list
-	sr.moduleHandler.LoadedModule = append(sr.moduleHandler.LoadedModule, thisModuleInfo)
+	sr.moduleHandler.LoadedModule = append(sr.moduleHandler.LoadedModule, &thisModuleInfo)
 
 	return nil
 }

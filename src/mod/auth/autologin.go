@@ -23,7 +23,7 @@ type AutoLoginToken struct {
 func (a *AuthAgent) NewAutologinToken(username string) string {
 	//Generate a new token
 	newTokenUUID := uuid.NewV4().String() + "-" + strconv.Itoa(int(time.Now().Unix()))
-	a.autoLoginTokens = append(a.autoLoginTokens, AutoLoginToken{
+	a.autoLoginTokens = append(a.autoLoginTokens, &AutoLoginToken{
 		Owner: username,
 		Token: newTokenUUID,
 	})
@@ -36,7 +36,7 @@ func (a *AuthAgent) NewAutologinToken(username string) string {
 }
 
 func (a *AuthAgent) RemoveAutologinToken(token string) {
-	newTokenArray := []AutoLoginToken{}
+	newTokenArray := []*AutoLoginToken{}
 	for _, alt := range a.autoLoginTokens {
 		if alt.Token != token {
 			newTokenArray = append(newTokenArray, alt)
@@ -49,7 +49,7 @@ func (a *AuthAgent) RemoveAutologinToken(token string) {
 }
 
 func (a *AuthAgent) RemoveAutologinTokenByUsername(username string) {
-	newTokenArray := []AutoLoginToken{}
+	newTokenArray := []*AutoLoginToken{}
 	for _, alt := range a.autoLoginTokens {
 		if alt.Owner != username {
 			newTokenArray = append(newTokenArray, alt)
@@ -72,7 +72,7 @@ func (a *AuthAgent) LoadAutologinTokenFromDB() error {
 			owner := ""
 			json.Unmarshal(keypairs[1], &owner)
 			token := strings.Split(key, "/")[1]
-			a.autoLoginTokens = append(a.autoLoginTokens, AutoLoginToken{
+			a.autoLoginTokens = append(a.autoLoginTokens, &AutoLoginToken{
 				Owner: owner,
 				Token: token,
 			})
@@ -92,8 +92,8 @@ func (a *AuthAgent) GetUsernameFromToken(token string) (string, error) {
 	return "", errors.New("Invalid Token")
 }
 
-func (a *AuthAgent) GetTokensFromUsername(username string) []AutoLoginToken {
-	results := []AutoLoginToken{}
+func (a *AuthAgent) GetTokensFromUsername(username string) []*AutoLoginToken {
+	results := []*AutoLoginToken{}
 	for _, alt := range a.autoLoginTokens {
 		if alt.Owner == username {
 			results = append(results, alt)
@@ -163,8 +163,15 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 
 	session.Save(r, w)
 
-	//Redirect this client to its interface module
-	http.Redirect(w, r, "/", 307)
+	redirectTarget, _ := mv(r, "redirect", false)
+	if redirectTarget != "" {
+		//Redirect to target website
+		http.Redirect(w, r, redirectTarget, http.StatusTemporaryRedirect)
+	} else {
+		//Redirect this client to its interface module
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	}
+
 }
 
 //Check if the given autologin token is valid. Autologin token is different from session token (aka token)

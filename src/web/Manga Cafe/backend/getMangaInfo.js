@@ -15,7 +15,7 @@ var parentFolder = tmp.join("/");
 var title = [tmp.pop(), chapterName];
 
 //Scan the manga content, process the image if nessary
-var pages = filelib.aglob(targetFolder + "*");
+var pages = filelib.aglob(targetFolder + "*", "smart");
 var validPages = [];
 for (var i = 0; i < pages.length; i++){
     var thisPage = pages[i];
@@ -59,7 +59,7 @@ for (var i = 0; i < pages.length; i++){
 }
 
 //Search for other chapter links
-var otherChapterCandidate = filelib.aglob(parentFolder + "/*");
+var otherChapterCandidate = filelib.aglob(parentFolder + "/*", "smart");
 var otherChapters = [];
 for (var i =0; i < otherChapterCandidate.length; i++){
     var basename = otherChapterCandidate[i].split('/').pop();

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html ng-app="App">
+
+<head>
+    <title>System Update</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <h3 class="ui header">
+                <i class="sync icon"></i>
+                <div class="content">
+                    System Update
+                    <div class="sub header">Update the ArozOS System to the latest version</div>
+                </div>
+            </h3>
+            <div class="ui divider"></div>
+            <!-- Status Messages-->
+            <div id="warning" class="ui negative visible icon message">
+                <i class="red exclamation circle icon"></i>
+                <div class="content">
+                    <div class="header">
+                        WARNING
+                    </div>
+                    <p>Backup all the important files before performing system update</p>
+                </div>
+            </div>
+            <div id="checking" class="ui icon blue message" style="display:none;">
+                <i class="notched circle loading icon"></i>
+                <div class="content">
+                    <div class="header">
+                        Connecting to Download Server
+                    </div>
+                    <p>We're fetching that content for you.</p>
+                </div>
+            </div>
+            <div id="confirmDownload" class="ui icon yellow message" style="display:none;">
+                <i class="yellow exclamation icon"></i>
+                <div class="content">
+                    <div class="header">
+                        Confirm Update?
+                    </div>
+                    <p><span>This updates will take up </span><span id="spaceEst" style="font-weight: bold;"></span> <span>of space.</span></p>
+                    <p><b>Please make sure you have back up all important files and config files before you proceeds.</b></p>
+                    <div class="ui buttons">
+                        <button class="ui yellow button" onclick="confirmURLUpdate();">Confirm Update</button>
+                        <button class="ui button" onclick="cancelUpdateStatus();"><i class="ui remove icon"></i> Cancel Update</button>
+                    </div>
+                </div>
+            </div>
+            <div id="downloading" class="ui icon blue message" style="display:none;">
+                <i class="notched circle loading icon"></i>
+                <div class="content">
+                    <div class="header" id="downloadStatusText">
+                        Starting Download Session
+                    </div>
+                    <br>
+                    <p id="fallbackmodeExp" style="display:none;">You are seeing this message is because the websocket connection to your host failed to establish. No worry, updates can still be done using AJAX fallback mode, just without the real time progress updates. <br>Please wait until the
+                        download complete before closing this page.</br>
+                    </p>
+                    <div class="ui blue active progress">
+                        <div id="downloadProgressBar" class="bar">
+                            <div class="progress">0.00%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="success" class="ui icon green message" style="display:none;">
+                <i class="green checkmark icon"></i>
+                <div class="content">
+                    <div class="header" id="downloadStatusText">
+                        Update Download Succeed
+                    </div>
+                    <p>Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
+                </div>
+            </div>
+            <div id="pending" class="ui icon green message" style="display:none;">
+                <i class="green clock icon"></i>
+                <div class="content">
+                    <div class="header" id="downloadStatusText">
+                        Update Pending
+                    </div>
+                    <p>Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
+                </div>
+            </div>
+            <div id="failed" class="ui icon red message" style="display:none;">
+                <i class="red remove icon"></i>
+                <div class="content">
+                    <div class="header" id="downloadStatusText">
+                        Update Download Failed
+                    </div>
+                    <p id="failedErrorMessage">Unknown Error Occured</p>
+                </div>
+            </div>
+            <div id="restartPanel" class="ui message" style="display:none;">
+                <div class="header">
+                    Launcher Detected: <span id="launcherName">N/A</span>
+                </div>
+                <p>You will need to restart ArozOS in order to apply the updates.</p>
+                <p>Warning! Make sure you have physical access to this ArozOS Host before pressing the restart button.<br> Update failure might require a manual restart of the ArozOS system host and its launcher.</p>
+                <button class="ui red button" onclick="restartArozOS();">RESTART NOW</button>
+                <button class="ui button" onclick="restartLater();">Restart Later</button>
+            </div>
+            <!-- End of Status Messages -->
+            <div class="vendorupdate">
+                <h4>Update from <span class="vendorName">Vendor</span> (<i class="yellow star icon"></i> Recommended)</h4>
+                <p>Update from <span class="vendorName">your vendor</span> based on the system update configuration that ship with this machine</p>
+                <button class="ui blue button updateBtn" onclick="updateViaVendor();"><i class="cloud upload icon"></i>  Update from Vendor</button>
+                <div class="ui divider"></div>
+            </div>
+            <h4>Update via Download</h4>
+            <p>Binary Executable Download URL</p>
+            <div class="ui fluid input">
+                <input id="burl" type="text" placeholder="Binary Download URL">
+            </div>
+            <small>Usually with pattern like: arozos_{platform}_{cpu_arch}</small>
+            <br><br>
+            <p>Webpack Download URL</p>
+            <div class="ui fluid input">
+                <input id="wurl" type="text" placeholder="Webpack Download URL">
+            </div>
+            <small>Usually with named as: webpack.tar.gz</small>
+            <br><br>
+            <button class="ui red button updateBtn" onclick="updateViaURL();"><i class="cloud upload icon"></i> Execute Update</button>
+
+            <div class="ui divider"></div>
+
+
+            <div class="ui message">
+                <h4><i class="info circle icon"></i>Update Instruction</h4>
+                <p>To update your ArozOS system, you will need two files: A compiled binary of the newer version of ArozOS and the webpack compress file in .tar.gz format. You can get the two files on Github, private distribution servers or from cluster
+                    nodes. Please choose one of the update method below and press "Update" to start the update process.</p>
+                <p>Notes that updates only work if ArozOS is started by the launcher. If not, you might need to manually update the system using system commands.</p>
+                <div class="ui accordion">
+                    <div class="title">
+                        <i class="dropdown icon"></i> How to update manually?
+                    </div>
+                    <div class="content">
+                        <p>If your system is not started by any launcher (versions before v1.120), you might want to manually update the ArozOS following the steps below.</p>
+                        <h5><i class="linux icon"></i> Linux (Debian)</h5>
+                        <div class="ui ordered list">
+                            <div class="item">Download the update of the latest ArozOS using one of the above methods</div>
+                            <div class="item">SSH into your host, cd into the ArozOS root (Usually located at ~/arozos/src/)</div>
+                            <div class="item">Check if the "updates" folder exists. If yes, check if the new ArozOS binary and "system" and "web" folder exists</div>
+                            <div class="item">Backup any important files or config if needed</div>
+                            <div class="item">Stop the arozos service using <code>sudo systemctl stop arozos</code></code>
+                            </div>
+                            <div class="item">Copy the updates to the arozos root using <code>cp -r ./updates/* ./</code></div>
+                            <div class="item">Restore the files or config</div>
+                            <div class="item">Start the arozos service using <code>sydo systemctl start arozos</code></div>
+                            <div class="item">The new ArozOS should be updated and ready.</div>
+                        </div>
+
+                        <h5><i class="windows icon"></i> Windows</h5>
+                        <div class="ui ordered list">
+                            <div class="item">Download the update of the latest ArozOS using one of the above methods</div>
+                            <div class="item">Locate the cmd / powershell window that is running ArozOS</div>
+                            <div class="item">Press <code>Ctrl + C</code> to gracefully stop ArozOS</div>
+                            <div class="item">Open ArozOS root and check if "updates" folder exists. If yes, check if the new ArozOS binary and "system" and "web" folder exists</div>
+                            <div class="item">Backup any important files or config if needed</div>
+                            <div class="item">Copy all the file from the "updates" folder and overwrite the one in ArozOS root (.\arozos\src\)</div>
+                            <div class="item">Restore the files or config</div>
+                            <div class="item">Start the new ArozOS binary (exe) by double clicking it OR starting the start.bat file</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var useVendorUpdate = false;
+        var vendorUpdateBinaryURL = "";
+        var vendorUpdateWebpackURL = "";
+        var vendorUpdateCheckSumURL = "";
+
+        $(".accordion").accordion();
+        initVendorUpdateInfo();
+        checkPendingUpdates();
+
+        function checkPendingUpdates() {
+            $.get("../../system/update/checkpending", function(data) {
+                if (data == true) {
+                    //There is a pending update.
+                    hideAllStatus();
+                    $("#pending").slideDown('fast');
+                    $.get("/system/update/restart", function(data) {
+                        if (data.error !== undefined) {
+                            //No launcher
+                        } else {
+                            $("#launcherName").text(data);
+                            $("#restartPanel").show();
+                        }
+                        console.log("Launcher check: ", data);
+                    })
+                }
+            })
+        }
+
+        function initVendorUpdateInfo() {
+            $.get("../../system/update/platform", function(data) {
+                console.log(data);
+                if (data.error !== undefined) {
+                    //No vendor update modes
+                    $(".vendorupdate").hide();
+                } else {
+                    if (data.Config.binary[data.OS] && data.Config.binary[data.OS][data.ARCH]) {
+                        //This update target exists
+                        vendorUpdateBinaryURL = data.Config.binary[data.OS][data.ARCH];
+                    }
+                    vendorUpdateWebpackURL = data.Config.webpack;
+                    vendorUpdateCheckSumURL = data.Config.checksum;
+                    $(".vendorName").text(data.Config.vendor);
+                }
+            })
+        }
+
+        function updateViaVendor() {
+            let binaryDownloadURL = vendorUpdateBinaryURL;
+            let webpackDownloadURL = vendorUpdateWebpackURL;
+
+            if (binaryDownloadURL == "" || webpackDownloadURL == "") {
+                return
+            }
+            //Check space need
+            $("#checking").slideDown("fast");
+            $("#warning").slideUp("fast");
+            useVendorUpdate = true;
+            $.get(`/system/update/checksize?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}`, function(data) {
+                if (data.error != undefined) {
+                    cancelUpdateStatus();
+                    alert("Update failed: " + data.error)
+                } else {
+                    let totalDownloadBytes = data[0] + data[1];
+                    $("#spaceEst").text(ao_module_utils.formatBytes(totalDownloadBytes, 2));
+                    $("#confirmDownload").slideDown("fast");
+                    $("#checking").slideUp("fast");
+                    console.log(data);
+                }
+
+            })
+        }
+
+        function updateViaURL() {
+            let binaryDownloadURL = $("#burl").val().trim();
+            let webpackDownloadURL = $("#wurl").val().trim();
+            if (binaryDownloadURL == "" || webpackDownloadURL == "") {
+                alert("Invalid or Empty URL given");
+                return
+            }
+            //Check space need
+            $("#checking").slideDown("fast");
+            $("#warning").slideUp("fast");
+            $.get(`/system/update/checksize?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}`, function(data) {
+                if (data.error != undefined) {
+                    cancelUpdateStatus();
+                    alert("Update failed: " + data.error)
+                } else {
+                    let totalDownloadBytes = data[0] + data[1];
+                    $("#spaceEst").text(ao_module_utils.formatBytes(totalDownloadBytes, 2));
+                    $("#confirmDownload").slideDown("fast");
+                    $("#checking").slideUp("fast");
+                    console.log(data);
+                }
+
+            })
+        }
+
+        function confirmURLUpdate() {
+            let binaryDownloadURL = $("#burl").val().trim();
+            let webpackDownloadURL = $("#wurl").val().trim();
+            let checksumDownloadURL = "";
+
+            if (useVendorUpdate) {
+                //Use vendor link for update. Replace the download target with vendor update links
+                useVendorUpdate = false;
+                binaryDownloadURL = vendorUpdateBinaryURL;
+                webpackDownloadURL = vendorUpdateWebpackURL;
+                checksumDownloadURL = vendorUpdateCheckSumURL;
+            }
+            if (binaryDownloadURL == "" || webpackDownloadURL == "") {
+                alert("Invalid or Empty URL given");
+                return
+            }
+
+            var wsroot = ao_module_utils.getWebSocketEndpoint();
+            var requestEndpoint = wsroot + `/system/update/download?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}&checksum=${checksumDownloadURL}&ws=true`
+            console.log("Connecting to: ", requestEndpoint);
+            var isFailed = false;
+
+            hideAllStatus();
+            $("#downloading").slideDown("fast");
+
+            let socket = new WebSocket(requestEndpoint);
+
+            socket.onopen = function(e) {
+                $("#downloadStatusText").text("Download Started");
+                $(".updateBtn").addClass("disabled");
+            };
+
+            socket.onmessage = function(event) {
+                let status = JSON.parse(event.data);
+                if (status.error !== undefined) {
+                    hideAllStatus();
+                    $("#failed").slideDown();
+                    $("#failedErrorMessage").text(status.error);
+                    $(".updateBtn").removeClass("disabled");
+                    isFailed = true
+                } else {
+                    //Progressing
+                    let progressText = status.Progress.toFixed(2) + "%";
+                    $("#downloadProgressBar").find(".progress").text(progressText);
+                    $("#downloadProgressBar").css("width", status.Progress + "%");
+                    $("#downloadStatusText").text(`[${status.Stage}] ${status.StatusText}`);
+                }
+                console.log(event.data);
+            };
+
+            socket.onclose = function(event) {
+                if(!isFailed){
+                    hideAllStatus();
+                    $("#success").slideDown();
+                    checkLauncher();
+                }
+            };
+
+            socket.onerror = function(error) {
+                console.log("Websocket Connection Error: ", error, " Running in fallback mode")
+                downloadUpdateFallbackMode(binaryDownloadURL, webpackDownloadURL);
+            };
+        }
+
+        function downloadUpdateFallbackMode(binaryDownloadURL, webpackDownloadURL, checksumDownloadURL) {
+            hideAllStatus();
+            $("#downloading").slideDown("fast");
+            $("#downloadStatusText").text("Waiting for Download Complete (Fallback Mode)");
+            $("#fallbackmodeExp").show();
+            $("#downloadProgressBar").find(".progress").text("Downloading");
+            $("#downloadProgressBar").css("width", "50%");
+            $(".updateBtn").addClass("disabled");
+            $.get(`../../system/update/download?webpack=${webpackDownloadURL}&binary=${binaryDownloadURL}&checksum=${checksumDownloadURL}`, function(data) {
+                if (data.error !== undefined) {
+                    hideAllStatus();
+                    $("#failed").slideDown();
+                    $("#failedErrorMessage").text(data.error);
+                    $(".updateBtn").removeClass("disabled");
+                } else {
+                    hideAllStatus();
+                    $("#success").slideDown();
+                    checkLauncher();
+                }
+            })
+        }
+
+        function checkLauncher() {
+            $(".updateBtn").removeClass("disabled");
+            $.get("/system/update/restart", function(data) {
+                if (data.error !== undefined) {
+                    //No launcher
+                    $("#restartPanel").hide();
+                } else {
+                    $("#launcherName").text(data);
+                    $("#restartPanel").show();
+                }
+                console.log("Launcher check: ", data);
+            })
+
+        }
+
+        function restartArozOS() {
+            if (confirm("CONFIRM RESTART?")) {
+                window.top.location.href = "../updates/updating.html";
+            }
+        }
+
+        function cancelUpdateStatus() {
+            hideAllStatus();
+            $("#warning").slideDown("fast");
+        }
+
+        function restartLater() {
+            hideAllStatus();
+        }
+
+
+        function hideAllStatus() {
+            $("#warning").slideUp("fast");
+            $("#confirmDownload").slideUp("fast");
+            $("#checking").slideUp("fast");
+            $("#downloading").slideUp("fast");
+            $("#success").slideUp("fast");
+            $("#failed").slideUp("fast");
+            $("#restartPanel").slideUp("fast");
+        }
+    </script>
+</body>
+
+</html>

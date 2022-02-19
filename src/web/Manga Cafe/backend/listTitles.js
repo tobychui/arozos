@@ -22,13 +22,13 @@ var scannedTitles = [];
 for (var i =0; i < rootList.length; i++){
     var thisRoot = rootList[i];
     if (filelib.fileExists(thisRoot + "Photo/Manga")){
-        var titleList = filelib.aglob(thisRoot + "Photo/Manga/*");
+        var titleList = filelib.aglob(thisRoot + "Photo/Manga/*", "smart");
         for (var k =0; k < titleList.length; k++){
             var thisFileObject = titleList[k];
             //Only scan this if this is a directory and it is not start with "."
             if (filelib.isDir(thisFileObject) && thisFileObject.split("/").pop().substr(0, 1) != "."){
                 //This should be manga title. Get its chapter count
-                var chaptersInThisTitle = filelib.aglob(thisFileObject + "/*");
+                var chaptersInThisTitle = filelib.aglob(thisFileObject + "/*", "smart");
                 var foldersInTitle = [];
                 var chapterCount = 0;
                 for (var j = 0; j < chaptersInThisTitle.length; j++){
@@ -46,7 +46,7 @@ for (var i =0; i < rootList.length; i++){
                 }else{
                     //Get the first image from the first chapter
                     var firstChapterFolder = foldersInTitle[0];
-                    var firstChapterImagaes = filelib.aglob(firstChapterFolder + "/*.jpg");
+                    var firstChapterImagaes = filelib.aglob(firstChapterFolder + "/*.jpg", "smart");
                     
                     //Get the first image that is not horizontal
                     titleImagePath = firstChapterImagaes[0];

@@ -187,12 +187,12 @@
 
                 getDiskProp(files[0], function(data){
                     if (data.error !== undefined){
-                        $("#phydisk").text(data.error);
+                        $("#phydisk").text("Unknown");
                         $("#hierarchy").text("Unknown");
                         $("#usedSpaceInBytes").text("Not Available");
                         $("#usableSpaceInBytes").text("Not Available");
                         $("#totalSpaceInBytes").text("Not Available");
-                        
+                        console.log(data.error);
                     }else{
                         $("#usedSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Used));
                         $("#usedSpaceInHumanReadableFormat").text(bytesToSize(data.Used));
@@ -213,8 +213,15 @@
 
                     getFileProp(files[0], function(folderdata){
                         //User Used Space
-                        $("#usedVirtualSpaceInByte").text(new Intl.NumberFormat('en-US').format(folderdata.Filesize));
-                        $("#usedVirtualSpaceInHumanReadableFormat").text(bytesToSize(folderdata.Filesize));
+                        if (folderdata.Filesize >= 0){
+                            $("#usedVirtualSpaceInByte").text(new Intl.NumberFormat('en-US').format(folderdata.Filesize));
+                            $("#usedVirtualSpaceInHumanReadableFormat").text(bytesToSize(folderdata.Filesize));
+                        
+                        }else{
+                            $("#usedVirtualSpaceInByte").text("Not Available");
+                            $("#usedVirtualSpaceInHumanReadableFormat").text("");
+                        }
+                       
                         
                         if (data.Total != undefined){
                             $("#userUsedSpace").css("width", (folderdata.Filesize / data.Total) * 100 + "%");

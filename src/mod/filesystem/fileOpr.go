@@ -530,61 +530,62 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 		//Ready to move with the quick rename method
 		realDest := dest + movedFilename
 		err := os.Rename(src, realDest)
+		if err == nil {
+			//Fast move success
+			return nil
+		}
+
+		//Fast move failed. Back to the original copy and move method
+	}
+
+	//Ready to move. Check if both folder are located in the same root devices. If not, use copy and delete method.
+	if IsDir(src) {
+		//Source file is directory. CopyFolder
+		realDest := dest + movedFilename
+		//err := dircpy.Copy(src, realDest)
+
+		err := dirCopy(src, realDest, progressUpdate)
 		if err != nil {
-			log.Println(err)
-			return errors.New("File Move Failed")
+			return err
+		} else {
+			//Move completed. Remove source file.
+			os.RemoveAll(src)
+			return nil
 		}
 
 	} else {
-		//Ready to move. Check if both folder are located in the same root devices. If not, use copy and delete method.
-		if IsDir(src) {
-			//Source file is directory. CopyFolder
-			realDest := dest + movedFilename
-			//err := dircpy.Copy(src, realDest)
+		//Source is file only. Copy file.
+		realDest := dest + movedFilename
+		/*
+			Updates 20-10-2020, replaced io.Copy to BufferedLargeFileCopy
+			Legacy code removed.
+		*/
 
-			err := dirCopy(src, realDest, progressUpdate)
-			if err != nil {
-				return err
-			} else {
-				//Move completed. Remove source file.
-				os.RemoveAll(src)
-				return nil
-			}
-
-		} else {
-			//Source is file only. Copy file.
-			realDest := dest + movedFilename
-			/*
-				Updates 20-10-2020, replaced io.Copy to BufferedLargeFileCopy
-				Legacy code removed.
-			*/
-
-			//Update the progress
-			if progressUpdate != nil {
-				progressUpdate(100, filepath.Base(src))
-			}
-
-			err := BufferedLargeFileCopy(src, realDest, 8192)
-			if err != nil {
-				log.Println("BLFC error: ", err.Error())
-				return err
-			}
-
-			//Delete the source file after copy
-			err = os.Remove(src)
-			counter := 0
-			for err != nil {
-				//Sometime Windows need this to prevent windows caching bring problems to file remove
-				time.Sleep(1 * time.Second)
-				os.Remove(src)
-				counter++
-				log.Println("Retrying to remove file: " + src)
-				if counter > 10 {
-					return errors.New("Source file remove failed.")
-				}
-			}
-
+		//Update the progress
+		if progressUpdate != nil {
+			progressUpdate(100, filepath.Base(src))
 		}
+
+		err := BufferedLargeFileCopy(src, realDest, 8192)
+		if err != nil {
+			log.Println("BLFC error: ", err.Error())
+			return err
+		}
+
+		//Delete the source file after copy
+		err = os.Remove(src)
+		counter := 0
+		for err != nil {
+			//Sometime Windows need this to prevent windows caching bring problems to file remove
+			time.Sleep(1 * time.Second)
+			os.Remove(src)
+			counter++
+			log.Println("Retrying to remove file: " + src)
+			if counter > 10 {
+				return errors.New("Source file remove failed.")
+			}
+		}
+
 	}
 
 	return nil

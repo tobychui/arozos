@@ -268,7 +268,7 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//User not logged in
-		errorHandleNotLoggedIn(w, r)
+		sendErrorResponse(w, "User not logged in")
 		return
 	}
 

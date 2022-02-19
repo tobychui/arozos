@@ -7,9 +7,11 @@ import (
 	"runtime"
 	"time"
 
+	"imuslab.com/arozos/mod/common"
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
 	usage "imuslab.com/arozos/mod/info/usageinfo"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/updates"
 )
 
 //InitShowSysInformation xxx
@@ -21,6 +23,15 @@ func SystemInfoInit() {
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",
 		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			sendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	adminRouter := prout.NewModuleRouter(prout.RouterOption{
+		ModuleName:  "System Setting",
+		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
 			sendErrorResponse(w, "Permission Denied")
@@ -100,6 +111,49 @@ func SystemInfoInit() {
 
 	//ArOZ Info do not need permission router
 	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
+
+	go func() {
+		if updates.CheckLauncherPortResponsive() {
+			//Launcher port is responsive. Assume launcher exists
+			registerSetting(settingModule{
+				Name:     "Updates",
+				Desc:     "Perform ArozOS Updates",
+				IconPath: "SystemAO/updates/img/update.png",
+				Group:    "Info",
+				StartDir: "SystemAO/updates/index.html",
+			})
+
+			//Register Update Functions
+			adminRouter.HandleFunc("/system/update/download", updates.HandleUpdateDownloadRequest)
+			adminRouter.HandleFunc("/system/update/checksize", updates.HandleUpdateCheckSize)
+			adminRouter.HandleFunc("/system/update/checkpending", updates.HandlePendingCheck)
+			adminRouter.HandleFunc("/system/update/platform", updates.HandleGetUpdatePlatformInfo)
+
+			//Special function for handling launcher restart, must be in this scope
+			adminRouter.HandleFunc("/system/update/restart", func(w http.ResponseWriter, r *http.Request) {
+				launcherVersion, err := updates.GetLauncherVersion()
+				if err != nil {
+					sendErrorResponse(w, err.Error())
+					return
+				}
+				execute, _ := common.Mv(r, "exec", true)
+				if execute == "true" && r.Method == http.MethodPost {
+					//Do the update
+					log.Println("REQUESTING LAUNCHER FOR UPDATE RESTART")
+					executeShutdownSequence()
+					common.SendOK(w)
+				} else if execute == "true" {
+					//Prevent redirection attack
+					w.WriteHeader(http.StatusMethodNotAllowed)
+					w.Write([]byte("405 - Method Not Allowed"))
+				} else {
+					//Return the launcher message
+					common.SendTextResponse(w, string(launcherVersion))
+				}
+
+			})
+		}
+	}()
 
 }
 

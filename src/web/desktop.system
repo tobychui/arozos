@@ -12,6 +12,8 @@
     <script type="text/javascript" src="./script/ao_module.js"></script>
     <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <script type="text/javascript" src="./script/applocale.js"></script>
+    <script type="text/javascript" src="./script/html2canvas.min.js"></script>
+    <link rel="icon" href="img/system/favicon.png">
     <style>
         body {
             background-repeat: no-repeat;
@@ -993,6 +995,9 @@
         <div class="item hardware" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
             <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
         </div>
+    </div>
+    <div>
+        <canvas id="textWidthCanvas" style="display:none;"></canvas>
     </div>
     <script>
 
@@ -3041,6 +3046,21 @@
             desktopGrids = JSON.parse(JSON.stringify(slots));
         }
 
+        function getTextPixelWidth(measureText){
+            let canvas = document.getElementById('textWidthCanvas');
+            let ctx = canvas.getContext('2d');
+            let text = ctx.measureText(measureText);
+            let estimatedFilenameSize = text.width;
+            if (desktopIconSize == "small"){
+                estimatedFilenameSize = estimatedFilenameSize * 0.8679245283018868;
+            }else if (desktopIconSize == "big"){
+                estimatedFilenameSize = estimatedFilenameSize * 1.509433962264151;
+            }else{
+                estimatedFilenameSize = estimatedFilenameSize * 1.2452830188679245;
+            }
+            return estimatedFilenameSize;
+        }
+
         function appendIconAtLocation(filedata, screenX, screenY, iheight, iwidth, updateMode=false) {
             //Get the icon from extension
             var icon = ao_module_utils.getIconFromExt(filedata.Ext.substring(1, filedata.Ext.length));
@@ -3083,20 +3103,72 @@
                 imagePath = shortcutImage;
                 type = "shortcut";
             }
-            //Check if filename is english only.
-            if (/^[a-zA-Z\d .-=+]+$/.test(filename)) {
-                maxlength = 20;
+            //Check if it is under small text mode
+            if (size == "small"){
+                maxlength = 46;
+            }else if (size == "big"){
+                maxlength = 80;
             }else{
-                //Check if it is under small text mode
-                if (size == "small"){
-                    maxlength = 10;
+                maxlength = 66;
+            }
+            
+
+            var estimatedFilenameSize = 0;
+            if (type == "shortcut"){
+                estimatedFilenameSize = getTextPixelWidth(shortenedName);
+            }else{
+                estimatedFilenameSize = getTextPixelWidth(filename);
+                shortenedName = filename;
+                if (estimatedFilenameSize > (maxlength * 2 - 10)) {
+                    //This name is too long to fit inside two lines
+                    var newFilenameLength = getTextPixelWidth(shortenedName + "...");
+                    while (newFilenameLength >= (maxlength * 2 - 10)){
+                        shortenedName = shortenedName.substr(0, shortenedName.length - 1);
+                        newFilenameLength = getTextPixelWidth(shortenedName + "...");
+                    }
+
+                    shortenedName = shortenedName + "...";
                 }
             }
-          
 
-            if (type != "shortcut" && filename.length > maxlength) {
-                shortenedName = filename.substring(0, maxlength) + "...";
+            if (estimatedFilenameSize < (maxlength * 2 - 10)  && estimatedFilenameSize > (maxlength - 5) && shortenedName.indexOf(" ") > 0){
+                //This is short enough to fit inside two lines and it contains space
+                //Try to see if there is a combination of splitting that fit inside two lines
+                var filenameSegments = shortenedName.split(" ");
+                var segEnd = 1;
+                var currentSegmentText = filenameSegments[0];
+                var currentSegmentWidth = getTextPixelWidth(currentSegmentText);
+                var spaceWidth = getTextPixelWidth(" ");
+                while(segEnd < filenameSegments.length && (currentSegmentWidth + spaceWidth)  < (maxlength - 5)){
+                    //When it is not the last segment && can still fit more segment into current line
+                    currentSegmentText = currentSegmentText + " " + filenameSegments[segEnd];
+                    currentSegmentWidth = getTextPixelWidth(currentSegmentText);
+                    segEnd++;
+                }
+                //Back trace one segment
+                segEnd--;
+
+                //Build the filename segmentation
+                var line1 = "";
+                var line2 = "";
+                for (var i = 0; i < segEnd; i++){
+                    line1 += filenameSegments[i] + " ";
+                }
+                for (var i = segEnd; i < filenameSegments.length; i++){
+                    line2 += filenameSegments[i] + " ";
+                }
+
+                line1 = line1.trim();
+                line2 = line2.trim();
+                if (line1 != "" && line1 != ""){
+                    shortenedName = line1 + `<br>` + line2;
+                }else if (line1 == ""){
+                    shortenedName = line2;
+                }else if (line2 == ""){
+                    shortenedName = line1;
+                }
             }
+
             var compressedFiledata = ao_module_utils.objectToAttr(filedata);
             if (updateMode){
                 //Update the content that already exists for the same filepath object
@@ -3185,6 +3257,16 @@
             if (properties.type == "file" && isChrome){
                 htmlType = "a";
             }
+
+            var imageStyleOverride = "";
+            //Special type of override for files
+            if (properties.type == "shortcut"){
+                var fd = JSON.parse(decodeURIComponent(properties.compressedFiledata));
+                if (fd.ShortcutType == "url"){
+                    imageStyleOverride = `padding: 8px;`;
+                }
+            }
+            
            
             var thisIcon = $(`<${htmlType} href="javascript:void(0);" class="launchIcon" 
                     type="${properties.type}" 
@@ -3200,7 +3282,7 @@
                     filedata="${properties.compressedFiledata}" 
                     style="width:${properties.iwidth}px; height:${properties.iheight}px;left:${properties.screenX}px; top:${properties.screenY}px;">
                     <span class="launchIconWrapper">
-                        <img class="launchIconImage ${properties.size}" src="${properties.imagePath}" draggable="false"></img>
+                        <img class="launchIconImage ${properties.size}" src="${properties.imagePath}" style="${imageStyleOverride}" draggable="false"></img>
                         <p class="launchIconText ${properties.size}">${properties.shortenedName}</p>
                     </span>
                     </${htmlType}>`);
@@ -3264,7 +3346,10 @@
                                 data: {path: filedata.Filepath},
                                 success: function(data){
                                     $('#fileDescriptor').html(`<p>${filedata.Filename}<br><i class="file outline icon"></i> ${formatBytes(data.Filesize)} (${data.MimeType})<br><i class="time icon"></i> ${data.LastModTime}</p>`);
-                                    $('#fileDescriptor').show();
+                                    if (!(data.MimeType == undefined)){
+                                        $('#fileDescriptor').show();
+                                    }
+                                    
                                 }
                             })
                             
@@ -3427,14 +3512,49 @@
                     var targetLocation = findClosestGrid((ev.clientX), (ev.clientY), false);
                     var targetGridLocation = targetLocation[1];
                     var locations = [];
+                   
+                    //Rewrite of the upload file target location, 2022-02-02
+                    //Back step the y location of drag point by 1
+                    targetGridLocation[1] = targetGridLocation[1] - 1;
+                    var nextLocation = JSON.parse(JSON.stringify(targetGridLocation));
+                    for (var k =0; k < files.length; k++){
+                        //Add 1 to the file y position
+                        nextLocation[1] += 1;
+                        if (nextLocation[1] >= gridMaxY){
+                            //If y overflow, move to next x lane
+                            nextLocation[0] += 1;
+                            nextLocation[1] = 0;
+                        }
 
+                        if (nextLocation[0] >= desktopGrids.length){
+                            //Desktop full. Force put to 0 0 
+                            nextLocation[0] = 0;
+                            nextLocation[1] = 0;
+                            locations.push(JSON.parse(JSON.stringify(nextLocation)));
+                            continue;
+                        }
+
+
+                        //Check if this position is occupied, update next placement location if true
+                        console.log("Grid Location:", nextLocation[0], nextLocation[1]);
+                        while (getObjectFromGridLocation(nextLocation[0], nextLocation[1]) !== undefined){
+                            let gridLocation = getLocationFromGridIndex(nextLocation[0], nextLocation[1]);
+                            let newAssignmentLocation = findClostestEmptyGridLocation(gridLocation[0],gridLocation[1]);
+                            nextLocation = newAssignmentLocation[1];
+                            console.log("Not empty. Updating")
+                        }
+
+                        locations.push(JSON.parse(JSON.stringify(nextLocation)));
+                    }
+
+                    /*
                     for (var k =0; k < files.length; k++){
                         var thisLocation = JSON.parse(JSON.stringify(targetGridLocation));
                         //Add k to y axis of the list.
                         thisLocation[1] += k;
                         if (thisLocation[1] >= gridMaxY){
                                 thisLocation[0]++;
-                                thisLocation[1] = 0;
+                                thisLocation[1] = thisLocation[1] % gridMaxY;
                         }
                         if (thisLocation[1] >= gridMaxY && thisLocation[0] >= gridMaxX){
                             //Desktop full. Force put to 0 0 
@@ -3459,6 +3579,7 @@
                         }
                         locations.push(thisLocation)
                     }
+                    */
 
                     console.log(locations, ev.dataTransfer.files);
 
@@ -3469,6 +3590,7 @@
                         let x = parseInt(locations[j][0]);
                         let y = parseInt(locations[j][1]);
                         let uploadIconUUID = generateUploadingIcon(thisFile.name, [x,y]);
+                        var refreshTimer;
                         uploadFile(thisFile,function(){
                             console.log("Uploader callback");
                             $.ajax({
@@ -3477,7 +3599,11 @@
                                 data: {"set": thisFilename, "x": x, "y": y},
                                 success: function(data) {
                                     //Refresh the desktop
-                                    refresh(undefined, false);
+                                    clearTimeout(refreshTimer);
+                                    refreshTimer = setTimeout(function(){
+                                        refresh(undefined, false);
+                                    }, 500)
+                                    
                                 }
                             });
                         }, uploadIconUUID);
@@ -3925,6 +4051,10 @@
 
         //Similar function to getObjectFromLocation but using grid coordinate instead of pixel coordinate
         function getObjectFromGridLocation(gx, gy){
+            if (desktopGrids[gx] == undefined){
+                //X overflow
+                return false;
+            }
             var pos = JSON.parse(JSON.stringify(desktopGrids[gx][gy]));
             pos[0] = pos[0] + iconOffsetXY[0];
             pos[1] = pos[1] + iconOffsetXY[1];
@@ -3938,7 +4068,7 @@
             y = y - iconOffsetXY[1];
             //Get the grid index from absolute coordinate
             var currentGridLocation = getGridIndexFromLocation(x,y);
-            console.log(currentGridLocation);
+            //console.log(currentGridLocation);
             //Search for the next empty location
             var targetLocation = [[-1,-1],[-1,-1]];
             for (var i = currentGridLocation[0]; i < desktopGrids.length; i++){
@@ -4125,7 +4255,13 @@
                     openFolder(filedata.ShortcutPath)
                 }else if (stype == "url"){
                     //Open the target webpage in a new tab
-                    window.open(filedata.ShortcutPath);
+                    newFloatWindow({
+                        url: filedata.ShortcutPath,
+                        appicon: filedata.ShortcutImage,
+                        title: filedata.ShortcutName,
+                        parent: filedata.ShortcutPath
+                    })
+                    //window.open(filedata.ShortcutPath);
                 }else{
                     console.log(filedata);
                 }
@@ -4258,6 +4394,19 @@
                             if (data.error !== undefined){
                                 alert(data.error);
                             }else{
+                                //Delete the file's desktop location
+                                deleteFilenameList.forEach(file => {
+                                    $.ajax({
+                                        url: "system/desktop/files",
+                                        data: {del: file},
+                                        success: function(data){
+                                            if (data.error !== undefined){
+                                                console.log(data.error);
+                                            }
+                                           
+                                        }
+                                    });
+                                });
                                 refresh(undefined, true);
                             }
                         }
@@ -4265,18 +4414,7 @@
                 });
                 
 
-                //Delete the file's desktop location
-                deleteFilenameList.forEach(file => {
-                    $.ajax({
-                        url: "system/desktop/files",
-                        data: {del: file},
-                        success: function(data){
-                            if (data.error !== undefined){
-                                console.log(data.error);
-                            }
-                        }
-                    });
-                })
+                
                
             }else if (keycode == "112"){
                 //Enter key
@@ -5461,15 +5599,8 @@
                 launchOption = {
                     noflash: true
                 };
-            }else{
-                $(".launchIcon").each(function*(){
-                    if ($(this).attr("tyoe") == "dummy"){
-                        //Do not remove this
-                        return;
-                    }
-                    $(this).remove();
-                });
             }
+
             if (callback == undefined) {
                 initDesktopFiles(launchOption, function(){
                     startThumbnailLoader();
@@ -6123,8 +6254,19 @@
         function openSelectedFloatWindowInNewTab(){
             var fw = getFocusedFloatWindow();
             if (fw != undefined){
-                var currentURL = $(fw).find("iframe")[0].contentWindow.location;
-                window.open(currentURL);
+                try{
+                    var currentURL = $(fw).find("iframe")[0].contentWindow.location;
+                    window.open(currentURL);
+                }catch(ex){
+                    //Maybe CORS. Try to get it from window's parent properties
+                    let parentURL = $(fw).attr("parent");
+                    if (parentURL != undefined){
+                        window.open(parentURL);
+                    }else{
+                        console.log("Unable to access iframe object")
+                    }
+                }
+               
             }
             hideAllContextMenus();
         }
@@ -6168,6 +6310,80 @@
 
             hideAllContextMenus();
         }
+
+        /*
+        var screenshotBuf = [];
+        var totalFloatWindowsLeft = 0;
+        function screenshot(){
+            totalFloatWindowsLeft = $(".floatWindow").length;
+            screenshotBuf = [];
+            //Get a screenshot from each floatWindow
+            $(".floatWindow").each(function(){
+                let contentWindow = $(this).find("iframe")[0].contentWindow;
+                let offsets = [$(this).find("iframe").offset().left, $(this).find("iframe").offset().top];
+                let thisWindowId = $(this).attr("windowid");
+                if (contentWindow.ao_module_screenshot){
+                    contentWindow.ao_module_screenshot(function(capture){
+                        screenshotBuf.push([thisWindowId,offsets,capture]);
+                        totalFloatWindowsLeft--;
+
+                        if (totalFloatWindowsLeft == 0){
+                            //Merge the canvas
+                            mergeScreenshotCanvas();
+                        }
+                    })
+                }else{
+                    //Float window do not allow screenshot
+                }
+            });
+
+            if (totalFloatWindowsLeft == 0){
+                setTimeout(function(){
+                    mergeScreenshotCanvas();
+                }, 500);
+                
+            }
+        }
+
+        function mergeScreenshotCanvas(){
+            //Merge the screenshots
+            for (var i = 0; i < screenshotBuf.length; i++){
+                var thisWindowID = screenshotBuf[i][0];
+                var thisOffsets = screenshotBuf[i][1];
+                var thisCanvas = screenshotBuf[i][2];
+                var imgLink = thisCanvas.toDataURL();
+
+                //Overlay the iframe with image of screenshot
+                let targetFw = getFloatWindowByID(thisWindowID);
+                $(targetFw).find(".iframecover").append(`<img src="${imgLink}"/>`);
+                $(targetFw).find(".iframecover").show();
+            }
+
+            html2canvas(document.querySelector("body")).then(basecanvas => {
+                downloadCanvas(basecanvas);
+
+                //Clear up the mess
+                screenshotBuf.forEach(function(entry){
+                    let targetFw = getFloatWindowByID(entry[0]);
+                    $(targetFw).find(".iframecover").html("");
+                    $(targetFw).find(".iframecover").hide();
+                });
+
+                 //Reset paramters
+                totalFloatWindowsLeft = 0;
+                screenshotBuf = [];
+            });
+
+           
+        }
+
+        function downloadCanvas(canvas){
+            var aDownloadLink = document.createElement('a');
+            aDownloadLink.download = `screenshot_${new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'}).split(":").join("_").split("/").join("-")}.png`;
+            aDownloadLink.href = canvas.toDataURL();
+            aDownloadLink.click();
+        }
+        */
 
         //Function for converting bytes to human readable sizes
         function formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}

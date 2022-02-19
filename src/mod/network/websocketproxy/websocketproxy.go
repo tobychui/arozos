@@ -168,6 +168,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	// Now upgrade the existing incoming request to a WebSocket connection.
 	// Also pass the header that we gathered from the Dial handshake.
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	connPub, err := upgrader.Upgrade(rw, req, upgradeHeader)
 	if err != nil {
 		log.Printf("websocketproxy: couldn't upgrade %s", err)

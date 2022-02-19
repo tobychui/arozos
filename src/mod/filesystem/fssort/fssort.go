@@ -58,6 +58,8 @@ func SortFileList(filelistRealpath []string, sortMode string) []string {
 		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime > parsedFilelist[j].ModTime })
 	} else if sortMode == "leastRecent" {
 		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime })
+	} else if sortMode == "smart" {
+		parsedFilelist = SortNaturalFilelist(parsedFilelist)
 	}
 
 	results := []string{}
@@ -69,7 +71,7 @@ func SortFileList(filelistRealpath []string, sortMode string) []string {
 }
 
 func SortModeIsSupported(sortMode string) bool {
-	if !contains(sortMode, []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent"}) {
+	if !contains(sortMode, []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart"}) {
 		return false
 	}
 	return true

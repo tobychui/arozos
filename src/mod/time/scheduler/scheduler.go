@@ -295,7 +295,7 @@ func cronlog(message string) {
 	currentTime := time.Now()
 	timestamp := currentTime.Format("2006-01-02 15:04:05")
 	message = timestamp + " " + message
-	currentLogFile := filepath.ToSlash(filepath.Clean(logFolder)) + "/" + time.Now().Format("01-02-2006") + ".log"
+	currentLogFile := filepath.ToSlash(filepath.Clean(logFolder)) + "/" + time.Now().Format("2006-02-01") + ".log"
 	f, err := os.OpenFile(currentLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//Unable to write to file. Log to STDOUT instead

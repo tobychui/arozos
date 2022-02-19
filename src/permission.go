@@ -45,11 +45,11 @@ func permissionInit() {
 				if requestingUser != nil && requestingUser.IsAdmin() == true {
 					permissionHandler.HandleListGroup(w, r)
 				} else {
-					errorHandleNotLoggedIn(w, r)
+					errorHandlePermissionDenied(w, r)
 				}
 
 			} else {
-				errorHandleNotLoggedIn(w, r)
+				errorHandlePermissionDenied(w, r)
 				return
 			}
 		}

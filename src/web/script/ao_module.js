@@ -10,8 +10,14 @@
     E.g. ../script/ao_module.js (OK)
            /script/ao_module.js (NOT OK)
 */
+var ao_module_virtualDesktop = false;
+try{
+    ao_module_virtualDesktop = !(!parent.isDesktopMode);
+}catch(ex){
+    //Running ArozOS inside iframe for some reason
+    console.log("CORS Access Error. Entering compatibility mode with virtual desktop mode disabled.");
+}
 
-var ao_module_virtualDesktop = !(!parent.isDesktopMode);
 var ao_root = null;
 //Get the current windowID if in Virtual Desktop Mode, return false if VDI is not detected
 var ao_module_windowID = false;
@@ -66,6 +72,14 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
     }
+    /*
+     //Load html2canvas
+     if ($){
+        $.getScript(ao_root + "script/html2canvas.min.js", function() {
+            console.log("Html2canvas loaded")
+        });
+    }
+    */
 });
 
 /*
@@ -80,7 +94,11 @@ function ao_module_bindCustomIMEEvents(object){
     parent.bindObjectToIMEEvents(object);
 }
 
-
+function ao_module_screenshot(callback){
+    html2canvas(document.querySelector("body")).then(screenshot => {
+        return callback(screenshot);
+    });
+}
 
 //Get the ao_root from script includsion path
 function ao_module_getAORootFromScriptPath(){
@@ -934,7 +952,7 @@ class ao_module_utils{
         if (location.protocol !== 'https:') {
             protocol = "ws://";
         }
-        var port = window.location.port;
+        let port = window.location.port;
         if (window.location.port == ""){
             if (location.protocol !== 'https:') {
                 port = "80";
@@ -943,7 +961,7 @@ class ao_module_utils{
             }
             
         }
-        wsept = (protocol + window.location.hostname + ":" + port);
+        let wsept = (protocol + window.location.hostname + ":" + port);
         return wsept;
     }
     

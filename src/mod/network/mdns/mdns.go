@@ -25,12 +25,20 @@ type NetworkHost struct {
 	Vendor       string
 	BuildVersion string
 	MinorVersion string
+	MacAddr      []string
+	Online       bool
 }
 
 func NewMDNS(config NetworkHost) (*MDNSHost, error) {
+	//Get host MAC Address
+	macAddress, err := getMacAddr()
+	macAddressBoardcast := ""
+	if err == nil {
+		macAddressBoardcast = strings.Join(macAddress, ",")
+	}
+
 	//Register the mds services
-	//server, err := zeroconf.Register("ArOZ", "_http._tcp", "local.", *listen_port, []string{"version_build=" + build_version, "version_minor=" + internal_version, "vendor=" + deviceVendor, "model=" + deviceModel, "uuid=" + deviceUUID, "domain=aroz.online"}, nil)
-	server, err := zeroconf.Register(config.HostName, "_http._tcp", "local.", config.Port, []string{"version_build=" + config.BuildVersion, "version_minor=" + config.MinorVersion, "vendor=" + config.Vendor, "model=" + config.Model, "uuid=" + config.UUID, "domain=" + config.Domain}, nil)
+	server, err := zeroconf.Register(config.HostName, "_http._tcp", "local.", config.Port, []string{"version_build=" + config.BuildVersion, "version_minor=" + config.MinorVersion, "vendor=" + config.Vendor, "model=" + config.Model, "uuid=" + config.UUID, "domain=" + config.Domain, "mac_addr=" + macAddressBoardcast}, nil)
 	if err != nil {
 		return &MDNSHost{}, err
 	}
@@ -76,6 +84,15 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 					}
 				}
 
+				var macAddrs []string
+				val, ok := properties["mac_addr"]
+				if !ok || val == "" {
+					//No MacAddr found. Target node version too old
+					macAddrs = []string{}
+				} else {
+					macAddrs = strings.Split(properties["mac_addr"], ",")
+				}
+
 				//log.Println(properties)
 				discoveredHost = append(discoveredHost, &NetworkHost{
 					HostName:     entry.HostName,
@@ -87,6 +104,8 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 					Vendor:       properties["vendor"],
 					BuildVersion: properties["version_build"],
 					MinorVersion: properties["version_minor"],
+					MacAddr:      macAddrs,
+					Online:       true,
 				})
 
 			} else {
@@ -102,6 +121,15 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 						}
 					}
 
+					var macAddrs []string
+					val, ok := properties["mac_addr"]
+					if !ok || val == "" {
+						//No MacAddr found. Target node version too old
+						macAddrs = []string{}
+					} else {
+						macAddrs = strings.Split(properties["mac_addr"], ",")
+					}
+
 					//log.Println(properties)
 					discoveredHost = append(discoveredHost, &NetworkHost{
 						HostName:     entry.HostName,
@@ -113,6 +141,8 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 						Vendor:       properties["vendor"],
 						BuildVersion: properties["version_build"],
 						MinorVersion: properties["version_minor"],
+						MacAddr:      macAddrs,
+						Online:       true,
 					})
 
 				}
@@ -129,7 +159,8 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 		log.Fatalln("Failed to browse:", err.Error())
 	}
 
-	<-ctx.Done()
+	//Update the master scan record
 
+	<-ctx.Done()
 	return discoveredHost
 }

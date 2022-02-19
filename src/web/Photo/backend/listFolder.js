@@ -1,33 +1,63 @@
-var loadedfile = requirelib("filelib");
-if (!loadedfile) {
-    console.log("Failed to load lib filelib, terminated.");
+requirelib("filelib")
+
+function getExt(filename){
+    return filename.split(".").pop();
 }
 
-var folderList = filelib.glob("user:/Photo/*");
-var arr = [];
-//add main folder
-var img = ChooseFirstImage("user:/Photo/");
-arr.push({ VPath: "user:/Photo/", Foldername: "Root folder", img: img })
+function isImage(filename){
+    var ext = getExt(filename);
+    ext = ext.toLowerCase();
+    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp"){
+        return true;
+    }
+    return false;
+}
 
-for (var i = 0; i < folderList.length; i++) {
-    var fldname = folderList[i].split("/")
-    if (filelib.isDir(folderList[i]) && folderList[i] != "user:/Photo/thumbnails" && fldname[fldname.length - 1].substring(0, 1) != ".") {
-        var img = ChooseFirstImage(folderList[i]);
-        arr.push({ VPath: folderList[i] + "/", Foldername: folderList[i].split("/").pop(), img: img })
+function isHiddenFile(filepath){
+    var filename = filepath.split("/").pop();
+    if (filename.substring(0, 1) == "."){
+        return true;
+    }else{
+        return false;
     }
 }
 
-function ChooseFirstImage(folder) {
-    var fileList = filelib.glob(folder + "/*.*");
-    for (var i = 0; i < fileList.length; i++) {
-        if (!filelib.isDir(fileList[i])) { //Well I don't had isFile, then use !isDir have same effect.
-            var subFilename = fileList[i].split(".").pop().toLowerCase();
-            if (["jpg", "jpeg", "gif", "png"].indexOf(subFilename) >= 0) {
-                return "/media/?file=" + fileList[i];
+function folderContainSubFiles(filepath){
+    var results = filelib.aglob(filepath + "/*", "user");
+    if (results.length > 0){
+        return true;
+    }
+    return false;
+}
+
+function dirname(filepath){
+    var tmp = filepath.split("/");
+    tmp.pop();
+    return tmp.join("/");
+}
+
+
+function main(){
+    //Scan the folder
+    var results = filelib.aglob(folder, "user");
+
+    //Sort the files
+    var files = [];
+    var folders = [];
+    for (var i = 0; i < results.length; i++){
+        var thisFile = results[i];
+        if (filelib.isDir(thisFile)){
+            if (!isHiddenFile(thisFile) && folderContainSubFiles(thisFile)){
+                folders.push(thisFile);
+            }
+            
+        }else{
+            if (isImage(thisFile)){
+                files.push(thisFile);
             }
         }
     }
-    return "/Photo/img/desktop_icon.png";
+    sendJSONResp(JSON.stringify([folders, files]));	
 }
 
-sendJSONResp(JSON.stringify(arr))
+main();

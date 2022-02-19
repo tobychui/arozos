@@ -51,14 +51,15 @@ func RunStartup() {
 	PackagManagerInit() //Start APT service agent
 
 	//7. Kickstart the File System and Desktop
-	SchedulerInit()  //Start System Scheudler
-	FileSystemInit() //Start FileSystem
-	DesktopInit()    //Start Desktop
+	NightlyTasksInit() //Start Nightly task scheduler
+	FileSystemInit()   //Start FileSystem
+	DesktopInit()      //Start Desktop
 
 	//StorageDaemonInit() //Start File System handler daemon (for backup and other sync process)
 
 	//8 Start AGI and Subservice modules (Must start after module)
 	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
+	SchedulerInit()  //Start System Scheudler
 	SubserviceInit() //Subservice Handler
 
 	//9. Initiate System Settings Handlers

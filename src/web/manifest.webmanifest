@@ -1,9 +1,9 @@
 {
-    "name": "Arozos Mobile",
-    "short_name": "arozos",
+    "name": "ArozOS Mobile",
+    "short_name": "ArozOS",
     "start_url": "./mobile.system",
     "display": "standalone",
-    "background_color": "#171717",
+    "background_color": "#f2f2f2",
     "description": "Connecting to your arozos with one shortcut",
     "icons": [{
         "src": "img/public/pwa/192.png",

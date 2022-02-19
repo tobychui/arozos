@@ -106,6 +106,11 @@ func main() {
 	*/
 	RunStartup()
 
+	/*
+		Development build test execution
+	*/
+	Run_Test()
+
 	//Initiate all the static files transfer
 	fs := http.FileServer(http.Dir("./web"))
 	if *enable_gzip {

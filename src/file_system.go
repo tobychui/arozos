@@ -29,6 +29,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
 	fsp "imuslab.com/arozos/mod/filesystem/fspermission"
+	"imuslab.com/arozos/mod/filesystem/fuzzy"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
@@ -122,7 +123,7 @@ func FileSystemInit() {
 		Version:      "1.0",
 		StartDir:     "SystemAO/file_system/trashbin.html",
 		SupportFW:    true,
-		InitFWSize:   []int{1080, 580},
+		InitFWSize:   []int{400, 200},
 		LaunchFWDir:  "SystemAO/file_system/trashbin.html",
 		SupportEmb:   false,
 		SupportedExt: []string{"*"},
@@ -305,6 +306,9 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 		js, _ := json.Marshal(results)
 		sendJSONResponse(w, string(js))
 	} else {
+		//Updates 2022-02-16: Build the fuzzy matcher if it is not a wildcard search
+		matcher := fuzzy.NewFuzzyMatcher(keyword, casesensitve == "true")
+
 		//Recursive keyword
 		results := []fs.FileData{}
 		var err error = nil
@@ -319,7 +323,7 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 					if casesensitve != "true" {
 						filename = strings.ToLower(filename)
 					}
-					if strings.Contains(filename, keyword) {
+					if matcher.Match(filename) {
 						//This is a matching file
 						if !fs.IsInsideHiddenFolder(fileData.Filepath) {
 							results = append(results, fileData)
@@ -340,14 +344,16 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 				if casesensitve != "true" {
 					thisFilename = strings.ToLower(thisFilename)
 				}
-				if strings.Contains(thisFilename, keyword) {
-					//This is a matching file
-					if !fs.IsInsideHiddenFolder(path) {
+
+				if !fs.IsInsideHiddenFolder(path) {
+					if matcher.Match(thisFilename) {
+						//This is a matching file
 						thisVpath, _ := userinfo.RealPathToVirtualPath(path)
 						results = append(results, fs.GetFileDataFromPath(thisVpath, path, 2))
-					}
 
+					}
 				}
+
 				return nil
 			})
 		}
@@ -421,6 +427,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Start websocket connection
 	var upgrader = websocket.Upgrader{}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Failed to upgrade websocket connection: ", err.Error())
@@ -628,6 +635,9 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	storeFilename := handler.Filename //Filename of the uploaded file
 
+	//Get request time
+	uploadStartTime := time.Now().UnixNano() / int64(time.Millisecond)
+
 	//Update for Firefox 94.0.2 (x64) -> Now firefox put its relative path inside Content-Disposition -> filename
 	//Skip this handler logic if Firefox version is in between 84.0.2 to 94.0.2
 	bypassMetaCheck := compatibility.FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(r.UserAgent())
@@ -748,9 +758,13 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	log.Println(userinfo.Username + " uploaded a file: " + handler.Filename)
 
 	//Do upload finishing stuff
-	//Perform a GC
-	runtime.GC()
 
+	//Add a delay to the complete message to make sure browser catch the return value
+	currentTimeMilli := time.Now().UnixNano() / int64(time.Millisecond)
+	if currentTimeMilli-uploadStartTime < 100 {
+		//Sleep until at least 300 ms
+		time.Sleep(time.Duration(100 - (currentTimeMilli - uploadStartTime)))
+	}
 	//Completed
 	sendOK(w)
 }
@@ -801,6 +815,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 
 	//Upgrade to websocket
 	var upgrader = websocket.Upgrader{}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -1256,6 +1271,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 
 	//Upgrade to websocket
 	var upgrader = websocket.Upgrader{}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -1375,7 +1391,8 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if operation == "move" {
-				err := fs.FileMove(rsrcFile, rdestFile, existsOpr, false, func(progress int, currentFile string) {
+				underSameRoot, _ := fs.UnderTheSameRoot(rsrcFile, rdestFile)
+				err := fs.FileMove(rsrcFile, rdestFile, existsOpr, underSameRoot, func(progress int, currentFile string) {
 					//Multply child progress to parent progress
 					blockRatio := float64(100) / float64(len(sourceFiles))
 					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
@@ -1644,23 +1661,25 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//Check if use fast move instead
 				//Check if the source and destination folder are under the same root. If yes, use os.Rename for faster move operations
 
-				underSameRoot := false
 				//Check if the two files are under the same user root path
 
 				srcAbs, _ := filepath.Abs(rsrcFile)
 				destAbs, _ := filepath.Abs(rdestFile)
 
 				//Check other storage path and see if they are under the same root
-				for _, rootPath := range userinfo.GetAllFileSystemHandler() {
-					thisRoot := rootPath.Path
-					thisRootAbs, err := filepath.Abs(thisRoot)
-					if err != nil {
-						continue
-					}
-					if strings.Contains(srcAbs, thisRootAbs) && strings.Contains(destAbs, thisRootAbs) {
-						underSameRoot = true
-					}
-				}
+				/*
+					for _, rootPath := range userinfo.GetAllFileSystemHandler() {
+						thisRoot := rootPath.Path
+						thisRootAbs, err := filepath.Abs(thisRoot)
+						if err != nil {
+							continue
+						}
+						if strings.Contains(srcAbs, thisRootAbs) && strings.Contains(destAbs, thisRootAbs) {
+							underSameRoot = true
+						}
+					}*/
+
+				underSameRoot, _ := fs.UnderTheSameRoot(srcAbs, destAbs)
 
 				//Updates 19-10-2020: Added ownership management to file move and copy
 				userinfo.RemoveOwnershipFromFile(rsrcFile)
@@ -2058,30 +2077,6 @@ func system_fs_specialURIEncode(inputPath string) string {
 
 //Handle file properties request
 func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
-	}
-
-	vpath, err := mv(r, "path", true)
-	if err != nil {
-		sendErrorResponse(w, "path not defined")
-		return
-	}
-
-	rpath, err := userinfo.VirtualPathToRealPath(vpath)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
-	}
-
-	fileStat, err := os.Stat(rpath)
-	if err != nil {
-		sendErrorResponse(w, err.Error())
-		return
-	}
-
 	type fileProperties struct {
 		VirtualPath    string
 		StoragePath    string
@@ -2098,69 +2093,116 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		Owner          string
 	}
 
-	mime := "text/directory"
-	if !fileStat.IsDir() {
-		m, _, err := fs.GetMime(rpath)
-		if err != nil {
-			mime = ""
+	result := fileProperties{}
+
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	vpath, err := mv(r, "path", true)
+	if err != nil {
+		sendErrorResponse(w, "path not defined")
+		return
+	}
+
+	vrootID, subpath, _ := filesystem.GetIDFromVirtualPath(vpath)
+	if vrootID == "share" && subpath == "" {
+		result = fileProperties{
+			VirtualPath:    vpath,
+			StoragePath:    "(Emulated File System)",
+			Basename:       "Share",
+			VirtualDirname: filepath.ToSlash(filepath.Dir(vpath)),
+			StorageDirname: "N/A",
+			Ext:            "N/A",
+			MimeType:       "emulated/fs",
+			Filesize:       -1,
+			Permission:     "N/A",
+			LastModTime:    "N/A",
+			LastModUnix:    0,
+			IsDirectory:    true,
+			Owner:          "system",
 		}
-		mime = m
-	}
+	} else {
+		rpath, err := userinfo.VirtualPathToRealPath(vpath)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
 
-	filesize := fileStat.Size()
-	//Get file overall size if this is folder
-	if fileStat.IsDir() {
-		var size int64
-		filepath.Walk(rpath, func(_ string, info os.FileInfo, err error) error {
+		fileStat, err := os.Stat(rpath)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
+
+		mime := "text/directory"
+		if !fileStat.IsDir() {
+			m, _, err := fs.GetMime(rpath)
 			if err != nil {
+				mime = ""
+			}
+			mime = m
+		}
+
+		filesize := fileStat.Size()
+		//Get file overall size if this is folder
+		if fileStat.IsDir() {
+			var size int64
+			filepath.Walk(rpath, func(_ string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if !info.IsDir() {
+					size += info.Size()
+				}
 				return err
-			}
-			if !info.IsDir() {
-				size += info.Size()
-			}
-			return err
-		})
-		filesize = size
-	}
+			})
+			filesize = size
+		}
 
-	//Get file owner
-	owner := userinfo.GetFileOwner(rpath)
+		//Get file owner
+		owner := userinfo.GetFileOwner(rpath)
 
-	if owner == "" {
-		//Handle special virtual roots
-		vrootID, subpath, _ := filesystem.GetIDFromVirtualPath(vpath)
-		if vrootID == "share" {
-			//Share objects
-			shareOption, _ := shareEntryTable.ResolveShareOptionFromShareSubpath(subpath)
-			if shareOption != nil {
-				owner = shareOption.Owner
+		if owner == "" {
+			//Handle special virtual roots
+			vrootID, subpath, _ := filesystem.GetIDFromVirtualPath(vpath)
+			if vrootID == "share" {
+				//Share objects
+				shareOption, _ := shareEntryTable.ResolveShareOptionFromShareSubpath(subpath)
+				if shareOption != nil {
+					owner = shareOption.Owner
+				} else {
+					owner = "Unknown"
+				}
 			} else {
 				owner = "Unknown"
 			}
-		} else {
-			owner = "Unknown"
+
 		}
 
-	}
+		result = fileProperties{
+			VirtualPath:    vpath,
+			StoragePath:    filepath.Clean(rpath),
+			Basename:       filepath.Base(rpath),
+			VirtualDirname: filepath.ToSlash(filepath.Dir(vpath)),
+			StorageDirname: filepath.ToSlash(filepath.Dir(rpath)),
+			Ext:            filepath.Ext(rpath),
+			MimeType:       mime,
+			Filesize:       filesize,
+			Permission:     fileStat.Mode().Perm().String(),
+			LastModTime:    timeToString(fileStat.ModTime()),
+			LastModUnix:    fileStat.ModTime().Unix(),
+			IsDirectory:    fileStat.IsDir(),
+			Owner:          owner,
+		}
 
-	result := fileProperties{
-		VirtualPath:    vpath,
-		StoragePath:    filepath.Clean(rpath),
-		Basename:       filepath.Base(rpath),
-		VirtualDirname: filepath.ToSlash(filepath.Dir(vpath)),
-		StorageDirname: filepath.ToSlash(filepath.Dir(rpath)),
-		Ext:            filepath.Ext(rpath),
-		MimeType:       mime,
-		Filesize:       filesize,
-		Permission:     fileStat.Mode().Perm().String(),
-		LastModTime:    timeToString(fileStat.ModTime()),
-		LastModUnix:    fileStat.ModTime().Unix(),
-		IsDirectory:    fileStat.IsDir(),
-		Owner:          owner,
 	}
 
 	jsonString, _ := json.Marshal(result)
 	sendJSONResponse(w, string(jsonString))
+
 }
 
 /*

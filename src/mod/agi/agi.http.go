@@ -2,6 +2,7 @@ package agi
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -192,6 +193,34 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		return otto.TrueValue()
 	})
 
+	vm.Set("_http_getb64", func(call otto.FunctionCall) otto.Value {
+		//Get URL from function variable and return bytes as base64
+		url, err := call.Argument(0).ToString()
+		if err != nil {
+			return otto.NullValue()
+		}
+
+		//Get respond of the url
+		res, err := http.Get(url)
+		if err != nil {
+			return otto.NullValue()
+		}
+
+		bodyContent, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return otto.NullValue()
+		}
+
+		sEnc := base64.StdEncoding.EncodeToString(bodyContent)
+
+		r, err := otto.ToValue(string(sEnc))
+		if err != nil {
+			log.Println(err.Error())
+			return otto.NullValue()
+		}
+		return r
+	})
+
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`
 		var http = {};
@@ -199,6 +228,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		http.post = _http_post;
 		http.head = _http_head;
 		http.download = _http_download;
+		http.getb64 = _http_getb64;
 	`)
 
 }

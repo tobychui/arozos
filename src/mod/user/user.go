@@ -32,6 +32,8 @@ type User struct {
 }
 
 type UserHandler struct {
+	UniversalModules []string //Modules where all user can access
+
 	authAgent       *auth.AuthAgent
 	database        *db.Database
 	phandler        *permission.PermissionHandler

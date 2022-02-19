@@ -215,6 +215,9 @@ one of these functions has to be called.
 ```
 sendResp(string)	=> Response header with text/plain header
 sendJSONResp(json_string) => Response request with JSON header
+
+//Since v1.119
+sendJSONResp(object) => Overload function, allow the same API to send Javascript object directly without the need for manual stringify using JSON.stringify
 ```
 
 Customize header:
@@ -455,6 +458,7 @@ For glob and aglob, developer can pass in the following sorting modes (case sens
 - largeToSmall
 - mostRecent
 - leastRecent
+- smart (Added in v1.119, AGI only, for sorting filename containing digits with no zero pads)
 
 ```
 //Example for sorting the desktop files to largeToSmall
@@ -502,7 +506,14 @@ imagelib.getImageDimension("user:/Desktop/test.jpg"); 									//return [width, 
 imagelib.resizeImage("user:/Desktop/input.png", "user:/Desktop/output.png", 500, 300); 	//Resize input.png to 500 x 300 pixal and write to output.png
 imagelib.loadThumbString("user:/Desktop/test.jpg"); //Load the given file's thumbnail as base64 string, return false if failed
 imagelib.cropImage("user:/Desktop/test.jpg", "user:/Desktop/out.jpg",100,100,200,200)); 
-/*
+//Classify an image using neural network, since v1.119
+imagelib.classify("tmp:/classify.jpg", "yolo3"); 
+
+```
+
+#### Crop Image Options
+
+```
 Crop the given image with the following arguemnts: 
 
 1) Input file (virtual path)
@@ -513,12 +524,50 @@ Crop the given image with the following arguemnts:
 6) Crop Height
 
 return true if success, false if failed
-*/
-
-
 ```
 
+
+
+#### AI Classifier Options (since v1.119)
+
+**ImageLib AI Classifier requires darknet to operate normally. If your ArozOS is a trim down version or using a host architecture that ArozOS did not ship with a valid darknet binary executable in ```system/neuralnet/``` folder, this will always return```false```.**
+
+```
+Classify allow the following classifier options
+
+1) default / darknet19
+2) yolo3
+```
+
+The output of the classifier will output the followings
+
+```
+Name (string, the name of object detected)
+Percentage (float, the confidence of detection)
+Positions (integer array, the pixel location of the detected object in left, top, width, height sequence)
+```
+
+Here is an example code for parsing the output, or you can also directly throw it into the JSON stringify and process it on frontend
+
+```javascript
+ var results = imagelib.classify("tmp:/classify.jpg"); 
+    var responses = [];
+    for (var i = 0; i < results.length; i++){
+        responses.push({
+            "object": results[i].Name,
+            "confidence": results[i].Percentage,
+            "position_x": results[i].Positions[0],
+            "position_y": results[i].Positions[1],
+            "width": results[i].Positions[2],
+            "height": results[i].Positions[3]
+        });
+    }
+```
+
+
+
 ### http
+
 A basic http function group that allow GET / POST / HEAD / Download request to other web resources
 
 ```

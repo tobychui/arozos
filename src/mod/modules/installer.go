@@ -15,7 +15,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	agi "imuslab.com/arozos/mod/agi"
 	fs "imuslab.com/arozos/mod/filesystem"
-	user "imuslab.com/arozos/mod/user"
 )
 
 /*
@@ -67,6 +66,23 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 	os.RemoveAll(unzipTmpFolder)
 
 	//OK
+	return nil
+}
+
+//Reload all modules from agi file again
+func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
+	//Clear the current registered module list
+	newModuleList := []*ModuleInfo{}
+	for _, thisModule := range m.LoadedModule {
+		if !thisModule.allowReload {
+			//This module is registered by system. Do not allow reload
+			newModuleList = append(newModuleList, thisModule)
+		}
+	}
+	m.LoadedModule = newModuleList
+	//Reload all webapp init.agi gateway script from source
+	gateway.InitiateAllWebAppModules()
+	m.ModuleSortList()
 	return nil
 }
 
@@ -210,16 +226,10 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 	sendJSONResponse(w, string(js))
 }
 
-//Install a module from zip file located in the given vpath
-func (m *ModuleHandler) InstallModuleFromZip(vpath string, u *user.User) error {
-
-	return nil
-}
-
 //Uninstall the given module
 func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	//Check if this module is allowed to be removed
-	var targetModuleInfo ModuleInfo
+	var targetModuleInfo *ModuleInfo = nil
 	for _, mod := range m.LoadedModule {
 		if mod.Name == moduleName {
 			targetModuleInfo = mod
@@ -239,7 +249,7 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 		os.RemoveAll(filepath.Join("./web", moduleName))
 
 		//Unregister the module from loaded list
-		newLoadedModuleList := []ModuleInfo{}
+		newLoadedModuleList := []*ModuleInfo{}
 		for _, thisModule := range m.LoadedModule {
 			if thisModule.Name != moduleName {
 				newLoadedModuleList = append(newLoadedModuleList, thisModule)

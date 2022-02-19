@@ -24,7 +24,7 @@
         min-width:calc(100% - 500px);
         min-height:100%;
         background-color:#faf7eb;
-        background-image:url("img/public/auth_bg.svg");
+        background-image:url("img/public/auth_bg.jpg");
         -webkit-background-size: cover;
         -moz-background-size: cover;
         -o-background-size: cover;
@@ -70,16 +70,22 @@
         margin-bottom:15px;
     }
 
+    .themecolor{
+        background-color: #5fa0d9 !important;
+    }
+
+    .subthemecolor{
+        background-color: #99d0f2 !important;
+    }
+
     .loginbtn{
         color:white !important;
         margin-top:4em;
-        background-color:#686c89 !important;
     }
 
     .oauthbtn{
         color:white !important;
         margin-top:1em;
-        background-color:#a45b6a !important;
     }
 
     </style>
@@ -95,7 +101,7 @@
             <div class="ts borderless basic segment">
                 <p><i class="key icon"></i> Sign in <span class="hostname">ArozOS</span> with your username and password</p>
                 <div class="oauthonly" style="display:none;">
-                    <a class="ts fluid small button oauthbtn" href="system/auth/oauth/login">Sign In via OAuth 2.0</a><br>
+                    <a class="ts fluid small button oauthbtn subthemecolor" href="system/auth/oauth/login">Sign In via OAuth 2.0</a><br>
                 </div>
                 <br>
                 <div class="ts fluid input textbox">
@@ -111,7 +117,7 @@
                 </div>
                 
                 <br>
-                <button id="loginbtn" class="ts button loginbtn">Sign In</button><br>
+                <button id="loginbtn" class="ts button loginbtn themecolor">Sign In</button><br>
                 <div class="ts breadcrumb" style="margin-top:12px;">
                     <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
                     <div class="divider signup"> / </div>
@@ -267,7 +273,6 @@
 
         }
 
-        //https://stackoverflow.com/questions/831030/how-to-get-get-request-parameters-in-javascript
         function get(name){
             if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
                 return decodeURIComponent(name[1]);

@@ -10,6 +10,7 @@ tmp/*
 files/users*
 __debug_bin
 experimentals/*
+updates/*
 
 #Database related
 *.db
@@ -29,6 +30,7 @@ system/storage.json
 system/bridge.json
 system/storage/*.json
 system/cron.json
+system/neuralnet/predictions.jpg
 
 #Logs related
 system/aecron/*.log
@@ -62,3 +64,4 @@ upx.exe
 start.sh.backup
 *.backup
 system/bridge.json
+launcher.exe

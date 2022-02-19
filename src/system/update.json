@@ -1,0 +1,29 @@
+{
+	"Vendor":"ArozOS Github",
+	"binary":{
+		"windows": {
+			"amd64":"https://github.com/tobychui/arozos/releases/latest/download/arozos_windows_amd64.exe",
+			"arm":"",
+			"arm64":"",
+			"i386":""
+		},
+		"linux":{
+			"arm":"https://github.com/tobychui/arozos/releases/latest/download/arozos_linux_arm",
+			"armv7":"https://github.com/tobychui/arozos/releases/latest/download/arozos_linux_armv7",
+			"arm64":"https://github.com/tobychui/arozos/releases/latest/download/arozos_linux_arm64",
+			"amd64":"https://github.com/tobychui/arozos/releases/latest/download/arozos_linux_amd64",
+			"mipsle":""
+		},
+		"darwin":{
+			"amd64":"https://github.com/tobychui/arozos/releases/latest/download/arozos_darwin_amd64",
+			"arm64":""
+		},
+		"freebsd":{
+			"amd64":"",
+			"arm":"",
+			"arm64":"",
+			"i386":""
+		}
+	},
+	"webpack":"https://github.com/tobychui/arozos/releases/latest/download/web.tar.gz"
+}

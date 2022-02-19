@@ -126,6 +126,13 @@
                 <input id="urlShortcut" type="text" placeholder="Website URL">
                 <i class="globe icon"></i>
               </div>
+            <br>
+            <p>Enter the shortcut icon for desktop / floatWindow icon</p>
+            <div class="ui icon fluid input">
+                <input id="urlShortcutImage" type="text" placeholder="Shortcut Logo" value="">
+                <i class="image icon"></i>
+              </div>
+            <br>
             <br><br>
             <button class="ui primary button" onclick="createURLShortcut();">
                 Next
@@ -260,7 +267,10 @@
             }
             var urlchunk = url.split("/");
             var iconpath = urlchunk[0] + "//" + urlchunk[2] + "/favicon.ico";
-
+            if ($("#urlShortcutImage").val() != ""){
+                iconpath = $("#urlShortcutImage").val().trim();
+            }
+            
             generateShortcutFile("url",shortcutname, url, iconpath);
             $(".stageTwo").slideUp();
             $("#stepTwoState").addClass("completed");

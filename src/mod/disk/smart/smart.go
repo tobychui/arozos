@@ -130,8 +130,11 @@ func getBinary() string {
 	if runtime.GOOS == "windows" {
 		return ".\\system\\disk\\smart\\win\\smartctl.exe"
 	} else if runtime.GOOS == "linux" {
-		if runtime.GOARCH == "arm" || runtime.GOARCH == "arm64" {
+		if runtime.GOARCH == "arm" {
 			return "./system/disk/smart/linux/smartctl_armv6"
+		}
+		if runtime.GOARCH == "arm64" {
+			return "./system/disk/smart/linux/smartctl_arm64"
 		}
 		if runtime.GOARCH == "386" || runtime.GOARCH == "amd64" {
 			return "./system/disk/smart/linux/smartctl_i386"

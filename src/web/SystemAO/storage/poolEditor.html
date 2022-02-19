@@ -321,6 +321,8 @@
                 diskIcon = "grey disk";
             }else if (Hierarchy == "backup"){
                 diskIcon = "green refresh";
+            }else if (Hierarchy == "share"){
+                diskIcon = "violet share alternate";
             }
 
             return diskIcon;
@@ -370,11 +372,16 @@
                         }
 
                         var diskIcon = getDiskIcon(storage.Hierarchy);
-
+                        var storagePath = "";
+                        if (storage.Filesystem == "virtual"){
+                            storagePath = "(Virtual / Emulated File System)"
+                        }else{
+                            storagePath = storage.Path;
+                        }
                         $("#fshList").append(`<div class="ui ${color} segment fsh" uuid="${storage.UUID}">
                             <h3><i class="${diskIcon} icon typeicon"></i> ${storage.Name} (${storage.UUID}:/)</h3>
                             <ol class="ui list">
-                                <li value="-"><i class="folder icon"></i> Mount Point: ${storage.Path}</li>
+                                <li value="-"><i class="folder icon"></i> Mount Point: ${storagePath}</li>
                                 <li value="-"><i class="user icon"></i> Hierarchy: ${storage.Hierarchy}</li>
                                 <li value="-" class="${!storage.ReadOnly}"> <i class="edit icon"></i> Can Write:  ${!storage.ReadOnly}</li>
                                 <li value="-" class="${!storage.Closed}"> <i class="${usableIcon} icon"></i> Usable:  ${!storage.Closed}</li>
@@ -392,7 +399,7 @@
                     });
 
                     $(".fsh").each(function(){
-                        if ($(this).attr("uuid") == "user" || $(this).attr("uuid") == "tmp"){
+                        if (isReservedFSH($(this).attr("uuid"))){
                             //System storage pool. Do not allow editing
                             $(this).find(".controls").html("System Reserved")
                             $(this).attr("class", "ui yellow segment fsh");
@@ -445,7 +452,7 @@
                             if (allFSH.includes(ofsh) == false){
                                 //Currently online but not in original config. aka Delete Pending or it is bridged
                                 $(".fsh").each(function(){
-                                    if ($(this).attr("uuid") == ofsh && !($(this).attr("uuid") == "user" || $(this).attr("uuid") == "tmp")){
+                                    if ($(this).attr("uuid") == ofsh && !isReservedFSH($(this).attr("uuid"))){
                                         let targetDOMElement = $(this);
                                         $.ajax({
                                             url: "../../system/storage/pool/checkBridge",
@@ -472,6 +479,15 @@
                         });
                     }); 
             });
+        }
+
+        function isReservedFSH(uuid){
+            uuid = uuid.trim();
+            if (uuid == "user" || uuid == "tmp" || uuid == "share"){
+                return true;
+            }else{
+                return false;
+            }
         }
 
         function handleHierarchyChange(newHierarchy){

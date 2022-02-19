@@ -4,7 +4,23 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+
+	user "imuslab.com/arozos/mod/user"
 )
+
+//Check if the user can access this script file
+func checkUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope string) bool {
+	moduleName := getScriptRoot(scriptFile, scriptScope)
+	if !thisuser.GetModuleAccessPermission(moduleName) {
+		return false
+	}
+	return true
+}
+
+//validate the given path is a script from webroot
+func isValidAGIScript(scriptPath string) bool {
+	return fileExists(filepath.Join("./web", scriptPath)) && (filepath.Ext(scriptPath) == ".js" || filepath.Ext(scriptPath) == ".agi")
+}
 
 //Return the script root of the current executing script
 func getScriptRoot(scriptFile string, scriptScope string) string {

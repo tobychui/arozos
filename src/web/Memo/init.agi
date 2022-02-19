@@ -1,0 +1,23 @@
+/*
+	Memo Apps
+
+	A simple memo marking app for ArozOS
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Memo",
+	Desc: "A simple Memo App for ArozOS",
+	Group: "Office",
+	IconPath: "Memo/img/small_icon.png",
+	Version: "0.1.0",
+	StartDir: "Memo/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Memo/index.html",
+	SupportEmb: false,
+	InitFWSize: [475, 700]
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

@@ -27,8 +27,6 @@ require (
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/robertkrimen/otto v0.0.0-20191219234010-c382bd3c16ff
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartystreets/cproxy v1.0.2
-	github.com/smartystreets/logging v1.1.1 // indirect
 	github.com/spf13/afero v1.3.1
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/tidwall/pretty v1.0.2

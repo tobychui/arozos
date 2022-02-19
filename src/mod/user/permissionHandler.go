@@ -21,6 +21,9 @@ func (u *User) GetModuleAccessPermission(moduleName string) bool {
 		} else if inSliceIgnoreCase(pg.AccessibleModules, moduleName) {
 			//This permission group contain the module we want. Allow accessed
 			return true
+		} else if inSliceIgnoreCase(u.parent.UniversalModules, moduleName) {
+			//This is system tools or utilities that everyone is allowed to access
+			return true
 		} else if moduleName == strings.ToLower(pg.DefaultInterfaceModule) {
 			//This is the interfacing module for the group this user is in
 			return true
@@ -33,10 +36,24 @@ func (u *User) GetModuleAccessPermission(moduleName string) bool {
 
 func (u *User) GetUserAccessibleModules() []string {
 	userAccessibleModules := []string{}
+	userAccessibleModulesMap := map[string]bool{}
+	//Load the base modules
+	for _, umod := range u.parent.UniversalModules {
+		userAccessibleModules = append(userAccessibleModules, umod)
+		userAccessibleModulesMap[umod] = true
+	}
+
+	//Load the user modules
 	for _, pg := range u.GetUserPermissionGroup() {
 		groupAccessiableModules := pg.AccessibleModules
 		for _, gmod := range groupAccessiableModules {
-			userAccessibleModules = append(userAccessibleModules, gmod)
+			_, ok := userAccessibleModulesMap[gmod]
+			if !ok {
+				//This module is not in accessible list yet
+				userAccessibleModules = append(userAccessibleModules, gmod)
+				userAccessibleModulesMap[gmod] = true
+			}
+
 		}
 	}
 

@@ -1525,9 +1525,12 @@
                                 //Parse the filelist into global variable
                                 currentFilelist = [];
                                 if (data === null){
-                                    //There is nothing is this folder.
+                                    //There is nothing in this folder.
                                     $("#folderList").hide();
                                     $("#fileList").hide();
+                                    if (callback !== undefined){
+                                        callback();
+                                    }
                                     return;
                                 }
 
@@ -1800,7 +1803,12 @@
                         var displayName = JSON.parse(JSON.stringify(filename));
                         if (ext == "shortcut"){
                             //This is a shortcut file. Treat it specially
-                            imagePath = "../../" + icon;
+                            if (icon.includes("http://") || icon.includes("https://")){
+                                //Direct path. Do not add relative prefix
+                                imagePath = icon;
+                            }else{
+                                imagePath = "../../" + icon;
+                            }
                             displayName = files[i].Shortcut.Name;
                             ext = files[i].Shortcut.Type;
                             ext = ext.charAt(0).toUpperCase() + ext.slice(1);
@@ -3058,7 +3066,15 @@
                             listDirectory(shortcutInfo[2]);
                         }else if (shortcutInfo[0] == "url"){
                             //This is a url shortcut
-                            window.open(shortcutInfo[2]);
+                            //Update 2020_02-03: Open with floatWindow instead
+                            parent.newFloatWindow({
+                                url: shortcutInfo[2],
+                                appicon: shortcutInfo[3],
+                                title: shortcutInfo[1],
+                                parent: shortcutInfo[2]
+                            })
+
+                            //window.open(shortcutInfo[2]);
                         }
                         console.log(shortcutInfo);
                     });

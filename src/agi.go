@@ -17,14 +17,15 @@ func AGIInit() {
 		BuildVersion:         build_version,
 		InternalVersion:      internal_version,
 		LoadedModule:         moduleHandler.GetModuleNameList(),
-		ReservedTables:       []string{"auth", "permisson", "desktop"},
-		ModuleRegisterParser: moduleHandler.RegisterModuleFromJSON,
+		ReservedTables:       []string{"auth", "permisson", "register", "desktop"},
+		ModuleRegisterParser: moduleHandler.RegisterModuleFromAGI,
 		PackageManager:       packageManager,
 		UserHandler:          userHandler,
 		StartupRoot:          "./web",
 		ActivateScope:        []string{"./web", "./subservice"},
 		FileSystemRender:     thumbRenderHandler,
 		ShareManager:         shareManager,
+		NightlyManager:       nightlyManager,
 	})
 	if err != nil {
 		log.Println("AGI Gateway Initialization Failed")
@@ -69,6 +70,8 @@ func AGIInit() {
 		}
 
 	})
+
+	http.HandleFunc("/api/ajgi/exec", gw.HandleAgiExecutionRequestWithToken)
 
 	AGIGateway = gw
 }

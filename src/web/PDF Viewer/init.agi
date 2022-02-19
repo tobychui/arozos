@@ -12,7 +12,7 @@
 var moduleLaunchInfo = {
     Name: "PDF Viewer",
 	Desc: "Possibly the best PDF viewer on the web",
-	Group: "Office",
+	Group: "Utilities",
 	IconPath: "PDF Viewer/icons/module_icon.png",
 	Version: "2.7.570",
 	StartDir: "",

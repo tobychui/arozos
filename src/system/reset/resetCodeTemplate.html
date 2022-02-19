@@ -15,15 +15,15 @@
     <body> 
     <br><br><br>
     <div class="ui container" align="center">
-        <div class="ui pink segment" style="max-width:400px;" align="left">
+        <div class="ui basic segment" style="max-width:400px;" align="left">
             <div class="imageRight" align="center">
                 <img class="ui small image" src="data:image/png;base64, {{vendor_logo}}"></img>
             </div>
-            <br>
+            <div class="ui divider"></div>
             <div class="ui text container">
                 <p>Reset your account password on {{host_name}}</p>
             </div>
-            <br>
+            <div class="ui divider"></div>
             <form class="ui form" onsubmit="handleFormSubmit(event, this);">
                 <div class="field">
                     <label>Username</label>
@@ -39,7 +39,7 @@
             <div id="errmsg" class="ui red inverted segment" style="display:none;">
                 <i class="remove icon"></i> <span id="errtext">Internal Server Error</span>
             </div>  
-            <br>
+            <div class="ui divider"></div>
             <p>Back to <a href="../index.html">Login</a></p>
         </div>
     </div>

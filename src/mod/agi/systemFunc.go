@@ -34,11 +34,36 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		return otto.Value{}
 	})
 
-	vm.Set("sendJSONResp", func(call otto.FunctionCall) otto.Value {
+	vm.Set("sendOK", func(call otto.FunctionCall) otto.Value {
+		vm.Set("HTTP_RESP", "ok")
+		return otto.Value{}
+	})
+
+	vm.Set("_sendJSONResp", func(call otto.FunctionCall) otto.Value {
 		argString, _ := call.Argument(0).ToString()
 		vm.Set("HTTP_HEADER", "application/json")
 		vm.Set("HTTP_RESP", argString)
 		return otto.Value{}
+	})
+
+	vm.Run(`
+		sendJSONResp = function(object){
+			if (typeof(object) === "object"){
+				_sendJSONResp(JSON.stringify(object));
+			}else{
+				_sendJSONResp(object);
+			}
+		}
+	`)
+
+	vm.Set("addNightlyTask", func(call otto.FunctionCall) otto.Value {
+		scriptPath, _ := call.Argument(0).ToString() //From web directory
+		if isValidAGIScript(scriptPath) {
+			g.NightlyScripts = append(g.NightlyScripts, scriptPath)
+		} else {
+			return otto.FalseValue()
+		}
+		return otto.TrueValue()
 	})
 
 	//Database related

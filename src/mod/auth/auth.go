@@ -52,7 +52,7 @@ type AuthAgent struct {
 
 	//Autologin Related
 	AllowAutoLogin  bool
-	autoLoginTokens []AutoLoginToken
+	autoLoginTokens []*AutoLoginToken
 
 	//Logger
 	Logger *authlogger.Logger
@@ -96,7 +96,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 		terminateTokenListener:  done,
 		mutex:                   &sync.Mutex{},
 		AllowAutoLogin:          false,
-		autoLoginTokens:         []AutoLoginToken{},
+		autoLoginTokens:         []*AutoLoginToken{},
 		Logger:                  newLogger,
 	}
 

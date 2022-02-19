@@ -1,6 +1,7 @@
 package agi
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"log"
@@ -11,10 +12,10 @@ import (
 	"github.com/robertkrimen/otto"
 
 	apt "imuslab.com/arozos/mod/apt"
-	auth "imuslab.com/arozos/mod/auth"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/share"
+	"imuslab.com/arozos/mod/time/nightly"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -27,7 +28,7 @@ import (
 */
 
 var (
-	AgiVersion string = "1.5" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "1.6" //Defination of the agi runtime version. Update this when new function is added
 )
 
 type AgiLibIntergface func(*otto.Otto, *user.User) //Define the lib loader interface for AGI Libraries
@@ -46,10 +47,10 @@ type AgiSysInfo struct {
 	ReservedTables       []string
 	PackageManager       *apt.AptPackageManager
 	ModuleRegisterParser func(string) error
-	AuthAgent            *auth.AuthAgent
 	FileSystemRender     *metadata.RenderHandler
 	IotManager           *iot.Manager
 	ShareManager         *share.Manager
+	NightlyManager       *nightly.TaskManager
 
 	//Scanning Roots
 	StartupRoot   string
@@ -58,6 +59,7 @@ type AgiSysInfo struct {
 
 type Gateway struct {
 	ReservedTables   []string
+	NightlyScripts   []string
 	AllowAccessPkgs  map[string][]AgiPackage
 	LoadedAGILibrary map[string]AgiLibIntergface
 	Option           *AgiSysInfo
@@ -65,31 +67,17 @@ type Gateway struct {
 
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Handle startup registration of ajgi modules
-	startupScripts, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(option.StartupRoot)) + "/*/init.agi")
 	gatewayObject := Gateway{
 		ReservedTables:   option.ReservedTables,
+		NightlyScripts:   []string{},
 		AllowAccessPkgs:  map[string][]AgiPackage{},
 		LoadedAGILibrary: map[string]AgiLibIntergface{},
 		Option:           &option,
 	}
 
-	for _, script := range startupScripts {
-		scriptContentByte, _ := ioutil.ReadFile(script)
-		scriptContent := string(scriptContentByte)
-		log.Println("[AGI] Gateway script loaded (" + script + ")")
-		//Create a new vm for this request
-		vm := otto.New()
-
-		//Only allow non user based operations
-		gatewayObject.injectStandardLibs(vm, script, "./web/")
-
-		_, err := vm.Run(scriptContent)
-		if err != nil {
-			log.Println("[AGI] Load Failed: " + script + ". Skipping.")
-			log.Println(err)
-			continue
-		}
-	}
+	//Start all WebApps Registration
+	gatewayObject.InitiateAllWebAppModules()
+	gatewayObject.RegisterNightlyOperations()
 
 	//Load all the other libs entry points into the memoary
 	gatewayObject.ImageLibRegister()
@@ -100,6 +88,53 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	gatewayObject.AppdataLibRegister()
 
 	return &gatewayObject, nil
+}
+
+func (g *Gateway) RegisterNightlyOperations() {
+	g.Option.NightlyManager.RegisterNightlyTask(func() {
+		//This function will execute nightly
+		for _, scriptFile := range g.NightlyScripts {
+			if isValidAGIScript(scriptFile) {
+				//Valid script file. Execute it with system
+				for _, username := range g.Option.UserHandler.GetAuthAgent().ListUsers() {
+					userinfo, err := g.Option.UserHandler.GetUserInfoFromUsername(username)
+					if err != nil {
+						continue
+					}
+
+					if checkUserAccessToScript(userinfo, scriptFile, "") {
+						//This user can access the module that provide this script.
+						//Execute this script on his account.
+						log.Println("[AGI_Nightly] WIP (" + scriptFile + ")")
+					}
+				}
+			} else {
+				//Invalid script. Skipping
+				log.Println("[AGI_Nightly] Invalid script file: " + scriptFile)
+			}
+		}
+	})
+}
+
+func (g *Gateway) InitiateAllWebAppModules() {
+	startupScripts, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(g.Option.StartupRoot)) + "/*/init.agi")
+	for _, script := range startupScripts {
+		scriptContentByte, _ := ioutil.ReadFile(script)
+		scriptContent := string(scriptContentByte)
+		log.Println("[AGI] Gateway script loaded (" + script + ")")
+		//Create a new vm for this request
+		vm := otto.New()
+
+		//Only allow non user based operations
+		g.injectStandardLibs(vm, script, "./web/")
+
+		_, err := vm.Run(scriptContent)
+		if err != nil {
+			log.Println("[AGI] Load Failed: " + script + ". Skipping.")
+			log.Println(err)
+			continue
+		}
+	}
 }
 
 func (g *Gateway) RunScript(script string) error {
@@ -248,6 +283,11 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scri
 	if strings.Contains(contentType, "application/json") {
 		//For shitty people who use Angular
 		body, _ := ioutil.ReadAll(r.Body)
+		fields := map[string]interface{}{}
+		json.Unmarshal(body, &fields)
+		for k, v := range fields {
+			vm.Set(k, v)
+		}
 		vm.Set("POST_data", string(body))
 	} else {
 		r.ParseForm()
@@ -309,7 +349,7 @@ func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.Use
 		return "", err
 	}
 
-	//Get the return valu from the script
+	//Get the return value from the script
 	value, err := vm.Get("HTTP_RESP")
 	if err != nil {
 		return "", err

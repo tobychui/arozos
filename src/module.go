@@ -17,6 +17,15 @@ func ModuleServiceInit() {
 	//Create a new module handler
 	moduleHandler = module.NewModuleHandler(userHandler, *tmp_directory)
 
+	//Register FTP Endpoints
+	adminRouter := prout.NewModuleRouter(prout.RouterOption{
+		AdminOnly:   true,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			errorHandlePermissionDenied(w, r)
+		},
+	})
+
 	//Pass through the endpoint to authAgent
 	http.HandleFunc("/system/modules/list", func(w http.ResponseWriter, r *http.Request) {
 		authAgent.HandleCheckAuth(w, r, moduleHandler.ListLoadedModules)
@@ -26,6 +35,11 @@ func ModuleServiceInit() {
 	})
 	http.HandleFunc("/system/modules/getLaunchPara", func(w http.ResponseWriter, r *http.Request) {
 		authAgent.HandleCheckAuth(w, r, moduleHandler.GetLaunchParameter)
+	})
+
+	adminRouter.HandleFunc("/system/modules/reload", func(w http.ResponseWriter, r *http.Request) {
+		moduleHandler.ReloadAllModules(AGIGateway)
+		sendOK(w)
 	})
 
 	//Handle module installer. Require admin
@@ -94,7 +108,7 @@ func ModuleServiceInit() {
 	err := sysdb.NewTable("module")
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 }

@@ -24,13 +24,17 @@ var (
 	systemScheduler *scheduler.Scheduler
 )
 
-func SchedulerInit() {
+func NightlyTasksInit() {
 	/*
 		Nighty Task Manager
 
 		The tasks that should be done once per night. Internal function only.
 	*/
 	nightlyManager = nightly.NewNightlyTaskManager(*nightlyTaskRunTime)
+
+}
+
+func SchedulerInit() {
 
 	/*
 		System Scheudler
@@ -75,12 +79,12 @@ func SchedulerInit() {
 			newScheduler.HandleListJobs(w, r)
 		} else {
 			//User not logged in
-			http.NotFound(w, r)
+			errorHandlePermissionDenied(w, r)
 		}
 	})
-	router.HandleFunc("/system/arsm/aecron/add", newScheduler.HandleAddJob)
-	router.HandleFunc("/system/arsm/aecron/remove", newScheduler.HandleJobRemoval)
-	router.HandleFunc("/system/arsm/aecron/listlog", newScheduler.HandleShowLog)
+	router.HandleFunc("/system/arsm/aecron/add", systemScheduler.HandleAddJob)
+	router.HandleFunc("/system/arsm/aecron/remove", systemScheduler.HandleJobRemoval)
+	router.HandleFunc("/system/arsm/aecron/listlog", systemScheduler.HandleShowLog)
 
 	//Register settings
 	registerSetting(settingModule{

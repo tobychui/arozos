@@ -328,3 +328,41 @@ func GetModTime(filepath string) (int64, error) {
 	f.Close()
 	return statinfo.ModTime().Unix(), nil
 }
+
+func UnderTheSameRoot(srcAbs string, destAbs string) (bool, error) {
+	srcRoot, err := GetPhysicalRootFromPath(srcAbs)
+	if err != nil {
+		return false, err
+	}
+	destRoot, err := GetPhysicalRootFromPath(destAbs)
+	if err != nil {
+		return false, err
+	}
+	if srcRoot != "" && destRoot != "" {
+		if srcRoot == destRoot {
+			//apply fast move
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+//Get the physical root of a given filepath, e.g. C: or /home
+func GetPhysicalRootFromPath(filename string) (string, error) {
+	filename, err := filepath.Abs(filename)
+	if err != nil {
+		return "", err
+	}
+	if filename[:1] == "/" {
+		//Handle cases like /home/pi/foo.txt => return home
+		filename = filename[1:]
+	}
+	filename = strings.TrimSpace(filename)
+	if filename == "" {
+		return "", nil
+	}
+	filename = filepath.ToSlash(filepath.Clean(filename))
+	pathChunks := strings.Split(filename, "/")
+	return pathChunks[0], nil
+}

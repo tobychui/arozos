@@ -28,9 +28,22 @@
                   
                 </tbody>
               </table>
+              <div class="ui divider"></div>
+              <p>If you have installed WebApps manually, you can click the "Reload WebApps" button to load it without restarting ArozOS.</p>
+              <button class="ui basic small blue button" onclick="reloadWebapps();">
+                <i class="refresh icon"></i> Reload WebApps
+              </button>
+              <br><br>
         </div>
         <script>
             initModuleList();
+
+            function reloadWebapps(){
+                $("#moduleList").html(`<tr><td colspan="6"><i class="ui loading spinner icon"></i> Reloading...</tr></td>`);
+                $.get("../../system/modules/reload", function(data){
+                    initModuleList();
+                });
+            }
 
             function initModuleList(){
                 $("#moduleList").html("");

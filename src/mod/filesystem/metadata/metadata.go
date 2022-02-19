@@ -217,6 +217,7 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 
 	//Upgrade the connection to websocket
 	var upgrader = websocket.Upgrader{}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)

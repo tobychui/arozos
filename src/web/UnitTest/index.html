@@ -28,6 +28,7 @@
 	<br><br>
 		<div class="ui text container">
 			<h3>AGI Unit Testing Module</h3>
+            <button class="ui button" onclick="openGateway();">Open AGI Gateway (No File)</button>
             <button class="ui button" onclick="runtest();">Run Unit Test</button>
             <a class="ui button" href="wstest.html">Open WebSocket Test</a>
             <div class="ui divider"></div>
@@ -45,6 +46,10 @@
 		</div>
         <br><br>
        <script>
+           function openGateway(){
+                window.open("../system/ajgi/interface");
+           }
+
 			function runtest(){
 				$("#results").html("");
 				//Get a list of test to be run

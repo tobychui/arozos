@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>System Update</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <style>
+        body{
+            background-color: #1c1c1c;
+        }
+        #panel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="panel" style="text-align: left;">
+        <div id="pinging" class="ui message">
+            <div class="header" >
+                <i class="ui loading spinner icon"></i> Performing System Updates
+            </div>
+            <p>The updates might take a few minutes depending on your disk IO and CPU speed. This page will refresh itself after the update completes.</p>
+            <p>Last Ping: <span id="pingTime"></span></p>
+            <div class="ui divider"></div>
+            <p><i class="info icon"></i> Do you know you can write your own launcher / updater for ArozOS by using some simple code of your own?</p>
+        </div>
+        <div id="succ" class="ui green message" style="min-width: 30vw; display:none;">
+            <div class="header">
+                <i class="ui green big checkmark icon"></i> Update Completed
+            </div>
+            <p>Redirecting to homepage in 3 seconds.<br> If it doesn't work, click <a href="../../">here</a></p>
+        </div>
+    </div>
+    <script>
+        //Delay 1 sec and start update process
+        setTimeout(function(){
+            $("#pingTime").text("READY!");
+            UpdateRestartArozOS();
+        }, 1000)
+        
+        function UpdateRestartArozOS(){
+            $.ajax({
+                url: "/system/update/restart",
+                method: "POST",
+                data: {exec: true},
+                success: function(data){
+                   //This wont succ
+                }
+            });
+            setTimeout(function(){
+                pingServer();
+            }, 1000);
+        }
+        function pingServer(){
+            $.ajax({
+                url: "../../system/auth/checkLogin",
+                error: function(){
+                    //Not started up yet, ping again 3 sec later
+                    setTimeout(function(){
+                        pingServer();
+                    }, 3000);
+                    $("#pingTime").text(new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'}));
+                },
+                success: function(){
+                    //Server started up again. Redirect back to index
+                    $("#pinging").slideUp("fast");
+                    $("#succ").slideDown("fast");
+                    setTimeout(function(){
+                        window.location.href = "../../";
+                    }, 3200);
+                    
+                },
+                timeout: 1000 
+            })
+        }
+    </script>
+</body>

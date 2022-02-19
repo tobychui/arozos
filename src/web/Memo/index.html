@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="./script/lightpick/css/lightpick.css">
+        <link rel="stylesheet" href="./script/bulma/bulma.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="script/lightpick/moment.min.js"></script>
+        <script src="script/lightpick/lightpick.js"></script>
+        <link rel="icon" type="image/png" href="img/small_icon.png"/>
+        <title>Memo</title>
+        <style>
+            body{
+                background-color:white;
+            }
+        </style>
+    </head>
+    <body>
+        <nav class="navbar" role="navigation" aria-label="main navigation">
+            <div class="navbar-brand">
+              <a class="navbar-item" href="">
+                <img src="img/logo.png" width="112" height="28">
+              </a>
+            </div>
+        </nav>
+        <div class="box">
+            <button class="button is-warning" onclick="openMemoBox();">New Memo</button>
+            <button class="button is-link is-light" onclick="listAllMemo();">Refresh</button>
+        </div>
+        <div id="memobox" class="box" style="display:none;">
+            <h2 class="title is-4">New Memo</h2>
+            <h4 class="subtitle is-6">Create a new Memo and try not to forget about it</h4>
+            <hr>
+            <div class="field">
+                <label class="label">Title</label>
+                <div class="control">
+                    <input class="input" id="title" type="text" placeholder="Title">
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">Message</label>
+                <div class="control">
+                    <textarea class="textarea" id="message" placeholder="Write some notes here!"></textarea>
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">Deadline (Optional)</label>
+                <div class="control">
+                    <input class="input" id="deadline" type="text" placeholder="Deadline">
+                </div>
+            </div>
+            <div class="field is-grouped">
+                <div class="control">
+                    <button class="button is-link" onclick="createNewMemo();">Submit</button>
+                </div>
+                <div class="control">
+                    <button class="button is-link is-light" onclick="cancelNewMemo();">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <div id="memolist">
+
+        </div>
+        <script>
+            let deadline = 0;
+            let memoBuf = {};
+            let removeMemoAfterSubmit = false;
+            let currentEditingMemoID = 0;
+
+            function openMemoBox(){
+                deadline = 0;
+                removeMemoAfterSubmit = false;
+                $("#title").val("");
+                $("#message").val("");
+                $("#deadline").val("");
+                $("#memobox").slideToggle("fast");
+            }
+
+            function cancelNewMemo(){
+                $("#memobox").slideUp("fast");
+            }
+
+            var picker = new Lightpick({
+                field: document.getElementById('deadline'),
+                onSelect: function(date){
+                    console.log(date.unix());
+                    deadline = date.unix();
+                }
+            });
+
+            function timestampToDateString(key){
+                return new Date(parseInt(key)).toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'})
+            }
+            
+            function listAllMemo(){
+                $("#memolist").html("");
+                memoBuf = {};
+                ao_module_agirun("Memo/backend/listmemo.js", {}, function(data){
+                    let memos = [];
+                    for (var [key, value] of Object.entries(data)) {
+                        let content = JSON.parse(value);
+                        console.log(key, content);
+                        memoBuf[key] =  content;
+                        memos.push([key, content]);
+                    }
+
+                    memos.reverse();
+                    memos.forEach(function(memo){
+                        let key = memo[0];
+                        let content = memo[1];
+                        let deadline = timestampToDateString(content.deadline * 1000);
+                        if (content.deadline == 0){
+                            deadline = "No Deadline";
+                        }
+                        $("#memolist").append(`<div class="card">
+                            <div class="card-content">
+                                <div class="media">
+                                <div class="media-left">
+                                    <figure class="image is-48x48">
+                                    <img src="img/small_icon.png">
+                                    </figure>
+                                </div>
+                                <div class="media-content">
+                                    <p class="title is-4">${content.title}</p>
+                                    <p class="subtitle is-6">${deadline}</p>
+                                </div>
+                                </div>
+
+                                <div class="content">
+                                ${content.message}
+                                <br>
+                                <time>Creation Date: ${timestampToDateString(key)}</time>
+                                </div>
+                            </div>
+                            <footer class="card-footer">
+                                <a href="#" class="card-footer-item" memo="${key}" onclick="moveToTop(this)">Move to Top</a>
+                                <a href="#" class="card-footer-item" memo="${key}" onclick="editMemo(this);">Edit</a>
+                                <a href="#" class="card-footer-item" memo="${key}" onclick="removeMemoByButton(this);">Delete</a>
+                            </footer>
+                            </div><br>`);
+                    });
+                })
+            }
+
+            listAllMemo();
+
+            function editMemo(btn){
+                let memoID = $(btn).attr("memo");
+                loadMemoContentIntoNewMemoField(memoBuf[memoID]);
+                $("#memobox").slideDown("fast");
+                removeMemoAfterSubmit = true;
+                currentEditingMemoID = memoID;
+            }
+
+            function loadMemoContentIntoNewMemoField(content){
+                $("#title").val(content.title);
+                $("#message").val(content.message);
+                if (content.deadline > 0){
+                    $("#deadline").val(new Date(content.deadline * 1000).toLocaleDateString('en-US', {year: 'numeric', month: '2-digit', day: '2-digit'}));
+                }
+                deadline = content.deadline;
+            }
+
+            function moveToTop(btn){
+                let memoID = $(btn).attr("memo");
+                loadMemoContentIntoNewMemoField(memoBuf[memoID]);
+                createNewMemo(function(){
+                    removeMemo(memoID);
+                });
+                
+            }
+
+            function removeMemoByButton(btn){
+                let memoID = $(btn).attr("memo");
+                removeMemo(memoID);
+            }
+
+            function removeMemo(memoID, callback){
+                ao_module_agirun("Memo/backend/removeMemo.js", {
+                    "memoid": memoID
+                }, function(data){
+                   console.log(data);
+                   listAllMemo();
+                   if (callback){
+                        callback();
+                   }
+                });
+            }
+
+            function createNewMemo(callback=undefined){
+                //Create AJAX request
+                let payload = {
+                    "title": $("#title").val().replace(/<[^>]*>?/gm, ''),
+                    "message":$("#message").val().replace(/<[^>]*>?/gm, ''),
+                    "deadline": deadline
+                }
+
+                console.log(payload);
+                ao_module_agirun("Memo/backend/addMemo.js", {
+                    "memo": JSON.stringify(payload)
+                }, function(data){
+                    if (data.error == undefined){
+                        $("#memobox").slideUp("fast");
+                    }
+
+                    if (removeMemoAfterSubmit){
+                        removeMemoAfterSubmit = false;
+                        removeMemo(currentEditingMemoID, callback);
+                        currentEditingMemoID = 0;
+                    }else{
+                        if (callback){
+                            callback();
+                        }else{
+                            listAllMemo();
+                        }
+                    }
+                   
+                })
+                
+            }
+
+            
+        </script>
+    </body>
+</html>

@@ -56,7 +56,7 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 			if mustComply {
 				//Panic and terminate server process
 				log.Println("Installation failed on package: " + pkgname)
-				os.Exit(0)
+				os.Exit(1)
 			} else {
 				log.Println("Installation failed on package: " + pkgname)
 			}

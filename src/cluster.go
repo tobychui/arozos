@@ -25,7 +25,7 @@ func ClusterInit() {
 	//Only enable cluster scanning on mdns enabled mode
 	if *allow_mdns && MDNS != nil {
 		//Start the network discovery
-		thisDiscoverer := neighbour.NewDiscoverer(MDNS)
+		thisDiscoverer := neighbour.NewDiscoverer(MDNS, sysdb)
 		//Start a scan immediately (in go routine for non blocking)
 		go func() {
 			thisDiscoverer.UpdateScan(3)
@@ -55,6 +55,8 @@ func ClusterInit() {
 		})
 
 		router.HandleFunc("/system/cluster/scan", NeighbourDiscoverer.HandleScanningRequest)
+		router.HandleFunc("/system/cluster/record", NeighbourDiscoverer.HandleScanRecord)
+		router.HandleFunc("/system/cluster/wol", NeighbourDiscoverer.HandleWakeOnLan)
 
 		/*
 			Start and Cluster Server and Client

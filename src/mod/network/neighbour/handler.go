@@ -39,3 +39,37 @@ func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Reques
 	js, _ := json.Marshal(result)
 	sendJSONResponse(w, string(js))
 }
+
+//Get networkHosts that are offline
+func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
+	offlineNodes, err := d.GetOfflineHosts()
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	js, err := json.Marshal(offlineNodes)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	sendJSONResponse(w, string(js))
+}
+
+//Send wake on land to target
+func (d *Discoverer) HandleWakeOnLan(w http.ResponseWriter, r *http.Request) {
+	mac, err := mv(r, "mac", false)
+	if err != nil {
+		sendErrorResponse(w, "Invalid mac address")
+		return
+	}
+
+	err = d.SendWakeOnLan(mac)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	sendOK(w)
+}

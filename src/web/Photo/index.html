@@ -4,111 +4,194 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Web site created using create-react-app" />
-    <link rel="apple-touch-icon" href="/Photo/logo192.png" />
-    <link rel="manifest" href="/Photo/manifest.json" />
+    <meta name="theme-color" content="#f76c5d" />
+    <meta name="description" content="ArozOS Photo" />
+    <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
     <title>Photo</title>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/alpine.min.js"></script>
     <script src="../script/jquery.min.js"></script>
+    <script src="../script/semantic/semantic.min.js"></script>
+    <script src="../script/ao_module.js"></script>
     <style>
-        body {
-            background-color: #fff
+        @media only screen and (min-width: 850px) {
+            #menu {
+                flex: 1;
+                max-width: 200px;
+                min-width: 200px;
+                height: 100vh;
+                display: block;
+            }
+            #showmenuBtn {
+                display: none;
+            }
         }
         
-        figcaption {
-            word-break: break-all;
+        @media only screen and (max-width: 850px) {
+            #menu {
+                display: none;
+                height: 100vh;
+            }
+            #showmenuBtn {
+                position: fixed;
+                bottom: 1.8em;
+                left: 1em;
+            }
         }
+        
+        #display {
+            flex: 1;
+            margin: 0 0;
+            height: 100vh;
+        }
+        
+        #main {
+            display: flex;
+        }
+        
+        body {
+            overflow: hidden;
+        }
+
+        .imagecard{
+            border: 1px solid transparent;
+        }
+
+        .imagecard img{
+            width: 100%;
+        }
+
+        #viewbox{
+            margin-left: 0px !important;
+            margin-top: 0px !important;
+            position: relative;
+           
+        }
+
+        #viewboxContainer{
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        #fadeplate{
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            height: 100%;
+            background: rgba(20,20,20,0.8);
+            backdrop-filter: blur(2px);
+        }
+
     </style>
-    <link href="/Photo/static/css/2.c301f1a7.chunk.css" rel="stylesheet">
-    <link href="/Photo/static/css/main.5ecd60fb.chunk.css" rel="stylesheet">
-    <script src="../script/ao_module.js"></script>
-</head>
 
-<body><noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <script>
-        //Check if there are file dropped into this interface. If yes, redirect to embedded
-        var infile = ao_module_loadInputFiles();
-        if (infile != null) {
-            window.location.href = "embedded.html" + window.location.hash;
+</head>
+<body>
+    <script src="photo.js"></script>
+    <div id="main" x-data='photoListObject()'>
+        <div class="ui left vertical menu" id="menu">
+            <div class="item" style="background-color: #f76c5d;">
+                <img class="ui fluid image" src="img/banner.png">
+            </div>
+            <div class="item">
+                Browse Photos
+                <div class="menu">
+                    <template x-for="vroot in vroots" x-init="getRootInfo()">
+                        <a class="item" :rootpath="vroot[1]" x-on:click="updateRenderingPath(vroot[2]);"><i class="ui disk icon"></i> <span x-text="vroot[0] + ' (' + vroot[1] + ')'"></span></a>
+                    </template>
+                    
+                </div>
+            </div>
+            <a id="parentFolderButton" class="item" x-on:click="parentFolder();" style="display:none;">
+                <i class="reply icon"></i> Parent Folder
+            </a>
+            <div class="item">
+                Sub Folders
+                <div class="menu" style="max-height: 100px; overflow-y: auto;">
+                    <div class="item" id="nosubfolder" style="display:none;">No Sub Folders</div>
+                    <template x-for="folder in folders">
+                        <a class="item" x-on:click="updateRenderingPath(folder);" ><i class="ui folder open icon"></i> <span x-text="extractFolderName(folder);"></span></a>
+                    </template>
+                    
+                </div>
+            </div>
+
+            <div class="item">
+                Tags
+                <div class="menu" >
+                    <div style="max-height: 100px; overflow-y: auto;">
+                        <template x-for="key in Object.keys(tags)">
+                            <a class="item" x-on:click="console.log( tags[key][0],tags[key][1]); images = tags[key]; $('#noimg').hide();" :filedata="encodeURIComponent(JSON.stringify(tags[key]));" ><i class="ui hashtag icon"></i> <span x-text="key"></span></a>
+                        </template>
+                    </div>
+                    <a class="item" onclick="rescan(this);">Rescan <i class="ui search icon"></i></a>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="display" x-init="init()">
+            <div id="noimg" class="ui basic segment" style="display:none;">
+                <h4 class="ui header">
+                    <i class="red question icon"></i>
+                    <div class="content">
+                        Empty Folder
+                        <div class="sub header">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
+                    </div>
+                </h4>
+            </div>
+            <div id="viewboxContainer">
+                <div id="viewbox" class="ui six cards viewbox">
+                    <template x-for="image in images">
+                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.split('/').pop(),'filepath':image}))">
+                            <a class="image" x-init="updateImageSizes();">
+                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image">
+                            </a>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+    <button id="showmenuBtn" class="ui basic big icon button" onclick="toggleMenu();"><i class="ui content icon"></i></button>
+
+    <!-- Photo Viewing Modal -->
+    <div class="ui basic small modal">
+        <i class="close icon" style="margin-top: -2em;"></i>
+        <div class="image content">
+            <img id="fullImage" class="ui fluid image" src="" onload="$('.ui.modal').modal('refresh');"/>
+        </div>
+    </div>
+</body>
+<script>
+
+    //Calculate image size on document ready
+
+    $(window).on("resize ", function() {
+        //check if the menu is opened
+        if (window.innerWidth < 850) {
+            $('#menu').slideUp('fast',function(){
+            });
+        }
+        if (window.innerWidth >= 850) {
+            $('#menu').slideDown('fast',function(){
+            });
         }
 
-        ! function(e) {
-            function t(t) {
-                for (var n, l, p = t[0], f = t[1], i = t[2], c = 0, s = []; c < p.length; c++) l = p[c], Object.prototype.hasOwnProperty.call(o, l) && o[l] && s.push(o[l][0]), o[l] = 0;
-                for (n in f) Object.prototype.hasOwnProperty.call(f, n) && (e[n] = f[n]);
-                for (a && a(t); s.length;) s.shift()();
-                return u.push.apply(u, i || []), r()
-            }
+        updateImageSizes();
+    });
 
-            function r() {
-                for (var e, t = 0; t < u.length; t++) {
-                    for (var r = u[t], n = !0, p = 1; p < r.length; p++) {
-                        var f = r[p];
-                        0 !== o[f] && (n = !1)
-                    }
-                    n && (u.splice(t--, 1), e = l(l.s = r[0]))
-                }
-                return e
-            }
-            var n = {},
-                o = {
-                    1: 0
-                },
-                u = [];
+    function toggleMenu(){
+        $('#menu').toggle('fast',function(){
+            updateImageSizes();
+            setTimeout(function(){
+                updateImageSizes();
+            }, 100);
+        });
+    }
 
-            function l(t) {
-                if (n[t]) return n[t].exports;
-                var r = n[t] = {
-                    i: t,
-                    l: !1,
-                    exports: {}
-                };
-                return e[t].call(r.exports, r, r.exports, l), r.l = !0, r.exports
-            }
-            l.m = e, l.c = n, l.d = function(e, t, r) {
-                l.o(e, t) || Object.defineProperty(e, t, {
-                    enumerable: !0,
-                    get: r
-                })
-            }, l.r = function(e) {
-                "undefined" != typeof Symbol && Symbol.toStringTag && Object.defineProperty(e, Symbol.toStringTag, {
-                    value: "Module"
-                }), Object.defineProperty(e, "__esModule", {
-                    value: !0
-                })
-            }, l.t = function(e, t) {
-                if (1 & t && (e = l(e)), 8 & t) return e;
-                if (4 & t && "object" == typeof e && e && e.__esModule) return e;
-                var r = Object.create(null);
-                if (l.r(r), Object.defineProperty(r, "default", {
-                        enumerable: !0,
-                        value: e
-                    }), 2 & t && "string" != typeof e)
-                    for (var n in e) l.d(r, n, function(t) {
-                        return e[t]
-                    }.bind(null, n));
-                return r
-            }, l.n = function(e) {
-                var t = e && e.__esModule ? function() {
-                    return e.default
-                } : function() {
-                    return e
-                };
-                return l.d(t, "a", t), t
-            }, l.o = function(e, t) {
-                return Object.prototype.hasOwnProperty.call(e, t)
-            }, l.p = "/Photo/";
-            var p = this.webpackJsonpphoto = this.webpackJsonpphoto || [],
-                f = p.push.bind(p);
-            p.push = t, p = p.slice();
-            for (var i = 0; i < p.length; i++) t(p[i]);
-            var a = f;
-            r()
-        }([])
-    </script>
-    <script src="/Photo/static/js/2.09744fc4.chunk.js"></script>
-    <script src="/Photo/static/js/main.dba51531.chunk.js"></script>
-</body>
+    
+</script>
 
 </html>
