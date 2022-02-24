@@ -50,26 +50,51 @@ go build
 ### For Raspberry Pi (For Raspberry Pi 4B+)
 If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface. If you cannot find the new device in your network, you can also connect to the ArozOS directly via ```http://{raspberry_pi_ip_address}:8080/```
 
-|Version|Download|Mirror|Remarks|
-|---|---|---|---|
-|arozos v1.118 (v2)||https://www.mediafire.com/file/f1i4xsp4rplwbko/arozos_v1.118_v2.7z/file|Support Pi zero 2w|
-|arozos v1.115 (Stable)|https://wdfiles.ru/84cb6b|https://www.mediafire.com/file/zbhieo59fq2sw80/arozos_v1.115.7z/file|Build in [WsTTY](https://github.com/aroz-online/WsTTY)|
-|arozos v1.114|EOL|EOL|Unstable, upgrade to 1.115 if you are still using this version|
-|arozos v1.113|https://wdfiles.ru/75372e|https://www.mediafire.com/file/u42ha6ljfq6q0g9/arozos_v1.113.7z/file||
-|arozos v1.112 (Stable)|EOL|https://www.mediafire.com/file/eonn1weu8jvfz29/arozos_v1.112.7z/file|Bug fix and patches for v1.111|
-|arozos v1.111 (Stable)|EOL|https://www.mediafire.com/file/cusm5jwsuey6b4k/arozos_v1.111.7z/file|IoT Hub Added|
-|arozos v1.110 (Stable)|EOL|http://www.mediafire.com/file/r7l40jv727covej/arozos_v1.110.7z/file||
-|arozos v1.109|EOL|https://www.mediafire.com/file/mmjyv77ei9fwab5/arozos_v1.109.7z/file||
-|arozos v1.108|EOL|https://www.mediafire.com/file/aa8176setz3ljtv/arozos_v1.108.7z/file|WebDAV Support Added|
-|arozos v1.107|EOL|https://www.mediafire.com/file/0ybduxs9db3j6ai/arozos_v1.107.7z/file|Samba Supported Added|
-|arozos v1.106|EOL|https://www.mediafire.com/file/ov58z14eo90b6g9/arozos_v1.106.7z/file||
+|Version|Download|Remarks|
+|---|---|---|
+|arozos v1.119|https://www.mediafire.com/file/4vx4f5boj8pfeu1/arozos_v1.119.7z/file|Updated to Raspberry Pi OS 64-bit. See compatible list [here](https://www.raspberrypi.com/news/raspberry-pi-os-64-bit/)|
+|arozos v1.118 (v2)|https://www.mediafire.com/file/f1i4xsp4rplwbko/arozos_v1.118_v2.7z/file|Support Pi zero 2w|
+|arozos v1.115 (Stable)|https://www.mediafire.com/file/zbhieo59fq2sw80/arozos_v1.115.7z/file|Build in [WsTTY](https://github.com/aroz-online/WsTTY)|
+|arozos v1.114|EOL|Unstable, upgrade to 1.115 if you are still using this version|
+|arozos v1.113|https://www.mediafire.com/file/u42ha6ljfq6q0g9/arozos_v1.113.7z/file||
+|arozos v1.112 (Stable)|https://www.mediafire.com/file/eonn1weu8jvfz29/arozos_v1.112.7z/file|Bug fix and patches for v1.111|
+|arozos v1.111 (Stable)|https://www.mediafire.com/file/cusm5jwsuey6b4k/arozos_v1.111.7z/file|IoT Hub Added|
+|arozos v1.110 (Stable)|http://www.mediafire.com/file/r7l40jv727covej/arozos_v1.110.7z/file||
+|arozos v1.109|https://www.mediafire.com/file/mmjyv77ei9fwab5/arozos_v1.109.7z/file||
+|arozos v1.108|https://www.mediafire.com/file/aa8176setz3ljtv/arozos_v1.108.7z/file|WebDAV Support Added|
+|arozos v1.107|https://www.mediafire.com/file/0ybduxs9db3j6ai/arozos_v1.107.7z/file|Samba Supported Added|
+|arozos v1.106|https://www.mediafire.com/file/ov58z14eo90b6g9/arozos_v1.106.7z/file||
 
 *Yes, the download site is in Russia. No, I am not Russian, I use this site because they offer 80GB of storage for free*
 **All the image listed above require 8GB or above microSD card**
 
 To optain the .img file, you can unzip the compressed image using 7zip. If you don't have it, you can get it [here](https://www.7-zip.org/download.html)
 
+### For Raspberry Pi 1, Pi 2 and Pi Zero
+
+#### Build from source using installer script (Recommended)
+
+Since v1.119, arozos pre-build image has been moved from the original Raspberry Pi OS 32-bit to 64-bit for better utilization of system resources. For older version of Pis, you can install with the command below with a fresh installation of Raspberry Pi OS
+
+```
+cd ~/
+wget https://raw.githubusercontent.com/tobychui/arozos/master/installer/install_for_pi.sh
+sudo chmod 775 ./install_for_pi.sh
+./install_for_pi.sh
+```
+
+To confirm installation success, check for the execution status of arozos using the following command
+
+```
+sudo systemctl status arozos
+```
+
+#### Using prebuilt binary
+
+See installation steps for other ARM SBC (but use the ```arozos_linux_arm``` binary instead of ```arozos_linux_arm64```)
+
 ### For other ARM SBC(e.g. Orange Pi / Banana Pi / Friendly ARM's Pis)
+
 Download the correct architecture binary from the "release" tab and upload the binary with the "web" and "system" folder in "/src".
 After upload, you should have the following file structure
 
