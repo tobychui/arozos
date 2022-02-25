@@ -65,7 +65,6 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 |arozos v1.107|https://www.mediafire.com/file/0ybduxs9db3j6ai/arozos_v1.107.7z/file||Samba Supported Added|
 |arozos v1.106|https://www.mediafire.com/file/ov58z14eo90b6g9/arozos_v1.106.7z/file|||
 
-*Yes, the download site is in Russia. No, I am not Russian, I use this site because they offer 80GB of storage for free*
 **All the image listed above require 8GB or above microSD card**
 
 To optain the .img file, you can unzip the compressed image using 7zip. If you don't have it, you can get it [here](https://www.7-zip.org/download.html)
