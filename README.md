@@ -233,6 +233,9 @@ Example
 
 See documentation for more examples.
 
+### ArozOS Launcher (Required for OTA Update support)
+See https://github.com/aroz-online/launcher
+
 ### Storage Configuration
 #### Deploying Single Machine
 
