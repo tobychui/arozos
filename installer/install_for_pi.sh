@@ -55,7 +55,7 @@ echo "Setting up system services"
 sudo systemctl enable systemd-networkd.service systemd-networkd-wait-online.service
 cd /etc/systemd/system/
 
-printf "[Unit]\nDescription=ArozOS Cloud Service\nAfter=systemd-networkd-wait-online.service\nWants=systemd-networkd-wait-online.service\n\n[Service]\nType=simple\nExecStartPre=/bin/sleep 10\nWorkingDirectory=/home/pi/arozos/src/\nExecStart=/bin/bash /home/pi/arozos/src/start.sh\n\nRestart=always\nRestartSec=10\n\n[Install]\nWantedBy=multi-user.target" | sudo tee -a ./arozos.service
+printf "[Unit]\nDescription=ArozOS Cloud Service\nAfter=systemd-networkd-wait-online.service\nWants=systemd-networkd-wait-online.service\n\n[Service]\nType=simple\nExecStartPre=/bin/sleep 10\nWorkingDirectory=/home/$USER/arozos/src/\nExecStart=/bin/bash /home/$USER/arozos/src/start.sh\n\nRestart=always\nRestartSec=10\n\n[Install]\nWantedBy=multi-user.target" | sudo tee -a ./arozos.service
 
 echo "Registering systemctl service"
 sudo systemctl start arozos.service
