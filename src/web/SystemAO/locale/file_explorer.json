@@ -154,6 +154,12 @@
                 "message/User not logged in":"使用者未登入",
                 "message/Folder not exists":"找不到資料夾",
 
+                "message/noMatchResults":"找不到匹配的檔案",
+                "message/noMatchResultsDesc":"伺服器找不到與此關鍵字匹配的檔案",
+                "message/noMatchResultsInst":"請檢查你的關鍵字或通配符是否正確。",
+
+                "message/folderCannotOpen":"無法開啟此資料夾",
+                "message/folderCannotOpen/codedesc":"伺服器端回傳以下錯誤訊息： ",
 
                 "message/destIdentical": "檔案來源及目的地相同",
                 "message/decodeFilelistFail": "載案置入失敗：無法讀取檔案列表",
@@ -348,6 +354,10 @@
                 "message/User not logged in":"使用者未登入",
                 "message/Folder not exists":"找不到資料夾",
 
+                "message/noMatchResults":"找不到匹配的檔案",
+                "message/noMatchResultsDesc":"伺服器找不到與此關鍵字匹配的檔案",
+                "message/noMatchResultsInst":"請檢查你的關鍵字或通配符是否正確。",
+
                 "message/destIdentical": "檔案來源及目的地相同",
                 "message/decodeFilelistFail": "載案置入失敗：無法讀取檔案列表",
                 "message/uploadFailed": "載案上載失敗：檔案太大或目標儲存裝置已滿",
@@ -540,6 +550,10 @@
                 "message/Preference value too long. Preference value can only store maximum 1024 characters.":"设定值太长。设定值只能够少于 1024 字元",
                 "message/User not logged in":"使用者未登入",
                 "message/Folder not exists":"找不到资料夹", 
+
+                "message/noMatchResults":"找不到匹配的文件",
+                "message/noMatchResultsDesc":"伺服器找不到与此关键字匹配的文件",
+                "message/noMatchResultsInst":"请检查你的关键字或通配符是否正确。", 
 
                 "message/destIdentical": "文件来源及目的地相同",
                 "message/decodeFilelistFail": "载案置入失败：无法读取文件列表",

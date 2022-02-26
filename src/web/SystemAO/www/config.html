@@ -39,7 +39,7 @@
                 <ul class="list">
                     <li>You can host a static website using ArozOS</li>
                     <li>All website source are accessiable by your File Manager located inside your user file system</li>
-                    <li>Everyone can access your home page using <a id="homepageLink" target="_blank"><span class="protocol">http:</span>//<span class="hostname"></span>:<span class="port"></span>/www/<span class="username">{your_username}</span>/</a></li>
+                    <li>Everyone can access your home page using <a id="homepageLink" target="_blank"><span class="protocol">http:</span>//<span class="hostname"></span><span class="port"></span>/www/<span class="username">{your_username}</span>/</a></li>
                 </ul>
             </div>
             <div class="ui container">
@@ -75,9 +75,9 @@
 
             //Update tutorial information
             $(".hostname").text(window.location.hostname);
-            $(".port").text(window.location.port);
+            $(".port").text(":" + window.location.port);
             if (window.location.port == ""){
-                $(".port").text("80");
+                $(".port").text("");
             }
             $(".protocol").text(window.location.protocol);
 

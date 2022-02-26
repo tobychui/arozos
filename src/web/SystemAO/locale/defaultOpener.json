@@ -1,0 +1,50 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "選擇預設網頁應用程式",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "message/select":"請選擇用作開啟 ",
+                "message/files":" 檔案的預設網頁應用程式",
+
+                "button/showAll":"顯示全部應用程式",
+                "button/showRelevent":"顯示相關應用程式",
+                "button/cancel":"取消",
+                "button/confirm":"確認",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "",
+            "strings":{
+
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "",
+            "strings":{
+
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

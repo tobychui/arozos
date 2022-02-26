@@ -1,0 +1,96 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fwtitle" : "檔案分享",
+            "strings":{
+                "title/title": "檔案分享",
+                "button/copy":"複製到剪貼簿",
+                "button/remove":"移除分享",
+                "button/copied":"已複製！",
+
+                "share/setting/title":"分享設定",
+                "share/setting/subtitle":"設定誰可以存取此檔案",
+                "share/setting/options":"取存設定：",
+                "share/setting/anyoneWithLink":"擁有連接的使用者",
+                "share/setting/anyoneWithLink/desc":"任何擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/anyoneSignedIn":"已登入的使用者",
+                "share/setting/anyoneSignedIn/desc":"任何已登入並擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/sameGroup":"在同一權限群組內的使用者",
+                "share/setting/sameGroup/desc":"任何擁有相同使用者權限的使用者皆可下載此檔案",
+                "share/setting/updated":"存取權限已更新",
+
+                "message/removed": "分享已移除",
+                "qr/loading": "載入中"
+               
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fwtitle" : "檔案分享",
+            "strings":{
+                "title/title": "檔案分享",
+                "button/copy":"複製到剪貼簿",
+                "button/remove":"移除分享",
+                "button/copied":"已複製！",
+
+                "share/setting/title":"分享設定",
+                "share/setting/subtitle":"設定誰可以存取此檔案",
+                "share/setting/options":"取存設定：",
+                "share/setting/anyoneWithLink":"擁有連接的使用者",
+                "share/setting/anyoneWithLink/desc":"任何擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/anyoneSignedIn":"已登入的使用者",
+                "share/setting/anyoneSignedIn/desc":"任何已登入並擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/sameGroup":"在同一權限群組內的使用者",
+                "share/setting/sameGroup/desc":"任何擁有相同使用者權限的使用者皆可下載此檔案",
+                "share/setting/updated":"存取權限已更新",
+
+                "message/removed": "分享已移除",
+                "qr/loading": "載入中"
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "文件分享",
+            "strings":{
+                "title/title": "文件分享",
+                "button/copy":"复制到剪贴簿",
+                "button/remove":"移除分享",
+                "button/copied":"已复制！",
+
+                "share/setting/title":"分享设定",
+                "share/setting/subtitle":"设定谁可以存取此文件",
+                "share/setting/options":"取存设定：",
+                "share/setting/anyoneWithLink":"拥有连接的使用者",
+                "share/setting/anyoneWithLink/desc":"任何拥有分享连接的使用者皆可下载此文件",
+                "share/setting/anyoneSignedIn":"已登入的使用者",
+                "share/setting/anyoneSignedIn/desc":"任何已登入并拥有分享连接的使用者皆可下载此文件",
+                "share/setting/sameGroup":"在同一权限群组内的使用者",
+                "share/setting/sameGroup/desc":"任何拥有相同使用者权限的使用者皆可下载此文件",
+                "share/setting/updated":"存取权限已更新",
+
+                "message/removed": "分享已移除",
+                "qr/loading": "载入中" 
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

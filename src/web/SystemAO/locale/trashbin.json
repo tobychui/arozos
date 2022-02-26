@@ -1,0 +1,159 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "垃圾箱",
+            "strings":{
+                "title/title":"垃圾箱",
+                
+                "button/deleteAll":"全部刪除",
+                "button/details":"詳情",
+                "button/restore":"恢復",
+
+                "list/filename":"檔案名稱",
+                "list/deleteTime":"刪除時間",
+                "list/details":"詳細資料",
+                "list/restore":"恢復檔案",
+                "list/scanning":"正在從所有虛擬磁碟區掃描回收檔案",
+                
+
+                "opr/move":"移動",
+                "opr/file":"檔案",
+                "opr/files":"檔案",
+                "opr/and":" 及 ",
+                "opr/more":" 等檔案",
+                "opr/toTrashBin":"到垃圾箱？",
+                "opr/delete":"刪除： ",
+                "opr/cancel":"取消",
+                "opr/confirm":"確認",
+                
+                "message/nofileselected":"沒有選擇任何檔案",
+                "message/property":"屬性",
+                "message/value":"數值",
+                "message/notrash":"垃圾箱內沒有檔案或資料夾",
+                "message/confirmDelete":"確認要 **永久刪除** 所有檔案？",
+
+                "detail/storageFilename":"檔案儲存名稱",
+                "detail/storageFilepath":"檔案虛擬儲存路徑",
+                "detail/fileExt":"副檔名",
+                "detail/isDir":"資料夾",
+                "detail/filesize":"檔案大小",
+                "detail/removeTimestamp":"刪除時間戳",
+                "detail/removeDate":"刪除日期",
+                "detail/originalPath":"原始檔案虛擬路徑",
+                "detail/originalFilename":"原始檔案名稱",
+                "detail/ok":"確定",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "垃圾箱",
+            "strings":{
+                "title/title":"垃圾箱",
+                
+                "button/deleteAll":"全部刪除",
+                "button/details":"詳情",
+                "button/restore":"恢復",
+
+                "list/filename":"檔案名稱",
+                "list/deleteTime":"刪除時間",
+                "list/details":"詳細資料",
+                "list/restore":"恢復檔案",
+                "list/scanning":"正在從所有虛擬磁碟區掃描回收檔案",
+                
+
+                "opr/move":"移動",
+                "opr/file":"檔案",
+                "opr/files":"檔案",
+                "opr/and":" 及 ",
+                "opr/more":" 等檔案",
+                "opr/toTrashBin":"到垃圾箱？",
+                "opr/delete":"刪除： ",
+                "opr/cancel":"取消",
+                "opr/confirm":"確認",
+                
+                "message/nofileselected":"沒有選擇任何檔案",
+                "message/property":"屬性",
+                "message/value":"數值",
+                "message/notrash":"垃圾箱內沒有檔案或資料夾",
+                "message/confirmDelete":"確認要 **永久刪除** 所有檔案？",
+
+                "detail/storageFilename":"檔案儲存名稱",
+                "detail/storageFilepath":"檔案虛擬儲存路徑",
+                "detail/fileExt":"副檔名",
+                "detail/isDir":"資料夾",
+                "detail/filesize":"檔案大小",
+                "detail/removeTimestamp":"刪除時間戳",
+                "detail/removeDate":"刪除日期",
+                "detail/originalPath":"原始檔案虛擬路徑",
+                "detail/originalFilename":"原始檔案名稱",
+                "detail/ok":"確定",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "垃圾箱",
+            "strings":{
+                "title/title":"垃圾箱",
+                
+                "button/deleteAll":"全部删除",
+                "button/details":"详情",
+                "button/restore":"恢复",
+
+                "list/filename":"文件名称",
+                "list/deleteTime":"删除时间",
+                "list/details":"详细资料",
+                "list/restore":"恢复文件",
+                "list/scanning":"正在从所有虚拟磁碟区扫描回收文件",
+                
+
+                "opr/move":"移动",
+                "opr/file":"文件",
+                "opr/files":"文件",
+                "opr/and":" 及 ",
+                "opr/more":" 等文件",
+                "opr/toTrashBin":"到垃圾箱？",
+                "opr/delete":"删除： ",
+                "opr/cancel":"取消",
+                "opr/confirm":"确认",
+                
+                "message/nofileselected":"没有选择任何文件",
+                "message/property":"属性",
+                "message/value":"数值",
+                "message/notrash":"垃圾箱内没有文件或资料夹",
+                "message/confirmDelete":"确认要 **永久删除** 所有文件？ ",
+
+                "detail/storageFilename":"文件储存名称",
+                "detail/storageFilepath":"文件虚拟储存路径",
+                "detail/fileExt":"副档名",
+                "detail/isDir":"资料夹",
+                "detail/filesize":"文件大小",
+                "detail/removeTimestamp":"删除时间戳",
+                "detail/removeDate":"删除日期",
+                "detail/originalPath":"原始文件虚拟路径",
+                "detail/originalFilename":"原始文件名称",
+                "detail/ok":"确定",
+                "":"" 
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

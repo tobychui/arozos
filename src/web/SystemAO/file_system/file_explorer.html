@@ -1567,9 +1567,9 @@
                                     $("#folderList").show();
                                     $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
                                         <div class="ts header">
-                                            <i class="remove icon ${currentTheme}"></i> <span class="${currentTheme}">This Folder Cannot Be Opened</span>
-                                            <div class="sub header ${currentTheme}" style="margin-top:12px;">The server return the following error message: <br><code>${data.error.toUpperCase()}</code><br>
-                                                ${ao_module_utils.timeConverter(Date.now()/1000)}</div>
+                                            <i class="remove icon ${currentTheme}"></i> <span class="${currentTheme}">${applocale.getString("message/folderCannotOpen","This Folder Cannot Be Opened")}</span>
+                                            <div class="sub header ${currentTheme}" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc","The server return the following error message:")} <br><code>${data.error.toUpperCase()}</code><br>
+                                                ${new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'})}</div>
                                         </div>
                                     </div>`);
                                     $("#fileList").hide();
@@ -5005,8 +5005,8 @@
                             $("#folderList").show();
                             $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
                                 <div class="ts header ${currentTheme}">
-                                    <i class="question icon" ${currentTheme}></i> <span class="${currentTheme}">No Matching Results</span>
-                                    <div class="sub header ${currentTheme}">The host return no matching results for your keyword "${keyword}". <br>Check your spelling and if your wildcard are valid.</div>
+                                    <i class="question icon" ${currentTheme}></i> <span class="${currentTheme}">${applocale.getString("message/noMatchResults","No Matching Results")}</span>
+                                    <div class="sub header ${currentTheme}">${applocale.getString("message/noMatchResultsDesc","The host return no matching results for your keyword")} "${keyword}". <br>${applocale.getString("message/noMatchResultsInst","Check your spelling and your wildcard characters.")}</div>
                                 </div>
                             </div>`);
                         }else{

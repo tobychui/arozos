@@ -8,6 +8,7 @@
         <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <script>
              window.mobilecheck = function() {
                 var check = false;
@@ -59,15 +60,15 @@
     </head>
     <body>
         <div class="ts container" style="padding-top:12px;">
-            <p>Select a default WebApp to open <span id="fext"></span> files.</p>
+            <p><span locale="message/select">Select a default WebApp to open</span> <span id="fext"></span> <span locale="message/files">files.</span></p>
             <div id="moduleList" class="moduleSelector">
                 
             </div>
-            <button id="showallbtn" class="ts fluid tiny button" onclick="showAllModules();">Show All</button>
+            <button id="showallbtn" class="ts fluid tiny button" onclick="showAllModules();" locale="button/showAll">Show All</button>
         </div>
         <div class="bottomControls" align="right">
-            <button class="ts small button" onclick="cancel();">Cancel</button>
-            <button id="confirmBtn" class="ts small primary disabled button" onclick="confirmSelection()">Confirm</button>
+            <button class="ts small button" onclick="cancel();" locale="button/cancel">Cancel</button>
+            <button id="confirmBtn" class="ts small primary disabled button" onclick="confirmSelection()" locale="button/confirm">Confirm</button>
         </div>
         <script>
             var targetFiles = "";
@@ -75,6 +76,10 @@
             var showAll = false;
             var moduleInfo = [];
 
+            //Load applocale
+            applocale.init("../locale/defaultOpener.json", function(){
+                applocale.translate();
+            });
             //Initiate ao_module events
             ao_module_setFixedWindowSize();
 
@@ -122,12 +127,12 @@
                     //Hide systems
                     showAll = false;
                     $("#moduleList").find(".item.hidden").slideUp('fast');
-                    $("#showallbtn").text("Show All");
+                    $("#showallbtn").text(applocale.getString("button/showAll", "Show All"));
                 }else{
                     //Show all
                     $("#moduleList").find(".item.hidden").slideDown('fast');
                     showAll = true;
-                    $("#showallbtn").text("Show Suitable WebApps Only");
+                    $("#showallbtn").text(applocale.getString("button/showRelevent", "Show Suitable WebApps Only"));
                 }
             }
 

@@ -1,6 +1,6 @@
 <html>
     <head>
-        <title>File Share</title>
+        <title locale="title/title">File Share</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <style>
@@ -15,31 +15,31 @@
                 <div class="width: 100%; ">
                     <div style="display: block; margin-left: auto; margin-right: auto;" align="center">
                         <div id="qrcode" style="border: 10px solid white; background-color: white;">
-                            <h1>Loading</h1>
+                            <h1><br><i class="ui loading spinner icon"></i><br></h1>
                         </div>
                     </div>
                     <div style="width: 100%">
-                        <a id="sharelink" href="" target="_blank" style="margin-top:8px; font-size: 120%; padding-left: 20px; padding-right: 20px; word-break: break-all; overflow-wrap: anywhere;">Scan this QR Code to copy the share link</a>
+                        <a id="sharelink" href="" target="_blank" style="margin-top:8px; font-size: 120%; padding-left: 20px; padding-right: 20px; word-break: break-all; overflow-wrap: anywhere;"></a>
                     </div>
                     
                 </div>
             </div>
             <div id="shareSettingOptions" class="eight wide column" style="padding-left: 12px; display:none;">
                 <div class="ui header whiteTheme">
-                    Share Settings
-                    <div class="sub header whiteTheme">Change who can see this file</div>
+                    <span locale="share/setting/title">Share Settings</span>
+                    <div class="sub header whiteTheme" locale="share/setting/subtitle">Change who can see this file</div>
                 </div>
                 <div id="shareSettingForm" class="ui form">
                     <div class="field">
-                        <label><p class="whiteTheme">Visable options:</p></label>
+                        <label><p class="whiteTheme" locale="share/setting/options">Visable options:</p></label>
                         <div class="ui checkboxes">
                             <div class="ui radio checkbox">
                                 <input id="anyone" type="radio" class="shareoption" name="shareopt" value="anyone" onchange="updateSharePermission(this);">
                                 <label for="anyone">
                                     <div class="ui header">
                                         <div class="content whiteTheme">
-                                            <i class="globe icon"></i> Anyone with the link
-                                            <div class="sub header whiteTheme">Anyone who has the link can access this file</div>
+                                            <i class="globe icon"></i> <span locale="share/setting/anyoneWithLink">Anyone with the link</span>
+                                            <div class="sub header whiteTheme" locale="share/setting/anyoneWithLink/desc">Anyone who has the link can access this file</div>
                                         </div>
                                     </div>
                                 </label>
@@ -50,8 +50,8 @@
                                 <label for="signedin">
                                     <div class="ui header">
                                         <div class="content whiteTheme">
-                                            <i class="user circle outline icon"></i> Anyone signed in
-                                            <div class="sub header whiteTheme">Anyone who has signed in can access this file</div>
+                                            <i class="user circle outline icon"></i> <span locale="share/setting/anyoneSignedIn">Anyone signed in</span>
+                                            <div class="sub header whiteTheme" locale="share/setting/anyoneSignedIn/desc">Anyone who has signed in can access this file</div>
                                         </div>
                                     </div>
                                 </label>
@@ -62,15 +62,15 @@
                                 <label for="samegroup">
                                     <div class="ui header">
                                         <div class="content whiteTheme">
-                                            <i class="users icon"></i> Users in the same group
-                                            <div class="sub header whiteTheme">Anyone who is in the same group as you do</div>
+                                            <i class="users icon"></i> <span locale="share/setting/sameGroup">Users in the same group</span>
+                                            <div class="sub header whiteTheme" locale="share/setting/sameGroup/desc">Anyone who is in the same group as you do</div>
                                         </div>
                                     </div>
                                 </label>
                             </div>
                         <br><br>
                         <div id="udpateNotification" style="display:none;" class="ui green inverted segment">
-                                <i class=" checkmark icon"></i> Share Setting Updated
+                                <i class=" checkmark icon"></i> <span locale="share/setting/updated">Share Setting Updated</span>
                         </div>
                         </div>
                     </div>
@@ -80,10 +80,10 @@
         <div class="ui divider"></div>
         <div style="width: 100%; padding-right: 12px;" align="right">
             <div class="ui button popupbuttons whiteTheme allowHover" onclick="copyLinkToClipboard(this)">
-                <i class="copy icon"></i> Copy
+                <i class="copy icon"></i> <span locale="button/copy">Copy</span>
             </div> 
             <div id="sharingRemoveBtn" class="ui red button popupbuttons negative whiteTheme allowHover" onclick="removeSharing()">
-                <i class="remove icon"></i> Remove
+                <i class="remove icon"></i> <span locale="button/remove">Remove</span>
             </div> 
         </div>
         <script>
@@ -112,12 +112,18 @@
             var shareingFileData = {};
             var initialized = false;
             var fileSharingURL = "";
+            
 
             function PageReady(){
                 if (initialized){
                     return;
                 }
                 initialized = true;
+                //Do localization
+                applocale.init(relpath + "../SystemAO/locale/file_share.json", function(){
+                    applocale.translate();
+                });
+
                 $(".checkbox").checkbox();
                 var inputFile = ao_module_loadInputFiles();
                 if (inputFile == null){
@@ -145,7 +151,7 @@
                         //As the share mode is defined by the caller, hide the setting interface
                         $("#shareSettingOptions").hide();
                         $.ajax({
-                            url: "../../system/file_system/share/edit",
+                            url: relpath + "../system/file_system/share/edit",
                             data: {uuid: shareEditingUUID, mode: shareingFileData.shareMode},
                             success: function(data){
                                 if (data.error !== undefined){
@@ -169,11 +175,12 @@
                         $("#shareSettingOptions").show();
                     }
                 });
+
             }
 
             function initFileDetails(shareingFileData, callback=undefined){
                 $.ajax({
-                    url: "../../system/file_system/share/new",
+                    url: relpath + "../system/file_system/share/new",
                     data: {path: shareingFileData.filepath},
                     success: function(data){
                         if (data.error !== undefined){
@@ -216,7 +223,7 @@
 
                 //The target file to remove
                 $.ajax({
-                    url: "../../system/file_system/share/delete",
+                    url: relpath + "../system/file_system/share/delete",
                     data: {path: shareingFileData.filepath},
                     success: function(data){
                         if (data.error !== undefined){
@@ -227,7 +234,7 @@
                             $(".checkbox").addClass("disabled");
                             $("#sharelink").text("");
                             $("#sharelink").attr("href", "#");
-                            $("#qrcode").html(`<br><br><h1><i class="green checkmark icon"></i> Share Removed</h1>`);
+                            $("#qrcode").html(`<br><br><h1><i class="green checkmark icon"></i> ${applocale.getString("message/removed", "Share Removed")}</h1>`);
 
                             //If the file is located on desktop and it is web desktop mode
                             if (ao_module_virtualDesktop == true){
@@ -247,7 +254,7 @@
             function updateSharePermission(object){
                 var newPermission = $(object).attr('value');
                 $.ajax({
-                    url: "../../system/file_system/share/edit",
+                    url: relpath + "../system/file_system/share/edit",
                     data: {uuid: shareEditingUUID, mode: newPermission},
                     success: function(data){
                         if (data.error !== undefined){
@@ -265,7 +272,12 @@
                 if (location.protocol !== 'https:') {
                     protocol = "http://";
                 }
-                var shareURL = protocol + window.location.hostname + ":" + window.location.port + "/share/" + uuid;
+
+                var port = ":" + window.location.port;
+                if (window.location.port == ""){
+                    port = "";
+                }
+                var shareURL = protocol + window.location.hostname + port + "/share/" + uuid;
                 shareEditingUUID = uuid;
                 fileSharingURL = shareURL;
                 new QRCode(document.getElementById("qrcode"), shareURL);
@@ -315,6 +327,11 @@
                 //Inject QR Code library
                 var script = document.createElement('script');
                 script.setAttribute('src', relpath + "qrcode.min.js");
+                document.getElementsByTagName('head')[0].appendChild(script);
+
+                //Inject applocale
+                script = document.createElement('script');
+                script.setAttribute('src', relpath + "applocale.js");
                 document.getElementsByTagName('head')[0].appendChild(script);
 
                 //Inject semmantic css and js anyway
@@ -385,7 +402,7 @@
 
                 //Do visual feedback
                 let oldContent = $(btn).html();
-                $(btn).html(`<i class="green checkmark icon"></i> Copied!`);
+                $(btn).html(`<i class="green checkmark icon"></i> ${applocale.getString("button/copied","Copied!")}`);
                 setTimeout(function(){
                     $(btn).html(oldContent);
                 }, 3000);

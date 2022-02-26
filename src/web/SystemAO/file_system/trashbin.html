@@ -7,6 +7,7 @@
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
             body{
                 background-color:white;
@@ -45,54 +46,56 @@
         <span class="normalview">
         <div class="ui menu">
             <div class="header item">
-               <img class="ui middle aligned mini image" src="trashbin_img/small_icon.png" style="margin-right:8px; height:28px; width:28px;"></img> Trash Bin
+               <img class="ui middle aligned mini image" src="trashbin_img/small_icon.png" style="margin-right:8px; height:28px; width:28px;"></img> <span locale="title/title">Trash Bin</span>
             </div>
             <div class="right item">
-                <button class="ui negative small button" onclick="clearAll();">Delete All</button>
+                <button class="ui negative small button" onclick="clearAll();" locale="button/deleteAll">Delete All</button>
             </div>
         </div>
         <div class="ui container">
             <div class="ui segment">
                 <table class="ui celled table">
                     <thead>
-                        <tr><th>Filename</th>
-                        <th>Delete Time</th>
-                        <th>Details</th>
-                        <th>Restore</th>
-                    </tr></thead>
+                        <tr>
+                            <th locale="list/filename">Filename</th>
+                            <th locale="list/deleteTime">Delete Time</th>
+                            <th locale="list/details">Details</th>
+                            <th locale="list/restore">Restore</th>
+                        </tr>
+                    </thead>
                     <tbody id="trashList">
                     </tbody>
                 </table>
                 <div class="ui message" id="scanning">
-                    <i class="loading spinner icon"></i> Scanning for trash in all disks...
+                    <i class="loading spinner icon"></i> <span locale="list/scanning">Scanning for trash in all disks...</span>
                 </div>
             </div>
         </div>
         </span>
         <div class="confirmRemove" style="display:none;">
             <div class="banner">
-                <div class="title">Move <span id="fcount">0 File</span> to Trash Bin?</div>
+                <div class="title"><span locale="opr/move">Move</span> <span id="fcount">0 File</span> <span locale="opr/toTrashBin">to Trash Bin?</span></div>
                 <img id="opricon" src="trashbin_img/trashopr.png" class="ui image"></img>
             </div>
             <div class="content">
-                <div class="info">Deleting: <span class="filename"></span></div>
+                <div class="info"><span locale="opr/delete">Deleting:</span> <span class="filename"></span></div>
                 <div style="position:absolute; bottom:8px;right:4px;">
-                    <button class="ui small button" onclick="ao_module_close();">Cancel</button>
-                    <button class="ui primary small button" onclick="confirmDelete();">Confirm</button>
+                    <button class="ui small button" onclick="ao_module_close();" locale="opr/cancel">Cancel</button>
+                    <button class="ui primary small button" onclick="confirmDelete();" locale="opr/confirm">Confirm</button>
                 </div>
             </div>
         </div>
         <div class="ui modal" style="overflow-y:auto; overflow-x:hidden;">
             <i class="close icon"></i>
-            <div class="header filename">
+            <div class="header filename" locale="message/nofileselected">
                 No File Selected
             </div>
             <div class="ui basic segment">
                 <table class="ui very basic celled table">
                     <thead>
                         <tr>
-                            <th>Property</th>
-                            <th>Value</th>
+                            <th locale="message/property">Property</th>
+                            <th locale="message/value">Value</th>
                         </tr>
                     </thead>
                     <tbody id="detailList">
@@ -101,7 +104,7 @@
                 </table>
             </div>
             <div class="actions">
-                <div class="ui icon blue button" onclick=" $('.ui.modal').modal('hide');">
+                <div class="ui button" onclick=" $('.ui.modal').modal('hide');" locale="detail/ok">
                  OK
                 </div>
             </div>
@@ -112,26 +115,44 @@
             var previousTrashbinFilelist = [];
             var legacyMode = !('WebSocket' in window || 'MozWebSocket' in window); 
 
-            if (deletePendingFiles != null && deletePendingFiles.length > 0){
-                //Handle trash treatment
-                console.log(deletePendingFiles);
-                ao_module_setFixedWindowSize();
-                ao_module_setWindowSize(400,200);
-                $(".normalview").hide();
-                $(".confirmRemove").show();
-
-                //Update graphical information
-                var displayname = deletePendingFiles[0].filename;
-                $("#fcount").text("1 File");
-                if (deletePendingFiles.length > 1){
-                    displayname = displayname + " and " + (deletePendingFiles.length - 1) + " more";
-                    $("#fcount").text(deletePendingFiles.length + " Files");
+            if (!applocale){
+                applocale = {
+                    init: function(json, callback){
+                        if (callback){
+                            callback();
+                        }
+                    }
                 }
-                $(".filename").text(displayname);
-
-            }else{
-                initList();
             }
+            applocale.init("../../SystemAO/locale/trashbin.json", function(){
+                applocale.translate();
+
+                if (deletePendingFiles != null && deletePendingFiles.length > 0){
+                    //Handle trash treatment
+                    console.log(deletePendingFiles);
+                    ao_module_setFixedWindowSize();
+                    //ao_module_setWindowSize(400,200);
+                    $(".normalview").hide();
+                    $(".confirmRemove").show();
+
+                    //Update graphical information
+                    var displayname = deletePendingFiles[0].filename;
+                    $("#fcount").text("1 " + applocale.getString("opr/file", "File"));
+                    if (deletePendingFiles.length > 1){
+                        displayname = displayname + applocale.getString("opr/and", " and ") + (deletePendingFiles.length - 1) + applocale.getString("opr/more", " more");
+                        $("#fcount").text(deletePendingFiles.length + " " + applocale.getString("opr/files", "Files"));
+                    }
+                    $(".filename").text(displayname);
+
+                }else{
+                    //List all trash mode
+                    ao_module_setWindowSize(1080, 580);
+                    initList();
+                }
+
+            });
+
+           
 
             //Initialize the trash list
             function initList(){
@@ -155,8 +176,8 @@
                         $("#trashList").append(`<tr>
                             <td>${thisFile.OriginalFilename}</td>
                             <td>${thisFile.RemoveDate}</td>
-                            <td><button filedata="${filedata}" class="ui tiny button" onclick="showDetail(this);">Details</button></td>
-                            <td><button filedata="${filedata}" class="ui green tiny button" onclick="restore(this);">Restore</button></td>
+                            <td><button filedata="${filedata}" class="ui tiny button" onclick="showDetail(this);">${applocale.getString("button/details","Details")}</button></td>
+                            <td><button filedata="${filedata}" class="ui green tiny button" onclick="restore(this);">${applocale.getString("button/restore", "Restore")}</button></td>
                         </tr>`);
                         previousTrashbinFilelist.push(thisFile);
                     };
@@ -188,14 +209,14 @@
                                 $("#trashList").append(`<tr>
                                     <td>${thisFile.OriginalFilename}</td>
                                     <td>${thisFile.RemoveDate}</td>
-                                    <td><button filedata="${filedata}" class="ui tiny button" onclick="showDetail(this);">Details</button></td>
-                                    <td><button filedata="${filedata}" class="ui green tiny button" onclick="restore(this);">Restore</button></td>
+                                    <td><button filedata="${filedata}" class="ui tiny button" onclick="showDetail(this);">${applocale.getString("button/details","Details")}</button></td>
+                                    <td><button filedata="${filedata}" class="ui green tiny button" onclick="restore(this);">${applocale.getString("button/restore", "Restore")}</button></td>
                                 </tr>`);
                                 previousTrashbinFilelist.push(thisFile);
                             }
 
                             if (data.length == 0){
-                                $("#trashList").append(`<tr><td colspan="4"><i class="checkmark icon"></i> There are no files or folders in Trashbin.</td></tr>`);
+                                $("#trashList").append(`<tr><td colspan="4"><i class="checkmark icon"></i> ${applocale.getString("message/notrash","There are no files or folders in Trashbin.")}</td></tr>`);
                             }
                             $("#scanning").hide();
                         }
@@ -240,15 +261,15 @@
                 $(".filename").text(filedata.OriginalFilename);
                 $("#detailList").html("");
                 var keyMapping = {
-                    "Filename": "Storage Filename",
-                    "Filepath": "Storage Filepath",
-                    "FileExt": "File Extension",
-                    "IsDir": "Is Directory",
-                    "Filesize": "File Size",
-                    "RemoveTimestamp": "Remove Timestamp",
-                    "RemoveDate": "Remove Datetime",
-                    "OriginalPath": "Original Path",
-                    "OriginalFilename": "Original Filename"
+                    "Filename": applocale.getString("detail/storageFilename", "Storage Filename"),
+                    "Filepath": applocale.getString("detail/storageFilepath","Storage Filepath"),
+                    "FileExt": applocale.getString("detail/fileExt","File Extension"),
+                    "IsDir": applocale.getString("detail/isDir","Is Directory"),
+                    "Filesize": applocale.getString("detail/filesize","File Size"),
+                    "RemoveTimestamp": applocale.getString("detail/removeTimestamp","Remove Timestamp"),
+                    "RemoveDate": applocale.getString("detail/removeDate","Remove Datetime"),
+                    "OriginalPath": applocale.getString("detail/originalPath","Original Path"),
+                    "OriginalFilename": applocale.getString("detail/originalFilename","Original Filename")
                 }
                 for (var [key, value] of Object.entries(filedata)) {
                     console.log(key, value);
@@ -278,7 +299,7 @@
             }
 
             function clearAll(){
-                if (confirm("Confirm deleting ALL FILE PERMANENTLY?")){
+                if (confirm(applocale.getString("message/confirmDelete", "Confirm deleting ALL FILE PERMANENTLY?"))){
                     $.get("../../system/file_system/clearTrash",function(data){
                         initList();
                     });
