@@ -76,6 +76,10 @@ To optain the .img file, you can unzip the compressed image using 7zip. If you d
 Since v1.119, arozos pre-build image has been moved from the original Raspberry Pi OS 32-bit to 64-bit for better utilization of system resources. For older version of Pis, you can install arozos with the command below with a fresh installation of Raspberry Pi OS
 
 ```
+curl -L https://raw.githubusercontent.com/tobychui/arozos/master/installer/install_for_pi.sh | bash
+```
+or without curl
+```
 cd ~/
 wget https://raw.githubusercontent.com/tobychui/arozos/master/installer/install_for_pi.sh
 sudo chmod 775 ./install_for_pi.sh
