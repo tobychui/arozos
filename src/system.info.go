@@ -116,11 +116,12 @@ func SystemInfoInit() {
 		if updates.CheckLauncherPortResponsive() {
 			//Launcher port is responsive. Assume launcher exists
 			registerSetting(settingModule{
-				Name:     "Updates",
-				Desc:     "Perform ArozOS Updates",
-				IconPath: "SystemAO/updates/img/update.png",
-				Group:    "Info",
-				StartDir: "SystemAO/updates/index.html",
+				Name:         "Updates",
+				Desc:         "Perform ArozOS Updates",
+				IconPath:     "SystemAO/updates/img/update.png",
+				Group:        "Info",
+				StartDir:     "SystemAO/updates/index.html",
+				RequireAdmin: true,
 			})
 
 			//Register Update Functions
