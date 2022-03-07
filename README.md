@@ -14,6 +14,7 @@ The current arozos is still under intense development. System structure might ch
 - No-bull-shit module naming scheme
 ### Networking 
 - FTP Server
+- Static Web Server
 - WebDAV Server
 - UPnP Port Forwarding
 - Samba (Supported via 3rd party sub-services)
@@ -23,6 +24,11 @@ The current arozos is still under intense development. System structure might ch
 - Virtual File System Architecture
 - File Sharing (Similar to Google Drive)
 - Basic File Operations with Real-time Progress (Copy / Cut / Paste / New File or Folder etc)
+
+### Extensibility
+
+- ECMA5 (JavaScript like) scripting interface
+- 3rd party Go / Python module development with sub-service reverse proxy
 
 ### Others
 
@@ -262,10 +268,14 @@ Rename the storage.json.example to storage.json and start arozos. The required v
 
 
 
-## ArOZ JavaScript Gateway Interface / Plugin Loader
+## ArOZ JavaScript Gateway Interface (AGI) / Plugin Loader
 The ArOZ AJGI / AGI interface provide a javascript programmable interface for ArOZ Online users to create 
 plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
 (also named the module root). See more details in the ![AJGI Documentation](https://github.com/tobychui/arozos/blob/master/src/AGI%20Documentation.md).
+
+## ArozOS OTA Update Launcher
+
+Since v1.119, ArozOS can perform OTA update with the help of the [ArozOS Launcher](https://github.com/aroz-online/launcher). See the launcher's github repo for installation instructions.
 
 ## Other Resources
 If you are looking for other WebApps (Installed via System Setting) or subservices (Require SSH login to install, for OEM only), please take a look at our collections over here:
