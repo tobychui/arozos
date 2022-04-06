@@ -73,7 +73,7 @@ function main(){
             //Check if this filepath is already been classified.
             if (typeof(filepathMap[thisImageFile]) == "undefined"){
                 //Not found in cache. New photo! 
-                console.log("[Photo] Analysising photo with neuralnet: " + thisImageFile);
+                console.log("[Photo] Analysising photo with " + getNNModel() + ": " + thisImageFile);
                 var thisImageTagRecord = getImageTagsRecord(thisImageFile);
                 if (websocketMode){
                     websocket.send(JSON.stringify(thisImageFile));

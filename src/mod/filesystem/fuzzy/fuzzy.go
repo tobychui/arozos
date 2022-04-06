@@ -1,7 +1,6 @@
 package fuzzy
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -64,11 +63,9 @@ func buildFuzzyChunks(fuzzyInput string, caseSensitive bool) ([]string, []string
 	preciseExclude := false //Exclude precise word from buffer
 	preciseBuffer := []string{}
 
-	fmt.Println(fuzzyInput)
 	if !caseSensitive {
 		fuzzyInput = strings.ToLower(fuzzyInput)
 	}
-	fmt.Println(fuzzyInput)
 
 	fuzzyChunks := strings.Split(fuzzyInput, " ")
 	for _, thisChunk := range fuzzyChunks {

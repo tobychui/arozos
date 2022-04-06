@@ -42,7 +42,6 @@ func RunStartup() {
 	UserSystemInit()        //See user.go
 	permissionInit()        //Register permission interface after user
 	RegisterSystemInit()    //See register.go
-	OAuthInit()             //Oauth system init
 	GroupStoragePoolInit()  //Register permission groups's storage pool, require permissionInit()
 	BridgeStoragePoolInit() //Register the bridged storage pool based on mounted storage pools
 
@@ -88,6 +87,8 @@ func RunStartup() {
 	mediaServer_init()
 	security_init()
 	backup_init()
+	OAuthInit() //Oauth system init
+	ldapInit()  //LDAP system init
 
 	//Start High Level Services that requires full arozos architectures
 	FTPServerInit() //Start FTP Server Endpoints

@@ -2,6 +2,7 @@ package neuralnet
 
 import (
 	"errors"
+	"log"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -100,8 +101,18 @@ func AnalysisPhotoYOLO3(filename string) ([]*ImageClass, error) {
 		return results, errors.New("Source file not found")
 	}
 
+	//Check if there is yolov3.weight. If not, use yolo3_tiny.weight
+	pretrainWeight := "yolov3.weights"
+	networkConf := "cfg/yolov3.cfg"
+	if !filesystem.FileExists(filepath.Join(filepath.Dir(darknetBinary), "yolov3.weight")) {
+		//yolo3 weight not exists. Switch to yolov3_tiny (default, recommended)
+		log.Println("[neuralnet] yolo3.weight not found. Using yolo3-tiny.weight instead")
+		pretrainWeight = "yolov3-tiny.weights"
+		networkConf = "cfg/yolov3-tiny.cfg"
+	}
+
 	//Analysis the image
-	cmd := exec.Command(darknetBinary, "detect", "cfg/yolov3.cfg", "yolov3.weights", imageSourceAbs, "-out")
+	cmd := exec.Command(darknetBinary, "detect", networkConf, pretrainWeight, imageSourceAbs, "-out")
 	cmd.Dir = filepath.Dir(darknetBinary)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

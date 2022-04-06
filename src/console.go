@@ -167,6 +167,39 @@ func consoleCommandHandler(input string) string {
 			fmt.Println(ssRouter.RunningSubService)
 			return "OK"
 		}
+	} else if len(chunk) > 0 && chunk[0] == "access" {
+		//Handle emergency situation where the user is blocked by himself
+		if matchSubfix(chunk, []string{"access", "whitelist", "disable"}, 3, "") {
+			//Disable whitelist
+			authAgent.WhitelistManager.SetWhitelistEnabled(false)
+			return "Whitelist Disabled"
+		} else if matchSubfix(chunk, []string{"access", "whitelist", "enable"}, 3, "") {
+			//Enable whitelist
+			authAgent.WhitelistManager.SetWhitelistEnabled(true)
+			return "Whitelist Enabled"
+		} else if matchSubfix(chunk, []string{"access", "whitelist", "add"}, 4, "access whitelist add {ip_range}") {
+			err = authAgent.WhitelistManager.SetWhitelist(chunk[3])
+			if err != nil {
+				return err.Error()
+			}
+			return "OK"
+		} else if matchSubfix(chunk, []string{"access", "whitelist", "del"}, 4, "access whitelist del {ip_range}") {
+			err = authAgent.WhitelistManager.UnsetWhitelist(chunk[3])
+			if err != nil {
+				return err.Error()
+			}
+			return "OK"
+		} else if matchSubfix(chunk, []string{"access", "blacklist", "enable"}, 3, "") {
+			//Enable blacklist
+			authAgent.WhitelistManager.SetWhitelistEnabled(true)
+			return "Blacklist Enabled"
+		} else if matchSubfix(chunk, []string{"access", "blacklist", "disable"}, 3, "") {
+			//Disable blacklist
+			authAgent.BlacklistManager.SetBlacklistEnabled(false)
+			return "Blacklist Disabled"
+		} else {
+			return "[Whitelist / Blacklist Console Control API] \nUsage: access {whitelist/blacklist} {action} {data}"
+		}
 	} else if len(chunk) == 1 && chunk[0] == "stop" {
 		//Stopping the server
 		fmt.Println("Shutting down aroz online system by terminal request")

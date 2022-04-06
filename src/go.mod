@@ -13,6 +13,10 @@ require (
 	github.com/frankban/quicktest v1.10.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.1.0
 	github.com/go-git/go-git/v5 v5.2.0
+	github.com/go-ldap/ldap v3.0.3+incompatible // indirect
+	github.com/go-ldap/ldap/v3 v3.4.2 // indirect
+	github.com/google/uuid v1.3.0 // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20220221023154-0b2280d3ff96 // indirect
 	github.com/gorilla/sessions v1.2.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/grandcat/zeroconf v1.0.0
@@ -24,10 +28,11 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/oliamb/cutter v0.2.2
+	github.com/oov/psd v0.0.0-20220121172623-5db5eafcecbb // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/robertkrimen/otto v0.0.0-20191219234010-c382bd3c16ff
 	github.com/satori/go.uuid v1.2.0
-	github.com/spf13/afero v1.3.1
+	github.com/spf13/afero v1.6.0
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/tidwall/pretty v1.0.2
 	github.com/ulikunitz/xz v0.5.10 // indirect
@@ -39,6 +44,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20210615190721-d04028783cf1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210817190340-bfb29a6856f2 // indirect
+	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

@@ -1,0 +1,215 @@
+<html>
+
+<head>
+    <title>LDAP Login</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.css">
+    <script type="application/javascript" src="../../script/jquery.min.js"></script>
+    <script type="application/javascript" src="../../script/clipboard.min.js"></script>
+    <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <style>
+        /* Tooltip container */
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            border-bottom: 1px dotted black;
+            /* If you want dots under the hoverable text */
+        }
+        /* Tooltip text */
+        
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            padding: 5px 0;
+            border-radius: 6px;
+            /* Position the tooltip text */
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            /* Fade in tooltip */
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        /* Tooltip arrow */
+        
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <div class="ui header">
+                <i class="key icon"></i>
+                <div class="content">
+                    LDAP Access
+                    <div class="sub header">Allow external account to access ArozOS with LDAP</div>
+                </div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <div class="ui green inverted segment" style="display:none;" id="updateSet">
+            <h5 class="ui header">
+                <i class="checkmark icon"></i>
+                <div class="content">
+                    Settings Updated
+                </div>
+            </h5>
+        </div>
+        <div class="ui form">
+            <div class="field">
+                <div class="ui toggle checkbox">
+                    <input type="checkbox" id="enable" name="public">
+                    <label>Enable LDAP</label>
+                </div>
+            </div>
+            <div class="field">
+                <label>Bind Username</label>
+                <div class="ui fluid input">
+                    <input type="text" id="bind_username" placeholder="root">
+                </div>
+            </div>
+            <div class="field">
+                <label>Bind Password</label>
+                <div class="ui fluid input">
+                    <input type="password" id="bind_password" placeholder="p@ssw0rd">
+                </div>
+            </div>
+            <div class="field">
+                <label>FQDN</label>
+                <div class="ui fluid input">
+                    <input type="text" id="fqdn" placeholder="10.0.0.1">
+                </div>
+            </div>
+            <div class="field">
+                <label>Base DN</label>
+                <div class="ui fluid input">
+                    <input type="text" id="base_dn" placeholder="cn=users,dc=ldap">
+                </div>
+            </div>
+            <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
+            <button id="test_btn" onclick="test();" class="ui button" type="submit">Test Connection</button>
+        </div>
+        <div class="ui divider"></div>
+        <div id="testConnection" style="display: none">
+            <table class="ui celled table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Group belongs to</th>
+                        <th>Equivalence user group in arozos</th>
+                    </tr>
+                </thead>
+                <tbody id="information">
+                </tbody>
+            </table>
+            <button id="sync_btn" onclick="syncorize();" class="ui button" type="submit">Syncorize User</button>
+        </div>
+        <br><br>
+    </div>
+
+
+    <script>
+        $(document).ready(function() {
+            read();
+        });
+
+        function read() {
+            $.getJSON("../../system/auth/ldap/config/read", function(data) {
+                if (data.enabled) {
+                    $("#enable").parent().checkbox("check")
+                }
+                if (data.autoredirect) {
+                    $("#autoredirect").parent().checkbox("check")
+                }
+                $("#bind_username").val(data.bind_username);
+                $("#bind_password").val(data.bind_password);
+                $("#fqdn").val(data.fqdn);
+                $("#base_dn").val(data.base_dn);
+            });
+        }
+
+        function update() {
+            $.post("../../system/auth/ldap/config/write", {
+                    enabled: $("#enable").parent().checkbox("is checked"),
+                    bind_username: $("#bind_username").val(),
+                    bind_password: $("#bind_password").val(),
+                    fqdn: $("#fqdn").val(),
+                    base_dn: $("#base_dn").val(),
+                })
+                .done(function(data) {
+                    if (data.error != undefined) {
+                        alert(data.error);
+                    } else {
+                        //OK!
+                        $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
+                    }
+                });
+        }
+
+        function test() {
+            $("#test_btn").text("Testing...");
+            $.get("../../system/auth/ldap/config/testConnection")
+                .done(function(data) {
+                    if (data.error != undefined) {
+                        if (data.error != "") {
+                            alert(data.error);
+                        }
+                    }
+                    if (data.userinfo == null) {
+                        alert("No entries was found");
+                    }
+                    //OK!
+                    $("#information").html("");
+                    $(data.userinfo).each(function(index, element) {
+                        $("#information").append(`
+                            <tr>
+                                <td data-label="username">` + element.username + `</td>
+                                <td data-label="ldap_group">` + element.group + `</td>
+                                <td data-label="equiv_group">` + element.equiv_group + `</td>
+                            </tr>
+                        `);
+                    });
+                    $("#information").append(`
+                            <tr>
+                                <td data-label="length" colspan="3">Showing ` + data.length + ` of ` + data.total_length + ` entries</td>
+                            </tr>
+                    `);
+                    $("#testConnection").show("fast");
+                    $("#test_btn").text("Test connection");
+                });
+        }
+
+        function syncorize() {
+            $("#sync_btn").text("Syncorizing...");
+            $.get("../../system/auth/ldap/config/syncorizeUser")
+                .done(function(data) {
+                    if (data.error != undefined) {
+                        alert(data.error);
+                    } else {
+                        //OK!
+                        $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
+                    }
+                    $("#sync_btn").text("Syncorize User");
+                });
+        }
+    </script>
+</body>
+
+</html>

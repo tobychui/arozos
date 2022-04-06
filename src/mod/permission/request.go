@@ -73,6 +73,12 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
+		//Do not allow removal of admin permission from administrator group
+		if isAdmin == "false" && groupname == "administrator" {
+			sendErrorResponse(w, "You cannot unset admin permission from administrator group")
+			return
+		}
+
 		quota, err := mv(r, "defaultQuota", true)
 		if err != nil {
 			sendErrorResponse(w, "Default Quota not defined")

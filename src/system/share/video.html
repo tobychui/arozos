@@ -7,5 +7,9 @@
     document.getElementsByTagName('video')[0].volume = 0.2;
 
     //Render an embedded code for this video preview
-    $("#embeddedCode").text(`<video src="${location.protocol}//${window.location.hostname}:${window.location.port}{{preview_url}}" style="width:560px; height: 340px; background-color: #000000;" controls></video>`);
+    var port = window.location.port;
+    if (port != ""){
+        port = ":" + port;
+    }
+    $("#embeddedCode").text(`<video src="${location.protocol}//${window.location.hostname}${port}{{preview_url}}{{filename}}" style="width:560px; height: 340px; background-color: #000000;" controls></video>`);
 </script>

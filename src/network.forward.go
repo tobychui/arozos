@@ -24,7 +24,7 @@ func portForwardInit() {
 	sysdb.NewTable("portforward")
 
 	//Register modules
-	if *allow_upnp == true {
+	if *allow_upnp {
 		//Forward the previous registered paths
 		entries, _ := sysdb.ListTable("portforward")
 		for _, keypairs := range entries {

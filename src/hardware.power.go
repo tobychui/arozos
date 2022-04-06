@@ -61,9 +61,9 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordCorrect := authAgent.ValidateUsernameAndPassword(userinfo.Username, password)
+	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		sendErrorResponse(w, "Password Incorrect")
+		sendErrorResponse(w, rejectionReason)
 		return
 	}
 
@@ -128,9 +128,9 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordCorrect := authAgent.ValidateUsernameAndPassword(userinfo.Username, password)
+	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		sendErrorResponse(w, "Password Incorrect")
+		sendErrorResponse(w, rejectionReason)
 		return
 	}
 

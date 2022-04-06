@@ -229,11 +229,19 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 
 	//validate username and password
 	authAgent := s.userHandler.GetAuthAgent()
-	passwordValid := authAgent.ValidateUsernameAndPassword(username, password)
+
+	//Validate request origin
+	allowAccess, err := authAgent.ValidateLoginRequest(w, r)
+	if !allowAccess {
+		log.Println("Someone from " + r.RemoteAddr + " try to log into " + username + " WebDAV endpoint but got rejected: " + err.Error())
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	passwordValid, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(username, password)
 	if !passwordValid {
 		authAgent.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "webdav")
-		log.Println("Someone from " + r.RemoteAddr + " try to log into " + username + " WebDAV endpoint with incorrect password")
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		log.Println("Someone from " + r.RemoteAddr + " try to log into " + username + " WebDAV endpoint but got rejected: " + rejectionReason)
+		http.Error(w, rejectionReason, http.StatusUnauthorized)
 		return
 	}
 

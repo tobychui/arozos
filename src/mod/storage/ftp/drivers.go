@@ -60,6 +60,15 @@ func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ft
 		}
 		accessOK := userinfo.UserIsInOneOfTheGroupOf(allowedPgs)
 
+		if accessOK {
+			//Check if the request is from a blacklisted ip range
+			allowAccess, err := m.userHandler.GetAuthAgent().ValidateLoginIpAccess(cc.RemoteAddr().String())
+			if !allowAccess {
+				accessOK = false
+				return nil, err
+			}
+		}
+
 		if !accessOK {
 			//log the signin request
 			m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")

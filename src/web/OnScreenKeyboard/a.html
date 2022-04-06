@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#4b75ff">
+		
+
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+		<title>On Screen Keyboard</title>
+		<style>
+			body{
+				background-color: rgba(255,255,255,1.0);
+                overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+		<script src="onscreenkeyboard.js"></script>
+		<script>
+			//Initialize ao_module events
+			ao_module_setFixedWindowSize();
+
+			//Pin the window to top layer
+			ao_module_setTopMost();
+		</script>
+	</body>
+</html>

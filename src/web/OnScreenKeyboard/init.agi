@@ -1,0 +1,22 @@
+/*
+	On Screen Keyboard
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "OnScreenKeyboard",
+	Desc: "On Screen Keyboard for touch displays that don't have on screen keyboard",
+	Group: "IME",
+	IconPath: "OnScreenKeyboard/img/small_icon.png",
+	Version: "0.1.0",
+	StartDir: "OnScreenKeyboard/index.html",
+	SupportFW: true,
+	LaunchFWDir: "OnScreenKeyboard/index.html",
+	SupportEmb: false,
+	InitFWSize: [776, 290],
+	SupportedExt: []
+}
+
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

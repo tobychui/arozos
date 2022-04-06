@@ -194,3 +194,30 @@ func IsIPv6Addr(ip string) (bool, error) {
 func GetPing(w http.ResponseWriter, r *http.Request) {
 	sendJSONResponse(w, "pong")
 }
+
+func GetIpFromRequest(r *http.Request) (string, error) {
+	ip := r.Header.Get("X-REAL-IP")
+	netIP := net.ParseIP(ip)
+	if netIP != nil {
+		return ip, nil
+	}
+
+	ips := r.Header.Get("X-FORWARDED-FOR")
+	splitIps := strings.Split(ips, ",")
+	for _, ip := range splitIps {
+		netIP := net.ParseIP(ip)
+		if netIP != nil {
+			return ip, nil
+		}
+	}
+
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return "", err
+	}
+	netIP = net.ParseIP(ip)
+	if netIP != nil {
+		return ip, nil
+	}
+	return "", errors.New("No IP information found")
+}

@@ -230,6 +230,20 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		//Check if the current user is the only one admin in the administrator group and he is leaving the group
+		allAdministratorGroupUsers, err := userHandler.GetUsersInPermissionGroup("administrator")
+		if err == nil {
+			//Skip checking if error
+			if len(allAdministratorGroupUsers) == 1 && userinfo.UserIsInOneOfTheGroupOf([]string{"administrator"}) && !stringInSlice("administrator", newGroupKeys) {
+				//Current administrator group only contain 1 user
+				//This user is in the administrator group
+				//The user want to unset himself from administrator group
+				//Reject the operation as this will cause system lockdown
+				sendErrorResponse(w, "You are the only administrator. You cannot remove yourself from the administrator group.")
+				return
+			}
+		}
+
 		//Get the permission groups by their ids
 		newPermissioGroups := userHandler.GetPermissionHandler().GetPermissionGroupByNameList(newGroupKeys)
 

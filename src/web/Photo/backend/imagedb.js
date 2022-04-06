@@ -60,9 +60,41 @@ function inCacheFolder(filename){
     return false;
 }
 
+function getExcludeFolders(){
+    newDBTableIfNotExists("image");
+    var excludeList = readDBItem("image", "excludes");
+    if (excludeList == ""){
+        //Initialize the records
+        writeDBItem("image", "excludes", JSON.stringify(["Manga","thumbnails"]));
+        return ["Manga","thumbnails"];
+    }else{
+       return JSON.parse(excludeList);
+    }
+}
+
+function setExcludeFolders(newFolderList){
+    newDBTableIfNotExists("image");
+    return writeDBItem("image", "excludes", JSON.stringify(newFolderList));
+}
+
+function getNNModel(){
+    newDBTableIfNotExists("image");
+    var nnmodel = readDBItem("image", "nnm");
+    if (nnmodel == ""){
+        return "yolo3";
+    }else{
+        return nnmodel;
+    }
+}
+
+function setNNModel(newNNM){
+    newDBTableIfNotExists("image");
+    return writeDBItem("image", "nnm", newNNM);
+}
+
 //Check if this photo shd be rendered
-function checkIsInExcludeFolders(filename){
-    var excludeRootFolders = ["Manga", "tmp", "thumbnail"];
+function checkIsInExcludeFolders(filename, excludeFiles){
+    var excludeRootFolders = excludeFiles;
     var pathinfo = filename.split("/");
     if (pathinfo.length > 2){
         var basefolder = pathinfo[2];
@@ -81,13 +113,14 @@ function checkIsInExcludeFolders(filename){
 function getAllImageFiles(){
     var results = [];
     var possibleRoots = getAllPossibleRoots();
+    var excludeFiles = getExcludeFolders();
     for ( var i = 0; i < possibleRoots.length; i++){
         var thisRootInfo = possibleRoots[i];
         var allFilesInThisPhotoRoot = filelib.walk(thisRootInfo[2]);
         for ( var j = 0; j < allFilesInThisPhotoRoot.length; j++){
             var thisFile = allFilesInThisPhotoRoot[j];
             if (!filelib.isDir(thisFile) && isSupportedImage(thisFile) && !inCacheFolder(thisFile)){
-                if (!checkIsInExcludeFolders(thisFile)){
+                if (!checkIsInExcludeFolders(thisFile, excludeFiles)){
                     results.push(thisFile);
                 }
                 
@@ -100,6 +133,7 @@ function getAllImageFiles(){
 
 //Get all the image files exists in given root as rootID:/Photo/*
 function getAllImageFilesInRoot(targetRootID){
+    var excludeFiles = getExcludeFolders();
     if (targetRootID.indexOf(":") >= 0){
         targetRootID = targetRootID.split(":")[0];
     }
@@ -108,7 +142,7 @@ function getAllImageFilesInRoot(targetRootID){
     for ( var j = 0; j < allFilesInThisPhotoRoot.length; j++){
         var thisFile = allFilesInThisPhotoRoot[j];
         if (!filelib.isDir(thisFile) && isSupportedImage(thisFile) && !inCacheFolder(thisFile)){
-            if (!checkIsInExcludeFolders(thisFile)){
+            if (!checkIsInExcludeFolders(thisFile, excludeFiles)){
                 results.push(thisFile);
             }
             
@@ -120,7 +154,7 @@ function getAllImageFilesInRoot(targetRootID){
 
 //Get the tag of a certain image file given its filepath
 function getImageTags(imagefile){
-    var results = imagelib.classify(imagefile, "yolo3"); 
+    var results = imagelib.classify(imagefile, getNNModel()); 
     var tags = [];
     for (var i = 0; i < results.length; i++){
         console.log(results[i].Name, results[i].Percentage);

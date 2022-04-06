@@ -29,10 +29,10 @@
 	<button class="ts right item icon AMmenu noBorder button" onClick="enterSearchMode();"><i class="search icon"></i></button>
 	<!-- <button class="ts right item icon AMmenu noBorder button"><i class="ellipsis vertical icon"></i></button> -->
 </div>
-<div id="searchModeMenu" class="ts basic fluid AMmenu menu bottomBlue" style="z-index:85;position:fixed;position:top:0px;left:0px;width:100%;height:51px;display:none;">
+<div id="searchModeMenu" class="ts basic fluid AMmenu menu bottomBlue" style="z-index:85;position:fixed;top:0px;left:0px;width:100%;height:51px;display:none;">
     <button class="ts item icon noBorder AMmenu button" onClick="exitSearchMode();"><i class="arrow left icon"></i></button>
 	<div class="ts fluid input" >
-		<input id="searchInputBar" type="text" style="background-color:rgb(48, 48, 48);border:0px !important;border-bottom:2px solid rgb(60, 60, 60) !important;margin-bottom:3px;color:white;" placeholder="Search Music">
+		<input id="searchInputBar" onkeypress="//handleSearchInputEnter(event);" type="text" style="background-color:rgb(48, 48, 48);border:0px !important;border-bottom:2px solid rgb(60, 60, 60) !important;margin-bottom:3px;color:white;" placeholder="Search Music">
 	</div>
 	<button class="ts right item icon AMmenu noBorder button" onClick="searchSong();"><i class="search icon"></i></button>
 </div>
@@ -563,17 +563,32 @@
 		searchModeEnabled = false;
 	}
 
-	$("#searchInputBar").on("keyup",function(e){
-		if(e.keyCode == 13){
+	document.getElementById("searchInputBar").addEventListener("keypress", function(event){
+		console.log(event, event.keyCode);
+		if(event.keyCode == 13){
 			//Enter pressed. start searching
 			searchSong();
 		}
 	});
 
+	/*
+	function handleSearchInputEnter(e){
+		if(e.keyCode == 13){
+			//Enter pressed. start searching
+			searchSong();
+		}
+	}
+	*/
+
 	function searchSong(){
 		var keyword = $("#searchInputBar").val();
 		if (keyword.includes("?") || keyword.includes("&")){
 			alert("Search keyword cannot contains & or ? symbol.");
+			return;
+		}
+
+		if (keyword == ""){
+			//Empty keyword. Return nothing
 			return;
 		}
 		//Clear the mainList, replace with a dummy loading screen
@@ -1079,7 +1094,7 @@
 		//Check if it is mobile. If yes, always 100% and leave volume to system
 		if (isMobile()){
 			globalvol = 1;
-			$(".desktopOnly").addClass("disabled");
+			//$(".desktopOnly").addClass("disabled");
 		}
 
 		audioElement[0].volume = parseFloat(globalvol);

@@ -125,6 +125,7 @@ function handleUserRequest(){
             }else if (listSong.substr(0,7) == "search:"){
                 //Search mode
                 var keyword = listSong.substr(7)
+                keyword = keyword.toLowerCase();
                 var songData = [];
 
                 var cachedList = readDBItem("AirMusic", "cache");
@@ -151,7 +152,16 @@ function handleUserRequest(){
                         cachedList = JSON.parse(cachedList);
                         for (var j = 0; j < cachedList.length; j++){
                             var thisCachedSong = cachedList[j];
-                            allfilelist.push(thisCachedSong[0].replace("/media?file=", ""));
+                            var thisFilepath = thisCachedSong[0].replace("/media?file=", "");
+                            //Check if this file still exists. If not, get realtime list instead.
+                            if (filelib.fileExists(thisFilepath)){
+                                allfilelist.push(thisFilepath);
+                            }else{
+                                //Cache outdated. Rescanning now
+                                allfilelist = getRealtimeAllFleList();
+                                execd("buildCache.js")
+                                break;
+                            }
                         }
                     }catch(ex){
                         //Fallback
@@ -163,6 +173,7 @@ function handleUserRequest(){
                     var thisFile = allfilelist[k];
                     var ext = allfilelist[k].split('.').pop();
                     var filename = allfilelist[k].split('/').pop();
+                    filename = filename.toLowerCase();
                     if (IsSupportExt(ext) == true && filename.indexOf(keyword) !== -1 && !IsMetaFile(allfilelist[k])){
                         //This file match our ext req and keyword exists
                         var thisSongData = [];

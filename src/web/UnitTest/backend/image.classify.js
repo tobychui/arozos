@@ -7,7 +7,7 @@ function main(){
     http.download("https://cdn.pixabay.com/photo/2017/03/28/12/10/chairs-2181947_960_720.jpg", "tmp:/", "classify.jpg");
 
     //Get image classification, will take a bit time
-    var results = imagelib.classify("tmp:/classify.jpg", "darknet19"); 
+    var results = imagelib.classify("tmp:/classify.jpg", "yolo3"); 
     var responses = [];
     for (var i = 0; i < results.length; i++){
         responses.push({

@@ -230,8 +230,15 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 		results := []string{}
-		err = filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
+		filepath.Walk(rpath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				//Ignore this error file and continue
+				return nil
+			}
 			thisVpath, err := realpathToVirtualpath(path, u)
+			if err != nil {
+				return nil
+			}
 			if mode == "file" {
 				if !info.IsDir() {
 					results = append(results, thisVpath)
@@ -275,7 +282,9 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			rootDirs := []string{}
 			fileHandlers := u.GetAllFileSystemHandler()
 			for _, fsh := range fileHandlers {
-				if fsh.Hierarchy != "backup" {
+				if fsh.Hierarchy == "backup" || fsh.Filesystem == "virtual" {
+
+				} else {
 					rootDirs = append(rootDirs, fsh.UUID+":/")
 				}
 			}

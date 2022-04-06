@@ -111,6 +111,9 @@ function main(){
 
     //Scan each of the storage devices for video files
     for (var i =0; i < storages.length; i++){
+        if (storages[i].Filesystem == "virtual" || storages[i].Hierarchy == "backup"){
+            continue;
+        }
         var thisDir = storages[i].UUID + ":/";
         var thisStorageName = storages[i].Name;
         scanPathForVideo(thisDir, thisStorageName)

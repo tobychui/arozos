@@ -45,13 +45,11 @@ func AuthInit() {
 	}
 
 	//Register the API endpoints for the authentication UI
-	authAgent.RegisterPublicAPIs(auth.AuthEndpoints{
-		Login:         "/system/auth/login",
-		Logout:        "/system/auth/logout",
-		Register:      "/system/auth/register",
-		CheckLoggedIn: "/system/auth/checkLogin",
-		Autologin:     "/api/auth/login",
-	})
+	http.HandleFunc("/system/auth/login", authAgent.HandleLogin)
+	http.HandleFunc("/system/auth/logout", authAgent.HandleLogout)
+	http.HandleFunc("/system/auth/register", authAgent.HandleRegister)
+	http.HandleFunc("/system/auth/checkLogin", authAgent.CheckLogin)
+	http.HandleFunc("/api/auth/login", authAgent.HandleAutologinTokenLogin)
 
 	authAgent.LoadAutologinTokenFromDB()
 
@@ -73,7 +71,6 @@ func AuthSettingsInit() {
 	adminRouter.HandleFunc("/system/auth/groupdel", authAgent.HandleUserDeleteByGroup)
 
 	//System for logging and displaying login user information
-	//Register FTP Server Setting page
 	registerSetting(settingModule{
 		Name:         "Connection Log",
 		Desc:         "Logs for login attempts",
@@ -85,4 +82,27 @@ func AuthSettingsInit() {
 
 	adminRouter.HandleFunc("/system/auth/logger/index", authAgent.Logger.HandleIndexListing)
 	adminRouter.HandleFunc("/system/auth/logger/list", authAgent.Logger.HandleTableListing)
+
+	//Blacklist Management
+	registerSetting(settingModule{
+		Name:         "Access Control",
+		Desc:         "Prevent / Allow certain IP ranges from logging in",
+		IconPath:     "SystemAO/security/img/small_icon.png",
+		Group:        "Security",
+		StartDir:     "SystemAO/security/accesscontrol.html",
+		RequireAdmin: true,
+	})
+
+	//Whitelist API
+	adminRouter.HandleFunc("/system/auth/whitelist/enable", authAgent.WhitelistManager.HandleSetWhitelistEnable)
+	adminRouter.HandleFunc("/system/auth/whitelist/list", authAgent.WhitelistManager.HandleListWhitelistedIPs)
+	adminRouter.HandleFunc("/system/auth/whitelist/set", authAgent.WhitelistManager.HandleAddWhitelistedIP)
+	adminRouter.HandleFunc("/system/auth/whitelist/unset", authAgent.WhitelistManager.HandleRemoveWhitelistedIP)
+
+	//Blacklist API
+	adminRouter.HandleFunc("/system/auth/blacklist/enable", authAgent.BlacklistManager.HandleSetBlacklistEnable)
+	adminRouter.HandleFunc("/system/auth/blacklist/list", authAgent.BlacklistManager.HandleListBannedIPs)
+	adminRouter.HandleFunc("/system/auth/blacklist/ban", authAgent.BlacklistManager.HandleAddBannedIP)
+	adminRouter.HandleFunc("/system/auth/blacklist/unban", authAgent.BlacklistManager.HandleRemoveBannedIP)
+
 }

@@ -23,6 +23,7 @@ var ao_root = null;
 var ao_module_windowID = false;
 var ao_module_parentID = false;
 var ao_module_callback = false;
+var ao_module_ime = false;
 if (ao_module_virtualDesktop)ao_module_windowID = $(window.frameElement).parent().parent().attr("windowId");
 if (ao_module_virtualDesktop)ao_module_parentID = $(window.frameElement).parent().parent().attr("parent");
 if (ao_module_virtualDesktop)ao_module_callback = $(window.frameElement).parent().parent().attr("callback");
@@ -49,7 +50,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
             }else{
                 if (parent.window.ime.focus != null){
-                    parent.window.ime.focus = null;
+                    if (ao_module_ime){
+                        //This is clicking on ime windows. Do not change focus
+                    }else{
+                        parent.window.ime.focus = null;
+                    }
                 }
             }
         }, true);

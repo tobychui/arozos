@@ -9,6 +9,7 @@
 let photoList = [];
 let prePhoto = "";
 let nextPhoto = "";
+let currentModel = "";
 
 function scrollbarVisable(){
     return $("body")[0].scrollHeight > $("body").height();
@@ -56,6 +57,115 @@ function extractFolderName(folderpath){
     return folderpath.split("/").pop();
 }
 
+function initSelectedModelValue(){
+    ao_module_agirun("Photo/backend/modelSelector.js",{
+
+    }, function(data){
+        currentModel = data;
+        $("#selectedModel").dropdown("set selected", data);
+    })
+}
+
+function updateSelectedModel(nnnm){
+    if (nnnm != ""){
+        ao_module_agirun("Photo/backend/modelSelector.js",{
+            set: true,
+            model: nnnm
+        }, function(data){
+           console.log("Update model status: ", data);
+           $("#modelUpdated").slideDown("fast").delay(3000).slideUp('fast');
+        })
+    }
+}
+
+function settingObject(){
+    return {
+        excludeDirs: ["Manga","thumbnail"],
+
+        init(){
+            this.loadExcludeList();
+            $('#newexc input').off("keypress").on("keypress",function (e) {
+                if (e.which == 13) {
+                    addDir($('#newexc input'));
+                }
+            });
+            
+            $(".ui.dropdown").dropdown();
+            initSelectedModelValue();
+        },
+
+        addDir(element){
+            var dir = $(element).parent().find("input").val();
+            $("#newexc").removeClass("error");
+            for (var i = 0; i < this.excludeDirs.length; i++){
+                if (this.excludeDirs[i] == dir){
+                    //Already exists
+                    $("#newexc").addClass("error");
+                    return;
+                }
+            }
+
+            this.excludeDirs.push(dir);
+            $('#newexc input').val("");
+        },
+
+        removeDir(filepath){
+            //Pop the given filepath from list
+            var newExcludeDirs = [];
+            for ( var i = 0; i < this.excludeDirs.length; i++){
+                var thisExcludeDir = this.excludeDirs[i];
+                if (thisExcludeDir != filepath){
+                    newExcludeDirs.push(thisExcludeDir);
+                }
+            }
+
+            this.excludeDirs = newExcludeDirs;
+        },
+
+        loadExcludeList(){
+            $("#noexcRecords").hide();
+            fetch(ao_root + "system/ajgi/interface?script=Photo/backend/exclude.js", {
+                method: 'POST',
+                cache: 'no-cache',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    
+                })
+            }).then(resp => {
+                resp.json().then(data => {
+                    console.log(data);
+                    this.excludeDirs = data;
+                    if (data.length == 0){
+                        $("#noexcRecords").show();
+                    }
+                })
+            });
+        },
+
+
+
+        save(){
+            fetch(ao_root + "system/ajgi/interface?script=Photo/backend/exclude.js", {
+                method: 'POST',
+                cache: 'no-cache',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "set":true,
+                    "folders": this.excludeDirs
+                })
+            }).then(resp => {
+                resp.json().then(data => {
+
+                })
+            });
+        }
+    }
+}
+
 function photoListObject() {
     return {
         // data
@@ -73,7 +183,6 @@ function photoListObject() {
             this.getRootInfo();
             this.renderSize = getImageWidth();
             updateImageSizes();
-            
         },
         
         updateRenderingPath(newPath){
@@ -173,9 +282,12 @@ function renderImageList(object){
 }
 
 function ShowModal(){
-    $('.ui.modal').modal({
+    $('.ui.modal.viewer').modal({
         onHide: function(){
             ao_module_setWindowTitle("Photo");
+            setTimeout(function(){
+                $("#fullImage").attr("src","img/loading.png");
+            }, 300)
         }
     }).modal('show');
 }
@@ -217,6 +329,10 @@ $(document).on("keydown", function(e){
         
     }
 })
+
+function showSetting(){
+    $('.ui.modal.setting').modal('show');
+}
 
 function rescan(object){
     var originalContent = $(object).html();

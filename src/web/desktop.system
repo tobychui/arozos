@@ -12,7 +12,7 @@
     <script type="text/javascript" src="./script/ao_module.js"></script>
     <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <script type="text/javascript" src="./script/applocale.js"></script>
-    <script type="text/javascript" src="./script/html2canvas.min.js"></script>
+    <!-- <script type="text/javascript" src="./script/html2canvas.min.js"></script> -->
     <link rel="icon" href="img/system/favicon.png">
     <style>
         body {
@@ -1708,11 +1708,19 @@
                 //Generate the stackedWindowList
                 var windowIdList = JSON.parse(decodeURIComponent($(this).attr("windowidgroup")));
                 if (windowIdList.length == 1) {
-                    //There are only one window in this group. Focus that floatWindow
+                    //There are only one window in this group. 
+                   
+                    //Focus that floatWindow if it is in the back
                     var targetFW = getFloatWindowByID(windowIdList[0]);
-                    $(targetFW).fadeIn(100);
-                    MoveFloatWindowToTop(targetFW);
-                    stackedFloatWindowListShown = false;
+                    if (FloatWindowIsTopped(targetFW) && !($(targetFW).css('display') == 'none')){
+                        //Top Window. Hide it
+                        $(targetFW).fadeOut(100);
+                    }else{
+                        //Bring it to front
+                        $(targetFW).fadeIn(100);
+                        MoveFloatWindowToTop(targetFW);
+                        stackedFloatWindowListShown = false;
+                    }
 
                     if (checkIfFloatWindowOutsideWindowArea(targetFW)){
                         //This floatWindow is outside of the display area.
@@ -1780,9 +1788,20 @@
             $("#stackedWindowList").hide();
         }
 
-        function closeFWviaFWB(object, event) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
+
+        //Close FloatWindow via fwid
+        function closeFloatWindowViaID(fwid){
+            var thisFW = getFloatWindowByID(fwid);
+            closeFloatWindow(thisFW.find(".close"), null);
+        }
+
+        //Close FloatWindow via the floatWindowBody
+        function closeFWviaFWB(object, event=null) {
+            if (event != null){
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+          
             var targetWFID = $(object).parent().attr("windowId");
             var targetFW = getFloatWindowByID(targetWFID);
             if (targetFW == undefined){
@@ -2025,12 +2044,14 @@
             //Hide all contenxt menus
             hideAllContextMenus();
 
-            //Move the window to the top layer
-            MoveFloatWindowToTop(object);
+           //Move the window to the top layer
+           MoveFloatWindowToTop(object);
+            
             //Show the background drag panel
             if ($(object).hasClass("topmost")){
                 $("#tfwdragpanel").show();
             }else{
+                
                 $('.floatWindow.topmost').css("pointer-events", "none");
                 $('.floatWindow.topmost').css("opacity", 0.7);
                 $("#fwdragpanel").show();
@@ -2059,6 +2080,7 @@
                         width: originalSize[0],
                         height: originalSize[1],
                         left: newLeft,
+                        right: "auto",
                         top: event.Y - 2
                     });
                     clickDownOffset[0] = clickRatio * originalSize[0];
@@ -2085,6 +2107,7 @@
                 $(object).find(".iframecover").hide();
                 movingWindow = false;
 
+                //Float Window Snapping Logic
                 //Check if the window location is drag to the edge of the screen. If yes, toggle half screen fullscreen
                 //Not need to check for if max because it must be minimized during drag move
                 var dockMode = false;
@@ -2096,6 +2119,7 @@
                         width: "50%",
                         height: "calc(100% - 36px)",
                         left: "0px",
+                        right: "auto",
                         top: "0px"
                     });
                     $(object).attr("max", "true");
@@ -2107,14 +2131,14 @@
                     $(object).css({
                         width: "50%",
                         height: "calc(100% - 36px)",
-                        left: (window.innerWidth / 2) + "px",
+                        right: "0px",
+                        left: "auto",
                         top: "0px"
                     });
                     $(object).attr("max", "true");
                     $(object).find(".maxToogleButton").attr('src', "img/system/restore.png");
                 }
             }
-
         }
 
         //Handle floatWindow min, max and close
@@ -2185,13 +2209,16 @@
             }
         }
 
-        function closeFloatWindow(object, event) {
-            if (event.type == "mousedown" && event.which != 1) {
-                //Ignore right mouse down on close buttons
-                return;
+        function closeFloatWindow(object, event=null) {
+            if (event != null){
+                if (event.type == "mousedown" && event.which != 1) {
+                    //Ignore right mouse down on close buttons
+                    return;
+                }
+                event.preventDefault();
+                event.stopImmediatePropagation();
             }
-            event.preventDefault();
-            event.stopImmediatePropagation();
+         
             if ($(object).is("img")) {
                 object = $(object).panret();
             }
@@ -2283,6 +2310,15 @@
             MoveFloatWindowToTop(object);
         }
 
+        function FloatWindowIsTopped(object){
+            if ($(object).attr("windowId") == $(focusedWindow).attr("windowId")) {
+                //Top Window
+                return true;
+            }
+
+            return false;
+        }
+
         function MoveFloatWindowToTop(object) {
             var windowID = $(object).attr("windowId");
             var windowZindex = $(object).css("z-index");
@@ -2292,8 +2328,8 @@
                 return;
             }
 
-            if ($(focusedWindow).hasClass("topmost")){
-                //The previous focused windows is topmost. Move it to layer 109
+            if ($(focusedWindow).hasClass("topmost") && $(object).hasClass("topmost")){
+                //The previous focused windows is topmost. Move it to layer 500
                 $(focusedWindow).css("z-index", 500);
                 $(".floatWindow.topmost").each(function(){
                     var thisWindowZIndex = $(this).css("z-index");
@@ -2303,6 +2339,23 @@
                         }
                     }
                 });
+            }else if ($(focusedWindow).hasClass("topmost") && !$(object).hasClass("topmost")){
+                //The previous focused windows is topmost but the current one is not.
+                //No need to move the top most windows but need to move every 101 windows to 100
+                $(".floatWindow:not(.topmost)").each(function(){
+                    if ($(this).css("z-index") == 101){
+                        $(this).css("z-index", 100);
+                    }
+                });
+            
+            }else if (!$(focusedWindow).hasClass("topmost") && $(object).hasClass("topmost")){
+                //The previous focused window is normal but now focusing on top most windows.
+                $(".floatWindow.topmost").each(function(){
+                    if ($(this).css("z-index") == 501){
+                        $(this).css("z-index", 500);
+                    }
+                });
+                
             }else{
                 //The previous focused windows is normal windows. Move it to 100
                 $(focusedWindow).css("z-index", 100);
@@ -4604,6 +4657,21 @@
                     }
                     addContextMenuItem($("#contextmenu"), lcontex('Close'), "<i class='remove icon'></i>", "closeSelectedFloatWindow", false);
                     showMenu = true;
+                } else if ($(clickTarget).hasClass("floatWindowButton") || $(clickTarget).parent().hasClass("floatWindowButton")){
+                    if ($(clickTarget).parent().hasClass("floatWindowButton")){
+                        clickTarget = $(clickTarget).parent();
+                    }
+                    //Get the ID list of this button group
+                    var originalIDlist = JSON.parse(decodeURIComponent($(clickTarget).attr('windowIDGroup')));
+                    var buttonGroupName = $(clickTarget).attr('group');
+                    var displayText = lcontex('Close');
+                    if (originalIDlist.length > 1){
+                        //More than 1 window
+                        displayText = lcontex('Close All');
+                    }
+
+                    addContextMenuItem($("#contextmenu"), displayText, "<i class='remove icon'></i>", `closeWindowGroup('${buttonGroupName}');`, false);
+                    showMenu = true;
                 }
 
                 
@@ -6215,6 +6283,18 @@
                 }
             }); 
             return targetFloatWindowId;
+        }
+
+        function closeWindowGroup(groupName){
+            $(".floatWindowButton").each(function(){
+                if ($(this).attr("group") == groupName){
+                    var originalIDlist = JSON.parse(decodeURIComponent($(this).attr('windowIDGroup')));
+                    originalIDlist.forEach(fwid => {
+                        closeFloatWindowViaID(fwid);
+                    });
+                    
+                }
+            })
         }
 
         function getFocusedFloatWindow(){

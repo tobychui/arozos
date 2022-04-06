@@ -3,5 +3,9 @@
     
 </textarea>
 <script>
-     $("#embeddedCode").text(`<img src="${location.protocol}//${window.location.hostname}:${window.location.port}{{preview_url}}" style="width: 30em"/>`);
+     var port = window.location.port;
+     if (port != ""){
+          port = ":" + port;
+     }
+     $("#embeddedCode").text(`<img src="${location.protocol}//${window.location.hostname}${port}{{preview_url}}{{filename}}" style="width: 30em"/>`);
 </script>

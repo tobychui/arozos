@@ -5,6 +5,10 @@
     player=document.getElementById("audioplayer");
     player.volume=0.2;
 
-    $("#embeddedCode").text(`<audio id="audioplayer" src="${location.protocol}//${window.location.hostname}:${window.location.port}{{preview_url}}" style="width: 400px" controls></audio>`);
+    var port = window.location.port;
+    if (port != ""){
+        port = ":" + port;
+    }
+    $("#embeddedCode").text(`<audio id="audioplayer" src="${location.protocol}//${window.location.hostname}${port}{{preview_url}}{{filename}}" style="width: 400px" controls></audio>`);
 </script>
     

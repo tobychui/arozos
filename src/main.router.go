@@ -37,14 +37,16 @@ func mrouter(h http.Handler) http.Handler {
 				imgsrc = "./web/img/public/auth_icon.png"
 			}
 			imageBase64, _ := LoadImageAsBase64(imgsrc)
-			parsedPage, err := template_load("web/login.system", map[string]interface{}{
+			parsedPage, err := common.Templateload("web/login.system", map[string]interface{}{
 				"redirection_addr": red,
 				"usercount":        strconv.Itoa(authAgent.GetUserCounts()),
 				"service_logo":     imageBase64,
+				"login_addr":       "system/auth/login",
 			})
 			if err != nil {
 				panic("Error. Unable to parse login page. Is web directory data exists?")
 			}
+			w.Header().Add("Content-Type", "text/html; charset=UTF-8")
 			w.Write([]byte(parsedPage))
 		} else if r.URL.Path == "/reset.system" && authAgent.GetUserCounts() > 0 {
 			//Password restart page. Allow access only when user number > 0

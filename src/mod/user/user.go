@@ -157,3 +157,28 @@ func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Requ
 	}
 	return userObject, nil
 }
+
+//Get all the users given the permission group name, super IO heavy operation
+func (u *UserHandler) GetUsersInPermissionGroup(permissionGroupName string) ([]*User, error) {
+	results := []*User{}
+	//Check if the given group exists
+	if u.phandler.GetPermissionGroupByName(permissionGroupName) == nil {
+		//Permission group with given name not exists
+		return results, errors.New("Permission group not exists")
+	}
+
+	AllRegisteredUsers := u.authAgent.ListUsers()
+	for _, thisUser := range AllRegisteredUsers {
+		thisUserInfo, err := u.GetUserInfoFromUsername(thisUser)
+		if err != nil {
+			continue
+		}
+
+		//Check if the user is in the given permission group
+		if thisUserInfo.UserIsInOneOfTheGroupOf([]string{permissionGroupName}) {
+			results = append(results, thisUserInfo)
+		}
+	}
+
+	return results, nil
+}

@@ -20,3 +20,4 @@ src/web/Cyinput/*
 # Release folder and database stuffs
 */aofs.db
 release/
+src/system/neuralnet/yolov3.weights

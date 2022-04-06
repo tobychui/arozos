@@ -125,6 +125,7 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 	rh.renderingFiles.Store(file, "busy")
 
 	//That object not exists. Generate cache image
+	//Audio formats that might contains id4 thumbnail
 	id4Formats := []string{".mp3", ".ogg", ".flac"}
 	if inArray(id4Formats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForAudio(cacheFolder, file, generateOnly)
@@ -132,7 +133,7 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 		return img, err
 	}
 
-	//Generate cache for images
+	//Generate resized image for images
 	imageFormats := []string{".png", ".jpeg", ".jpg"}
 	if inArray(imageFormats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForImage(cacheFolder, file, generateOnly)
@@ -140,6 +141,7 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 		return img, err
 	}
 
+	//Video formats, extract from the 5 sec mark
 	vidFormats := []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
 	if inArray(vidFormats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForVideo(cacheFolder, file, generateOnly)
@@ -147,9 +149,17 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 		return img, err
 	}
 
+	//3D Model Formats
 	modelFormats := []string{".stl", ".obj"}
 	if inArray(modelFormats, strings.ToLower(filepath.Ext(file))) {
 		img, err := generateThumbnailForModel(cacheFolder, file, generateOnly)
+		rh.renderingFiles.Delete(file)
+		return img, err
+	}
+
+	//Photoshop file
+	if strings.ToLower(filepath.Ext(file)) == ".psd" {
+		img, err := generateThumbnailForPSD(cacheFolder, file, generateOnly)
 		rh.renderingFiles.Delete(file)
 		return img, err
 	}
@@ -185,6 +195,10 @@ func getImageAsBase64(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	//Added Seek to 0,0 function to prevent failed to decode: Unexpected EOF error
+	f.Seek(0, 0)
+
 	reader := bufio.NewReader(f)
 	content, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -252,9 +266,8 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 	files = fssort.SortFileList(pendingFiles, sortmode)
 
 	//Updated implementation 24/12/2020: Load image with cache first before rendering those without
-
 	for _, file := range files {
-		if CacheExists(file) == false {
+		if !CacheExists(file) {
 			//Cache not exists. Render this later
 			filesWithoutCache = append(filesWithoutCache, file)
 		} else {
@@ -274,12 +287,15 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 		}
 	}
 
+	retryList := []string{}
+
 	//Render the remaining cache files
 	for _, file := range filesWithoutCache {
 		//Load the image cache
 		cachedImage, err := rh.LoadCache(file, false)
 		if err != nil {
-
+			//Unable to load this file's cache. Push it to retry list
+			retryList = append(retryList, file)
 		} else {
 			jsonString, _ := json.Marshal([]string{filepath.Base(file), cachedImage})
 			err := c.WriteMessage(1, jsonString)
@@ -287,6 +303,26 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 				//Connection closed
 				errorExists = true
 				break
+			}
+		}
+	}
+
+	//Process the retry list after some wait time
+	if len(retryList) > 0 {
+		time.Sleep(1000 * time.Millisecond)
+		for _, file := range retryList {
+			//Load the image cache
+			cachedImage, err := rh.LoadCache(file, false)
+			if err != nil {
+
+			} else {
+				jsonString, _ := json.Marshal([]string{filepath.Base(file), cachedImage})
+				err := c.WriteMessage(1, jsonString)
+				if err != nil {
+					//Connection closed
+					errorExists = true
+					break
+				}
 			}
 		}
 	}

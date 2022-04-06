@@ -42,7 +42,7 @@ func permissionInit() {
 			//There are already users in the system. Only allow authorized users
 			if authAgent.CheckAuth(r) {
 				requestingUser, _ := userHandler.GetUserInfoFromRequest(w, r)
-				if requestingUser != nil && requestingUser.IsAdmin() == true {
+				if requestingUser != nil && requestingUser.IsAdmin() {
 					permissionHandler.HandleListGroup(w, r)
 				} else {
 					errorHandlePermissionDenied(w, r)

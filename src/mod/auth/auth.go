@@ -10,7 +10,7 @@ See https://gowebexamples.com/sessions/ for detail.
 Auth database are stored as the following key
 
 auth/login/{username}/passhash => hashed password
-auth/login/{username}/permission => permission level (wip)
+auth/login/{username}/permission => permission level
 
 Other system variables related to auth
 
@@ -26,15 +26,17 @@ import (
 	"strings"
 	"sync"
 
-	//"encoding/json"
 	"encoding/hex"
 	"log"
 	"time"
 
 	"github.com/gorilla/sessions"
 
+	"imuslab.com/arozos/mod/auth/accesscontrol/blacklist"
+	"imuslab.com/arozos/mod/auth/accesscontrol/whitelist"
 	"imuslab.com/arozos/mod/auth/authlogger"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/network"
 )
 
 type AuthAgent struct {
@@ -53,6 +55,10 @@ type AuthAgent struct {
 	//Autologin Related
 	AllowAutoLogin  bool
 	autoLoginTokens []*AutoLoginToken
+
+	//IPLists manager
+	WhitelistManager *whitelist.WhiteList
+	BlacklistManager *blacklist.BlackList
 
 	//Logger
 	Logger *authlogger.Logger
@@ -79,6 +85,12 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 	ticker := time.NewTicker(300 * time.Second)
 	done := make(chan bool)
 
+	//Create a new whitelist manager
+	thisWhitelistManager := whitelist.NewWhitelistManager(sysdb)
+
+	//Create a new blacklist manager
+	thisBlacklistManager := blacklist.NewBlacklistManager(sysdb)
+
 	//Create a new logger for logging all login request
 	newLogger, err := authlogger.NewLogger()
 	if err != nil {
@@ -95,9 +107,15 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 		ExpireTime:              120,
 		terminateTokenListener:  done,
 		mutex:                   &sync.Mutex{},
-		AllowAutoLogin:          false,
-		autoLoginTokens:         []*AutoLoginToken{},
-		Logger:                  newLogger,
+
+		//Auto login management
+		AllowAutoLogin:  false,
+		autoLoginTokens: []*AutoLoginToken{},
+
+		//Blacklist management
+		WhitelistManager: thisWhitelistManager,
+		BlacklistManager: thisBlacklistManager,
+		Logger:           newLogger,
 	}
 
 	//Create a timer to listen to its token storage
@@ -136,15 +154,6 @@ func (a *AuthAgent) HandleCheckAuth(w http.ResponseWriter, r *http.Request, hand
 	}
 }
 
-//Register APIs that requires public access
-func (a *AuthAgent) RegisterPublicAPIs(ep AuthEndpoints) {
-	http.HandleFunc(ep.Login, a.HandleLogin)
-	http.HandleFunc(ep.Logout, a.HandleLogout)
-	http.HandleFunc(ep.Register, a.HandleRegister)
-	http.HandleFunc(ep.CheckLoggedIn, a.CheckLogin)
-	http.HandleFunc(ep.Autologin, a.HandleAutologinTokenLogin)
-}
-
 //Handle login request, require POST username and password
 func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
@@ -176,10 +185,16 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check the database and see if this user is in the database
-	passwordCorrect := a.ValidateUsernameAndPassword(username, password)
+	passwordCorrect, rejectionReason := a.ValidateUsernameAndPasswordWithReason(username, password)
 	//The database contain this user information. Check its password if it is correct
 	if passwordCorrect {
 		//Password correct
+		//Check if this request origin is allowed to access
+		ok, reasons := a.ValidateLoginRequest(w, r)
+		if !ok {
+			sendErrorResponse(w, reasons.Error())
+			return
+		}
 		// Set user as authenticated
 		a.LoginUserByRequest(w, r, username, rememberme)
 		//Print the login message to console
@@ -188,30 +203,64 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		sendOK(w)
 	} else {
 		//Password incorrect
-		log.Println(username + " has entered an invalid username or password")
-		sendErrorResponse(w, "Invalid username or password")
+		log.Println(username + " login request rejected: " + rejectionReason)
+		sendErrorResponse(w, rejectionReason)
 		a.Logger.LogAuth(r, false)
 		return
 	}
 }
 
 func (a *AuthAgent) ValidateUsernameAndPassword(username string, password string) bool {
+	succ, _ := a.ValidateUsernameAndPasswordWithReason(username, password)
+	return succ
+}
+
+//validate the username and password, return reasons if the auth failed
+func (a *AuthAgent) ValidateUsernameAndPasswordWithReason(username string, password string) (bool, string) {
 	hashedPassword := Hash(password)
 	var passwordInDB string
 	err := a.Database.Read("auth", "passhash/"+username, &passwordInDB)
 	if err != nil {
 		//User not found or db exception
 		//log.Println("[System Auth] " + username + " login with incorrect password")
-		return false
+		return false, "Invalid username or password"
 	}
 
 	if passwordInDB == hashedPassword {
-		return true
+		return true, ""
 	} else {
-		return false
+		return false, "Invalid username or password"
 	}
 }
 
+//Validate the user request for login
+func (a *AuthAgent) ValidateLoginRequest(w http.ResponseWriter, r *http.Request) (bool, error) {
+	//Get the ip address of the request
+	clientIP, err := network.GetIpFromRequest(r)
+	if err != nil {
+		return false, nil
+	}
+
+	return a.ValidateLoginIpAccess(clientIP)
+}
+
+func (a *AuthAgent) ValidateLoginIpAccess(ipv4 string) (bool, error) {
+	ipv4 = strings.ReplaceAll(ipv4, " ", "")
+	//Check if the account is whitelisted
+	if a.WhitelistManager.Enabled && !a.WhitelistManager.IsWhitelisted(ipv4) {
+		//Whitelist enabled but this IP is not whitelisted
+		return false, errors.New("Your IP is not whitelisted on this host")
+	}
+
+	//Check if the account is banned
+	if a.BlacklistManager.Enabled && a.BlacklistManager.IsBanned(ipv4) {
+		//This user is banned
+		return false, errors.New("Your IP is banned by this host")
+	}
+	return true, nil
+}
+
+//Login the user by creating a valid session for this user
 func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, username string, rememberme bool) {
 	session, _ := a.SessionStore.Get(r, a.SessionName)
 

@@ -2634,7 +2634,11 @@ func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Req
 			sysdb.Read("fs-sortpref", userinfo.Username+"/"+folder, &sortMode)
 		}
 
-		js, _ := json.Marshal(sortMode)
+		js, err := json.Marshal(sortMode)
+		if err != nil {
+			sendErrorResponse(w, err.Error())
+			return
+		}
 		sendJSONResponse(w, string(js))
 	} else if opr == "set" {
 		sortMode, err := mv(r, "mode", true)
