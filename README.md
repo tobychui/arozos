@@ -58,6 +58,7 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 
 |Version|Download|Mirror|Remarks|
 |---|---|---|---|
+|arozos-v1.120|https://www.mediafire.com/file/rg3gkdt4asgk789/arozos_v1.120.7z/file|https://drive.google.com/file/d/1neTDxFpXxQQzsHvyqmCJOfAzjCPi8RzY/view?usp=sharing||
 |arozos v1.119|https://www.mediafire.com/file/4vx4f5boj8pfeu1/arozos_v1.119.7z/file|https://drive.google.com/file/d/1Gl_wYCvbio2lmW6YiFObIJHlejLzFrRu/view?usp=sharing|Updated to Raspberry Pi OS 64-bit. See compatible list [here](https://www.raspberrypi.com/news/raspberry-pi-os-64-bit/)|
 |arozos v1.118 (v2)|https://www.mediafire.com/file/f1i4xsp4rplwbko/arozos_v1.118_v2.7z/file|https://drive.google.com/file/d/1sgG-QOlaUmXhSiUJIB3DpnejElud1yvn/view?usp=sharing|Support Pi zero 2w|
 |arozos v1.115 (Stable)|https://www.mediafire.com/file/zbhieo59fq2sw80/arozos_v1.115.7z/file||Build in [WsTTY](https://github.com/aroz-online/WsTTY)|
@@ -68,8 +69,8 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 |arozos v1.110 (Stable)|http://www.mediafire.com/file/r7l40jv727covej/arozos_v1.110.7z/file|||
 |arozos v1.109|https://www.mediafire.com/file/mmjyv77ei9fwab5/arozos_v1.109.7z/file|||
 |arozos v1.108|https://www.mediafire.com/file/aa8176setz3ljtv/arozos_v1.108.7z/file||WebDAV Support Added|
-|arozos v1.107|https://www.mediafire.com/file/0ybduxs9db3j6ai/arozos_v1.107.7z/file||Samba Supported Added|
-|arozos v1.106|https://www.mediafire.com/file/ov58z14eo90b6g9/arozos_v1.106.7z/file|||
+|arozos v1.107||https://drive.google.com/file/d/1klI6fVaSLHFr213kI35W6a6hYyBUSIrI/view?usp=sharing|Samba Supported Added|
+|arozos v1.106||https://drive.google.com/file/d/1ysZxeIQ5dBu7x5eEyCDwHtMJmJoMp9El/view?usp=sharing||
 
 **All the image listed above require 8GB or above microSD card**
 
