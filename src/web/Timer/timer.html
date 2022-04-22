@@ -1,61 +1,63 @@
 <html>
     <head>
         <title>Timer</title>
-        <link rel="stylesheet" href="../script/tocas/tocas.css">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
         <script src="../script/jquery.min.js"></script>
         <script src="../script/ao_module.js"></script>
         <style>
             body{
                 padding-top:40px;
                 padding-bottom:50px;
-                background-color:rgba(242, 242, 242, 0.8);
+                background-color:rgba(242, 242, 242, 0.85);
+                backdrop-filter: blur(4px) !important;
+                overflow: hidden;
             }
         </style>
     </head>
     <body>
-        <div class="ts container" style="position:absolute;left:0;right:0;width:100%;" align="center">
-            <div class="ts grid">
+        <div class="ui container" style="position:absolute;left:0;right:0;width:100%;" align="center">
+            <div class="ui grid" style="margin-top: -30px;">
                 <div class="five wide column">
-                    <div class="ts statistic">
+                    <div class="ui statistic">
                         <div id="hour" class="value">00</div>
                         <div class="label">Hours</div>
                     </div><br>
-                    <div class="ts icon tiny buttons">
-                        <button class="ts button" onClick="adjustValue('hour',-1);"><i class="minus icon"></i></button>
-                        <button class="ts button" onClick="resetTimer('hour');"><i class="undo icon"></i></button>
-                        <button class="ts button"onClick="adjustValue('hour',1);"><i class="plus icon"></i></button>
+                    <div class="ui icon tiny buttons">
+                        <button class="ui button" onClick="adjustValue('hour',-1);"><i class="minus icon"></i></button>
+                        <button class="ui button" onClick="resetTimer('hour');"><i class="undo icon"></i></button>
+                        <button class="ui button"onClick="adjustValue('hour',1);"><i class="plus icon"></i></button>
                     </div>
                 </div>
                 <div class="five wide column">
-                    <div class="ts statistic">
+                    <div class="ui statistic">
                         <div id="min" class="value">00</div>
                         <div class="label">Minutes</div>
                     </div><br>
-                     <div class="ts icon tiny buttons">
-                        <button class="ts button" onClick="adjustValue('min',-1);"><i class="minus icon"></i></button>
-                        <button class="ts button" onClick="resetTimer('min');"><i class="undo icon"></i></button>
-                        <button class="ts button"onClick="adjustValue('min',1);"><i class="plus icon"></i></button>
+                     <div class="ui icon tiny buttons">
+                        <button class="ui button" onClick="adjustValue('min',-1);"><i class="minus icon"></i></button>
+                        <button class="ui button" onClick="resetTimer('min');"><i class="undo icon"></i></button>
+                        <button class="ui button"onClick="adjustValue('min',1);"><i class="plus icon"></i></button>
                     </div>
                 </div>
                 <div class="five wide column">
-                    <div class="ts statistic">
+                    <div class="ui statistic">
                         <div id="sec" class="value">00</div>
                         <div class="label">Seconds</div>
                     </div><br>
-                     <div class="ts icon tiny buttons">
-                        <button class="ts button" onClick="adjustValue('sec',-1);"><i class="minus icon"></i></button>
-                        <button class="ts button" onClick="resetTimer('sec');"><i class="undo icon"></i></button>
-                        <button class="ts button"onClick="adjustValue('sec',1);"><i class="plus icon"></i></button>
+                     <div class="ui icon tiny buttons">
+                        <button class="ui button" onClick="adjustValue('sec',-1);"><i class="minus icon"></i></button>
+                        <button class="ui button" onClick="resetTimer('sec');"><i class="undo icon"></i></button>
+                        <button class="ui button"onClick="adjustValue('sec',1);"><i class="plus icon"></i></button>
                     </div>
                 </div>
                 <div class="one wide column">
-                    <button id="startbtn" class="ts positive tiny icon button" onClick="startCountDown();" style="position:fixed;top:3px;right:3px;">
+                    <button id="startbtn" class="ui positive tiny icon button" onClick="startCountDown();" style="position:fixed;top:3px;right:3px;">
                         <i class="play icon"></i>
                     </button>
-                    <button id="pausebtn" class="ts basic tiny icon button disabled" onClick="pauseCountDown();" style="position:fixed;top:40px;right:3px;">
+                    <button id="pausebtn" class="ui basic tiny icon button disabled" onClick="pauseCountDown();" style="position:fixed;top:40px;right:3px;">
                         <i class="pause icon"></i>
                     </button>
-                    <button id="stopalarm" class="ts negative tiny icon button disabled" onClick="stopAlarm();" style="position:fixed;top:80px;right:3px;">
+                    <button id="stopalarm" class="ui negative tiny icon button disabled" onClick="stopAlarm();" style="position:fixed;top:80px;right:3px;">
                         <i class="alarm mute icon"></i>
                     </button>
                 </div>

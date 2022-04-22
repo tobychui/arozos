@@ -4,9 +4,9 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <title>ArozOS - Users</title>
-        <link rel="stylesheet" href="script/tocas/tocas.css">
+        <link rel="stylesheet" href="script/semantic/semantic.min.css">
         <link rel="stylesheet" href="script/ao.css">
-        <script type="application/javascript" src="script/tocas/tocas.js"></script>
+        <script type="application/javascript" src="script/semantic/semantic.min.js"></script>
         <script type="application/javascript" src="script/jquery.min.js"></script>
         <script type="application/javascript" src="script/ao_module.js"></script>
         <style>
@@ -20,6 +20,24 @@
                 background-repeat: no-repeat !important;
                 background-attachment: fixed !important;
             }
+
+            .ui.padded.slate{
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                padding: 4em;
+            }
+
+            .ui.heading.slate{
+                align-items: flex-start;
+            }
+
+            .ts.slate .header:not(.ts):not(.sub):not(.item){
+                line-height: 1.42857em;
+                font-weight: 500;
+                display: block;
+            }
+
             .required{
                 color:red;
             }
@@ -29,13 +47,13 @@
         </style>
     </head>
     <body>
-        <div class="ts heading fluid padded slate themebackground" >
-            <span class="header"><i class="add icon"></i> New User</span>
+        <div class="ui heading fluid padded slate themebackground" >
+            <span class="header" style="font-size: 1.6em;"><i class="add icon"></i> New User</span>
             <span class="description">Fill in the following user information to proceed.</span>
         </div>
         <br><br>
-        <div class="ts container">
-            <div class="ts horizontal form">
+        <div class="ui container">
+            <div class="ui horizontal form">
                 <div class="field">
                     <label>Username <span class="required">*</span></label>
                     <input id="username" type="text">
@@ -63,13 +81,13 @@
             </div>
             <br>
             <p><span class="required">*</span> This field is required.</p>
-            <div class="ts negative segment" id="err" style="display:none;">
+            <div class="ui negative segment" id="err" style="display:none;">
                 <p><i class="remove icon"></i> <span id="errmsg"></span></p>
             </div>
-            <div class="ts section divider"></div>
+            <div class="ui section divider"></div>
             <div id="actionbtns" align="right">
-                <button class="ts primary button" onclick="createUser();">Create</button>
-                <button id="cancelbtn" class="ts button" onclick="cancel();">Cancel</button>
+                <button class="ui primary button" onclick="createUser();">Create</button>
+                <button id="cancelbtn" class="ui button" onclick="cancel();">Cancel</button>
             </div>
            
         </div>

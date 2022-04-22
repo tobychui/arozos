@@ -4496,7 +4496,7 @@
             let keycode = event.which || event.keyCode;
             if (keycode == "17") {
                 ctrlHold = false;
-            } else if (keycode == "16") {
+            }else if (keycode == "16") {
                 shiftHold = false;
             }else if (keycode == "27"){
                 //ESC key, stop all floatWindow operations
@@ -4504,6 +4504,12 @@
                 movingWindow = false;
                 resizingWindow = false;
                 event.preventDefault();
+            }else if (keycode == "13"){
+                //Enter key. open the selected object if exists
+                $(".launchIconWrapper.selected").each(function(){
+                    console.log($(this).parent());
+                    iconDoubleClicked($(this).parent(), event);
+                })
             }
         });
 

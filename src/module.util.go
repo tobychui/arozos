@@ -48,7 +48,7 @@ func util_init() {
 		SupportFW:    false,
 		SupportEmb:   true,
 		LaunchEmb:    "SystemAO/utilities/audio.html",
-		InitEmbSize:  []int{600, 175},
+		InitEmbSize:  []int{533, 144},
 		SupportedExt: []string{".mp3", ".wav", ".ogg", ".flac"},
 	})
 

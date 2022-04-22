@@ -3,9 +3,9 @@
         <title>Select Default Opening WebApp</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <link rel="stylesheet" href="../../script/ao.css">
-        <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
@@ -59,16 +59,16 @@
         </style>
     </head>
     <body>
-        <div class="ts container" style="padding-top:12px;">
+        <div class="ui container" style="padding-top:12px;">
             <p><span locale="message/select">Select a default WebApp to open</span> <span id="fext"></span> <span locale="message/files">files.</span></p>
             <div id="moduleList" class="moduleSelector">
                 
             </div>
-            <button id="showallbtn" class="ts fluid tiny button" onclick="showAllModules();" locale="button/showAll">Show All</button>
+            <button id="showallbtn" class="ui fluid tiny button" onclick="showAllModules();" locale="button/showAll">Show All</button>
         </div>
         <div class="bottomControls" align="right">
-            <button class="ts small button" onclick="cancel();" locale="button/cancel">Cancel</button>
-            <button id="confirmBtn" class="ts small primary disabled button" onclick="confirmSelection()" locale="button/confirm">Confirm</button>
+            <button class="ui small button" onclick="cancel();" locale="button/cancel">Cancel</button>
+            <button id="confirmBtn" class="ui small primary disabled button" onclick="confirmSelection()" locale="button/confirm">Confirm</button>
         </div>
         <script>
             var targetFiles = "";

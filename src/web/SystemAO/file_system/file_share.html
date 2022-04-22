@@ -1,25 +1,66 @@
 <html>
     <head>
         <title locale="title/title">File Share</title>
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/semantic/semantic.min.js"></script>
+        <script src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
+        <script type="text/javascript" src="../../script/qrcode.min.js"></script>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <style>
-            body{
+            body:not(.darkTheme){
                 background: rgba(255,255,255,01) !important;
             }
+
+            body.darkTheme{
+                background-color: #242330 !important;
+            }
+
+            .sub.header.darkTheme{
+                color: rgba(255, 255, 255, 0.623) !important;
+            }
+
+            .darkTheme:not(a){
+                color: #eeeeee;
+            }
+
+            .yellow.message.darkTheme{
+                box-shadow: none !important;
+                border: 0px solid transparent !important;
+                background-color: #5e550e !important;
+            }
+
+            .dropDown.darkTheme:not(.icon){
+                background-color: #413f57 !important;
+                border: 1px solid white;
+            }
+
+            .dropdown.darkThem  .ui.label{
+                color: rgb(175, 175, 175);
+                background-color: #2f2d3d !important;
+            }
+
+            .dropdown.darkThem  .ui.label:hover{
+                color: white;
+                opacity: 0.8;
+            }
+
+
         </style>
     </head>
     <body>
-        <div class="ui stackable grid">
+        <div id="main" class="ui stackable grid">
             <div class="eight wide column">
-                <div class="width: 100%; ">
+                <div style="width: 100%;" class="qrcode" align="center">
                     <div style="display: block; margin-left: auto; margin-right: auto;" align="center">
                         <div id="qrcode" style="border: 10px solid white; background-color: white;">
                             <h1><br><i class="ui loading spinner icon"></i><br></h1>
                         </div>
                     </div>
-                    <div style="width: 100%">
-                        <a id="sharelink" href="" target="_blank" style="margin-top:8px; font-size: 120%; padding-left: 20px; padding-right: 20px; word-break: break-all; overflow-wrap: anywhere;"></a>
+                    <div style="width: 80%; text-align: center;">
+                    <a id="sharelink" href="" target="_blank" style="margin-top:8px; font-size: 120%; padding-left: 20px; padding-right: 20px; word-break: break-all; overflow-wrap: anywhere;"></a>
                     </div>
                     
                 </div>
@@ -68,8 +109,57 @@
                                     </div>
                                 </label>
                             </div>
+                            <br><br>
+                            <div class="ui accordion" id="advanceShare">
+                                <div class="title">
+                                    <i class="dropdown icon"></i>
+                                    <span locale="share/setting/advance/title">Advance Share Options</span>
+                                </div>
+                                <div class="content">
+                                    <div class="ui radio checkbox">
+                                        <input id="users" type="radio" class="shareoption" value="users" name="shareopt" onchange="updateSharePermission(this);">
+                                        <label for="users">
+                                            <div class="ui header">
+                                                <div class="content whiteTheme">
+                                                    <i class="clipboard check icon"></i> <span locale="share/setting/advance/users">Selected Users</span>
+                                                    <div class="sub header whiteTheme" locale="share/setting/advance/usersDesc">Selected users with matching user name</div>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <div id="userselector">
+                                        <p style="margin-top: 1em;" locale="share/setting/advance/usersInstruct"">Select target users from the list below</p>
+                                        <select id="targetUsersList" class="ui fluid search dropdown" multiple="">
+                                            <option value="">Users</option>
+                                        </select>
+                                        <div id="noUserWarning" class="ui yellow message"  style="display:none;">
+                                            <i class="caret up icon"></i> <span locale="share/setting/advance/addUserToSave">Add at least one target share user to save changes</span>
+                                        </div>
+                                    </div>
+                                    <div class="ui radio checkbox" style="margin-top: 1em;">
+                                        <input id="groups" type="radio" class="shareoption" value="groups" name="shareopt" onchange="updateSharePermission(this);">
+                                        <label for="groups">
+                                            <div class="ui header">
+                                                <div class="content whiteTheme">
+                                                    <i class="sitemap icon"></i> <span locale="share/setting/advance/groups">Selected Groups</span>
+                                                    <div class="sub header whiteTheme" locale="share/setting/advance/groupsDesc">All the users that has access to any one of the selected group(s)</div>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <div id="groupselector">
+                                        <p style="margin-top: 1em;" locale="share/setting/advance/groupsInstruct">Select target groups from the list below</p>
+                                        <select id="targetGroupList" class="ui fluid search dropdown" multiple="">
+                                            <option value="">Groups</option>
+                                        </select>
+                                        <div id="noGroupWarning" class="ui yellow message" style="display:none;">
+                                            <i class="caret up icon"></i> <span locale="share/setting/advance/addGroupToSave">Add at least one target share group to save changes</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         <br><br>
-                        <div id="udpateNotification" style="display:none;" class="ui green inverted segment">
+                        <div id="udpateNotification" style="display:none; position: fixed; bottom: 1em; right: 1em;" class="ui green inverted segment">
                                 <i class=" checkmark icon"></i> <span locale="share/setting/updated">Share Setting Updated</span>
                         </div>
                         </div>
@@ -77,8 +167,8 @@
                 </div>
             </div>
         </div>
-        <div class="ui divider"></div>
-        <div style="width: 100%; padding-right: 12px;" align="right">
+        <div class="ui divider actionButton"></div>
+        <div class="actionButton" style="width: 100%; padding-right: 12px;" align="right">
             <div class="ui button popupbuttons whiteTheme allowHover" onclick="copyLinkToClipboard(this)">
                 <i class="copy icon"></i> <span locale="button/copy">Copy</span>
             </div> 
@@ -107,17 +197,121 @@
                 To remove a share, pass in "remove" for the share mode
                 Supported Share Mode keywords {anyone/signedin/samegroup/remove}
 
+                Other supported flags
+                {
+                    QRCode: {true/false} //Show or Hide the QR Code and link
+                    ActionButtons: {true/false} //Show or Hide the action button on the bottom
+                }
+
             */
-            var shareEditingUUID = "";
+            var sharCurrentEditingUUID = "";
             var shareingFileData = {};
+            var darkTheme = false;
             var initialized = false;
             var fileSharingURL = "";
+            var relpath = "../../";
             
+            function applyDarkThemeMode(){
+                $(".whiteTheme").removeClass("whiteTheme").addClass("darkTheme");
+                $("*:not(button)").addClass("darkTheme");
+                $("body").addClass("darkTheme");
+                $(".ui.button").addClass("inverted");
+                darkTheme = true;
+            }
 
+            function removeQRCodeInDarkTheme(){
+                if (darkTheme){
+                    $("#qrcode").css({
+                        "border":"0px solid transparent",
+                        "background-color":"#242330",
+                    })
+                }
+            }
+
+            if ($(parent) && $(parent.document).find("body").hasClass("darkTheme")){
+                //Switch to darkTheme mode immediately
+                applyDarkThemeMode();
+            }   
+
+            PageReady();
             function PageReady(){
                 if (initialized){
                     return;
                 }
+
+                //Load User & Group List
+                $.get(relpath + "../system/users/list", function(data){
+                    var groups = {};
+                    $("#targetUsersList").html(`<option value="">Users</option>`);
+                    data.forEach(user => {
+                        $("#targetUsersList").append(`<option value="${user[0]}">${user[0]}</option>`);
+                        var userGroups = user[1];
+                        userGroups.forEach(thisGroup => {
+                            groups[thisGroup] = true;
+                        });
+                    });
+                    $("#targetGroupList").html(`<option value="">Groups</option>`);
+                    for (var [key, value] of Object.entries(groups)) {
+                        $("#targetGroupList").append(`<option value="${key}">${key}</option>`);
+                    }
+
+                    //Initiate the share details
+                    initFileDetails(shareingFileData, function(shareUUID){
+                        //Set the mode of share if it is defined
+                        if (shareingFileData.shareMode !== undefined && shareingFileData.shareMode == "remove"){
+                            //Remove the share UUID
+                            removeSharing();
+                            return;
+                        }
+                        if (shareingFileData.shareMode !== undefined){
+                            //As the share mode is defined by the caller, hide the setting interface
+                            $("#shareSettingOptions").hide();
+                            $("#sharelink").parent().css({
+                                "width": "100%",
+                                "text-align": "left",
+                            });
+                            $.ajax({
+                                url: relpath + "../system/file_system/share/edit",
+                                data: {uuid: sharCurrentEditingUUID, mode: shareingFileData.shareMode},
+                                success: function(data){
+                                    if (data.error !== undefined){
+                                        alert(data.error);
+                                        return;
+                                    }
+                                    
+                                    //Update the checkbox
+                                    $(".shareoption").each(function(){
+                                        if ($(this)[0].value != shareingFileData.shareMode){
+                                            $(this)[0].checked = false;
+                                        }else{
+                                            $(this)[0].checked = true;
+                                        }
+                                    
+                                    });
+                                }
+                            });
+                        }else{
+                            //Default: show the setting to allow user adjustment
+                            $("#main").css({
+                                "margin-top":"0em",
+                                "padding": "4px"
+                            });
+                            $("#shareSettingOptions").show();
+                        }
+
+                        $(".accordion").accordion();
+                    });
+                });
+
+                //Load theme style
+                $.get(relpath + "../system/file_system/preference?key=file_explorer/theme",function(data){
+                    if (data == "darkTheme"){
+                        applyDarkThemeMode();
+                    }
+                });
+
+
+
                 initialized = true;
                 //Do localization
                 applocale.init(relpath + "../SystemAO/locale/file_share.json", function(){
@@ -125,6 +319,7 @@
                 });
 
                 $(".checkbox").checkbox();
+                $(".dropdown").dropdown();
                 var inputFile = ao_module_loadInputFiles();
                 if (inputFile == null){
                     //No file selected
@@ -138,44 +333,20 @@
 
                 //Make sure one file is choicen each time
                 inputFile = inputFile[0]; 
+                console.log("inputFile", inputFile);
                 shareingFileData = inputFile;
 
-                initFileDetails(shareingFileData, function(shareUUID){
-                    //Set the mode of share if it is defined
-                    if (shareingFileData.shareMode !== undefined && shareingFileData.shareMode == "remove"){
-                        //Remove the share UUID
-                        removeSharing();
-                        return;
-                    }
-                    if (shareingFileData.shareMode !== undefined){
-                        //As the share mode is defined by the caller, hide the setting interface
-                        $("#shareSettingOptions").hide();
-                        $.ajax({
-                            url: relpath + "../system/file_system/share/edit",
-                            data: {uuid: shareEditingUUID, mode: shareingFileData.shareMode},
-                            success: function(data){
-                                if (data.error !== undefined){
-                                    alert(data.error);
-                                    return;
-                                }
-                                
-                                //Update the checkbox
-                                $(".shareoption").each(function(){
-                                    if ($(this)[0].value != shareingFileData.shareMode){
-                                        $(this)[0].checked = false;
-                                    }else{
-                                        $(this)[0].checked = true;
-                                    }
-                                
-                                });
-                            }
-                        });
-                    }else{
-                        //Default: show the setting to allow user adjustment
-                        $("#shareSettingOptions").show();
-                    }
-                });
+                //Filter out the nessary display flags
+                if (shareingFileData.QRCode !== undefined && shareingFileData.QRCode == false){
+                    $(".qrcode").hide();
+                    $("#shareSettingOptions").attr("class", "sixteen wide column");
+                    $("#shareSettingOptions").css("padding", "1em");
+                    $(".eight.wide").hide();
+                }
 
+                if (shareingFileData.ActionButtons !== undefined && shareingFileData.ActionButtons == false){
+                    $(".actionButton").hide();
+                }
             }
 
             function initFileDetails(shareingFileData, callback=undefined){
@@ -186,16 +357,42 @@
                         if (data.error !== undefined){
                             alert(data.error);
                         }else{
+                            console.log(data);
                             updateShareLinkInfo(data.UUID);
-                            shareEditingUUID = data.UUID;
+                            sharCurrentEditingUUID = data.UUID;
                             $(".shareoption").each(function(){
                                 if ($(this)[0].value != data.Permission){
                                     $(this)[0].checked = false;
                                 }else{
                                     $(this)[0].checked = true;
+                                    if (data.Permission == "users"){
+                                        $("#advanceShare").accordion("open", 0);
+                                        $("#targetUsersList").dropdown("set selected", data.Accessibles);
+                                        $("#targetUsersList").parent().removeClass("disabled");
+                                        $("#targetGroupList").parent().addClass("disabled");
+                                    }else if (data.Permission == "groups"){
+                                        $("#advanceShare").accordion("open", 0);
+                                        $("#targetGroupList").dropdown("set selected", data.Accessibles);
+                                        $("#targetUsersList").parent().addClass("disabled");
+                                        $("#targetGroupList").parent().removeClass("disabled");
+                                    }else{
+                                        $("#targetGroupList").parent().addClass("disabled");
+                                        $("#targetUsersList").parent().addClass("disabled");
+                                    }
                                 }
                                
                             });
+
+                          
+                            $("#targetUsersList").on("change", function(evt){
+                                updateSharePermissionByType("users");
+                            });
+
+                            $("#targetGroupList").on("change", function(evt){
+                                updateSharePermissionByType("groups");
+                            });
+               
+                            
 
                             //If the file is from desktop, set share icon
                             if (ao_module_virtualDesktop == true){
@@ -217,7 +414,7 @@
             }
 
             function removeSharing(){
-                if (shareEditingUUID == ""){
+                if (sharCurrentEditingUUID == ""){
                     return
                 }
 
@@ -235,7 +432,7 @@
                             $("#sharelink").text("");
                             $("#sharelink").attr("href", "#");
                             $("#qrcode").html(`<br><br><h1><i class="green checkmark icon"></i> ${applocale.getString("message/removed", "Share Removed")}</h1>`);
-
+                            removeQRCodeInDarkTheme();
                             //If the file is located on desktop and it is web desktop mode
                             if (ao_module_virtualDesktop == true){
                                 var fileDir = shareingFileData.filepath.split("/");
@@ -253,18 +450,54 @@
 
             function updateSharePermission(object){
                 var newPermission = $(object).attr('value');
+                updateSharePermissionByType(newPermission);
+            }   
+
+            function updateSharePermissionByType(newPermission){
+                if (newPermission == "users"){
+                    //Build the user list
+                    $("#targetUsersList").parent().removeClass("disabled");
+                    $("#targetGroupList").parent().addClass("disabled");
+                    var selectedUsers = $("#targetUsersList").val();
+                    $("#noGroupWarning").slideUp("fast");
+                    if (selectedUsers.length == 0){
+                        //Show tips message
+                        $("#noUserWarning").slideDown("fast");
+                        return;
+                    }else{
+                        $("#noUserWarning").slideUp("fast");
+                    }
+                    //Rewrite it to permission handling description
+                    newPermission = "users:" + selectedUsers.join(",");
+                }else if (newPermission == "groups"){
+                    //Build the group list
+                    $("#targetUsersList").parent().addClass("disabled");
+                    $("#targetGroupList").parent().removeClass("disabled");
+                    var selectedGroups = $("#targetGroupList").val();
+                    $("#noUserWarning").slideUp("fast");
+                    if (selectedGroups.length == 0){
+                        //Show tips message
+                        $("#noGroupWarning").slideDown("fast");
+                        return;
+                    }else{
+                        $("#noGroupWarning").slideUp("fast");
+                    }
+                    //Rewrite it to permission handling description
+                    newPermission = "groups:" + selectedGroups.join(",");
+                }
+
                 $.ajax({
                     url: relpath + "../system/file_system/share/edit",
-                    data: {uuid: shareEditingUUID, mode: newPermission},
+                    data: {uuid: sharCurrentEditingUUID, mode: newPermission},
                     success: function(data){
                         if (data.error !== undefined){
                             alert(data.error);
                             return;
                         }
-                        $("#udpateNotification").slideDown("fast").delay(3000).slideUp("fast");
+                        $("#udpateNotification").stop().finish().fadeIn("fast").delay(3000).fadeOut("fast");
                     }
                 });
-            }   
+            }
 
             function updateShareLinkInfo(uuid){
                 $("#qrcode").html("");
@@ -278,7 +511,7 @@
                     port = "";
                 }
                 var shareURL = protocol + window.location.hostname + port + "/share/" + uuid;
-                shareEditingUUID = uuid;
+                sharCurrentEditingUUID = uuid;
                 fileSharingURL = shareURL;
                 new QRCode(document.getElementById("qrcode"), shareURL);
                 $("#sharelink").text(shareURL);
@@ -295,6 +528,7 @@
                 This function try to load jQuery and ao_module from the script folder.
                 Also loading the semantic js and the css main body
             */
+           /*
             //The possible location for desktop.system, standard webapp module, SystemAO interfaces and iui sub-interfaces
             let possibleLocations = ["script/", "../script/", "../../script/", "../../../script/"];
             let loopCount = Math.min(possibleLocations.length, JSON.parse(JSON.stringify(window.location.toString())).split("/").length - 3);
@@ -355,7 +589,7 @@
 
             //Load jQuery first
             if (typeof(window.jQuery) == "undefined"){
-                //jQuery not found. Laod it
+                //jQuery not found. Load it
                 for (var i = 0; i < loopCount; i++){
                     var relpath = possibleLocations[i];
                     tryLoad(relpath, "jquery.min.js", function(relpath, filename){
@@ -369,12 +603,11 @@
                             injectOtherJavaScriptLibrary(relpath);
                         });
                         
-                        
                     });
                 }
             }else{
                 //jQuery exists. Load ao_module
-                dynamicLoadAoModule();
+                injectOtherJavaScriptLibrary();
             }
 
             function doAfterJqueryLoaded(callback){
@@ -388,6 +621,7 @@
                     }
                 }), 300;
             }
+            */
 
             function copyLinkToClipboard(btn){
                 //Copy text

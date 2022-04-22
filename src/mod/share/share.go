@@ -222,8 +222,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 
 			//Check if username in the allowed user list
-			if !inArray(shareOption.Accessibles, thisuserinfo.Username) {
-				//Serve permission denied page
+			if !inArray(shareOption.Accessibles, thisuserinfo.Username) && shareOption.Owner != thisuserinfo.Username {
 				//Serve permission denied page
 				if directDownload || directServe {
 					w.WriteHeader(http.StatusForbidden)

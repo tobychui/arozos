@@ -292,11 +292,16 @@
             }
 
             function newFolder(){
+                var newFileOffset = 0;
+                if ($("#newfilenameInput").is(":visible")){
+                    newFileOffset += 40;
+                }
+
                 $("#newFolderInput").toggle();
                 if($("#newFolderInput").is(":visible")){
-                    $("#sidebarPadder").css("height", "90px");
+                    $("#sidebarPadder").css("height", 90 + newFileOffset + "px");
                 }else{
-                    $("#sidebarPadder").css("height", "46px");
+                    $("#sidebarPadder").css("height", 46 + newFileOffset + "px");
                 }
                 updateFileListTopLocation();
             }

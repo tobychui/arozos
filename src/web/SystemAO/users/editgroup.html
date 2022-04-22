@@ -3,7 +3,6 @@
         <title>Edit Group</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/tocas/tocas.css">
         <link rel="stylesheet" href="../../script/semantic/semantic.css">
         <link rel="stylesheet" href="../../script/ao.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
@@ -20,6 +19,24 @@
                 background-repeat: no-repeat !important;
                 background-attachment: fixed !important;
             }
+            .ui.padded.slate{
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                padding: 4em;
+            }
+
+            .ui.heading.slate{
+                align-items: flex-start;
+            }
+
+            .ui.slate .header:not(.ui):not(.sub):not(.item){
+                font-size: 1.6em;
+                line-height: 1.42857em;
+                font-weight: 500;
+                display: block;
+            }
+
             .required{
                 color:red;
             }
@@ -29,7 +46,7 @@
         </style>
     </head>
     <body>
-        <div class="ts heading fluid padded slate themebackground" >
+        <div class="ui heading fluid padded slate themebackground" >
             <span class="header">
             <i class="users icon"></i> Edit Users Group</span>
             <span class="description">Fill in the following group information to proceed.</span>
@@ -87,7 +104,7 @@
                     </div>
                 </div>
                 <div class="ui divider"></div>
-                <table class="ts celled striped table">
+                <table class="ui celled striped unstackable table">
                     <thead>
                         <tr>
                             <th >#</th>

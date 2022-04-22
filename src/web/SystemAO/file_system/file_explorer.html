@@ -922,10 +922,17 @@
         <div id="shareFile" class="popup wide whiteTheme" style="display:none;">
             <div class="popupheader whiteTheme">
                 <i class="external icon"></i> <span locale="opr/share/title">Share File</span>
-                <div class="popupcloser" onclick="hideAllPopupWindows();">
+                <div class="popupcloser" onclick="hideShare();">
                     <i class="remove icon"></i>
                 </div>
             </div>
+            <div>
+                <iframe id="shareFileEmbedded" style="border: 0px solid transparent; width: 100%; height: 70vh;" allowtransparency="true">
+
+                </iframe>
+            </div>
+            
+            <!--
             <div class="popupcontent" style="padding:12px;">
                 <div class="ts stackable grid">
                     <div class="eight wide column">
@@ -985,15 +992,19 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="ts divider"></div>
-                <div id="sharingRemoveBtn" class="popupbuttons negative whiteTheme allowHover" onclick="removeSharing()">
-                    <i class="remove icon"></i> <span locale="opr/share/remove">Remove Sharing</span>
-                </div> 
-                <div class="popupbuttons whiteTheme allowHover" onclick="hideShare()">
-                    <i class="checkmark icon"></i> <span locale="opr/share/ok">OK</span>
-                </div> 
+                  -->
+                <div style="padding:12px;">
+                    <div class="ts divider"></div>
+                    <div id="sharingRemoveBtn" class="popupbuttons negative whiteTheme allowHover" onclick="removeSharing()">
+                        <i class="remove icon"></i> <span locale="opr/share/remove">Remove Sharing</span>
+                    </div> 
+                    <div class="popupbuttons whiteTheme allowHover" onclick="hideShare();">
+                        <i class="checkmark icon"></i> <span locale="opr/share/ok">OK</span>
+                    </div> 
+                </div>
             </div>
+           
+            
         </div>
 
         <!-- Open With Dialog-->
@@ -1897,7 +1908,7 @@
                     }
                 }
 
-                thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/handleCacheRender?folder=" + path);
+                thumbRenderWebSocket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/handleCacheRender?folder=" + encodeURIComponent(path));
 
                 thumbRenderWebSocket.onopen = function(e) {
 
@@ -1934,16 +1945,20 @@
             }
 
             function getThumbnailExtensionFromBase64String(base64String){
-                let tid = base64String.charAt(0);
                 let ext = "jpg";
-                if (tid == "i"){
-                    ext = "png";
-                }else if (tid == "R"){
-                    ext = "gif";
-                }else if (tid == "U"){
-                    ext = "webp";
+                if (typeof base64String === 'string' || base64String instanceof String){
+                    let tid = base64String.charAt(0);
+                    if (tid == "i"){
+                        ext = "png";
+                    }else if (tid == "R"){
+                        ext = "gif";
+                    }else if (tid == "U"){
+                        ext = "webp";
+                    }
+                }else{
+                    //Not string
                 }
-
+                
                 return ext;
             }
 
@@ -3697,6 +3712,9 @@
                 if (isMobile){
                     refreshList();
                 }
+
+                //Resize the share iframe
+                resizeShareIframe()
             });
 
             function handleShareFilebuttonClick(event, object){
@@ -3712,12 +3730,19 @@
                 shareFile();
             }
 
+            function resizeShareIframe(){
+                $("#shareFileEmbedded").css("height", $("#shareFile").height() - 126 + "px");
+            }
             
             function shareFile(){
                 var selectedFiles = [];
+                var selectedFileObjects = [];
                 $(".fileObject.selected").each(function(){
                     var thisFilepath = $(this).attr("filepath");
+                    var thisFilename = $(this).attr("filename");
                     selectedFiles.push(thisFilepath);
+                    selectedFileObjects.push({"filepath": thisFilepath, "filename": thisFilename});
+
                 });
 
                 if (selectedFiles.length != 1){
@@ -3728,6 +3753,7 @@
 
                 //OK! Continue to generate link
                 var selectedFile = selectedFiles[0];
+                var selectedFileObject = selectedFileObjects[0];
                 shareEditingObject = selectedFile;
                 $.ajax({
                     url: "../../system/file_system/share/new",
@@ -3737,6 +3763,8 @@
                             msgbox("remove",applocale.getString("message/" + data.error,data.error), 5000);
                         }else{
                             //Build the predicted share endpoint
+                            
+                            /*
                             let protocol = "https://";
                             if (location.protocol !== 'https:') {
                                 protocol = "http://";
@@ -3765,6 +3793,15 @@
                             }else if (tagetCheckbox == "samegroup"){
                                 $("#samegroup")[0].checked = true;
                             }
+                            */ 
+
+                            selectedFileObject["QRCode"] = true;
+                            selectedFileObject["ActionButtons"] = false;
+                            var payload = encodeURIComponent(JSON.stringify([selectedFileObject]));
+                            var requestURL = "file_share.html#" + payload;
+                            console.log(selectedFileObject, requestURL);
+                            $("#shareFileEmbedded").attr("src", requestURL);
+                            resizeShareIframe();
 
                             //Show the share file interface
                             $(".popup").fadeOut('fast');
@@ -3784,9 +3821,10 @@
                 if (shareEditingObject == ""){
                     return
                 }
+
                 //The target file to remove
                 var selectedFile = shareEditingObject;
-
+                $("#shareFileEmbedded").attr("src", "");
                 $.ajax({
                     url: "../../system/file_system/share/delete",
                     data: {path: selectedFile},
@@ -3796,7 +3834,6 @@
                         $(".shareoption").parent().addClass("disabled");
                         $("#sharelink").text("(Sharing Removed)");
                         $("#sharelink").removeAttr("href");
-                        $("#sharingRemoveBtn").hide();
                         //Reload the current filelist and hide the share interface
                         listDirectory(currentPath);
 
@@ -3806,6 +3843,9 @@
                     }
                 });
 
+                $("#shareFile").fadeOut(100);
+                $(".popupWrapper").fadeOut(100);
+                msgbox("checkmark", applocale.getString("message/share/removed", "File share removed"))
             }
 
             function updateShareSettings(object){
@@ -3831,6 +3871,8 @@
 
             function hideShare(){
                 hideAllPopupWindows();
+                $("#shareFileEmbedded").attr("src", "");
+               
             }
 
             function toggleSidebar(useAnimation=true){
@@ -4598,7 +4640,7 @@
                     //console.log("Firefox Mode: ", uploadDir, "Target Dir", targetDir)
                 }
 
-                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir);
+                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(filename) + "&path=" + encodeURIComponent(uploadDir));
                 let currentSendingIndex = 0;
                 let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
                 
@@ -4773,7 +4815,7 @@
                     //The upload paramter supplied targetDir
                     uploadCurrentPath = targetDir;
                 }
-                let url = '../../system/file_system/upload?path=' + uploadCurrentPath
+                let url = '../../system/file_system/upload?path=' + encodeURIComponent(uploadCurrentPath)
                 //console.log("Uploading To => ", uploadCurrentPath, targetDir, currentPath);
                 let formData = new FormData()
                 let xhr = new XMLHttpRequest()
@@ -5192,6 +5234,9 @@
             $(".popup").fadeOut(100);
             $(".popupWrapper").fadeOut(100);
             $('body').css("overflow","");
+            if($("#shareFile").is(":visible")){
+                $("#shareFileEmbedded").attr("src", "");
+            }
         }
 
         function showPopupWrapper(){

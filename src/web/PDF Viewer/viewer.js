@@ -251,7 +251,7 @@ if (inputFiles == null){
   //Leave the openURL to be nofile.pdf
 }else{
   //Open the file using media server
-  openURL = (ao_module_getAORootFromScriptPath() + "media/?file=" + inputFiles[0].filepath);
+  openURL = (ao_module_getAORootFromScriptPath() + "media/?file=" + encodeURIComponent(inputFiles[0].filepath));
 }
 
 var defaultOptions = {

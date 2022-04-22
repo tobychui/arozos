@@ -18,6 +18,9 @@ func (s *ShareOption) IsAccessibleBy(username string, usergroup []string) bool {
 		if stringInSlice(username, s.Accessibles) {
 			//User's name is in the allowed group
 			return true
+		} else if s.Owner == username {
+			//This user own this file
+			return true
 		}
 	}
 	return false

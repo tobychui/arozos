@@ -479,7 +479,6 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			msg := strings.TrimSpace(string(message))
 			if msg == "done" {
 				//Start the merging process
-				log.Println(userinfo.Username + " uploaded a file: " + filepath.Base(targetUploadLocation))
 				break
 			} else {
 				//Unknown operations
@@ -508,6 +507,18 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 				//Clear the tmp files
 				os.RemoveAll(uploadFolder)
 				return
+			} else if !userinfo.StorageQuota.HaveSpace(totalFileSize) {
+				//Quota exceeded
+				c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
+
+				//Close the connection
+				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+				time.Sleep(1 * time.Second)
+				c.Close()
+
+				//Clear the tmp files
+				os.RemoveAll(uploadFolder)
+
 			}
 			blockCounter++
 
@@ -554,8 +565,12 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 	if !userinfo.StorageQuota.HaveSpace(fi.Size()) {
 		c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
+		os.RemoveAll(targetUploadLocation)
 		return
 	}
+
+	//Log the upload filename
+	log.Println(userinfo.Username + " uploaded a file: " + filepath.Base(targetUploadLocation))
 
 	//Set owner of the new uploaded file
 	userinfo.SetOwnerOfFile(targetUploadLocation)

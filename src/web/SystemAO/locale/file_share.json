@@ -22,6 +22,16 @@
                 "share/setting/sameGroup/desc":"任何擁有相同使用者權限的使用者皆可下載此檔案",
                 "share/setting/updated":"存取權限已更新",
 
+                "share/setting/advance/title":"進階分享選項",
+                "share/setting/advance/users":"指定使用者",
+                "share/setting/advance/usersDesc":"指定已登入之使用者帳戶名稱",
+                "share/setting/advance/usersInstruct":"於下方列表中選擇指定分享的用戶",
+                "share/setting/advance/addUserToSave":"新增最少一名使用者以儲存變更",
+                "share/setting/advance/groups":"指定權限群組",
+                "share/setting/advance/groupsDesc":"使用者只要擁有下述指定之任何一個群組權限皆可存取",
+                "share/setting/advance/groupsInstruct":"於下方列表中選擇指定分享的群組",
+                "share/setting/advance/addGroupToSave":"新增最少一個權限群組以儲存變更",
+
                 "message/removed": "分享已移除",
                 "qr/loading": "載入中"
                
@@ -53,6 +63,16 @@
                 "share/setting/sameGroup/desc":"任何擁有相同使用者權限的使用者皆可下載此檔案",
                 "share/setting/updated":"存取權限已更新",
 
+                "share/setting/advance/title":"進階分享選項",
+                "share/setting/advance/users":"指定使用者",
+                "share/setting/advance/usersDesc":"指定已登入之使用者帳戶名稱",
+                "share/setting/advance/usersInstruct":"於下方列表中選擇指定分享的用戶",
+                "share/setting/advance/addUserToSave":"新增最少一名使用者以儲存變更",
+                "share/setting/advance/groups":"指定權限群組",
+                "share/setting/advance/groupsDesc":"使用者只要擁有下述指定之任何一個群組權限皆可存取",
+                "share/setting/advance/groupsInstruct":"於下方列表中選擇指定分享的群組",
+                "share/setting/advance/addGroupToSave":"新增最少一個權限群組以儲存變更",
+
                 "message/removed": "分享已移除",
                 "qr/loading": "載入中"
             },
@@ -82,6 +102,16 @@
                 "share/setting/sameGroup/desc":"任何拥有相同使用者权限的使用者皆可下载此文件",
                 "share/setting/updated":"存取权限已更新",
 
+                "share/setting/advance/title":"进阶分享选项",
+                "share/setting/advance/users":"指定使用者",
+                "share/setting/advance/usersDesc":"指定已登入之使用者帐户名称",
+                "share/setting/advance/usersInstruct":"于下方列表中选择指定分享的用户",
+                "share/setting/advance/addUserToSave":"新增最少一名使用者以储存变更",
+                "share/setting/advance/groups":"指定权限群组",
+                "share/setting/advance/groupsDesc":"使用者只要拥有下述指定之任何一个群组权限皆可存取",
+                "share/setting/advance/groupsInstruct":"于下方列表中选择指定分享的群组",
+                "share/setting/advance/addGroupToSave":"新增最少一个权限群组以储存变更",
+                
                 "message/removed": "分享已移除",
                 "qr/loading": "载入中" 
             },

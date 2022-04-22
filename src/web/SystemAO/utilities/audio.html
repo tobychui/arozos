@@ -7,8 +7,8 @@
 <script type='text/javascript' charset='utf-8'>
 </script>
 <title>ArOZ Onlineβ</title>
-<link rel="stylesheet" href="../../script/tocas/tocas.css">
-<script src="../../script/tocas/tocas.js"></script>
+<link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+<script src="../../script/semantic/semantic.min.js"></script>
 <script src="../../script/jquery.min.js"></script>
 <script src="../../script/ao_module.js"></script>
 <style>
@@ -22,16 +22,16 @@
 	border:1px solid transparent;
 }
 body {
-	background: rgba(255,255,255,0.7);
+	background: rgba(255,255,255,1);
 }
 
 </style>
 </head>
 <body>
 
-    <div class="ts small attached segmented single line selection items" style="top:0;">
+    <div >
 		<!-- Audio Control System with no HTML5 Audio Attribute-->
-		<div class="ts fluid container transparent" style="cursor: pointer;">
+		<div>
 			<div id="audio_attr"style="display:none;">
 			<audio id="player" controls autoplay>
 			  <source src="" type="audio/mpeg">
@@ -39,27 +39,37 @@ body {
 			</audio>
 			</div>
 			<div id="YamiPlayer" class="content transparent" style="top:0;">
-			<div id="songname" class="ts top attached segment transparent">
-			NOW PLAYING ||
+			<div id="songname" class="ui top attached segment" style="border: 1px solid transparent;">
+				<i class="music icon"></i> 
 			</div>
-			<div id="progressbardiv" class="ts attached progress">
-				<div id="audioprogress" class="bar" style="width: 0%"></div>
+			<div id="progressbardiv" class="ui attached progress" style="height: 1em; background-color: #eeeeee;">
+				<div id="audioprogress" class="bar" style="min-width: 0px; width: 0%; height: 1em;"></div>
 			</div>
-			<div class="ts bottom attached segment seventytransparent">
-				<div class="ts icon buttons">
-					<button class="ts disabled button" onclick="PreviousSong()"><i class="step backward icon"></i></button>
-					<button class="ts button" onclick="playbtn()"><i id='playbtn' class="pause icon"></i></button>
-					<button class="ts disabled button" onclick="NextSong()"><i class="step forward icon"></i></button>
-					<button class="ts button" onclick="stopbtn()"><i class="stop icon"></i></button>
-					<button class="ts button" onclick="volDown()"><i class="volume down icon"></i></button>
-					<button class="ts button" onclick="volUp()"><i class="volume up icon"></i></button>
-					<button class="ts button" onclick="repeatmode()"><i class="repeat icon"></i></button>
+			<div style="background-color: white; margin-top: 5px;">
+				<div style="display: flex; flex-wrap: nowrap;">
+					<div class="ui icon buttons" style="margin-left: 12px;">
+						<!-- <button class="ui disabled button" onclick="PreviousSong()"><i class="step backward icon"></i></button> -->
+						<button class="ui basic black button" onclick="playbtn()"><i id='playbtn' class="pause icon"></i></button>
+						<!-- <button class="ui disabled button" onclick="NextSong()"><i class="step forward icon"></i></button> -->
+						<button class="ui basic black button" onclick="stopbtn()"><i class="stop icon"></i></button>
+						<button class="ui basic black button" onclick="volDown()"><i class="volume down icon"></i></button>
+						<button class="ui basic black button" onclick="volUp()"><i class="volume up icon"></i></button>
+						<button class="ui basic black button" onclick="repeatmode()"><i class="repeat icon"></i></button>
+					</div>
+					<div style="display: flex; flex-wrap: nowrap; margin-left: 1em; padding-top: 8px;">
+						<div>
+							<i class="volume off icon"></i><span id="voldis">100%</span> 
+						</div>
+						<div style="margin-left: 0.5em;">
+							<i class="time icon"></i><span id="timecode">0:00/0:00</span>
+						</div>
+						<div style="margin-left: 0.5em;">
+							<i class="repeat icon"></i><span id="repmode">Single</span>
+						</div>
+					</div>
 				</div>
-				<span>
-				<i id="voldis" class="volume off icon"> 100%</i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-				<i id="timecode" class="time icon"> 0:00/0:00</i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-				<i id="repmode" class="repeat icon"> Single</i>
-				</span>
+				
+
 			</div>
 			
 			<!-- <button class="ts button" onclick="Show_Audio_Attrubute()">Show HTML5 Attrubute</button> -->
@@ -70,7 +80,7 @@ body {
 	/*
 		ArOZ Online Beta Audio Module Embedded Player
 		Migrated to arozos 1.105 by tobychui
-
+		Updated UI design in arozos v1.121 by tobychui
 	*/
 //ArOZ Online BETA control system
 var pwa = false;
@@ -256,7 +266,7 @@ $( document ).ready(function() {
   function PlaySong(name,displayname,id){
 	  if (downloadmode == false){
 		  //This operation is for choosing song
-		  $('#songname').html('NOW PLAYING || '+ decodeURIComponent(displayname));
+		  $('#songname').html(`<i class="music icon"></i> `+ decodeURIComponent(displayname));
 		  change(name);
 		  playingSong = [name,displayname,id];
 		  //console.log(playingSong);

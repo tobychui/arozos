@@ -120,10 +120,18 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 			}
 
 		}
+
 		//Create the fsdb for this handler
-		fsdb, err := db.NewDatabase(filepath.ToSlash(filepath.Join(filepath.Clean(option.Path), "aofs.db")), false)
+		var fsdb *db.Database = nil
+
+		dbp, err := db.NewDatabase(filepath.ToSlash(filepath.Join(filepath.Clean(option.Path), "aofs.db")), false)
 		if err != nil {
-			return &FileSystemHandler{}, errors.New("Unable to create fsdb inside the target path. Is the directory read only?")
+			if option.Access != "readonly" {
+				log.Println("[Filesystem] Invalid config: Trying to mount a read only path as read-write mount point. Changing " + option.Name + " mount point to READONLY.")
+				option.Access = "readonly"
+			}
+		} else {
+			fsdb = dbp
 		}
 
 		return &FileSystemHandler{
@@ -164,6 +172,10 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 
 //Create a file ownership record
 func (fsh *FileSystemHandler) CreateFileRecord(realpath string, owner string) error {
+	if fsh.FilesystemDatabase == nil {
+		//Not supported file system type
+		return errors.New("Not supported filesystem type")
+	}
 	rpabs, _ := filepath.Abs(realpath)
 	fsrabs, _ := filepath.Abs(fsh.Path)
 	reldir, err := filepath.Rel(fsrabs, rpabs)
@@ -178,6 +190,11 @@ func (fsh *FileSystemHandler) CreateFileRecord(realpath string, owner string) er
 
 //Read the owner of a file
 func (fsh *FileSystemHandler) GetFileRecord(realpath string) (string, error) {
+	if fsh.FilesystemDatabase == nil {
+		//Not supported file system type
+		return "", errors.New("Not supported filesystem type")
+	}
+
 	rpabs, _ := filepath.Abs(realpath)
 	fsrabs, _ := filepath.Abs(fsh.Path)
 	reldir, err := filepath.Rel(fsrabs, rpabs)
@@ -196,6 +213,11 @@ func (fsh *FileSystemHandler) GetFileRecord(realpath string) (string, error) {
 
 //Delete a file ownership record
 func (fsh *FileSystemHandler) DeleteFileRecord(realpath string) error {
+	if fsh.FilesystemDatabase == nil {
+		//Not supported file system type
+		return errors.New("Not supported filesystem type")
+	}
+
 	rpabs, _ := filepath.Abs(realpath)
 	fsrabs, _ := filepath.Abs(fsh.Path)
 	reldir, err := filepath.Rel(fsrabs, rpabs)

@@ -102,9 +102,9 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 
 			//Handle general cases
 			if storage.Hierarchy == "user" {
-				return filepath.ToSlash(filepath.Clean(storage.Path) + "/users/" + u.Username + subpath), nil
+				return filepath.ToSlash(filepath.Join(filepath.Clean(storage.Path), "/users/", u.Username, subpath)), nil
 			} else if storage.Hierarchy == "public" {
-				return filepath.ToSlash(filepath.Clean(storage.Path) + subpath), nil
+				return filepath.ToSlash(filepath.Join(filepath.Clean(storage.Path), subpath)), nil
 			} else if storage.Hierarchy == "share" {
 				return (*u.parent.shareEntryTable).ResolveShareVrootPath(subpath, u.Username, u.GetUserPermissionGroupNames())
 			} else {

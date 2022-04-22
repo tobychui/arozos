@@ -5,14 +5,18 @@
 <head>
 	<meta charset="UTF-8">
 	<script src="../script/jquery.min.js"></script>
-	<link rel="stylesheet" href="../script/tocas/tocas.css">
-	<script type='text/javascript' src="../script/tocas/tocas.js"></script>
+	<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+	<script type='text/javascript' src="../script/semantic/semantic.min.js"></script>
 	<script type='text/javascript' src="../script/ao_module.js"></script>
 	<style>
 	body, html {
 		height: 100%;
 		margin: 0;
 		background-color:#2b2b2b;
+	}
+
+	#settingMenu .ui.toggle.checkbox input:checked ~ .box,#settingMenu  .ui.toggle.checkbox input:checked ~ label{
+		color: rgb(189, 189, 189) !important;
 	}
 	</style>
 	<script>
@@ -55,16 +59,16 @@
 </head>
 <body>
 <div id="loading" style="position: fixed;top: 0;left: 0;background:rgba(0,0,0,0.5);color:white;width:100%;height:100%;z-index:100">
-	<div class="ts active dimmer">
-        <div class="ts text loader">Loading</div>
+	<div class="ui active dimmer">
+        <div class="ui text loader">Loading</div>
     </div>
 </div>
-<div class="ts attached inverted message" onClick="ToggleChapters();">
+<div class="ui attached inverted message" style="margin-top: 0em;" onClick="ToggleChapters();">
     <div class="header"><i class="bookmark icon"></i>You are already reached the top of this manga.</div>
     <p>Click here to select more chapters.</p>
 </div>
 
-<div id="MangaList" class="ts list">
+<div id="MangaList" class="ui list">
 	<div class="item" style="width: 100%;display: flex;align-items: flex-start;"><img src="" style="width: 100%;height: auto;"></img></div>
 </div>
 
@@ -89,19 +93,19 @@
     display:block;
     z-index:1501;
 	display:none;" onClick="">
-	<div id="settingMenu" class="ts very narrow container" style="top:15%;z-index:1502;">
-		<div class="ts container" style="color:white;">
-		<div class="ts inverted segment" style="background:rgba(61,61,61,0.8);">
+	<div id="settingMenu" class="ui very narrow container" style="top:15%;z-index:1502;">
+		<div class="ui container" style="color:white;">
+		<div class="ui inverted segment" style="background:rgba(61,61,61,0.8);">
 			<p style="font-size:120%;"><i class='setting icon'></i>Settings</p>
-			<div class="ts toggle checkbox">
+			<div class="ui toggle checkbox">
 				<input type="checkbox" id="lefthand">
 				<label for="lefthand" style="color:white;"><i class="hand paper icon" style="transform: scaleX(-1);-moz-transform: scaleX(-1);-webkit-transform: scaleX(-1);-ms-transform: scaleX(-1);"></i>Left hand mode <br> Click the left section of the view for downward auto scrolling instead of right section.</label>
 			</div><br><br>
-			<div class="ts toggle checkbox">
+			<div class="ui toggle checkbox">
 				<input type="checkbox" id="progress">
 				<label for="progress" style="color:white;"><i class="save icon"></i>Save progress <br> Save the current progress and return to that page automatically in the future.</label>
 			</div><br><br>
-			<div class="ts toggle checkbox">
+			<div class="ui toggle checkbox">
 				<input type="checkbox" id="pcm">
 				<label for="pcm" style="color:white;"><i class="save icon"></i>PC Mode <br> Scale down the manga a bit to make you feel better on a big PC screen.</label>
 			</div>
@@ -112,27 +116,27 @@
 
 <!-- Page Info DIV-->
 <div align="right" style="position: fixed;bottom: 0;right: 0;background:rgba(0,0,0,0.5);color:white;z-index:1000;">
-<div id="PageInfo" class="ts fluid text container">
+<div id="PageInfo" class="ui fluid text container">
 Loading Page Data...
 </div>
 </div>
 <!-- Next Chapter Message-->
-<div class="ts inverted message" onclick="NextChapter();" style="cursor: pointer;">
+<div class="ui inverted message" onclick="NextChapter();" style="cursor: pointer;">
     <div class="header"><i class="bookmark icon"></i>You have finished this chapter.</div>
     <p id="reminder">Click this box to proceed to next chapter.</p>
 </div>
 
 <!-- Start of Chapter Selector-->
-<div id="ChapterSelector" class="ts inverted message" style="color:white;display:none;">
-<div class="ts grid" id="chapterlist">
+<div id="ChapterSelector" class="ui inverted message" style="color:white;display:none;">
+<div class="ui stackable grid" id="chapterlist">
     
 </div>
 </div>
 <!-- END of Chapter Selector-->
 <div align="center" style="width:100%">
-<div class="ts buttons" >
-    <button class="ts basic button" onClick="window.location.href='index.html'" style="color:white;"><i class="chevron left icon"></i>Back</button>
-    <button class="ts basic button" onClick="ToggleChapters();" style="color:white;"><i class="book icon"></i>Chapters</button>
+<div class="ui buttons" >
+    <button class="ui inverted basic button" onClick="window.location.href='index.html'" style="color:white !important;"><i class="chevron left icon"></i>Back</button>
+    <button class="ui inverted basic button" onClick="ToggleChapters();" style="color:white !important;"><i class="book icon"></i>Chapters</button>
 </div>
 </div>
 
@@ -202,7 +206,7 @@ Loading Page Data...
 				chapterWide = "sixteen";
 			}
 			if (chapterName == data.title[1]){
-				$("#chapterlist").append(`<div class="${chapterWide} wide column" style="color:white;"><a class="ts fluid basic disabled button" style="color:white;">${chapterName}</a></div>`);
+				$("#chapterlist").append(`<div class="${chapterWide} wide column compact" style="color:white; padding: 0.3em !important;"><a class="ui fluid inverted basic disabled button" style="color:white;">${chapterName}</a></div>`);
 				nextChapterID = counter;
 				nextOneIsPreRender = true;
 			}else{
@@ -210,7 +214,7 @@ Loading Page Data...
 					nextOneIsPreRender = false;
 					prerender = chapter;
 				}
-				$("#chapterlist").append(`<div class="${chapterWide} wide column" style="color:white;"><a class="ts fluid basic button" style="color:white;" onClick="ChapterRedirect('${chapter}');">${chapterName}</a></div>`);
+				$("#chapterlist").append(`<div class="${chapterWide} wide column compact" style="color:white; padding: 0.3em !important;"><a class="ui fluid inverted basic button" style="color:white;" onClick="ChapterRedirect('${chapter}');">${chapterName}</a></div>`);
 			}
 			counter++;
 		});
