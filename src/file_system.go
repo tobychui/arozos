@@ -563,25 +563,25 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	out.Close()
 
 	//Check if the size fit in user quota
-	fi, err := os.Stat(targetUploadLocation)
+	fi, err := os.Stat(decodedUploadLocation)
 	if err != nil {
 		// Could not obtain stat, handle error
-		log.Println("Failed to validate uploaded file: ", targetUploadLocation, ". Error Message: ", err.Error())
+		log.Println("Failed to validate uploaded file: ", decodedUploadLocation, ". Error Message: ", err.Error())
 		c.WriteMessage(1, []byte(`{\"error\":\"Failed to validate uploaded file\"}`))
 		return
 	}
 
 	if !userinfo.StorageQuota.HaveSpace(fi.Size()) {
 		c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
-		os.RemoveAll(targetUploadLocation)
+		os.RemoveAll(decodedUploadLocation)
 		return
 	}
 
 	//Log the upload filename
-	log.Println(userinfo.Username + " uploaded a file: " + filepath.Base(targetUploadLocation))
+	log.Println(userinfo.Username + " uploaded a file: " + filepath.Base(decodedUploadLocation))
 
 	//Set owner of the new uploaded file
-	userinfo.SetOwnerOfFile(targetUploadLocation)
+	userinfo.SetOwnerOfFile(decodedUploadLocation)
 
 	//Return complete signal
 	c.WriteMessage(1, []byte("OK"))
