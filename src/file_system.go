@@ -529,9 +529,17 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		//log.Println("recv:", len(message), "type", mt)
 	}
 
-	//Merge the file
+	//Try to decode the location if possible
+	decodedUploadLocation, err := url.QueryUnescape(targetUploadLocation)
+	if err != nil {
+		decodedUploadLocation = targetUploadLocation
+	}
 
-	out, err := os.OpenFile(targetUploadLocation, os.O_CREATE|os.O_WRONLY, 0755)
+	//Do not allow % sign in filename. Replace all with underscore
+	decodedUploadLocation = strings.ReplaceAll(decodedUploadLocation, "%", "_")
+
+	//Merge the file
+	out, err := os.OpenFile(decodedUploadLocation, os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		log.Println("Failed to open file:", err)
 		c.WriteMessage(1, []byte(`{\"error\":\"Failed to open destination file\"}`))
@@ -692,6 +700,9 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		sendErrorResponse(w, "User Storage Quota Exceeded")
 		return
 	}
+
+	//Do not allow % sign in filename. Replace all with underscore
+	destFilepath = strings.ReplaceAll(destFilepath, "%", "_")
 
 	//Prepare the file to be created (uploaded)
 	destination, err := os.Create(destFilepath)
@@ -1155,6 +1166,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 			sendErrorResponse(w, "Access Denied")
 			return
 		}
+
 		//Check if the file already exists. If yes, fix its filename.
 		newfilePath := filepath.ToSlash(filepath.Join(rpath, filename))
 

@@ -3295,6 +3295,13 @@
                         $("#createNewFolder").parent().addClass("error");
                         return;
                     }
+
+                    //Check for invalid characters
+                    if (newFoldername.includes("%")){
+                        $("#createNewFolder").parent().addClass("error");
+                        return;
+                    }
+
                     if (currentFilelist.includes(newFoldername)){
                         //Current filelist already contain a folder with the same name
                         $("#createNewFolder").parent().addClass("error");
