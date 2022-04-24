@@ -2,7 +2,6 @@ package user
 
 import (
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,7 +87,6 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 	}
 
 	if strings.Contains(filepath.Clean(subpath), "..") {
-		log.Println(filepath.Clean(subpath))
 		return "", errors.New("Request path out of storage root")
 	}
 
