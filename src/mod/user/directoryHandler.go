@@ -2,8 +2,10 @@ package user
 
 import (
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 )
@@ -85,6 +87,11 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 		return "", err
 	}
 
+	if strings.Contains(filepath.Clean(subpath), "..") {
+		log.Println(filepath.Clean(subpath))
+		return "", errors.New("Request path out of storage root")
+	}
+
 	//Look for the handler with the same virtualPath ID
 	for _, storage := range userFsHandlers {
 		if storage.UUID == vid {
@@ -99,6 +106,10 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 			if storage.Hierarchy == "backup" {
 				return "", errors.New("Request Filesystem Handler do not allow direct access")
 			}
+
+			//A bit hacky to make sure subpath contains no traversal
+			//Will migrate this to File System Vpath Resolver in the next large update
+			subpath = strings.ReplaceAll(subpath, "..", "")
 
 			//Handle general cases
 			if storage.Hierarchy == "user" {
