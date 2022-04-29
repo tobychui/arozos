@@ -95,7 +95,7 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 		//Get drive status using df command
 		cmdin := `df -k | sed -e /Filesystem/d`
 		cmd := exec.Command("bash", "-c", cmdin)
-		dev, err := cmd.CombinedOutput()
+		dev, err := cmd.Output()
 		if err != nil {
 			dev = []byte{}
 		}
