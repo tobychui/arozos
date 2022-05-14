@@ -29,17 +29,19 @@ func UserSystemInit() {
 	}
 	userHandler = uh
 
-	router := prout.NewModuleRouter(prout.RouterOption{
-		ModuleName:  "System Settings",
-		AdminOnly:   false,
-		UserHandler: userHandler,
-		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
-		},
-	})
+	/*
+		router := prout.NewModuleRouter(prout.RouterOption{
+			ModuleName:  "System Settings",
+			AdminOnly:   false,
+			UserHandler: userHandler,
+			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+				sendErrorResponse(w, "Permission Denied")
+			},
+		})
+	*/
 
 	//Create Endpoint Listeners
-	router.HandleFunc("/system/users/list", user_handleList)
+	http.HandleFunc("/system/users/list", user_handleList)
 
 	//Everyone logged in should have permission to view their profile and change their password
 	http.HandleFunc("/system/users/userinfo", func(w http.ResponseWriter, r *http.Request) {
@@ -373,7 +375,7 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 		sendErrorResponse(w, "User not logged in")
 		return
 	}
-	if userinfo.IsAdmin() == true {
+	if authAgent.CheckAuth(r) {
 		entries, _ := sysdb.ListTable("auth")
 		var results [][]interface{}
 		for _, keypairs := range entries {
@@ -396,8 +398,7 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 		jsonString, _ := json.Marshal(results)
 		sendJSONResponse(w, string(jsonString))
 	} else {
-		sendErrorResponse(w, "Permission denied")
-		return
+		sendErrorResponse(w, "Permission Denied")
 	}
 }
 

@@ -7,12 +7,34 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/filesystem"
 )
 
 func RunStartup() {
 	//1. Initiate the main system database
+
+	//Check if system or web both not exists and web.tar.gz exists. Unzip it for the user
+	if (!fileExists("system/") || !fileExists("web/")) && fileExists("./web.tar.gz") {
+		log.Println("Unzipping system critical files from archive")
+		extErr := filesystem.ExtractTarGzipFile("./web.tar.gz", "./")
+		if extErr != nil {
+			//Extract failed
+			fmt.Println("▒▒ ERROR: UNABLE TO EXTRACT CRITICAL SYSTEM FOLDERS ▒▒")
+			fmt.Println(extErr)
+			panic("Unable to extract content from web.tar.gz to fix the missing system / web folder. Please unzip the web.tar.gz manually.")
+		}
+
+		//Extract success
+		extErr = os.Remove("./web.tar.gz")
+		if extErr != nil {
+			log.Println("Unable to remove web.tar.gz: ", extErr)
+		}
+	}
+
 	if !fileExists("system/") {
 		fmt.Println("▒▒ ERROR: SYSTEM FOLDER NOT FOUND ▒▒")
 		panic("This error occurs because the system folder is missing. Please follow the installation guide and don't just download a binary and run it.")

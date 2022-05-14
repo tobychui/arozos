@@ -12,8 +12,10 @@ package filesystem
 */
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"compress/flate"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -750,4 +752,70 @@ func IsDir(path string) bool {
 		return false
 	}
 	return false
+}
+
+//Unzip tar.gz file
+func ExtractTarGzipFile(filename string, outfile string) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+
+	err = ExtractTarGzipByStream(filepath.Clean(outfile), f, true)
+	if err != nil {
+		return err
+	}
+
+	return f.Close()
+}
+func ExtractTarGzipByStream(basedir string, gzipStream io.Reader, onErrorResumeNext bool) error {
+	uncompressedStream, err := gzip.NewReader(gzipStream)
+	if err != nil {
+		return err
+	}
+
+	tarReader := tar.NewReader(uncompressedStream)
+
+	for {
+		header, err := tarReader.Next()
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			err := os.Mkdir(header.Name, 0755)
+			if err != nil {
+				if !onErrorResumeNext {
+					return err
+				}
+
+			}
+		case tar.TypeReg:
+			outFile, err := os.Create(filepath.Join(basedir, header.Name))
+			if err != nil {
+				if !onErrorResumeNext {
+					return err
+				}
+			}
+			_, err = io.Copy(outFile, tarReader)
+			if err != nil {
+				if !onErrorResumeNext {
+					return err
+				}
+			}
+			outFile.Close()
+
+		default:
+			//Unknown filetype, continue
+
+		}
+
+	}
+	return nil
 }

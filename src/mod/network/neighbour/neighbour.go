@@ -89,7 +89,7 @@ func (d *Discoverer) StartScanning(interval int, scanDuration int) {
 	//Update the Discoverer settings
 	d.d = done
 	d.t = ticker
-
+	log.Println("ArozOS Neighbour Scanning Completed, ", len(d.NearbyHosts), " neighbours found!")
 }
 
 func (d *Discoverer) UpdateScan(scanDuration int) {

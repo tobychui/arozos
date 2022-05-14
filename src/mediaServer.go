@@ -55,7 +55,7 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 	}
 
 	targetfile, _ := mv(r, "file", false)
-	targetfile, _ = url.QueryUnescape(targetfile)
+	targetfile, err = url.QueryUnescape(targetfile)
 	if targetfile == "" {
 		return "", errors.New("Missing paramter 'file'")
 	}

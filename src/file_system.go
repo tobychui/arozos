@@ -1003,8 +1003,8 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//OK to proceed.
-	targetPath := filepath.ToSlash(filepath.Dir(filepath.Dir(realpath))) + "/" + strings.TrimSuffix(filepath.Base(realpath), filepath.Ext(filepath.Base(realpath)))
-	//log.Println(targetPath);
+	targetPath := filepath.ToSlash(filepath.Join(filepath.Dir(filepath.Dir(realpath)), strings.TrimSuffix(filepath.Base(realpath), filepath.Ext(filepath.Base(realpath)))))
+	//log.Println(targetPath)
 	os.Rename(realpath, targetPath)
 
 	//Check if the parent dir has no more fileds. If yes, remove it
@@ -1626,15 +1626,15 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				thisFilename := newFilenames[i]
+				thisFilename := filepath.Base(newFilenames[i])
 				//Check if the name already exists. If yes, return false
-				if fileExists(filepath.Dir(rsrcFile) + "/" + thisFilename) {
+				if fileExists(filepath.Join(filepath.Dir(rsrcFile), thisFilename)) {
 					sendErrorResponse(w, "File already exists")
 					return
 				}
 
 				//Everything is ok. Rename the file.
-				targetNewName := filepath.Dir(rsrcFile) + "/" + thisFilename
+				targetNewName := filepath.Join(filepath.Dir(rsrcFile), thisFilename)
 				err = os.Rename(rsrcFile, targetNewName)
 				if err != nil {
 					sendErrorResponse(w, err.Error())

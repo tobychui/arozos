@@ -68,10 +68,37 @@
            
            
         </div>
+        <div id="netChartContainer" style="position: relative; margin-top: 1.2em;">
+            <h2 class="ui header">
+                Network
+                <div class="sub header">Network usage in the previous 60 seconds</div>
+            </h2>
+            <p id="netGraphScale" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;">100 kbps</p>
+            <canvas id="netChart" width="1200" height="300"></canvas>
+            <div class="ui stackable grid">
+                <div class="four wide column">
+                    <div class="ui header" style="border-left: 2px solid #bc793f; padding-left: 1em;">
+                        <span id="rx">Loading</span>
+                         <div class="sub header">Received</div>
+                     </div>
+                </div>
+                <div class="four wide column">
+                    <div class="ui header"  style="border-left: 2px dotted #bc793f; padding-left: 1em;">
+                        <span id="tx">Loading</span>
+                        <div class="sub header">Transmitted</div>
+                     </div>
+                </div>
+            </div>
+           
+        </div>
+
+        <br><br>
     </div>
     <script>
         var cpuChart;
         var ramChart;
+        var netChart;
+        var previousNetData = [0, 0];
 
         //Override Chart.js v3 poor API designs
         Chart.defaults.plugins.tooltip.enabled = false;
@@ -102,6 +129,9 @@
                     max: 100,
                     grid: {
                         color:  "rgba(83, 160, 205, 0.2)"
+                    },
+                    ticks: {
+                        display: false,
                     }
                 }
             },
@@ -142,6 +172,52 @@
                     max: 100,
                     grid: {
                         color:  "rgba(156, 55, 185, 0.2)"
+                    },
+                    ticks: {
+                        display: false,
+                    }
+                }
+            },
+            legend: {
+                display: false,
+            },
+            tooltips: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                            return tooltipItem.yLabel;
+                    }
+                }
+            }
+        };
+
+        var netOptions = {
+            maintainAspectRatio: true,
+            responsive: true,
+			spanGaps: false,
+			elements: {
+				line: {
+					tension: 0.000001
+				}
+			},
+			plugins: {
+				filler: {
+					propagate: false
+				},
+			},
+			scales: {
+				x: {
+                    grid: {
+                        color:  "rgba(167, 79, 1, 0.2)"
+                    }
+                },
+                y: {
+                    min: Math.min.apply(this, getMergedRxTxDataset()),
+                    max: Math.max.apply(this, getMergedRxTxDataset()) + 5,
+                    grid: {
+                        color:  "rgba(167, 79, 1, 0.2)"
+                    },
+                    ticks: {
+                        display: false,
                     }
                 }
             },
@@ -195,6 +271,14 @@
             return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
         }
 
+        function bitToSize(bytes) {
+            var sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb'];
+            if (bytes == 0) return '0 b';
+            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1000)));
+            return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+        }
+
+
         function chartInit(){
             cpuChart = new Chart('cpuChart', {
 				type: 'line',
@@ -204,6 +288,8 @@
 						backgroundColor: "rgba(241,246,250,0.4)",
 						borderColor: "#4c9dcb",
 						data: [],
+                        radius: 0,
+                        borderWidth: 2,
 						fill: 'start'
                     }]
 				},
@@ -224,6 +310,8 @@
 						backgroundColor: "rgba(244,242,244,0.4)",
 						borderColor: "#9528b4",
 						data: [],
+                        radius: 0,
+                        borderWidth: 2,
 						fill: 'start'
                     }]
 				},
@@ -232,6 +320,37 @@
 
             for (var i =0; i < 60; i++){
                 addData(ramChart, "",0)
+            }
+
+            //Create Network Chart
+            netChart = new Chart('netChart', {
+				type: 'line',
+				data: {
+					labels: [],
+					datasets: [{
+						backgroundColor: "rgba(252,243,235,0.4)",
+						borderColor: "#a74f01",
+						data: [],
+                        radius: 0,
+                        borderWidth: 2,
+						fill: 'start'
+                    },
+                    {
+						backgroundColor: "rgba(252,243,235,0.2)",
+						borderColor: "#a74f01",
+                        borderDash: [3, 3],
+						data: [],
+                        radius: 0,
+                        borderWidth: 2,
+						fill: 'start'
+                        
+                    }]
+				},
+				options: netOptions
+            });
+
+            for (var i =0; i < 60; i++){
+                addNetData(netChart, "", 0, 0)
             }
             
         }
@@ -256,6 +375,50 @@
             }, 1000)
             */
 
+             //Calculate the bandwidth diff
+            $.get("../../system/network/getNICUsage", function(data){
+                if (data.error !== undefined){
+                    //Error
+                    console.log(data.error);
+                    $("#netGraphScale").text(data.error);
+                    return;
+                }
+                if (previousNetData[0] == 0 && previousNetData[1] == 0){
+                    //Not initiated. Set base and wait for next iteration
+                    previousNetData = [data.RX, data.TX];
+                }else{
+                    var rxd = data.RX - previousNetData[0];
+                    var txd = data.TX - previousNetData[1];
+                    previousNetData = [data.RX, data.TX];
+                    addAndShiftNetworkData(netChart, "", rxd, txd);
+
+                    $("#rx").text(bitToSize(rxd)+"/s");
+                    $("#tx").text(bitToSize(txd)+"/s");
+
+                    //Get the max value of the diagram, round it to the cloest 10x
+                    var chartMaxValue = Math.max.apply(this, getMergedRxTxDataset()) * 1.2;
+
+                    //Special Rounding for calculating graph scale
+                    baseValue = parseInt(chartMaxValue);
+                    var scale = "0 bps"
+                    var sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb'];
+                    function roundUpNearest(num) {
+                        return Math.ceil(num / 10) * 10;
+                    }
+
+                    if (baseValue == 0){
+
+                    }else{
+                        var i = parseInt(Math.floor(Math.log(baseValue) / Math.log(1000)));
+                        scale = roundUpNearest((baseValue / Math.pow(1024, i)).toFixed(0))
+                        scale += ' ' + sizes[i] + "ps";
+                    }
+                    
+                    //console.log(baseValue, chartMaxValue, scale);
+                    $("#netGraphScale").text(scale);
+                }
+            })
+
             $.get("../../system/info/getUsageInfo", function(data){
                 //Update graph
                 addAndShiftChartDate(cpuChart, "", data.CPU);
@@ -272,6 +435,13 @@
                 }, 1000);
             });
 
+        }
+
+        function addNetData(chart, label, rx, tx) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(rx);
+            chart.data.datasets[1].data.push(tx);
+            chart.update();
         }
 
         function addData(chart, label, data) {
@@ -297,6 +467,37 @@
             });
 
             chart.update();
+        }
+
+        function addAndShiftNetworkData(chart, label, rxd, txd) {
+            chart.data.labels.splice(0, 1); // remove first label
+            chart.data.datasets.forEach(function(dataset) {
+                dataset.data.splice(0, 1); // remove first data point
+            });
+
+            chart.update();
+
+            // Add new data
+            chart.data.labels.push(label); // add new label at end
+            chart.data.datasets[0].data.push(rxd);
+            chart.data.datasets[1].data.push(txd);
+            
+            
+
+            //Update the sacle as well
+            netChart.options.scales.y.min = Math.min.apply(this, getMergedRxTxDataset());
+            netChart.options.scales.y.max = Math.max.apply(this, getMergedRxTxDataset()) *1.2;
+
+            chart.update();
+        }
+
+        function getMergedRxTxDataset(){
+            if (netChart == undefined){
+                return [0, 100];
+            }
+            var newArr = [];
+            newArr = newArr.concat(netChart.data.datasets[0].data,netChart.data.datasets[1].data);
+            return newArr;
         }
 
     </script>

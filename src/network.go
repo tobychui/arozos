@@ -7,6 +7,7 @@ import (
 
 	network "imuslab.com/arozos/mod/network"
 	mdns "imuslab.com/arozos/mod/network/mdns"
+	"imuslab.com/arozos/mod/network/netstat"
 	ssdp "imuslab.com/arozos/mod/network/ssdp"
 	upnp "imuslab.com/arozos/mod/network/upnp"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -50,6 +51,8 @@ func NetworkServiceInit() {
 			StartDir: "SystemAO/network/hardware.html",
 		})
 	}
+
+	router.HandleFunc("/system/network/getNICUsage", netstat.HandleGetNetworkInterfaceStats)
 
 	//Start the services that depends on network interface
 	StartNetworkServices()

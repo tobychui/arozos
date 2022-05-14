@@ -1226,10 +1226,7 @@
                     alert(data.error);
                 }else{
                     userInfo = data;
-                    if (data.IsAdmin == false){
-                        //Hide the power buttons
-                        $(".hardware").hide();
-                    }
+                   
 
                     //Update the user tag
                     $("#username").text(userInfo.Username);
@@ -1237,6 +1234,14 @@
                     $("#usergroups").attr("title",userInfo.UserGroups.join(" / "));
                     if (data.UserIcon !== ""){
                         $(".usericon").attr("src",data.UserIcon);
+                    }
+
+                    if (data.IsAdmin == false){
+                        //Hide the power buttons
+                        $(".hardware").hide();
+                    }else{
+                        //User is admin. Add admin icon
+                        $("#username").append(` <i style="color: #52c9ff" class="protect icon themed text"></i>`);
                     }
                 }
             });
@@ -6261,6 +6266,7 @@
             $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
             $("#volumebar").css("background-color", newThemeColor);
             $("#brightnessbar").css("background-color", newThemeColor);
+            $(".themed.text").css("color", newThemeColor);
 
             //Connection lost notification css
             $("#connectionLost").find(".ts.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
