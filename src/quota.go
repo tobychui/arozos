@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
 	//user "imuslab.com/arozos/mod/user"
 )
@@ -46,45 +47,45 @@ func system_disk_quota_updateAllUserQuotaEstimation() {
 func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "Unknown User")
+		common.SendErrorResponse(w, "Unknown User")
 		return
 	}
 
 	//Check if admin
 	if !userinfo.IsAdmin() {
-		sendErrorResponse(w, "Permission Denied")
+		common.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
-	groupname, err := mv(r, "groupname", true)
+	groupname, err := common.Mv(r, "groupname", true)
 	if err != nil {
-		sendErrorResponse(w, "Group name not defned")
+		common.SendErrorResponse(w, "Group name not defned")
 		return
 	}
 
-	quotaSizeString, err := mv(r, "quota", true)
+	quotaSizeString, err := common.Mv(r, "quota", true)
 	if err != nil {
-		sendErrorResponse(w, "Quota not defined")
+		common.SendErrorResponse(w, "Quota not defined")
 		return
 	}
 
-	quotaSize, err := StringToInt64(quotaSizeString)
+	quotaSize, err := common.StringToInt64(quotaSizeString)
 	if err != nil || quotaSize < 0 {
-		sendErrorResponse(w, "Invalid quota size given")
+		common.SendErrorResponse(w, "Invalid quota size given")
 		return
 	}
 	//Qutasize unit is in MB
 	quotaSize = quotaSize << 20
 
 	log.Println("Updating "+groupname+" to ", quotaSize, "WIP")
-	sendOK(w)
+	common.SendOK(w)
 
 }
 
 func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "Unknown User")
+		common.SendErrorResponse(w, "Unknown User")
 		return
 	}
 
@@ -101,7 +102,7 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 		Total:     userinfo.StorageQuota.TotalStorageQuota,
 	})
 
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 
 	go func() {
 		//Update this user's quota estimation in go routine
@@ -113,7 +114,7 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "Unknown User")
+		common.SendErrorResponse(w, "Unknown User")
 		return
 	}
 
@@ -157,5 +158,5 @@ func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http
 
 	//Return the distrubution using json string
 	jsonString, _ := json.Marshal(ss)
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }

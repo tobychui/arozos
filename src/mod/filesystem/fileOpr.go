@@ -117,34 +117,40 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 			defer reader.Close()
 			path := filepath.Join(outputfile, file.Name)
 
-			err = os.MkdirAll(path, os.ModePerm)
+			parentFolder := path
+			if !file.FileInfo().IsDir() {
+				//Is file. Change target to its parent dir
+				parentFolder = filepath.Dir(path)
+			}
+
+			err = os.MkdirAll(parentFolder, 0775)
 			if err != nil {
 				return err
 			}
 
 			if file.FileInfo().IsDir() {
-				//Folder extracted
-
+				//Folder is created already be the steps above.
 				//Update the progress
 				unzippedFileCount++
 				progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
 				continue
 			}
 
-			err = os.Remove(path)
-			if err != nil {
-				return err
-			}
-
+			//Extrat and write to the target file
 			writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 			if err != nil {
 				return err
 			}
-			defer writer.Close()
 			_, err = io.Copy(writer, reader)
 			if err != nil {
+				//Extraction failed. Remove this file if exists
+				writer.Close()
+				if FileExists(path) {
+					os.Remove(path)
+				}
 				return err
 			}
+			writer.Close()
 
 			//Update the progress
 			unzippedFileCount++

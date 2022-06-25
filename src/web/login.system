@@ -272,16 +272,19 @@
                 if (data.error !== undefined){
                     //Something went wrong during the login
                     $("#errmsg").text(data.error);
-                    $("#errmsg").parent().slideDown('fast').delay(5000).slideUp('fast');
+                    $("#errmsg").parent().stop().finish().slideDown('fast').delay(5000).slideUp('fast');
                 }else if(data.redirect !== undefined){
                     //LDAP Related Code
                     window.location.href = data.redirect;
                 }else{
                     //Login succeed
-                    if (redirectionAddress == ""){
+                    if (redirectionAddress == "" || redirectionAddress == "/"){
                         //Redirect back to index
                         window.location.href = "./";
                     }else{
+                        if (window.location.hash.length > 0){
+                            redirectionAddress += window.location.hash
+                        }
                         window.location.href = redirectionAddress;
                     }
                 }

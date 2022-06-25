@@ -20,7 +20,13 @@ import (
 
 	Author: tobychui
 */
-var upgrader = websocket.Upgrader{}
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
 var connections = sync.Map{}
 
 //This is a very special function to check if the connection has been updated or not

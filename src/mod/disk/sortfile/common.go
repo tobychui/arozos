@@ -1,15 +1,15 @@
 package sortfile
 
 import (
-	"os"
-    "log"
+	"bufio"
+	"encoding/base64"
+	"errors"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
-	"errors"
-	"encoding/base64"
-	"bufio"
-	"io/ioutil"
 	"time"
 )
 
@@ -48,6 +48,7 @@ func sendOK(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
+
 /*
 	The paramter move function (mv)
 
@@ -87,136 +88,134 @@ func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 }
 
 func stringInSlice(a string, list []string) bool {
-    for _, b := range list {
-        if b == a {
-            return true
-        }
-    }
-    return false
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
-
 
 func fileExists(filename string) bool {
-    _, err := os.Stat(filename)
-    if os.IsNotExist(err) {
-        return false
-    }
-    return true
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
 
-
-func IsDir(path string) bool{
-	if (fileExists(path) == false){
+func IsDir(path string) bool {
+	if fileExists(path) == false {
 		return false
 	}
 	fi, err := os.Stat(path)
-    if err != nil {
-        log.Fatal(err)
-        return false
-    }
-    switch mode := fi.Mode(); {
-    case mode.IsDir():
-        return true
-    case mode.IsRegular():
-        return false
+	if err != nil {
+		log.Fatal(err)
+		return false
+	}
+	switch mode := fi.Mode(); {
+	case mode.IsDir():
+		return true
+	case mode.IsRegular():
+		return false
 	}
 	return false
 }
 
 func inArray(arr []string, str string) bool {
 	for _, a := range arr {
-	   if a == str {
-		  return true
-	   }
+		if a == str {
+			return true
+		}
 	}
 	return false
- }
+}
 
- func timeToString(targetTime time.Time) string{
-	 return targetTime.Format("2006-01-02 15:04:05")
- }
+func timeToString(targetTime time.Time) string {
+	return targetTime.Format("2006-01-02 15:04:05")
+}
 
- func IntToString(number int) string{
+func IntToString(number int) string {
 	return strconv.Itoa(number)
- }
+}
 
- func StringToInt(number string) (int, error){
+func StringToInt(number string) (int, error) {
 	return strconv.Atoi(number)
- }
+}
 
- func StringToInt64(number string) (int64, error){
+func StringToInt64(number string) (int64, error) {
 	i, err := strconv.ParseInt(number, 10, 64)
 	if err != nil {
 		return -1, err
 	}
 	return i, nil
- }
+}
 
- func Int64ToString(number int64) string{
-	convedNumber:=strconv.FormatInt(number,10)
+func Int64ToString(number int64) string {
+	convedNumber := strconv.FormatInt(number, 10)
 	return convedNumber
- }
+}
 
- func GetUnixTime() int64{
+func GetUnixTime() int64 {
 	return time.Now().Unix()
- }
+}
 
- func LoadImageAsBase64(filepath string) (string, error){
-	if !fileExists(filepath){
+func LoadImageAsBase64(filepath string) (string, error) {
+	if !fileExists(filepath) {
 		return "", errors.New("File not exists")
 	}
 	f, _ := os.Open(filepath)
-    reader := bufio.NewReader(f)
-    content, _ := ioutil.ReadAll(reader)
+	reader := bufio.NewReader(f)
+	content, _ := ioutil.ReadAll(reader)
 	encoded := base64.StdEncoding.EncodeToString(content)
 	return string(encoded), nil
- }
+}
 
- func PushToSliceIfNotExist(slice []string, newItem string) []string {
+func PushToSliceIfNotExist(slice []string, newItem string) []string {
 	itemExists := false
-	for _, item := range slice{
-		if item == newItem{
+	for _, item := range slice {
+		if item == newItem {
 			itemExists = true
 		}
 	}
 
-	if !itemExists{
+	if !itemExists {
 		slice = append(slice, newItem)
 	}
 
 	return slice
- }
+}
 
- func RemoveFromSliceIfExists(slice []string, target string) []string {
-	 newSlice := []string{}
-	 for _, item := range slice{
-		 if item != target{
+func RemoveFromSliceIfExists(slice []string, target string) []string {
+	newSlice := []string{}
+	for _, item := range slice {
+		if item != target {
 			newSlice = append(newSlice, item)
-		 }
-	 }
+		}
+	}
 
-	 return newSlice;
- }
+	return newSlice
+}
 
- //Get the IP address of the current authentication user
+//Get the IP address of the current authentication user
 func ReflectUserIP(w http.ResponseWriter, r *http.Request) {
-    requestPort,_ :=  mv(r, "port", false)
-    showPort := false;
-    if (requestPort == "true"){
-        //Show port as well
-        showPort = true;
-    }
-    IPAddress := r.Header.Get("X-Real-Ip")
-    if IPAddress == "" {
-        IPAddress = r.Header.Get("X-Forwarded-For")
-    }
-    if IPAddress == "" {
-        IPAddress = r.RemoteAddr
-    }
-    if (!showPort){
-        IPAddress = IPAddress[:strings.LastIndex(IPAddress, ":")]
+	requestPort, _ := mv(r, "port", false)
+	showPort := false
+	if requestPort == "true" {
+		//Show port as well
+		showPort = true
+	}
+	IPAddress := r.Header.Get("X-Real-Ip")
+	if IPAddress == "" {
+		IPAddress = r.Header.Get("X-Forwarded-For")
+	}
+	if IPAddress == "" {
+		IPAddress = r.RemoteAddr
+	}
+	if !showPort {
+		IPAddress = IPAddress[:strings.LastIndex(IPAddress, ":")]
 
-    }
-    w.Write([]byte(IPAddress))
-    return;
+	}
+	w.Write([]byte(IPAddress))
+	return
 }

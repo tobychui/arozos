@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/common"
 	module "imuslab.com/arozos/mod/modules"
 )
 
@@ -121,12 +122,12 @@ func registerSetting(thismodule settingModule) {
 func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	allSettingGroups := system_setting_getSettingGroups()
-	listGroup, _ := mv(r, "listGroup", false)
+	listGroup, _ := common.Mv(r, "listGroup", false)
 	if len(listGroup) > 0 {
 		//List the given group
 		var results []settingModule
@@ -146,18 +147,18 @@ func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
 
 		if len(results) > 0 {
 			jsonString, _ := json.Marshal(results)
-			sendJSONResponse(w, string(jsonString))
+			common.SendJSONResponse(w, string(jsonString))
 			return
 		} else {
 			//This group not found,
-			sendErrorResponse(w, "Group not found")
+			common.SendErrorResponse(w, "Group not found")
 			return
 		}
 
 	} else {
 		//List all root groups
 		jsonString, _ := json.Marshal(allSettingGroups)
-		sendJSONResponse(w, string(jsonString))
+		common.SendJSONResponse(w, string(jsonString))
 		return
 	}
 

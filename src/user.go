@@ -16,6 +16,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	auth "imuslab.com/arozos/mod/auth"
+	"imuslab.com/arozos/mod/common"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	user "imuslab.com/arozos/mod/user"
@@ -35,7 +36,7 @@ func UserSystemInit() {
 			AdminOnly:   false,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				sendErrorResponse(w, "Permission Denied")
+				common.SendErrorResponse(w, "Permission Denied")
 			},
 		})
 	*/
@@ -78,7 +79,7 @@ func UserSystemInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -90,33 +91,33 @@ func UserSystemInit() {
 
 //Remove a user from the system
 func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
-	username, err := mv(r, "username", true)
+	username, err := common.Mv(r, "username", true)
 	if err != nil {
-		sendErrorResponse(w, "Username not defined")
+		common.SendErrorResponse(w, "Username not defined")
 		return
 	}
 
 	if !authAgent.UserExists(username) {
-		sendErrorResponse(w, "User not exists")
+		common.SendErrorResponse(w, "User not exists")
 		return
 	}
 
 	userinfo, err := userHandler.GetUserInfoFromUsername(username)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	currentUserinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//This user has not logged in
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	if currentUserinfo.Username == userinfo.Username {
 		//This user has not logged in
-		sendErrorResponse(w, "You can't remove yourself")
+		common.SendErrorResponse(w, "You can't remove yourself")
 		return
 	}
 
@@ -125,27 +126,27 @@ func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 
 	//Clearn Up FileSystem preferences
 	system_fs_removeUserPreferences(username)
-	sendOK(w)
+	common.SendOK(w)
 }
 
 func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//This user has not logged in
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	if userinfo.IsAdmin() == false {
 		//Require admin access
-		sendErrorResponse(w, "Permission Denied")
+		common.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
-	opr, _ := mv(r, "opr", true)
-	username, _ := mv(r, "username", true)
+	opr, _ := common.Mv(r, "opr", true)
+	username, _ := common.Mv(r, "username", true)
 	if !authAgent.UserExists(username) {
-		sendErrorResponse(w, "User not exists")
+		common.SendErrorResponse(w, "User not exists")
 		return
 	}
 
@@ -160,7 +161,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		iconData := getUserIcon(username)
 		userGroup, err := permissionHandler.GetUsersPermissionGroup(username)
 		if err != nil {
-			sendErrorResponse(w, "Unable to get user group")
+			common.SendErrorResponse(w, "Unable to get user group")
 			return
 		}
 
@@ -180,27 +181,27 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 			Quota:     userinfo.StorageQuota.GetUserStorageQuota(),
 		})
 
-		sendJSONResponse(w, string(jsonString))
+		common.SendJSONResponse(w, string(jsonString))
 	} else if opr == "updateUserGroup" {
 		//Update the target user's group
-		newgroup, err := mv(r, "newgroup", true)
+		newgroup, err := common.Mv(r, "newgroup", true)
 		if err != nil {
 			log.Println(err.Error())
-			sendErrorResponse(w, "New Group not defined")
+			common.SendErrorResponse(w, "New Group not defined")
 			return
 		}
 
-		newQuota, err := mv(r, "quota", true)
+		newQuota, err := common.Mv(r, "quota", true)
 		if err != nil {
 			log.Println(err.Error())
-			sendErrorResponse(w, "Quota not defined")
+			common.SendErrorResponse(w, "Quota not defined")
 			return
 		}
 
 		quotaInt, err := strconv.Atoi(newQuota)
 		if err != nil {
 			log.Println(err.Error())
-			sendErrorResponse(w, "Invalid Quota Value")
+			common.SendErrorResponse(w, "Invalid Quota Value")
 			return
 		}
 
@@ -208,19 +209,19 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		err = json.Unmarshal([]byte(newgroup), &newGroupKeys)
 		if err != nil {
 			log.Println(err.Error())
-			sendErrorResponse(w, "Unable to parse new groups")
+			common.SendErrorResponse(w, "Unable to parse new groups")
 			return
 		}
 
 		if len(newGroupKeys) == 0 {
-			sendErrorResponse(w, "User must be in at least one user permission group")
+			common.SendErrorResponse(w, "User must be in at least one user permission group")
 			return
 		}
 
 		//Check if each group exists
 		for _, thisgp := range newGroupKeys {
 			if !permissionHandler.GroupExists(thisgp) {
-				sendErrorResponse(w, "Group not exists, given: "+thisgp)
+				common.SendErrorResponse(w, "Group not exists, given: "+thisgp)
 				return
 			}
 		}
@@ -228,7 +229,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		//OK to proceed
 		userinfo, err := userHandler.GetUserInfoFromUsername(username)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			common.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -236,12 +237,12 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		allAdministratorGroupUsers, err := userHandler.GetUsersInPermissionGroup("administrator")
 		if err == nil {
 			//Skip checking if error
-			if len(allAdministratorGroupUsers) == 1 && userinfo.UserIsInOneOfTheGroupOf([]string{"administrator"}) && !stringInSlice("administrator", newGroupKeys) {
+			if len(allAdministratorGroupUsers) == 1 && userinfo.UserIsInOneOfTheGroupOf([]string{"administrator"}) && !common.StringInArray(newGroupKeys, "administrator") {
 				//Current administrator group only contain 1 user
 				//This user is in the administrator group
 				//The user want to unset himself from administrator group
 				//Reject the operation as this will cause system lockdown
-				sendErrorResponse(w, "You are the only administrator. You cannot remove yourself from the administrator group.")
+				common.SendErrorResponse(w, "You are the only administrator. You cannot remove yourself from the administrator group.")
 				return
 			}
 		}
@@ -252,14 +253,14 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		//Set the user's permission to these groups
 		userinfo.SetUserPermissionGroup(newPermissioGroups)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			common.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		//Write to quota handler
 		userinfo.StorageQuota.SetUserStorageQuota(int64(quotaInt))
 
-		sendOK(w)
+		common.SendOK(w)
 	} else if opr == "resetPassword" {
 		//Reset password for this user
 		//Generate a random password for this user
@@ -267,14 +268,14 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		hashedPassword := auth.Hash(tmppassword)
 		err := sysdb.Write("auth", "passhash/"+username, hashedPassword)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			common.SendErrorResponse(w, err.Error())
 			return
 		}
 		//Finish. Send back the reseted password
-		sendJSONResponse(w, "\""+tmppassword+"\"")
+		common.SendJSONResponse(w, "\""+tmppassword+"\"")
 
 	} else {
-		sendErrorResponse(w, "Not supported opr")
+		common.SendErrorResponse(w, "Not supported opr")
 		return
 	}
 }
@@ -284,7 +285,7 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//User not logged in
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -296,23 +297,23 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonString, _ := json.Marshal(interfaceModuleInfos)
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }
 
 func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
-	opr, _ := mv(r, "opr", true)
+	opr, _ := common.Mv(r, "opr", true)
 
 	if opr == "" {
 		//Listing mode
 		iconData := getUserIcon(username)
 		userGroup, err := permissionHandler.GetUsersPermissionGroup(username)
 		if err != nil {
-			sendErrorResponse(w, "Unable to get user group")
+			common.SendErrorResponse(w, "Unable to get user group")
 			return
 		}
 
@@ -331,13 +332,13 @@ func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 			Usergroup: userGroupNames,
 		})
 
-		sendJSONResponse(w, string(jsonString))
+		common.SendJSONResponse(w, string(jsonString))
 		return
 	} else if opr == "changepw" {
-		oldpw, _ := mv(r, "oldpw", true)
-		newpw, _ := mv(r, "newpw", true)
+		oldpw, _ := common.Mv(r, "oldpw", true)
+		newpw, _ := common.Mv(r, "newpw", true)
 		if oldpw == "" || newpw == "" {
-			sendErrorResponse(w, "Password cannot be empty")
+			common.SendErrorResponse(w, "Password cannot be empty")
 			return
 		}
 		//valid the old password
@@ -346,24 +347,24 @@ func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		err = sysdb.Read("auth", "passhash/"+username, &passwordInDB)
 		if hashedPassword != passwordInDB {
 			//Old password entry invalid.
-			sendErrorResponse(w, "Invalid old password.")
+			common.SendErrorResponse(w, "Invalid old password.")
 			return
 		}
 		//OK! Change user password
 		newHashedPassword := auth.Hash(newpw)
 		sysdb.Write("auth", "passhash/"+username, newHashedPassword)
-		sendOK(w)
+		common.SendOK(w)
 	} else if opr == "changeprofilepic" {
-		picdata, _ := mv(r, "picdata", true)
+		picdata, _ := common.Mv(r, "picdata", true)
 		if picdata != "" {
 			setUserIcon(username, picdata)
-			sendOK(w)
+			common.SendOK(w)
 		} else {
-			sendErrorResponse(w, "Empty image data received.")
+			common.SendErrorResponse(w, "Empty image data received.")
 			return
 		}
 	} else {
-		sendErrorResponse(w, "Not supported opr")
+		common.SendErrorResponse(w, "Not supported opr")
 		return
 	}
 }
@@ -372,7 +373,7 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//This user has not logged in
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 	if authAgent.CheckAuth(r) {
@@ -396,9 +397,9 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 		}
 
 		jsonString, _ := json.Marshal(results)
-		sendJSONResponse(w, string(jsonString))
+		common.SendJSONResponse(w, string(jsonString))
 	} else {
-		sendErrorResponse(w, "Permission Denied")
+		common.SendErrorResponse(w, "Permission Denied")
 	}
 }
 

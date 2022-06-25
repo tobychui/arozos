@@ -21,7 +21,7 @@ func ldapInit() {
 		},
 	})
 	registerSetting(settingModule{
-		Name:         "LDAP<sup>BETA</sup>",
+		Name:         "LDAP",
 		Desc:         "Allows external account access to system",
 		IconPath:     "SystemAO/advance/img/small_icon.png",
 		Group:        "Security",

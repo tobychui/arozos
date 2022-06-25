@@ -1,0 +1,7 @@
+{
+ "SMTPSenderDisplayName": "早川ゆい",
+ "SMTPSender": "noreply@example.com",
+ "SMTPPassword": "verySecurePassword",
+ "SMTPDomain": "mail.gandi.net",
+ "SMTPPort": 587
+}

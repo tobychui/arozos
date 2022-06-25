@@ -131,6 +131,10 @@ func (q *QuotaHandler) CalculateQuotaUsage() {
 				continue
 			}
 			err := filepath.Walk(filepath.ToSlash(filepath.Clean(thisfs.Path))+"/users/"+q.username, func(path string, info os.FileInfo, err error) error {
+				if info == nil || err != nil {
+					//This file gone when quota is calculating. Ignore this
+					return nil
+				}
 				if !info.IsDir() {
 					totalUsedVolume += fs.GetFileSize(path)
 				}

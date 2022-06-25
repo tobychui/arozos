@@ -28,7 +28,7 @@ func NewLDAPReader(username string, password string, server string, basedn strin
 }
 
 func (handler *LdapReader) GetUser(username string) (*ldap.Entry, error) {
-	returnVal, err := handler.retrieveInformation("uid="+username+","+handler.basedn, "(objectClass=person)", ldap.ScopeBaseObject, handler.username, handler.password)
+	returnVal, err := handler.retrieveInformation("uid="+username+","+handler.basedn, "(objectClass=person)", ldap.ScopeWholeSubtree, handler.username, handler.password)
 	if err != nil {
 		return nil, err
 	}
@@ -85,18 +85,13 @@ func (handler *LdapReader) retrieveInformation(dn string, filter string, typeOfS
 		nil,
 	)
 	result, err := ldapURL.Search(searchReq)
-	/*
-		if err == nil {
-			result.PrettyPrint(4)
-		}
-	*/
 	if err != nil {
-		return nil, fmt.Errorf("Search Error: %s", err)
+		return nil, fmt.Errorf("search Error: %s", err)
 	}
 
 	if len(result.Entries) > 0 {
 		return result.Entries, nil
 	} else {
-		return nil, fmt.Errorf("Couldn't fetch search entries")
+		return nil, fmt.Errorf("couldn't fetch search entries")
 	}
 }

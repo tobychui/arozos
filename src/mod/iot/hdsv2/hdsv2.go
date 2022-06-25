@@ -134,7 +134,7 @@ func (h *Handler) Execute(device *iot.Device, endpoint *iot.Endpoint, payload in
 
 	} else {
 		//Payload exists. Append it to the end with value=?
-		targetURL += "?value=" + payload.(string)
+		targetURL += "?value=" + url.QueryEscape(payload.(string))
 	}
 
 	result, err := tryGet(targetURL)

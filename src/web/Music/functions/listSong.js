@@ -224,7 +224,7 @@ function handleUserRequest(){
                         thisMusicDir = thisRoot;
                     }
                     
-                    var rootName = filelib.rname(thisRoot);
+                    var rootName = filelib.rootName(thisRoot);
                     if (rootName == false){
                         rootName = thisRoot
                     }

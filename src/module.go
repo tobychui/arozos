@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"imuslab.com/arozos/mod/common"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 )
@@ -39,7 +40,7 @@ func ModuleServiceInit() {
 
 	adminRouter.HandleFunc("/system/modules/reload", func(w http.ResponseWriter, r *http.Request) {
 		moduleHandler.ReloadAllModules(AGIGateway)
-		sendOK(w)
+		common.SendOK(w)
 	})
 
 	//Handle module installer. Require admin
@@ -47,16 +48,16 @@ func ModuleServiceInit() {
 		//Check if the user is admin
 		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 		if err != nil {
-			sendErrorResponse(w, "User not logged in")
+			common.SendErrorResponse(w, "User not logged in")
 			return
 		}
 
 		//Validate the user is admin
 		if userinfo.IsAdmin() {
 			//Get the installation file path
-			installerPath, err := mv(r, "path", true)
+			installerPath, err := common.Mv(r, "path", true)
 			if err != nil {
-				sendErrorResponse(w, "Invalid installer path")
+				common.SendErrorResponse(w, "Invalid installer path")
 				return
 			}
 
@@ -64,7 +65,7 @@ func ModuleServiceInit() {
 			rpath, err := userinfo.VirtualPathToRealPath(installerPath)
 			if err != nil {
 				log.Println("*Module Installer* Failed to install module: ", err.Error())
-				sendErrorResponse(w, "Invalid installer path")
+				common.SendErrorResponse(w, "Invalid installer path")
 				return
 			}
 
@@ -72,7 +73,7 @@ func ModuleServiceInit() {
 			moduleHandler.InstallViaZip(rpath, AGIGateway)
 		} else {
 			//Permission denied
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		}
 
 	})
@@ -144,44 +145,44 @@ func ModuleInstallerInit() {
 
 //Handle module installation request
 func HandleModuleInstall(w http.ResponseWriter, r *http.Request) {
-	opr, _ := mv(r, "opr", true)
+	opr, _ := common.Mv(r, "opr", true)
 
 	if opr == "gitinstall" {
 		//Get URL from request
-		url, _ := mv(r, "url", true)
+		url, _ := common.Mv(r, "url", true)
 		if url == "" {
-			sendErrorResponse(w, "Invalid URL")
+			common.SendErrorResponse(w, "Invalid URL")
 			return
 		}
 
 		//Install the module using git
 		err := moduleHandler.InstallModuleViaGit(url, AGIGateway)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			common.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		//Reply ok
-		sendOK(w)
+		common.SendOK(w)
 	} else if opr == "zipinstall" {
 
 	} else if opr == "remove" {
 		//Get the module name from list
-		module, _ := mv(r, "module", true)
+		module, _ := common.Mv(r, "module", true)
 		if module == "" {
-			sendErrorResponse(w, "Invalid Module Name")
+			common.SendErrorResponse(w, "Invalid Module Name")
 			return
 		}
 
 		//Remove the module
 		err := moduleHandler.UninstallModule(module)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			common.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		//Reply ok
-		sendOK(w)
+		common.SendOK(w)
 
 	} else {
 		//List all the modules

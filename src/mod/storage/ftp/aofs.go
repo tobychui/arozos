@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/afero"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/hidden"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -79,7 +80,6 @@ func (a aofs) MkdirAll(path string, perm os.FileMode) error {
 }
 
 func (a aofs) Open(name string) (afero.File, error) {
-
 	rewritePath, _, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
@@ -87,12 +87,13 @@ func (a aofs) Open(name string) (afero.File, error) {
 	if !a.checkAllowAccess(rewritePath, "read") {
 		return nil, errors.New("Permission Denied")
 	}
-	//log.Println("Open", rewritePath)
+	//log.Println("Open", name, rewritePath)
 
 	fd, err := os.Open(rewritePath)
 	if err != nil {
 		return nil, err
 	}
+
 	return fd, nil
 
 }
@@ -107,6 +108,7 @@ func (a aofs) Stat(name string) (os.FileInfo, error) {
 	}
 	//log.Println("Stat", rewritePath)
 	fileStat, err := os.Stat(rewritePath)
+
 	return fileStat, err
 }
 
@@ -161,14 +163,15 @@ func (a aofs) Remove(name string) error {
 		return errors.New("Target is Read Only")
 	}
 
-	if insideHiddenFolder(rewritePath) {
+	isHiddenFile, _ := hidden.IsHidden(rewritePath, true)
+	if isHiddenFile {
 		//Hidden files, include cache or trash
 		return errors.New("Access denied for hidden files")
 	}
 
 	log.Println(a.userinfo.Username + " removed " + rewritePath + " via FTP endpoint")
-	os.MkdirAll(filepath.Dir(rewritePath)+"/.trash/", 0755)
-	os.Rename(rewritePath, filepath.Dir(rewritePath)+"/.trash/"+filepath.Base(rewritePath)+"."+strconv.Itoa(int(time.Now().Unix())))
+	os.MkdirAll(filepath.Dir(rewritePath)+"/.metadata/.trash/", 0755)
+	os.Rename(rewritePath, filepath.Dir(rewritePath)+"/.metadata/.trash/"+filepath.Base(rewritePath)+"."+strconv.Itoa(int(time.Now().Unix())))
 	return nil
 }
 
@@ -178,15 +181,16 @@ func (a aofs) RemoveAll(path string) error {
 		return err
 	}
 	//log.Println("RemoveAll", rewritePath)
-	if insideHiddenFolder(rewritePath) {
+	isHiddenFile, _ := hidden.IsHidden(rewritePath, true)
+	if isHiddenFile {
 		//Hidden files, include cache or trash
 		return errors.New("Target is Read Only")
 	}
 	if !a.checkAllowAccess(rewritePath, "write") {
 		return errors.New("Permission Denied")
 	}
-	os.MkdirAll(filepath.Dir(rewritePath)+"/.trash/", 0755)
-	os.Rename(rewritePath, filepath.Dir(rewritePath)+"/.trash/"+filepath.Base(rewritePath)+"."+strconv.Itoa(int(time.Now().Unix())))
+	os.MkdirAll(filepath.Dir(rewritePath)+"/.metadata/.trash/", 0755)
+	os.Rename(rewritePath, filepath.Dir(rewritePath)+"/.metadata/.trash/"+filepath.Base(rewritePath)+"."+strconv.Itoa(int(time.Now().Unix())))
 	return nil
 }
 
@@ -238,7 +242,7 @@ func (a aofs) pathRewrite(path string) (string, *fs.FileSystemHandler, error) {
 		fsHandlers := a.userinfo.GetAllFileSystemHandler()
 		for _, fsh := range fsHandlers {
 			//Create a folder representation for this virtual directory
-			if !(fsh.UUID == "tmp" || fsh.Hierarchy == "backup") {
+			if !(fsh.Hierarchy == "backup" || fsh.Filesystem == "virtual") {
 				os.Mkdir(a.tmpFolder+fsh.UUID, 0755)
 			}
 
@@ -296,6 +300,11 @@ func (a aofs) checkAllowAccess(path string, mode string) bool {
 		return false
 	}
 
+	isHiddenFolder, _ := hidden.IsHidden(vpath, true)
+	if isHiddenFolder {
+		return false
+	}
+
 	if mode == "read" {
 		return a.userinfo.CanRead(vpath)
 	} else if mode == "write" {
@@ -321,16 +330,4 @@ func fileExists(path string) bool {
 	}
 
 	return true
-}
-
-func insideHiddenFolder(path string) bool {
-	thisPathInfo := filepath.ToSlash(filepath.Clean(path))
-	pathData := strings.Split(thisPathInfo, "/")
-	for _, thispd := range pathData {
-		if thispd[:1] == "." {
-			//This path contain one of the folder is hidden
-			return true
-		}
-	}
-	return false
 }

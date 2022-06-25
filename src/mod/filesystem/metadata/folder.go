@@ -21,7 +21,7 @@ import (
 
 func generateThumbnailForFolder(cacheFolder string, file string, generateOnly bool) (string, error) {
 	//Check if this folder has cache image folder
-	cacheFolderInsideThisFolder := filepath.Join(file, "/.cache")
+	cacheFolderInsideThisFolder := filepath.Join(file, "/.metadata/.cache")
 	if !fileExists(cacheFolderInsideThisFolder) {
 		//This folder do not have a cache folder
 		return "", errors.New("No previewable files")
@@ -66,7 +66,7 @@ func generateThumbnailForFolder(cacheFolder string, file string, generateOnly bo
 		defer image2.Close()
 		resizedBackImg := resize.Resize(250, 250, backImage, resize.Lanczos3)
 		draw.Draw(resultThumbnail, resizedBackImg.Bounds().Add(backImgOffset), resizedBackImg, image.ZP, draw.Over)
-	} else if len(contentCache) == 0 {
+	} else {
 		//Nothing to preview inside this folder
 		return "", errors.New("No previewable files")
 	}
@@ -74,12 +74,16 @@ func generateThumbnailForFolder(cacheFolder string, file string, generateOnly bo
 	//Render the top image
 	image3, err := os.Open(contentCache[0])
 	if err != nil {
-		log.Fatalf("failed to open: %s", err)
+		return "", errors.New("failed to open: " + err.Error())
 	}
 
 	topImage, err := jpeg.Decode(image3)
 	if err != nil {
-		log.Fatalf("failed to decode: %s", err)
+		//Fail to decode the image. Try to remove the damaged iamge file
+		image3.Close()
+		os.Remove(contentCache[0])
+		log.Println("Failed to decode cahce image for: " + contentCache[0] + ". Removing thumbnail cache")
+		return "", errors.New("failed to decode: " + err.Error())
 	}
 	defer image3.Close()
 

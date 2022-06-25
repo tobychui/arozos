@@ -21,7 +21,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 
 	//Define VM global variables
 	vm.Set("BUILD_VERSION", g.Option.BuildVersion)
-	vm.Set("INTERNVAL_VERSION", g.Option.InternalVersion)
+	vm.Set("INTERNAL_VERSION", g.Option.InternalVersion)
 	vm.Set("LOADED_MODULES", g.Option.LoadedModule)
 	vm.Set("LOADED_STORAGES", g.Option.UserHandler.GetStoragePool())
 	vm.Set("HTTP_RESP", "")
@@ -373,5 +373,13 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		}
 		time.Sleep(time.Duration(delayTime) * time.Millisecond)
 		return otto.TrueValue()
+	})
+
+	//Exit
+	vm.Set("exit", func(call otto.FunctionCall) otto.Value {
+		vm.Interrupt <- func() {
+			panic(exitcall)
+		}
+		return otto.NullValue()
 	})
 }

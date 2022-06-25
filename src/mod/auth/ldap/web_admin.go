@@ -2,9 +2,11 @@ package ldap
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"imuslab.com/arozos/mod/auth/ldap/ldapreader"
 	"imuslab.com/arozos/mod/common"
@@ -125,17 +127,15 @@ func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) 
 	common.SendJSONResponse(w, string(accountJSON))
 }
 
-func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Request) bool {
+func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Request) (bool, error) {
 	//check current user is admin and new update will remove it or not
 	currentLoggedInUser, err := ldap.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Error while getting user info")
-		return false
+		return false, err
 	}
 	ldapCurrUserInfo, err := ldap.ldapreader.GetUser(currentLoggedInUser.Username)
 	if err != nil {
-		common.SendErrorResponse(w, "Error while getting user info from LDAP")
-		return false
+		return false, errors.New(err.Error() + ", probably due to your account is not in the LDAP server")
 	}
 	isAdmin := false
 	//get the croups out from LDAP group list
@@ -153,19 +153,25 @@ func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Reque
 			}
 		}
 	}
-	return isAdmin
+	return isAdmin, nil
 }
 
 func (ldap *ldapHandler) SynchronizeUser(w http.ResponseWriter, r *http.Request) {
 	//check if suer is admin before executing the command
 	//if user is admin then check if user will lost him/her's admin access
-	consistencyCheck := ldap.checkCurrUserAdmin(w, r)
+	consistencyCheck, err := ldap.checkCurrUserAdmin(w, r)
+	if err != nil {
+		// escape " symbol manually
+		errorMsg := strings.ReplaceAll(err.Error(), "\"", "\\\"")
+		common.SendErrorResponse(w, errorMsg)
+		return
+	}
 	if !consistencyCheck {
 		common.SendErrorResponse(w, "You will no longer become the admin after synchronizing, synchronize terminated")
 		return
 	}
 
-	err := ldap.SynchronizeUserFromLDAP()
+	err = ldap.SynchronizeUserFromLDAP()
 	if err != nil {
 		common.SendErrorResponse(w, err.Error())
 		return

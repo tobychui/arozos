@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/filesystem/hidden"
 )
 
 /*
@@ -53,6 +55,13 @@ func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 			//Reserved filename, skipping
 			return nil
 		}
+
+		isHiddenFile, _ := hidden.IsHidden(filename, true)
+		if isHiddenFile {
+			//Do not backup hidden files
+			return nil
+		}
+
 		//Get the target paste location
 		rootAbs, _ := filepath.Abs(rootPath)
 		fileAbs, _ := filepath.Abs(filename)
@@ -70,7 +79,7 @@ func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 				//Target file not exists in backup disk. Make a copy
 				if !fileExists(filepath.Dir(assumedTargetPosition)) {
 					//Folder containing this file not exists. Create it
-					os.MkdirAll(filepath.Dir(assumedTargetPosition), 0755)
+					os.MkdirAll(filepath.Dir(assumedTargetPosition), 0775)
 				}
 
 				//Copy the file to target
@@ -88,7 +97,7 @@ func executeBackup(backupConfig *BackupTask, deepBackup bool) (string, error) {
 			if !fileExists(assumedTargetPosition) {
 				if !fileExists(filepath.Dir(assumedTargetPosition)) {
 					//Folder containing this file not exists. Create it
-					os.MkdirAll(filepath.Dir(assumedTargetPosition), 0755)
+					os.MkdirAll(filepath.Dir(assumedTargetPosition), 0775)
 				}
 
 				//Copy the file to target

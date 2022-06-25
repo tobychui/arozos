@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
-
-	//"log"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 
 	user "imuslab.com/arozos/mod/user"
 )
@@ -56,7 +54,7 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 	//Walk all filesystem handlers and buffer all files and their sizes
 	fileList := []*FileObject{}
 	for _, fsh := range fsHandlers {
-		err := filepath.Walk(fsh.Path, func(path string, info os.FileInfo, err error) error {
+		filepath.Walk(fsh.Path, func(path string, info os.FileInfo, err error) error {
 			if info == nil || err != nil {
 				//Disk IO Error
 				return errors.New("Disk IO Error: " + err.Error())
@@ -81,10 +79,12 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 			return nil
 		})
 
-		if err != nil {
-			sendErrorResponse(w, "Failed to scan emulated storage device: "+fsh.Name)
-			return
-		}
+		/*
+			if err != nil {
+				sendErrorResponse(w, "Failed to scan emulated storage device: "+fsh.Name)
+				return
+			}
+		*/
 	}
 
 	//Sort the fileList

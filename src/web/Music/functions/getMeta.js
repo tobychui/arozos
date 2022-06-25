@@ -50,6 +50,25 @@ if (requirelib("filelib") == true){
             }
         }
     }
+
+    if (nearbyFiles == false || nearbyFiles.length == 0){
+        //There are some error that unable to scan nearby files. Return this file info only.
+        audioFiles = [];
+        var thisFile = openingFilePath;
+        var ext = thisFile.split(".").pop();
+        var fileExt = ext.substr(1);
+        var fileName = thisFile.split("/").pop();
+        var fileSize = filelib.filesize(thisFile);
+        var humanReadableFileSize = bytesToSize(fileSize);
+
+        var thisFileInfo = [];
+        thisFileInfo.push(fileName);
+        thisFileInfo.push(thisFile);
+        thisFileInfo.push(fileExt);
+        thisFileInfo.push(humanReadableFileSize);
+
+        audioFiles.push(thisFileInfo);
+    }
     sendJSONResp(JSON.stringify(audioFiles));
 }
 

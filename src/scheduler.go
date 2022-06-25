@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"imuslab.com/arozos/mod/common"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/time/nightly"
@@ -47,7 +48,7 @@ func SchedulerInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

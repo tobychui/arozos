@@ -12,13 +12,14 @@ import (
 
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
+	fs "imuslab.com/arozos/mod/filesystem"
 )
 
 func RunStartup() {
 	//1. Initiate the main system database
 
 	//Check if system or web both not exists and web.tar.gz exists. Unzip it for the user
-	if (!fileExists("system/") || !fileExists("web/")) && fileExists("./web.tar.gz") {
+	if (!fs.FileExists("system/") || !fs.FileExists("web/")) && fs.FileExists("./web.tar.gz") {
 		log.Println("Unzipping system critical files from archive")
 		extErr := filesystem.ExtractTarGzipFile("./web.tar.gz", "./")
 		if extErr != nil {
@@ -35,12 +36,12 @@ func RunStartup() {
 		}
 	}
 
-	if !fileExists("system/") {
+	if !fs.FileExists("system/") {
 		fmt.Println("▒▒ ERROR: SYSTEM FOLDER NOT FOUND ▒▒")
 		panic("This error occurs because the system folder is missing. Please follow the installation guide and don't just download a binary and run it.")
 	}
 
-	if !fileExists("web/") {
+	if !fs.FileExists("web/") {
 		fmt.Println("▒▒ ERROR: WEB FOLDER NOT FOUND ▒▒")
 		panic("This error occurs because the web folder is missing. Please follow the installation guide and don't just download a binary and run it.")
 	}
@@ -109,8 +110,9 @@ func RunStartup() {
 	mediaServer_init()
 	security_init()
 	backup_init()
-	OAuthInit() //Oauth system init
-	ldapInit()  //LDAP system init
+	OAuthInit()        //Oauth system init
+	ldapInit()         //LDAP system init
+	notificationInit() //Notification system init
 
 	//Start High Level Services that requires full arozos architectures
 	FTPServerInit() //Start FTP Server Endpoints

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
 	ftp "imuslab.com/arozos/mod/storage/ftp"
 )
@@ -72,17 +73,17 @@ func FTPServerInit() {
 	set=mode&passive=true
 */
 func storageHandleFTPPassiveModeSettings(w http.ResponseWriter, r *http.Request) {
-	set, err := mv(r, "set", true)
+	set, err := common.Mv(r, "set", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid set type")
+		common.SendErrorResponse(w, "Invalid set type")
 		return
 	}
 
 	if set == "ip" {
 		//Updat the public up addr
-		ip, err := mv(r, "ip", true)
+		ip, err := common.Mv(r, "ip", true)
 		if err != nil {
-			sendErrorResponse(w, "Invalid ip given")
+			common.SendErrorResponse(w, "Invalid ip given")
 			return
 		}
 
@@ -90,9 +91,9 @@ func storageHandleFTPPassiveModeSettings(w http.ResponseWriter, r *http.Request)
 
 	} else if set == "mode" {
 		//Update the passive mode setting
-		passive, err := mv(r, "passive", true)
+		passive, err := common.Mv(r, "passive", true)
 		if err != nil {
-			sendErrorResponse(w, "Invalid passive option (true/false)")
+			common.SendErrorResponse(w, "Invalid passive option (true/false)")
 			return
 		}
 
@@ -103,7 +104,7 @@ func storageHandleFTPPassiveModeSettings(w http.ResponseWriter, r *http.Request)
 			sysdb.Write("ftp", "passive", false)
 		}
 	} else {
-		sendErrorResponse(w, "Unknown setting filed")
+		common.SendErrorResponse(w, "Unknown setting filed")
 		return
 	}
 
@@ -118,12 +119,12 @@ func storageHandleFTPPassiveModeSettings(w http.ResponseWriter, r *http.Request)
 func storageHandleFTPServerStart(w http.ResponseWriter, r *http.Request) {
 	err := storageFTPServerStart()
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 	}
 
 	//Remember the FTP server status
 	sysdb.Write("ftp", "default", true)
-	sendOK(w)
+	common.SendOK(w)
 }
 
 //Stop the FTP server by request
@@ -133,12 +134,12 @@ func storageHandleFTPServerStop(w http.ResponseWriter, r *http.Request) {
 	}
 	sysdb.Write("ftp", "default", false)
 	log.Println("FTP Server Stopped")
-	sendOK(w)
+	common.SendOK(w)
 }
 
 //Update UPnP setting on FTP server
 func storageHandleFTPuPnP(w http.ResponseWriter, r *http.Request) {
-	enable, _ := mv(r, "enable", false)
+	enable, _ := common.Mv(r, "enable", false)
 	if enable == "true" {
 		log.Println("Enabling UPnP on FTP Server Port")
 		sysdb.Write("ftp", "upnp", true)
@@ -152,15 +153,15 @@ func storageHandleFTPuPnP(w http.ResponseWriter, r *http.Request) {
 		storageFTPServerStart()
 	}
 
-	sendOK(w)
+	common.SendOK(w)
 }
 
 //Update access permission on FTP server
 func storageHandleFTPAccessUpdate(w http.ResponseWriter, r *http.Request) {
 	//Get groups paramter from post req
-	groupString, err := mv(r, "groups", true)
+	groupString, err := common.Mv(r, "groups", true)
 	if err != nil {
-		sendErrorResponse(w, "groups not defined")
+		common.SendErrorResponse(w, "groups not defined")
 		return
 	}
 
@@ -168,7 +169,7 @@ func storageHandleFTPAccessUpdate(w http.ResponseWriter, r *http.Request) {
 	groups := []string{}
 	err = json.Unmarshal([]byte(groupString), &groups)
 	if err != nil {
-		sendErrorResponse(w, "Unable to parse groups")
+		common.SendErrorResponse(w, "Unable to parse groups")
 		return
 	}
 
@@ -176,20 +177,20 @@ func storageHandleFTPAccessUpdate(w http.ResponseWriter, r *http.Request) {
 	//Set the accessable group
 	ftp.UpdateAccessableGroups(sysdb, groups)
 
-	sendOK(w)
+	common.SendOK(w)
 }
 
 func storageHandleFTPSetPort(w http.ResponseWriter, r *http.Request) {
-	port, err := mv(r, "port", true)
+	port, err := common.Mv(r, "port", true)
 	if err != nil {
-		sendErrorResponse(w, "Port not defined")
+		common.SendErrorResponse(w, "Port not defined")
 		return
 	}
 
 	//Try parse the port into int
 	portInt, err := strconv.Atoi(port)
 	if err != nil {
-		sendErrorResponse(w, "Invalid port number")
+		common.SendErrorResponse(w, "Invalid port number")
 		return
 	}
 
@@ -199,7 +200,7 @@ func storageHandleFTPSetPort(w http.ResponseWriter, r *http.Request) {
 	//Restart the FTP server
 	storageFTPServerStart()
 
-	sendOK(w)
+	common.SendOK(w)
 }
 
 func storageHandleFTPServerStatus(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +281,7 @@ func storageHandleFTPServerStatus(w http.ResponseWriter, r *http.Request) {
 		UserGroups:     userGroups,
 		PassiveMode:    forcePassiveMode,
 	})
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }
 
 func storageFTPServerStart() error {

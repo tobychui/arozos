@@ -10,7 +10,7 @@ if (loaded) {
 	if (success){
 		sendResp("OK")
 	}else{
-		sendResp("Failed to resize image");
+		sendResp("Failed to mkdir");
 	}
 } else {
     console.log("Failed to load lib: filelib");

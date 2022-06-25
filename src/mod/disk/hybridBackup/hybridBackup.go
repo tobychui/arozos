@@ -222,12 +222,12 @@ func (m *Manager) Close() error {
 //Main handler function for hybrid backup
 func (backupConfig *BackupTask) HandleBackupProcess() (string, error) {
 	//Check if the target disk is writable and mounted
-	if fileExists(filepath.Join(backupConfig.ParentPath, "aofs.db")) && fileExists(filepath.Join(backupConfig.ParentPath, "aofs.db.lock")) {
+	if fileExists(filepath.Join(backupConfig.ParentPath, "aofs.db")) {
 		//This parent filesystem is mounted
 
 	} else {
 		//Parent File system not mounted.Terminate backup scheduler
-		log.Println("[HybridBackup] Skipping backup cycle for " + backupConfig.ParentUID + ":/")
+		log.Println("[HybridBackup] Skipping backup cycle for " + backupConfig.ParentUID + ":/, Parent drive not mounted")
 		return "Parent drive (" + backupConfig.ParentUID + ":/) not mounted", nil
 	}
 

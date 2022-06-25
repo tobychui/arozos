@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/robertkrimen/otto"
 
@@ -28,7 +29,11 @@ import (
 */
 
 var (
-	AgiVersion string = "1.6" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "1.7" //Defination of the agi runtime version. Update this when new function is added
+
+	//AGI Internal Error Standard
+	exitcall  = errors.New("Exit")
+	timelimit = errors.New("Timelimit")
 )
 
 type AgiLibIntergface func(*otto.Otto, *user.User) //Define the lib loader interface for AGI Libraries
@@ -337,6 +342,33 @@ func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.Use
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, "")
 	g.injectUserFunctions(vm, scriptFile, "", targetUser, nil, nil)
+
+	//Inject interrupt Channel
+	vm.Interrupt = make(chan func(), 1)
+
+	//Create a panic recovery logic
+	defer func() {
+		if caught := recover(); caught != nil {
+			if caught == timelimit {
+				log.Println("[AGI] Execution timeout: " + scriptFile)
+				return
+			} else if caught == exitcall {
+				//Exit gracefully
+
+				return
+			} else {
+				panic(caught)
+			}
+		}
+	}()
+
+	//Create a max runtime of 5 minutes
+	go func() {
+		time.Sleep(300 * time.Second) // Stop after 300 seconds
+		vm.Interrupt <- func() {
+			panic(timelimit)
+		}
+	}()
 
 	//Try to read the script content
 	scriptContent, err := ioutil.ReadFile(scriptFile)

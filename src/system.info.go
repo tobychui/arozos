@@ -25,7 +25,7 @@ func SystemInfoInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -34,12 +34,21 @@ func SystemInfoInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
 	//Create Info Server Object
 	var infoServer *info.Server = nil
+
+	//Overview of account and system information
+	registerSetting(settingModule{
+		Name:     "Overview",
+		Desc:     "Overview for user information",
+		IconPath: "SystemAO/info/img/small_icon.png",
+		Group:    "Info",
+		StartDir: "SystemAO/info/overview.html",
+	})
 
 	if *allow_hardware_management {
 		infoServer = info.NewInfoServer(info.ArOZInfo{
@@ -84,15 +93,6 @@ func SystemInfoInit() {
 		router.HandleFunc("/system/info/getUsageInfo", InfoHandleTaskInfo)
 
 	} else {
-		//Make a simpler page for the information of system for hardware management disabled nodes
-		registerSetting(settingModule{
-			Name:     "Overview",
-			Desc:     "Overview for user information",
-			IconPath: "SystemAO/info/img/small_icon.png",
-			Group:    "Info",
-			StartDir: "SystemAO/info/overview.html",
-		})
-
 		//Remve hardware information from the infoServer
 		infoServer = info.NewInfoServer(info.ArOZInfo{
 			BuildVersion: build_version + "." + internal_version,
@@ -134,7 +134,7 @@ func SystemInfoInit() {
 			adminRouter.HandleFunc("/system/update/restart", func(w http.ResponseWriter, r *http.Request) {
 				launcherVersion, err := updates.GetLauncherVersion()
 				if err != nil {
-					sendErrorResponse(w, err.Error())
+					common.SendErrorResponse(w, err.Error())
 					return
 				}
 				execute, _ := common.Mv(r, "exec", true)
@@ -170,7 +170,7 @@ func InfoHandleGetRuntimeInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(runtimeInfo)
-	sendJSONResponse(w, string(js))
+	common.SendJSONResponse(w, string(js))
 }
 
 func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
@@ -191,5 +191,5 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(info)
-	sendJSONResponse(w, string(js))
+	common.SendJSONResponse(w, string(js))
 }

@@ -1,28 +1,29 @@
 package auth
 
 /*
-ArOZ Online Authentication Module
-author: tobychui
+	ArOZ Online Authentication Module
+	author: tobychui
 
-This system make use of sessions (similar to PHP SESSION) to remember the user login.
-See https://gowebexamples.com/sessions/ for detail.
+	This system make use of sessions (similar to PHP SESSION) to remember the user login.
+	See https://gowebexamples.com/sessions/ for detail.
 
-Auth database are stored as the following key
+	Auth database are stored as the following key
 
-auth/login/{username}/passhash => hashed password
-auth/login/{username}/permission => permission level
+	auth/login/{username}/passhash => hashed password
+	auth/login/{username}/permission => permission level
 
-Other system variables related to auth
+	Other system variables related to auth
 
-auth/users/usercount => Number of users in the system
+	auth/users/usercount => Number of users in the system
 
-Pre-requirement: imuslab.com/arozos/mod/database
+	Pre-requirement: imuslab.com/arozos/mod/database
 */
 
 import (
 	"crypto/sha512"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -35,6 +36,7 @@ import (
 	"imuslab.com/arozos/mod/auth/accesscontrol/blacklist"
 	"imuslab.com/arozos/mod/auth/accesscontrol/whitelist"
 	"imuslab.com/arozos/mod/auth/authlogger"
+	"imuslab.com/arozos/mod/auth/explogin"
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/network"
 )
@@ -55,6 +57,9 @@ type AuthAgent struct {
 	//Autologin Related
 	AllowAutoLogin  bool
 	autoLoginTokens []*AutoLoginToken
+
+	//Exponential Delay Retry Handler
+	ExpDelayHandler *explogin.ExpLoginHandler
 
 	//IPLists manager
 	WhitelistManager *whitelist.WhiteList
@@ -84,6 +89,9 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 	//Creat a ticker to clean out outdated token every 5 minutes
 	ticker := time.NewTicker(300 * time.Second)
 	done := make(chan bool)
+
+	//Create a exponential login delay handler
+	expLoginHandler := explogin.NewExponentialLoginHandler(2, 10800)
 
 	//Create a new whitelist manager
 	thisWhitelistManager := whitelist.NewWhitelistManager(sysdb)
@@ -115,6 +123,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 		//Blacklist management
 		WhitelistManager: thisWhitelistManager,
 		BlacklistManager: thisBlacklistManager,
+		ExpDelayHandler:  expLoginHandler,
 		Logger:           newLogger,
 	}
 
@@ -184,6 +193,15 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		rememberme = true
 	}
 
+	//Check Exponential Login Handler
+	ok, nextRetryIn := a.ExpDelayHandler.AllowImmediateAccess(username, r)
+	if !ok {
+		//Too many request! (maybe the account is under brute force attack?)
+		a.ExpDelayHandler.AddUserRetrycount(username, r)
+		sendErrorResponse(w, "Too many request! Next retry in "+strconv.Itoa(int(nextRetryIn))+" seconds")
+		return
+	}
+
 	//Check the database and see if this user is in the database
 	passwordCorrect, rejectionReason := a.ValidateUsernameAndPasswordWithReason(username, password)
 	//The database contain this user information. Check its password if it is correct
@@ -195,8 +213,13 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			sendErrorResponse(w, reasons.Error())
 			return
 		}
+
 		// Set user as authenticated
 		a.LoginUserByRequest(w, r, username, rememberme)
+
+		//Reset user retry count if any
+		a.ExpDelayHandler.ResetUserRetryCount(username, r)
+
 		//Print the login message to console
 		log.Println(username + " logged in.")
 		a.Logger.LogAuth(r, true)
@@ -204,6 +227,9 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//Password incorrect
 		log.Println(username + " login request rejected: " + rejectionReason)
+
+		//Add to retry count
+		a.ExpDelayHandler.AddUserRetrycount(username, r)
 		sendErrorResponse(w, rejectionReason)
 		a.Logger.LogAuth(r, false)
 		return

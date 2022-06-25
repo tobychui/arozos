@@ -218,6 +218,11 @@
 					ao_module_setWindowTitle(data[i][0]);
 				}
 			}
+
+			if (data.length == 0){
+				//Error occured
+				player.src = "../media?file=" + encodeURIComponent(playingFileInfo.filepath);
+			}
 			
 			//Load song title into the display area
 			updateDisplayInformation(songInfo[0],songInfo[3]);
@@ -227,7 +232,7 @@
 			
 			//Initiate the current playSong in the songList
 			updatePlayingSongSelection();
-		})
+		});
 		/*
 		$.get("../Music/getMeta?file=" + encodeURIComponent(playingFileInfo.filepath),function(data){
 			//console.log(data);

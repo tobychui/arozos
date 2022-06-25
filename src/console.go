@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+
+	"imuslab.com/arozos/mod/common"
 )
 
 //Handle console command from the console module
@@ -86,7 +88,7 @@ func consoleCommandHandler(input string) string {
 				tableList = append(tableList, k.(string))
 				return true
 			})
-			if !inArray(tableList, chunk[2]) {
+			if !common.StringInArray(tableList, chunk[2]) {
 				return "Table not exists"
 			} else if chunk[2] == "auth" {
 				return "You cannot view this database table"

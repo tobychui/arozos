@@ -26,6 +26,7 @@ fsdb/*
 system/network/wifi/ap/*
 system/storage.json
 system/dev.uuid
+system/smtp_conf.json
 system/storage.json
 system/bridge.json
 system/storage/*.json
@@ -52,6 +53,7 @@ subservice/*
 
 #Binary related
 build/*
+dist/*
 aroz_online.exe
 aroz_online
 arozos.exe
@@ -65,3 +67,4 @@ start.sh.backup
 *.backup
 system/bridge.json
 launcher.exe
+web.tar.gz

@@ -657,6 +657,7 @@
              <button class="ts icon tiny button standard whiteTheme" title="New Folder" onclick="newFolder();"><i class="folder outline icon"></i></button>
              <button class="ts icon tiny button standard whiteTheme" title="Upload" onclick="upload();"><i class="upload icon"></i></button>
              <button class="ts icon tiny button standard whiteTheme" title="Create Zip" onclick="zipFile();"><i class="zip file icon"></i></button>
+             <button class="ts icon tiny button standard whiteTheme" title="Unzip Here" onclick="unzipHere();"><i class="inbox icon"></i></button>
 
              <button class="ts icon tiny button standard whiteTheme" title="Rename" onclick="rename();"><i class="i cursor icon"></i></button>
              <button class="ts icon tiny negative button" title="Delete" onclick="deleteFile();"><i class="trash outline icon"></i></button>
@@ -1089,6 +1090,9 @@
             <div class="item" onclick="zipFile();">
                 <i class="zip file icon"></i> <span locale="contextmenu/zip">Create Zip</span>
             </div>
+            <div class="item zipFileOnly" onclick="unzipHere();">
+                <i class="inbox icon"></i> <span locale="contextmenu/unzip">Unzip Here</span>
+            </div>
             <div class="item" onclick="rename();">
                 <i class="i cursor icon"></i> <span locale="contextmenu/rename">Rename</span>
             </div>
@@ -1172,6 +1176,7 @@
             let maxConcurrentUpload = 4; //Maxmium number of oncurrent upload
             let uploadPendingList = []; //Upload pending queue for mass upoad
             let lowMemoryMode = true;   //Upload with low memory mode channel
+            let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
             let uploadFileChunkSize = 1024 * 512; //512KB, 4MB not working quite well on slow network
 
             //File Sharing related
@@ -2162,6 +2167,7 @@
                     $("#contextmenu").find(".vroothide").show();
                     $("#contextmenu").find(".noSelectionOnly").hide();
                     $("#contextmenu").find(".vrootonly").hide();
+                    $("#contextmenu").find(".zipFileOnly").hide();
                     
                     //Hide backup manual
                     $("#contextmenu").find(".backuponly").hide();
@@ -2197,6 +2203,12 @@
                         $("#contextmenu").find(".mobileonly").hide();
                     }
 
+                    $(".fileObject.selected").each(function(){
+                        if ($(this).attr("filename").split(".").pop().toLowerCase() == "zip"){
+                            $(".zipFileOnly").show();
+                        }
+                    });
+
                 });
 
                 //Right click on empty space of the file selector
@@ -2208,6 +2220,7 @@
                         $("#contextmenu").find(".noSelectionOnly").show();
                         $("#contextmenu").find(".allowNoSelection").show();
                         $("#contextmenu").find(".vroothide").show();
+                        $("#contextmenu").find(".zipFileOnly").hide();
 
                         //Calculate the position of the context menu
                         calculateContextMenuOffsets(e);
@@ -2494,13 +2507,74 @@
                 }else{
                     title += applocale.getString("opr/zip/file"," file");
                 }
-                parent.newFloatWindow({
-                    url: "SystemAO/file_system/file_operation.html#" + configHash,
-                    width: 400,
-                    height: 220,
-                    appicon: "SystemAO/file_system/img/selector.png",
-                    title: title
+
+                if (!ao_module_virtualDesktop){
+                    window.open("file_operation.html#" + configHash);
+                }else{
+                    parent.newFloatWindow({
+                        url: "SystemAO/file_system/file_operation.html#" + configHash,
+                        width: 400,
+                        height: 220,
+                        appicon: "SystemAO/file_system/img/selector.png",
+                        title: title
+                    });
+                }
+
+                
+           }
+
+           function unzipHere(){
+                $(".popup").fadeOut('fast');
+
+                //Get a list of zip files selected
+                var unzippingFiles = [];
+                $(".fileObject.selected").each(function(){
+                    var filepath = $(this).attr("filepath");
+                    if ((filepath.split(".").pop()).toLowerCase() == "zip"){
+                        unzippingFiles.push(filepath);
+                    }
                 });
+
+                if(unzippingFiles.length == 0){
+                    msgbox("remove", applocale.getString("opr/zip/nozipfile", "No zip file selected"));
+                    return;
+                }
+
+                //Start unzip progress
+                console.log(unzippingFiles);
+
+                //Unzip and open them to tmp:/
+                var oprConfig = {
+                    opr: "unzip",
+                    src: unzippingFiles,
+                    dest: currentPath,
+                    overwriteMode: "overwrite",
+                    callbackWindowID: ao_module_windowID,
+                    callbackFunction: `callRefresh("${currentPath}")`
+                }
+
+                //Render the dialog title name
+                var configHash = encodeURIComponent(JSON.stringify(oprConfig));
+                var title = applocale.getString("opr/zip/unzipping","Unzipping ") + unzippingFiles.length;
+                if (unzippingFiles.length > 1){
+                    title += applocale.getString("opr/zip/files", " files");
+                }else{
+                    title += applocale.getString("opr/zip/file"," file");
+                }
+
+            
+                if (!ao_module_virtualDesktop){
+                    window.open("file_operation.html#" + configHash);
+                }else{
+                    parent.newFloatWindow({
+                        url: "SystemAO/file_system/file_operation.html#" + configHash,
+                        width: 400,
+                        height: 220,
+                        appicon: "SystemAO/file_system/img/selector.png",
+                        title: title,
+                    });
+                }
+
            }
 
             let renameFileObjects = [];
@@ -2837,7 +2911,7 @@
             //Force delete. Use normal delete fucntion if you want to move things to recycle bin instead.
             let forceDeleteList = [];
             function forceDelete(confirmed=false){
-                if (confirmed == false){
+                if (!confirmed){
                     //Show confirm box
                     let deletePendingList = [];
                     var listObject = $("#forceDeleteConfirmBox").find(".deleteFilelist")[0];
@@ -2869,11 +2943,11 @@
                                     refreshList();
                                     msgbox("checkmark",fdlistLength + applocale.getString("message/remove/success", " objects removed."))
                                 }
-                                hideAllPopupWindows();
                             }
                         });
                         //Finishing up delete sequence
                         forceDeleteList = [];
+                        hideAllPopupWindows();
                     });
                     
                 }
@@ -4465,7 +4539,7 @@
                                 console.log("Upload Target", fileObject, rootpath);
                                 uploadFile(fileObject, undefined, currentPath + rootpath);
                             */
-                            console.log(currentPath + rootpath);
+                            //console.log(currentPath + rootpath);
                             uploadFile(fileObject, undefined, currentPath + base);
                         }
                         
@@ -4535,6 +4609,8 @@
         }
 
         function initUploadMode(){
+            //Deprecated, will automatically decide which mode to use base on file size and disk space
+            /*
             //Get the amount of RAM on the server side to check if low memory mode should be used.
             $.ajax({
                 url: "../../system/info/getRAMinfo",
@@ -4543,7 +4619,7 @@
                         //Permission denied or other reasons that cannot access harwdare info. Use default mode
                         lowMemoryMode = true;
                     }else{
-                        //Check if ramsize > 1.8 GB (2GB). If yes, switch to large memory upload mode
+                        //Check if ramsize > 3.8GB. If yes, switch to large memory upload mode
                         var memsize = JSON.parse(data);
                         if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 3.8){
                             console.log("[File Explorer] Entering large memory upload mode")
@@ -4556,12 +4632,31 @@
                     lowMemoryMode = true;
                 }
             });
+            */
+
+            //Get the avaible space on tmp disk and decide the cutoff file size that need to directly write to disk
+            $.ajax({
+                url: "../../system/disk/space/resolve",
+                method: "POST",
+                data: {path: "tmp:/"},
+                success: function(data){
+                    if (data.error !== undefined){
+                      
+                    }else{
+                        console.log("[File Explorer] Setting huge file cutoff size at: " + ao_module_utils.formatBytes(data.Avilable/16));
+                        largeFileCutoffSize = data.Avilable/16 - 4096;
+                    }
+                },
+                error: function(){
+                    //Hardware mode disabled. Use default value.
+                }
+            });
         }
 
         let uploadBufferedRefreshTimer;
        
         function uploadFile(file, uuid=undefined, targetDir=undefined) {
-            if (lowMemoryMode){
+            if (file.size > 4194304 && lowMemoryMode){
                  /*
                     Low Memory Upload Mode
                 */
@@ -4573,6 +4668,9 @@
                 if (taskUUID == undefined){
                     //If this is a new file to be uploaded
                     taskUUID = appendUploadFileItem(file.name, file.size);
+                    setTimeout(function(){
+                        updateUploadFileCount();
+                    }, 100);
                 }
 
                 //Push to upload pending list if the max concurrent upload is reached
@@ -4647,7 +4745,13 @@
                     //console.log("Firefox Mode: ", uploadDir, "Target Dir", targetDir)
                 }
 
-                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(filename) + "&path=" + encodeURIComponent(uploadDir));
+                let hugeFileMode = "";
+                if (file.size > largeFileCutoffSize){
+                    //Filesize over cutoff line. Use huge file mode
+                    hugeFileMode = "&hugefile=true";
+                }
+
+                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(filename) + "&path=" + encodeURIComponent(uploadDir) + hugeFileMode);
                 let currentSendingIndex = 0;
                 let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
                 
@@ -4770,20 +4874,6 @@
                     
                    
                     return
-
-                    /*
-                    msgbox("caution","Upload failed due to unknown reason");
-                    //Something went wrong. Set the color to red
-                    $(".uploadTask").each(function(){
-                        if ($(this).attr("taskID") == taskUUID){
-                            //Update this progress bar to completed
-                            $(this).find(".bar").css("width","100%");
-                            $(this).find(".progress").attr("class","ts tiny negative progress");
-                            $(this).find(".uploadTaskRemoveIcon").show();
-                            $(this).addClass("ended");
-                        }
-                    });
-                    */
                 };
 
             }else{
@@ -4797,6 +4887,9 @@
                 if (taskUUID == undefined){
                     //If this is a new file to be uploaded
                     taskUUID = appendUploadFileItem(file.name, file.size);
+                    setTimeout(function(){
+                        updateUploadFileCount();
+                    }, 100);
                 }
                 
                 //Updates 22-10-2020

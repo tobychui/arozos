@@ -16,7 +16,7 @@ var moduleLaunchInfo = {
 	SupportFW: true,
 	LaunchFWDir: "Recorder/index.html",
 	SupportEmb: false,
-	InitFWSize: [450, 210]
+	InitFWSize: [540, 232]
 }
 
 //Register the module

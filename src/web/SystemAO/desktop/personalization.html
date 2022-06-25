@@ -186,15 +186,71 @@
                     </h3>
                     <div class="ui divider"></div>
                     <h4 class="ui header">
-                        <span locale="advance/wallpaper/title">User Defined Wallpaper</span>
+                        <i class="image icon" style="display:inline-block;"></i> <span locale="advance/wallpaper/title">User Defined Wallpaper</span>
                         <div class="sub header" locale="advance/wallpaper/desc">Advanced user customization function for desktop interface</div>
                     </h4>
                     <h3 id="userSelectedFolderPath" locale="advance/wallpaper/disabled">Disabled</h3>
                     <p locale="advance/wallpaper/reminder">If you have set a folder for loading desktop wallpapers, the image files from that folder will be used instead of the system build in wallpapers.</p>
                     <button class="ui small right floated button" onclick="clearUserSelectedFolder();"><i class="remove icon"></i><span locale="advance/wallpaper/clear">Clear Selection</span></button>
                     <button class="ui small black right floated button" onclick="selectUserFolder();"><i class="folder open icon"></i> <span locale="advance/wallpaper/select">Select Folder</span></button>
-        
                     <br><br>
+                    
+                    <div class="ui divider"></div>
+                    <h4 class="ui header">
+                        <i class="external square alternate icon" style="display:inline-block;" ></i> <span locale="advance/mobile/shorcut/title">Mobile Desktop Shortcuts</span>
+                        <div class="sub header" locale="advance/mobile/shorcut/subtitle">Change the default four shortcuts for mobile desktop interface</div>
+                    </h4>
+                    <p locale="advance/mobile/shorcut/instruction">Please pick your shortcut from left to right</p>
+                    <div>
+                        <div class="ui fluid search selection moduledropbox dropdown">
+                            <input type="hidden" id="shortcut1">
+                            <i class="dropdown icon"></i>
+                            <div class="default text" locale="advance/mobile/shorcut/shortcut/1">Shortcut 1</div>
+                            <div class="webapplist menu">
+                            
+                            </div>
+                        </div>
+                        <br>
+                        <div class="ui fluid search selection moduledropbox dropdown">
+                            <input type="hidden" id="shortcut2">
+                            <i class="dropdown icon"></i>
+                            <div class="default text" locale="advance/mobile/shorcut/shortcut/2">Shortcut 2</div>
+                            <div class="webapplist menu">
+                            
+                            </div>
+                        </div>
+                        <br>
+                        <div class="ui fluid search selection moduledropbox dropdown">
+                            <input type="hidden" id="shortcut3">
+                            <i class="dropdown icon"></i>
+                            <div class="default text" locale="advance/mobile/shorcut/shortcut/3">Shortcut 3</div>
+                            <div class="webapplist menu">
+                                
+                            </div>
+                        </div>
+                        <br>
+                        <div class="ui fluid search selection moduledropbox dropdown">
+                            <input type="hidden" id="shortcut4">
+                            <i class="dropdown icon"></i>
+                            <div class="default text" locale="advance/mobile/shorcut/shortcut/4">Shortcut 4</div>
+                            <div class="webapplist menu">
+                            
+                            </div>
+                        </div>
+                    </div>
+                    <br>
+                    <button class="ui small green right floated button" onclick="saveShortcuts();"  locale="advance/mobile/shorcut/save"><i class="checkmark icon"></i> Save Shortcuts</button>
+                    <br><br>
+                    <div class="ui green segment" style="display:none" id="shortcutChangeSaved">
+                        <h4 class="ui header">
+                            <i class="checkmark green icon"></i>
+                            <div class="content">
+                            <span locale="advance/mobile/shorcut/updated">Shorcuts Updated</span>
+                            <div class="sub header" locale="advance/mobile/shorcut/updateddesc">Open the mobile interface via your phone to view the changes</div>
+                            </div>
+                        </h4>
+                    </div>
+                    
                 </div>
                 
             </div>
@@ -228,6 +284,7 @@
                 });
                 generateColorGrids();
                 getStartupAudio();
+                initModuleList();
             }
 
            
@@ -251,6 +308,76 @@
                 });
             }
             
+            function initModuleList(){
+                $.get("../../system/modules/list", function(data){
+                    $(".webapplist").html('');
+                    data.forEach(app => {
+                        if (app.Group != "Interface Module" && app.Group != "IME" && app.StartDir != ""){
+                            $(".webapplist").append(`<div class="item" data-value="${app.Name}">${app.Name}</div>`);
+                        }
+                    });
+
+                    $(".moduledropbox").dropdown();
+
+                    //Get selected preferences
+                    readPreference("ao/mobile/shorcut/1", function(data){
+                        if (data != ""){
+                            $("#shortcut1").val(data);
+                            $("#shortcut1").parent().dropdown("set selected", data);
+                        }
+                    });
+
+                    readPreference("ao/mobile/shorcut/2", function(data){
+                        if (data != ""){
+                            $("#shortcut2").val(data);
+                            $("#shortcut2").parent().dropdown("set selected", data);
+                        }
+                    });
+
+                    readPreference("ao/mobile/shorcut/3", function(data){
+                        if (data != ""){
+                            $("#shortcut3").val(data);
+                            $("#shortcut3").parent().dropdown("set selected", data);
+                        }
+                    });
+
+                    readPreference("ao/mobile/shorcut/4", function(data){
+                        if (data != ""){
+                            $("#shortcut4").val(data);
+                            $("#shortcut4").parent().dropdown("set selected", data);
+                        }
+                    });
+                })
+            }
+
+            function saveShortcuts(){
+                var sc1 = $("#shortcut1").val();
+                var sc2 = $("#shortcut2").val();
+                var sc3 = $("#shortcut3").val();
+                var sc4 = $("#shortcut4").val();
+
+                if (sc1 != ""){
+                    writePreference("ao/mobile/shorcut/1", sc1);
+                }
+
+                if (sc2 != ""){
+                    writePreference("ao/mobile/shorcut/2", sc2);
+                }
+
+                if (sc3 != ""){
+                    writePreference("ao/mobile/shorcut/3", sc3);
+                }
+
+                if (sc4 != ""){
+                    writePreference("ao/mobile/shorcut/4", sc4);
+                }
+
+                $("#shortcutChangeSaved").stop().finish().slideDown("fast").delay(3000).slideUp("fast", function(){
+                    if (parent != undefined && parent.initShortcuts != undefined){
+                        parent.initShortcuts();
+                    }
+                });
+            }
 
             function initDefaultBackgroundChangeValue(){
                 if (localStorage.getItem("ao/desktop/backgroundInterval") == null){
@@ -276,7 +403,7 @@
                 $("#userSelectedStartupSound").text(filepath);
                 $.ajax({
                     url: "../../system/desktop/preference",
-                    method: "GET",
+                    method: "POST",
                     data: {preference: "startup-audio", value: filepath},
                     success: function(data){
                         console.log(data);
@@ -287,7 +414,7 @@
             function getStartupAudio(callback=undefined){
                 $.ajax({
                     url: "../../system/desktop/preference",
-                    method: "GET",
+                    method: "POST",
                     data: {preference: "startup-audio"},
                     success: function(data){
                         if (data != undefined && data != ""){
@@ -306,7 +433,7 @@
             function clearStartupAudioSelection(){
                 $.ajax({
                     url: "../../system/desktop/preference",
-                    method: "GET",
+                    method: "POST",
                     data: {preference: "startup-audio", remove: "true"},
                     success: function(data){
                         $("#userSelectedStartupSound").text(applocale.getString("sound/disabled", "Disabled"));
@@ -590,8 +717,9 @@
 
             function readPreference(key, callback=undefined){
                 $.ajax({
-                    url: "../../system/file_system/preference",
-                    data: {key: key},
+                    url: "../../system/desktop/preference",
+                    data: {preference: key},
+                    method: "POST",
                     success: function(data){
                         if (callback != undefined){
                             callback(data);
@@ -602,8 +730,9 @@
 
             function writePreference(key, value, callback=undefined){
                 $.ajax({
-                    url: "../../system/file_system/preference",
-                    data: {key: key, value: value},
+                    url: "../../system/desktop/preference",
+                    data: {preference: key, value: value},
+                    method: "POST",
                     success: function(data){
                         if (callback != undefined){
                             callback(data);

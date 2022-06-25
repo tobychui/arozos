@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
 	awebdav "imuslab.com/arozos/mod/storage/webdav"
 )
@@ -48,7 +49,7 @@ func WebDAVInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -60,22 +61,22 @@ func WebDAVInit() {
 		userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
 		isAdmin := userinfo.IsAdmin()
 
-		set, _ := mv(r, "set", false)
+		set, _ := common.Mv(r, "set", false)
 		if set == "" {
 			//Return the current status
 			results := []bool{WebDavHandler.Enabled, isAdmin}
 			js, _ := json.Marshal(results)
-			sendJSONResponse(w, string(js))
+			common.SendJSONResponse(w, string(js))
 		} else if isAdmin && set == "disable" {
 			WebDavHandler.Enabled = false
 			sysdb.Write("webdav", "enabled", false)
-			sendOK(w)
+			common.SendOK(w)
 		} else if isAdmin && set == "enable" {
 			WebDavHandler.Enabled = true
 			sysdb.Write("webdav", "enabled", true)
-			sendOK(w)
+			common.SendOK(w)
 		} else {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		}
 	})
 

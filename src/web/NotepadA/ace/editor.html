@@ -72,6 +72,11 @@
 					},300);
 					return
 				}
+
+				if (typeof fileContent == "object"){
+					//Loading a json file
+					fileContent = JSON.stringify(fileContent);
+				}
 				$("#editor").text(fileContent);
 
 				//Start the editor if not started

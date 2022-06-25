@@ -22,52 +22,52 @@ func system_resetpw_init() {
 
 //Validate if the ysername and rkey is valid
 func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Request) {
-	username, err := mv(r, "username", true)
+	username, err := common.Mv(r, "username", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid username or key")
+		common.SendErrorResponse(w, "Invalid username or key")
 		return
 	}
-	rkey, err := mv(r, "rkey", true)
+	rkey, err := common.Mv(r, "rkey", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid username or key")
+		common.SendErrorResponse(w, "Invalid username or key")
 		return
 	}
 
 	if username == "" || rkey == "" {
-		sendErrorResponse(w, "Invalid username or rkey")
+		common.SendErrorResponse(w, "Invalid username or rkey")
 		return
 	}
 
 	//Check if the pair is valid
 	err = system_resetpw_validateResetKey(username, rkey)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	sendOK(w)
+	common.SendOK(w)
 
 }
 
 func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
-	username, _ := mv(r, "username", true)
-	rkey, _ := mv(r, "rkey", true)
-	newpw, _ := mv(r, "pw", true)
+	username, _ := common.Mv(r, "username", true)
+	rkey, _ := common.Mv(r, "rkey", true)
+	newpw, _ := common.Mv(r, "pw", true)
 	if username == "" || rkey == "" || newpw == "" {
-		sendErrorResponse(w, "Internal Server Error")
+		common.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 
 	//Check user exists
 	if !authAgent.UserExists(username) {
-		sendErrorResponse(w, "Username not exists")
+		common.SendErrorResponse(w, "Username not exists")
 		return
 	}
 
 	//Validate rkey
 	err := system_resetpw_validateResetKey(username, rkey)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -75,11 +75,11 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
 	newHashedPassword := auth.Hash(newpw)
 	err = sysdb.Write("auth", "passhash/"+username, newHashedPassword)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	sendOK(w)
+	common.SendOK(w)
 
 }
 
@@ -102,13 +102,13 @@ func system_resetpw_validateResetKey(username string, key string) error {
 
 func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) {
 	//Check if the user click on this link with reset password key string. If not, ask the user to input one
-	acc, err := mv(r, "acc", false)
+	acc, err := common.Mv(r, "acc", false)
 	if err != nil || acc == "" {
 		system_resetpw_serveIdEnterInterface(w, r)
 		return
 	}
 
-	resetkey, err := mv(r, "rkey", false)
+	resetkey, err := common.Mv(r, "rkey", false)
 	if err != nil || resetkey == "" {
 		system_resetpw_serveIdEnterInterface(w, r)
 		return
@@ -117,12 +117,12 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 	//Check if the code is valid
 	err = system_resetpw_validateResetKey(acc, resetkey)
 	if err != nil {
-		sendErrorResponse(w, "Invalid username or resetKey")
+		common.SendErrorResponse(w, "Invalid username or resetKey")
 		return
 	}
 
 	//OK. Create the New Password Entering UI
-	imageBase64, _ := LoadImageAsBase64("./web/" + iconVendor)
+	imageBase64, _ := common.LoadImageAsBase64("./web/" + iconVendor)
 	template, err := common.Templateload("system/reset/resetPasswordTemplate.html", map[string]interface{}{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,
@@ -138,7 +138,7 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 
 func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request) {
 	//Reset Key or Username not found, Serve entering interface
-	imageBase64, _ := LoadImageAsBase64("./web/" + iconVendor)
+	imageBase64, _ := common.LoadImageAsBase64("./web/" + iconVendor)
 	template, err := common.Templateload("system/reset/resetCodeTemplate.html", map[string]interface{}{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,

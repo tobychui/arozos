@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/disk/hybridBackup"
 	user "imuslab.com/arozos/mod/user"
 
@@ -19,7 +20,7 @@ func backup_init() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -88,7 +89,7 @@ func backup_listAllBackupDisk(w http.ResponseWriter, r *http.Request) {
 
 		//Check for error in getting FS Handler
 		if diskErr != nil || parentErr != nil {
-			sendErrorResponse(w, "Unable to get backup task info from backup disk: "+task.DiskUID)
+			common.SendErrorResponse(w, "Unable to get backup task info from backup disk: "+task.DiskUID)
 			return
 		}
 
@@ -108,7 +109,7 @@ func backup_listAllBackupDisk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(backupDrives)
-	sendJSONResponse(w, string(js))
+	common.SendJSONResponse(w, string(js))
 }
 
 //Generate a snapshot summary for vroot
@@ -116,47 +117,47 @@ func backup_renderSnapshotSummary(w http.ResponseWriter, r *http.Request) {
 	//Get user accessiable storage pools
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get Backup disk ID from request
-	bdid, err := mv(r, "bdid", true)
+	bdid, err := common.Mv(r, "bdid", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid backup disk ID given")
+		common.SendErrorResponse(w, "Invalid backup disk ID given")
 		return
 	}
 
 	//Get target snapshot name from request
-	snapshot, err := mv(r, "snapshot", true)
+	snapshot, err := common.Mv(r, "snapshot", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid snapshot name given")
+		common.SendErrorResponse(w, "Invalid snapshot name given")
 		return
 	}
 
 	//Get fsh from the id
 	fsh, err := GetFsHandlerByUUID(bdid)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Get parent disk hierarcy
 	parentDiskID, err := userinfo.HomeDirectories.HyperBackupManager.GetParentDiskIDByRestoreDiskID(fsh.UUID)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 	parentFsh, err := GetFsHandlerByUUID(parentDiskID)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Get task by the backup disk id
 	task, err := userinfo.HomeDirectories.HyperBackupManager.GetTaskByBackupDiskID(fsh.UUID)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -166,23 +167,23 @@ func backup_renderSnapshotSummary(w http.ResponseWriter, r *http.Request) {
 		if parentFsh.Hierarchy == "user" {
 			s, err := task.GenerateSnapshotSummary(snapshot, &userinfo.Username)
 			if err != nil {
-				sendErrorResponse(w, err.Error())
+				common.SendErrorResponse(w, err.Error())
 				return
 			}
 			summary = s
 		} else {
 			s, err := task.GenerateSnapshotSummary(snapshot, nil)
 			if err != nil {
-				sendErrorResponse(w, err.Error())
+				common.SendErrorResponse(w, err.Error())
 				return
 			}
 			summary = s
 		}
 
 		js, _ := json.Marshal(summary)
-		sendJSONResponse(w, string(js))
+		common.SendJSONResponse(w, string(js))
 	} else {
-		sendErrorResponse(w, "Unable to genreate snapshot summary: Backup mode is not snapshot")
+		common.SendErrorResponse(w, "Unable to genreate snapshot summary: Backup mode is not snapshot")
 		return
 	}
 
@@ -193,42 +194,42 @@ func backup_restoreSelected(w http.ResponseWriter, r *http.Request) {
 	//Get user accessiable storage pools
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get Backup disk ID from request
-	bdid, err := mv(r, "bdid", true)
+	bdid, err := common.Mv(r, "bdid", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid backup disk ID given")
+		common.SendErrorResponse(w, "Invalid backup disk ID given")
 		return
 	}
 
 	//Get fsh from the id
 	fsh, err := GetFsHandlerByUUID(bdid)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Get the relative path for the restorable file
-	relpath, err := mv(r, "relpath", true)
+	relpath, err := common.Mv(r, "relpath", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid relative path given")
+		common.SendErrorResponse(w, "Invalid relative path given")
 		return
 	}
 
 	//Pick the correct HybridBackup Manager
 	targetHybridBackupManager, err := backup_pickHybridBackupManager(userinfo, fsh.UUID)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Handle restore of the file
 	err = targetHybridBackupManager.HandleRestore(fsh.UUID, relpath, &userinfo.Username)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -263,7 +264,7 @@ func backup_restoreSelected(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(result)
-	sendJSONResponse(w, string(js))
+	common.SendJSONResponse(w, string(js))
 }
 
 //As one user might be belongs to multiple groups, check which storage pool is this disk ID owned by and return its corect backup maanger
@@ -296,42 +297,42 @@ func backup_listRestorable(w http.ResponseWriter, r *http.Request) {
 	//Get user accessiable storage pools
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get Vroot ID from request
-	vroot, err := mv(r, "vroot", true)
+	vroot, err := common.Mv(r, "vroot", true)
 	if err != nil {
-		sendErrorResponse(w, "Invalid vroot given")
+		common.SendErrorResponse(w, "Invalid vroot given")
 		return
 	}
 
 	//Get fsh from the id
 	fsh, err := GetFsHandlerByUUID(vroot)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Get all backup managers that this user ac can access
 	targetBackupManager, err := backup_pickHybridBackupManager(userinfo, vroot)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Get the user's storage pool and list restorable by the user's storage pool access
 	restorableReport, err := targetBackupManager.ListRestorable(fsh.UUID)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Get and check if the parent disk has a user Hierarcy
 	paretnfsh, err := GetFsHandlerByUUID(restorableReport.ParentUID)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -364,5 +365,5 @@ func backup_listRestorable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(result)
-	sendJSONResponse(w, string(js))
+	common.SendJSONResponse(w, string(js))
 }

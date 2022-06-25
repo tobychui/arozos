@@ -1,6 +1,9 @@
-package main
+package notification
 
-import "container/list"
+import (
+	"container/list"
+	"log"
+)
 
 /*
 	Notification Producer and Consumer Queue
@@ -10,38 +13,28 @@ import "container/list"
 */
 
 type NotificationPayload struct {
-	ID        string   //Notification ID, generate by producer
-	Title     string   //Title of the notification
-	Message   string   //Message of the notification
-	Receiver  []string //Receiver, username in arozos system
-	Sender    string   //Sender, the sender or module of the notification
-	ActionURL string   //URL for futher action or open related pages (as url), leave empty if not appliable
-	IsUrgent  bool     //Label this notification as urgent
+	ID            string   //Notification ID, generate by producer
+	Title         string   //Title of the notification
+	Message       string   //Message of the notification
+	Receiver      []string //Receiver, username in arozos system
+	Sender        string   //Sender, the sender or module of the notification
+	ReciverAgents []string //Agent name that have access to this notification
 }
 
-//Notification Consumer, object that use to consume notification from queue
-type Consumer struct {
-	Name string
-	Desc string
+type AgentProducerFunction func(*NotificationPayload) error
 
-	ListenTopicMode int
-	Notify          func(*NotificationPayload) error
-	ListeningQueue  *NotificationQueue
-}
-
-//Notification Producer, object that use to create and push notification into the queue
-type Producer struct {
-	Name string
-	Desc string
-
-	PushTopicType int
-	TargetQueue   *NotificationQueue
+type Agent interface {
+	//Defination of the agent
+	Name() string                                    //The name of the notification agent, must be unique
+	Desc() string                                    //Basic description of the agent
+	IsConsumer() bool                                //Can receive notification can arozos core
+	IsProducer() bool                                //Can produce notification to arozos core
+	ConsumerNotification(*NotificationPayload) error //Endpoint for arozos -> this agent
+	ProduceNotification(*AgentProducerFunction)      //Endpoint for this agent -> arozos
 }
 
 type NotificationQueue struct {
-	Producers []*Producer
-	Consumers []*Consumer
-
+	Agents      []*Agent
 	MasterQueue *list.List
 }
 
@@ -49,23 +42,42 @@ func NewNotificationQueue() *NotificationQueue {
 	thisQueue := list.New()
 
 	return &NotificationQueue{
-		Producers:   []*Producer{},
-		Consumers:   []*Consumer{},
+		Agents:      []*Agent{},
 		MasterQueue: thisQueue,
 	}
 }
 
-//Add a notification producer into the master queue
-func (n *NotificationQueue) AddNotificationProducer(p *Producer) {
-	n.Producers = append(n.Producers, p)
+//Add a notification agent to the queue
+func (q *NotificationQueue) RegisterNotificationAgent(agent Agent) {
+	q.Agents = append(q.Agents, &agent)
 }
 
-//Add a notification consumer into the master queue
-func (n *NotificationQueue) AddNotificationConsumer(c *Consumer) {
-	n.Consumers = append(n.Consumers, c)
-}
+func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) error {
+	//Send notification to consumer agents
+	for _, agent := range q.Agents {
+		thisAgent := *agent
+		inAgentList := false
+		for _, enabledAgent := range message.ReciverAgents {
+			if enabledAgent == thisAgent.Name() {
+				//This agent is activated
+				inAgentList = true
+				break
+			}
+		}
 
-//Push a notifiation to all consumers with same topic type
-func (n *NotificationQueue) PushNotification(TopicType int, message *NotificationPayload) {
+		if !inAgentList {
+			//Skip this agent and continue
+			continue
+		}
 
+		//Send this notification via this agent
+		err := thisAgent.ConsumerNotification(message)
+		if err != nil {
+			log.Println("[Notification] Unable to send message via notification agent: " + thisAgent.Name())
+		}
+
+	}
+
+	log.Println("[Notification] Message titled: " + message.Title + " (ID: " + message.ID + ") broadcasted")
+	return nil
 }

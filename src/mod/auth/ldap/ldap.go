@@ -139,9 +139,12 @@ func (ldap *ldapHandler) convertGroup(ldapUser *ldap.Entry) UserAccount {
 }
 
 func (ldap *ldapHandler) NightlySync() {
-	err := ldap.SynchronizeUserFromLDAP()
-	if err != nil {
-		log.Println(err)
+	checkLDAPenabled := ldap.readSingleConfig("enabled")
+	if checkLDAPenabled == "true" {
+		err := ldap.SynchronizeUserFromLDAP()
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 

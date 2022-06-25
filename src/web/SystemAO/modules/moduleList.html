@@ -10,24 +10,26 @@
     </head>
     <body>
         <div class="ui container">
-            <table class="ui basic celled structured table">
-                <thead>
-                  <tr>
-                      <th rowspan="2">Module</th>
-                      <th rowspan="2">Group</th>
-                      <th rowspan="2">Supported Extensions</th>
-                      <th colspan="3">Supported Mode</th>
-                  </tr>
-                  <tr>
-                    <th>Default</th>
-                    <th>FloatWindow</th>
-                    <th>Embedded</th>
-                  </tr>
-                </thead>
-                <tbody id="moduleList">
-                  
-                </tbody>
-              </table>
+            <div style="width: 100%; overflow-y: auto;">
+                <table class="ui basic celled structured unstackable table">
+                    <thead>
+                    <tr>
+                        <th rowspan="2">Module</th>
+                        <th rowspan="2">Group</th>
+                        <th rowspan="2">Supported Extensions</th>
+                        <th colspan="3">Supported Mode</th>
+                    </tr>
+                    <tr>
+                        <th>Default</th>
+                        <th>FloatWindow</th>
+                        <th>Embedded</th>
+                    </tr>
+                    </thead>
+                    <tbody id="moduleList">
+                    
+                    </tbody>
+                </table>
+            </div>
               <div class="ui divider"></div>
               <p>If you have installed WebApps manually, you can click the "Reload WebApps" button to load it without restarting ArozOS.</p>
               <button id="reloadWebappButton" class="ui basic small blue button" onclick="reloadWebapps();">
@@ -86,7 +88,7 @@
                             }
                             $("#moduleList").append(`<tr>
                                 <td>
-                                    <h4 class="ui image header">
+                                    <h4 class="ui image header" style="white-space: nowrap;">
                                         <img src="${iconURL}" class="ui mini rounded image">
                                         <div class="content">
                                             ${thisModule.Name}

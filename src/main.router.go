@@ -29,14 +29,14 @@ func mrouter(h http.Handler) http.Handler {
 		} else if r.URL.Path == "/login.system" {
 			//Login page. Require special treatment for template.
 			//Get the redirection address from the request URL
-			red, _ := mv(r, "redirect", false)
+			red, _ := common.Mv(r, "redirect", false)
 
 			//Append the redirection addr into the template
 			imgsrc := "./web/" + iconSystem
-			if !fileExists(imgsrc) {
+			if !fs.FileExists(imgsrc) {
 				imgsrc = "./web/img/public/auth_icon.png"
 			}
-			imageBase64, _ := LoadImageAsBase64(imgsrc)
+			imageBase64, _ := common.LoadImageAsBase64(imgsrc)
 			parsedPage, err := common.Templateload("web/login.system", map[string]interface{}{
 				"redirection_addr": red,
 				"usercount":        strconv.Itoa(authAgent.GetUserCounts()),
@@ -130,7 +130,7 @@ func mrouter(h http.Handler) http.Handler {
 			if !*enable_dir_listing {
 				if strings.HasSuffix(r.URL.Path, "/") {
 					//User trying to access a directory. Send NOT FOUND.
-					if fileExists("web" + r.URL.Path + "index.html") {
+					if fs.FileExists("web" + r.URL.Path + "index.html") {
 						//Index exists. Allow passthrough
 
 					} else {
@@ -139,7 +139,7 @@ func mrouter(h http.Handler) http.Handler {
 					}
 				}
 			}
-			if !fileExists("web" + r.URL.Path) {
+			if !fs.FileExists("web" + r.URL.Path) {
 				//File not found
 				errorHandleNotFound(w, r)
 				return
@@ -161,7 +161,7 @@ func mrouter(h http.Handler) http.Handler {
 				//Other paths
 				//Rediect to login page
 				w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-				http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, 307)
+				http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.String(), 307)
 			}
 
 		}

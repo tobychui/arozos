@@ -221,7 +221,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	username, password, ok := r.BasicAuth()
 	if !ok {
 		//User not logged in.
-		log.Println("Not logged in!")
+		//log.Println("Not logged in!")
 		w.Header().Set("WWW-Authenticate", `Basic realm="Login with your `+s.hostname+` account"`)
 		w.WriteHeader(http.StatusUnauthorized)
 		return

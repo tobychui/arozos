@@ -9,6 +9,9 @@
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
+            body{
+                overflow: hidden;
+            }
             .banner{
                 background-color:#4287f5;
                 height:50px;
@@ -55,17 +58,17 @@
         <div class="ui modal" id="duplicateAction">
             <div class="content">
                 <div class="description" style="padding: 0px !important;">
-                    <p><i class="big exclamation triangle icon"></i> <span>At least one file has the same filename with another existsing file. <b>Which action should be taken?</b></span></p><br>
+                    <p><i class="big exclamation triangle icon"></i> <span locale="dup/question">File with same name already exists. <b>Which action should be taken?</b></span></p><br>
                 </div>
             </div>
             <div class="actions">
-                <div class="ui labeled button" onclick="continueProcess('overwrite');">
+                <div locale="dup/overwrite" class="ui labeled button" onclick="continueProcess('overwrite');">
                     Overwrite
                 </div>
-                <div class="ui labeled button" onclick="continueProcess('skip');">
+                <div locale="dup/skip" class="ui labeled button" onclick="continueProcess('skip');">
                     Skip
                 </div>
-                <div class="ui labeled button" style="color: #2fb55c;" onclick="continueProcess('keep');">
+                <div locale="dup/renameAndKeep" class="ui labeled button" style="color: #2fb55c;" onclick="continueProcess('keep');">
                     Rename & Keep
                 </div>
               
@@ -152,20 +155,18 @@
                                 url: "../../system/file_system/listDir",
                                 data: {dir: operationConfig.dest},
                                 success: function(filelist){
-                                    //Check fod duplication
-                                    var duplicateFound = false;
-mainloop:
-                                    for (var i = 0; i < filelist.length; i++){
-                                        var desktopFile = filelist[i];
-                                        for (var j = 0; j < operationConfig.src.length; j++){
-                                            var srcfile = operationConfig.src[j];
-                                            var srcFilename = srcfile.split("/").pop();
-                                            if (srcFilename == desktopFile.Filename){
-                                                duplicateFound = true
-                                                break mainloop;
-                                            }
-                                        }
-                                    }; 
+                                    //Check for duplication
+                                    var srcFilenameList = [];
+                                    operationConfig.src.forEach(srcpath => {
+                                        var filename = srcpath.split("/").pop();
+                                        srcFilenameList.push(filename);
+                                    })
+                                    var duplicateFound = filelist.some(function(file){
+                                        return srcFilenameList.includes(file.Filename);
+                                    }); 
+
+                                    console.log(filelist);
+                                    console.log(operationConfig.src);
 
                                     if (duplicateFound){
                                         //Duplication found. 
@@ -186,11 +187,12 @@ mainloop:
                             //All information are defined. Process it now.
                             processOperations(operationConfig)
                         }
-                       
+                    
                     }catch(ex){
-                        //Failed
+                        //Failed.
                         console.log("Argument parse error", ex);
                     }
+                    
 
                 }else{
                     alert("Invalid use of File Operation Listener.")
@@ -218,7 +220,7 @@ mainloop:
                 
                 }else if (operationConfig.opr == "copy"){
                     $("#opricon").attr("src","img/copy.gif");
-                    copy(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
+                    copyopr(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
                 
                 }else if (operationConfig.opr == "zip"){
                     $("#opricon").attr("src","img/zip.gif");
@@ -274,9 +276,8 @@ mainloop:
                         if (progress.Error != ""){
                             //Something went wrong
                             $("#progressbar").css("background-color", "#eb3f28");
-                            $("#opricon").attr("src", "img/error.png");
                             enterErrorMode = true;
-                            alert(progress.Error);
+                            handleFinish({error: progress.Error});
                         }else{
                             //Update the progress display
                             $("#progressbar").css("width", progress.Progress + "%");
@@ -298,7 +299,7 @@ mainloop:
                         }
                     };
 
-                    ws.onclose = function() { 
+                    ws.onclose = function() {
                         if (!enterErrorMode){
                             $("#progressbar").css("background-color", "#2bba35");
                             $("#progressbar").css("width", "100%");
@@ -310,7 +311,7 @@ mainloop:
                                     ao_module_openPath(operationConfig.dest);
                                 }
                                 ao_module_close();
-                            }, 1000);
+                            }, 100);
                         }
                     };  
 
@@ -374,7 +375,7 @@ mainloop:
                             //Something went wrong
                             $("#progressbar").css("background-color", "#eb3f28");
                             enterErrorMode = true;
-                            alert(progress.Error);
+                            handleFinish({error: progress.Error});
                         }else{
                             //Update the progress display
                             $("#progressbar").css("width", progress.Progress + "%");
@@ -451,7 +452,7 @@ mainloop:
                         if (progress.Error != ""){
                             $("#progressbar").css("background-color", "#eb3f28");
                             enterErrorMode = true;
-                            alert(progress.Error);
+                            handleFinish({error: progress.Error});
                            
                         }else{
                             $("#progressbar").css("width", progress.Progress + "%");
@@ -496,7 +497,7 @@ mainloop:
                
             }
 
-            function copy(srcList, dest, overwriteMode){
+            function copyopr(srcList, dest, overwriteMode){
                 if (legacyMode){
                     //Open operation in legacy mode
                     console.log("WebSocket not found, Running in legacy mode");
@@ -520,7 +521,7 @@ mainloop:
 
 
                    //Use Websocket for operation updates
-                   var endpoint = getWSEndpoint() + `?opr=copy&src=${JSON.stringify(filteredSrcList)}&dest=${encodeURIComponent(dest)}&existsresp=${overwriteMode}`
+                   var endpoint = getWSEndpoint() + `?opr=copy&src=${encodeURIComponent(JSON.stringify(filteredSrcList))}&dest=${encodeURIComponent(dest)}&existsresp=${overwriteMode}`
                     var ws = new WebSocket(endpoint);
                     ws.onopen = function() {
                         console.log("File Operation WebSocket opened")
@@ -532,7 +533,7 @@ mainloop:
                         if (progress.Error != ""){
                             $("#progressbar").css("background-color", "#eb3f28");
                             enterErrorMode = true;
-                            alert(progress.Error);
+                            handleFinish({error: progress.Error});
                         }else{
                             $("#progressbar").css("width", progress.Progress + "%");
                             var currentSrc = truncate(operationConfig.src + "/" + progress.LatestFile, maxPathDisplayLength);
@@ -568,7 +569,7 @@ mainloop:
                         console.error("WebSocket error observed:", event);
                         console.log("Falling back to Legacy Mode")
                         legacyMode = true;
-                        copy(srcList, dest, overwriteMode)
+                        copyopr(srcList, dest, overwriteMode)
                     }
 
                 }
@@ -640,12 +641,14 @@ mainloop:
                     $("#progressbar").css("background-color","#db2828");
                     $("#progressbar").parent().removeClass('active');
                     $(".title").html(`<i class="remove icon"></i>` + applocale.getString("error/" + data.error,data.error));
+                    $("#opricon").attr("src", "img/error.png");
                     enterErrorMode = true;
                     return
                 }else{
                     $("#progressbar").css("background-color","#21ba45");
                     $("#progressbar").parent().removeClass('active');
-                    
+                    $("#opricon").attr("src", "img/done.png");
+
                     if (opr == "move" || opr == "copy" || opr == "zip" || opr == "unzip"){
                         //Action completed. close window.
                         setTimeout(function(){
@@ -669,7 +672,9 @@ mainloop:
 
                             //If the target or src is desktop, refresh desktop as well
                             if(pathIsOnDesktop(operationConfig.dest) || pathIsOnDesktop(operationConfig.src[0])){
-                                parent.refresh(undefined, true);
+                                if (ao_module_virtualDesktop){
+                                    parent.refresh(undefined, true);
+                                }
                             }
 
                             if (!enterErrorMode){
@@ -681,7 +686,7 @@ mainloop:
                         
                     }else if (opr == "zipAndDown"){
                         //Download
-
+                        
                     }else if (opr == "unzipAndOpen"){
                         //Unzip and open the target directory
                         setTimeout(function(){

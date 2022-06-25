@@ -6,6 +6,8 @@ import (
 
 	"os/exec"
 	"runtime"
+
+	"imuslab.com/arozos/mod/common"
 )
 
 func HardwarePowerInit() {
@@ -30,9 +32,9 @@ func HardwarePowerInit() {
 
 func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
 	if *allow_hardware_management {
-		sendJSONResponse(w, "true")
+		common.SendJSONResponse(w, "true")
 	} else {
-		sendJSONResponse(w, "false")
+		common.SendJSONResponse(w, "false")
 	}
 }
 
@@ -45,25 +47,25 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userinfo.IsAdmin() {
-		sendErrorResponse(w, "Permission Denied")
+		common.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	if !sudo_mode {
-		sendErrorResponse(w, "Sudo mode required")
+		common.SendErrorResponse(w, "Sudo mode required")
 		return
 	}
 
 	//Double check password for this user
-	password, err := mv(r, "password", true)
+	password, err := common.Mv(r, "password", true)
 	if err != nil {
-		sendErrorResponse(w, "Password Incorrect")
+		common.SendErrorResponse(w, "Password Incorrect")
 		return
 	}
 
 	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		sendErrorResponse(w, rejectionReason)
+		common.SendErrorResponse(w, rejectionReason)
 		return
 	}
 
@@ -73,7 +75,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Println(string(out))
-			sendErrorResponse(w, string(out))
+			common.SendErrorResponse(w, string(out))
 		}
 		log.Println(string(out))
 	}
@@ -84,7 +86,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Println(string(out))
-			sendErrorResponse(w, string(out))
+			common.SendErrorResponse(w, string(out))
 		}
 		log.Println(string(out))
 	}
@@ -95,12 +97,12 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Println(string(out))
-			sendErrorResponse(w, string(out))
+			common.SendErrorResponse(w, string(out))
 		}
 		log.Println(string(out))
 	}
 
-	sendOK(w)
+	common.SendOK(w)
 }
 
 func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
@@ -112,25 +114,25 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userinfo.IsAdmin() {
-		sendErrorResponse(w, "Permission Denied")
+		common.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	if !sudo_mode {
-		sendErrorResponse(w, "Sudo mode required")
+		common.SendErrorResponse(w, "Sudo mode required")
 		return
 	}
 
 	//Double check password for this user
-	password, err := mv(r, "password", true)
+	password, err := common.Mv(r, "password", true)
 	if err != nil {
-		sendErrorResponse(w, "Password Incorrect")
+		common.SendErrorResponse(w, "Password Incorrect")
 		return
 	}
 
 	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		sendErrorResponse(w, rejectionReason)
+		common.SendErrorResponse(w, rejectionReason)
 		return
 	}
 
@@ -140,7 +142,7 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Println(string(out))
-			sendErrorResponse(w, string(out))
+			common.SendErrorResponse(w, string(out))
 		}
 		log.Println(string(out))
 	}
@@ -151,7 +153,7 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Println(string(out))
-			sendErrorResponse(w, string(out))
+			common.SendErrorResponse(w, string(out))
 		}
 		log.Println(string(out))
 	}
@@ -162,9 +164,9 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Println(string(out))
-			sendErrorResponse(w, string(out))
+			common.SendErrorResponse(w, string(out))
 		}
 		log.Println(string(out))
 	}
-	sendOK(w)
+	common.SendOK(w)
 }

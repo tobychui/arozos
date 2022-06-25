@@ -40,6 +40,7 @@
             -moz-transition: opacity 2s ease-in-out;
             -o-transition: opacity 2s ease-in-out;
             transition: opacity 2s ease-in-out;
+
         }
         
         .background-wrapper {
@@ -720,6 +721,11 @@
             width: 100%;
         }
 
+        .disabled{
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
          /* Offline blinking warning css */
          @-moz-keyframes blink {
                 0% {
@@ -1075,11 +1081,12 @@
         var downloadMode = false;
         var lowMemoryMode = true;
 
-        //Browser detection
+        //Browser and device detection
         var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
         var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
         var isMacOS = (navigator.appVersion.indexOf("Mac")!=-1);
+        var isTouchScreen = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
 
         //Check and prepare localization
         if (applocale){
@@ -1200,7 +1207,7 @@
         function initStartupSounds(){
             $.ajax({
                 url: "system/desktop/preference",
-                method: "GET",
+                method: "POST",
                 data: {preference: "startup-audio"},
                 success: function(data){
                     if (data == undefined || data == ""){
@@ -1241,7 +1248,7 @@
                         $(".hardware").hide();
                     }else{
                         //User is admin. Add admin icon
-                        $("#username").append(` <i style="color: #52c9ff" class="protect icon themed text"></i>`);
+                        $("#username").append(`<i style="color: #${desktopThemeColor}" class="protect icon themed text"></i>`);
                     }
                 }
             });
@@ -1628,6 +1635,18 @@
                 closeFloatWindow(this,evt);
             });
 
+            $(".dockleft").off("touchstart").on("touchstart",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                dockWindowToLeft($(this).parent().parent().parent());
+            });
+
+            $(".dockright").off("touchstart").on("touchstart",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                dockWindowToRight($(this).parent().parent().parent());
+            });
+
             //floatWindow events for mouse
             $(".maxtoggle").off("mousedown").on("mousedown",function(evt){
                 evt.preventDefault();
@@ -1645,6 +1664,18 @@
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 closeFloatWindow(this,evt);
+            });
+
+            $(".dockleft").off("mousedown").on("mousedown",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                dockWindowToLeft($(this).parent().parent().parent());
+            });
+
+            $(".dockright").off("mousedown").on("mousedown",function(evt){
+                evt.preventDefault();
+                evt.stopImmediatePropagation();
+                dockWindowToRight($(this).parent().parent().parent());
             });
 
             //Float Window events for resizing
@@ -2091,7 +2122,9 @@
                     clickDownOffset[0] = clickRatio * originalSize[0];
                     clickDownOffset[1] = 2;
                     //Restore the maximize icon
-                    $(object).find(".maxToogleButton").attr('src', "img/system/max.png")
+                    $(object).find(".maxToogleButton").attr('src', "img/system/max.svg");
+                    $(object).find(".dockright").removeClass("disabled");
+                    $(object).find(".dockleft").removeClass("disabled");
                 }
 
                 $(object).css("left", event.pageX - clickDownOffset[0]);
@@ -2099,6 +2132,40 @@
             }
 
 
+        }
+
+        //Dock the window object to left
+        function dockWindowToLeft(object){
+            var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
+            $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
+            $(object).css({
+                width: "50%",
+                height: "calc(100% - 36px)",
+                left: "0px",
+                right: "auto",
+                top: "0px"
+            });
+            $(object).attr("max", "true");
+            $(object).find(".maxToogleButton").attr('src', "img/system/restore.svg");
+            $(object).find(".dockright").addClass("disabled");
+            $(object).find(".dockleft").addClass("disabled");
+        }
+
+        //Dock the window object to right
+        function dockWindowToRight(object){
+            var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
+            $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
+            $(object).css({
+                width: "50%",
+                height: "calc(100% - 36px)",
+                right: "0px",
+                left: "auto",
+                top: "0px"
+            });
+            $(object).attr("max", "true");
+            $(object).find(".maxToogleButton").attr('src', "img/system/restore.svg");
+            $(object).find(".dockright").addClass("disabled");
+            $(object).find(".dockleft").addClass("disabled");
         }
 
         function fwup(object, event) {
@@ -2118,30 +2185,10 @@
                 var dockMode = false;
                 if (event.pageX < 10) {
                     //Dock to left
-                    var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
-                    $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
-                    $(object).css({
-                        width: "50%",
-                        height: "calc(100% - 36px)",
-                        left: "0px",
-                        right: "auto",
-                        top: "0px"
-                    });
-                    $(object).attr("max", "true");
-                    $(object).find(".maxToogleButton").attr('src', "img/system/restore.png");
+                    dockWindowToLeft(object);
                 } else if (event.pageX > window.innerWidth - 10) {
                     //Dock to right
-                    var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
-                    $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
-                    $(object).css({
-                        width: "50%",
-                        height: "calc(100% - 36px)",
-                        right: "0px",
-                        left: "auto",
-                        top: "0px"
-                    });
-                    $(object).attr("max", "true");
-                    $(object).find(".maxToogleButton").attr('src', "img/system/restore.png");
+                    dockWindowToRight(object);
                 }
             }
         }
@@ -2198,7 +2245,9 @@
                     left: originalSize[2],
                     top: originalSize[3]
                 });
-                $(fw).find(".maxToogleButton").attr('src', "img/system/max.png");
+                $(fw).find(".maxToogleButton").attr('src', "img/system/max.svg");
+                $(fw).find(".dockright").removeClass("disabled");
+                $(fw).find(".dockleft").removeClass("disabled");
             } else {
                 //Maxmize
                 var originalSize = [$(fw).width(), $(fw).height(), $(fw).offset().left, $(fw).offset().top];
@@ -2210,7 +2259,7 @@
                     top: "0px"
                 });
                 $(fw).attr("max", "true");
-                $(fw).find(".maxToogleButton").attr('src', "img/system/restore.png")
+                $(fw).find(".maxToogleButton").attr('src', "img/system/restore.svg")
             }
         }
 
@@ -2455,20 +2504,31 @@
                 overWriteThemeColor = `background-color: ${hexToRgbA(desktopThemeColor, 0.85)}`;
             }
 
+            //Updates 2022-06-24: Added touch screen docking buttons
+            let dockButtons = `<div class="buttons dockleft">
+                <img src="img/system/dleft.svg"></img>
+            </div>
+            <div class="buttons dockright">
+                <img src="img/system/dright.svg"></img>
+            </div>`;
+            if (!isTouchScreen){
+                dockButtons = "";
+            }
             //Append the floatWindow into the body
             $("body").append(`<div class="floatWindow" windowId="${uuid}" parent="${parentWindowID}" callback="${callbackFunctionName}" style="z-index:0; width:${width}px; height:${height}px; left:${left}px; top:${top}px;${backgroundStyle}">
                 <div class="controls fwdragger themeColorSolid" style="${overWriteThemeColor}">
                     <img class="moduleicon" src="${moduleIcon}"></img>
                     <div class="title">${title}</div>
                     <div class="fwcontrol">
-                        <div class="buttons mintoggle">
-                            <img src="img/system/min.png"></img>
+                        ${dockButtons}
+                        <div class="buttons mintoggle" style="margin-left: 1em;">
+                            <img src="img/system/min.svg"></img>
                         </div>
                         <div class="buttons maxtoggle">
-                            <img class="maxToogleButton" src="img/system/max.png"></img>
+                            <img class="maxToogleButton" src="img/system/max.svg"></img>
                         </div>
                         <div class="buttons closetoggle close">
-                            <img src="img/system/close.png"></img>
+                            <img src="img/system/close.svg"></img>
                         </div>
                     </div>
                 </div>
@@ -2612,9 +2672,17 @@
             var targetfw = getFloatWindowByID(targetFWId);
             if (resizble) {
                 $(targetfw).find(".maxtoggle").show();
+                if (isTouchScreen){
+                    $(targetfw).find(".dockleft").show();
+                    $(targetfw).find(".dockright").show();
+                }
                 $(targetfw).removeClass("fixedsize");
             } else {
                 $(targetfw).find(".maxtoggle").hide();
+                if (isTouchScreen){
+                    $(targetfw).find(".dockleft").hide();
+                    $(targetfw).find(".dockright").hide();
+                }
                 $(targetfw).addClass("fixedsize");
             }
         }
@@ -4474,7 +4542,7 @@
 
                 
                
-            }else if (keycode == "112"){
+            }else if (keycode == "112" ){
                 //Enter key
                 if (!renameMode){
                     //Open selected object by emulating double click
@@ -4488,6 +4556,15 @@
                     exitRenameMode();
                 }
             
+            }else if (keycode == "67" && ctrlHold){
+                //Ctrl + C, copy
+                handleCopyOperation();
+             }else if (keycode == "88" && ctrlHold){
+                //Ctrl + X, cut
+                handleCutOperation();
+            }else if (keycode == "86" && ctrlHold){
+                //Ctrl + V, Paste
+                handlePasteOperation();
             }else{
                 //console.log(event.which);
             }
@@ -4576,7 +4653,8 @@
                             //addContextMenuItem($("#contextmenu"), 'Share', "<i class='caret right icon'></i>", "handleFileShare", true);
                             addContextMenuSeperator($("#contextmenu"));
                             addContextMenuItem($("#contextmenu"), lcontex('Download in Zip'), "<i class='download icon'></i>", "downloadFile", false);
-                            addContextMenuItem($("#contextmenu"), lcontex('Make a Copy'), "<i class='copy icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Copy'), "<i class='copy icon'></i>", "handleCopyOperation", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Cut'), "<i class='cut icon'></i>", "handleCutOperation", false);
                             addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             addContextMenuSeperator($("#contextmenu"));
                             addContextMenuItem($("#contextmenu"), lcontex('Properties'), undefined, "openObjectProperty", false);
@@ -4589,7 +4667,8 @@
                             addContextMenuItem($("#contextmenu"), lcontex('Share'), "<i class='caret right icon'></i>", "handleFileShare", true);
                             addContextMenuSeperator($("#contextmenu"));
                             addContextMenuItem($("#contextmenu"), lcontex('Download'), "<i class='download icon'></i>", "downloadFile", false);
-                            addContextMenuItem($("#contextmenu"), lcontex('Make a Copy'), "<i class='copy icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Copy'), "<i class='copy icon'></i>", "handleCopyOperation", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Cut'), "<i class='cut icon'></i>", "handleCutOperation", false);
                             addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
                             addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             addContextMenuSeperator($("#contextmenu"));
@@ -4601,7 +4680,8 @@
                             addContextMenuItem($("#contextmenu"), lcontex('Share'), "<i class='caret right icon'></i>", "handleFileShare", true);
                             addContextMenuSeperator($("#contextmenu"));
                             addContextMenuItem($("#contextmenu"), lcontex('Download as Zip'), "<i class='download icon'></i>", "downloadFile", false);
-                            addContextMenuItem($("#contextmenu"), lcontex('Make a Copy'), "<i class='caret right icon'></i>", "handleCloning", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Copy'), "<i class='copy icon'></i>", "handleCopyOperation", false);
+                            addContextMenuItem($("#contextmenu"), lcontex('Cut'), "<i class='cut icon'></i>", "handleCutOperation", false);
                             addContextMenuItem($("#contextmenu"), lcontex('Rename'), undefined, "handleRename", false);
                             addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             addContextMenuSeperator($("#contextmenu"));
@@ -4642,7 +4722,9 @@
                     addContextMenuItem($("#contextmenu"), lcontex('New'), "<i class='caret right icon'></i>", "newitemmenu", true);
                     addContextMenuItem($("#contextmenu"), lcontex('Refresh'), "<i class='refresh icon'></i>", "handleMenuRefresh", false);
                     addContextMenuItem($("#contextmenu"), lcontex('Open File Manager'), undefined, "openfm", false);
-                    //addContextMenuItem($("#contextmenu"), 'Get File from URL', "<i class='download icon'></i>", "downloadURL", false);
+                    if (checkFileInClipboard()){
+                        addContextMenuItem($("#contextmenu"), lcontex('Paste Here'), "<i class='paste icon'></i>", "handlePasteOperation", false);
+                    }
                     addContextMenuItem($("#contextmenu"), lcontex('Personalization'), "<i class='paint brush icon'></i>", "personalization", false);
                     addContextMenuItem($("#contextmenu"), lcontex('Background'), "<i class='caret right icon'></i>", "background", true);
                     addContextMenuItem($("#contextmenu"), lcontex('Icon Size'), "<i class='caret right icon'></i>", "listIconsize", true);
@@ -5222,11 +5304,6 @@
             </div>`);
         }
 
-        function downloadURL() {
-            alert("WIP");
-            hideAllContextMenus();
-        }
-
         function background(target, evt) {
             $("#subcontextmenu").html('<div class="item"><i class="loading spinning icon"></i> Loading</div>');
             $.get("system/desktop/theme", function(data) {
@@ -5309,23 +5386,6 @@
                 });
             });
 
-            /*
-            //Open new folder creation window
-            var existsingFileList = [];
-            for (var i =0; i < desktopFileList.length; i++){
-                existsingFileList.push({
-                    filename: desktopFileList[i],
-                    filepath: "user:/Desktop/" + desktopFileList[i]
-                });
-            }
-            newFloatWindow({
-                url: "SystemAO/file_system/newFolder.html#" + encodeURIComponent(JSON.stringify(existsingFileList)),
-                appicon: "SystemAO/file_system/img/new folder.png",
-                width:560,
-                height:340,
-                title: "New Folder"
-            });
-            */
             hideAllContextMenus();
         }
 
@@ -5511,6 +5571,94 @@
                 let renameTarget = $('.launchIconWrapper.selected')[0]
                 let fileObject = $(renameTarget).parent();
                 enableRenameOnLaunchIconObject(fileObject);
+            }
+            hideAllContextMenus();
+        }
+
+        function handleCopyOperation(){
+            var clipboard = [];
+            $(".launchIconWrapper.selected").each(function(){
+                var object = $(this).parent();
+                var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
+                clipboard.push(fd.Filepath);
+            });
+
+            localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
+            localStorage.setItem("ao/file_system/cutmode","false");
+            copyStringToClipboard(JSON.stringify(clipboard));
+            hideAllContextMenus();
+        }
+
+        function handleCutOperation(){
+            var clipboard = [];
+            $(".launchIconWrapper.selected").each(function(){
+                var object = $(this).parent();
+                var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
+                clipboard.push(fd.Filepath);
+            });
+
+            localStorage.setItem("ao/file_system/clipboard",JSON.stringify(clipboard));
+            localStorage.setItem("ao/file_system/cutmode","true");
+            copyStringToClipboard(JSON.stringify(clipboard));
+            hideAllContextMenus();
+        }
+
+        function checkFileInClipboard(){
+            //Check if there are files in clipboard
+            var crossFrameClipboard = localStorage.getItem("ao/file_system/clipboard");
+            var useCutMode = localStorage.getItem("ao/file_system/cutmode");
+            var fileList = [];
+            if (crossFrameClipboard !== "" && crossFrameClipboard !== undefined && crossFrameClipboard !== null){
+                fileList = JSON.parse(crossFrameClipboard);
+            }
+            
+            return fileList.length > 0;
+        }
+
+        function handlePasteOperation(){
+            //Check if there are files in clipboard
+            var crossFrameClipboard = localStorage.getItem("ao/file_system/clipboard");
+            var useCutMode = localStorage.getItem("ao/file_system/cutmode");
+            var fileList = [];
+            if (crossFrameClipboard !== "" && crossFrameClipboard !== undefined && crossFrameClipboard !== null){
+                fileList = JSON.parse(crossFrameClipboard);
+            }
+            if (useCutMode !== "" && useCutMode !== undefined && useCutMode !== null){
+                thisOprCutMode = (useCutMode == "true");
+            }
+
+            var mode = "copy";
+            var title = "Copying "
+            if (thisOprCutMode){
+                mode = "move";
+                title = "Moving "
+            }
+
+            if (fileList.length > 0){
+                //There are something to move. Start the file operation dialog
+                var oprConfig = {
+                    opr: mode,
+                    src: fileList,
+                    dest: "user:/Desktop/",
+                    overwriteMode: "ask"
+                }
+                var configHash = encodeURIComponent(JSON.stringify(oprConfig));
+
+                //Genreate window title
+                var title = title + fileList.length;
+                if (fileList.length > 1){
+                    title += " files";
+                }else{
+                    title += " file";
+                }
+
+                newFloatWindow({
+                    url: "SystemAO/file_system/file_operation.html#" + configHash,
+                    width: 400,
+                    height: 220,
+                    appicon: "SystemAO/file_system/img/selector.png",
+                    title: title
+                });
             }
             hideAllContextMenus();
         }
@@ -6160,20 +6308,29 @@
         }
 
         function setStorage(key, value, callback = undefined) {
-            $.get("system/desktop/preference?preference=" + key + "&value=" + value, function(data) {
-                if (data.error !== undefined) {
-                    console.log(data.error);
-                } else {
-                    if (callback !== undefined) {
-                        callback();
-                    }
+            $.ajax({
+                url: "system/desktop/preference", 
+                data: {preference: key, value: value},
+                method: "POST",
+                success: function(data) {
+                    if (data.error !== undefined) {
+                        console.log(data.error);
+                    } else {
+                        if (callback !== undefined) {
+                            callback();
+                        }
 
+                    }
                 }
             });
         }
 
         function getStorage(key, callback) {
-            $.get("system/desktop/preference?preference=" + key, callback);
+            $.ajax({
+                url: "system/desktop/preference",
+                data: {preference: key},
+                success: callback
+            });
         }
 
         function showSystemSettings(){
@@ -6402,6 +6559,18 @@
 
             hideAllContextMenus();
         }
+
+        function copyStringToClipboard(content){
+            var el = document.createElement('textarea');
+            el.value = content;
+            el.setAttribute('readonly', '');
+            el.style = {position: 'absolute', left: '-9999px'};
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+        }
+
 
         /*
         var screenshotBuf = [];

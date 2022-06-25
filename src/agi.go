@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	agi "imuslab.com/arozos/mod/agi"
+	"imuslab.com/arozos/mod/common"
 )
 
 var (
@@ -44,7 +45,7 @@ func AGIInit() {
 	//Register external API request handler endpoint
 	http.HandleFunc("/api/ajgi/interface", func(w http.ResponseWriter, r *http.Request) {
 		//Check if token exists
-		token, err := mv(r, "token", true)
+		token, err := common.Mv(r, "token", true)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("401 - Unauthorized (token is empty)"))

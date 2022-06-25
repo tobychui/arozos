@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"imuslab.com/arozos/mod/common"
 	network "imuslab.com/arozos/mod/network"
 	mdns "imuslab.com/arozos/mod/network/mdns"
 	"imuslab.com/arozos/mod/network/netstat"
@@ -29,7 +30,7 @@ func NetworkServiceInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

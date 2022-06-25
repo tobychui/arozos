@@ -124,6 +124,8 @@
                             $("#recordTables").parent().dropdown("set selected", getCurrentMonthTable());
                         }, 500);
                         loadRecordsByTableName(getCurrentMonthTable());
+                    }else{
+                        $("#normalStatus").text("No Record");
                     }
               
                     

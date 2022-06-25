@@ -1157,6 +1157,30 @@
 		highLightPlayingMusic();
 	}
 
+	function loadThumbnailToMusicList(){
+		$(".mainList.file.item").each(function(){
+			let filepath = JSON.parse(decodeURIComponent($(this).attr("filepath")));
+			let thisFileItemID = $(this).attr("id");
+			let rawname = JSON.parse(decodeURIComponent($(this).attr("rawname")));
+			
+
+			let realVpath = filepath.split("=");
+			realVpath.shift();
+			realVpath = realVpath.join("=");
+			console.log(thisFileItemID, realVpath, rawname);
+			//Load the thumbnail for this item in list
+			ao_module_agirun("Music/functions/getThumbnail.js", {
+				file: realVpath,
+			}, function(data){
+				if (data.error !== undefined){
+
+				}else{
+					$("#" + thisFileItemID).find("img").attr("src","data:image/jpg;base64," + data);
+				}
+			});
+		})
+	}
+
 	function loadThumbnail(filepath){
 		//Load the thumbnail
 		var realVpath = filepath.split("=");
@@ -1351,9 +1375,15 @@
 
 	function loadAndPlayAudioFile(sourceURL,playAfterLoad = true){
 		var audio = audioElement;
-		sourceURL = "../" + sourceURL; //Convert absolute dir to relative
-		$("#mainAudioPlayer").attr("src", sourceURL);
-		//console.log(encodeURIComponent(sourceURL));
+
+		//These was added to fix the legacy file listing issue
+		var fd = sourceURL.split("=");
+		var rootPath = fd.shift();
+		var filename = fd.join("=");
+		var playbackURL = "../" + rootPath + "=" + encodeURIComponent(filename); //Convert absolute dir to relative
+		//console.log(playbackURL);
+		$("#mainAudioPlayer").attr("src", playbackURL);
+
         audio[0].pause();
         audio[0].load();
         if(playAfterLoad){
@@ -1680,9 +1710,10 @@
             <i class="chevron right icon" style="top:30%;"></i>\
         </div>\
     </div>';
-    var fileTemplate = '<div class="mainList item" filepath={filepath} id={id} rawname={rawname}>\
+    var fileTemplate = `<div class="mainList file item" filepath={filepath} id={id} rawname={rawname}>\
         <div class="ts header selectable" style="margin:0px !important;" onClick="playSong(this);">\
-            <i class="music icon whiteFont" style="overflow:hidden;"></i>\
+            <img class="ui small image" src="img/eq.svg" style="margin-right: 0.2em;"></img>
+			<!-- <i class="music icon whiteFont" style="overflow:hidden;"></i> -->\
             <div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">\
                 {songtitle}\
                 <div class="sub header fileinfo" style="color: #c7c7c7;">{ext} / {size}</div>\
@@ -1694,7 +1725,7 @@
         <div class="mainList rightFunctionBar" type="file" align="center">\
             <i class="ellipsis vertical icon" style="top:30%;"></i>\
         </div>\
-    </div>';
+    </div>`;
 
         var targetPath = decodeURIComponent($(object).attr("filepath"));
         if (targetPath == "root" || targetPath == "/"){
@@ -1743,7 +1774,7 @@
 						continue;
 					}
     	            box = replaceAll("{filepath}",encodeURIComponent(folderPath),box);
-    	            box = replaceAll("{id}",i + 1,box);
+    	            box = replaceAll("{id}","folder-" + i + 1,box);
     	            box = replaceAll("{foldername}",ao_module_codec.decodeHexFoldername(folderName),box);
     	            var fileinfo = "[" + fileCount + " files]"
     	            if (folderCount > 0){
@@ -1752,7 +1783,8 @@
     	            box = replaceAll("{fileinfo}",fileinfo,box);
     	             $("#mainList").append(box);
     	        }
-                
+            
+
                 //List all files
                 for ( var i =0; i < files.length; i++){
 					var songInfo = files[i];
@@ -1804,6 +1836,9 @@
 					}
 				});
 			}
+
+			//Load thumbnail for song in list
+			loadThumbnailToMusicList();
 	    });
 	}
 	

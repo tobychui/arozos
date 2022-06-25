@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/iot/hds"
 	"imuslab.com/arozos/mod/iot/hdsv2"
@@ -56,7 +57,7 @@ func IoTHubInit() {
 			AdminOnly:   false,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				sendErrorResponse(w, "Permission Denied")
+				common.SendErrorResponse(w, "Permission Denied")
 			},
 		})
 
@@ -65,7 +66,7 @@ func IoTHubInit() {
 			AdminOnly:   true,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				sendErrorResponse(w, "Permission Denied")
+				common.SendErrorResponse(w, "Permission Denied")
 			},
 		})
 

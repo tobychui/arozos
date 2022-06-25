@@ -275,7 +275,7 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		//log.Println(cmd.Dir,binaryExecPath)
 
 		//Spawn a new go routine to run this subservice
-		go func(cmdObject *exec.Cmd) {
+		go func(cmd *exec.Cmd) {
 			if err := cmd.Start(); err != nil {
 				panic(err)
 			}

@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	uuid "github.com/satori/go.uuid"
+	"imuslab.com/arozos/mod/common"
+	fs "imuslab.com/arozos/mod/filesystem"
 )
 
 /*
@@ -61,7 +63,7 @@ func SystemIDInit() {
 	})
 
 	//Register vendor information
-	if fileExists("web/SystemAO/vendor/index.html") {
+	if fs.FileExists("web/SystemAO/vendor/index.html") {
 		registerSetting(settingModule{
 			Name:     "Vendor",
 			Desc:     "Vendor Notes",
@@ -90,11 +92,11 @@ func systemIdHandlePing(w http.ResponseWriter, r *http.Request) {
 	}{
 		"OK",
 	})
-	sendJSONResponse(w, string(js))
+	common.SendJSONResponse(w, string(js))
 }
 
 func systemIdGenerateSystemUUID() {
-	if !fileExists("./system/dev.uuid") {
+	if !fs.FileExists("./system/dev.uuid") {
 		//UUID not exist. Create one
 		thisuuid := uuid.NewV4().String()
 		if *system_uuid != "" {
@@ -136,13 +138,13 @@ func systemHandleListLicense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(results)
-	sendJSONResponse(w, string(js))
+	common.SendJSONResponse(w, string(js))
 }
 
 func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
 	if authAgent.CheckAuth(r) == false {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -170,7 +172,7 @@ func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 		VendorIcon: iconVendor,
 	})
 
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }
 
 func systemIdResponseBetaScan(w http.ResponseWriter, r *http.Request) {
@@ -207,5 +209,5 @@ func systemIdGetDriveStates(w http.ResponseWriter, r *http.Request) {
 		"-1B/-1B",
 	})
 	jsonString, _ := json.Marshal(results)
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }

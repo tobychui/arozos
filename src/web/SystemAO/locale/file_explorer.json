@@ -93,6 +93,8 @@
                 "opr/openwith/cancel": "取消",
 
                 "opr/zip/zipping": "正在壓縮 ",
+                "opr/zip/unzipping": "正在解壓縮 ",
+                "opr/zip/nozipfile": "沒有已選擇的壓縮檔",
                 "opr/zip/file": " 個檔案",
                 "opr/zip/files": " 個檔案",
 
@@ -110,6 +112,7 @@
                 "contextmenu/newFolder": "新增資料夾",
                 "contextmenu/upload": "上載",
                 "contextmenu/zip": "建立壓縮檔",
+                "contextmenu/unzip": "解壓縮至此",
                 "contextmenu/rename": "重新命名",
                 "contextmenu/delete": "刪除",
                 "contextmenu/backup": "備份及還原",
@@ -181,6 +184,7 @@
                 "New Folder": "新增資料夾",
                 "Upload": "上載",
                 "Create Zip": "建立壓縮檔",
+                "Unzip Here": "解壓縮至此",
                 "Rename": "重新命名",
                 "Delete": "刪除",
                 "Refresh": "重新整理",
@@ -294,6 +298,8 @@
                 "opr/openwith/cancel": "取消",
 
                 "opr/zip/zipping": "正在壓縮 ",
+                "opr/zip/unzipping": "正在解壓縮 ",
+                "opr/zip/nozipfile": "沒有已選擇的壓縮檔",
                 "opr/zip/file": " 個檔案",
                 "opr/zip/files": " 個檔案",
 
@@ -311,6 +317,7 @@
                 "contextmenu/newFolder": "新增資料夾",
                 "contextmenu/upload": "上載",
                 "contextmenu/zip": "建立壓縮檔",
+                "contextmenu/unzip": "解壓縮至此",
                 "contextmenu/rename": "重新命名",
                 "contextmenu/delete": "刪除",
                 "contextmenu/backup": "備份及還原",
@@ -379,6 +386,7 @@
                 "New Folder": "新增資料夾",
                 "Upload": "上載",
                 "Create Zip": "建立壓縮檔",
+                "Unzip Here": "解壓縮至此",
                 "Rename": "重新命名",
                 "Delete": "刪除",
                 "Refresh": "重新整理",
@@ -492,6 +500,8 @@
                 "opr/openwith/cancel": "取消",
 
                 "opr/zip/zipping": "正在压缩 ",
+                "opr/zip/unzipping": "正在解压缩 ",
+                "opr/zip/nozipfile": "没有已选择的压缩文件",
                 "opr/zip/file": " 个文件",
                 "opr/zip/files": " 个文件",
 
@@ -509,6 +519,7 @@
                 "contextmenu/newFolder": "新建文件夹",
                 "contextmenu/upload": "上传",
                 "contextmenu/zip": "建立压缩档",
+                "contextmenu/unzip": "解压缩至此",
                 "contextmenu/rename": "重新命名",
                 "contextmenu/delete": "删除",
                 "contextmenu/backup": "备份及还原",
@@ -577,6 +588,7 @@
                 "New Folder": "新增文件夹",
                 "Upload": "上传",
                 "Create Zip": "建立压缩档",
+                "Unzip Here": "解压缩至此",
                 "Rename": "重新命名",
                 "Delete": "删除",
                 "Refresh": "重新整理",

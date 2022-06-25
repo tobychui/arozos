@@ -74,7 +74,19 @@
                 "advance/wallpaper/reminder":"如果您選擇從個人資料夾載入照片作桌面壁紙圖包，系統將會自動停用 <code>壁紙 > 桌面壁紙圖包 </code> 內之選項。",
                 "advance/wallpaper/clear":"清除選項",
                 "advance/wallpaper/select":"選擇資料夾",
-                
+
+                "advance/mobile/shorcut/title":"手機桌面捷徑",
+                "advance/mobile/shorcut/subtitle":"更改手機桌面下方四個捷徑之設定",
+                "advance/mobile/shorcut/instruction":"請由 *左至右* 選擇你想要的捷徑",
+                "advance/mobile/shorcut/shortcut/1":"捷徑 1",
+                "advance/mobile/shorcut/shortcut/2":"捷徑 2",
+                "advance/mobile/shorcut/shortcut/3":"捷徑 3",
+                "advance/mobile/shorcut/shortcut/4":"捷徑 4",
+                "advance/mobile/shorcut/save": "<i class='checkmark icon'></i> 儲存捷徑設定",
+                "advance/mobile/shorcut/updated":"捷徑設定已更新",
+                "advance/mobile/shorcut/updateddesc": "開啟手柳機桌面界面以瀏覽變更。",
+
+
                 "":""
             },
             "titles":{
@@ -156,6 +168,17 @@
                 "advance/wallpaper/reminder":"如果您選擇從個人資料夾載入照片作桌面壁紙圖包，系統將會自動停用 <code>壁紙 > 桌面壁紙圖包 </code> 內之選項。",
                 "advance/wallpaper/clear":"清除選項",
                 "advance/wallpaper/select":"選擇資料夾",
+
+                "advance/mobile/shorcut/title":"手機桌面捷徑",
+                "advance/mobile/shorcut/subtitle":"更改手機桌面下方四個捷徑之設定",
+                "advance/mobile/shorcut/instruction":"請由 *左至右* 選擇你想要的捷徑",
+                "advance/mobile/shorcut/shortcut/1":"捷徑 1",
+                "advance/mobile/shorcut/shortcut/2":"捷徑 2",
+                "advance/mobile/shorcut/shortcut/3":"捷徑 3",
+                "advance/mobile/shorcut/shortcut/4":"捷徑 4",
+                "advance/mobile/shorcut/save": "<i class='checkmark icon'></i> 儲存捷徑設定",
+                "advance/mobile/shorcut/updated":"捷徑設定已更新",
+                "advance/mobile/shorcut/updateddesc": "開啟手柳機桌面界面以瀏覽變更。",
                 
                 "":""
             },
@@ -238,6 +261,17 @@
                 "advance/wallpaper/reminder":"如果您选择从个人资料夹加载照片作桌面壁纸图包，系统将会自动停用 <code>壁纸 > 桌面壁纸图包 </code> 内的选项。",
                 "advance/wallpaper/clear":"清除选项",
                 "advance/wallpaper/select":"选择文件夹",
+
+                "advance/mobile/shorcut/title":"手机桌面捷径",
+                "advance/mobile/shorcut/subtitle":"更改手机桌面下方四个捷径之设定",
+                "advance/mobile/shorcut/instruction":"请由 *左至右* 选择你想要的捷径",
+                "advance/mobile/shorcut/shortcut/1":"捷径 1",
+                "advance/mobile/shorcut/shortcut/2":"捷径 2",
+                "advance/mobile/shorcut/shortcut/3":"捷径 3",
+                "advance/mobile/shorcut/shortcut/4":"捷径 4",
+                "advance/mobile/shorcut/save": "<i class='checkmark icon'></i> 储存捷径设定",
+                "advance/mobile/shorcut/updated":"捷径设定已更新",
+                "advance/mobile/shorcut/updateddesc": "开启手柳机桌面界面以浏览变更。",
                 
                 "":""
             },

@@ -30,6 +30,7 @@
                 "lastmod/time/ago": "前",
 
                 "button/changeDefault":"更改預設啟動應用",
+                "button/versionHistory":"查看檔案版本記錄",
                 "button/changeFilePermission":"更改檔案存取權限",
                 "loader/loadingFileSize": "正在計算檔案大小",
                 "selection/multi": "已選擇多個檔案",
@@ -68,6 +69,7 @@
                 "lastmod/time/ago": "前",
 
                 "button/changeDefault":"更改預設啟動應用",
+                "button/versionHistory":"查看檔案版本記錄",
                 "button/changeFilePermission":"更改檔案存取權限",
                 "loader/loadingFileSize": "正在計算檔案大小",
                 "selection/multi": "已選擇多個檔案",
@@ -106,6 +108,7 @@
                 "lastmod/time/ago": "前",
 
                 "button/changeDefault":"更改预设启动应用",
+                "button/versionHistory":"查看文件版本记录",
                 "button/changeFilePermission":"更改文件存取权限",
                 "loader/loadingFileSize": "正在计算文件大小",
                 "selection/multi": "已选择多个文件",

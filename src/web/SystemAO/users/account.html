@@ -27,7 +27,8 @@
                         <div class="content">
                             <a id="username" class="header"></a>
                             <div class="meta">
-                            <span id="usergroup" class="date"></span>
+                                <p><i class="ui envelope icon"></i><span id="email" class="date"></span><br>
+                                <i class="ui user circle icon"></i><span id="usergroup" class="date"></span></p>
                             </div>
                         </div>
                     </div>
@@ -36,7 +37,19 @@
                     <h4 class="ui header">
                         Change Profile Picture
                     </h4>
-                    <button class="ui button" onclick="handleProfilePic();">Upload</button>
+                    <button class="ui blue button" onclick="handleProfilePic();">Upload</button>
+                    <div class="ui divider"></div>
+                    <h4 class="ui header">
+                        Change Contact Email
+                    </h4>
+                    <form class="ui form" onsubmit="handleEmailChange(event);">
+                        <div class="field">
+                            <label>New Email</label>
+                            <input id="newemail" type="text"  placeholder="New Email">
+                        </div>
+                        <button class="ui blue button" type="submit">Update</button>
+                    </form>
+
                     <div class="ui divider"></div>
                     <h4 class="ui header">
                         Change Password
@@ -54,9 +67,9 @@
                             <label>Confirm New Password</label>
                             <input id="cpw" type="password" placeholder="Confirm New Password">
                         </div>
-                        <button class="ui button" type="submit">Update</button>
+                        <button class="ui blue button" type="submit">Update</button>
                     </form>
-                    <div id="msgbox" class="ui message" style="display:none;">
+                    <div id="msgbox" class="ui green message" style="display:none;">
                         <i class="close icon"></i>
                         <div class="header">
                             Welcome back!
@@ -81,10 +94,23 @@
                     
                     $("#username").text(data.Username);
                     console.log(data.Usergroup);
-                    $("#usergroup").text(data.Usergroup.join("/"));
+                    $("#usergroup").text(data.Usergroup.join(" / "));
                 }
                 
             });
+
+            function initUserEmail(){
+                $.get("../../system/register/email", function(data){
+                    if (data == ""){
+                        //Not set
+                        $("#email").text("( Not Configured )");
+                    }else{
+                        $("#email").text(data);
+                    }
+                });
+            }
+            initUserEmail();
+           
 
             //Handle change password form submit
             function handleSubmit(event){
@@ -115,6 +141,24 @@
                     }
                 });
 
+            }
+
+            function handleEmailChange(e){
+                e.preventDefault();
+                var newEmail = $("#newemail").val();
+                $.ajax({
+                    url: "../../system/register/email",
+                    data: {email: newEmail},
+                    success: function(data){
+                        if (data.error !== undefined){
+                            alert(data.error);
+                        }else{
+                            msgbox("Update Succeed", "Your email has been updated.");
+                            initUserEmail();
+                        }
+                       
+                    }
+                });
             }
 
             function handleProfilePic(){

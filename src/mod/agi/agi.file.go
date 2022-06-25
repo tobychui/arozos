@@ -10,6 +10,7 @@ import (
 	"github.com/robertkrimen/otto"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/fssort"
+	"imuslab.com/arozos/mod/filesystem/hidden"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -187,6 +188,8 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			return reply
 		}
 
+		rpath = filepath.ToSlash(filepath.Clean(rpath)) + "/*"
+
 		fileList, err := specialGlob(rpath)
 		if err != nil {
 			g.raiseError(err)
@@ -197,10 +200,14 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 		//Translate all paths to virtual paths
 		results := []string{}
 		for _, file := range fileList {
-			if IsDir(file) {
+			//if IsDir(file) {
+			isHidden, _ := hidden.IsHidden(file, true)
+			if !isHidden {
 				thisRpath, _ := realpathToVirtualpath(file, u)
 				results = append(results, thisRpath)
 			}
+
+			//}
 		}
 
 		reply, _ := vm.ToValue(results)
@@ -336,6 +343,11 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 			//Return the results in virtual paths
 			results := []string{}
 			for _, file := range newFilelist {
+				isHidden, _ := hidden.IsHidden(file, true)
+				if isHidden {
+					//Hidden file. Skip this
+					continue
+				}
 				thisRpath, _ := realpathToVirtualpath(filepath.ToSlash(file), u)
 				results = append(results, thisRpath)
 			}
@@ -402,6 +414,11 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 		//Parse the results (Only extract the filepath)
 		results := []string{}
 		for _, filename := range newFilelist {
+			isHidden, _ := hidden.IsHidden(filename, true)
+			if isHidden {
+				//Hidden file. Skip this
+				continue
+			}
 			thisVpath, _ := u.RealPathToVirtualPath(filename)
 			results = append(results, thisVpath)
 		}
@@ -540,7 +557,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 		return otto.TrueValue()
 	})
 
-	//Get MD5 of the given filepath
+	//Get MD5 of the given filepath, not implemented
 	vm.Set("_filelib_md5", func(call otto.FunctionCall) otto.Value {
 		log.Println("Call to MD5 Functions!")
 		return otto.FalseValue()
@@ -645,6 +662,6 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User) {
 		filelib.md5 = _filelib_md5;
 		filelib.mkdir = _filelib_mkdir;
 		filelib.mtime = _filelib_mtime;
-		filelib.rname = _filelib_rname;
+		filelib.rootName = _filelib_rname;
 	`)
 }

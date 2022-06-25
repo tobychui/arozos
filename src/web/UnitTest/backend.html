@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <title>ao_backend Test</title>
+    </head>
+    <body>
+        <br><br>
+        <div class="ui container">
+           <h2>ao_backend Testing Interface</h2>
+           <p>See console for more information</p>
+        </div>
+        
+         <!-- <script src="ao_backend.js"></script> -->
+        <script>
+            //Register the backend wrapper path
+            var backendWrapper = ao_module_backend();
+            backendWrapper.start("UnitTest/ao_backend.js");
+
+            //Test appdata
+            backendWrapper.appdata.readFile("UnitTest/appdata.txt", function(content){
+                console.log(content);
+            });
+
+            backendWrapper.appdata.listDir("UnitTest/", function(list){
+                console.log(list);
+            });
+
+            //Test File operation
+            backendWrapper.file.readdir("user:/Desktop/", function(files){
+                console.log(files);
+            });
+
+            //Try file read write
+            backendWrapper.file.writeFile("user:/Desktop/hello.txt", "Hello World!",function(data){
+                console.log("Write File: ", data);
+            });
+
+            backendWrapper.file.readFile("user:/Desktop/hello.txt",function(content){
+                console.log("Read File: " + content);
+            });
+
+            backendWrapper.file.mtime("user:/Desktop/hello.txt",function(data){
+                console.log("Test file mtime", data);
+            });
+
+            backendWrapper.file.isDir("user:/Desktop/hello.txt",function(data){
+                console.log("Test file is Dir", data);
+            });
+
+            backendWrapper.file.filesize("user:/Desktop/hello.txt",function(data){
+                console.log("Test file size", data, " bytes");
+            });
+
+            backendWrapper.file.aglob("user:/Desktop/*.mp3",undefined, function(data){
+                console.log("mp3 on desktop: ", data);
+            });
+
+            //http test
+            backendWrapper.http.download("https://ccns.arozos.com/share/download/6341f7fe-e03e-4200-88f2-6d4800b846fc/imuslab%20%E4%B8%BB%E9%A1%8C%E6%9B%B2.mp3", "tmp:/", "", function(data){
+                console.log("Download status: ", data)
+            });
+
+            backendWrapper.http.get("https://www.google.com/robots.txt", function(data){
+                console.log("HTTP GET test: ", data);
+            })
+
+            backendWrapper.http.post("https://www.google.com/robots.txt", undefined, function(data){
+                console.log("HTTP POST test: ", data);
+            })
+
+
+        </script>
+    </body>
+</html>

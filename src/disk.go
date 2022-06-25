@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 
+	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/disk/diskcapacity"
 	"imuslab.com/arozos/mod/disk/diskmg"
 	diskspace "imuslab.com/arozos/mod/disk/diskspace"
@@ -26,7 +27,7 @@ func DiskServiceInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -71,7 +72,7 @@ func DiskServiceInit() {
 			AdminOnly:   true,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				sendErrorResponse(w, "Permission Denied")
+				common.SendErrorResponse(w, "Permission Denied")
 			},
 		})
 

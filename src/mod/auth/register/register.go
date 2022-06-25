@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/mail"
 	"os"
 	"strings"
 
@@ -174,6 +175,7 @@ func (h *RegisterHandler) CleanRegisters() {
 	}
 }
 
+//List all User Emails, return [username(string), email(string), stillResitered(bool)]
 func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 	results := [][]interface{}{}
 	entries, _ := h.database.ListTable("register")
@@ -205,6 +207,12 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	email, err := mv(r, "email", true)
 	if err != nil {
 		sendErrorResponse(w, "Invalid Email")
+		return
+	}
+
+	//Validate the email is a email
+	if !isValidEmail(email) {
+		sendErrorResponse(w, "Invalid or malformed email")
 		return
 	}
 
@@ -260,4 +268,48 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	sendOK(w)
 	log.Println("New User Registered: ", email, username, strings.Repeat("*", len(password)))
 
+}
+
+//Change Email for the registered user
+func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Request) {
+	//Get username from request
+	username, err := h.authAgent.GetUserName(w, r)
+	if err != nil {
+		sendErrorResponse(w, "Unable to get username from request")
+		return
+	}
+
+	email, err := mv(r, "email", true)
+	if err != nil {
+		//Return the user current email
+		currentEmail, _ := h.GetUserEmail(username)
+		js, _ := json.Marshal(currentEmail)
+		sendJSONResponse(w, string(js))
+		return
+	}
+
+	//Validate the email is a email
+	if !isValidEmail(email) {
+		sendErrorResponse(w, "Invalid or malformed email")
+		return
+	}
+
+	//Write email to database as well
+	h.database.Write("register", "user/email/"+username, email)
+}
+
+//Get user email by name
+func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
+	userEmail := ""
+	err := h.database.Read("register", "user/email/"+username, &userEmail)
+	if err != nil || userEmail == "" {
+		return "", errors.New("User email not set")
+	}
+	return userEmail, nil
+}
+
+//Helper functions
+func isValidEmail(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
 }

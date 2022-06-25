@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/disk/diskcapacity/dftool"
+	"imuslab.com/arozos/mod/filesystem/hidden"
 )
 
 /*
@@ -89,6 +90,12 @@ func executeVersionBackup(backupConfig *BackupTask) (string, error) {
 
 		if filepath.Ext(filename) == ".datalink" {
 			//Reserved filename, skipping
+			return nil
+		}
+
+		isHiddenFile, _ := hidden.IsHidden(filename, true)
+		if isHiddenFile {
+			//Do not backup hidden files
 			return nil
 		}
 

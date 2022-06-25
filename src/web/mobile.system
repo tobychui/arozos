@@ -349,6 +349,24 @@
                 background: rgb(255,255,255);
                 background: linear-gradient(0deg, rgba(255,255,255,0) 2%, rgba(6,6,6,0.4479635060791801) 44%, rgba(29,29,29,1) 100%); 
             }
+
+            #shortcuts{
+                position: absolute;
+                bottom: 0px;
+                right: 0px;
+                width: calc(100% - 20px);
+                padding: 1em;
+            }
+
+            #shortcuts .clickable.image{
+                cursor: pointer;
+                border-radius: 10px;
+                padding: 0.1em;
+            }
+
+            .disabled{
+                pointer-events: none;
+            }
         </style>
     </head>
     <body>
@@ -428,7 +446,25 @@
             <div id="windowWrapper">
                 
             </div>
-
+            <div id="shortcuts">
+                <!-- System Shortcuts -->
+                <div class="ui divider"></div>
+                <div class="ui four column grid">
+                    <div class="column">
+                        <img id="shortcut1" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
+                    </div>
+                    <div class="column">
+                        <img id="shortcut2" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
+                    </div>
+                    <div class="column">
+                        <img id="shortcut3" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
+                    </div>
+                    <div class="column">
+                        <img id="shortcut4" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
+                    </div>
+                </div>
+            </div>
+           
             <div id="conndrop">
                 <img class="ui mini image blink-image" src="SystemAO/desktop/icons/connlost.svg">
             </div>
@@ -466,6 +502,7 @@
             bindBackgroundClickActions();
             initStartupSounds();
             initDesktopUserInfo();
+            initShortcuts();
 
             //Bind background click
             function bindBackgroundClickActions(){
@@ -622,6 +659,19 @@
 
                 $("#sidebarToggleOverlay").hide();
                 $(".extendOnly").slideUp("fast");
+
+                //Check the number of floatWindow
+                if ($(".floatWindowWrapper").length == 0){
+                    //Reaching desktop layer
+                    showShortcuts();
+                }else{
+                    //Check if all float windows are hidden
+                    var allHidden = $(".floatWindowWrapper").is(":hidden");
+                    if (!allHidden){
+                        hideShortcuts();
+                    }
+                    
+                }
             }
 
             function showTaskBar(){
@@ -640,7 +690,7 @@
                 $(".taskBar").find(".toggleTaskBar").attr("shown","true");
                 $("#mainFrame").addClass("blurred");
                 $("#sidebarToggleOverlay").show();
-               
+                
             }
 
             //List all modules
@@ -783,6 +833,13 @@
             }
 
             function closeListMenu(callback = undefined){
+                if (listMenuShown == false){
+                    //Already closed
+                    if (typeof callback != "undefined"){
+                        callback();
+                    }
+                    return;
+                }
                 $("#listMenu").animate({
                     left: window.innerWidth * -1
                 },300,"swing", function(){
@@ -980,6 +1037,9 @@
                 //Hide all other floatWindows
                 $(".floatWindowWrapper").fadeOut("fast");
 
+                //Hide shortcuts
+                hideShortcuts();
+
                 //Construct the new window
                 var windowID = Date.now();
                 var parent = options.parent || "";
@@ -1071,6 +1131,7 @@
 
                 //Show the target fw
                 var fw = getFloatWindowByID(windowID);
+                hideShortcuts();
                 fw.fadeIn("fast", function(){
                     hideTaskBar();
                 });
@@ -1275,6 +1336,7 @@
             function showDesktop(){
                 $(".floatWindowWrapper").fadeOut("fast");
                 hideTaskBar();
+                showShortcuts();
             }
 
             //Theme color placeholder functions
@@ -1286,7 +1348,7 @@
             function initStartupSounds(){
                 $.ajax({
                     url: "../../system/desktop/preference",
-                    method: "GET",
+                    method: "POST",
                     data: {preference: "startup-audio"},
                     success: function(data){
                         if (data == undefined || data == ""){
@@ -1362,6 +1424,47 @@
                 }, 500);
             }
 
+            function initShortcuts(){
+                initShortcut(1, $("#shortcut1"));
+                initShortcut(2, $("#shortcut2"));
+                initShortcut(3, $("#shortcut3"));
+                initShortcut(4, $("#shortcut4"));
+            }
+
+            function initShortcut(id, displayTarget){
+                getStorage("ao/mobile/shorcut/" + id, function(data){
+                    if (data != ""){
+                        $.get("system/modules/getLaunchPara?module=" + data, function(para){
+                            displayTarget.attr("src", para.IconPath);
+                            if (para.StartDir == ""){
+                                displayTarget.addClass("disabled");
+                            }else{
+                                displayTarget.attr("module", encodeURIComponent(JSON.stringify(para.Name)));
+                            }
+                        });
+                    }else{
+                        //No data for this shortcut
+                        displayTarget.attr("src", "img/desktop/system_icon/bad_shortcut.png");
+                        displayTarget.addClass("disabled");
+                    }
+                });
+            }
+
+            function showShortcuts(){
+                $("#shortcuts").slideDown("fast");
+            }
+
+            function hideShortcuts(){
+                $("#shortcuts").slideUp("fast");
+            }
+
+            function launchThisModule(object){
+                var moduleName = JSON.parse(decodeURIComponent($(object).attr("module")));
+                if (moduleName != ""){
+                    openModule(moduleName);
+                }
+            }
+
             function toggleProfileInfo(){
                 $("#userprofile").transition('drop');
             }
@@ -1380,6 +1483,34 @@
                 }
                 
             }
+
+            function setStorage(key, value, callback = undefined) {
+                $.ajax({
+                    url: "system/desktop/preference",
+                    data: {preference: key, value: value},
+                    method: "POST",
+                    success: function(data) {
+                        if (data.error !== undefined) {
+                            console.log(data.error);
+                        } else {
+                            if (callback !== undefined) {
+                                callback();
+                            }
+
+                        }
+                    }
+                });
+            }
+
+            function getStorage(key, callback) {
+                $.ajax({
+                    url: "system/desktop/preference",
+                    data: {preference: key},
+                    method: "POST",
+                    success: callback
+                });
+            }
+
             
             //Keep the clock updated
             setInterval(function(){

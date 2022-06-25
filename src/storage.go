@@ -25,7 +25,7 @@ var (
 
 func StorageInit() {
 	//Load the default handler for the user storage root
-	if !fileExists(filepath.Clean(*root_directory) + "/") {
+	if !fs.FileExists(filepath.Clean(*root_directory) + "/") {
 		os.MkdirAll(filepath.Clean(*root_directory)+"/", 0755)
 	}
 
@@ -148,7 +148,7 @@ func GroupStoragePoolInit() {
 
 func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 	expectedConfigPath := "./system/storage/" + pg.Name + ".json"
-	if fileExists(expectedConfigPath) {
+	if fs.FileExists(expectedConfigPath) {
 		//Read the config file
 		pgStorageConfig, err := ioutil.ReadFile(expectedConfigPath)
 		if err != nil {

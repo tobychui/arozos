@@ -52,7 +52,6 @@ func AuthInit() {
 	http.HandleFunc("/api/auth/login", authAgent.HandleAutologinTokenLogin)
 
 	authAgent.LoadAutologinTokenFromDB()
-
 }
 
 func AuthSettingsInit() {
@@ -62,7 +61,7 @@ func AuthSettingsInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -105,4 +104,6 @@ func AuthSettingsInit() {
 	adminRouter.HandleFunc("/system/auth/blacklist/ban", authAgent.BlacklistManager.HandleAddBannedIP)
 	adminRouter.HandleFunc("/system/auth/blacklist/unban", authAgent.BlacklistManager.HandleRemoveBannedIP)
 
+	//Register nightly task for clearup all user retry counter
+	nightlyManager.RegisterNightlyTask(authAgent.ExpDelayHandler.ResetAllUserRetryCounter)
 }

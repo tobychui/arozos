@@ -10,43 +10,90 @@
         <script src="../script/ao_module.js"></script>
         <script src="../script/semantic/semantic.min.js"></script>
         <script src="js/recorder.js"></script>
-        <title>Dummy</title>
+        <script src="js/RecordRTC.js"></script>
+        <title>Recorder</title>
         <style>
             body{
                 background-color:white;
             }
             .statusbar{
-                position: absolute;
+                position: fixed;
                 bottom: 0px;
                 left:0px;
                 padding: 5px;
                 padding-left: 12px;
             }
+
+            .uitab{
+                border: 0px solid transparent !important;
+            }
+
+            .tab.disabled{
+                opacity: 0.5;
+            }
         </style>
     </head>
     <body>
-        <br>
-        <div class="ui container">
-            <button id="record" class="ui red button" onclick="startRecording();">
-                Record
-              </button>
-              <button id="stop" class="ui disabled button" onclick="stopRecording();">
-                Stop
-              </button>
-              <button class="ui button" onclick="openStorageFolder();">
-                Open Folder
-              </button>
-              <br><br>
-              <p style="margin-bottom: 4px;">Select Output Folder</p>
-              <div class="ui icon fluid input">
-                <input id="saveFolder" type="text" placeholder="user:/Music/Recroding/" value="user:/Music/Recording/">
-                <i class="folder open link icon" onclick="selectSaveFolder();"></i>
-              </div>
-              <br>
-              <div class="statusbar">
-                  Status: <span id="status">Ready</span>
-              </div>
+        <div class="ui top attached small tabular menu">
+            <a class="active item tab" onclick="opentab('audio', this);">
+                <i class="ui red microphone icon"></i>
+            </a>
+            <a class="item tab" onclick="opentab('video', this);"">
+                <i class="ui red video icon"></i>
+            </a>
+            <a class="item tab" onclick="opentab('setting', this);">
+                <i class="ui setting icon"></i>
+            </a>
+            </div>
+            <div id="audioTab" class="ui bottom attached basic segment uitab" style="margin-bottom: 0px;">
+                <button id="record" class="ui red button" onclick="startRecording();">
+                <i class="ui circle icon"></i> Record
+                </button>
+                <button id="stop" class="ui disabled button" onclick="stopRecording();">
+                <i class="ui stop icon"></i> Stop
+                </button>
+                <button class="ui button" onclick="openStorageFolder();">
+                <i class="ui folder open icon"></i> Open Folder
+                </button>
+            </div>
+            <div id="videoTab" class="ui bottom attached basic segment uitab" style="display:none; margin-bottom: 0px;">
+                <button id="capture" class="ui red button" onclick="startVideoCapture();">
+                    <i class="ui circle icon"></i> Capture
+                </button>
+                <button id="vidstop" class="ui disabled button" onclick="stopVideoCapture()">
+                    <i class="ui stop icon"></i> Stop
+                </button>
+                <button class="ui button" onclick="openStorageFolder();">
+                    <i class="ui folder open icon"></i> Open Folder
+                </button>
+                <br>
+                <small>Notes: This function require websocket upload to be enabled.</small>
+                <br>
+                <!--
+                <div class="ui selection fluid dropdown" style="margin-top: 0.4em;">
+                    <input type="hidden" name="format" id="captureFormat" value="video/webm">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Encoding Codec</div>
+                    <div class="menu">
+                        <div class="item" data-value="video/webm">webm (VP8/9)</div>
+                        <div class="item" data-value="video/mp4">mp4 (H264)</div>
+                    </div>
+                </div>
+            -->
+                
+            </div>
+            <div id="settingTab" class="ui bottom attached basic segment uitab" style="display:none; margin-bottom: 0px;">
+                <p style="margin-bottom: 4px;">Select Output Folder</p>
+                <div class="ui icon fluid input">
+                  <input id="saveFolder" type="text" placeholder="user:/Document/Capture/" value="user:/Document/Capture/">
+                  <i class="folder open link icon" onclick="selectSaveFolder();"></i>
+                </div>
+            </div>
+            <div class="statusbar">
+                Status: <span id="status">Ready</span>
+            </div>
         </div>
+        
         <script>
             //Define the basic context for the recorder
             var audio_context;
@@ -58,6 +105,8 @@
             //Disable window resizing
             ao_module_setFixedWindowSize();
 
+            $(".dropdown").dropdown();
+
             //Check if there are previous saved path. If yes, update save target
             var previousSavePath = localStorage.getItem("recorder-savepath");
             if (previousSavePath != null){
@@ -66,7 +115,22 @@
 
             //Create save dir if not exists
             createSaveDirIfNotExists();
-          
+            
+            function opentab(tabName, object){
+                if ($(object).hasClass('disabled')){
+                    return;
+                }
+                $(".uitab").hide();
+                $(".active.tab").removeClass("active");
+                if (tabName == "audio"){
+                    $("#audioTab").show();
+                }else if (tabName == "video"){
+                    $("#videoTab").show();
+                }else if (tabName == "setting"){
+                    $("#settingTab").show();
+                }
+                $(object).addClass("active");
+            }
 
             function createSaveDirIfNotExists(){
                 //Check if the folder exists. If not, create it
@@ -83,6 +147,7 @@
                 $("#record").addClass("disabled");
                 $("#stop").removeClass("disabled");
                 updateStatus("Recording Started");
+                $(".item.tab").addClass("disabled");
                 recordCounter = 0;
                 recordTimer = setInterval(function(){
                     recordCounter++;
@@ -95,7 +160,8 @@
                 $("#record").removeClass("disabled");
                 $("#stop").addClass("disabled");
                 clearInterval(recordTimer);
-                updateStatus("Recording Stopped")
+                updateStatus("Recording Stopped");
+                $(".item.tab").removeClass("disabled");
                 renderWAV(function(blob){
                     //Process the blob data here
                     updateStatus("Saving")
@@ -180,7 +246,10 @@
                 try {
                 // webkit shim
                 window.AudioContext = window.AudioContext || window.webkitAudioContext;
-                navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
+                navigator.getUserMedia = (navigator.getUserMedia ||
+                       navigator.webkitGetUserMedia ||
+                       navigator.mozGetUserMedia ||
+                       navigator.msGetUserMedia);
                 window.URL = window.URL || window.webkitURL;
                 
                 audio_context = new AudioContext;
@@ -230,6 +299,106 @@
                 window.URL.revokeObjectURL(data);
                 link.remove();
                 }, 100);
+            }
+
+            /*
+
+                Screen recording code
+
+            */
+
+        
+            var websocket;
+            var videCaptureRecorder;
+
+            function getWebsocketUploadEndpoint(){
+                return getWebSocketEndpoint() + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(getVideoFilename()) + "&path=" + encodeURIComponent($("#saveFolder").val());
+            }
+
+            function getVideoFilename(){
+                var fileName = new Date().toLocaleDateString().split("/").join("-") + "_" +  new Date().toLocaleTimeString(undefined, {hour12: false}).split(":").join("-") + ".webm";
+                return fileName;
+            }
+
+            function getWebSocketEndpoint(){
+                let protocol = "wss://";
+                if (location.protocol !== 'https:') {
+                    protocol = "ws://";
+                }
+                let port = window.location.port;
+                if (window.location.port == ""){
+                    if (location.protocol !== 'https:') {
+                        port = "80";
+                    }else{
+                        port = "443";
+                    }
+                    
+                }
+                let wsept = (protocol + window.location.hostname + ":" + port);
+                return wsept;
+            }
+
+            function captureCamera(callback) {
+                navigator.mediaDevices.getDisplayMedia({
+                        displaySurface: 'monitor',
+                        logicalSurface: true,
+                        cursor: 'always'
+                    }).then(function(camera) {
+                    callback(camera);
+                }).catch(function(error) {
+                    updateStatus('Failed to start screen capture');
+                    console.error(error);
+                });
+            }
+
+            function stopRecordingCallback() {
+                videCaptureRecorder.camera.stop();
+                videCaptureRecorder = null;
+            }
+          
+
+            function startVideoCapture() {
+                this.disabled = true;
+                websocket = new WebSocket(getWebsocketUploadEndpoint());
+                //websocket.binaryType = 'blob';
+
+                captureCamera(function(camera) {
+
+                    videCaptureRecorder = RecordRTC(camera, {
+                        recorderType: MediaStreamRecorder,
+                        mimeType: "video/webm",
+                        timeSlice: 100,
+                        getNativeBlob: true,
+                        ondataavailable: function(blob) {
+                            websocket.send(blob);
+                        }
+                    });
+
+                    videCaptureRecorder.startRecording();
+
+                    // release camera on stopRecording
+                    videCaptureRecorder.camera = camera;
+                    recordCounter=0;
+                    recordTimer = setInterval(function(){
+                        recordCounter++;
+                        updateStatus("Capturing T: " + secondsToHms(recordCounter))
+                    }, 1000);
+
+                    $(".item.tab").addClass("disabled");
+                    $("#capture").addClass("disabled");
+                    $("#vidstop").removeClass("disabled");
+                });
+            }
+
+
+            function stopVideoCapture(){
+                videCaptureRecorder.stopRecording(stopRecordingCallback);
+                websocket.send("done");
+                clearInterval(recordTimer);
+                updateStatus("Capturing Stopped");
+                $(".item.tab").removeClass("disabled");
+                $("#vidstop").addClass("disabled");
+                $("#capture").removeClass("disabled");
             }
 
         </script>

@@ -28,6 +28,7 @@
             </div>
             <br>
             <button style="display:none;" class="ui small blue fluid button singleFileOnly" onclick="changeDefaultWebApp();" locale="button/changeDefault">Change Default WebApp</button>
+            <button style="display:none; margin-top: 4px;" class="ui small fluid button singleFileOnly" onclick="viewVersionHistory();" locale="button/versionHistory">View Version History</button>
             <button style="margin-top: 4px;" class="ui small fluid button linuxonly" onclick="openFilePermissionPanel();" locale="button/changeFilePermission">Change File Permissions</button>
             <br>
         </div>
@@ -72,6 +73,17 @@
                     $(".windowsonly").hide();
                 }
             });
+
+            function viewVersionHistory(){
+                var hashPassthrough = encodeURIComponent(JSON.stringify(files));
+                ao_module_newfw({
+                    url: "SystemAO/file_system/file_versions.html#" + hashPassthrough,
+                    width: 570,
+                    height: 480,
+                    appicon: "SystemAO/file_system/img/properties.png",
+                    title: "File Version History",
+                });
+            }
 
             function getFileProp(vpath, callback){
                 $.ajax({

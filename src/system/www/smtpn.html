@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <title></title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        table, td, div, h1, p {font-family: Arial, sans-serif;}
+		.theme{
+			background: rgb(0,130,255);
+			background: linear-gradient(90deg, rgba(0,130,255,1) 0%, rgba(62,146,248,1) 46%, rgba(249,249,249,1) 100%);
+		}
+    </style>
+</head>
+<body style="margin:0; padding:0;">
+    <table role="presentation" style="width:100%;border-collapse:collapse;border:0;border-spacing:0;background-color: #fcfcfc;">
+        <tr>
+            <td class="theme" style="padding: 1em; color: #595959; color: white;">
+				<b>System Notification from {{hostname}}</b>
+            </td>
+        </tr>
+		<tr>
+            <td style="padding:1.2em;">
+                <p>{{receiver}}</p>
+				<p style="margin-left: 2em;">{{message}}</p>
+				<p>{{sender}}</p>
+            </td>
+        </tr>
+		<tr style="border-top: 1px solid #d4d4d4 !important;">
+            <td style="padding:0.8em; padding-left: 1.2em; font-size: 0.8em;">
+				This message was automatically sent by {{hostname}} on {{timestamp}}.
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

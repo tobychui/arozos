@@ -52,9 +52,9 @@ func (rh *RenderHandler) BuildCacheForFolder(path string) error {
 	}
 
 	//Check if the cache folder has file. If not, remove it
-	cachedFiles, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(path)) + "/.cache/*")
+	cachedFiles, _ := filepath.Glob(filepath.ToSlash(filepath.Join(filepath.Clean(path), "/.metadata/.cache/*")))
 	if len(cachedFiles) == 0 {
-		os.RemoveAll(filepath.ToSlash(filepath.Clean(path)) + "/.cache/")
+		os.RemoveAll(filepath.ToSlash(filepath.Join(filepath.Clean(path), "/.metadata/.cache/")) + "/")
 	}
 	return nil
 }
@@ -72,9 +72,9 @@ func (rh *RenderHandler) LoadCacheAsBytes(file string, generateOnly bool) ([]byt
 //Try to load a cache from file. If not exists, generate it now
 func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, error) {
 	//Create a cache folder
-	cacheFolder := filepath.ToSlash(filepath.Clean(filepath.Dir(file))) + "/.cache/"
-	os.Mkdir(cacheFolder, 0755)
-
+	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
+	os.MkdirAll(cacheFolder, 0755)
+	hidden.HideFile(filepath.Dir(filepath.Clean(cacheFolder)))
 	hidden.HideFile(cacheFolder)
 
 	//Check if cache already exists. If yes, return the image from the cache folder
@@ -338,14 +338,14 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 
 //Check if the cache for a file exists
 func CacheExists(file string) bool {
-	cacheFolder := filepath.ToSlash(filepath.Clean(filepath.Dir(file))) + "/.cache/"
+	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
 	return fileExists(cacheFolder+filepath.Base(file)+".jpg") || fileExists(cacheFolder+filepath.Base(file)+".png")
 }
 
 //Get cache path for this file, given realpath
 func GetCacheFilePath(file string) (string, error) {
 	if CacheExists(file) {
-		cacheFolder := filepath.ToSlash(filepath.Clean(filepath.Dir(file))) + "/.cache/"
+		cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
 		if fileExists(cacheFolder + filepath.Base(file) + ".jpg") {
 			return cacheFolder + filepath.Base(file) + ".jpg", nil
 		} else if fileExists(cacheFolder + filepath.Base(file) + ".png") {

@@ -185,7 +185,7 @@
                     ws.onclose = function() { 
                         console.log("TrashBin WebSocket transfer completed");
                         if (previousTrashbinFilelist.length == 0){
-                            $("#trashList").append(`<tr><td colspan="4"><i class="checkmark icon"></i> There are no files or folders in Trashbin.</td></tr>`);
+                            $("#trashList").append(`<tr><td colspan="4"><i class="checkmark icon"></i> ${applocale.getString("list/notrash", "There are no files or folders in Trashbin.")}</td></tr>`);
                         }
                         $("#scanning").hide();
                     };

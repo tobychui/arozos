@@ -530,7 +530,7 @@ function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined
             }
         },
         error: function(){
-            if (typeof failedcallback != "undefined"){
+            if (typeof(failedcallback) != "undefined"){
                 failedcallback();
             }
         },
@@ -972,3 +972,177 @@ class ao_module_utils{
     
     static formatBytes(a,b=2){if(0===a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return parseFloat((a/Math.pow(1024,d)).toFixed(c))+" "+["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"][d]}
 }
+
+/*
+    Backend Programming Logic
+
+    These code are design to use with ao_backend.js for wrapping
+    AGI programming gateway content
+*/
+
+function ao_module_backend(){
+    return {
+        timeout: 500,
+        start: function(libraryPath){
+            this.libpath = libraryPath;
+    
+            //Initialize the parent objects
+            this.appdata.parent = this;
+            this.file.parent = this;
+            this.http.parent = this;
+        },
+        _agi_run: function(data, callback, failedcallback = undefined){
+                    $.ajax({
+                        url: ao_root + "system/ajgi/interface?script=" + this.libpath,
+                        method: "POST",
+                        data: data,
+                        success: function(data){
+                            if (typeof(callback) != "undefined"){
+                                callback(data);
+                            }
+                        },
+                        error: function(){
+                            if (typeof(failedcallback) != "undefined"){
+                                failedcallback();
+                            }
+                            console.log("Request failed");
+                        },
+                        timeout: this.timeout
+                    })
+                },
+        appdata: {
+            readFile: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "appdata.readFile",
+                    filepath: filepath
+                }, callback)
+            },
+            listDir: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "appdata.listDir",
+                    filepath: filepath
+                }, callback)
+            },
+        },
+        file: {
+            writeFile: function(filepath, content, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.writeFile",
+                    filepath: filepath,
+                    content: content,
+                }, callback)
+            },
+            readFile: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.readFile",
+                    filepath: filepath
+                }, callback)
+            },
+            deleteFile: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.deleteFile",
+                    filepath: filepath
+                }, callback)
+            },
+            readdir: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.readdir",
+                    filepath: filepath
+                }, callback)
+            },
+            walk: function(filepath, mode="all", callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.walk",
+                    filepath: filepath,
+                    mode: mode,
+                }, callback)
+            },
+            glob: function(wildcard, sort="user", callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.glob",
+                    wildcard: wildcard,
+                    sort: sort,
+                }, callback)
+            },
+            aglob: function(wildcard, sort="user", callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.aglob",
+                    wildcard: wildcard,
+                    sort: sort,
+                }, callback)
+            },
+            filesize: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.filesize",
+                    filepath: filepath
+                }, callback)
+            },
+            fileExists: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.fileExists",
+                    filepath: filepath
+                }, callback)
+            },
+            isDir: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.isDir",
+                    filepath: filepath
+                }, callback)
+            },
+            mkdir: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.mkdir",
+                    filepath: filepath
+                }, callback)
+            },
+            mtime: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.mtime",
+                    filepath: filepath
+                }, callback)
+            },
+            rootName: function(filepath, callback=undefined){
+                this.parent._agi_run({
+                    opr: "file.rootName",
+                    filepath: filepath
+                }, callback)
+            }
+        },
+        http: {
+            get: function(targetURL, callback=undefined){
+                this.parent._agi_run({
+                    opr: "http.get",
+                    targetURL: targetURL
+                }, callback)
+            },
+            post: function(targetURL, postdata="", callback=undefined){
+                this.parent._agi_run({
+                    opr: "http.post",
+                    targetURL: targetURL,
+                    postdata: postdata
+                }, callback)
+            },
+            head: function(targetURL, header="", callback=undefined){
+                this.parent._agi_run({
+                    opr: "http.head",
+                    targetURL: targetURL,
+                    header: header
+                }, callback)
+            },
+            download: function(targetURL, saveDir="tmp:/", saveFilename="", callback=undefined){
+                if (saveFilename == ""){
+                    saveFilename = targetURL.split("/").pop();
+                    saveFilename = decodeURIComponent(saveFilename);
+                }
+
+                this.parent._agi_run({
+                    opr: "http.download",
+                    targetURL: targetURL,
+                    saveDir: saveDir,
+                    saveFilename: saveFilename
+                }, callback)
+            },
+        }
+    }
+}
+

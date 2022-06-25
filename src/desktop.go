@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/common"
+	fs "imuslab.com/arozos/mod/filesystem"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 )
@@ -24,7 +26,7 @@ func DesktopInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -74,12 +76,12 @@ func desktop_initUserFolderStructure(username string) {
 		log.Println(err)
 	}
 
-	if !fileExists(filepath.Join(homedir, "Desktop")) {
+	if !fs.FileExists(filepath.Join(homedir, "Desktop")) {
 		//Desktop directory not exists. Create one and copy a template desktop
 		os.MkdirAll(homedir+"Desktop", 0755)
 
 		templateFolder := "./system/desktop/template/"
-		if fileExists(templateFolder) {
+		if fs.FileExists(templateFolder) {
 			templateFiles, _ := filepath.Glob(templateFolder + "*")
 			for _, tfile := range templateFiles {
 				input, _ := ioutil.ReadFile(tfile)
@@ -112,59 +114,59 @@ func desktop_hostdetailHandler(w http.ResponseWriter, r *http.Request) {
 		VendorIcon:      iconVendor,
 	})
 
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }
 
 func desktop_handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 	//Check if the user directory already exists
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get the shortcut file that is renaming
-	target, err := mv(r, "src", false)
+	target, err := common.Mv(r, "src", false)
 	if err != nil {
-		sendErrorResponse(w, "Invalid shortcut file path given")
+		common.SendErrorResponse(w, "Invalid shortcut file path given")
 		return
 	}
 
 	//Get the new name
-	new, err := mv(r, "new", false)
+	new, err := common.Mv(r, "new", false)
 	if err != nil {
-		sendErrorResponse(w, "Invalid new name given")
+		common.SendErrorResponse(w, "Invalid new name given")
 		return
 	}
 
 	//Check if the file actually exists and it is on desktop
 	rpath, err := userinfo.VirtualPathToRealPath(target)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	if target[:14] != "user:/Desktop/" {
-		sendErrorResponse(w, "Shortcut not on desktop")
+		common.SendErrorResponse(w, "Shortcut not on desktop")
 		return
 	}
 
-	if !fileExists(rpath) {
-		sendErrorResponse(w, "File not exists")
+	if !fs.FileExists(rpath) {
+		common.SendErrorResponse(w, "File not exists")
 		return
 	}
 
 	//OK. Change the name of the shortcut
 	originalShortcut, err := ioutil.ReadFile(rpath)
 	if err != nil {
-		sendErrorResponse(w, "Shortcut file read failed")
+		common.SendErrorResponse(w, "Shortcut file read failed")
 		return
 	}
 
 	lines := strings.Split(string(originalShortcut), "\n")
 	if len(lines) < 4 {
 		//Invalid shortcut properties
-		sendErrorResponse(w, "Invalid shortcut file")
+		common.SendErrorResponse(w, "Invalid shortcut file")
 		return
 	}
 
@@ -173,10 +175,10 @@ func desktop_handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 	newShortcutContent := strings.Join(lines, "\n")
 	err = ioutil.WriteFile(rpath, []byte(newShortcutContent), 0755)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
-	sendOK(w)
+	common.SendOK(w)
 }
 
 func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
@@ -224,7 +226,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		thisFileObject.Filepath, _ = userinfo.RealPathToVirtualPath(this)
 		thisFileObject.Filename = filepath.Base(this)
 		thisFileObject.Ext = filepath.Ext(this)
-		thisFileObject.IsDir = IsDir(this)
+		thisFileObject.IsDir = fs.IsDir(this)
 		if thisFileObject.IsDir {
 			//Check if this dir is empty
 			filesInFolder, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(this)) + "/*")
@@ -275,7 +277,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 
 	//Convert the struct to json string
 	jsonString, _ := json.Marshal(desktopFiles)
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }
 
 //functions to handle desktop icon locations. Location is directly written into the center db.
@@ -316,7 +318,7 @@ func setDesktopLocationFromPath(filename string, username string, x int, y int) 
 	newLocation.Y = y
 
 	//Check if the file exits
-	if fileExists(path) == false {
+	if fs.FileExists(path) == false {
 		return errors.New("Given filename not exists.")
 	}
 
@@ -342,7 +344,7 @@ func delDesktopLocationFromPath(filename string, username string) {
 func desktop_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -375,21 +377,21 @@ func desktop_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		StorageQuotaTotal: userinfo.StorageQuota.GetUserStorageQuota(),
 		StorageQuotaLeft:  remainingQuota,
 	})
-	sendJSONResponse(w, string(jsonString))
+	common.SendJSONResponse(w, string(jsonString))
 }
 
 //Icon handling function for web endpoint
 func desktop_fileLocation_handler(w http.ResponseWriter, r *http.Request) {
-	get, _ := mv(r, "get", true) //Check if there are get request for a given filepath
-	set, _ := mv(r, "set", true) //Check if there are any set request for a given filepath
-	del, _ := mv(r, "del", true) //Delete the given filename coordinate
+	get, _ := common.Mv(r, "get", true) //Check if there are get request for a given filepath
+	set, _ := common.Mv(r, "set", true) //Check if there are any set request for a given filepath
+	del, _ := common.Mv(r, "del", true) //Delete the given filename coordinate
 
 	if set != "" {
 		//Set location with given paramter
 		x := 0
 		y := 0
-		sx, _ := mv(r, "x", true)
-		sy, _ := mv(r, "y", true)
+		sx, _ := common.Mv(r, "x", true)
+		sy, _ := common.Mv(r, "y", true)
 		path := set
 
 		x, err := strconv.Atoi(sx)
@@ -406,22 +408,22 @@ func desktop_fileLocation_handler(w http.ResponseWriter, r *http.Request) {
 		username, _ := authAgent.GetUserName(w, r)
 		err = setDesktopLocationFromPath(path, username, x, y)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			common.SendErrorResponse(w, err.Error())
 			return
 		}
-		sendJSONResponse(w, string("\"OK\""))
+		common.SendJSONResponse(w, string("\"OK\""))
 	} else if get != "" {
 		username, _ := authAgent.GetUserName(w, r)
 		x, y, _ := getDesktopLocatioFromPath(get, username)
 		result := []int{x, y}
 		json_string, _ := json.Marshal(result)
-		sendJSONResponse(w, string(json_string))
+		common.SendJSONResponse(w, string(json_string))
 	} else if del != "" {
 		username, _ := authAgent.GetUserName(w, r)
 		delDesktopLocationFromPath(del, username)
 	} else {
 		//No argument has been set
-		sendTextResponse(w, "Paramter missing.")
+		common.SendJSONResponse(w, "Paramter missing.")
 	}
 }
 
@@ -430,15 +432,15 @@ func desktop_fileLocation_handler(w http.ResponseWriter, r *http.Request) {
 func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 	username := userinfo.Username
 
 	//Check if the set GET paramter is set.
-	targetTheme, _ := mv(r, "set", false)
-	getUserTheme, _ := mv(r, "get", false)
-	loadUserTheme, _ := mv(r, "load", false)
+	targetTheme, _ := common.Mv(r, "set", false)
+	getUserTheme, _ := common.Mv(r, "get", false)
+	loadUserTheme, _ := common.Mv(r, "load", false)
 	if targetTheme == "" && getUserTheme == "" && loadUserTheme == "" {
 		//List all the currnet themes in the list
 		themes, err := filepath.Glob("web/img/desktop/bg/*")
@@ -460,7 +462,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 			".gif",
 		}
 		for _, file := range themes {
-			if IsDir(file) {
+			if fs.IsDir(file) {
 				thisTheme := new(desktopTheme)
 				thisTheme.Theme = filepath.Base(file)
 				bglist, _ := filepath.Glob(file + "/*")
@@ -468,7 +470,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 				for _, bg := range bglist {
 					ext := filepath.Ext(bg)
 					//if (sliceutil.Contains(acceptBGFormats, ext) ){
-					if stringInSlice(ext, acceptBGFormats) {
+					if common.StringInArray(acceptBGFormats, ext) {
 						//This file extension is supported
 						thisbglist = append(thisbglist, filepath.Base(bg))
 					}
@@ -484,7 +486,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		sendJSONResponse(w, string(jsonString))
+		common.SendJSONResponse(w, string(jsonString))
 		return
 	} else if getUserTheme == "true" {
 		//Get the user's theme from database
@@ -492,30 +494,30 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		sysdb.Read("desktop", username+"/theme", &result)
 		if result == "" {
 			//This user has not set a theme yet. Use default
-			sendJSONResponse(w, string("\"default\""))
+			common.SendJSONResponse(w, string("\"default\""))
 			return
 		} else {
 			//This user already set a theme. Use its set theme
-			sendJSONResponse(w, string("\""+result+"\""))
+			common.SendJSONResponse(w, string("\""+result+"\""))
 			return
 		}
 	} else if loadUserTheme != "" {
 		//Load user theme base on folder path
 		rpath, err := userinfo.VirtualPathToRealPath(loadUserTheme)
 		if err != nil {
-			sendErrorResponse(w, "Custom folder load failed")
+			common.SendErrorResponse(w, "Custom folder load failed")
 			return
 		}
 
 		//Check if the folder exists
-		if !fileExists(rpath) {
-			sendErrorResponse(w, "Custom folder load failed")
+		if !fs.FileExists(rpath) {
+			common.SendErrorResponse(w, "Custom folder load failed")
 			return
 		}
 
 		if userinfo.CanRead(loadUserTheme) == false {
 			//No read permission
-			sendErrorResponse(w, "Permission denied")
+			common.SendErrorResponse(w, "Permission denied")
 			return
 		}
 
@@ -543,50 +545,50 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		js, _ := json.Marshal(virtualImageList)
-		sendJSONResponse(w, string(js))
+		common.SendJSONResponse(w, string(js))
 
 	} else if targetTheme != "" {
 		//Set the current user theme
 		sysdb.Write("desktop", username+"/theme", targetTheme)
-		sendJSONResponse(w, "\"OK\"")
+		common.SendJSONResponse(w, "\"OK\"")
 		return
 	}
 
 }
 
 func desktop_preference_handler(w http.ResponseWriter, r *http.Request) {
-	preferenceType, _ := mv(r, "preference", false)
-	value, _ := mv(r, "value", false)
-	remove, _ := mv(r, "remove", false)
+	preferenceType, _ := common.Mv(r, "preference", true)
+	value, _ := common.Mv(r, "value", true)
+	remove, _ := common.Mv(r, "remove", true)
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
 		//user not logged in. Redirect to login page.
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 	if preferenceType == "" && value == "" {
 		//Invalid options. Return error reply.
-		sendTextResponse(w, "Error. Undefined paramter.")
+		common.SendErrorResponse(w, "Error. Undefined paramter.")
 		return
 	} else if preferenceType != "" && value == "" && remove == "" {
 		//Getting config from the key.
 		result := ""
 		sysdb.Read("desktop", username+"/preference/"+preferenceType, &result)
 		jsonString, _ := json.Marshal(result)
-		sendJSONResponse(w, string(jsonString))
+		common.SendJSONResponse(w, string(jsonString))
 		return
 	} else if preferenceType != "" && value == "" && remove == "true" {
 		//Remove mode
 		sysdb.Delete("desktop", username+"/preference/"+preferenceType)
-		sendOK(w)
+		common.SendOK(w)
 		return
 	} else if preferenceType != "" && value != "" {
 		//Setting config from the key
 		sysdb.Write("desktop", username+"/preference/"+preferenceType, value)
-		sendJSONResponse(w, "\"OK\"")
+		common.SendOK(w)
 		return
 	} else {
-		sendTextResponse(w, "Error. Undefined paramter.")
+		common.SendErrorResponse(w, "Error. Undefined paramter.")
 		return
 	}
 
@@ -597,44 +599,44 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		//user not logged in. Redirect to login page.
-		sendErrorResponse(w, "User not logged in")
+		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 
-	shortcutType, err := mv(r, "stype", true)
+	shortcutType, err := common.Mv(r, "stype", true)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	shortcutText, err := mv(r, "stext", true)
+	shortcutText, err := common.Mv(r, "stext", true)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	shortcutPath, err := mv(r, "spath", true)
+	shortcutPath, err := common.Mv(r, "spath", true)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	shortcutIcon, err := mv(r, "sicon", true)
+	shortcutIcon, err := common.Mv(r, "sicon", true)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//OK to proceed. Generate a shortcut on the user desktop
 	userDesktopPath, _ := userinfo.VirtualPathToRealPath("user:/Desktop")
-	if !fileExists(userDesktopPath) {
+	if !fs.FileExists(userDesktopPath) {
 		os.MkdirAll(userDesktopPath, 0755)
 	}
 
 	//Check if there are desktop icon. If yes, override icon on module
-	if shortcutType == "module" && fileExists("./web/"+filepath.ToSlash(filepath.Dir(shortcutIcon)+"/desktop_icon.png")) {
+	if shortcutType == "module" && fs.FileExists("./web/"+filepath.ToSlash(filepath.Dir(shortcutIcon)+"/desktop_icon.png")) {
 		shortcutIcon = filepath.ToSlash(filepath.Join(filepath.Dir(shortcutIcon), "/desktop_icon.png"))
 	}
 
@@ -644,14 +646,14 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	shortcutFilename := userDesktopPath + "/" + shortcutText + ".shortcut"
 	counter := 1
-	for fileExists(shortcutFilename) {
-		shortcutFilename = userDesktopPath + "/" + shortcutText + "(" + IntToString(counter) + ")" + ".shortcut"
+	for fs.FileExists(shortcutFilename) {
+		shortcutFilename = userDesktopPath + "/" + shortcutText + "(" + strconv.Itoa(counter) + ")" + ".shortcut"
 		counter++
 	}
 	err = ioutil.WriteFile(shortcutFilename, []byte(shortcutType+"\n"+shortcutText+"\n"+shortcutPath+"\n"+shortcutIcon), 0755)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
-	sendOK(w)
+	common.SendOK(w)
 }

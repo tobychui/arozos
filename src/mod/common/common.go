@@ -131,3 +131,13 @@ func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation 
 
 	return redirectionLocation
 }
+
+//Check if given string in a given slice
+func StringInArray(arr []string, str string) bool {
+	for _, a := range arr {
+		if a == str {
+			return true
+		}
+	}
+	return false
+}

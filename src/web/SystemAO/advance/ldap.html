@@ -59,7 +59,10 @@
                 <i class="key icon"></i>
                 <div class="content">
                     LDAP Access
-                    <div class="sub header">Allow external account to access ArozOS with LDAP</div>
+                    <div class="sub header">Allow external account to access ArozOS with LDAP
+                        <br>
+                        <i class="info circle icon"></i> Your current account MUST exist inside the LDAP server; otherwise synchronize function will not work properly.
+                    </div>
                 </div>
             </div>
         </div>
@@ -167,16 +170,30 @@
             $("#test_btn").text("Testing...");
             $.get("../../system/auth/ldap/config/testConnection")
                 .done(function(data) {
+                    $("#information").html("");
                     if (data.error != undefined) {
                         if (data.error != "") {
-                            alert(data.error);
+                            $("#information").append(`
+                            <tr>
+                                <td data-label="information" colspan="3">` + data.error + `</td>
+                            </tr>
+                        `);
+                            $("#testConnection").show("fast");
+                            $("#test_btn").text("Test connection");
+                            return;
                         }
                     }
                     if (data.userinfo == null) {
-                        alert("No entries was found");
+                        $("#information").append(`
+                            <tr>
+                                <td data-label="information" colspan="3">No entries was found.</td>
+                            </tr>
+                        `);
+                        $("#testConnection").show("fast");
+                        $("#test_btn").text("Test connection");
+                        return;
                     }
                     //OK!
-                    $("#information").html("");
                     $(data.userinfo).each(function(index, element) {
                         $("#information").append(`
                             <tr>

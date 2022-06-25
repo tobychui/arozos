@@ -86,7 +86,7 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 		return "", err
 	}
 
-	if strings.Contains(filepath.Clean(subpath), "..") {
+	if strings.Contains(filepath.ToSlash(filepath.Clean(subpath)), "../") || filepath.Clean(subpath) == ".." {
 		return "", errors.New("Request path out of storage root")
 	}
 
@@ -107,7 +107,7 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 
 			//A bit hacky to make sure subpath contains no traversal
 			//Will migrate this to File System Vpath Resolver in the next large update
-			subpath = strings.ReplaceAll(subpath, "..", "")
+			subpath = strings.ReplaceAll(subpath, "../", "")
 
 			//Handle general cases
 			if storage.Hierarchy == "user" {

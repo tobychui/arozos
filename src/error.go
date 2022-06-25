@@ -9,11 +9,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	fs "imuslab.com/arozos/mod/filesystem"
 )
 
 func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
 	notFoundPage := "./web/SystemAO/notfound.html"
-	if fileExists(notFoundPage) {
+	if fs.FileExists(notFoundPage) {
 
 		notFoundTemplateBytes, err := ioutil.ReadFile(notFoundPage)
 		notFoundTemplate := string(notFoundTemplateBytes)
@@ -35,7 +37,7 @@ func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
 
 func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
 	unauthorizedPage := "./web/SystemAO/unauthorized.html"
-	if fileExists(unauthorizedPage) {
+	if fs.FileExists(unauthorizedPage) {
 		notFoundTemplateBytes, err := ioutil.ReadFile(unauthorizedPage)
 		notFoundTemplate := string(notFoundTemplateBytes)
 		if err != nil {

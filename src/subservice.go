@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"imuslab.com/arozos/mod/common"
+	fs "imuslab.com/arozos/mod/filesystem"
 	prout "imuslab.com/arozos/mod/prouter"
 	subservice "imuslab.com/arozos/mod/subservice"
 )
@@ -50,7 +52,7 @@ func SubserviceInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			sendErrorResponse(w, "Permission Denied")
+			common.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -65,7 +67,7 @@ func SubserviceInit() {
 	//Scan and load all subservice modules
 	subservices, _ := filepath.Glob("./subservice/*")
 	for _, servicePath := range subservices {
-		if IsDir(servicePath) && !fileExists(servicePath+"/.disabled") {
+		if fs.IsDir(servicePath) && !fs.FileExists(servicePath+"/.disabled") {
 			//Only enable module with no suspended config file
 			ssRouter.Launch(servicePath, true)
 		}

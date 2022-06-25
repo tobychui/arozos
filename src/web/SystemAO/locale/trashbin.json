@@ -16,6 +16,7 @@
                 "list/details":"詳細資料",
                 "list/restore":"恢復檔案",
                 "list/scanning":"正在從所有虛擬磁碟區掃描回收檔案",
+                "list/notrash":"垃圾箱內並沒有任何檔案或資料夾",
                 
 
                 "opr/move":"移動",
@@ -67,6 +68,7 @@
                 "list/details":"詳細資料",
                 "list/restore":"恢復檔案",
                 "list/scanning":"正在從所有虛擬磁碟區掃描回收檔案",
+                "list/notrash":"垃圾箱內並沒有任何檔案或資料夾",
                 
 
                 "opr/move":"移動",
@@ -118,7 +120,7 @@
                 "list/details":"详细资料",
                 "list/restore":"恢复文件",
                 "list/scanning":"正在从所有虚拟磁碟区扫描回收文件",
-                
+                "list/notrash":"垃圾箱内并没有任何文件或资料夹",
 
                 "opr/move":"移动",
                 "opr/file":"文件",

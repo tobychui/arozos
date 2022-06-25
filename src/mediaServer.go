@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/network/gzipmiddleware"
 )
@@ -54,7 +55,7 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 		return "", errors.New("Invalid paramters. Multiple ? found")
 	}
 
-	targetfile, _ := mv(r, "file", false)
+	targetfile, _ := common.Mv(r, "file", false)
 	targetfile, err = url.QueryUnescape(targetfile)
 	if targetfile == "" {
 		return "", errors.New("Missing paramter 'file'")
@@ -62,14 +63,14 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 
 	//Translate the virtual directory to realpath
 	realFilepath, err := userinfo.VirtualPathToRealPath(targetfile)
-	if fileExists(realFilepath) && IsDir(realFilepath) {
+	if fs.FileExists(realFilepath) && fs.IsDir(realFilepath) {
 		return "", errors.New("Given path is not a file.")
 	}
 	if err != nil {
 		return "", errors.New("Unable to translate the given filepath")
 	}
 
-	if !fileExists(realFilepath) {
+	if !fs.FileExists(realFilepath) {
 		//Sometime if url is not URL encoded, this error might be shown as well
 
 		//Try to use manual segmentation
@@ -92,7 +93,7 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 			log.Println("Error when trying to serve file in compatibility mode", err.Error())
 			return "", errors.New("Error when trying to serve file in compatibility mode")
 		}
-		if fileExists(possibleRealpath) {
+		if fs.FileExists(possibleRealpath) {
 			realFilepath = possibleRealpath
 			log.Println("[Media Server] Serving file " + filepath.Base(possibleRealpath) + " in compatibility mode. Do not to use '&' or '+' sign in filename! ")
 			return realFilepath, nil
@@ -107,11 +108,11 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 func serveMediaMime(w http.ResponseWriter, r *http.Request) {
 	realFilepath, err := media_server_validateSourceFile(w, r)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 	mime := "text/directory"
-	if !IsDir(realFilepath) {
+	if !fs.IsDir(realFilepath) {
 		m, _, err := fs.GetMime(realFilepath)
 		if err != nil {
 			mime = ""
@@ -119,20 +120,20 @@ func serveMediaMime(w http.ResponseWriter, r *http.Request) {
 		mime = m
 	}
 
-	sendTextResponse(w, mime)
+	common.SendTextResponse(w, mime)
 }
 
 func serverMedia(w http.ResponseWriter, r *http.Request) {
 	//Serve normal media files
 	realFilepath, err := media_server_validateSourceFile(w, r)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		common.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Check if downloadMode
 	downloadMode := false
-	dw, _ := mv(r, "download", false)
+	dw, _ := common.Mv(r, "download", false)
 	if dw == "true" {
 		downloadMode = true
 	}
