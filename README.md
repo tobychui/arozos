@@ -12,6 +12,7 @@ The current arozos is still under intense development. System structure might ch
 - Clean and easy to use File Manager (Support drag drop, upload etc)
 - Simplistic System Setting Menu
 - No-bull-shit module naming scheme
+
 ### Networking 
 - FTP Server
 - Static Web Server
@@ -19,19 +20,24 @@ The current arozos is still under intense development. System structure might ch
 - UPnP Port Forwarding
 - Samba (Supported via 3rd party sub-services)
 - WiFi Management (Support wpa_supplicant for Rpi or nmcli for Armbian)
+
 ### File / Disk Management
 - Mount / Format Disk Utilities (support NTFS, EXT4 and more!)
 - Virtual File System Architecture
 - File Sharing (Similar to Google Drive)
 - Basic File Operations with Real-time Progress (Copy / Cut / Paste / New File or Folder etc)
 
-### Extensibility
+### Security
+- oAuth
+- LDAP
+- IP White / Blacklist
+- Exponential login timeout
 
+### Extensibility
 - ECMA5 (JavaScript like) scripting interface
 - 3rd party Go / Python module development with sub-service reverse proxy
 
 ### Others
-
 - Require as little as 512MB system memory and 8GB system storage
 - Base on one of the most stable Linux distro - Debian
 - Support for Desktop, Laptop (touchpad) and Mobile screen sizes
@@ -76,7 +82,7 @@ If you are using Raspberry Pi as your host, you can download one of the images a
 
 To optain the .img file, you can unzip the compressed image using 7zip. If you don't have it, you can get it [here](https://www.7-zip.org/download.html)
 
-### For Raspberry Pi 1, Pi 2 and Pi Zero
+### For All Pi models
 
 #### Build from source using installer script (Recommended)
 
