@@ -92,15 +92,15 @@ func PackageExists(pkgname string) (bool, error) {
 			if err != nil {
 				return false, errors.New("Package " + pkgname + " not found in MacOS ENV variable.")
 			}
-
-			if strings.TrimSpace(string(out)) != "" {
-				//Exists!
-				return true, nil
-			} else {
-				return false, errors.New("Package " + pkgname + " not installed on this Mac")
-			}
-
 		}
+		if strings.TrimSpace(string(out)) != "" {
+			//Exists!
+			return true, nil
+		} else {
+			return false, errors.New("Package " + pkgname + " not installed on this Mac")
+		}
+
+
 	} else if runtime.GOOS == "linux" {
 		cmd := exec.Command("which", pkgname)
 		out, _ := cmd.CombinedOutput()
