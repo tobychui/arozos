@@ -6,10 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="author" href="humans.txt"/>
     <title>ArozOS - Login</title>
-    <link rel="stylesheet" href="script/tocas/tocas.css">
+    <link rel="stylesheet" href="script/semantic/semantic.min.css">
     <link rel="stylesheet" href="script/ao.css">
-    <script type="application/javascript" src="script/tocas/tocas.js"></script>
     <script type="application/javascript" src="script/jquery.min.js"></script>
+    <script type="application/javascript" src="script/semantic/semantic.min.js"></script>
+    
     <style>
     @media only screen and (max-height: 1000px) {
         .leftPictureFrame {
@@ -72,10 +73,20 @@
 
     .themecolor{
         background-color: #5fa0d9 !important;
+        transition: background-color 0.1s;
+    }
+
+    .themecolor:hover{
+        background-color: #99d0f2 !important;
     }
 
     .subthemecolor{
-        background-color: #99d0f2 !important;
+        background-color: #405673 !important;
+        transition: background-color 0.1s;
+    }
+
+    .subthemecolor:hover{
+        background-color: #5d7aa0 !important;
     }
 
     .loginbtn{
@@ -96,32 +107,35 @@
         </div>
         <div id="loginInterface" class="rightLoginFrame">
             <br><br><br>
-            <img class="ts medium image" src="data:image/png;base64, {{service_logo}}">
+            <img class="ui medium image" src="data:image/png;base64, {{service_logo}}">
 
-            <div class="ts borderless basic segment">
+            <div class="ui borderless basic segment">
                 <p><i class="key icon"></i> Sign in <span class="hostname">ArozOS</span> with your username and password</p>
-                <div class="oauthonly" style="display:none;">
-                    <a class="ts fluid small button oauthbtn subthemecolor" href="system/auth/oauth/login">Sign In via OAuth 2.0</a><br>
-                </div>
-                <div class="ldaponly" style="display:none;">
-                    <a class="ts fluid small button oauthbtn subthemecolor" href="ldapLogin.system">Sign In via LDAP</a><br>
-                </div>
-                <br>
-                <div class="ts fluid input textbox">
+                
+               
+                
+                <div class="ui fluid input textbox">
                     <input id="username" type="text" placeholder="Username">
                 </div>
-                <div class="ts fluid input textbox">
+                <div class="ui fluid input textbox">
                     <input id="magic" type="password" placeholder="Password">
                 </div>
 
-                <div class="ts checkbox">
+                <div class="ui checkbox">
                     <input id="rmbme" type="checkbox">
                     <label for="rmbme">Remember Me</label>
                 </div>
                 
+                <br><br>
+                <button id="loginbtn" class="ui button loginbtn themecolor" style="display:inline-block;">Sign In</button>
+                <div class="oauthonly" style="display:inline-block;">
+                    <a class="ui button oauthbtn subthemecolor" href="system/auth/oauth/login">Sign In via OAuth 2.0</a><br>
+                </div>
+                <div class="ldaponly" style="display:inline-block;">
+                    <a class="ui button oauthbtn subthemecolor" href="ldapLogin.system">Sign In via LDAP</a><br>
+                </div>
                 <br>
-                <button id="loginbtn" class="ts button loginbtn themecolor">Sign In</button><br>
-                <div class="ts breadcrumb" style="margin-top:12px;">
+                <div class="ui breadcrumb" style="margin-top:12px;">
                     <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
                     <div class="divider signup"> / </div>
                     <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
@@ -148,6 +162,8 @@
             isMobile = true;
         }  
 
+
+
         if (isMobile){
             //Full screen the login panel
             $("#loginInterface").css("width","100%");
@@ -158,6 +174,10 @@
             window.location.href = "/user.system";
         }
 
+        //Hide elements by default
+        $(".ldaponly").hide();
+        $(".oauthonly").hide();
+        
         $(document).ready(function(){
             var currentdate = new Date(); 
             var datetime = currentdate.getDate() + "/"
@@ -167,6 +187,7 @@
                 + currentdate.getMinutes() + ":" 
                 + currentdate.getSeconds();
             $("#requestTime").text(datetime);
+            $(".ui.checkbox").checkbox();
             //Check if the user already logged in
             $.get("system/auth/checkLogin",function(data){
                 try{
@@ -216,7 +237,7 @@
                     if(document.referrer != window.location.origin + "/desktop.system" && document.referrer != window.location.origin + "/mobile.system" && path.origin + path.pathname !=  window.location.origin + "/system/auth/oauth/authorize"){
                         $(".ts.borderless.basic.segment").attr("style","display: none;");
                         $(".ts.borderless.basic.segment").attr("id","aoLogin");
-                        $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ts borderless basic segment"><p><i class="key icon"></i>Redirecting to organization sign-in page in 5 seconds...</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">Cancel</a></div>');
+                        $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ui borderless basic segment"><p><i class="key icon"></i>Redirecting to organization sign-in page in 5 seconds...</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">Cancel</a></div>');
                         autoRedirectTimer = setTimeout(function(){
                             window.location.href = "system/auth/oauth/login?redirect=" + redirectionAddress;
                         }, 3000);

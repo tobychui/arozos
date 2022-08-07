@@ -97,8 +97,15 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     height:100%;
     width:100%;
     background:rgba(20,20,20,0.8);
-    backdrop-filter: blur(3px);
 }
+
+@supports ((-webkit-backdrop-filter: blur(3px)) or (backdrop-filter: blur(3px))) {
+    #playerInterface{
+        backdrop-filter: blur(3px);
+        background:rgba(20,20,20,0.5);
+    }
+}
+
 #miniPlayer{
     z-index:45;
     position:fixed;
@@ -115,14 +122,14 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
      padding-left:3px;
      padding-right:3px;
      color:white;
-     right:120px;
+     right:136px;
      bottom:5px;
      text-overflow: ellipsis;
      overflow: hidden; 
 }
 .miniPlayerControls{
     position:absolute;
-    top:18px;
+    bottom:0.5em;
     right:5px;
     color: white;
     font-size: 1.6em;
@@ -152,7 +159,7 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     width:80%;
     font-size:200%;
     text-align: center;
-    padding-top:25px;
+    margin-top: 0px;
 }
 .enabled.icon{
     color:white;
@@ -190,13 +197,13 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
 #progressTime{
     color:white;
     position:absolute;
-    left:0px;
+    left:2em;
     top:0px;
 }
 #remainTime{
     color:white;
     position:absolute;
-    right:0px;
+    right:2em;
     top:0px;
 }
 #volumeGUI{
@@ -204,30 +211,32 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     top:50px;
     left:0px;
     width:100%;
-    padding-left:20%;
-    padding-right:20%;
+    height: 4em;
+    padding-left:6em;
+    padding-right:6em;
     padding-top:5px;
     padding-bottom:5px;
-    background-color:rgba(12, 12, 12, 0.8);
-    backdrop-filter: saturate(180%) blur(5px);
+    background-color:rgba(12, 12, 12, 0.6);
+    backdrop-filter: saturate(180%) blur(3px);
     display:none;
     z-index:95;
 }
 .quickMenu{
     position:fixed;
-    top:25%;
+    top:10em;
     left:10%;
     right:10%;
-    bottom:25%;
+    bottom:10em;
     border-radius: 5px;
     background-color:rgba(12, 12, 12, 0.8);
     backdrop-filter: saturate(180%) blur(5px);
-    padding:20px;
+    padding:2em;
     color:white;
     overflow-y:auto;
     overflow-x:hidden;
     display:none;
     z-index:120;
+    border-radius: 20px;
 }
 
 #fadeReturnScreen{
@@ -261,9 +270,16 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     padding:.5em;
     padding-left:3em;
     padding-right:3em;
-    width: 100%;
     cursor:pointer;
+    background-color: rgba(255,255,255,0.2);
+    border-radius: 20px;
 }
+
+button{
+    background: none;
+    border: none;
+}
+
 .greenBtn:hover{
     background-color:#6b6b6b;
 }
@@ -370,4 +386,24 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     padding-top:4px;
     padding-bottom:4px;
     font-size: 100%;
+}
+
+/*
+    patches for Tocas UI to Sementic transitions
+*/
+
+.topPanelButtons{
+    background: none !important;
+    border: none !important;
+}
+
+.panelButtons{
+    background: none !important;
+    border: none !important;
+}
+
+.noborderbtn{
+    border: 0px solid transparent; 
+    box-shadow: none !important;
+    -webkit-box-shadow: none !important;
 }

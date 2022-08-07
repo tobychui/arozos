@@ -3,10 +3,10 @@
         <title locale="title">File Selector</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/tocas/tocas.css">
+        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <link rel="stylesheet" href="../../script/ao.css">
-        <script type="text/javascript" src="../../script/tocas/tocas.js"></script>
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
@@ -23,15 +23,34 @@
                 width:100%;
                 z-index:99;
             }
-            .pusher{
-                margin-top:46px;
-                margin-left:200px;
-                width: calc(100% - 200px);
+
+            .fileSelectorContainer{
+                width: 100%;
+                min-height: 100%;
+                vertical-align:top;
+                background-color:#f5f5f5 !important;
             }
 
-            .pusher .fileListWrapper{
-                padding-left:20px;
-                padding-right:20px;
+            #sidebar{
+                padding-top: 2em;
+                background-color:#f5f5f5 !important;
+                display: inline-block; 
+                z-index:90 !important; 
+                width:200px; 
+                vertical-align:top;
+                position: sticky;
+                top: 0;
+            }
+
+           #fileListWrapper{
+                display: inline-block; 
+                width: calc(100% - 220px);
+                min-height:300px;
+                vertical-align:top;
+                padding: 1em;
+                background-color: white;
+                border-radius: 12px;
+                margin-bottom: 20px;
             }
             .navi .button{
                 box-shadow: 0 1px 1px 0px rgb(190, 190, 190) !important;
@@ -45,6 +64,7 @@
             .extrapadding{
                 padding-left:6px !important;
                 padding-right:6px !important;
+                color:#676768 !important;
             }
             .fileObject{
                 overflow-wrap: break-word !important;
@@ -68,72 +88,97 @@
             .fileObject.item:hover{
                 background-color:#f2f2f2;
             }
+
+            .bordered{
+                border: 1px solid #dedede;
+            }
+
+            @media all and (max-width: 560px) {
+                #sidebar{
+                    padding-top: 2em;
+                    background-color:#f5f5f5 !important;
+                    position: fixed;
+                    width:200px; 
+                    height: 100%;
+                    top: 0;
+                    left: 0;
+                    -webkit-box-shadow: 9px 0px 23px -14px rgba(135,135,135,0.4);
+                    -moz-box-shadow: 9px 0px 23px -14px rgba(135,135,135,0.4);
+                    box-shadow: 9px 0px 23px -14px rgba(135,135,135,0.4);
+                }
+
+            }
         </style>
     </head>
     <body>
         <div class="navi">
-            <button id="sidebarToggleBtn" class="ts icon tiny button" onclick="ts('.sidebar').sidebar('toggle');"><i class="content icon"></i></button>
-            <button title="Back" class="ts icon tiny button" onclick="backDir();"><i class="arrow left icon"></i></button>
-            <button title="Parent" class="ts icon tiny button" onclick="parentDir();"><i class="arrow up icon"></i></button>
-            <button title="Refresh" class="ts icon tiny button" onclick="refresh();"><i class="refresh icon"></i></button>
-            <button title="New Folder" class="ts icon tiny button" onclick="newFolder();"><i class="folder icon"></i></button>
-            <div  class="ts action fluid tiny input" style="width: calc(100% - 180px); float: right;">
+            <button id="sidebarToggleBtn" class="ui icon small button" onclick="$('#sidebar').toggle();"><i class="content icon"></i></button>
+            <button title="Back" class="ui icon small button" onclick="backDir();"><i class="arrow left icon"></i></button>
+            <button title="Parent" class="ui icon small button" onclick="parentDir();"><i class="arrow up icon"></i></button>
+            <button title="Refresh" class="ui icon small button" onclick="refresh();"><i class="refresh icon"></i></button>
+            <button title="New Folder" class="ui icon small button" onclick="newFolder();"><i class="folder icon"></i></button>
+            <div  class="ui action fluid tiny input" style="width: calc(100% - 180px); float: right;">
                 <input id="addressbar" type="text" placeholder="" onchange="updatePath();">
-                <button class="ts positive icon button" onclick="confirmSelection();"><i class="checkmark icon"></i></button>
+                <button class="ui positive icon button" onclick="confirmSelection();"><i class="checkmark icon"></i></button>
             </div>
             
             <div id="newfilenameInput" style="width:100%; margin-top:12px;" align="right">
-                <div  class="ts fluid tiny input" style="width: calc(100% - 180px); float: right;">
+                <div class="ui fluid tiny input" style="width: calc(100% - 180px); float: right;">
                     <input id="filename" type="text" placeholder="New Filename">
                 </div>
             </div>
 
             <div id="newFolderInput" style="width:100%; margin-top:4px; display:none;" align="right">
-                <div  class="ts fluid action tiny input" style="width: calc(100% - 180px); float: right;">
+                <div class="ui fluid action tiny input" style="width: calc(100% - 180px); float: right;">
                     <input id="foldername" type="text" placeholder="New Folder" value="">
-                    <button class="ts icon button" onclick="createFolder()" title="Create Folder"><i class="add icon"></i></button>
+                    <button class="ui icon button" onclick="createFolder()" title="Create Folder"><i class="add icon"></i></button>
                 </div>
             </div>
         </div>
-        <div id="sidebar" class="ts left static visible overlapped sidebar" style="background-color:#f5f5f5 !important;z-index:90 !important; width:200px;">
-            <div id="sidebarPadder" style="height:46px;"></div>
-            <details class="ts accordion" open>
-                <summary>
-                    <i class="dropdown icon"></i> <span locale="roots/user">User</span>
-                </summary>
-                <div class="content" >
-                    <div class="ts list" id="userlist">
+        <div class="fileSelectorContainer">
+            <!-- Sidebar -->
+            <div id="sidebar" style="padding-left: 0.6em;">
+                <div class="contents">
+                    <div class="ui accordion">
+                        <div class="title active">
+                            <i class="dropdown icon"></i> 
+                            <span locale="roots/user">User</span>
+                        </div>
+                        <div class="active content" style="padding-left: 1em; padding-bottom: 0.5em;">
+                            <div class="ui list" id="userlist"></div>
+                        </div>
+                    </div >
+                    <div class="ui accordion">
+                        <div class="title active">
+                            <i class="dropdown icon"></i>
+                            <span locale="roots/storage">Storage</span>
+                        </div>
+                        <div class="active content">
+                            <div id="storagelist" class="ui list" style="padding-left: 1em; padding-bottom: 0.5em;" >
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </details>
-            <details class="ts accordion" open>
-                <summary>
-                    <i class="dropdown icon"></i> <span locale="roots/storage">Storage</span>
-                </summary>
-                <div class="content">
-                    <div class="ts list" id="storagelist">
-                    </div>
-                </div>
-            </details>
-        </div>
+            </div>
 
-        <div class="pusher">
-            <br>
-            <div class="fileListWrapper" style="min-height:300px; width:100%;">
-                <div id="folderList" class="ts segmented basic fluid list whiteTheme">
+            <!-- Folder List -->
+            <div id="fileListWrapper" class="fileListWrapper">
+                <div id="folderList" class="ui relaxed divided fluid list bordered whiteTheme">
                     <div class="fileObject">
                         <span class="fileInfo"><i class="loading spinner icon" style="margin-right:12px;"></i>  <span locale="message/loading">Loading</span></span>
                     </div>
                 </div>
-                <div id="fileList" class="ts segmented fluid list whiteTheme">
+                <div id="fileList" class="ui relaxed divided list bordered whiteTheme">
                   
                 </div>
-                
+                <div id="nofilesCheckmark" style="width: 100%; margin-top: calc(150px - 2em); text-align:center; opacity: 0.6; display:none; pointer-events: none; user-select: none;">
+                     <p><i class="grey folder open icon"></i> <span locale="message/nofile">No file</span></p>
+                </div>
             </div>
-            <br><br>
         </div>
-        <div id="waitloader" class="ts active dimmer" style="display:none; z-index:999;">
-            <div id="waitloadertext" class="ts indeterminate text loader" locale="message/waitingResp">Waiting Response</div>
+    
+        <div id="waitloader" class="ui active dimmer" style="display:none; z-index:999;">
+            <div id="waitloadertext" class="ui indeterminate text loader" locale="message/waitingResp">Waiting Response</div>
         </div>
         <script>
             var multiSelect = false;
@@ -146,6 +191,8 @@
             var lastClickedItemID = 0;
             var listenerUUID = "";
             var fileOptions = {};
+
+            $('.ui.accordion').accordion();
 
             if (applocale){
                 //Applocale found. Do localization
@@ -182,8 +229,7 @@
                 //Load options and parse the UI
                 if (type == "new"){
                     //Resize the top bar
-                    $("#sidebarPadder").css("height", "90px");
-                    $(".fileListWrapper").css("padding-top", "50px");
+                    updateUIElements();
                     if (typeof(fileOptions.defaultName) != "undefined"){
                         $("#filename").val(fileOptions.defaultName);
                     }else{
@@ -256,7 +302,6 @@
                     var selectedFilesInJSON = JSON.stringify(files);
                     localStorage.setItem(listenerUUID, selectedFilesInJSON);
                     $("#waitloader").show();
-                    $(".pusher").css("overflow","hidden");
                     setTimeout(function(){
                         $("#waitloadertext").html("<i class='remove icon'></i> System is not responding. <br>Please close this window and retry.");
                     },10000)
@@ -298,18 +343,17 @@
                 }
 
                 $("#newFolderInput").toggle();
-                if($("#newFolderInput").is(":visible")){
-                    $("#sidebarPadder").css("height", 90 + newFileOffset + "px");
-                }else{
-                    $("#sidebarPadder").css("height", 46 + newFileOffset + "px");
-                }
+                updateUIElements();
+            }
+
+            function updateUIElements(){
                 updateFileListTopLocation();
+                updateSidebarTopLocation();
             }
 
             function hideFolderNameInput(){
                 $("#newFolderInput").hide();
-                $("#sidebarPadder").css("height", "46px");
-                $(".fileListWrapper").css("padding-top", "0px");
+                updateUIElements();
             }
 
             function createFolder(){
@@ -377,6 +421,10 @@
                 currentDir = dir;
                 pathHistory.push(currentDir);
                 $("#addressbar").val(currentDir);
+                $("#nofilesCheckmark").hide();
+                $("#folderList").html(`<div class="ui fluid" style="text-align: center; padding: 1.2em;"><i class="ui loading spinner icon"></i></div>`);
+                $("#folderList").show();
+                $("#fileList").hide();
                 ao_module_setWindowTitle(`Open`);
                 $.get("../../system/file_system/listDir?dir=" + encodeURIComponent(dir),function(data){
                     $("#folderList").html("");
@@ -384,6 +432,7 @@
                     if (data === null){
                         $("#folderList").hide();
                         $("#fileList").hide();
+                        $("#nofilesCheckmark").show();
                         return;
                     }else{
                         $("#folderList").show();
@@ -424,7 +473,7 @@
                             var icon = ao_module_utils.getIconFromExt(ext);
                             var isDir = folders[i].IsDir;
                             if (isDir == true){
-                                icon = "folder";
+                                icon = "yellow folder";
                             }
                             var fileSize = folders[i].Displaysize;
                             $("#folderList").append(`<div class="fileObject item" fid="${count}" ondblclick="openFolder(event,this);" onclick="selectThis(this,event);" filepath="${encodeURIComponent(filepath)}" filename="${encodeURIComponent(filename)}" isDir="${isDir}">
@@ -455,7 +504,12 @@
                             $("#fileList").hide();
                         }
 
-                        $('.pusher').scrollTop(0);
+                        if (folders.length == 0 && files.length == 0){
+                            //There is nothing in this dir
+                            $("#nofilesCheckmark").show();
+                        }else{
+                            $("#nofilesCheckmark").hide();
+                        }
                     }
                 });
             }
@@ -561,11 +615,9 @@
             function updateWindowResize(){
                 if (window.innerWidth < 560){
                     //Mobile mode
-                    $("#sidebar").attr("class", "ts left overlapped sidebar");
-                    $(".pusher").css("margin-left", "0px").css("width","100%");
-                    $("#sidebar").css("margin-top", "30px");
                     $("#sidebarToggleBtn").show();
-
+                    $("#sidebar").hide();
+                    $("#fileListWrapper").css("width","100%");
                     $("#addressbar").parent().css({
                         "width": "100%",
                         "margin-top": "4px"
@@ -580,12 +632,10 @@
                         "width": "100%",
                         "margin-top": "4px"
                     });
-
-
                 }else{
-                    $("#sidebar").attr("class", "ts left static visible overlapped sidebar");
-                    $(".pusher").css("margin-left", "200px").css("width","calc(100% - 200px)");
                     $("#sidebarToggleBtn").hide();
+                    $("#sidebar").show();
+                    $("#fileListWrapper").css("width","calc(100% - 220px)");
                     $("#sidebar").css("margin-top", "0px");
 
                     $("#addressbar").parent().css({
@@ -604,11 +654,17 @@
                     });
                 }
 
+                //Always do
+                updateSidebarTopLocation();
                 updateFileListTopLocation();
             }
 
+            function updateSidebarTopLocation(){
+                $("#sidebar").css("top", $(".navi").height() + "px");
+            }
+
             function updateFileListTopLocation(){
-                $(".fileListWrapper").css("padding-top", $(".navi").height() - 38 + "px");
+                $(".fileListWrapper").css("margin-top", $(".navi").height() + 30  + "px");
             }
 
             function initAddressBarWidth(){
@@ -713,7 +769,7 @@
                 targetdir = decodeURIComponent(targetdir);
                 listDir(targetdir);
                 if (window.innerWidth < 560){
-                    ts('.sidebar').sidebar('hide');
+                    $("#sidebar").hide();
                 }
             }
 

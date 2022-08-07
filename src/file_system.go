@@ -413,8 +413,14 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Unescape the upload target path
+	unescapedPath, err := url.PathUnescape(uploadTarget)
+	if err != nil {
+		unescapedPath = uploadTarget
+	}
+
 	//Check if the user can write to this folder
-	if !userinfo.CanWrite(uploadTarget) {
+	if !userinfo.CanWrite(unescapedPath) {
 		//No permission
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 - Access Denied"))
@@ -422,7 +428,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Translate the upload target directory
-	realUploadPath, err := userinfo.VirtualPathToRealPath(uploadTarget)
+	realUploadPath, err := userinfo.VirtualPathToRealPath(unescapedPath)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Path translation failed"))
@@ -570,7 +576,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Try to decode the location if possible
-	decodedUploadLocation, err := url.QueryUnescape(targetUploadLocation)
+	decodedUploadLocation, err := url.PathUnescape(targetUploadLocation)
 	if err != nil {
 		decodedUploadLocation = targetUploadLocation
 	}

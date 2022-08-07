@@ -3,7 +3,24 @@
     <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>{{hostname}} File Share</title>
+    <title>{{filename}} - {{hostname}} File Share</title>
+    <meta name="description" content="Folder shared from  {{hostname}}">
+
+      <!-- Facebook Meta Tags -->
+      <meta property="og:url" content="{{requri}}">
+      <meta property="og:type" content="website">
+      <meta property="og:title" content="{{filename}}">
+      <meta property="og:description" content="File shared from {{hostname}}">
+      <meta property="og:image" content="{{opg_image}}">
+    
+      <!-- Twitter Meta Tags -->
+      <meta name="twitter:card" content="summary_large_image">
+      <meta property="twitter:domain" content="{{host}}">
+      <meta property="twitter:url" content="{{requri}}">
+      <meta name="twitter:title" content="{{filename}}">
+      <meta name="twitter:description" content="File shared from {{hostname}}">
+      <meta name="twitter:image" content="{{opg_image}}">
+      
     <link rel="stylesheet" href="../../script/skeleton/offline.css">
     <link rel="stylesheet" href="../../script/skeleton/normalize.css">
     <link rel="stylesheet" href="../../script/skeleton/skeleton.css">

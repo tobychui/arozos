@@ -10,8 +10,14 @@ package share
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/jpeg"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,11 +26,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/freetype"
+	"github.com/nfnt/resize"
 	"github.com/valyala/fasttemplate"
 
 	"imuslab.com/arozos/mod/auth"
 	"imuslab.com/arozos/mod/common"
 	filesystem "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/user"
 )
@@ -47,6 +56,163 @@ func NewShareManager(options Options) *Manager {
 	return &Manager{
 		options: options,
 	}
+}
+
+func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, shareID string) {
+	shareEntry := s.GetShareObjectFromUUID(shareID)
+	if shareEntry == nil {
+		//This share is not valid
+		http.NotFound(w, r)
+		return
+	}
+
+	//Overlap and generate opg
+	//Load in base template
+	baseTemplate, err := os.Open("./system/share/default_opg.png")
+	if err != nil {
+		fmt.Println("[share/opg] " + err.Error())
+		http.NotFound(w, r)
+		return
+	}
+
+	base, _, err := image.Decode(baseTemplate)
+	if err != nil {
+		fmt.Println("[share/opg] " + err.Error())
+		http.NotFound(w, r)
+		return
+	}
+
+	//Create base canvas
+	rx := image.Rectangle{image.Point{0, 0}, base.Bounds().Size()}
+	resultopg := image.NewRGBA(rx)
+	draw.Draw(resultopg, base.Bounds(), base, image.Point{0, 0}, draw.Src)
+
+	//Append filename to the image
+	fontBytes, err := ioutil.ReadFile("./system/share/fonts/TaipeiSansTCBeta-Light.ttf")
+	if err != nil {
+		fmt.Println("[share/opg] " + err.Error())
+		http.NotFound(w, r)
+		return
+	}
+
+	utf8Font, err := freetype.ParseFont(fontBytes)
+	if err != nil {
+		fmt.Println("[share/opg] " + err.Error())
+		http.NotFound(w, r)
+		return
+	}
+
+	fontSize := float64(42)
+	ctx := freetype.NewContext()
+	ctx.SetDPI(72)
+	ctx.SetFont(utf8Font)
+	ctx.SetFontSize(fontSize)
+	ctx.SetClip(resultopg.Bounds())
+	ctx.SetDst(resultopg)
+	ctx.SetSrc(image.NewUniform(color.RGBA{255, 255, 255, 255}))
+
+	//Check if we need to split the filename into two lines
+	filename := filepath.Base(shareEntry.FileRealPath)
+	filenameOnly := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	fs := filesystem.GetFileSize(shareEntry.FileRealPath)
+	shareMeta := filepath.Ext(shareEntry.FileRealPath) + " / " + filesystem.GetFileDisplaySize(fs, 2)
+	if isDir(shareEntry.FileRealPath) {
+		fs, fc := filesystem.GetDirctorySize(shareEntry.FileRealPath, false)
+		shareMeta = strconv.Itoa(fc) + " items / " + filesystem.GetFileDisplaySize(fs, 2)
+	}
+
+	if len([]rune(filename)) > 20 {
+		//Split into lines
+		lines := []string{}
+		for i := 0; i < len([]rune(filenameOnly)); i += 20 {
+			endPos := int(math.Min(float64(len([]rune(filenameOnly))), float64(i+20)))
+			lines = append(lines, string([]rune(filenameOnly)[i:endPos]))
+		}
+
+		for j, line := range lines {
+			pt := freetype.Pt(100, (j+1)*60+int(ctx.PointToFixed(fontSize)>>6))
+			_, err = ctx.DrawString(line, pt)
+			if err != nil {
+				fmt.Println("[share/opg] " + err.Error())
+				return
+			}
+		}
+
+		fontSize = 36
+		ctx.SetFontSize(fontSize)
+		pt := freetype.Pt(100, (len(lines)+1)*60+int(ctx.PointToFixed(fontSize)>>6))
+		_, err = ctx.DrawString(shareMeta, pt)
+		if err != nil {
+			fmt.Println("[share/opg] " + err.Error())
+			http.NotFound(w, r)
+			return
+		}
+
+	} else {
+		//One liner
+		pt := freetype.Pt(100, 60+int(ctx.PointToFixed(fontSize)>>6))
+		_, err = ctx.DrawString(filenameOnly, pt)
+		if err != nil {
+			fmt.Println("[share/opg] " + err.Error())
+			http.NotFound(w, r)
+			return
+		}
+
+		fontSize = 36
+		ctx.SetFontSize(fontSize)
+		pt = freetype.Pt(100, 120+int(ctx.PointToFixed(fontSize)>>6))
+		_, err = ctx.DrawString(shareMeta, pt)
+		if err != nil {
+			fmt.Println("[share/opg] " + err.Error())
+			http.NotFound(w, r)
+			return
+		}
+	}
+
+	//Get thumbnail
+	cacheFileImagePath, err := metadata.GetCacheFilePath(shareEntry.FileRealPath)
+	if err == nil {
+		//We got a thumbnail for this file. Render it as well
+		thumbnailFile, err := os.Open(cacheFileImagePath)
+		if err != nil {
+			fmt.Println("[share/opg] " + err.Error())
+			http.NotFound(w, r)
+			return
+		}
+
+		thumb, _, err := image.Decode(thumbnailFile)
+		if err != nil {
+			fmt.Println("[share/opg] " + err.Error())
+			http.NotFound(w, r)
+			return
+		}
+
+		resizedThumb := resize.Resize(250, 0, thumb, resize.Lanczos3)
+		draw.Draw(resultopg, resultopg.Bounds(), resizedThumb, image.Point{-(resultopg.Bounds().Dx() - resizedThumb.Bounds().Dx() - 90), -60}, draw.Over)
+	} else if isDir(shareEntry.FileRealPath) {
+		//Is directory but no thumbnail. Use default foldr share thumbnail
+		thumbnailFile, err := os.Open("./system/share/folder.png")
+		if err != nil {
+			fmt.Println("[share/opg] " + err.Error())
+			http.NotFound(w, r)
+			return
+		}
+
+		thumb, _, err := image.Decode(thumbnailFile)
+		if err != nil {
+			fmt.Println("[share/opg] " + err.Error())
+			http.NotFound(w, r)
+			return
+		}
+
+		resizedThumb := resize.Resize(250, 0, thumb, resize.Lanczos3)
+		draw.Draw(resultopg, resultopg.Bounds(), resizedThumb, image.Point{-(resultopg.Bounds().Dx() - resizedThumb.Bounds().Dx() - 90), -60}, draw.Over)
+	}
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	jpeg.Encode(w, resultopg, nil)
+
 }
 
 //Main function for handle share. Must be called with http.HandleFunc (No auth)
@@ -98,6 +264,13 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			} else if len(subpathElements) >= 4 {
+				if subpathElements[1] == "opg" {
+					//Handle serving opg preview image, usually with
+					// /share/opg/{req.timestamp}/{uuid}
+					s.HandleOPGServing(w, r, subpathElements[3])
+					return
+				}
+
 				//Invalid operation type
 				w.WriteHeader(http.StatusBadRequest)
 				w.Header().Set("Content-Type", "text/plain") // this
@@ -145,6 +318,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			redirectURL = "./download/" + id + "/"
 		}
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+		return
 	}
 
 	//Check if id exists
@@ -405,6 +579,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				t := fasttemplate.New(string(content), "{{", "}}")
 				s := t.ExecuteString(map[string]interface{}{
 					"hostname":     s.options.HostName,
+					"host":         r.Host,
 					"reqid":        id,
 					"mime":         "application/x-directory",
 					"size":         filesystem.GetFileDisplaySize(fsize, 2),
@@ -413,6 +588,8 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"downloadurl":  "../../share/download/" + id,
 					"filename":     filepath.Base(shareOption.FileRealPath),
 					"reqtime":      strconv.Itoa(int(time.Now().Unix())),
+					"requri":       "//" + r.Host + r.URL.Path,
+					"opg_image":    "/share/opg/" + strconv.Itoa(int(time.Now().Unix())) + "/" + id,
 					"treelist":     tl,
 					"downloaduuid": id,
 				})
@@ -486,7 +663,9 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				t := fasttemplate.New(string(content), "{{", "}}")
 				s := t.ExecuteString(map[string]interface{}{
 					"hostname":    s.options.HostName,
+					"host":        r.Host,
 					"reqid":       id,
+					"requri":      "//" + r.Host + r.URL.Path,
 					"mime":        mime,
 					"ext":         displayExt,
 					"size":        filesystem.GetFileDisplaySize(fsize, 2),
@@ -494,6 +673,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"downloadurl": "../../share/download/" + id + "/" + filepath.Base(shareOption.FileRealPath),
 					"preview_url": "/share/preview/" + id + "/",
 					"filename":    filepath.Base(shareOption.FileRealPath),
+					"opg_image":   "/share/opg/" + strconv.Itoa(int(time.Now().Unix())) + "/" + id,
 					"reqtime":     strconv.Itoa(int(time.Now().Unix())),
 				})
 
@@ -504,12 +684,6 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 		//This share not exists
-		if err != nil {
-			//Template not found. Just send a 404 Not Found
-			http.NotFound(w, r)
-			return
-		}
-
 		if directDownload {
 			//Send 404 header
 			http.NotFound(w, r)

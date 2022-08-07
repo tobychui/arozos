@@ -1178,6 +1178,7 @@
             let lowMemoryMode = true;   //Upload with low memory mode channel
             let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
             let uploadFileChunkSize = 1024 * 512; //512KB, 4MB not working quite well on slow network
+            let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
 
             //File Sharing related
             let shareEditingObject = ""; 
@@ -3196,7 +3197,7 @@
                 var fileList = [];
                 if ($(".fileObject.selected").length == 1 && $(".fileObject.selected").attr("type") == "file"){
                     //One file. Download directly.
-                    var downloadURL = "../../media?file=" + encodeURIComponent($(".fileObject.selected").attr("filepath")) + "&download=true";
+                    var downloadURL = "../../media/download?file=" + encodeURIComponent($(".fileObject.selected").attr("filepath"));
                     var filename = $(".fileObject.selected").attr("filename");
                     generateDownloadFromURL(downloadURL,escape(filename));
                 }else if ($(".fileObject.selected").length > 1 || ($(".fileObject.selected").length == 1 && $(".fileObject.selected").attr("type") == "folder")){
@@ -3237,7 +3238,7 @@
                                 targetTaskDisplayObject.find(".progress").removeClass("preparing").removeClass("primary").addClass("positive");
 
                                 //Open the zip file
-                                window.open("../../media?file=" + data + "&download=true");
+                                window.open("../../media/download?file=" + data);
                             }
 
                            
@@ -4656,7 +4657,7 @@
         let uploadBufferedRefreshTimer;
        
         function uploadFile(file, uuid=undefined, targetDir=undefined) {
-            if (file.size > 4194304 && lowMemoryMode){
+            if (file.size > postUploadModeCutoff && lowMemoryMode){
                  /*
                     Low Memory Upload Mode
                 */
@@ -4775,6 +4776,12 @@
                 //Update all UI elements
                 updateUploadFileCount();
                 uploadingFileCount++;
+                $(".uploadTask").each(function(){
+                    if ($(this).attr("taskID") == taskUUID){
+                        //This is the target upload task object. Hide its close button
+                        $(this).find(".uploadTaskRemoveIcon").hide();
+                    }
+                });
 
                 //Start sending
                 socket.onopen = function(e) {
@@ -4879,7 +4886,6 @@
             }else{
                 /*
                     Standard Upload Mode
-                    (For host with RAM >= 2GB)
                 */
 
                 //Create the task progress Object
@@ -4921,6 +4927,14 @@
                 let xhr = new XMLHttpRequest()
                 formData.append('file', file);
                 formData.append('path', uploadCurrentPath);
+
+                //Hide the cancel upload task button
+                $(".uploadTask").each(function(){
+                    if ($(this).attr("taskID") == taskUUID){
+                        //This is the target upload task object. Hide its close button
+                        $(this).find(".uploadTaskRemoveIcon").hide();
+                    }
+                });
 
                 xhr.open('POST', url, true)
                 xhr.upload.addEventListener("progress", function(e) {
@@ -5215,14 +5229,28 @@
                 <div class="ts tiny primary progress" style="margin-top:-12px;">
                     <div class="bar" style="width: 0%"></div>
                 </div>
-                <div class="uploadTaskRemoveIcon" onclick="removeThisTask(this);" style="display:none;">
+                <div class="uploadTaskRemoveIcon" onclick="removeThisTask(this, '${newuuid}');" style="">
                     <i class="remove icon"></i>
                 </div>
             </div>`);
             return newuuid;
         }
 
-        function removeThisTask(object){
+        function removeThisTask(object, taskUUID){
+            //Remove item from uploadPendingList
+            let removeId = -1;
+            for (var i = 0; i < uploadPendingList.length; i++){
+                if (uploadPendingList[i].UUID == taskUUID){
+                    removeId = i;
+                    break;
+                }
+            }
+
+            if (removeId >= 0){
+                uploadPendingList.splice(removeId, 1);
+            }
+
+            //Remove the DOM Element
             $(object).parent().fadeOut('fast',
                 function(){
                     $(this).remove();

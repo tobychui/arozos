@@ -1,5 +1,5 @@
-//go:build mipsle
-// +build mipsle
+//go:build mipsle || riscv64
+// +build mipsle riscv64
 
 package database
 

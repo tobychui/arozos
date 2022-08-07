@@ -117,6 +117,8 @@ func (h *Handler) Icon(device *iot.Device) string {
 		return "switch"
 	} else if devModel == "Test Unit" {
 		return "test"
+	} else if devModel == "Display" {
+		return "display"
 	} else {
 		return "unknown"
 	}

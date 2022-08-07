@@ -62,6 +62,43 @@
                 </div>
             </div>
         </div>
+        <div id="deadlineTodayBanner" class="hero is-danger">
+            <div class="hero-body">
+                <p class="title">
+                Deadline Today!
+                </p>
+                <p class="subtitle">
+                Deadline within 24 hours!!!
+                </p>
+            </div>
+        </div>
+        <div id="deadlineTodayList">
+
+        </div>
+
+        <div id="deadlineSoonBanner" class="hero is-warning">
+            <div class="hero-body">
+                <p class="title">
+                Deadline Soon
+                </p>
+                <p class="subtitle">
+                Deadline this week
+                </p>
+            </div>
+        </div>
+        <div id="deadlineSoonList">
+
+        </div>
+        <div class="hero is-medium is-link">
+            <div class="hero-body">
+                <p class="title">
+                Other Memos
+                </p>
+                <p class="subtitle">
+                Non urgent items
+                </p>
+            </div>
+        </div>
         <div id="memolist">
 
         </div>
@@ -96,8 +133,14 @@
                 return new Date(parseInt(key)).toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'})
             }
             
+            function uuidv4() {
+                return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+                );
+            }
+
             function listAllMemo(){
-                $("#memolist").html("");
+                $(".memeobject").remove();
                 memoBuf = {};
                 ao_module_agirun("Memo/backend/listmemo.js", {}, function(data){
                     let memos = [];
@@ -108,6 +151,8 @@
                         memos.push([key, content]);
                     }
 
+                    let deadlineTodayItemCount = 0;
+                    let deadlineSoonItemCount = 0;
                     memos.reverse();
                     memos.forEach(function(memo){
                         let key = memo[0];
@@ -116,7 +161,35 @@
                         if (content.deadline == 0){
                             deadline = "No Deadline";
                         }
-                        $("#memolist").append(`<div class="card">
+                        let fullContent = content.message;
+                        let displayContent = ``;
+                        let thisUUID = uuidv4();
+                        if (fullContent.length > 800){
+                            let abstract = fullContent.substr(0, 600);
+                            let remaining = fullContent.substr(600);
+                            displayContent = abstract + `<span id="${thisUUID}" style="display:none;">${remaining}</span><br><a onclick="handleReadMore('${thisUUID}', this);">Read More</a>`;
+                        }else{
+                            displayContent = fullContent;
+                        }
+
+                        let appendTarget = $("#memolist");
+                        if (content.deadline > 0){
+                            let timeBeforeDeadline = (content.deadline - (Math.floor(Date.now() / 1000)));
+                            if (timeBeforeDeadline / 3600 < 24){
+                                //Deadline today
+                                appendTarget = $("#deadlineTodayList");
+                                deadlineTodayItemCount++;
+                            }else if (timeBeforeDeadline / 3600 < (24 * 7)){
+                                //Deadline this week
+                                appendTarget = $("#deadlineSoonList");
+                                deadlineSoonItemCount++;
+                            }else{
+
+                            }
+                        }
+                        
+                        appendTarget.append(`<div class="card memeobject">
+                            <br>
                             <div class="card-content">
                                 <div class="media">
                                 <div class="media-left">
@@ -129,9 +202,8 @@
                                     <p class="subtitle is-6">${deadline}</p>
                                 </div>
                                 </div>
-
                                 <div class="content">
-                                ${content.message}
+                                    ${displayContent}
                                 <br>
                                 <time>Creation Date: ${timestampToDateString(key)}</time>
                                 </div>
@@ -141,8 +213,20 @@
                                 <a href="#" class="card-footer-item" memo="${key}" onclick="editMemo(this);">Edit</a>
                                 <a href="#" class="card-footer-item" memo="${key}" onclick="removeMemoByButton(this);">Delete</a>
                             </footer>
-                            </div><br>`);
+                            </div>`);
                     });
+
+                    if (deadlineTodayItemCount == 0){
+                        $("#deadlineTodayBanner").hide();
+                    }else{
+                        $("#deadlineTodayBanner").show();
+                    }
+
+                    if (deadlineSoonItemCount == 0){
+                        $("#deadlineSoonBanner").hide();
+                    }else{
+                        $("#deadlineSoonBanner").show();
+                    }
                 })
             }
 
@@ -163,6 +247,11 @@
                     $("#deadline").val(new Date(content.deadline * 1000).toLocaleDateString('en-US', {year: 'numeric', month: '2-digit', day: '2-digit'}));
                 }
                 deadline = content.deadline;
+            }
+
+            function handleReadMore(targetSpanID, btn){
+                $("#" + targetSpanID).show();
+                $(btn).hide();
             }
 
             function moveToTop(btn){

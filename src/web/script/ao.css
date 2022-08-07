@@ -191,3 +191,7 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
 .floatWindow .iframewrapper.heighHover{
     cursor:s-resize;
 }
+
+.fwdragger.resizbleCursor{
+    cursor:s-resize;
+}

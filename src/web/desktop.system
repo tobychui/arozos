@@ -4,11 +4,12 @@
     <title>ArozOS Desktop</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./script/tocas/tocas.css">
+    <link rel="stylesheet" href="./script/semantic/semantic.min.css">
     <link id="fwcss" rel="stylesheet" href="./script/ao.css">
+    <link rel="stylesheet" href="./script/contextmenu.css">
     <link rel="stylesheet" href="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.css">
-    <script type="text/javascript" src="./script/tocas/tocas.js"></script>
     <script type="text/javascript" src="./script/jquery.min.js"></script>
+    <script type="text/javascript" src="./script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="./script/ao_module.js"></script>
     <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <script type="text/javascript" src="./script/applocale.js"></script>
@@ -23,6 +24,30 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
+            line-height: 1.4385em;
+        }
+
+        body:not(.darkTheme){
+            color: #5a5a5a;
+        }
+
+        body.darkTheme{
+            color: #f0f0f0;
+        }
+
+        * {
+            position: relative;
+            font-family: "SF Pro TC","SF Pro Text","SF Pro Icons","PingFang TC","Helvetica Neue","Helvetica","Arial","Microsoft JhengHei",wf_SegoeUI,"Segoe UI",Segoe,"Segoe WP",Tahoma,Verdana,Ubuntu,"Bitstream Vera Sans","DejaVu Sans",Tahoma,微軟正黑體,"LiHei Pro","WenQuanYi Micro Hei","Droid Sans Fallback","AR PL UMing TW",Roboto,"Helvetica Neue","Hiragino Maru Gothic ProN",メイリオ,"ヒラギノ丸ゴ ProN W4",Meiryo,"Droid Sans",sans-serif;
+            box-sizing: border-box;
+            letter-spacing: -.02em;
+        }
+
+        .ui.button{
+            background-color: #eeeeee;
+        }
+
+        .ui.progress{
+            background-color: #eeeeee;
         }
         
         .backgroundFrame {
@@ -93,9 +118,12 @@
         }
         
         .launchIconWrapper {
-            height: 100%;
-            width: 100%;
+            padding-bottom: 0.6em;
+            max-height: calc(100% - 4px);
+            width: calc(100% - 4px);
+            margin: 2px;
             border-radius: 3px;
+            position: absolute;
         }
         
         .launchIconWrapper.selected {
@@ -164,9 +192,10 @@
             display: none;
         }
 
-        #connectionLost .ts.card{
+        #connectionLost .ui.card{
             box-shadow: none;
             border: 0px solid transparent;
+            color: white;
         }
 
         /* Theme Color css settings */
@@ -288,7 +317,8 @@
             word-break: break-all;
             text-overflow: ellipsis;
             white-space: nowrap;
-            width: calc(100% - 4px);
+            width: calc(100% - 2em);
+            display: inline-block;
         }
         
         #stackedWindowList .item.clickable:hover {
@@ -331,6 +361,14 @@
             border-bottom: 2px solid #34b7eb;
         }
 
+        i.darkTheme{
+            color: white;
+        }
+
+        #listMenu #searchBar.darkTheme::selection{
+            background: white;
+        }
+
         #listMenu.darkTheme .searchBar input{
             background-color: #17161f !important;
             color: white !important;
@@ -339,12 +377,17 @@
         
         #listMenu .listItemWrapper {
             overflow: hidden;
+            height: 462px;
         }
         
+        .listItemWrapper .groups{
+            position: relative;
+        }
+
         #listMenu .listItemWrapper .groups {
             background-color: #f5f5f5;
             width: 120px;
-            height: 457px;
+            height: 100%;
             display: inline-block;
             overflow-y: auto;
             padding-top: 8px;
@@ -375,7 +418,7 @@
         }
         
         #listMenu .listItemWrapper .items {
-            height: 457px;
+            height: 100%;
             width: calc(100% - 120px - 5px);
             display: inline-block;
             overflow-y: auto;
@@ -455,8 +498,17 @@
         .renameInput {
             background-color: white;
             border: 1px solid black;
-            width: 100%;
+            width: calc(100% - 4px);
+            margin-left: 4px;
             position: absolute;
+            resize: none;
+
+            outline: none;
+            border: 1px solid #0c0c0f;
+            -webkit-box-shadow: none;
+            -moz-box-shadow: none;
+            box-shadow: none;
+
         }
         
         .renameInput.big {
@@ -483,25 +535,30 @@
         }
 
         #statusbar{
-            position:absolute;
             z-index:0;
             width:100%;
             height:28px;
+            position: absolute;
             background-color: rgba(0,0,0,0.9);
             color:white;
             backdrop-filter: blur(4px);
             text-align:center;
-            display: table;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .clock{
+            text-align: center;
+            cursor:pointer; 
+            user-select: none;
         }
 
         .statusbarpadding{
-            padding:4px;
+            padding-top: 0.2em;
         }
 
         .hostname{
-            display: table-cell; 
             text-align:left; 
-            width:100px; 
             pointer-events:none;
             padding-left:18px;
             white-space: nowrap;
@@ -509,10 +566,13 @@
         }
 
         .quicktools{
-            display: table-cell; 
-            text-align:right; 
-            width:45px;
-            
+            padding-left: 0.7em;
+            text-align:center; 
+            height: 100%;
+        }
+
+        .quicktools:hover{
+            background-color: rgba(240,240,240,0.2);
         }
 
         .qtwrapper{
@@ -521,20 +581,17 @@
             cursor:pointer;
         }
 
-        .qtwrapper:hover{
-            background-color: rgba(240,240,240,0.2);
-            
-        }
-
         .notificationbar{
-            position: absolute;
+            position: fixed;
             top:28px;
+            left: 0;
             width:100%;
             height: calc(100% - 28px);
             z-index:1114;
         }
 
         .notificationbar .content{
+            position: relative;
             background-color:white;
             margin-top:6px;
             margin-left: auto;
@@ -542,19 +599,31 @@
             width:30%;
             min-width:650px;
             height:400px;
-            z-index:1115;
             padding: 3px;
             border-radius: 5px;
+            pointer-events: auto;
+        }
+
+        .notificationbar #notificationlist{
+            position: relative;
+            width: calc(100% - 302px); 
+            padding:8px; 
+            margin-top:5px; 
+            padding-top:22px; 
+            overflow-y:auto; 
+            overflow-x:hidden; 
+            height: calc(100% - 12px);
         }
 
         .notificationbar .cover{
             backdrop-filter: blur(2px);
             -webkit-backdrop-filter: blur(2px);
-            position:absolute;
-            top:0px;
-            left:0px;
+            position:fixed;
+            top:28px;
+            left:0;
             width:100%;
             height: calc(100%);
+            pointer-events: auto;
         }
 
         @supports not (backdrop-filter: blur(2px)) {
@@ -613,6 +682,7 @@
         }
 
         .notification.object{
+            position: relative;
             padding-left:7px;
             border-left: 3px solid transparent;
             cursor:pointer;
@@ -646,10 +716,19 @@
         #quickAccessPanel .item{
             padding-left:12px;
             padding-right:12px;
-            padding-top:6px;
-            padding-bottom:2px;
+            padding-top:4px;
+            padding-bottom:4px;
             cursor:pointer;
             border-left: 3px solid transparent;
+            
+        }
+
+        #quickAccessPanel:not(.darkTheme) .item{
+            color: #5a5a5a;
+        }
+
+        #quickAccessPanel.darkTheme .item{
+            color: #eeeeee;
         }
 
         #quickAccessPanel .item:hover{
@@ -726,6 +805,16 @@
             opacity: 0.5;
         }
 
+        .stackedWindowButton{
+            text-overflow: ellipsis !important;
+            white-space: nowrap;
+            word-break: break-all;
+        }
+
+        .iframewrapper iframe{
+            border: 0px;
+        }
+
          /* Offline blinking warning css */
          @-moz-keyframes blink {
                 0% {
@@ -797,6 +886,9 @@
                 padding:2px;
                 word-wrap: break-word;
             }
+    
+
+            
 
 
 
@@ -836,41 +928,41 @@
         align="center" draggable="false">
     </div>
     <!-- Top Status Bar -->
-    <div id="statusbar" align="center">
+    <div id="statusbar">
         <div class="hostname statusbarpadding">
             Welcome
         </div>
-        <div class="clock statusbarpadding" style="display: table-cell; cursor:pointer; user-select: none;" onclick="toggleNotification();" ontouchstart="toggleNotification();">
+        <div class="clock statusbarpadding" onclick="toggleNotification();" ontouchstart="toggleNotification();">
             ArozOS Desktop
         </div>
-        <div class="quicktools" onclick="showToolPanel();" ontouchend="showToolPanel();">
+        <div class="quicktools statusbarpadding" onclick="showToolPanel();" ontouchend="showToolPanel();">
             <div class="qtwrapper">
                 <i class="content icon"></i>
             </div>
         </div>
     </div>
     <!-- Calendar and Notification -->
-    <div class="notificationbar" style="display:none;">
+    <div class="notificationbar" style="display:none;">        
+        <div class="cover" onclick='toggleNotification("hide");' ontouchstart='toggleNotification("hide");'></div>
         <div class="content">
-            <div id="notificationlist" style="width: calc(100% - 302px); padding:8px; margin-top:5px; padding-top:22px; overflow-y:auto; overflow-x:hidden; height: calc(100% - 12px);">
+            <div id="notificationlist">
                 <div class="nonotification">
-                    <h4 class="ts center aligned icon header">
+                    <h4 class="ui center aligned icon header">
                         <i class="bell icon"></i><span locale="notification/nonotification">No Notification</span>
                     </h4>
                 </div>
                 <a class="clearall" onclick="clearAllNotification();" locale="notification/clear">Clear All</a>
             </div>
             <div style="position:absolute; right:3px; top:3px; padding-top:8px;">
-                <div class="ts header" style="padding-left:22px;">
+                <div class="ui header" style="padding-left:22px;">
                     <div id="dayofweek" class="sub header"></div>
                     <span id="largedate" style="font-size:120%;"></span>
                 </div>
                 <div class="auto-jsCalendar blue"></div>
             </div>
         </div>
-        <div class="cover" onclick='toggleNotification("hide");' ontouchstart='toggleNotification("hide");'>
 
-        </div>
+       
     </div>
     <!-- Desktop icons-->
     <div id="iconwrapper">
@@ -901,12 +993,12 @@
     <!-- List menu -->
     <div id="listMenu" class="" style="display:none;">
         <div class="searchBar" onkeydown="searchModule(event);">
-            <div class="ts icon fluid input" style="border-radius: 0px !important;">
-                <input id="searchBar" type="text" placeholder="Search">
+            <div class="ui icon fluid input" style="border-radius: 0px !important;">
+                <input id="searchBar" type="text" placeholder="Search" style="border-radius: 0px !important; border: 0px solid transparent;">
                 <i class="search icon"></i>
             </div>
         </div>
-        <dib class="listItemWrapper">
+        <div class="listItemWrapper">
             <div class="groups">
                 <div locale="listmenu/catergory/searchResults" id="searchResults" class="item" style="display:none;">Search Results</div>
                 <div locale="listmenu/catergory/all" class="item groupType selected" group="All">All</div>
@@ -926,50 +1018,48 @@
             <div id="listMenuItem" class="items">
 
             </div>
-        </dib>
+        </div>
 
     </div>
 
-    <div id="contextmenu" class="ts tiny contextmenu visible" style="display:none;">
+    <div id="contextmenu" class="aroz contextmenu" style="display:none;">
 
     </div>
 
-    <div id="subcontextmenu" class="ts tiny contextmenu visible" style="display:none;">
+    <div id="subcontextmenu" class="aroz contextmenu" style="display:none;">
 
     </div>
 
     <!-- Disconnected. Reconnecting interface -->
     <div id="connectionLost">
-        <div class="ts inverted card themeColor" style="width: 300px; background-color: rgba(14,14,14,0.5);">
+        <div class="ui inverted card themeColor" style="width: 300px; background-color: rgba(14,14,14,0.5);">
             <div class="content">
-                <div class="header"><img class="ts mini image blink-image" style="vertical-align:bottom; padding-right: 0.5em;" src="SystemAO/desktop/icons/connlost.svg"><span locale="error/connlost/title">Connection Lost</span></div>
-                <div class="description" locale="error/connlost">
+                <div class="header"><img class="ui mini image blink-image" style="vertical-align:bottom; padding-right: 0.5em;" src="SystemAO/desktop/icons/connlost.svg"><span locale="error/connlost/title" style="color: white;">Connection Lost</span></div>
+                <div class="description" locale="error/connlost" style="color: white;">
                     Connection to server is lost. Please wait until this warning disappear before further operations.
                 </div>
             </div>
-            <div class="ts fluid bottom attached buttons">
-                <button locale="error/connlost/recheck" class="ts opinion button" onclick="handleManualCheckReconnect(this);">Check Again</button>
-                <button locale="error/connlost/wait" class="ts secondary opinion button">Wait</button>
+            <div class="ui fluid bottom attached buttons">
+                <button locale="error/connlost/recheck" class="ui opinion button" style="background-color: rgba(14,14,14,0.2); color: white;" onclick="handleManualCheckReconnect(this);">Check Again</button>
+                <button locale="error/connlost/wait" class="ui secondary opinion button" style="background-color: rgba(14,14,14,0.5); color: white;">Wait</button>
             </div>
         </div>
-        
-        
     </div>
 
     <div id="quickAccessPanel" class="" style="display:none;">
-        <div class="ts small single line items">
+        <div class="ui small items" style="margin-bottom: 0;">
             <div class="item">
-                <div class="ts mini image">
+                <div class="ui mini image">
                     <img class="usericon" src="img/desktop/system_icon/user.svg">
                 </div>
-                <div class="content">
-                    <div id="username" class="header">User</div>
-                    <div class="meta">
+                <div class="content" style="padding-left: 1em;">
+                    <div id="username" class="header" style="font-weight: 500; font-size: 1.22em;">User</div>
+                    <div class="meta" style="margin-top: 0.15em;">
                         <div id="usergroups">@Users</div>
                     </div>
                 </div>
                 <div class="actions">
-                    <div class="ts button" onclick="logout(); hideToolPanel();">
+                    <div class="ui small button" onclick="logout(); hideToolPanel();">
                         <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
                     </div>
                 </div>
@@ -977,14 +1067,14 @@
         </div>
         <div class="item" style="padding-bottom:12px;">
             <i class="volume up icon"></i> <span locale="quickAccess/sysvol">System Global Volume</span>
-            <div class="ts fluid small progress" style="margin-top:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
-                <div id="volumebar" class="bar" style="width: 0%; background-color:#52C9FF;  cursor:pointer;"></div>
+            <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
+                <div id="volumebar" class="bar" style="width: 0%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
             </div>
         </div>
         <div class="item" style="padding-bottom:12px;">
             <i class="lightbulb icon"></i> <span locale="quickAccess/brightness">Brightness</span>
-            <div class="ts fluid small progress" style="margin-top:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
-                <div id="brightnessbar" class="bar" style="width: 100%; background-color:#52C9FF;  cursor:pointer;"></div>
+            <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
+                <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
             </div>
         </div>
         <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
@@ -992,9 +1082,9 @@
             <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
         </div>
         <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
-            <i class="maximize icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
+            <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
         </div>
-        <div class="ts divider"></div>
+        <div class="ui divider" style="margin: 0.4em;"></div>
         <div class="item hardware" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
             <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
         </div>
@@ -1041,7 +1131,7 @@
         const maxWindowCount = 100;
         var movingWindow = false;
         var resizingWindow = false;
-        var resizingEdgeID = 0; //Resizing edge. {0, 1, 2, 3, 4, 5} => None, Right, Right Bottom Corner, Bottom, Left Bottom Corner, Left 
+        var resizingEdgeID = 0; //Resizing edge. {0, 1, 2, 3, 4, 5, 6} => None, Right, Right Bottom Corner, Bottom, Left Bottom Corner, Left, TOp
         var stackedFloatWindowListShown = false;
 
         //Laucnh icon related
@@ -1143,6 +1233,7 @@
             });
         }
 
+      
         function checkConnection(timeout=15000, callback=undefined){
             $.ajax({
                 url: 'system/auth/checkLogin',
@@ -1248,7 +1339,7 @@
                         $(".hardware").hide();
                     }else{
                         //User is admin. Add admin icon
-                        $("#username").append(`<i style="color: #${desktopThemeColor}" class="protect icon themed text"></i>`);
+                        $("#username").append(`<i style="margin-left: 0.4em; color: #${desktopThemeColor}" class="small shield alternate icon themed text"></i>`);
                     }
                 }
             });
@@ -1585,6 +1676,14 @@
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 fwmove($(this).parent(), evt);
+
+                //Add cusor change on resizble position reach
+                let hoverOffset = [event.pageX - $(this).offset().left, event.pageY - $(this).offset().top];
+                if (hoverOffset[1] <= 3 && !$(this).parent().hasClass("fixedsize")){
+                    $(this).addClass("resizbleCursor");
+                }else{
+                    $(this).removeClass("resizbleCursor");
+                }
             });
             $(".fwdragger").off("mouseup").on("mouseup", function(evt) {
                 evt.preventDefault();
@@ -1596,12 +1695,18 @@
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 fwdown($(this).parent(), evt);
+                let fwMaxiButton = $(this).parent().find(".maxToogleButton").parent()[0]
+                doubleTouchHandler(this, evt, function(){
+                    toggleMax(fwMaxiButton, evt);
+                });
             });
+
             $(".fwdragger").off("touchmove").on("touchmove", function(evt) {
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 fwmove($(this).parent(), evt);
             });
+            
             $(".fwdragger").off("touchend").on("touchend", function(evt) {
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
@@ -1682,9 +1787,6 @@
             $(".iframewrapper").off("mousedown").on("mousedown", function(evt) {
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
-                if ($(this).parent().hasClass("fixedsize")) {
-                    return false;
-                }
                 resizeDown($(this).parent(), evt);
             });
 
@@ -1769,7 +1871,7 @@
                     for (var i = 0; i < windowIdList.length; i++) {
                         var iconURL = getFloatWindowIconByID(windowIdList[i]);
                         var title = getFloatWindowTitleByID(windowIdList[i]);
-                        $("#stackedWindowList").append(`<div class="item clickable" windowId="${windowIdList[i]}" onclick="bringFloatWindowToFrontByFWB(this,event);"  ontouchstart="bringFloatWindowToFrontByFWB(this,event);"><span><img src="${iconURL}"></img>${title}</span><div class="closebtn" onclick="closeFWviaFWB(this,event);"><img src="img/system/close.png"></img></div></div>`);
+                        $("#stackedWindowList").append(`<div class="stackedWindowButton item clickable" windowId="${windowIdList[i]}" onclick="bringFloatWindowToFrontByFWB(this,event);"  ontouchstart="bringFloatWindowToFrontByFWB(this,event);"><span><img src="${iconURL}"></img>${title}</span><div class="closebtn" onclick="closeFWviaFWB(this,event);"><img src="img/system/close.png"></img></div></div>`);
                     }
                     $("#stackedWindowList").show();
                     stackedFloatWindowListShown = true;
@@ -1905,6 +2007,10 @@
         let minxWidth = 120;
         let minHeight = 100;
         function resizeDown(object, event) {
+            if ($(this).hasClass("fixedsize")) {
+                return false;
+            }
+            
             //Mouse down, start resizing
             resizingWindow = true;
             resizingWindowTarget = object;
@@ -1926,7 +2032,7 @@
             //Check which edge is the user dragging
             var dx = event.pageX - $(object).find(".iframewrapper").offset().left;
             var dy = event.pageY - $(object).offset().top;
-            
+
             if (dx < 10 && dy > $(object).height() - 10) {
                 //Left Bottom Corner
                 resizingEdgeID = 4;
@@ -1948,6 +2054,8 @@
                 resizingEdgeID = 3;
                 $(object).find(".iframewrapper").css('cursor', 's-resize');
             }
+
+            //For upper edge, see fwdown() handler
         }
 
         function resizeMove(object, event) {
@@ -1991,6 +2099,12 @@
                     $(object).css({
                         width: Math.max(newWidth, minxWidth),
                         left: posX
+                    });
+                } else if (resizingEdgeID == 6){
+                    var newHeight = $(object).height() - (posY - $(object).offset().top) + 2;
+                    $(object).css({
+                        "top": posY - 2,
+                        "height": Math.max(newHeight,minHeight),
                     });
                 }
             }
@@ -2080,8 +2194,8 @@
             //Hide all contenxt menus
             hideAllContextMenus();
 
-           //Move the window to the top layer
-           MoveFloatWindowToTop(object);
+            //Move the window to the top layer
+            MoveFloatWindowToTop(object);
             
             //Show the background drag panel
             if ($(object).hasClass("topmost")){
@@ -2096,8 +2210,18 @@
             
             //Get the relative click offset of the down event
             clickDownOffset = [event.pageX - $(object).offset().left, event.pageY - $(object).offset().top];
-            movingWindow = true;
+            if (clickDownOffset[1] <= 3 && !$(object).hasClass("fixedsize")){
+                //Resizing Top Edge
+                resizingWindow = true;
+                resizingWindowTarget = $(object);
+                resizingEdgeID = 6;
+            }else{
+                //Moving Window
+                movingWindow = true;
+                
+            }
             $(object).find(".iframecover").show();
+            
         } 
 
         function fwmove(object, event) {
@@ -2129,9 +2253,9 @@
 
                 $(object).css("left", event.pageX - clickDownOffset[0]);
                 $(object).css("top", event.pageY - clickDownOffset[1]);
+            } else if (resizingWindow && resizingEdgeID == 6){
+                resizeMove($(object), event);
             }
-
-
         }
 
         //Dock the window object to left
@@ -2190,6 +2314,8 @@
                     //Dock to right
                     dockWindowToRight(object);
                 }
+            }else if (resizingWindow && resizingEdgeID == 6){
+                resizeUp($(object), event);
             }
         }
 
@@ -2259,7 +2385,9 @@
                     top: "0px"
                 });
                 $(fw).attr("max", "true");
-                $(fw).find(".maxToogleButton").attr('src', "img/system/restore.svg")
+                $(fw).find(".maxToogleButton").attr('src', "img/system/restore.svg");
+                $(fw).find(".dockright").addClass("disabled");
+                $(fw).find(".dockleft").addClass("disabled");
             }
         }
 
@@ -2698,6 +2826,7 @@
         function setFloatWindowTitle(targetFWId, newTitle) {
             var targetfw = getFloatWindowByID(targetFWId);
             $(targetfw).find(".title").text(newTitle);
+            
         }
 
         function openFileWithModule(moduleLaunchInfo, openFileList) {
@@ -4728,7 +4857,7 @@
                     addContextMenuItem($("#contextmenu"), lcontex('Personalization'), "<i class='paint brush icon'></i>", "personalization", false);
                     addContextMenuItem($("#contextmenu"), lcontex('Background'), "<i class='caret right icon'></i>", "background", true);
                     addContextMenuItem($("#contextmenu"), lcontex('Icon Size'), "<i class='caret right icon'></i>", "listIconsize", true);
-                    addContextMenuItem($("#contextmenu"), lcontex('Toggle FullScreen'), "<i class='maximize icon'></i>", "fullscreen", false);
+                    addContextMenuItem($("#contextmenu"), lcontex('Toggle FullScreen'), "<i class='expand  icon'></i>", "fullscreen", false);
                     addContextMenuItem($("#contextmenu"), lcontex('Exit'), undefined, "logout", false);
                     showMenu = true;
                 }else if (clickTarget.hasClass("fwdragger") || (clickTarget.hasClass("title") && clickTarget.parent().hasClass("fwdragger"))){
@@ -4848,7 +4977,7 @@
                 var filedata = JSON.parse(decodeURIComponent(rawfiledata));
                 var filepath = filedata.Filepath;
                 //Resolve the link to media download link
-                var downloadLink = "media?file=" + filepath + "&download=true";
+                var downloadLink = "media/download?file=" + filepath;
                 window.open(downloadLink)
 
             }else if ($(".launchIconWrapper.selected").length > 1){
@@ -4869,7 +4998,7 @@
                             alert(data.error);
                         }else{
                             //Zip completed.
-                            window.open("media?file=" + data + "&download=true");
+                            window.open("media/download?file=" + data);
                         }
                     }
                 });
@@ -5295,7 +5424,7 @@
         }
 
         function addContextMenuSeperator(target) {
-            $(target).append(`<div class="divider"></div>`);
+            $(target).append(`<div class="ui divider"></div>`);
         }
 
         function addContextMenuTitle(target, title){
@@ -5434,8 +5563,12 @@
 
                 //Update the folder to textarea content
                 $(".renameInput").each(function() {
-                    if ($(this).text() == "") {
+                    if ($(this).val() == "") {
                         //Ignore this update
+                        refresh(function() {
+                            //Refresh the desktop
+                        });                   
+                        return;
                     } else {
                         var filedata = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
                         var filepath = filedata.Filepath;
@@ -5964,7 +6097,7 @@
             windowOpenOption (optional) -> The window opening option for user onclick redirection
         */
 
-        function sendNotification(title, content, icon="notice circle", windowOpenOption=null){
+        function sendNotification(title, content, icon="info circle", windowOpenOption=null){
             if (content.length > 100){
                 shortenContent = content.substring(0,100) + "...";
             }else{
@@ -5975,7 +6108,7 @@
                     <p class="title"><i class="${icon} icon"></i> ${title}</p>
                     <p class="notifycontent">${shortenContent}</p>
                     <div class="closebtn" onclick="event.stopImmediatePropagation(); closeThisNotification(this);"><i class="remove icon"></i></div>
-                    <div class="ts divider"></div>
+                    <div class="ui divider"></div>
                 </div>`);
             $(".nonotification").hide();
             
@@ -6107,7 +6240,7 @@
                 <span class="launchIconWrapper">
                     <img class="launchIconImage medium" src="img/desktop/files_icon/${desktopIconPack}/file upload.png" draggable="false">
                     <p class="launchIconText ${desktopIconSize}" >${applocale.getString( "upload/message/uploading", "Uploading")}</p>
-                    <div class="ts tiny primary progress" style="margin-top: -4px;">
+                    <div class="ui tiny primary progress" style="margin-top: -4px;">
                         <div class="bar" style="min-width: 0px !important; width: 0%;"></div>
                     </div>
                 </span>
@@ -6388,6 +6521,9 @@
             $("#powerIcon").attr("src","img/system/power-white.svg");
             $("#quickAccessPanel").addClass("darkTheme");
             $("#quickAccessPanel").find(".button").addClass("inverted");
+            $("#searchBar").addClass("darkTheme");
+            $("#searchBar").parent().find("i").addClass("darkTheme");
+            $("#usergroups").css("color", "white");
         }
 
         function setWhiteTheme(){
@@ -6395,6 +6531,9 @@
             $("#powerIcon").attr("src","img/system/power.svg");
             $("#quickAccessPanel").removeClass("darkTheme");
             $("#quickAccessPanel").find(".button").removeClass("inverted");
+            $("#searchBar").removeClass("darkTheme");
+            $("#searchBar").parent().find("i").removeClass("darkTheme");
+            $("#usergroups").css("color", "");
         }
 
         function hexToRgbA(hex, transparent=1){
@@ -6426,7 +6565,7 @@
             $(".themed.text").css("color", newThemeColor);
 
             //Connection lost notification css
-            $("#connectionLost").find(".ts.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
+            $("#connectionLost").find(".ui.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
         }
 
         //Load the user define theme color to overwrite the default color if exists

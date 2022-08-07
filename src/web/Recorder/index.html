@@ -38,7 +38,7 @@
             <a class="active item tab" onclick="opentab('audio', this);">
                 <i class="ui red microphone icon"></i>
             </a>
-            <a class="item tab" onclick="opentab('video', this);"">
+            <a class="item tab" onclick="opentab('video', this);">
                 <i class="ui red video icon"></i>
             </a>
             <a class="item tab" onclick="opentab('setting', this);">
@@ -143,6 +143,11 @@
 
             //Handle recording stuffs
             function startRecording(){
+                if (!audioContextWorking){
+                    initRecorder();
+                    return
+                }
+
                 recorder && recorder.record();
                 $("#record").addClass("disabled");
                 $("#stop").removeClass("disabled");
@@ -241,20 +246,21 @@
 
 
             //Try to setup Audio context
-            window.onload = function init() {
+            var audioContextWorking = false;
+            function initRecorder() {
                 updateStatus("Starting")
                 try {
-                // webkit shim
-                window.AudioContext = window.AudioContext || window.webkitAudioContext;
-                navigator.getUserMedia = (navigator.getUserMedia ||
-                       navigator.webkitGetUserMedia ||
-                       navigator.mozGetUserMedia ||
-                       navigator.msGetUserMedia);
-                window.URL = window.URL || window.webkitURL;
-                
-                audio_context = new AudioContext;
-                console.log('Audio context set up.');
-                console.log('navigator.getUserMedia ' + (navigator.getUserMedia ? 'available.' : 'not present!'));
+                    // webkit shim
+                    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                    navigator.getUserMedia = (navigator.getUserMedia ||
+                        navigator.webkitGetUserMedia ||
+                        navigator.mozGetUserMedia ||
+                        navigator.msGetUserMedia);
+                    window.URL = window.URL || window.webkitURL;
+                    
+                    audio_context = new AudioContext;
+                    console.log('Audio context set up.');
+                    console.log('navigator.getUserMedia ' + (navigator.getUserMedia ? 'available.' : 'not present!'));
                 } catch (e) {
                     console.log(e);
                     alert('No web audio support in this browser!');
@@ -262,12 +268,17 @@
                 
                 try{
                     navigator.getUserMedia({audio: true}, startUserMedia, function(e) {
+                        $("#status").text("Browser rejected audio recording request")
+                        ao_module_setWindowTitle("Recorder - Startup Failed");
                         console.log('No live audio input: ' + e);
+                        return
                     });
                 }catch(ex){
                     $("#status").text("Audio API not usable due to invalid TLS config")
                     ao_module_setWindowTitle("Recorder - Startup Failed");
                 }
+
+                audioContextWorking=true;
               
             };
 

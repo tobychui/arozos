@@ -130,6 +130,20 @@ func DiskServiceInit() {
 				diskmg.HandleMount(w, r, fsHandlers)
 			})
 			adminRouter.HandleFunc("/system/disk/diskmg/format", func(w http.ResponseWriter, r *http.Request) {
+				//Check if request are made in POST mode
+				if r.Method != http.MethodPost {
+					w.WriteHeader(http.StatusMethodNotAllowed)
+					w.Write([]byte("405 - Method Not Allowed"))
+					return
+				}
+
+				//Check if ArozOS is running in sudo mode
+				if !sudo_mode {
+					w.WriteHeader(http.StatusUnauthorized)
+					w.Write([]byte("401 - Unauthorized (Is ArozOS running in sudo mode?)"))
+					return
+				}
+
 				//Format option require passing in all filesystem handlers
 				diskmg.HandleFormat(w, r, fsHandlers)
 			})

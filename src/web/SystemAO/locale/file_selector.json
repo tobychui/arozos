@@ -11,6 +11,7 @@
                 "roots/storage":"虛擬儲存裝置",
                 "message/loading":"載入中…",
                 "message/waitingResp":"正在確認選擇…",
+                "message/nofile":"沒有檔案",
 
                 "sidebar/vroot/desktop": "桌面",
                 "sidebar/vroot/document": "文件",
@@ -46,6 +47,7 @@
                 "roots/storage":"虛擬儲存裝置",
                 "message/loading":"載入中…",
                 "message/waitingResp":"正在確認選擇…",
+                "message/nofile":"沒有檔案",
 
                 "sidebar/vroot/desktop": "桌面",
                 "sidebar/vroot/document": "文件",
@@ -81,6 +83,7 @@
                 "roots/storage":"虚拟储存装置",
                 "message/loading":"载入中…",
                 "message/waitingResp":"正在确认选择…",
+                "message/nofile":"沒有文件",
 
                 "sidebar/vroot/desktop": "桌面",
                 "sidebar/vroot/document": "文件",

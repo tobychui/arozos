@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 
 	"gitlab.com/NebulousLabs/go-upnp"
 )
@@ -102,6 +103,21 @@ func (u *UPnPClient) ClosePort(portNumber int) error {
 		}
 	}
 	return nil
+}
+
+//Renew forward rules, prevent router lease time from flushing the Upnp config
+func (u *UPnPClient) RenewForwardRules() {
+	portsToRenew := u.RequiredPorts
+	for _, thisPort := range portsToRenew {
+		ruleName, ok := u.PolicyNames.Load(thisPort)
+		if !ok {
+			continue
+		}
+		u.ClosePort(thisPort)
+		time.Sleep(100 * time.Millisecond)
+		u.ForwardPort(thisPort, ruleName.(string))
+	}
+	log.Println("UPnP Port Forward rule renew completed")
 }
 
 func (u *UPnPClient) Close() {

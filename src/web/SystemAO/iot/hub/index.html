@@ -4,10 +4,10 @@
     <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
     <meta charset="UTF-8">
     <title>ArozOS IoT Hub</title>
-    <link rel="stylesheet" href="../../../script/tocas/tocas.css">
+    <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
     <link rel="manifest" href="manifest.json">
-    <script src="../../../script/tocas/tocas.js"></script>
-    <script src="../../../script/jquery.min.js"></script>
+	<script src="../../../script/jquery.min.js"></script>
+    <script src="../../../script/semantic/semantic.min.js"></script>
     <script src="../../../script/ao_module.js"></script>
     <style>
         .ultrasmall.image{
@@ -64,9 +64,9 @@
 
 
 <body>
-	<div class="ts right sidebar overlapped vertical menu">
+	<div id="sidemenu" class="ui right vertical menu sidebar">
 	   <div class="item">
-		  <div class="ts header">
+		  <div class="ui header">
 			 ArozOS IoT Hub
 			 <div class="sub header">Universal IoT Controller</div>
 		  </div>
@@ -82,17 +82,17 @@
 	   </div>
 	</div>
 	<div class="pusher">
-	   <div class="ts menu">
-		  <a class="item noborder" href="index.html"><img class="ts ultrasmall circular image" src="img/main_icon.png"> IoT Hub</a>
+	   <div class="ui menu">
+		  <a class="item noborder" href="index.html"><img class="ui ultrasmall circular image" src="img/menu_icon.svg"> IoT Hub</a>
 		  <a class="right item" onClick="toggleSideMenu();"><i class="content icon"></i></a>
 	   </div>
-	   <div id="devList" class="ts container">
-			<div class="ts basic segment HDSDev">
-				<div class="ts grid">
-					<div class="four wide column"><img class="ts tiny devIcon image" src="img/system/loading.gif"></div>
+	   <div id="devList" class="ui container">
+			<div class="ui basic segment HDSDev">
+				<div class="ui grid">
+					<div class="four wide column"><img class="ui tiny devIcon image" src="img/system/loading.gif"></div>
 					<div class="twelve wide column">
-						<div class="ts container">
-							<div class="ts header">
+						<div class="ui container">
+							<div class="ui header">
 								<span class="devHeader">Scanning</span>
 								<div class="sub devProperty header">IoT Hub take a while to scan your network for the first startup.</div>
 							</div>
@@ -105,15 +105,15 @@
 	</div>
 
 	<!-- Show more information about thsi device-->
-	<div id="moreInfoInterface" class="ts active dimmer" style="display:none;">
+	<div id="moreInfoInterface" class="ui active dimmer" style="display:none;">
 	   <div style="position:absolute;width:100%;height:100%;left:0px;top:0px;" onClick='$("#moreInfoInterface").fadeOut("fast");'>
 	   </div>
-	   <div id="informationItnerface" class="ts segment mainUI popupInterface">
-		  <div class="ts header">
+	   <div id="informationItnerface" class="ui segment mainUI popupInterface" style="text-align: left;">
+		  <div class="ui header">
 			 Device Properties
 		  </div>
 		  <br>
-		  <div class="ts horizontal form">
+		  <div class="ui horizontal form">
 			 <div class="field">
 				<label>Device UUID</label>
 				<input id="duid" type="text" readonly="true">
@@ -136,60 +136,60 @@
 			 </div>
 		  </div>
 		  <br>
-		  <button class="ts primary button"  onClick='$("#moreInfoInterface").fadeOut("fast");'>Close</button>
+		  <button class="ui primary button"  onClick='$("#moreInfoInterface").fadeOut("fast");'>Close</button>
 		  <br><br>
 	   </div>
 	</div>
 
 	<!-- Editing can be done on this device -->
-	<div id="editInterface" class="ts active dimmer" style="display:none;">
+	<div id="editInterface" class="ui active dimmer" style="display:none;">
 		<div style="position:absolute;width:100%;height:100%;left:0px;top:0px;" onClick='$("#editInterface").fadeOut("fast");'>
 		</div>
-		<div class="ts segment mainUI popupInterface" >
-			<div class="ts header">
+		<div class="ui segment mainUI popupInterface" >
+			<div class="ui header">
 				Edit Device Records
 			</div>
 			<p>Set Device Nickname</p>
-			<div class="ts action fluid small input">
+			<div class="ui action fluid small input">
 				<input class="deviceNickname" type="text" uuid="" placeholder="New Nickname" autocomplete="off">
-				<button class="ts positive button" onclick="setNickName(this)">Update</button>
+				<button class="ui positive button" onclick="setNickName(this)">Update</button>
 			</div>
-			<div class="ts inverted positive segment nicnameSetConfirm" style="display:none;">
+			<div class="ui inverted positive segment nicnameSetConfirm" style="display:none;">
 				<p><i class="checkmark icon"></i> Device Nickname Updated</p>
 			</div>
 
-			<div class="ts divider"></div>
+			<div class="ui divider"></div>
 			<br>
-			<button class="ts primary button"  onClick='$("#editInterface").fadeOut("fast");'>Close</button>
+			<button class="ui primary button"  onClick='$("#editInterface").fadeOut("fast");'>Close</button>
 			<br><br>
 
 		</div>
 	</div>
 
 	<!-- Action can be done on this device -->
-	<div id="actioninterface" class="ts active dimmer" style="display:none;">
+	<div id="actioninterface" class="ui active dimmer" style="display:none;">
 		<div style="position:absolute;width:100%;height:100%;left:0px;top:0px;" onClick='$("#actioninterface").fadeOut("fast");'>
 		</div>
-		<div id="informationItnerface" class="ts segment mainUI popupInterface">
-		   <div class="ts header">
+		<div id="informationItnerface" class="ui segment mainUI popupInterface" style="text-align: left;">
+		   <div class="ui header">
 			  Device Actions
 		   </div>
 		   <br>
-		   <div class="ts horizontal form" id="statusList">
-				<h3>No Status</h3>
+		   <div class="ui form" id="statusList">
+				<h3><i class="ui loading spinner icon"></i> Loading</h3>
 		   </div>
-		   <div class="ts divider"></div>
-		   <div class="ts horizontal form" id="actionForm">
+		   <div class="ui divider"></div>
+		   <div class="ui horizontal form" id="actionForm">
 
 			</div>
 			<br>
-			<button class="ts primary button"  onClick='$("#actioninterface").fadeOut("fast");'>Close</button>
+			<button class="ui primary button"  onClick='$("#actioninterface").fadeOut("fast");'>Close</button>
 			<br><br>
 		</div>
 	</div>
 
-	<div id="loadingMask" class="ts active dimmer" style="display:none;">
-	   <div class="ts text loader">Scanning in Progress</div>
+	<div id="loadingMask" class="ui active dimmer" style="display:none;">
+	   <div class="ui text loader">Scanning in Progress</div>
 	</div> 
 	<script>
 		var currentlyViewingDevices = "";
@@ -226,7 +226,7 @@
 
 
 		function hideSideMenu(){
-			ts('.right.sidebar').sidebar('hide');
+			$('.right.sidebar').sidebar('hide');
 		}
 
 		function showMore(object){
@@ -253,12 +253,12 @@
 				}else{
 					data.forEach(device => {
 						var deviceData = encodeURIComponent(JSON.stringify(device));
-						$("#devList").append(`<div class="ts segment HDSDev" devicedata="${deviceData}" uuid="${device.DeviceUUID}" devIp="${device.IPAddr}" port="${device.Port}" location="local">
-							<div class="ts grid">
-								<div class="four wide column"><img class="ts tiny devIcon image" src="../../../system/iot/icon?devid=${device.DeviceUUID}"></div>
+						$("#devList").append(`<div class="ui segment HDSDev" devicedata="${deviceData}" uuid="${device.DeviceUUID}" devIp="${device.IPAddr}" port="${device.Port}" location="local">
+							<div class="ui grid">
+								<div class="four wide column"><img class="ui tiny devIcon image" src="../../../system/iot/icon?devid=${device.DeviceUUID}"></div>
 								<div class="twelve wide column">
-									<div class="ts container">
-										<div class="ts header">
+									<div class="ui container">
+										<div class="ui header">
 											<span class="devHeader">${device.Name}</span>
 											<div class="sub devProperty header">${device.Model}</div>
 										</div>
@@ -266,21 +266,21 @@
 								</div>
 							</div>
 							<div class="controlBtn infoMount">
-								<button class="ts icon basic button" onClick="edit(this);"><i class="edit icon"></i></button>
-								<button class="ts icon button" onClick="showMore(this);"><i class="notice icon"></i></button>
-								<button class="ts primary icon button" onClick="action(this);"><i class="options icon"></i></button>
+								<button class="ui icon button" title="Edit Device Nickname" onClick="edit(this);"><i class="edit icon"></i></button>
+								<button class="ui icon button" title="Show More" onClick="showMore(this);"><i class="info circle icon"></i></button>
+								<button class="ui primary icon button" title="Actions" onClick="action(this);"><i class="options icon"></i></button>
 							</div>
 						</div>`);
 					});
 
 					if (data.length == 0){
 						//No device found
-						$("#devList").html(`<div class="ts basic segment HDSDev">
-							<div class="ts grid">
-								<div class="four wide column"><img class="ts tiny devIcon image" src="img/system/not-found.svg"></div>
+						$("#devList").html(`<div class="ui basic segment HDSDev">
+							<div class="ui grid">
+								<div class="four wide column"><img class="ui tiny devIcon image" src="img/system/not-found.svg"></div>
 								<div class="twelve wide column">
-									<div class="ts container">
-										<div class="ts header">
+									<div class="ui container">
+										<div class="ui header">
 											<span class="devHeader">No Device Found</span>
 											<div class="sub devProperty header">Want to create your own IoT devices with ESP8266 & Arduino IDE? <br>Check out the <a href="https://github.com/tobychui/Home-Dynamic" target="_blank">HomeDynamic</a> System!</div>
 										</div>
@@ -292,7 +292,7 @@
 
 					//Load the nickname of each device if it exists
 					$(".HDSDev").each(function(){
-						//Get its nickname 
+						//Get iui nickname 
 						var devUUID = $(this).attr("uuid");
 						var targetDOMElement = $(this);
 						$.ajax({
@@ -314,8 +314,7 @@
 		}
 
 		function toggleSideMenu(){
-			//$("#sideMenu").toggle();
-			ts('.right.sidebar').sidebar('toggle');
+			$("#sidemenu").sidebar('toggle');
 		}
 
 		function setNickName(input){
@@ -423,13 +422,13 @@
 			//Clear the action form
 			$("#actionForm").html("");
 
-			//Generate the list of endpoints from the device data
+			//Generate the list of endpoinui from the device data
 			var device = $(object).parent().parent();
 			var deviceData = device.attr("devicedata");
 			deviceData = JSON.parse(decodeURIComponent(deviceData));
 
 			var epts = deviceData.ControlEndpoints;
-			if (epts == null || epts.length == 0){
+			if (epts == null || typeof(epts) == undefined || epts.length == 0 ){
 				//This device has no control endpoints. Show status info only.
 				updateStatus(deviceData.DeviceUUID);
 			}else{
@@ -441,9 +440,9 @@
 					if (ept.Type == "string"){
 						$("#actionForm").append(`<div name="${ept.Name}" devid="${deviceID}" epd="${encodedEptData}" class="field">
 							<label>${ept.Desc}</label>
-							<div class="ts action input">
+							<div class="ui action input">
 								<input type="text" placeholder="${name}">
-								<button class="ts primary icon button" title="Send" onclick="executeEndpoint(this.parentNode.parentNode, this.parentNode.parentNode.getElementsByTagName('input')[0].value)"><i class="send icon"></i></button>
+								<button class="ui primary icon button" title="Send" onclick="executeEndpoint(this.parentNode.parentNode, this.parentNode.parentNode.getElementsByTagName('input')[0].value)"><i class="send icon"></i></button>
 							</div>
 						</div>`);
 					}else if (ept.Type == "integer"){
@@ -459,9 +458,9 @@
 
 						$("#actionForm").append(`<div name="${ept.Name}" devid="${deviceID}" epd="${encodedEptData}" class="field">
 							<label>${ept.Desc}</label>
-							<div class="ts action input">
+							<div class="ui action input">
 								<input type="number" min="${min}" max="${max}" placeholder="${name}">
-								<button class="ts primary icon button" title="Send" onclick="executeEndpoint(this.parentNode.parentNode, this.parentNode.parentNode.getElementsByTagName('input')[0].value)"><i class="send icon"></i></button>
+								<button class="ui primary icon button" title="Send" onclick="executeEndpoint(this.parentNode.parentNode, this.parentNode.parentNode.getElementsByTagName('input')[0].value)"><i class="send icon"></i></button>
 							</div>
 						</div>`);
 					}else if (ept.Type == "float"){
@@ -482,14 +481,14 @@
 
 						$("#actionForm").append(`<div name="${ept.Name}" devid="${deviceID}" epd="${encodedEptData}" class="field">
 							<label>${ept.Desc}</label>
-							<div class="ts action input">
+							<div class="ui action input">
 								<input type="number" min="${min}" max="${max}" step="${step}" placeholder="${name}">
-								<button class="ts primary icon button" onclick="executeEndpoint(this.parentNode.parentNode, this.parentNode.parentNode.getElementsByTagName('input')[0].value)" title="Send"><i class="send icon"></i></button>
+								<button class="ui primary icon button" onclick="executeEndpoint(this.parentNode.parentNode, this.parentNode.parentNode.getElementsByTagName('input')[0].value)" title="Send"><i class="send icon"></i></button>
 							</div>
 						</div>`);
 					}else if (ept.Type == "bool"){
 						$("#actionForm").append(`<div name="${ept.Name}" devid="${deviceID}" epd="${encodedEptData}" class="field">
-							<div class="ts toggle checkbox">
+							<div class="ui toggle checkbox">
 								<input type="checkbox" id="${encodeURIComponent(ept.Name)}" onchange="executeEndpoint(this.parentNode.parentNode, this.checked);">
 								<label for="${encodeURIComponent(ept.Name)}">${ept.Name}</label>
 						</div></div>`);
@@ -497,7 +496,7 @@
 					}else if (ept.Type == "none"){
 						//No action. (aka just a GET request endpoint)
 						$("#actionForm").append(`<div devid="${deviceID}" epd="${encodedEptData}" class="field">
-							<button class="ts info fluid button" title="${ept.Desc}" onclick="executeEndpoint(this.parentNode);">${name}</button>
+							<button class="ui info fluid button" title="${ept.Desc}" onclick="executeEndpoint(this.parentNode);">${name}</button>
 						</div>`);
 					}
 				});
@@ -511,7 +510,7 @@
 		}
 
 		function updateStatus(deviceUUID){
-			//Get its status
+			//Get iui status
 			$.ajax({
 					url: "../../../system/iot/status",
 					data: {devid: deviceUUID},
@@ -527,7 +526,7 @@
 								$("#actionForm").find(".field").each(function(){
 									var thisName = $(this).attr("name");
 									if (thisName == key){
-										//Set its value
+										//Set iui value
 										var targetInput = $(this).find("input");
 										if (targetInput.attr('type') == "checkbox"){
 											//For handling checkbox
@@ -547,9 +546,9 @@
 
 								if (found == false){
 									//Append to status field
-									$("#statusList").append(`<div class="ts header">
+									$("#statusList").append(`<div class="ui header">
 										${data[key]}
-										<div class="sub header"><i class="marker icon"></i> ${key}</div>
+										<div class="sub header">${key}</div>
 									</div>`);
 								}
 							}

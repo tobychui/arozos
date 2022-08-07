@@ -165,6 +165,11 @@ func StartNetworkServices() {
 
 			UPNP = u
 
+			//Register nightly listener for upnp renew
+			nightlyManager.RegisterNightlyTask(func() {
+				UPNP.RenewForwardRules()
+			})
+
 			//Show a tip for success port forward
 			connectionEndpoint := UPNP.ExternalIP + ":" + strconv.Itoa(*listen_port)
 			obip, err := network.GetOutboundIP()

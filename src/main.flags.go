@@ -28,7 +28,7 @@ var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "0.1.123"                       //Internal build version, [fork_id].[major_release_no].[minor_release_no]
+var internal_version = "0.1.124"                       //Internal build version, [fork_id].[major_release_no].[minor_release_no]
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
@@ -37,7 +37,7 @@ var deviceModelDesc = "General Purpose Cloud Platform" //Device Model Descriptio
 var iconVendor = "img/vendor/vendor_icon.png"          //Vendor icon location
 var iconSystem = "img/vendor/system_icon.png"          //System icon location
 
-// =========== RUNTTIME RELATED ================S
+// =========== RUNTTIME RELATED ================
 var max_upload_size int64 = 8192 << 20                         //Maxmium upload size, default 8GB
 var sudo_mode bool = (os.Geteuid() == 0 || os.Geteuid() == -1) //Check if the program is launched as sudo mode or -1 on windows
 var startupTime int64 = time.Now().Unix()                      //The startup time of the ArozOS Core

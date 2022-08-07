@@ -1,0 +1,143 @@
+/*
+    Context Menu Plugin
+
+    Design for Semantic UI and use with .ui.contextmenu
+    Example Usage: 
+
+    <div id="contextmenu" class="aroz contextmenu" style="font-family: &quot;Microsoft JhengHei&quot;, &quot;SimHei&quot;, &quot;Apple LiGothic Medium&quot;, &quot;STHeiti&quot;; left: 497px; top: 248px;"><div class="item submenu" onclick="newitemmenu(this,event);" payload="">
+            New Item
+            <span class="description">
+                <i class="caret right icon"></i>
+            </span>
+        </div>
+        <div class="item" onclick="" payload="">
+            Refresh
+            <span class="description">
+                <i class="refresh icon"></i>
+            </span>
+        </div>
+        <div class="item" onclick="" payload="">
+            Open File Manager
+        </div>
+        <div class="item" onclick="" payload="">
+            Personalization
+            <span class="description">
+                <i class="paint brush icon"></i>
+            </span>
+        </div>
+        <div class="item submenu" onclick="" payload="">
+            Wallpaper
+            <span class="description">
+                <i class="caret right icon"></i>
+            </span>
+        </div>
+        <div class="item submenu" onclick="" payload="">
+            Icon Size
+            <span class="description">
+                <i class="caret right icon"></i>
+            </span>
+        </div>
+        <div class="item" onclick="" payload="">
+            Full Screen
+            <span class="description">
+                <i class="maximize icon"></i>
+            </span>
+        </div>
+        <div class="item" onclick="" payload="">
+            Logout
+        </div>
+    </div>
+*/
+
+.aroz.contextmenu{
+    position: fixed;
+    box-sizing: border-box;
+    letter-spacing: -.02em;
+    z-index: 3000;
+}
+
+.aroz.contextmenu .item{
+    padding: 0.6em 1em !important;
+}
+
+.aroz.contextmenu .item:hover{
+    background: rgb(247, 247, 247);
+}
+
+.aroz.contextmenu.visible, .ui.contextmenu.hidden.animating {
+    display: block;
+}
+
+.aroz.contextmenu .divider{
+    margin-top: 0;
+    margin-bottom: 0;    
+}
+
+.aroz.contextmenu{
+    cursor: auto;
+    outline: none;
+    min-width: 150px;
+    transform: translateZ(0px);
+    margin: 0em;
+    padding: 0em 0em;
+    background: #fff;
+    font-size: 1em;
+    text-align: left;
+    box-shadow: 0px 2px 3px 0px rgba(160,160,160,0.65);
+    border: 1px solid #d9d9d9;
+    border-radius: .28571rem;
+    z-index: 9;
+    will-change: transform, opacity;
+}
+
+.aroz.contextmenu > .item.item.item.item.item.item {
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    border: none;
+    height: auto;
+    width: auto;
+    text-align: left;
+    border-top: none;
+    line-height: 1em;
+    font-size: 1rem;
+    color: #5a5a5a;
+    padding: .78571rem 1.14286rem !important;
+    text-transform: none;
+    font-weight: normal;
+    box-shadow: none;
+    border-radius: 0;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    -webkit-touch-callout: none;
+}
+
+.aroz.contextmenu > .item.item.item.item.item.item > i{
+    font-size: 90%;
+}
+
+.aroz.contextmenu.visible > .item.item:hover {
+    background: #fbfbfb !important;
+    color: #5a5a5a !important;
+    z-index: 11;
+}
+
+.aroz.contextmenu > *{
+    white-space: nowrap;
+}
+
+.aroz.contextmenu > .item{
+    user-select: none;
+}
+
+.aroz.contextmenu > .item > .description {
+    margin: 0em 0em 0em 1em;
+    flex: 1;
+    text-align: right;
+    color: #bfbfbf;
+}
+
+.aroz.contextmenu .header{
+	padding: 0.4em;
+	background-color: rgba(30,30,30,0.05);
+}

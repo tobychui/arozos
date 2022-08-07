@@ -55,7 +55,10 @@ function handleUserRequest(){
                 //Load from cache first. If cache list > 1000 then deliver the cache then update the cache file
                 newDBTableIfNotExists("AirMusic");
                 var cacheListRaw = readDBItem("AirMusic", "cache");
-
+                //var isRanged = false; //Check if this only need to return from a range
+                //if (typeof(start) != "undefined" && typeof(end) != "undefined"){
+                //    isRanged = true;
+                //}
                 if (cacheListRaw == ""){
                     //Cache list not generated yet. Continue
 
@@ -95,6 +98,10 @@ function handleUserRequest(){
                     var thisMusicFile = musicFiles[i];
                     var thisSongData = [];
                     
+                    /*
+                        Catch formats looks like this
+                        entry = [access_url, filename, ext, filesize]
+                    */
                     //Access Path 
                     thisSongData.push("/media?file=" + thisMusicFile);
                     //File Name only

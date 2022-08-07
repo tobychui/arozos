@@ -264,15 +264,20 @@ func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSy
 
 */
 func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
-	dev, err := mv(r, "dev", false)
+	dev, err := mv(r, "dev", true)
 	if err != nil {
 		sendErrorResponse(w, "dev not defined")
 		return
 	}
 
-	format, err := mv(r, "format", false)
+	format, err := mv(r, "format", true)
 	if err != nil {
 		sendErrorResponse(w, "format not defined")
+		return
+	}
+
+	if runtime.GOOS == "windows" {
+		sendErrorResponse(w, "This function is Linux Only")
 		return
 	}
 

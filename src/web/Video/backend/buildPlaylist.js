@@ -5,6 +5,7 @@ var playlist = [];
 
 //Require libraries
 requirelib("filelib");
+requirelib("imagelib");
 
 //Create a function to build file data from filepath
 function buildFileObject(filepath){
@@ -31,7 +32,7 @@ function scanPathForVideo(thisDir, thisStorageName){
         var walkPath = thisDir + "Video/";
         var folderList = filelib.walk(walkPath, "folder")
 
-        //Build the folder list base on the discovered mp4 files
+        //Build the folder list base on the discovered video files
         var foldersThatContainsVideoFile = [];
         for (var i = 0; i < folderList.length; i++){
             var thisFolderPath = folderList[i];
@@ -51,6 +52,7 @@ function scanPathForVideo(thisDir, thisStorageName){
         for (var i = 0; i < foldersThatContainsVideoFile.length; i++){
             //Generate playlist
             var thisFolder = foldersThatContainsVideoFile[i];
+            var thisThumbnail = imagelib.loadThumbString(thisFolder);
             var playlistFilelist = filelib.aglob(thisFolder + "/*.*")
             var playlistName = basename(thisFolder);
             var thisPlaylistObject = {};
@@ -64,6 +66,8 @@ function scanPathForVideo(thisDir, thisStorageName){
                 playlistName = baseBasename + " / " + playlistName
             }
 
+            thisPlaylistObject["Thumbnail"] = thisThumbnail;
+            thisPlaylistObject["Folderpath"] = thisFolder;
             thisPlaylistObject["Name"] = playlistName;
             thisPlaylistObject["Files"] = [];
             for (var k =0; k < playlistFilelist.length; k++){

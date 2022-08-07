@@ -1,5 +1,5 @@
 # PLATFORMS := darwin/amd64 darwin/arm64 freebsd/amd64 linux/386 linux/amd64 linux/arm linux/arm64 linux/mipsle windows/386 windows/amd64 windows/arm windows/arm64
-PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm linux/arm64 linux/mipsle windows/amd64 windows/arm64
+PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm linux/arm64 linux/mipsle  linux/riscv64 windows/amd64 windows/arm64
 temp = $(subst /, ,$@)
 os = $(word 1, $(temp))
 arch = $(word 2, $(temp))
@@ -65,4 +65,4 @@ web.tar.gz:
 
 arozos_file_checksum.sha1:
 	@echo "Generating the checksum, if sha1sum installed"
-	-sha1sum ./dist/arozos_*_* web.tar.gz > ./dist/arozos_file_checksum.sha1
+	-sha1sum ./dist/web.tar.gz > ./dist/arozos_file_checksum.sha1

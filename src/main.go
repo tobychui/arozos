@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
 	console "imuslab.com/arozos/mod/console"
 	"imuslab.com/arozos/mod/network/gzipmiddleware"
@@ -98,7 +99,7 @@ func main() {
 	os.Mkdir(*tmp_directory, 0777)
 
 	//Print copyRight information
-	log.Println("ArozOS(C) 2021 " + deviceVendor + ".")
+	log.Println("ArozOS(C) " + strconv.Itoa(time.Now().Year()) + " " + deviceVendor + ".")
 	log.Println("ArozOS " + build_version + " Revision " + internal_version)
 
 	/*

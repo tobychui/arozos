@@ -24,11 +24,7 @@ Example usage:
 This will serve / download the file located at files/users/{username}/Desktop/test/02.Orchestra- エミール (Addendum version).mp3
 
 PLEASE ALWAYS USE URLENCODE IN THE LINK PASSED INTO THE /media ENDPOINT
-
-
 */
-
-//
 
 func mediaServer_init() {
 	if *enable_gzip {
@@ -39,6 +35,8 @@ func mediaServer_init() {
 		http.HandleFunc("/media/getMime/", serveMediaMime)
 	}
 
+	//Download API always bypass gzip no matter if gzip mode is enabled
+	http.HandleFunc("/media/download/", serverMedia)
 }
 
 //This function validate the incoming media request and return the real path for the targed file
@@ -57,6 +55,9 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 
 	targetfile, _ := common.Mv(r, "file", false)
 	targetfile, err = url.QueryUnescape(targetfile)
+	if err != nil {
+		return "", err
+	}
 	if targetfile == "" {
 		return "", errors.New("Missing paramter 'file'")
 	}
@@ -138,22 +139,38 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 		downloadMode = true
 	}
 
-	//Serve the file
-	if downloadMode {
-		userAgent := r.Header.Get("User-Agent")
-		filename := strings.ReplaceAll(url.QueryEscape(filepath.Base(realFilepath)), "+", "%20")
-		log.Println(r.Header.Get("User-Agent"))
-
-		if strings.Contains(userAgent, "Safari/") {
-			//This is Safari. Use speial header
-			w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(realFilepath))
-			w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-		} else {
-			//Fixing the header issue on Golang url encode lib problems
-			w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+filename)
-			w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-		}
+	//New download implementations, allow /download to be used instead of &download=true
+	if strings.Contains(r.RequestURI, "media/download/?file=") {
+		downloadMode = true
 	}
 
-	http.ServeFile(w, r, realFilepath)
+	//Serve the file
+	if downloadMode {
+		escapedRealFilepath, err := url.PathUnescape(realFilepath)
+		if err != nil {
+			common.SendErrorResponse(w, err.Error())
+			return
+		}
+		filename := filepath.Base(escapedRealFilepath)
+
+		/*
+			//12 Jul 2022 Update: Deprecated the browser detection logic
+			userAgent := r.Header.Get("User-Agent")
+			if strings.Contains(userAgent, "Safari/")) {
+				//This is Safari. Use speial header
+				w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(realFilepath))
+			} else {
+				//Fixing the header issue on Golang url encode lib problems
+				w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+filename)
+			}
+		*/
+
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+		w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+
+		http.ServeFile(w, r, escapedRealFilepath)
+	} else {
+		http.ServeFile(w, r, realFilepath)
+	}
+
 }

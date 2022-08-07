@@ -2,7 +2,6 @@
 <head>
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-<link rel="stylesheet" href="../script/tocas/tocas.css">
 <link rel="stylesheet" href="../script/semantic/semantic.css">
 <script src="jquery.min.js"></script>
 <script src="../script/semantic/semantic.js"></script>
@@ -515,7 +514,7 @@
                         <div class="description" style="margin-top:8px;"><a onclick="startTask(this, event);" class="startTaskButton"><i class="exchange icon"></i> Start Convert</a> / <a onclick="removeTask(this);"><i class="trash icon"></i> Remove</a>
                         </div>
                     </div>
-                    <div class="ts black active tiny progress" style="margin-top:8px;">
+                    <div class="ui black active tiny progress" style="margin-top:8px;">
                         <div class="bar" style="width:0%; min-width:0px;"></div>
                     </div>
                 </div>`);
@@ -657,7 +656,7 @@
         var command = $(taskObject).attr("command");
 
         //Update the progress bar
-        $(taskObject).find(".tiny.progress").attr("class","ts blue queried indeterminate tiny progress");
+        $(taskObject).find(".tiny.progress").attr("class","ui blue queried indeterminate tiny progress");
         $(taskObject).find(".bar").css("width","100%");
         $(taskObject).removeClass("ready").addClass("converting");
 

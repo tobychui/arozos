@@ -2,6 +2,7 @@ package iot
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -87,6 +88,7 @@ func (m *Manager) HandleIconLoad(w http.ResponseWriter, r *http.Request) {
 	iconName := targetDevice.Handler.Icon(targetDevice)
 
 	iconFilePath := "./web/SystemAO/iot/hub/img/devices/" + iconName + ".png"
+	fmt.Println(iconFilePath)
 	if fileExists(iconFilePath) {
 		http.ServeFile(w, r, iconFilePath)
 	} else {

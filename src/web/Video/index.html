@@ -5,9 +5,9 @@
         <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
         <meta charset="UTF-8">
         <meta name="theme-color" content="#4b75ff">
-        <link rel="stylesheet" href="script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
         <script src="../script/jquery.min.js"></script>
-        <script src="script/semantic/semantic.min.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
         <script src="../script/ao_module.js"></script>
         <script src="script/DPlayer.min.js"></script>
 
@@ -66,6 +66,19 @@
                 background-color: #ffdd91;
             }
 
+            .playlistObject{
+                padding: 0.8em !important;
+                cursor: pointer;
+            }
+
+            .playlistObject:hover{
+                background-color: #ffdd91;
+            }
+
+            .playlistObject.active{
+                background-color:#ededed;
+            }
+
         </style>
     </head>
     <body>
@@ -96,17 +109,35 @@
                     <input id="autoplayToggle" type="checkbox" name="autoplay" onchange="setAutoplay(this);">
                     <label>Autoplay</label>
                 </div>
-
             </div>
-            <div id="playList" class="ui fluid segment">
-                <p><i class="list icon"></i> PlayLists</p>
-                <select id="playListSelector" class="ui search fluid dropdown">
-                    <option value="">Select Playlist</option>
-                </select>
-                <br>
-                <p><i class="file icon"></i>PlayList Videos</p>
-                <div id="videolist" class="ui relaxed divided list">
+            
+            <div class="ui fluid segment">
+                <div class="ui icon tiny right floated basic buttons">
+                    <button onclick="playPreviousVideo();" class="ui tiny basic icon button"><i class="step backward icon"></i></button>
+                    <button onclick="jumpToPlayingPlaylist();" class="ui tiny basic icon button"><i class="list icon"></i></button>
+                    <button onclick="jumpToPlayingVideo();" class="ui tiny basic icon button"><i class="arrow down icon"></i></button>
+                    <button onclick="playNextVideo();" class="ui tiny basic icon button"><i class="step forward icon"></i></button>
+                </div>
+                <div id="playList" class="ui accordion">
+                    <div class="title">
+                        <i class="dropdown icon"></i>
+                        <i class="list icon"></i> PlayLists
+                    </div>
+                    <div class="content">
+                        <div id="playListSelector" class="ui relaxed divided list">
+                            
+                        </div>
+                    </div>
+                    
+                    <div class="title">
+                        <i class="dropdown icon"></i>
+                        <i class="file icon"></i>PlayList Videos
+                    </div>
+                    <div class="content">
+                        <div id="videolist" class="ui relaxed divided list">
 
+                        </div>
+                    </div>
                 </div>
             </div>
             <br><br><br>
@@ -121,6 +152,7 @@
             var autoPlay = false;
             var previousScreenSize = "70%";
             $('.ui.dropdown').dropdown();
+            
             init();
             initPlaylist();
 
@@ -166,33 +198,10 @@
                 dp.on('ended', function() {
                     if (autoPlay){
                         //Play next item in list
-                        var nextToPlay = 0;
-                        for (var i =0; i < currentPlaylist.length; i++){
-                            if (currentPlaylist[i].Filename == currentPlaying){
-                                nextToPlay = i + 1;
-                                if (nextToPlay >= currentPlaylist.length){
-                                    //last video. loop back to first esp
-                                    nextToPlay = 0;
-                                }
-                            }
-                        }
-
-                        //Play the selected item
-                        var nextPlayObject = currentPlaylist[nextToPlay];
-                        console.log(currentPlaylist[nextToPlay],nextToPlay);
-                        $("#videoname").text(nextPlayObject.Filename);
-                        $("#ext").text("[" + nextPlayObject.Ext + "]" );
-                        currentPlaying = nextPlayObject.Filename;
-                        playVideo("../media?file=" + encodeURIComponent(nextPlayObject.Filepath));
-                        $("#videolist").find(".search").val(nextPlayObject.Filename);
-                        $(".playing").removeClass("playing");
-                        $(".videoObject").each(function(){
-                            if ($(this).attr("filename") + $(this).attr("ext") == nextPlayObject.Filename){
-                                $(this).addClass("playing");
-                            }
-                        });
+                        playNextVideo();
                     }
                 });
+
 
                 //Handle full screen
                 dp.on('fullscreen', function() {
@@ -206,6 +215,90 @@
 
             }
 
+            function playNextVideo(){
+                var nextToPlay = 0;
+                for (var i =0; i < currentPlaylist.length; i++){
+                    if (currentPlaylist[i].Filename == currentPlaying){
+                        nextToPlay = i + 1;
+                        if (nextToPlay >= currentPlaylist.length){
+                            //last video. loop back to first esp
+                            nextToPlay = 0;
+                        }
+                    }
+                }
+
+                //Play the selected item
+                var nextPlayObject = currentPlaylist[nextToPlay];
+                if (nextPlayObject  == undefined){
+                    //No playlist or no object to play
+                    return;
+                }
+                console.log(currentPlaylist[nextToPlay],nextToPlay);
+                $("#videoname").text(nextPlayObject.Filename);
+                $("#ext").text("[" + nextPlayObject.Ext + "]" );
+                currentPlaying = nextPlayObject.Filename;
+                playVideo("../media?file=" + encodeURIComponent(nextPlayObject.Filepath));
+                $("#videolist").find(".search").val(nextPlayObject.Filename);
+                $(".playing").removeClass("playing");
+                $(".videoObject").each(function(){
+                    if ($(this).attr("filename") + $(this).attr("ext") == nextPlayObject.Filename){
+                        $(this).addClass("playing");
+                    }
+                });
+            }
+
+            function playPreviousVideo(){
+                var nextToPlay = 0;
+                for (var i =0; i < currentPlaylist.length; i++){
+                    if (currentPlaylist[i].Filename == currentPlaying){
+                        nextToPlay = i - 1;
+                        if (nextToPlay < 0){
+                            //First video. Loopback to the final video
+                            nextToPlay = currentPlaylist.length - 1;
+                        }
+                    }
+                }
+
+                //Play the selected item
+                var nextPlayObject = currentPlaylist[nextToPlay];
+                if (nextPlayObject  == undefined){
+                    //No playlist or no object to play
+                    return;
+                }
+                console.log(currentPlaylist[nextToPlay],nextToPlay);
+                $("#videoname").text(nextPlayObject.Filename);
+                $("#ext").text("[" + nextPlayObject.Ext + "]" );
+                currentPlaying = nextPlayObject.Filename;
+                playVideo("../media?file=" + encodeURIComponent(nextPlayObject.Filepath));
+                $("#videolist").find(".search").val(nextPlayObject.Filename);
+                $(".playing").removeClass("playing");
+                $(".videoObject").each(function(){
+                    if ($(this).attr("filename") + $(this).attr("ext") == nextPlayObject.Filename){
+                        $(this).addClass("playing");
+                    }
+                });
+            }
+
+            function jumpToPlayingVideo(){
+                if ($(".videoObject.playing").length == 0){
+                    return;
+                }
+                var scrollToLocation = $(".videoObject.playing").offset().top;
+                $('html, body').animate({
+                    scrollTop: scrollToLocation
+                }, 200);
+            }
+
+            function jumpToPlayingPlaylist(){
+                if ($(".playlistObject.active").length == 0){
+                    return;
+                }
+                var scrollToLocation = $(".playlistObject.active").offset().top;
+                $('html, body').animate({
+                    scrollTop: scrollToLocation
+                }, 200);
+            }
+
             function setAutoplay(obj){
                 autoPlay = obj.checked;
                 if (autoPlay){
@@ -215,6 +308,7 @@
                 }
             }
 
+            /*
             $("#playListSelector").on("change",function(){
                 var selectedPlaylistName = $(this).val();
                 var thisPlaylistDevice = "";
@@ -233,6 +327,15 @@
                 }
                 //console.log(thisPlaylistDevice);
             });
+            */
+
+            function selectedPlaylist(object, selectedPlaylistName){
+                //Hightlight this playlist object
+                $(".playlistObject.active").removeClass('active');
+                $(object).addClass("active");
+                listPlayList(selectedPlaylistName);
+                $('#playList').accordion('open',1);
+            }
 
             function setScreenSize(size){
                 $("#dplayer").css("width",size);
@@ -245,17 +348,36 @@
                         console.log(data);
                         //Initial playlist dropdown
                         $("#playListSelector").html("");
-                        $("#playListSelector").append(`<option class="" value="">Select Playlist</option>`);
+                        //$("#playListSelector").append(`<option class="" value="">Select Playlist</option>`);
                        for (var i = 0; i < data.length; i++){
                            var thisDevice = data[i];
                            var thisDeviceName = thisDevice.StorageName;
                            var playlistInThisDevice = thisDevice.PlayLists;
+                          
                            //var unsortedVideoInThisDevice = thisDevice.UnsortedVideos;
                            //Append playlist
                            for (var j = 0; j < playlistInThisDevice.length; j++){
-                               var thisPlaylistName = playlistInThisDevice[j].Name;
-                               AllPlaylist.push(JSON.parse(JSON.stringify(playlistInThisDevice[j])));
-                               $("#playListSelector").append(`<option class="playlistObject" value="${thisPlaylistName}" device="${thisDeviceName}">${thisPlaylistName}</option>`);
+                                var thisPlaylistName = playlistInThisDevice[j].Name;
+                                var thisPlaylistThumbnail = playlistInThisDevice[j].Thumbnail;
+                                if (thisPlaylistThumbnail == false){
+                                    thisPlaylistThumbnail = "img/desktop_icon.png";
+                                }else{
+                                    thisPlaylistThumbnail = "data:image/jpg;base64," + thisPlaylistThumbnail;
+                                }
+                                AllPlaylist.push(JSON.parse(JSON.stringify(playlistInThisDevice[j])));
+                                //$("#playListSelector").append(`<option class="playlistObject" value="${thisPlaylistName}" device="${thisDeviceName}">${thisPlaylistName}</option>`);
+                                $("#playListSelector").append(`
+                                    <div class="playlistObject item" onclick="selectedPlaylist(this,'${thisPlaylistName}');">
+                                        <div class="right floated content">
+                                            <div onclick="event.preventDefault(); event.stopImmediatePropagation(); ao_module_openPath('${playlistInThisDevice[j].Folderpath}');" class="ui icon button"><i class="folder open icon"></i></div>
+                                        </div>
+                                        <img class="ui tiny image " src="${thisPlaylistThumbnail}">
+                                        <div class="content" style="margin-top: 1em; max-width: calc(100% - 15em);">
+                                            <div class="header">${thisPlaylistName}</div>
+                                            <div class="description" style="margin-top: 0.4em;" ><span style="margin-left: 0em;"><i class="file outline icon"></i> x  ${playlistInThisDevice[j].Files.length}</span></div>
+                                        </div>
+                                    </div>
+                                `);
                            }
                            /*
                            for (var k = 0; k < unsortedVideoInThisDevice.length; k++){
@@ -267,6 +389,8 @@
                         //Append unsorted into playlist
                         //$("#playListSelector").append(`<option class="playlistObject" value="unsorted" device="">Unsorted Playlist</option>`);
                         updateWindowEvents();
+                        $("#playList").accordion();
+                        $('#playList').accordion('open',0);
                     }
                 });
             }
@@ -324,6 +448,7 @@
                 playVideo("../media?file=" + encodeURIComponent(fileDescriptor.attr("filepath")));
                 $(fileDescriptor).addClass("playing");
                 window.scrollTo(0, 0); 
+                ao_module_setWindowTitle("Video - " + fileDescriptor.attr("filename"));
             }
 
             function playVideo(src){
