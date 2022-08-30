@@ -44,6 +44,10 @@
     p,a,div,span,h1,h2,h3,h4,h5,h6{
       font-family: 'Noto Sans TC', sans-serif !important;
     }
+
+    .oil{
+      display:none;
+    }
   </style>
 </head>
 
@@ -431,7 +435,6 @@
     Contact Section
   ============================-->
   <section id="contact" class="padd-section wow fadeInUp">
-
     <div class="container">
       <div class="section-title text-center">
         <h2>查看源碼</h2>
@@ -474,7 +477,7 @@
   <!--==========================
     Footer
   ============================-->
-  <footer class="footer">
+  <footer class="footer" style="position: relative;">
     <div class="copyrights">
       <div class="container">
         <div class="credits">
@@ -488,9 +491,9 @@
         </div>
       </div>
     </div>
-
+    <img class="oil" style="position: absolute; right: 0px; bottom: 0px; width: 30em;" src="img/oil/mascot.png">
   </footer>
-
+  <img class="oil" style="position: absolute; width: 30em;bottom: 0px; right: 0px;" src="img/oil/welcome.png">
 
 
   <a href="#" class="back-to-top"><i class="fa fa-chevron-up"></i></a>
@@ -518,6 +521,10 @@
       $("#lang").text("中文（正體）");
     }else if (userLang == "zh-TW"){
       $("#lang").text("中文（台灣）");
+    }
+
+    if (window.location.hash == "#oil"){
+      $(".oil").show();
     }
   </script>
 </body>
