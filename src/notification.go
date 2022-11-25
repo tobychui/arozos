@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"strconv"
 	"time"
 
@@ -45,7 +44,7 @@ func notificationInit() {
 		})
 
 	if err != nil {
-		log.Println("[Notification/SMTPN] Unable to start smtpn agent: " + err.Error())
+		systemWideLogger.PrintAndLog("Notification", "Unable to start smtpn agent: "+err.Error(), nil)
 	} else {
 		notificationQueue.RegisterNotificationAgent(smtpAgent)
 	}

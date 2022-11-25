@@ -66,19 +66,6 @@ func PrintSystemHardwareDebugMessage() {
 }
 
 func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
-
-	/*
-		ArOZInfo := ArOZInfo{
-			BuildVersion: build_version + "." + internal_version,
-			DeviceVendor: deviceVendor,
-			DeviceModel:  deviceModel,
-			VendorIcon:   "../../" + iconVendor,
-			SN:           deviceUUID,
-			HostOS:       runtime.GOOS,
-			CPUArch:      runtime.GOARCH,
-		}
-	*/
-
 	var jsonData []byte
 	jsonData, err := json.Marshal(s.hostInfo)
 	if err != nil {

@@ -3,16 +3,20 @@ package agi
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/robertkrimen/otto"
+	uuid "github.com/satori/go.uuid"
 
 	apt "imuslab.com/arozos/mod/apt"
+	"imuslab.com/arozos/mod/filesystem"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/share"
@@ -29,14 +33,15 @@ import (
 */
 
 var (
-	AgiVersion string = "1.7" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "2.2" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
-	exitcall  = errors.New("Exit")
-	timelimit = errors.New("Timelimit")
+	errExitcall = errors.New("errExit")
+	errTimeout  = errors.New("errTimeout")
 )
 
-type AgiLibIntergface func(*otto.Otto, *user.User) //Define the lib loader interface for AGI Libraries
+//Lib interface, require vm, user, target system file handler and the vpath of the running script
+type AgiLibIntergface func(*otto.Otto, *user.User, *filesystem.FileSystemHandler, string) //Define the lib loader interface for AGI Libraries
 type AgiPackage struct {
 	InitRoot string //The initialization of the root for the module that request this package
 }
@@ -58,8 +63,9 @@ type AgiSysInfo struct {
 	NightlyManager       *nightly.TaskManager
 
 	//Scanning Roots
-	StartupRoot   string
-	ActivateScope []string
+	StartupRoot    string
+	ActivateScope  []string
+	TempFolderPath string
 }
 
 type Gateway struct {
@@ -200,7 +206,7 @@ func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *u
 		w.Write([]byte("400 - Bad Request (Missing script content)"))
 		return
 	}
-	g.ExecuteAGIScript(scriptContent, "", "", w, r, thisuser)
+	g.ExecuteAGIScript(scriptContent, nil, "", "", w, r, thisuser)
 }
 
 //Handle user requests
@@ -264,7 +270,7 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	scriptContentByte, _ := ioutil.ReadFile(scriptFile)
 	scriptContent := string(scriptContentByte)
 
-	g.ExecuteAGIScript(scriptContent, scriptFile, scriptScope, w, r, thisuser)
+	g.ExecuteAGIScript(scriptContent, nil, scriptFile, scriptScope, w, r, thisuser)
 }
 
 /*
@@ -276,12 +282,12 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	thisuser: userObject
 
 */
-func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scriptScope string, w http.ResponseWriter, r *http.Request, thisuser *user.User) {
+func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSystemHandler, scriptFile string, scriptScope string, w http.ResponseWriter, r *http.Request, thisuser *user.User) {
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, scriptScope)
-	g.injectUserFunctions(vm, scriptFile, scriptScope, thisuser, w, r)
+	g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
 
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
@@ -334,25 +340,29 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, scriptFile string, scri
 
 /*
 	Execute AGI script with given user information
-
+	Pass in http.Request pointer to enable serverless GET / POST request
 */
-func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.User) (string, error) {
+func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, r *http.Request) (string, error) {
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, scriptFile, "", targetUser, nil, nil)
+	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, nil, nil)
 
+	if r != nil {
+		//Inject serverless script to enable access to GET / POST paramters
+		g.injectServerlessFunctions(vm, scriptFile, "", targetUser, r)
+	}
 	//Inject interrupt Channel
 	vm.Interrupt = make(chan func(), 1)
 
 	//Create a panic recovery logic
 	defer func() {
 		if caught := recover(); caught != nil {
-			if caught == timelimit {
+			if caught == errTimeout {
 				log.Println("[AGI] Execution timeout: " + scriptFile)
 				return
-			} else if caught == exitcall {
+			} else if caught == errExitcall {
 				//Exit gracefully
 
 				return
@@ -366,12 +376,12 @@ func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.Use
 	go func() {
 		time.Sleep(300 * time.Second) // Stop after 300 seconds
 		vm.Interrupt <- func() {
-			panic(timelimit)
+			panic(errTimeout)
 		}
 	}()
 
 	//Try to read the script content
-	scriptContent, err := ioutil.ReadFile(scriptFile)
+	scriptContent, err := fsh.FileSystemAbstraction.ReadFile(scriptFile)
 	if err != nil {
 		return "", err
 	}
@@ -388,5 +398,45 @@ func (g *Gateway) ExecuteAGIScriptAsUser(scriptFile string, targetUser *user.Use
 	}
 
 	valueString, err := value.ToString()
+	if err != nil {
+		return "", err
+	}
 	return valueString, nil
+}
+
+/*
+
+	Get user specific tmp filepath for buffering remote file. Return filepath and closer
+	tempFilepath, closerFunction := g.getUserSpecificTempFilePath(u, "myfile.txt")
+	//Do something with it, after done
+	closerFunction();
+*/
+func (g *Gateway) getUserSpecificTempFilePath(u *user.User, filename string) (string, func()) {
+	uuid := uuid.NewV4().String()
+	tmpFileLocation := filepath.Join(g.Option.TempFolderPath, "agiBuff", u.Username, uuid, filepath.Base(filename))
+	os.MkdirAll(filepath.Dir(tmpFileLocation), 0775)
+	return tmpFileLocation, func() {
+		os.RemoveAll(filepath.Dir(tmpFileLocation))
+	}
+}
+
+/*
+	Buffer remote reosurces to local by fsh and rpath. Return buffer filepath on local device and its closer function
+*/
+func (g *Gateway) bufferRemoteResourcesToLocal(fsh *filesystem.FileSystemHandler, u *user.User, rpath string) (string, func(), error) {
+	buffFile, closerFunc := g.getUserSpecificTempFilePath(u, rpath)
+	f, err := fsh.FileSystemAbstraction.ReadStream(rpath)
+	if err != nil {
+		return "", nil, err
+	}
+	defer f.Close()
+	dest, err := os.OpenFile(buffFile, os.O_CREATE|os.O_RDWR, 0775)
+	if err != nil {
+		return "", nil, err
+	}
+	io.Copy(dest, f)
+	dest.Close()
+	return buffFile, func() {
+		closerFunc()
+	}, nil
 }

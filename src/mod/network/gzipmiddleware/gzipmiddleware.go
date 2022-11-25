@@ -29,7 +29,7 @@ type gzipResponseWriter struct {
 }
 
 func (w *gzipResponseWriter) WriteHeader(status int) {
-	w.Header().Del("Content-Length")
+	//w.Header().Del("Content-Length")
 	w.ResponseWriter.WriteHeader(status)
 }
 
@@ -44,6 +44,12 @@ func Compress(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			//If the client do not support gzip
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		//Handle very special case where it is /share/download
+		if strings.HasPrefix(r.URL.RequestURI(), "/share/download/") {
 			h.ServeHTTP(w, r)
 			return
 		}

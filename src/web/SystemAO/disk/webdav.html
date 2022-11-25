@@ -169,6 +169,9 @@
                     }
                 }
                 data.forEach(vroot => {
+                    if (vroot.BufferedFs){
+                        return;
+                    }
                     $("#vrootList").append(`<div class="item">
                     <i class="disk icon"></i>
                     <div class="content">

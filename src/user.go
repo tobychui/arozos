@@ -8,7 +8,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -186,21 +185,21 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		//Update the target user's group
 		newgroup, err := common.Mv(r, "newgroup", true)
 		if err != nil {
-			log.Println(err.Error())
+			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			common.SendErrorResponse(w, "New Group not defined")
 			return
 		}
 
 		newQuota, err := common.Mv(r, "quota", true)
 		if err != nil {
-			log.Println(err.Error())
+			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			common.SendErrorResponse(w, "Quota not defined")
 			return
 		}
 
 		quotaInt, err := strconv.Atoi(newQuota)
 		if err != nil {
-			log.Println(err.Error())
+			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			common.SendErrorResponse(w, "Invalid Quota Value")
 			return
 		}
@@ -208,7 +207,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		newGroupKeys := []string{}
 		err = json.Unmarshal([]byte(newgroup), &newGroupKeys)
 		if err != nil {
-			log.Println(err.Error())
+			systemWideLogger.PrintAndLog("User", err.Error(), err)
 			common.SendErrorResponse(w, "Unable to parse new groups")
 			return
 		}

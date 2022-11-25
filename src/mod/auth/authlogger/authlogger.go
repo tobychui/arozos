@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +37,7 @@ type LoginRecord struct {
 
 //New Logger create a new logger object
 func NewLogger() (*Logger, error) {
+	os.MkdirAll("./system/auth/", 0775)
 	db, err := database.NewDatabase("./system/auth/authlog.db", false)
 	if err != nil {
 		return nil, errors.New("*ERROR* Failed to create database for login tracking: " + err.Error())

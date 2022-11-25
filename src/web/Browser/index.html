@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#4b75ff">
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+		<script src="../script/semantic/semantic.min.js"></script>
+		<link rel="icon" type="image/png" href="img/module_icon.png">
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+		<title>Browser</title>
+		<style>
+			body{
+				overflow: hidden;
+			}
+			#urlbar{
+				padding-top: 0.2em;
+				padding-bottom: 0.2em;
+				padding-left: 1.2em;
+				padding-right: 0.3em;
+				line-height: 1em;
+			}
+
+			.menuitem{
+				margin-top: 0.2em;
+				padding:0.2em !important;
+				border: 0px !important;
+			}
+
+			.menuitem button{
+				background-color: white !important;
+			}
+
+			.rightMenuItem{
+				margin-top: 0.3em;
+				padding:0.1em !important;
+				border: 0px !important;
+			}
+
+			.rightMenuItem button:not(.inverted){
+				background-color: white !important;
+			}
+
+			#starBtn{
+				padding-right: 0.9em;
+				cursor: pointer !important;
+				background-color: white !important;
+			}
+
+			#starBtn:hover{
+				opacity: 0.7;
+			}
+
+			#xframe{
+				width: 100%;
+				height: calc(100% - 43px);
+				border: 0px solid transparent;
+			}
+
+			#notvdiWarning{
+				position: fixed;
+				bottom: 0px;
+				left: 0px;
+				width: 100%;
+				padding: 0.4em;
+				display: none;
+			}
+
+			#toolbar.proxy{
+				border-bottom: 2px solid #41e8e5;
+			}
+
+			#bookmarkbar{
+				position: fixed;
+				right: 0px;
+				top: 42px;
+				background-color: white;
+				height: calc(100% - 42px);
+				width: 25em;
+				padding: 1.2em;
+				border: 1px solid #dedede;
+
+				box-shadow: -10px 1px 11px -5px rgba(0,0,0,0.15);
+				-webkit-box-shadow: -10px 1px 11px -5px rgba(0,0,0,0.15);
+				-moz-box-shadow: -10px 1px 11px -5px rgba(0,0,0,0.15);
+
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="toolbar" class="ui top small attached menu" style="background-color: #eceef2; padding-left: 12px; padding-right: 12px;">
+			<div class="ui menuitem">
+				<button class="ui circular tiny icon button" onclick="undoPage();">
+					<i class="arrow left icon"></i>
+				</button>
+			</div>
+			<div class="ui menuitem">
+				<button class="ui circular tiny icon button" onclick="redoPage();">
+					<i class="arrow right icon"></i>
+				</button>
+			</div>
+			<div class="ui menuitem">
+				<button class="ui circular tiny icon button" onclick="refreshPage();">
+					<i class="green refresh icon"></i>
+				</button>
+			</div>
+			<div id="urlbar" class="ui tiny action fluid input">
+				<input id="urlText" type="text" value="about:blank" onkeydown="handleURLKeydown(event);">
+				<button id="starBtn" class="ui icon basic circular tiny button" onclick="addBookMark();">
+					<i class="star icon"></i>
+				</button>
+			</div>
+			<div class="right menu">
+				<div class="ui rightMenuItem">
+					<button class="ui tiny icon button" onclick="toggleBookmark();">
+						<i class="blue bookmark icon"></i>
+					</button>
+				</div>
+				<div class="ui rightMenuItem">
+					<button class="ui tiny icon button" onclick="loadWebsite('about:blank');">
+						<i class="home icon"></i>
+					</button>
+				</div>
+				<div class="ui rightMenuItem">
+					<button class="ui tiny icon button" title="Open in new Window" onclick="openInNewWindow();">
+						<i class="grey external icon"></i>
+					</button>
+				</div>
+			</div>
+		  </div>
+		  <iframe id="xframe" src="./blank.html" allow="fullscreen" referrerpolicy="no-referrer">
+
+		  </iframe>
+		  <div id="bookmarkbar" style="display:none;">
+			<div class="ui container">
+				<div id="bookmarklist" class="ui middle aligned divided list">
+					
+				</div>
+			</div>
+		  </div>
+		  <div id="notvdiWarning">
+			<div class="ui yellow message">
+				<i class="close icon"></i>
+				<div class="header">
+					<i class="remove icon"></i>Not Recommended Way of Usage
+				</div>
+				<p>Please use your native browser windows instead of this iframe browser for maximum website compatibility.</p>
+			</div>
+		  </div>
+		<script>
+			let historyStack = [];
+			let historyPopStack = [];
+			let currentURL = "about:blank";
+			let currentTitle = "";
+			let bookmarkBuffer = [];
+			let titleBuffer = {};
+
+			//Check if currently under vdi mode
+			if (ao_module_virtualDesktop == false){
+				$("#notvdiWarning").show();
+			}
+
+			$('.message .close').on('click', function() {
+				$(this).closest('.message').transition('fade');
+			});
+
+			function toggleBookmark(){
+				$("#bookmarkbar").fadeToggle('fast');
+			}
+
+			//Perform window resize element size calculation
+			$(window).on("resize", function(){
+				updateResizeElements();
+			});
+			function updateResizeElements(){
+				let buttonWidths = 0;
+				$(".menuitem").each(function(){
+					buttonWidths+= $(this).width();
+				});
+
+				let urlbarWidth = window.innerWidth - buttonWidths - 20;
+				$("#urlbar").css("width", urlbarWidth + "px");
+			}
+			updateResizeElements();
+
+
+			function handleURLKeydown(e){
+				if (e.keyCode == 13){
+					let url = $("#urlText").val();
+					loadWebsite(url);
+				}
+			}
+
+			function refreshPage(){
+				loadWebsite(currentURL);
+			}
+
+			function undoPage(){
+				//Push current page into the history pop stack
+				if (historyStack.length == 0){
+					return;
+				}
+				let currentBackupURL = currentURL;
+				historyPopStack.push(currentBackupURL);
+				let targetReturnURL = historyStack.pop();
+				loadWebsite(targetReturnURL, false);
+			}
+
+			function redoPage(){
+				if (historyPopStack.length == 0){
+					return;
+				}
+				restorePage = historyPopStack.pop();
+				historyStack.push(currentURL);
+				loadWebsite(restorePage, false);
+			}
+
+			function openInNewWindow(){
+				window.open(currentURL);
+			}
+
+			function getTitleFromURL(targetURL){
+				var title = targetURL;
+				if (targetURL.includes("//")){
+					title = targetURL.substr(targetURL.indexOf("/") + 2, targetURL.length);
+				}
+				
+				return title;
+			}
+
+			function loadWebsite(targetURL, writeRestoreRecord = true){
+				if (writeRestoreRecord && currentURL != targetURL){
+					historyPopStack = [];
+				}
+				
+				//Handle special case
+				if (targetURL == "about:blank"){
+					$("#xframe").removeAttr("srcdoc");
+					$("#xframe").attr("src", "blank.html");
+					$("#urlText").val(targetURL);
+					$("#toolbar").removeClass("proxy");
+					if (writeRestoreRecord && currentURL != targetURL){
+						historyStack.push(JSON.parse(JSON.stringify(currentURL)));
+					}
+					currentURL = targetURL;
+					return;
+				}
+
+				//Remove the tailing / if exists
+				if (targetURL.substr(targetURL.length - 1, targetURL.length) == "/"){
+					targetURL = targetURL.substr(0, targetURL.length - 1);
+				}
+
+				$("#xframe").removeAttr("srcdoc");
+				$("#xframe").attr("src", "loading.html");
+
+				//Filter the URL if required
+				if (targetURL.substr(0,4) != "http"){
+					if (location.protocol !== "https:"){
+						//This page is currently loaded in http mode. Add http:// to it
+						targetURL = "http://" + targetURL;
+					}else{
+						targetURL = "https://" + targetURL;
+					}
+				}
+
+				$("#urlText").val(targetURL);
+				if (writeRestoreRecord && currentURL != targetURL){
+					historyStack.push(JSON.parse(JSON.stringify(currentURL)));
+				}
+				currentURL = targetURL;
+				
+
+				//Check if the website allow iframe
+				checkIfAllowIframing(targetURL, function(allowIframe, redirectTarget){
+					if (allowIframe == null){
+						$("#xframe").attr("src", "notfound.html#" + targetURL);
+					}else{
+						if (allowIframe == true){
+							$("#xframe").removeAttr("srcdoc");
+							$("#xframe").attr("src", targetURL);
+							$("#toolbar").removeClass("proxy");
+							$("#xframe").on("load", function(){
+								//Get the page title
+								ao_module_agirun("Browser/functions/getTitle.js", {url: targetURL}, function(data){
+									if (data == ""){
+										let title = getTitleFromURL(targetURL);
+										ao_module_setWindowTitle(title);
+										currentTitle = title;
+									}else{
+										ao_module_setWindowTitle(data);
+										currentTitle = data;
+									}
+								});
+								$("#xframe").off("load");
+							});
+						}else{
+							proxyWebContent(targetURL, function(content){
+								$("#xframe").attr("src", "");
+								$("#xframe").attr("srcdoc", content);
+								$("#toolbar").addClass("proxy");
+
+								//Extract the title
+								var matches = content.match(/<title>(.*?)<\/title>/);
+								if (matches == null){
+									let title = getTitleFromURL(targetURL);
+									ao_module_setWindowTitle(title);
+									currentTitle = title;
+								}else{
+									var title = matches[0].replace(/(<([^>]+)>)/gi, "");
+									ao_module_setWindowTitle(title);
+									currentTitle = title;
+								}
+    							
+							});
+							//alert("Target website do not allow embedding");
+						}
+
+						if (redirectTarget != undefined && redirectTarget != ""){
+							$("#urlText").val(redirectTarget);
+						}
+					}
+				});
+
+				updateBookmarkButtonColor();
+			}
+
+			function updateBookmarkButtonColor(){
+				if (insideBookmark(currentURL)){
+					$("#starBtn").addClass("yellow");
+				}else{
+					$("#starBtn").removeClass("yellow");
+				}
+			}
+
+
+			function initbookmark(){
+				ao_module_agirun("Browser/functions/bookmark.js", {opr: "read"}, function(bookmarkData){
+					bookmarkBuffer = bookmarkData;
+					console.log("BOOKMARK DATA", bookmarkData);
+					ao_module_agirun("Browser/functions/bookmark.js", {rtype: "titles", opr: "read"}, function(data){
+						titleBuffer = data;
+						$("#bookmarklist").html("");
+						bookmarkBuffer.forEach(bookmark => {
+							let matchingTitle = titleBuffer[bookmark];
+							if (matchingTitle == undefined){
+								matchingTitle = getTitleFromURL(bookmark);
+							}
+							//Render the bookmark table
+							$("#bookmarklist").append(`
+								<div class="item">
+									<div class="right floated content">
+									<div class="ui mini icon basic blue circular button" onclick="loadWebsite('${bookmark}');"><i class="ui linkify icon"></i></div>
+									</div>
+									<div class="content">
+										${matchingTitle}
+									</div>
+							</div>`);
+						});
+
+						if (bookmarkBuffer.length == 0){
+							$("#bookmarklist").append(`<div class="item">
+								<div class="content">
+									<i class="ui bookmark icon"></i> No bookmark saved
+									</div>
+								</div>`);
+						}
+						
+					});
+				});
+
+				
+			}
+			initbookmark();
+
+			function addBookMark(){
+				if (bookmarkBuffer.includes(currentURL)){
+					//Remove bookmark
+					bookmarkBuffer = bookmarkBuffer.filter(e => e !== currentURL);
+					delete(titleBuffer[currentURL]);
+				}else{
+					//Add bookmark
+					bookmarkBuffer.push(currentURL);
+
+					//Remove array in the table
+					bookmarkBuffer = bookmarkBuffer.filter(function(item, pos, self) {
+						return self.indexOf(item) == pos;
+					});
+
+					titleBuffer[currentURL] = currentTitle;
+				}
+				
+				ao_module_agirun("Browser/functions/bookmark.js", {"opr": "write", "newBookmarkArray": JSON.stringify(bookmarkBuffer)}, function(data){
+					ao_module_agirun("Browser/functions/bookmark.js", {"rtype": "titles", "opr": "write", "newTitleArray": JSON.stringify(titleBuffer)}, function(data){
+						console.log(data);
+						updateBookmarkButtonColor();
+						initbookmark();
+					});
+				});
+			}
+
+			function insideBookmark(url){
+				return bookmarkBuffer.includes(url);
+			}
+
+
+			function proxyWebContent(url, callback){
+				ao_module_agirun("Browser/functions/proxy.js", {
+					url: url,
+				}, function(data){
+					callback(data);
+				});
+			}
+
+			//Check if a website can be directly embedded as iframe, can return true / false /null (site not exists)
+			function checkIfAllowIframing(url, callback){
+				ao_module_agirun("Browser/functions/getHeader.js", {
+					url: url
+				}, function(data){
+					let xFrameOptions = JSON.parse(data);
+					let header = "";
+					if (xFrameOptions.header == null){
+						xFrameOptions.header = "deny";
+					}else{
+						header = xFrameOptions.header.toLowerCase().trim();
+					}
+					
+					let location = xFrameOptions.location;
+					if (header == "null"){
+						//Site not exists
+						callback(null);
+					}
+					
+					if (header == "sameorigin" || header == "deny"){
+						//This webpage do not allow iframeing
+						callback(false, location);
+					}else{
+						//This webpage allow iframing. Show it
+						callback(true, location);
+					}
+				}, undefined, 5000)
+			}
+		</script>
+	</body>
+</html>

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	apt "imuslab.com/arozos/mod/apt"
@@ -12,7 +11,7 @@ import (
 func PackagManagerInit() {
 	//Create a package manager
 	packageManager = apt.NewPackageManager(*allow_package_autoInstall)
-	log.Println("Package Manager Initiated")
+	systemWideLogger.PrintAndLog("APT", "Package Manager Initiated", nil)
 
 	//Create a System Setting handler
 	//aka who can access System Setting can see contents about packages

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#4b75ff">
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+		<script src="../script/semantic/semantic.min.js"></script>
+		
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+		<title>about:blank</title>
+		<style>
+
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="ui container">
+            <div class="main">
+                <h1 class="ui header">
+                    <img class="ui image" src="img/desktop_icon.png">
+                    <div class="content">
+                        about:blank
+                    </div>
+                </h1>
+                <div class="ui divider"></div>
+                <h3>ArozOS Browser</h3>
+                <p>Technically this is not a browser but an iframe. Not all websites work inside an iframe due to CORS policy. <br>
+                    <b>Use with your own risk</b></p>
+                <p>Here are some partially working websites for getting started: </p>
+                <div class="ui bulleted list" style="max-width: 200px;">
+                    <a class="item" onclick="parent.loadWebsite('www.google.com/search?igu=1');">google.com</a>
+                    <a class="item" onclick="parent.loadWebsite('bing.com');">bing.com</a>
+                    <a class="item" onclick="parent.loadWebsite('wikipedia.org');">wikipedia.org</a>
+                </div>
+
+                <img class="ui tiny image" style="cursor: pointer;" onclick="parent.loadWebsite('arozos.com');" src="img/logo.png">
+            </div>
+        </div>
+       
+
+    </body>
+</html>

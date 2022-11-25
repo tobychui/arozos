@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	permission "imuslab.com/arozos/mod/permission"
 	storage "imuslab.com/arozos/mod/storage"
 )
@@ -93,31 +94,31 @@ func (u *User) GetInterfaceModules() []string {
 func (u *User) GetPathAccessPermission(vpath string) string {
 	fsid, _, err := getIDFromVirtualPath(filepath.ToSlash(vpath))
 	if err != nil {
-		return "denied"
+		return arozfs.FsDenied
 	}
 	topAccessRightStoragePool, err := u.GetHighestAccessRightStoragePool(fsid)
 	if err != nil {
-		return "denied"
+		return arozfs.FsDenied
 	}
 	if topAccessRightStoragePool.Owner == u.Username {
 		//This user own this storage pool. CHeck if the fs itself is readonly
 		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
 		if fsHandler.ReadOnly {
-			return "readonly"
+			return arozfs.FsReadOnly
 		}
-		return "readwrite"
+		return arozfs.FsReadWrite
 	} else if topAccessRightStoragePool.Owner == "system" {
 		//System storage pool. Allow both read and write if the system handler is readwrite
 		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
 		if fsHandler.ReadOnly {
-			return "readonly"
+			return arozfs.FsReadOnly
 		}
-		return "readwrite"
+		return arozfs.FsReadWrite
 	} else {
 		//This user do not own this storage pool. Use the pools' config
 		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
 		if fsHandler.ReadOnly {
-			return "readonly"
+			return arozfs.FsReadOnly
 		}
 		return topAccessRightStoragePool.OtherPermission
 	}
@@ -126,7 +127,7 @@ func (u *User) GetPathAccessPermission(vpath string) string {
 //Helper function for checking permission
 func (u *User) CanRead(vpath string) bool {
 	rwp := u.GetPathAccessPermission(vpath)
-	if rwp == "readonly" || rwp == "readwrite" {
+	if rwp == arozfs.FsReadOnly || rwp == arozfs.FsReadWrite {
 		return true
 	} else {
 		return false
@@ -135,7 +136,7 @@ func (u *User) CanRead(vpath string) bool {
 
 func (u *User) CanWrite(vpath string) bool {
 	rwp := u.GetPathAccessPermission(vpath)
-	if rwp == "readwrite" {
+	if rwp == arozfs.FsReadWrite || rwp == arozfs.FsWriteOnly {
 		return true
 	} else {
 		return false

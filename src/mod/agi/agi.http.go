@@ -5,15 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/filesystem"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -33,7 +32,7 @@ func (g *Gateway) HTTPLibRegister() {
 	}
 }
 
-func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
+func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
 	vm.Set("_http_get", func(call otto.FunctionCall) otto.Value {
 		//Get URL from function variable
 		url, err := call.Argument(0).ToString()
@@ -121,7 +120,6 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		if err != nil || headerKey == "undefined" {
 			//No headkey set. Return the whole header as JSON
 			js, _ := json.Marshal(resp.Header)
-			log.Println(resp.Header)
 			returnValue, _ := vm.ToValue(string(js))
 			return returnValue
 		} else {
@@ -131,6 +129,40 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 			returnValue, _ := vm.ToValue(string(js))
 			return returnValue
 		}
+
+	})
+
+	//Get target status code for response
+	vm.Set("_http_code", func(call otto.FunctionCall) otto.Value {
+		//Get URL from function paramter
+		url, err := call.Argument(0).ToString()
+		if err != nil {
+			return otto.FalseValue()
+		}
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			g.raiseError(err)
+			return otto.FalseValue()
+		}
+
+		payload := ""
+		client := new(http.Client)
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			//Redirection. Return the target location as well
+			dest, _ := req.Response.Location()
+			payload = dest.String()
+			return errors.New("Redirect")
+		}
+
+		response, err := client.Do(req)
+		if err != nil {
+			return otto.FalseValue()
+		}
+		defer client.CloseIdleConnections()
+		vm.Run(`var _location = "` + payload + `";`)
+		value, _ := otto.ToValue(response.StatusCode)
+		return value
 
 	})
 
@@ -162,12 +194,12 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		//Convert the vpath to realpath. Check if it exists
-		rpath, err := u.VirtualPathToRealPath(vpath)
+		fsh, rpath, err := virtualPathToRealPath(vpath, u)
 		if err != nil {
 			return otto.FalseValue()
 		}
 
-		if !fileExists(rpath) || !IsDir(rpath) {
+		if !fsh.FileSystemAbstraction.FileExists(rpath) || !fsh.FileSystemAbstraction.IsDir(rpath) {
 			g.raiseError(errors.New(vpath + " is a file not a directory."))
 			return otto.FalseValue()
 		}
@@ -182,14 +214,10 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		defer resp.Body.Close()
 
 		// Create the file
-		out, err := os.Create(downloadDest)
+		err = fsh.FileSystemAbstraction.WriteStream(downloadDest, resp.Body, 0775)
 		if err != nil {
 			return otto.FalseValue()
 		}
-		defer out.Close()
-
-		// Write the body to file
-		_, err = io.Copy(out, resp.Body)
 		return otto.TrueValue()
 	})
 
@@ -229,6 +257,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User) {
 		http.head = _http_head;
 		http.download = _http_download;
 		http.getb64 = _http_getb64;
+		http.getCode = _http_code;
 	`)
 
 }

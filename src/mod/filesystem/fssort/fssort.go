@@ -1,7 +1,7 @@
 package fssort
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,23 +17,23 @@ type sortBufferedStructure struct {
 /*
 	Quick utilties to sort file list according to different modes
 */
-func SortFileList(filelistRealpath []string, sortMode string) []string {
+func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode string) []string {
 	//Build a filelist with information based on the given filelist
 	parsedFilelist := []*sortBufferedStructure{}
-	for _, file := range filelistRealpath {
+	if len(filelistRealpath) != len(fileInfos) {
+		//Invalid usage
+		return filelistRealpath
+	}
+	for i, file := range filelistRealpath {
 		thisFileInfo := sortBufferedStructure{
 			Filename: filepath.Base(file),
 			Filepath: file,
 		}
 
 		//Get Filesize
-		fi, err := os.Stat(file)
-		if err != nil {
-			thisFileInfo.Filesize = 0
-		} else {
-			thisFileInfo.Filesize = fi.Size()
-			thisFileInfo.ModTime = fi.ModTime().Unix()
-		}
+		fi := fileInfos[i]
+		thisFileInfo.Filesize = fi.Size()
+		thisFileInfo.ModTime = fi.ModTime().Unix()
 
 		parsedFilelist = append(parsedFilelist, &thisFileInfo)
 
@@ -70,11 +70,33 @@ func SortFileList(filelistRealpath []string, sortMode string) []string {
 	return results
 }
 
-func SortModeIsSupported(sortMode string) bool {
-	if !contains(sortMode, []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart"}) {
-		return false
+func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) []fs.DirEntry {
+	entries := map[string]fs.DirEntry{}
+	fnames := []string{}
+	fis := []fs.FileInfo{}
+
+	for _, de := range dirEntries {
+		fnames = append(fnames, de.Name())
+		fstat, _ := de.Info()
+		fis = append(fis, fstat)
+		thisFsDirEntry := de
+		entries[de.Name()] = thisFsDirEntry
 	}
-	return true
+
+	//Sort it
+	sortedNameList := SortFileList(fnames, fis, sortMode)
+
+	//Update dirEntry sequence
+	newDirEntry := []fs.DirEntry{}
+	for _, key := range sortedNameList {
+		newDirEntry = append(newDirEntry, entries[key])
+	}
+
+	return newDirEntry
+}
+
+func SortModeIsSupported(sortMode string) bool {
+	return contains(sortMode, []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart"})
 }
 
 func contains(item string, slice []string) bool {

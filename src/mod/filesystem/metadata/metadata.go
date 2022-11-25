@@ -1,11 +1,9 @@
 package metadata
 
 import (
-	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/fssort"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
 )
@@ -40,27 +39,32 @@ func NewRenderHandler() *RenderHandler {
 }
 
 //Build cache for all files (non recursive) for the given filepath
-func (rh *RenderHandler) BuildCacheForFolder(path string) error {
+func (rh *RenderHandler) BuildCacheForFolder(fsh *filesystem.FileSystemHandler, vpath string, username string) error {
+	fshAbs := fsh.FileSystemAbstraction
+	rpath, _ := fshAbs.VirtualPathToRealPath(vpath, username)
+
 	//Get a list of all files inside this path
-	files, err := filepath.Glob(filepath.ToSlash(filepath.Clean(path)) + "/*")
+	fis, err := fshAbs.ReadDir(filepath.ToSlash(filepath.Clean(rpath)))
 	if err != nil {
 		return err
 	}
-	for _, file := range files {
+	for _, fi := range fis {
 		//Load Cache in generate mode
-		rh.LoadCache(file, true)
+		rh.LoadCache(fsh, filepath.Join(rpath, fi.Name()), true)
 	}
 
 	//Check if the cache folder has file. If not, remove it
-	cachedFiles, _ := filepath.Glob(filepath.ToSlash(filepath.Join(filepath.Clean(path), "/.metadata/.cache/*")))
+	cachedFiles, _ := fshAbs.ReadDir(filepath.ToSlash(filepath.Join(filepath.Clean(rpath), "/.metadata/.cache/")))
 	if len(cachedFiles) == 0 {
-		os.RemoveAll(filepath.ToSlash(filepath.Join(filepath.Clean(path), "/.metadata/.cache/")) + "/")
+		fshAbs.RemoveAll(filepath.ToSlash(filepath.Join(filepath.Clean(rpath), "/.metadata/.cache/")) + "/")
 	}
 	return nil
 }
 
-func (rh *RenderHandler) LoadCacheAsBytes(file string, generateOnly bool) ([]byte, error) {
-	b64, err := rh.LoadCache(file, generateOnly)
+func (rh *RenderHandler) LoadCacheAsBytes(fsh *filesystem.FileSystemHandler, vpath string, username string, generateOnly bool) ([]byte, error) {
+	fshAbs := fsh.FileSystemAbstraction
+	rpath, _ := fshAbs.VirtualPathToRealPath(vpath, username)
+	b64, err := rh.LoadCache(fsh, rpath, generateOnly)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -70,15 +74,16 @@ func (rh *RenderHandler) LoadCacheAsBytes(file string, generateOnly bool) ([]byt
 }
 
 //Try to load a cache from file. If not exists, generate it now
-func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, error) {
+func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath string, generateOnly bool) (string, error) {
 	//Create a cache folder
-	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
-	os.MkdirAll(cacheFolder, 0755)
+	fshAbs := fsh.FileSystemAbstraction
+	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(rpath)), "/.metadata/.cache/") + "/")
+	fshAbs.MkdirAll(cacheFolder, 0755)
 	hidden.HideFile(filepath.Dir(filepath.Clean(cacheFolder)))
 	hidden.HideFile(cacheFolder)
 
 	//Check if cache already exists. If yes, return the image from the cache folder
-	if CacheExists(file) {
+	if CacheExists(fsh, rpath) {
 		if generateOnly {
 			//Only generate, do not return image
 			return "", nil
@@ -86,93 +91,98 @@ func (rh *RenderHandler) LoadCache(file string, generateOnly bool) (string, erro
 
 		//Allow thumbnail to be either jpg or png file
 		ext := ".jpg"
-		if !fileExists(cacheFolder + filepath.Base(file) + ".jpg") {
+		if !fshAbs.FileExists(cacheFolder + filepath.Base(rpath) + ".jpg") {
 			ext = ".png"
 		}
 
 		//Updates 02/10/2021: Check if the source file is newer than the cache. Update the cache if true
-		if mtime(file) > mtime(cacheFolder+filepath.Base(file)+ext) {
+		folderModeTime, _ := fshAbs.GetModTime(rpath)
+		cacheImageModeTime, _ := fshAbs.GetModTime(cacheFolder + filepath.Base(rpath) + ext)
+		if folderModeTime > cacheImageModeTime {
 			//File is newer than cache. Delete the cache
-			os.Remove(cacheFolder + filepath.Base(file) + ext)
+			fshAbs.Remove(cacheFolder + filepath.Base(rpath) + ext)
 		} else {
 			//Check if the file is being writting by another process. If yes, wait for it
 			counter := 0
-			for rh.fileIsBusy(file) && counter < 15 {
+			for rh.fileIsBusy(rpath) && counter < 15 {
 				counter += 1
 				time.Sleep(1 * time.Second)
 			}
 
 			//Time out and the file is still busy
-			if rh.fileIsBusy(file) {
-				log.Println("Process racing for cache file. Skipping", file)
+			if rh.fileIsBusy(rpath) {
+				log.Println("Process racing for cache file. Skipping", filepath.Base(rpath))
 				return "", errors.New("Process racing for cache file. Skipping")
 			}
 
 			//Read and return the image
-			ctx, err := getImageAsBase64(cacheFolder + filepath.Base(file) + ext)
+			ctx, err := getImageAsBase64(fsh, cacheFolder+filepath.Base(rpath)+ext)
 			return ctx, err
 		}
 
+	} else if fsh.ReadOnly {
+		//Not exists, but this Fsh is read only. Return nothing
+		return "", errors.New("Cannot generate thumbnail on readonly file system")
 	} else {
 		//This file not exists yet. Check if it is being hold by another process already
-		if rh.fileIsBusy(file) {
-			log.Println("Process racing for cache file. Skipping", file)
+		if rh.fileIsBusy(rpath) {
+			log.Println("Process racing for cache file. Skipping", filepath.Base(rpath))
 			return "", errors.New("Process racing for cache file. Skipping")
 		}
 	}
 
 	//Cache image not exists. Set this file to busy
-	rh.renderingFiles.Store(file, "busy")
+	rh.renderingFiles.Store(rpath, "busy")
 
 	//That object not exists. Generate cache image
 	//Audio formats that might contains id4 thumbnail
 	id4Formats := []string{".mp3", ".ogg", ".flac"}
-	if inArray(id4Formats, strings.ToLower(filepath.Ext(file))) {
-		img, err := generateThumbnailForAudio(cacheFolder, file, generateOnly)
-		rh.renderingFiles.Delete(file)
+	if inArray(id4Formats, strings.ToLower(filepath.Ext(rpath))) {
+		img, err := generateThumbnailForAudio(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
 		return img, err
 	}
 
 	//Generate resized image for images
 	imageFormats := []string{".png", ".jpeg", ".jpg"}
-	if inArray(imageFormats, strings.ToLower(filepath.Ext(file))) {
-		img, err := generateThumbnailForImage(cacheFolder, file, generateOnly)
-		rh.renderingFiles.Delete(file)
+	if inArray(imageFormats, strings.ToLower(filepath.Ext(rpath))) {
+		img, err := generateThumbnailForImage(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
 		return img, err
 	}
 
 	//Video formats, extract from the 5 sec mark
 	vidFormats := []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
-	if inArray(vidFormats, strings.ToLower(filepath.Ext(file))) {
-		img, err := generateThumbnailForVideo(cacheFolder, file, generateOnly)
-		rh.renderingFiles.Delete(file)
+	if inArray(vidFormats, strings.ToLower(filepath.Ext(rpath))) {
+		img, err := generateThumbnailForVideo(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
 		return img, err
 	}
 
 	//3D Model Formats
 	modelFormats := []string{".stl", ".obj"}
-	if inArray(modelFormats, strings.ToLower(filepath.Ext(file))) {
-		img, err := generateThumbnailForModel(cacheFolder, file, generateOnly)
-		rh.renderingFiles.Delete(file)
+	if inArray(modelFormats, strings.ToLower(filepath.Ext(rpath))) {
+		img, err := generateThumbnailForModel(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
 		return img, err
 	}
 
 	//Photoshop file
-	if strings.ToLower(filepath.Ext(file)) == ".psd" {
-		img, err := generateThumbnailForPSD(cacheFolder, file, generateOnly)
-		rh.renderingFiles.Delete(file)
+	if strings.ToLower(filepath.Ext(rpath)) == ".psd" {
+		img, err := generateThumbnailForPSD(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
 		return img, err
 	}
 
 	//Folder preview renderer
-	if isDir(file) && len(filepath.Base(file)) > 0 && filepath.Base(file)[:1] != "." {
-		img, err := generateThumbnailForFolder(cacheFolder, file, generateOnly)
-		rh.renderingFiles.Delete(file)
+	if fshAbs.IsDir(rpath) && len(filepath.Base(rpath)) > 0 && filepath.Base(rpath)[:1] != "." {
+		img, err := generateThumbnailForFolder(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
 		return img, err
 	}
 
 	//Other filters
-	rh.renderingFiles.Delete(file)
+	rh.renderingFiles.Delete(rpath)
 	return "", errors.New("No supported format")
 }
 
@@ -190,27 +200,18 @@ func (rh *RenderHandler) fileIsBusy(path string) bool {
 	}
 }
 
-func getImageAsBase64(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-
-	//Added Seek to 0,0 function to prevent failed to decode: Unexpected EOF error
-	f.Seek(0, 0)
-
-	reader := bufio.NewReader(f)
-	content, err := ioutil.ReadAll(reader)
+func getImageAsBase64(fsh *filesystem.FileSystemHandler, rpath string) (string, error) {
+	fshAbs := fsh.FileSystemAbstraction
+	content, err := fshAbs.ReadFile(rpath)
 	if err != nil {
 		return "", err
 	}
 	encoded := base64.StdEncoding.EncodeToString(content)
-	f.Close()
 	return string(encoded), nil
 }
 
 //Load a list of folder cache from websocket, pass in "" (empty string) for default sorting method
-func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request, rpath string, sortmode string) {
+func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, rpath string, sortmode string) {
 	//Get a list of files pending to be cached and sent
 	targetPath := filepath.ToSlash(filepath.Clean(rpath))
 
@@ -222,7 +223,7 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 		oldc.(*websocket.Conn).Close()
 	}
 
-	files, err := specialGlob(targetPath + "/*")
+	fis, err := fsh.FileSystemAbstraction.ReadDir(targetPath)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Internal Server Error"))
@@ -252,27 +253,28 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 		sortmode = "default"
 	}
 
+	sortedFis := fssort.SortDirEntryList(fis, sortmode)
+
 	pendingFiles := []string{}
 	pendingFolders := []string{}
-	for _, file := range files {
-		if isDir(file) {
-			pendingFiles = append(pendingFiles, file)
+	for _, fileInfo := range sortedFis {
+		if !fileInfo.IsDir() {
+			pendingFiles = append(pendingFiles, filepath.Join(targetPath, fileInfo.Name()))
 		} else {
-			pendingFolders = append(pendingFolders, file)
+			pendingFolders = append(pendingFolders, filepath.Join(targetPath, fileInfo.Name()))
 		}
 	}
 	pendingFiles = append(pendingFiles, pendingFolders...)
-
-	files = fssort.SortFileList(pendingFiles, sortmode)
+	files := pendingFiles
 
 	//Updated implementation 24/12/2020: Load image with cache first before rendering those without
 	for _, file := range files {
-		if !CacheExists(file) {
+		if !CacheExists(fsh, file) {
 			//Cache not exists. Render this later
 			filesWithoutCache = append(filesWithoutCache, file)
 		} else {
 			//Cache exists. Send it out first
-			cachedImage, err := rh.LoadCache(file, false)
+			cachedImage, err := rh.LoadCache(fsh, file, false)
 			if err != nil {
 
 			} else {
@@ -292,7 +294,7 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 	//Render the remaining cache files
 	for _, file := range filesWithoutCache {
 		//Load the image cache
-		cachedImage, err := rh.LoadCache(file, false)
+		cachedImage, err := rh.LoadCache(fsh, file, false)
 		if err != nil {
 			//Unable to load this file's cache. Push it to retry list
 			retryList = append(retryList, file)
@@ -312,7 +314,7 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 		time.Sleep(1000 * time.Millisecond)
 		for _, file := range retryList {
 			//Load the image cache
-			cachedImage, err := rh.LoadCache(file, false)
+			cachedImage, err := rh.LoadCache(fsh, file, false)
 			if err != nil {
 
 			} else {
@@ -337,18 +339,19 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 }
 
 //Check if the cache for a file exists
-func CacheExists(file string) bool {
+func CacheExists(fsh *filesystem.FileSystemHandler, file string) bool {
 	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
-	return fileExists(cacheFolder+filepath.Base(file)+".jpg") || fileExists(cacheFolder+filepath.Base(file)+".png")
+	return fsh.FileSystemAbstraction.FileExists(cacheFolder+filepath.Base(file)+".jpg") || fsh.FileSystemAbstraction.FileExists(cacheFolder+filepath.Base(file)+".png")
 }
 
 //Get cache path for this file, given realpath
-func GetCacheFilePath(file string) (string, error) {
-	if CacheExists(file) {
+func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, error) {
+	if CacheExists(fsh, file) {
+		fshAbs := fsh.FileSystemAbstraction
 		cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
-		if fileExists(cacheFolder + filepath.Base(file) + ".jpg") {
+		if fshAbs.FileExists(cacheFolder + filepath.Base(file) + ".jpg") {
 			return cacheFolder + filepath.Base(file) + ".jpg", nil
-		} else if fileExists(cacheFolder + filepath.Base(file) + ".png") {
+		} else if fshAbs.FileExists(cacheFolder + filepath.Base(file) + ".png") {
 			return cacheFolder + filepath.Base(file) + ".png", nil
 		} else {
 			return "", errors.New("Unable to resolve thumbnail cache location")
@@ -359,9 +362,9 @@ func GetCacheFilePath(file string) (string, error) {
 }
 
 //Remove cache if exists, given realpath
-func RemoveCache(file string) error {
-	if CacheExists(file) {
-		cachePath, err := GetCacheFilePath(file)
+func RemoveCache(fsh *filesystem.FileSystemHandler, file string) error {
+	if CacheExists(fsh, file) {
+		cachePath, err := GetCacheFilePath(fsh, file)
 		//log.Println("Removing ", cachePath, err)
 		if err != nil {
 			return err
@@ -374,32 +377,4 @@ func RemoveCache(file string) error {
 		//log.Println("Cache not exists: ", file)
 		return errors.New("Thumbnail cache not exists for this file")
 	}
-}
-
-func specialGlob(path string) ([]string, error) {
-	files, err := filepath.Glob(path)
-	if err != nil {
-		return []string{}, err
-	}
-
-	if strings.Contains(path, "[") == true || strings.Contains(path, "]") == true {
-		if len(files) == 0 {
-			//Handle reverse check. Replace all [ and ] with *
-			newSearchPath := strings.ReplaceAll(path, "[", "?")
-			newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
-			//Scan with all the similar structure except [ and ]
-			tmpFilelist, _ := filepath.Glob(newSearchPath)
-			for _, file := range tmpFilelist {
-				file = filepath.ToSlash(file)
-				if strings.Contains(file, filepath.ToSlash(filepath.Dir(path))) {
-					files = append(files, file)
-				}
-			}
-		}
-	}
-	//Convert all filepaths to slash
-	for i := 0; i < len(files); i++ {
-		files[i] = filepath.ToSlash(files[i])
-	}
-	return files, nil
 }

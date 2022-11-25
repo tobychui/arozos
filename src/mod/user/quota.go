@@ -5,7 +5,6 @@ import (
 	//"log"
 
 	fs "imuslab.com/arozos/mod/filesystem"
-	//quota "imuslab.com/arozos/mod/quota"
 )
 
 /*
@@ -17,53 +16,52 @@ import (
 */
 
 //Return the user quota information, returning used / total
-func (u *User) HaveSpaceFor(realpath string) bool {
-	if u.StorageQuota.HaveSpace(fs.GetFileSize(realpath)) {
+func (u *User) HaveSpaceFor(fsh *fs.FileSystemHandler, vpath string) bool {
+	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
+	if err != nil {
+		return false
+	}
+	if u.StorageQuota.HaveSpace(fsh.FileSystemAbstraction.GetFileSize(realpath)) {
 		return true
 	} else {
 		return false
 	}
 }
 
-func (u *User) SetOwnerOfFile(realpath string) error {
-
-	//Get handler from the path
-	fsHandler, err := u.GetFileSystemHandlerFromRealPath(realpath)
+func (u *User) SetOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) error {
+	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
 		return err
 	}
-
 	//Check if it is user structured. If yes, add the filesize to user's quota
-	if fsHandler.Hierarchy == "user" {
+	if fsh.Hierarchy == "user" {
 		//log.Println("Setting user ownership on: " + realpath)
-		u.StorageQuota.AllocateSpace(fs.GetFileSize(realpath))
+		u.StorageQuota.AllocateSpace(fsh.FileSystemAbstraction.GetFileSize(rpath))
 	}
 
 	//Add to the fshandler database of this file owner
-	err = fsHandler.CreateFileRecord(realpath, u.Username)
+	err = fsh.CreateFileRecord(rpath, u.Username)
 	return err
 }
 
-func (u *User) RemoveOwnershipFromFile(realpath string) error {
-
-	//Get handler from the path
-	fsHandler, err := u.GetFileSystemHandlerFromRealPath(realpath)
+func (u *User) RemoveOwnershipFromFile(fsh *fs.FileSystemHandler, vpath string) error {
+	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
 		return err
 	}
 
 	//Check if it is user structured. If yes, add the filesize to user's quota
-	if fsHandler.Hierarchy == "user" {
+	if fsh.Hierarchy == "user" {
 		//log.Println("Removing user ownership on: " + realpath)
-		u.StorageQuota.ReclaimSpace(fs.GetFileSize(realpath))
+		u.StorageQuota.ReclaimSpace(fsh.FileSystemAbstraction.GetFileSize(realpath))
 	}
 
-	err = fsHandler.DeleteFileRecord(realpath)
+	err = fsh.DeleteFileRecord(realpath)
 	return err
 }
 
-func (u *User) IsOwnerOfFile(realpath string) bool {
-	owner := u.GetFileOwner(realpath)
+func (u *User) IsOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) bool {
+	owner := u.GetFileOwner(fsh, vpath)
 	if owner == u.Username {
 		//This file is owned by this user
 		return true
@@ -72,18 +70,18 @@ func (u *User) IsOwnerOfFile(realpath string) bool {
 	}
 }
 
-func (u *User) GetFileOwner(realpath string) string {
-	fsHandler, err := u.GetFileSystemHandlerFromRealPath(realpath)
+func (u *User) GetFileOwner(fsh *fs.FileSystemHandler, vpath string) string {
+	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
 		return ""
 	}
 
-	if fsHandler.UUID == "user" {
+	if fsh.UUID == "user" {
 		//This file is inside user's root. It must be this user's file
 		return u.Username
 	}
 
-	owner, err := fsHandler.GetFileRecord(realpath)
+	owner, err := fsh.GetFileRecord(realpath)
 	if err != nil {
 		//Error occured. Either this file is not tracked or this file has no owner
 		return ""

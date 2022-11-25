@@ -10,7 +10,7 @@
 	<script src="../script/jquery.min.js"></script>
 	<script src="../script/ao_module.js"></script>
 	<script src="../script/semantic/semantic.min.js"></script>
-	
+	<link rel="icon" type="image/png" href="img/favicon.png" />
 	<!-- Handle native playback on Chrome Andoird-->
 	<script src="native.js"></script>
 
@@ -117,7 +117,7 @@
 		</div>
 	</div>
 	-->
-	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;border-top: 2px solid #4a4a4a;">
+	<div class="leftsbObject sbSelectable sbPaddingIn" style="font-size:80%;border-top: 2px solid #4a4a4a;" onClick="loadSettingViews();">
 		<div class="ui header">
 			<i class="setting tiny icon whiteFont"></i>
 			<div class="content whiteFont">
@@ -370,11 +370,14 @@
 	var audioElement = $("#mainAudioPlayer");
 	var audioElementObject = document.getElementById("mainAudioPlayer"); //Directly expose the audio object
 	var playingFileDetail = []; //[id, filepath]
+	var playingSongVpath = ""; //For cache key checking
 	var displayList = []; //This is the list where the current UI is displaying.
 	var playingList = []; //This is the list where the player last clicked on an item to play
 	var pagingEnabled = false; //Enable this when there are too many songs in list
+	var pagingEnableForPlayingList = false; 
 	var pagingCutoffCount = 100; //No. of songs to start paging
 	var currentPage = 0;
+	var currentPlayingPage = 0;
 	var randomMode = false;
 	var repeatMode = 0; //Repeat mode 0 -> No repeat, 1 -> Repeat all 2 -> Repeat one
 	var updateSystemVolume = true;
@@ -385,9 +388,35 @@
 	var ua =  navigator.userAgent.toLowerCase();
 	var isAndroid = ua.indexOf("android") > -1; //&& ua.indexOf("mobile");
 	var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+	var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+	var cacheAvailable = 'caches' in self;
+	let cacheDb, cacheStore, cacheDbTx;
+	var dbExists = !(!window.indexedDB);
+
+	//Init database connection if indexedDB Exists
+	if (dbExists){
+		let cacheDbConn = window.indexedDB.open('airmusic', 4);
+		cacheDbConn.onupgradeneeded = function(event) { 
+			cacheDb = event.target.result;
+			cacheDbTx = event.target.transaction;
+			cacheStore = cacheDb.createObjectStore("files",{keyPath:"filename"});
+			cacheStore = cacheDb.createObjectStore("thumblist",{keyPath:"filename"});
+		};
+		cacheDbConn.onerror = function(event) {
+			console.log("ERROR: " + event.target.errorCode)
+		};
+		cacheDbConn.onsuccess = function(event) {
+			cacheDb = event.target.result
+
+			//Database connection established.
+			//Clear old cache in the system if any
+			clearExpiredCache();
+		}
+	}
 
 	//Embed native mediaSession for any device that supports it 
 	initNativeMediaPlayer();
+
 
 	//Update implementatio nof user agent detection
 	if (typeof InstallTrigger !== 'undefined'){
@@ -461,7 +490,6 @@
 					
 				}else if(vt == "network"){
 					loadNetworkView();
-					
 				}
 			}else{
 				//Default action
@@ -473,6 +501,21 @@
 	function loadNetworkView(){
 		currentMode = "network";
 		togglePagingMode(false);
+	}
+
+	function loadSettingViews(){
+		currentMode = "playlist";
+		//Clear the main list
+		$("#mainList").html("");
+		togglePagingMode(false);
+		//Render the elements
+		$("#mainList").append(`<div class="mainList item">HELLO WORLD</div>`);
+		hideLeftMenu();
+
+		//Update the headers
+		$("#interfaceTitle").text("Settings");
+		$("#AMmenuIcon").attr("class","setting large icon whiteFont");
+		$("#interfaceDetails").text("Work in progress");
 	}
 
 	function togglePagingMode(enabled=false){
@@ -676,6 +719,8 @@
 		displayList = data;
 		if (playingList == []){
 			playingList = Array.from(displayList);
+			pagingEnableForPlayingList = pagingEnabled;
+			currentPlayingPage = currentPage;
 		}
 		$("#mainList").html("");
 		for ( var i =0; i < data.length; i++){
@@ -1167,6 +1212,7 @@
 			//This might be a file from dropdown list. use listid instead
 			id = $(object).parent().attr('listid');
 		}
+		
 
 	    updateMiniPlayerUI(displayName,info,id);
 
@@ -1191,6 +1237,8 @@
 		//Only backup when it is not call from dropdown list
 		if (!$(object).parent().hasClass("dropdownList")){
 			playingList = Array.from(displayList);
+			pagingEnableForPlayingList = pagingEnabled;
+			currentPlayingPage = currentPage;
 		}
 	    parsePlayingSongList();
 	    if ($("#miniPlayer").hasClass("hidden")){
@@ -1206,18 +1254,82 @@
 		highLightPlayingMusic();
 	}
 
+	//Check if a music file thumbnail exists in cache
+	function getThumbnailFromCache(filepath, callback){
+		if (dbExists){
+			let dbTx = cacheDb.transaction("thumblist","readwrite");
+			let tstore = dbTx.objectStore("thumblist");
+			let retrv = tstore.get(filepath);
+			retrv.onsuccess = (event) => {
+				let cachefile = retrv.result;
+				if (cachefile == undefined || cachefile.content == undefined){
+					//thumbnail not exists in cache.
+					callback(undefined);
+				}else{
+					//load from cache
+					callback(cachefile);
+				}
+			}
+				
+		}
+		return callback(undefined);
+	}
+
 	function loadThumbnailToMusicList(selector = ".mainList.file.item"){
 		$(selector).each(function(){
 			let filepath = JSON.parse(decodeURIComponent($(this).attr("filepath")));
 			let thisFileItemID = $(this).attr("id");
 			let rawname = JSON.parse(decodeURIComponent($(this).attr("rawname")));
 			
-
 			let realVpath = filepath.split("=");
 			realVpath.shift();
 			realVpath = realVpath.join("=");
 			//console.log(thisFileItemID, realVpath, rawname);
-			//Load the thumbnail for this item in list
+
+			getThumbnailFromCache(realVpath, function(cachedThumb){
+				if (cachedThumb == undefined){
+					//Load the thumbnail for this item in list
+					fetch("../system/file_system/loadThumbnail?vpath=" + encodeURIComponent(realVpath))
+					.then((response) => response.json())
+					.then((data) => {
+						if (data.error !== undefined || data.trim() == ""){
+							return;
+						}
+						$("#" + thisFileItemID).find("img").attr("src","data:image/jpg;base64," + data);
+						
+						$(".dropdownList.file.item").each(function(){
+							var thisFilepath = JSON.parse(decodeURIComponent($(this).attr("filepath")));
+							if ($(this).attr("listid") == thisFileItemID && thisFilepath == filepath){
+								$(this).find("img").attr("src","data:image/jpg;base64," + data);
+							}
+						});
+
+						if (dbExists){
+							//Put this thumbnail into cache
+							let dbTx = cacheDb.transaction("thumblist","readwrite");
+							let tstore = dbTx.objectStore("thumblist");
+							let retrv = tstore.put({
+								"filename": realVpath,
+								"cachetime":parseInt(Date.now() / 1000),
+								"content": data.content,
+							});
+						}
+					});
+				}else{
+					//Use the result as thumbnail
+					console.log("Loaded from cache" , realVpath)
+					$("#" + thisFileItemID).find("img").attr("src","data:image/jpg;base64," + cachedThumb);
+					$(".dropdownList.file.item").each(function(){
+						var thisFilepath = JSON.parse(decodeURIComponent($(this).attr("filepath")));
+						if ($(this).attr("listid") == thisFileItemID && thisFilepath == filepath){
+							$(this).find("img").attr("src","data:image/jpg;base64," + cachedThumb);
+						}
+					});
+				}
+			});
+			
+			
+			/*
 			ao_module_agirun("Music/functions/getThumbnail.js", {
 				file: realVpath,
 			}, function(data){
@@ -1233,6 +1345,7 @@
 					})
 				}
 			});
+			*/
 		})
 	}
 
@@ -1241,33 +1354,59 @@
 		var realVpath = filepath.split("=");
 		realVpath.shift();
 		realVpath = realVpath.join("=");
-		ao_module_agirun("Music/functions/getThumbnail.js", {
-			file: realVpath,
-		}, function(data){
-			if (data.error !== undefined){
-				console.log(data.error)
-				$("#albumnArtImage").attr("src","img/default.png");
-				$("#smallPlayerThumb").attr("src","img/default.png");
-				if (navigator.mediaSession.metadata){
-					navigator.mediaSession.metadata.artwork = [
-						{ src: "img/default.png",   sizes: '512x512',   type: 'image/png' }
-					]
-				}
+		playingSongVpath = realVpath;
+		getThumbnailFromCache(realVpath, function(thumbdata){
+			if (playingSongVpath != realVpath){
+				//Already switch to another song
+				return;
+			}
+			if (thumbdata == undefined){
+				//No thumbnail found. Load it from server
+				//console.log("Thumbnail cache not found", realVpath);
+				ao_module_agirun("Music/functions/getThumbnail.js", {
+					file: realVpath,
+				}, function(data){
+					if (playingSongVpath != realVpath){
+						//Already switch to another song
+						return;
+					}
+					if (data.error !== undefined){
+						console.log(data.error)
+						$("#albumnArtImage").attr("src","img/default.png");
+						$("#smallPlayerThumb").attr("src","img/default.png");
+						if (navigator.mediaSession.metadata){
+							navigator.mediaSession.metadata.artwork = [
+								{ src: "img/default.png",   sizes: '512x512',   type: 'image/png' }
+							]
+						}
+					}else{
+						$("#albumnArtImage").attr("src","data:image/jpg;base64," + data);
+						$("#smallPlayerThumb").attr("src","data:image/jpg;base64," + data);
+						if (isAndroid && navigator.mediaSession.metadata){
+							//Android
+							navigator.mediaSession.metadata.artwork = [
+								{ src: "data:image/jpg;base64," + data,   sizes: '480x480',   type: 'image/jpg' }
+							]
+						}
+					}
+					resizeQuickAdjust();
+				});
 			}else{
-				$("#albumnArtImage").attr("src","data:image/jpg;base64," + data);
-				$("#smallPlayerThumb").attr("src","data:image/jpg;base64," + data);
+				//Thumbnail found.
+				//console.log("Loaded song thumbnail from cache: " , realVpath);
+				$("#albumnArtImage").attr("src","data:image/jpg;base64," + thumbdata.content);
+				$("#smallPlayerThumb").attr("src","data:image/jpg;base64," + thumbdata.content);
 				if (isAndroid && navigator.mediaSession.metadata){
 					//Android
 					navigator.mediaSession.metadata.artwork = [
-						{ src: "data:image/jpg;base64," + data,   sizes: '480x480',   type: 'image/jpg' }
+						{ src: "data:image/jpg;base64," + thumbdata.content,   sizes: '480x480',   type: 'image/jpg' }
 					]
 				}
+
 			}
-
 			
-
-			resizeQuickAdjust();
 		});
+		
 	}
 	
 	function nextSong(id = false,forcePlayEvenStopped = false){
@@ -1449,6 +1588,14 @@
 	    }
 	}
 
+	function isSupportedCachingAudioFormat(ext){
+		if (ext == "mp3" || ext == "aac" || ext == "flac"|| ext == "wav"|| ext == "ogg"){
+			return true;
+		}
+
+		return false;
+	}
+
 	function loadAndPlayAudioFile(sourceURL,playAfterLoad = true){
 		var audio = audioElement;
 
@@ -1457,21 +1604,85 @@
 		var rootPath = fd.shift();
 		var filename = fd.join("=");
 		var playbackURL = "../" + rootPath + "=" + encodeURIComponent(filename); //Convert absolute dir to relative
-		//console.log(playbackURL);
-		$("#mainAudioPlayer").attr("src", playbackURL);
+		var ext = filename.split(".").pop();
+		playingSongVpath = filename;
+		if (dbExists && (!isFirefox)){
+			cacheDbTx = cacheDb.transaction("files","readwrite");
+			cacheStore = cacheDbTx.objectStore("files");
 
-        audio[0].pause();
-        audio[0].load();
-        if(playAfterLoad){
-            audio[0].oncanplaythrough = audio[0].play();
-        }else{
-            var currentTime = audioElement[0].currentTime;
-            var duration = audioElement[0].duration;
-            $('#audioProgressBar').css('width','0%');
-            updatePlaybackDisplayTime(currentTime,duration);
+			let retrvReq = cacheStore.get(filename);
+			retrvReq.onsuccess = (event) => {
+				let cachefile = retrvReq.result;
+				if (cachefile == undefined || cachefile.content == undefined){
+					//No cache. Play from streaming and cache this
+					$("#mainAudioPlayer").attr("src", playbackURL);
+					startPlaybackAfterAudioLoaded(audio, playAfterLoad);
+
+					//Only cache non video audio tracks
+					if (isSupportedCachingAudioFormat(ext)){
+						loadAudioFileURLAsBlob(playbackURL, function(fileBlob){
+							//Store the blob into indexDB
+							let cacheDbTx2 = cacheDb.transaction("files","readwrite");
+							let cacheStore2 = cacheDbTx2.objectStore("files");
+							cacheStore2.put({
+								"filename": filename,
+								"cachetime": parseInt(Date.now() / 1000),
+								"content": fileBlob
+							});
+						});
+					}
+					
+				}else if (isSupportedCachingAudioFormat(ext)){
+					//Cache exists. Load this instead
+					console.log("[AirMusic] Loaded from cache ", filename)
+					let reader = new FileReader();
+					reader.onload = function(e) {
+						if (playingSongVpath != filename){
+							//Already switch to another song
+							return;
+						}
+						let srcUrl = e.target.result;
+
+						//Force overwrite mime type
+						let dx = srcUrl.split(";base64");
+						let ext = cachefile.filename.split(".").pop();
+						let mime = dx.shift();
+						mime = mime.split("/")
+						mime.pop();
+						mime = mime[0] + "/" + ext;
+						let adjustedAudioData = mime + ";base64" + dx[0];
+
+						//Put the final data into audio elements
+						$("#mainAudioPlayer").attr("src", adjustedAudioData);
+						startPlaybackAfterAudioLoaded(audio, playAfterLoad);
+					};
+					reader.readAsDataURL(cachefile.content);
+				}else{
+					//fallback
+					$("#mainAudioPlayer").attr("src", playbackURL);
+					startPlaybackAfterAudioLoaded(audio, playAfterLoad);
+				}
+			}
+		}else{
+			//IndexedDB not found
+			$("#mainAudioPlayer").attr("src", playbackURL);
+			startPlaybackAfterAudioLoaded(audio, playAfterLoad);
 		}
-		
+
 		loadThumbnail(sourceURL);
+	}
+
+	function startPlaybackAfterAudioLoaded(audio, playAfterLoad=true){
+		audio[0].pause();
+		audio[0].load();
+		if(playAfterLoad){
+			audio[0].oncanplaythrough = audio[0].play();
+		}else{
+			var currentTime = audioElement[0].currentTime;
+			var duration = audioElement[0].duration;
+			$('#audioProgressBar').css('width','0%');
+			updatePlaybackDisplayTime(currentTime,duration);
+		}
 	}
 	
 	function updateMiniPlayerUI(displayName, fileinfo,id){
@@ -1641,7 +1852,7 @@
 			opr: "root",
 		},function(data){
 			//Get the list of playlist
-			console.log(data);
+			//console.log(data);
 
 			//Render the elements
 			data.forEach(playlist => {
@@ -1712,10 +1923,21 @@
 	                //This is directory inside normal folders. 
 	                box = replaceAll("{foldername}",folderName,box);
 	            }
-	            var fileinfo = "[" + fileCount + " files]"
-	            if (folderCount > 0){
-	                fileinfo = "[" + fileCount + " files, " + folderCount  +" folders]"
-	            }
+
+				/*
+				var fileinfo = fileinfo = "[No playable files]";
+				console.log(folderCount, fileCount);
+				if (folderCount > 0 && fileCount > 0){
+					fileinfo = "[" + fileCount + " files, " + folderCount  +" folders]"
+				}else if (fileCount > 0){
+					fileinfo = "[" + fileCount + " files]";
+				}else if (fileCount == -1 && folderCount == -1){
+					fileinfo = "";
+				}
+				*/
+				var fileinfo = folderPath;
+				
+	           
 	            box = replaceAll("{fileinfo}",fileinfo,box);
 				rootPaths.push(folderPath);
 	            $("#mainList").append(box);
@@ -1860,7 +2082,9 @@
     	            var fileinfo = "[" + fileCount + " files]"
     	            if (folderCount > 0){
     	                fileinfo = "[" + fileCount + " files, " + folderCount  +" folders]"
-    	            }
+    	            }else if (folderCount == -1){
+						fileinfo = folderPath;
+					}
     	            box = replaceAll("{fileinfo}",fileinfo,box);
     	             $("#mainList").append(box);
     	        }
@@ -1975,21 +2199,6 @@
 		});
 	}
 	
-
-	
-	function monitorFileChangeForUpload(){
-	    if ($("#interfaceTitle").text() == "Upload"){
-	        //It is still in upload Mode. Continue monitor file change and move them if needed
-	        $.post("listenUploadChange.php",{fileList: JSON.stringify(currentUploadTargetFileList),directory: currentUploadTargetFilepath}).done(function(data){
-	           if (data.includes("ERROR")){
-	               console.log(data);
-	           }
-	        });
-	        setTimeout(monitorFileChangeForUpload,1000);
-	    }
-	}
-	
-	
 	function hideShowMoreMenu(){
 	    $(".showMoreMenus").fadeOut('fast');
 		$("#showmoreUIcover").fadeOut('fast');
@@ -2075,6 +2284,13 @@
 			//This song already playing. Ignore play request.
 			return;
 		}
+
+		if (pagingEnableForPlayingList && $(object).attr("targetPage") != currentPlayingPage){
+			let newPage = parseInt($(object).attr("targetPage"));
+			if (!isNaN(newPage)){
+				currentPlayingPage = newPage;
+			}
+		}
 		playSong(object);
 		//Check if the song is also in main list. If yes, highlight it as well
 		/*
@@ -2095,10 +2311,16 @@
 		var counter = playingList.length;
 		var totalSize = 0.0;
 		var renderRange = [0, playingList.length];
-		if (pagingEnabled){
+		var pageKeepRange = [0, playingList.length]
+		if (pagingEnableForPlayingList){
 			//Paging Enabled. Only show 1/2 max + current page song + 1/2 max
-			var startEndRange = getPageStartAndEndByPageNumber(currentPage);
+			var startEndRange = getPageStartAndEndByPageNumber(currentPlayingPage, playingList);
 			startEndRange = [startEndRange[0] - pagingCutoffCount /2, startEndRange[1] + pagingCutoffCount / 2]
+			//console.log("DEFAULT START END RANGE", startEndRange)
+			//page keep range is the middle 1/2 number of songs, [1/4 => prev page][1/2][1/4 => next page]
+			pageKeepRange[0] = startEndRange[0] + pagingCutoffCount / 2;
+			pageKeepRange[1] = startEndRange[1] - pagingCutoffCount / 2;
+			
 			if (startEndRange[0] < 0){
 				startEndRange[0] = 0;
 			}
@@ -2108,6 +2330,16 @@
 			}
 
 			renderRange = startEndRange;
+			
+			
+
+			if (pageKeepRange[0] < 0){
+				pageKeepRange[0] = 0;
+			}
+			if (pageKeepRange[1] > playingList.length){
+				pageKeepRange[1] = playingList.length;
+			}
+			//console.log("KEEP RANGE", pageKeepRange);
 		}
 
 		for (var i = renderRange[0]; i < renderRange[1]; i++){
@@ -2123,15 +2355,40 @@
 			//Get thumbnail from the current list to prevent re-loading form remote
 			let targetThumbnail = $("#" + (i + 1)).find("img").attr("src");
 			let opacityShowing = "";
-			if ($("#" + (i + 1)).length == 0){
+			let realVpath = playingList[i][0].split("=");
+			realVpath.shift();
+			realVpath = realVpath.join("=");
+
+			if ($("#" + (i + 1)).length == 0 && displayList.length == playingList.length){
 				//Item not exists
 				targetThumbnail = "img/eq.svg";
 				opacityShowing = "opacity: 0.6;"
+			}else if (pagingEnableForPlayingList){
+				if (i < pageKeepRange[0] || i > pageKeepRange[1]){
+					//Out of paging range. Do hidden display
+					targetThumbnail = "img/eq.svg";
+					opacityShowing = "opacity: 0.6;"
+				}else{
+					targetThumbnail = `../system/file_system/loadThumbnail?bytes=true&vpath=${encodeURIComponent(realVpath)}`;
+				}
+			}else{
+				//Non paging list. Always do all thumbnails.
+				targetThumbnail = `../system/file_system/loadThumbnail?bytes=true&vpath=${encodeURIComponent(realVpath)}`;
 			}
 
+			let targetPage = currentPlayingPage;
+			if (i < pageKeepRange[0]){
+				targetPage -= 1;
+			}
+			if (i > pageKeepRange[1]){
+				targetPage += 1;
+			}
+			
+		
+
 			$("#currentPlayingMainList").append(`<div class="dropdownList file item" style="${opacityShowing}" filepath="${ao_module_utils.objectToAttr(playingList[i][0])}" listid="${i + 1}" rawname="${ao_module_utils.objectToAttr(playingList[i][1])}">
-				<div class="ui header selectable" style="margin:0px !important;" onClick="playSongFromDropdownList(this);">
-					<img class="ui small image" src="${targetThumbnail}" style="margin-right: 0.2em;"></img>
+				<div class="ui header selectable" style="margin:0px !important;" onClick="playSongFromDropdownList(this);" targetPage="${targetPage}">
+					<img class="ui small image" src="${targetThumbnail}" onError="replaceImageToDefault(this);" style="margin-right: 0.2em;"></img>
 					<div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">
 						<span style="font-weight: lighter;">${displayname}</span>
 						<div class="sub header fileinfo" style="color: #c7c7c7;">${playingList[i][2]} / ${playingList[i][3]}</div>
@@ -2150,6 +2407,129 @@
 			}
 		});
 
+	}
+
+	function loadAudioFileURLAsBlob(url, callback){
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', url);
+		xhr.responseType = 'blob';
+		xhr.onload = function(e){
+			//console.log("Buffer completed: ", url);
+			callback(xhr.response);
+		}
+		xhr.send();
+	}
+
+	//Clear all cached audio files
+	function clearAllCache(){
+		let dbtx = cacheDb.transaction("files","readwrite");
+		let fstore = dbtx.objectStore("files");
+		var clearReq = fstore.clear();
+		clearReq.onsuccess = function(e){
+			console.log("All cache file cleared");
+		}
+	}
+
+	function removeCacheByFilename(filename, callback=undefined){
+		let dbtx = cacheDb.transaction("files","readwrite");
+		let fstore = dbtx.objectStore("files");
+		let resp = fstore.delete(filename);
+		resp.onsuccess = function(evt){
+			if (callback != undefined){
+				callback(evt);
+			}
+		}
+	}
+
+	//Clear all expired cache
+	function clearExpiredCache(){
+		var expireTime = 604800; //1 week
+		
+		getAllFileCache(function(allCachedTracks){
+			var expiredFilenames = [];
+			//Check all the cache to see which is expired
+			allCachedTracks.forEach(function(track){
+				if (track.cachetime + expireTime < Date.now()/1000){
+					//Expired. Clear this cache
+					expiredFilenames.push(track.filename);
+					console.log("[AirMusic] Expired track cleared: ", track);
+				}
+				
+			});
+
+			
+			//Delete those cache that have expired
+			expiredFilenames.forEach(function(filenameToBeDeleted){
+				removeCacheByFilename(filenameToBeDeleted);
+			});
+
+			console.log("[AirMusic] File cache clearning cycle completed");
+		});
+
+		getAllFileCache(function(allCachedTracks){
+			var expiredFilenames = [];
+			//Check all the cache to see which is expired
+			allCachedTracks.forEach(function(track){
+				if (track.cachetime + expireTime < Date.now()/1000){
+					//Expired. Clear this cache
+					expiredFilenames.push(track.filename);
+					console.log("Expired track cleared: ", track);
+				}
+				
+			});
+
+			//Delete those cache that have expired
+			expiredFilenames.forEach(function(filenameToBeDeleted){
+				removeCacheByFilename(filenameToBeDeleted);
+			});
+
+			console.log("[AirMusic] Thumbnail cache clearning cycle completed")
+		});
+	}
+
+	function getAllFileCache(callback) {
+		var trans = cacheDb.transaction("files", IDBTransaction.READ_ONLY);
+		var store = trans.objectStore("files");
+		var items = [];
+		trans.oncomplete = function(evt) {  
+			callback(items);
+		};
+		var cursorRequest = store.openCursor();
+		cursorRequest.onerror = function(error) {
+			console.log(error);
+		};
+		cursorRequest.onsuccess = function(evt) {                    
+			var cursor = evt.target.result;
+			if (cursor) {
+				items.push(cursor.value);
+				cursor.continue();
+			}
+		};
+	}
+
+	function getAllThumbCache(callback) {
+		var trans = cacheDb.transaction("thumblist", IDBTransaction.READ_ONLY);
+		var store = trans.objectStore("thumblist");
+		var items = [];
+		trans.oncomplete = function(evt) {  
+			callback(items);
+		};
+		var cursorRequest = store.openCursor();
+		cursorRequest.onerror = function(error) {
+			console.log(error);
+		};
+		cursorRequest.onsuccess = function(evt) {                    
+			var cursor = evt.target.result;
+			if (cursor) {
+				items.push(cursor.value);
+				cursor.continue();
+			}
+		};
+	}
+
+
+	function replaceImageToDefault(target){
+		$(target).attr('src', "img/eq.svg");
 	}
 	
 	function loadSongList(type = "all"){
@@ -2188,6 +2568,8 @@
 
 			if (playingList == []){
 	            playingList = Array.from(displayList);
+				pagingEnableForPlayingList = pagingEnabled;
+				currentPlayingPage = currentPage;
 	        }
 
 			renderDisplayList(displayList,renderRange[0], renderRange[1] );
@@ -2295,11 +2677,11 @@
 		return targetPageNo;
 	}
 
-	function getPageStartAndEndByPageNumber(pageNumber){
+	function getPageStartAndEndByPageNumber(pageNumber, targetList){
 		let startPage = pageNumber * pagingCutoffCount;
 		let endPage = startPage + pagingCutoffCount;
-		if (endPage > displayList.length){
-			endPage = displayList.length;
+		if (endPage > targetList.length){
+			endPage = targetList.length;
 		}
 
 		return [startPage, endPage];
@@ -2308,7 +2690,7 @@
 	
 	function toggleLeftMenu(){
 		if (leftMenuShown){
-			$("#leftSideBar").animate({left: $("#leftSideBar").width() * -1}, 300,function(){
+			$("#leftSideBar").animate({left: $("#leftSideBar").width() * -1}, 120,function(){
 				$("#leftSideBar").hide();
 			});
 			$("#sideBarCover").fadeOut();
@@ -2324,7 +2706,7 @@
 	
 	function hideLeftMenu(){
 	    if (leftMenuShown){
-	        $("#leftSideBar").animate({left: $("#leftSideBar").width() * -1}, 300,function(){
+	        $("#leftSideBar").animate({left: $("#leftSideBar").width() * -1}, 120,function(){
 				$("#leftSideBar").hide();
 			});
 			$("#sideBarCover").fadeOut();
@@ -2549,6 +2931,9 @@
     }
     window.addEventListener('popstate', handleBackButton);
     window.history.pushState({}, '');
+
+	
+	
 </script>
 </body>
 </html>

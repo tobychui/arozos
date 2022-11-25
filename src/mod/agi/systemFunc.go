@@ -24,6 +24,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("INTERNAL_VERSION", g.Option.InternalVersion)
 	vm.Set("LOADED_MODULES", g.Option.LoadedModule)
 	vm.Set("LOADED_STORAGES", g.Option.UserHandler.GetStoragePool())
+	vm.Set("__FILE__", scriptFile)
 	vm.Set("HTTP_RESP", "")
 	vm.Set("HTTP_HEADER", "text/plain")
 
@@ -31,6 +32,23 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("sendResp", func(call otto.FunctionCall) otto.Value {
 		argString, _ := call.Argument(0).ToString()
 		vm.Set("HTTP_RESP", argString)
+		return otto.Value{}
+	})
+
+	vm.Set("echo", func(call otto.FunctionCall) otto.Value {
+		argString, _ := call.Argument(0).ToString()
+		currentResp, err := vm.Get("HTTP_RESP")
+		if err != nil {
+			vm.Set("HTTP_RESP", argString)
+		} else {
+			currentRespText, err := currentResp.ToString()
+			if err != nil {
+				//Unable to parse this as string. Overwrite response
+				vm.Set("HTTP_RESP", argString)
+			}
+			vm.Set("HTTP_RESP", currentRespText+argString)
+		}
+
 		return otto.Value{}
 	})
 
@@ -378,7 +396,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	//Exit
 	vm.Set("exit", func(call otto.FunctionCall) otto.Value {
 		vm.Interrupt <- func() {
-			panic(exitcall)
+			panic(errExitcall)
 		}
 		return otto.NullValue()
 	})

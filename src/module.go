@@ -61,10 +61,16 @@ func ModuleServiceInit() {
 				return
 			}
 
-			//Translate it to realpath
-			rpath, err := userinfo.VirtualPathToRealPath(installerPath)
+			fsh, subpath, err := GetFSHandlerSubpathFromVpath(installerPath)
 			if err != nil {
-				log.Println("*Module Installer* Failed to install module: ", err.Error())
+				common.SendErrorResponse(w, "Invalid installer path")
+				return
+			}
+
+			//Translate it to realpath
+			rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+			if err != nil {
+				systemWideLogger.PrintAndLog("Module Installer", "Failed to install module: "+err.Error(), err)
 				common.SendErrorResponse(w, "Invalid installer path")
 				return
 			}

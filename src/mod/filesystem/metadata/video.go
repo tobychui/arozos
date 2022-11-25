@@ -5,17 +5,20 @@ import (
 	"errors"
 	"image"
 	"image/jpeg"
-	"io/ioutil"
-	"os"
 	"os/exec"
 	"path/filepath"
 
 	"github.com/oliamb/cutter"
 	"imuslab.com/arozos/mod/apt"
+	"imuslab.com/arozos/mod/filesystem"
 )
 
-func generateThumbnailForVideo(cacheFolder string, file string, generateOnly bool) (string, error) {
-	if !fileExists(file) {
+func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if fsh.RequireBuffer {
+		return "", nil
+	}
+	fshAbs := fsh.FileSystemAbstraction
+	if !fshAbs.FileExists(file) {
 		//The user removed this file before the thumbnail is finished
 		return "", errors.New("Source not exists")
 	}
@@ -33,9 +36,9 @@ func generateThumbnailForVideo(cacheFolder string, file string, generateOnly boo
 		}
 
 		//Resize and crop the output image
-		if fileExists(outputFile) {
-			imageBytes, _ := ioutil.ReadFile(outputFile)
-			os.Remove(outputFile)
+		if fshAbs.FileExists(outputFile) {
+			imageBytes, _ := fshAbs.ReadFile(outputFile)
+			fshAbs.Remove(outputFile)
 			img, _, err := image.Decode(bytes.NewReader(imageBytes))
 			if err != nil {
 				//log.Println(err.Error())
@@ -49,7 +52,7 @@ func generateThumbnailForVideo(cacheFolder string, file string, generateOnly boo
 
 				if err == nil {
 					//Write it back to the original file
-					out, _ := os.Create(outputFile)
+					out, _ := fshAbs.Create(outputFile)
 					jpeg.Encode(out, croppedImg, nil)
 					out.Close()
 
@@ -61,9 +64,9 @@ func generateThumbnailForVideo(cacheFolder string, file string, generateOnly boo
 		}
 
 		//Finished
-		if !generateOnly && fileExists(outputFile) {
+		if !generateOnly && fshAbs.FileExists(outputFile) {
 			//return the image as well
-			ctx, err := getImageAsBase64(outputFile)
+			ctx, err := getImageAsBase64(fsh, outputFile)
 			return ctx, err
 		} else if !fileExists(outputFile) {
 			return "", errors.New("Image generation failed")

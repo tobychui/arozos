@@ -31,7 +31,7 @@ func (g *Gateway) AppdataLibRegister() {
 	}
 }
 
-func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User) {
+func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
 	vm.Set("_appdata_readfile", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {

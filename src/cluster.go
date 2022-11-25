@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	"imuslab.com/arozos/mod/network/neighbour"
@@ -63,7 +62,7 @@ func ClusterInit() {
 		*/
 		//WIP
 	} else {
-		log.Println("MDNS not enabled or startup failed. Skipping Cluster Scanner initiation.")
+		systemWideLogger.PrintAndLog("Cluster", "MDNS not enabled or startup failed. Skipping Cluster Scanner initiation.", nil)
 	}
 
 }

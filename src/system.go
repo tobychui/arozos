@@ -120,7 +120,7 @@ func systemIdGenerateSystemUUID() {
 func systemIdGetSystemUUID() string {
 	fileUUID, err := ioutil.ReadFile("./system/dev.uuid")
 	if err != nil {
-		log.Println("Unable to read system UUID from dev.uuid file")
+		systemWideLogger.PrintAndLog("Storage", "Unable to read system UUID from dev.uuid file", err)
 		log.Fatal(err)
 	}
 

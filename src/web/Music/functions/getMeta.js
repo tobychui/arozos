@@ -23,6 +23,8 @@ if (requirelib("filelib") == true){
     dirname = dirname.join("/");
 
     //Scan nearby files
+    
+    /*
     var nearbyFiles = filelib.aglob(dirname + "/*", "user") //aglob must be used here to prevent errors for non-unicode filename
     var audioFiles = [];
     var supportedFormats = [".mp3",".flac",".wav",".ogg",".aac",".webm",".mp4"];
@@ -33,7 +35,7 @@ if (requirelib("filelib") == true){
         ext = "." + ext;
         //Check if the file extension is in the supported extension list
         for (var k = 0; k < supportedFormats.length; k++){
-            if (filelib.isDir(nearbyFiles[i]) == false && supportedFormats[k] == ext){
+            if (nearbyFiles[i] != "" && filelib.isDir(nearbyFiles[i]) == false && supportedFormats[k] == ext){
                 var fileExt = ext.substr(1);
                 var fileName = thisFile.split("/").pop();
                 var fileSize = filelib.filesize(thisFile);
@@ -50,6 +52,34 @@ if (requirelib("filelib") == true){
             }
         }
     }
+    */
+    var nearbyFiles = filelib.readdir(dirname, "user");
+    var audioFiles = [];
+    var supportedFormats = [".mp3",".flac",".wav",".ogg",".aac",".webm",".mp4"];
+    //For each nearby files
+    for (var i =0; i < nearbyFiles.length; i++){
+        var thisFile = nearbyFiles[i];
+        var ext = thisFile.Ext;
+        //Check if the file extension is in the supported extension list
+        for (var k = 0; k < supportedFormats.length; k++){
+            if (!thisFile.IsDir && supportedFormats[k] == ext){
+                var fileExt = ext.substr(1);
+                var fileName = thisFile.Filename;
+                var fileSize = thisFile.Filesize;
+                var humanReadableFileSize = bytesToSize(fileSize);
+
+                var thisFileInfo = [];
+                thisFileInfo.push(fileName);
+                thisFileInfo.push(thisFile.Filepath);
+                thisFileInfo.push(fileExt);
+                thisFileInfo.push(humanReadableFileSize);
+                
+                audioFiles.push(thisFileInfo);
+                break;
+            }
+        }
+    }
+
 
     if (nearbyFiles == false || nearbyFiles.length == 0){
         //There are some error that unable to scan nearby files. Return this file info only.

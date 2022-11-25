@@ -5,8 +5,46 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	user "imuslab.com/arozos/mod/user"
 )
+
+//Get the full vpath if the passing value is a relative path
+//Return the original vpath if any error occured
+func relativeVpathRewrite(fsh *filesystem.FileSystemHandler, vpath string, vm *otto.Otto, u *user.User) string {
+	//Check if the vpath contain a UUID
+	if strings.Contains(vpath, ":/") || (len(vpath) > 0 && vpath[len(vpath)-1:] == ":") {
+		//This vpath contain root uuid.
+		return vpath
+	}
+
+	//We have no idea where the script is from. Trust its vpath is always full path
+	if fsh == nil {
+		return vpath
+	}
+
+	//Get the script execution root path
+	rootPath, err := vm.Get("__FILE__")
+	if err != nil {
+		return vpath
+	}
+
+	rootPathString, err := rootPath.ToString()
+	if err != nil {
+		return vpath
+	}
+
+	//Convert the root path to vpath
+	rootVpath, err := fsh.FileSystemAbstraction.RealPathToVirtualPath(rootPathString, u.Username)
+	if err != nil {
+		return vpath
+	}
+
+	rootScriptDir := filepath.Dir(rootVpath)
+	return arozfs.ToSlash(filepath.Clean(filepath.Join(rootScriptDir, vpath)))
+}
 
 //Check if the user can access this script file
 func checkUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope string) bool {
@@ -40,33 +78,4 @@ func specialURIDecode(inputPath string) string {
 	inputPath, _ = url.QueryUnescape(inputPath)
 	inputPath = strings.ReplaceAll(inputPath, "{{plus_sign}}", "+")
 	return inputPath
-}
-
-func specialGlob(path string) ([]string, error) {
-	files, err := filepath.Glob(path)
-	if err != nil {
-		return []string{}, err
-	}
-
-	if strings.Contains(path, "[") == true || strings.Contains(path, "]") == true {
-		if len(files) == 0 {
-			//Handle reverse check. Replace all [ and ] with *
-			newSearchPath := strings.ReplaceAll(path, "[", "?")
-			newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
-			newSearchPath = strings.ReplaceAll(newSearchPath, "：", "?")
-			//Scan with all the similar structure except [ and ]
-			tmpFilelist, _ := filepath.Glob(newSearchPath)
-			for _, file := range tmpFilelist {
-				file = filepath.ToSlash(file)
-				if strings.Contains(file, filepath.ToSlash(filepath.Dir(path))) {
-					files = append(files, file)
-				}
-			}
-		}
-	}
-	//Convert all filepaths to slash
-	for i := 0; i < len(files); i++ {
-		files[i] = filepath.ToSlash(files[i])
-	}
-	return files, nil
 }

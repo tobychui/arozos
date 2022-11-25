@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	modules "imuslab.com/arozos/mod/modules"
 	"imuslab.com/arozos/mod/network/reverseproxy"
 	"imuslab.com/arozos/mod/network/websocketproxy"
@@ -48,9 +49,13 @@ type SubServiceRouter struct {
 	listenPort    int
 	userHandler   *user.UserHandler
 	moduleHandler *modules.ModuleHandler
+	logger        *logger.Logger
 }
 
 func NewSubServiceRouter(ReservePaths []string, basePort int, userHandler *user.UserHandler, moduleHandler *modules.ModuleHandler, parentPort int) *SubServiceRouter {
+	//Create a service logger
+	thisLogger, _ := logger.NewLogger("system", "system/logs/subservice", true)
+
 	return &SubServiceRouter{
 		ReservePaths:      ReservePaths,
 		RunningSubService: []SubService{},
@@ -59,10 +64,11 @@ func NewSubServiceRouter(ReservePaths []string, basePort int, userHandler *user.
 		listenPort:    parentPort,
 		userHandler:   userHandler,
 		moduleHandler: moduleHandler,
+		logger:        thisLogger,
 	}
 }
 
-//Load and start all the subservices inside this rootpath
+// Load and start all the subservices inside this rootpath
 func (sr *SubServiceRouter) LoadSubservicesFromRootPath(rootpath string) {
 	scanningPath := filepath.ToSlash(filepath.Clean(rootpath)) + "/*"
 
@@ -72,7 +78,8 @@ func (sr *SubServiceRouter) LoadSubservicesFromRootPath(rootpath string) {
 			//Only enable module with no suspended config file
 			err := sr.Launch(servicePath, true)
 			if err != nil {
-				log.Println(err)
+				sr.logger.PrintAndLog("Subservice", "Failed to start subservice: "+filepath.Base(servicePath)+" "+err.Error(), err)
+				//log.Println(err)
 			}
 		}
 
@@ -95,8 +102,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 	if fileExists(servicePath + "/.startscript") {
 		//Launch from start.bat or start.sh
 		if !(fileExists(servicePath+"/start.sh") || fileExists(servicePath+"/start.bat")) {
-			log.Println("Failed to load subservice: " + serviceRoot + ", .startscript flag is TRUE but no start script found")
-			return errors.New("Failed to load subservice")
+			//log.Println("Failed to load subservice: " + serviceRoot + ", .startscript flag is TRUE but no start script found")
+			return errors.New(".startscript flag is TRUE but no start script found")
 		}
 
 		startScriptName := "start.sh"
@@ -109,10 +116,10 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		//No startscript defined. Start from binary files if exists
 		if runtime.GOOS == "windows" && !fileExists(servicePath+"/"+binaryExecPath) {
 			if startupMode {
-				log.Println("Failed to load subservice: "+serviceRoot, " File not exists "+servicePath+"/"+binaryExecPath+". Skipping this service")
-				return errors.New("Failed to load subservice")
+				//log.Println("Failed to load subservice: " + serviceRoot)
+				return errors.New("Subservice executable not exists " + servicePath + "/" + binaryExecPath + ". Skipping this service")
 			} else {
-				return errors.New("Failed to load subservice")
+				return errors.New("Subservice executable " + servicePath + "/" + binaryExecPath + ". Skipping this service")
 			}
 
 		} else if runtime.GOOS == "linux" {
@@ -123,18 +130,17 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 				//This is not installed. Check if it exists as a binary (aka ./myservice)
 				if !fileExists(servicePath + "/" + binaryExecPath) {
 					if startupMode {
-						log.Println("Package not installed. " + serviceRoot)
-						return errors.New("Failed to load subservice: Package not installed")
+						//log.Println("Package not installed. " + serviceRoot)
+						return errors.New("Package not installed")
 					} else {
-						return errors.New("Package not installed.")
+						return errors.New("Package not installed")
 					}
 				}
 			}
 		} else if runtime.GOOS == "darwin" {
 			//Skip the whereis approach that linux use
 			if !fileExists(servicePath + "/" + binaryExecPath) {
-				log.Println("Failed to load subservice: "+serviceRoot, " File not exists "+servicePath+"/"+binaryExecPath+". Skipping this service")
-				return errors.New("Failed to load subservice")
+				return errors.New("Subservice executable not exists " + servicePath + "/" + binaryExecPath + ". Skipping this service")
 			}
 		}
 	}
@@ -161,7 +167,7 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		infocmd := exec.Command(servicePath+"/"+binaryExecPath, "-info")
 		launchConfig, err := infocmd.CombinedOutput()
 		if err != nil {
-			log.Println("*Subservice* startup flag -info return no JSON string and moduleInfo.json does not exists.")
+			sr.logger.PrintAndLog("Subservice", "Missing module startup info for "+servicePath, errors.New("Startup flag -info return no JSON string and moduleInfo.json does not exists for "+servicePath))
 			if startupMode {
 				log.Fatal("Unable to start service: "+binaryname, err)
 			} else {
@@ -226,7 +232,7 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 			ServiceDir: serviceRoot,
 			Process:    cmd,
 		}
-		log.Println("[Subservice] Starting service " + serviceRoot + " in compatibility mode.")
+		sr.logger.PrintAndLog("Subservice", "Starting service "+serviceRoot+" in compatibility mode", nil)
 	} else {
 		//Create a proxy for this service
 		//Get proxy endpoint from startDir dir
@@ -290,6 +296,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 			Info:       thisModuleInfo,
 			Process:    cmd,
 		}
+
+		sr.logger.PrintAndLog("Subservice", "Subservice Registered: "+thisModuleInfo.Name, nil)
 
 		//Create a new proxy object
 		path, _ := url.Parse("http://localhost:" + intToString(thisServicePort))
@@ -355,12 +363,12 @@ func (sr *SubServiceRouter) HandleListing(w http.ResponseWriter, r *http.Request
 		Disabled: disabled,
 	})
 	if err != nil {
-		log.Println(err)
+		sr.logger.PrintAndLog("Subservice", "Unable to list subservice folder", err)
 	}
 	sendJSONResponse(w, string(jsonString))
 }
 
-//Kill the subservice that is currently running
+// Kill the subservice that is currently running
 func (sr *SubServiceRouter) HandleKillSubService(w http.ResponseWriter, r *http.Request) {
 	userinfo, _ := sr.userHandler.GetUserInfoFromRequest(w, r)
 	//Require admin permission
@@ -402,13 +410,13 @@ func (sr *SubServiceRouter) HandleStartSubService(w http.ResponseWriter, r *http
 
 }
 
-//Check if the user has permission to access such proxy module
+// Check if the user has permission to access such proxy module
 func (sr *SubServiceRouter) CheckUserPermissionOnSubservice(ss *SubService, u *user.User) bool {
 	moduleName := ss.Info.Name
 	return u.GetModuleAccessPermission(moduleName)
 }
 
-//Check if the target is reverse proxy. If yes, return the proxy handler and the rewritten url in string
+// Check if the target is reverse proxy. If yes, return the proxy handler and the rewritten url in string
 func (sr *SubServiceRouter) CheckIfReverseProxyPath(r *http.Request) (bool, *reverseproxy.ReverseProxy, string, *SubService) {
 	requestURL := r.URL.Path
 
@@ -528,7 +536,7 @@ func (sr *SubServiceRouter) StartSubService(serviceDir string) error {
 	return nil
 }
 
-//Get a list of subservice roots in realpath
+// Get a list of subservice roots in realpath
 func (sr *SubServiceRouter) GetSubserviceRoot() []string {
 	subserviceRoots := []string{}
 	for _, subService := range sr.RunningSubService {
@@ -538,7 +546,7 @@ func (sr *SubServiceRouter) GetSubserviceRoot() []string {
 	return subserviceRoots
 }
 
-//Scan and get the next avaible port for subservice from its basePort
+// Scan and get the next avaible port for subservice from its basePort
 func (sr *SubServiceRouter) GetNextUsablePort() int {
 	basePort := sr.BasePort
 	for sr.CheckIfPortInUse(basePort) {
@@ -583,21 +591,21 @@ func (sr *SubServiceRouter) HandleRoutingRequest(w http.ResponseWriter, r *http.
 	if err != nil {
 		//Check if it is cancelling events.
 		if !strings.Contains(err.Error(), "cancel") {
-			log.Println(subserviceObject.Info.Name + " IS NOT RESPONDING!")
+			sr.logger.PrintAndLog("Subservice", subserviceObject.Info.Name+" IS NOT RESPONDING!", err)
 			sr.RestartSubService(subserviceObject)
 		}
 
 	}
 }
 
-//Handle fail start over when the remote target is not responding
+// Handle fail start over when the remote target is not responding
 func (sr *SubServiceRouter) RestartSubService(ss *SubService) {
 	go func(ss *SubService) {
 		//Kill the original subservice
 		sr.KillSubService(ss.ServiceDir)
-		log.Println("RESTARTING SUBSERVICE " + ss.Info.Name + " IN 10 SECOUNDS")
+		sr.logger.PrintAndLog("Subservice", "RESTARTING SUBSERVICE "+ss.Info.Name+" IN 10 SECOUNDS", nil)
 		time.Sleep(10000 * time.Millisecond)
 		sr.StartSubService(ss.ServiceDir)
-		log.Println("SUBSERVICE " + ss.Info.Name + " RESTARTED")
+		sr.logger.PrintAndLog("Subservice", "SUBSERVICE "+ss.Info.Name+" RESTARTED", nil)
 	}(ss)
 }

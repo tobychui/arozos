@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"runtime"
 	"time"
@@ -16,12 +15,21 @@ import (
 
 //InitShowSysInformation xxx
 func SystemInfoInit() {
-	log.Println("Operation System: " + runtime.GOOS)
-	log.Println("System Architecture: " + runtime.GOARCH)
+	systemWideLogger.PrintAndLog("System", "Operation System: "+runtime.GOOS, nil)
+	systemWideLogger.PrintAndLog("System", "System Architecture: "+runtime.GOARCH, nil)
 
 	//Updates 5 Dec 2020, Added permission router
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "System Setting",
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			common.SendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	//Anyone logged in can load router
+	authRouter := prout.NewModuleRouter(prout.RouterOption{
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +115,7 @@ func SystemInfoInit() {
 	}
 
 	//Register endpoints that do not involve hardware management
-	router.HandleFunc("/system/info/getRuntimeInfo", InfoHandleGetRuntimeInfo)
+	authRouter.HandleFunc("/system/info/getRuntimeInfo", InfoHandleGetRuntimeInfo)
 
 	//ArOZ Info do not need permission router
 	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
@@ -140,7 +148,7 @@ func SystemInfoInit() {
 				execute, _ := common.Mv(r, "exec", true)
 				if execute == "true" && r.Method == http.MethodPost {
 					//Do the update
-					log.Println("REQUESTING LAUNCHER FOR UPDATE RESTART")
+					systemWideLogger.PrintAndLog("System", "REQUESTING LAUNCHER FOR UPDATE RESTART", nil)
 					executeShutdownSequence()
 					common.SendOK(w)
 				} else if execute == "true" {

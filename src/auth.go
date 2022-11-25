@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/rand"
-	"log"
 	"net/http"
 
 	auth "imuslab.com/arozos/mod/auth"
@@ -20,9 +19,9 @@ func AuthInit() {
 			rand.Read(key)
 			newSessionKey := string(key)
 			sysdb.Write("auth", "sessionkey", newSessionKey)
-			log.Println("New authentication session key generated")
+			systemWideLogger.PrintAndLog("Auth", "New authentication session key generated", nil)
 		} else {
-			log.Println("Authentication session key loaded from database")
+			systemWideLogger.PrintAndLog("Auth", "Authentication session key loaded from database", nil)
 
 		}
 		skeyString := ""
@@ -37,7 +36,7 @@ func AuthInit() {
 		http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, 307)
 	})
 
-	if *allow_autologin == true {
+	if *allow_autologin {
 		authAgent.AllowAutoLogin = true
 	} else {
 		//Default is false. But just in case

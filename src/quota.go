@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"imuslab.com/arozos/mod/common"
@@ -26,7 +26,7 @@ func DiskQuotaInit() {
 		Desc:     "User Remaining Space",
 		IconPath: "SystemAO/disk/quota/img/small_icon.png",
 		Group:    "Disk",
-		StartDir: "SystemAO/disk/quota/quota.system",
+		StartDir: "SystemAO/disk/quota/quota.html",
 	})
 
 	//Register the timer for running the global user quota recalculation
@@ -77,7 +77,7 @@ func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 	//Qutasize unit is in MB
 	quotaSize = quotaSize << 20
 
-	log.Println("Updating "+groupname+" to ", quotaSize, "WIP")
+	systemWideLogger.PrintAndLog("Quota", "Updating "+groupname+" to "+strconv.FormatInt(quotaSize, 10)+"WIP", nil)
 	common.SendOK(w)
 
 }

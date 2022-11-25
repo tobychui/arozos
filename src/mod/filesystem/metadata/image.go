@@ -4,16 +4,19 @@ import (
 	"bytes"
 	"image"
 	"image/jpeg"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
+	"imuslab.com/arozos/mod/filesystem"
 )
 
-func generateThumbnailForImage(cacheFolder string, file string, generateOnly bool) (string, error) {
-	imageBytes, err := ioutil.ReadFile(file)
+func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if fsh.RequireBuffer {
+		return "", nil
+	}
+	fshAbs := fsh.FileSystemAbstraction
+	imageBytes, err := fshAbs.ReadFile(file)
 	if err != nil {
 		return "", err
 	}
@@ -43,7 +46,7 @@ func generateThumbnailForImage(cacheFolder string, file string, generateOnly boo
 	})
 
 	//Create the thumbnail
-	out, err := os.Create(cacheFolder + filepath.Base(file) + ".jpg")
+	out, err := fshAbs.Create(cacheFolder + filepath.Base(file) + ".jpg")
 	if err != nil {
 		return "", err
 	}
@@ -54,7 +57,7 @@ func generateThumbnailForImage(cacheFolder string, file string, generateOnly boo
 
 	if !generateOnly {
 		//return the image as well
-		ctx, err := getImageAsBase64(cacheFolder + filepath.Base(file) + ".jpg")
+		ctx, err := getImageAsBase64(fsh, cacheFolder+filepath.Base(file)+".jpg")
 		return ctx, err
 	} else {
 		return "", nil

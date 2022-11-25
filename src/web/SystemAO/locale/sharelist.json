@@ -1,0 +1,80 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "分享管理員",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title/title": "分享管理員",
+                "title/desc":"在此虛擬磁碟內的分享連結",
+                "message/noshare/title":"沒有分享連結",
+                "message/noshare/desc":"此虛擬磁碟內並沒有已分享之連結。試試從檔案管理員選擇一個檔案並點擊「分享」？",
+                "message/delwarning": "所有協作者將無法通過檔案共享界面訪問此文件。確認？",
+                "message/removed": "已移除分享",
+                "item/creator":"創建者：",
+                "item/perm":"存取權限：",
+
+                "":""
+            },
+            "titles":{
+                "Copy Link": "複製連結",
+                "Open Share":"打開分享頁",
+                "Open in File Manager": "在檔案管理員打開",
+                "Delete Share": "刪除此分享"
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "分享管理員",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "title/title": "分享管理員",
+                "title/desc":"在此虛擬磁碟內的分享連結",
+                "message/noshare/title":"沒有分享連結",
+                "message/noshare/desc":"此虛擬磁碟內並沒有已分享之連結。試試從檔案管理員選擇一個檔案並點擊「分享」？",
+                "message/delwarning": "所有協作者將無法通過檔案共享界面訪問此文件。確認？",
+                "message/removed": "已移除分享",
+                "item/creator":"創建者：",
+                "item/perm":"存取權限：",
+
+                "":""
+            },
+            "titles":{
+                "Copy Link": "複製連結",
+                "Open Share":"打開分享頁",
+                "Open in File Manager": "在檔案管理員打開",
+                "Delete Share": "刪除此分享"
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "分享管理员",
+            "strings":{
+                "title/title": "分享管理员",
+                "title/desc":"在此虚拟磁碟内的分享连结",
+                "message/noshare/title":"没有分享连结",
+                "message/noshare/desc":"此虚拟磁碟内并没有已分享之连结。试试从档案管理员选择一个档案并点击「分享」？ ",
+                "message/delwarning": "所有协作者将无法通过档案共享界面访问此文件。确认？",
+                "message/removed": "已移除分享",
+                "item/creator":"创建者：",
+                "item/perm":"存取权限：",
+
+                "":""
+            },
+            "titles":{
+                "Copy Link": "拷贝連結",
+                "Open Share":"打开分享页",
+                "Open in File Manager": "在档案管理员打开",
+                "Delete Share": "删除此分享"
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"imuslab.com/arozos/mod/common"
@@ -89,7 +88,7 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Update the current global flags
-		log.Println("Updating boot flag to:", newSettings)
+		systemWideLogger.PrintAndLog("System", "Updating boot flag to:"+newSettings, nil)
 		*host_name = newConfig.Hostname
 		max_upload_size = int64(newConfig.MaxUploadSize << 20)
 		*upload_buf = newConfig.MaxFileUploadBuff

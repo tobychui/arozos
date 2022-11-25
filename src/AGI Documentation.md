@@ -1,15 +1,18 @@
 # AJGI Documentation
 
 ## What is AJGI?
+
 AJGI is the shortform of ArOZ Javascript Gateway Interface.
 In simple words, you can add function to your system with JavaScript :)
 
 ## Usages
+
 1. Put your js / agi file inside web/* (e.g. ./web/Dummy/backend/test.js)
 2. Load your script by calling / ajax request to ```/system/ajgi/interface?script={yourfile}.js```, (e.g. /system/ajgi/interface?script=Dummy/backend/test.js)
 3. Wait for the reponse from the script by calling sendResp in the script
 
 ## Module Init Script
+
 To initialize a module without a main.go function call, you can create a "init.agi" script in your module root under ./web/myModule where "myModule" is your module name.
 
 To register the module, you can call to the "registerModule" function with JSON stringify module launch info following the following example JavaScript Object.
@@ -17,24 +20,23 @@ To register the module, you can call to the "registerModule" function with JSON 
 ```
 //Define the launchInfo for the module
 var moduleLaunchInfo = {
-	Name: "NotepadA",
-	Desc: "The best code editor on ArOZ Online",
-	Group: "Office",
-	IconPath: "NotepadA/img/module_icon.png",
-	Version: "1.2",
-	StartDir: "NotepadA/index.html",
-	SupportFW: true,
-	LaunchFWDir: "NotepadA/index.html",
-	SupportEmb: true,
-	LaunchEmb: "NotepadA/embedded.html",
-	InitFWSize: [1024, 768],
-	InitEmbSize: [360, 200],
-	SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
+    Name: "NotepadA",
+    Desc: "The best code editor on ArOZ Online",
+    Group: "Office",
+    IconPath: "NotepadA/img/module_icon.png",
+    Version: "1.2",
+    StartDir: "NotepadA/index.html",
+    SupportFW: true,
+    LaunchFWDir: "NotepadA/index.html",
+    SupportEmb: true,
+    LaunchEmb: "NotepadA/embedded.html",
+    InitFWSize: [1024, 768],
+    InitEmbSize: [360, 200],
+    SupportedExt: [".bat",".coffee",".cpp",".cs",".csp",".csv",".fs",".dockerfile",".go",".html",".ini",".java",".js",".lua",".mips",".md", ".sql",".txt",".php",".py",".ts",".xml",".yaml"]
 }
 
 //Register the module
 registerModule(JSON.stringify(moduleLaunchInfo));
-
 ```
 
 You might also create the database table in this section of the code. For example:
@@ -45,31 +47,32 @@ newDBTableIfNotExists("myModule")
 ```
 
 ## Application Examples
+
 See web/UnitTest/backend/*.js for more information on how to use AGI in webapps.
 
 For subservice, see subservice/demo/agi/ for more examples.
 
-
 ### Access From Frontend
+
 To access server functions from front-end (e.g. You are building a serverless webapp on top of arozos), you can call to the ao_module.js function for running an agi script located under ```./web``` directory. You can find the ao_module.js wrapper under ```./web/script/```
 
 Here is an example extracted from Music module for listing files nearby the openeing music file.
 
 ./web/Music/embedded.html
+
 ```
 ao_module_agirun("Music/functions/getMeta.js", {
-	file: encodeURIComponent(playingFileInfo.filepath)
+    file: encodeURIComponent(playingFileInfo.filepath)
 }, function(data){
-	songList = data;
-	for (var i = 0; i < data.length; i++){
-		//Do something here
-	}
+    songList = data;
+    for (var i = 0; i < data.length; i++){
+        //Do something here
+    }
 });
-
-
 ```
 
 ./web/Music/functions/getMeta.js
+
 ```
 //Define helper functions
 function bytesToSize(bytes) {
@@ -109,7 +112,7 @@ if (requirelib("filelib") == true){
                 thisFileInfo.push(thisFile);
                 thisFileInfo.push(fileExt);
                 thisFileInfo.push(humanReadableFileSize);
-                
+
                 audioFiles.push(thisFileInfo);
                 break;
             }
@@ -117,17 +120,17 @@ if (requirelib("filelib") == true){
     }
     sendJSONResp(JSON.stringify(audioFiles));
 }
-
 ```
 
 ### Access from Subservice Backend
+
 It is also possible to access the AGI gateway from subservice backend.
 You can include aroz library from ```./subservice/demo/aroz``` . The following is an example extracted from demo subservice that request access to your desktop filelist.
 
 ```
 package main
 import (
-	aroz "your/package/name/aroz"
+    aroz "your/package/name/aroz"
 )
 
 var handler *aroz.ArozHandler
@@ -135,89 +138,91 @@ var handler *aroz.ArozHandler
 //...
 
 func main(){
-	//Put other flags here
+    //Put other flags here
 
-	//Start subservice pipeline and flag parsing (This function call will also do flag.parse())
-	handler = aroz.HandleFlagParse(aroz.ServiceInfo{
-		Name: "Demo Subservice",
-		Desc: "A simple subservice code for showing how subservice works in ArOZ Online",			
-		Group: "Development",
-		IconPath: "demo/icon.png",
-		Version: "0.0.1",
-		//You can define any path before the actualy html file. This directory (in this case demo/ ) will be the reverse proxy endpoint for this module
-		StartDir: "demo/home.html",			
-		SupportFW: true, 
-		LaunchFWDir: "demo/home.html",
-		SupportEmb: true,
-		LaunchEmb: "demo/embedded.html",
-		InitFWSize: []int{720, 480},
-		InitEmbSize: []int{720, 480},
-		SupportedExt: []string{".txt",".md"},
-	});
+    //Start subservice pipeline and flag parsing (This function call will also do flag.parse())
+    handler = aroz.HandleFlagParse(aroz.ServiceInfo{
+        Name: "Demo Subservice",
+        Desc: "A simple subservice code for showing how subservice works in ArOZ Online",            
+        Group: "Development",
+        IconPath: "demo/icon.png",
+        Version: "0.0.1",
+        //You can define any path before the actualy html file. This directory (in this case demo/ ) will be the reverse proxy endpoint for this module
+        StartDir: "demo/home.html",            
+        SupportFW: true, 
+        LaunchFWDir: "demo/home.html",
+        SupportEmb: true,
+        LaunchEmb: "demo/embedded.html",
+        InitFWSize: []int{720, 480},
+        InitEmbSize: []int{720, 480},
+        SupportedExt: []string{".txt",".md"},
+    });
 
-	//Start Web server with handler.Port
-	http.ListenAndServe(handler.Port, nil)
+    //Start Web server with handler.Port
+    http.ListenAndServe(handler.Port, nil)
 }
 
 
 //Access AGI Gateway from Golang
 func agiGatewayTest(w http.ResponseWriter, r *http.Request){
-	//Get username and token from request
-	username, token := handler.GetUserInfoFromRequest(w,r)
-	log.Println("Received request from: ", username, " with token: ", token)
+    //Get username and token from request
+    username, token := handler.GetUserInfoFromRequest(w,r)
+    log.Println("Received request from: ", username, " with token: ", token)
 
-	//Create an AGI Call that get the user desktop files
-	script := `
-		if (requirelib("filelib")){
-			var filelist = filelib.glob("user:/Desktop/*")
-			sendJSONResp(JSON.stringify(filelist));
-		}else{
-			sendJSONResp(JSON.stringify({
-				error: "Filelib require failed"
-			}));
-		}
-	`
+    //Create an AGI Call that get the user desktop files
+    script := `
+        if (requirelib("filelib")){
+            var filelist = filelib.glob("user:/Desktop/*")
+            sendJSONResp(JSON.stringify(filelist));
+        }else{
+            sendJSONResp(JSON.stringify({
+                error: "Filelib require failed"
+            }));
+        }
+    `
 
-	//Execute the AGI request on server side
-	resp,err := handler.RequestGatewayInterface(token, script)
-	if err != nil{
-		//Something went wrong when performing POST request
-		log.Println(err)
-	}else{
-		//Try to read the resp body
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil{
-			log.Println(err)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		resp.Body.Close()
+    //Execute the AGI request on server side
+    resp,err := handler.RequestGatewayInterface(token, script)
+    if err != nil{
+        //Something went wrong when performing POST request
+        log.Println(err)
+    }else{
+        //Try to read the resp body
+        bodyBytes, err := ioutil.ReadAll(resp.Body)
+        if err != nil{
+            log.Println(err)
+            w.Write([]byte(err.Error()))
+            return
+        }
+        resp.Body.Close()
 
-		//Relay the information to the request using json header
-		//Or you can process the information within the go program
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(bodyBytes)
+        //Relay the information to the request using json header
+        //Or you can process the information within the go program
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(bodyBytes)
 
-	}
+    }
 }
-
 ```
-
-
 
 ## APIs
 
 ### Basics
+
 #### Response to request
+
 In order for the script to return something to the screen / caller as JSON / TEXT response, 
 one of these functions has to be called.
 
 ```
-sendResp(string)	=> Response header with text/plain header
+sendResp(string)    => Response header with text/plain header
 sendJSONResp(json_string) => Response request with JSON header
 
 //Since v1.119
 sendJSONResp(object) => Overload function, allow the same API to send Javascript object directly without the need for manual stringify using JSON.stringify
+
+//Since AGI v2.0
+sendOK(); => Reply OK in plain text
 ```
 
 Customize header:
@@ -233,36 +238,39 @@ sendResp("<p>你好世界！</p>");
 ```
 
 #### Register Module to module list
+
 You can call to the following function to register your module to the system module list. It is recommended that you register your module during the startup process (in the init.agi script located in your module root)
 
 Example Usage: 
+
 ```
 registerModule(JSON.stringify(moduleInfo));
-
 ```
 
 Module Info defination
+
 ```
 //DO NOT USE THIS IN CODE. THIS IS A DATATYPE REPRESENTATION ONLY
 //PLEASE SEE THE INIT SECTION FOR A REAL OBJECT EXAMPLE
 moduleInfo = {
-	Name string					//Name of this module. e.g. "Audio"
-	Desc string					//Description for this module
-	Group string				//Group of the module, e.g. "system" / "media" etc
-	IconPath string				//Module icon image path e.g. "Audio/img/function_icon.png"
-	Version string				//Version of the module. Format: [0-9]*.[0-9][0-9].[0-9]
-	StartDir string 			//Default starting dir, e.g. "Audio/index.html"
-	SupportFW bool 				//Support floatWindow. If yes, floatWindow dir will be loaded
-	LaunchFWDir string 			//This link will be launched instead of 'StartDir' if fw mode
-	SupportEmb bool				//Support embedded mode
-	LaunchEmb string 			//This link will be launched instead of StartDir / Fw if a file is opened with this module
-	InitFWSize [int, int] 		//Floatwindow init size. [0] => Width, [1] => Height
-	InitEmbSize [int, int]		//Embedded mode init size. [0] => Width, [1] => Height
-	SupportedExt string_array 	//Supported File Extensions. e.g. ".mp3", ".flac", ".wav"
+    Name string                    //Name of this module. e.g. "Audio"
+    Desc string                    //Description for this module
+    Group string                //Group of the module, e.g. "system" / "media" etc
+    IconPath string                //Module icon image path e.g. "Audio/img/function_icon.png"
+    Version string                //Version of the module. Format: [0-9]*.[0-9][0-9].[0-9]
+    StartDir string             //Default starting dir, e.g. "Audio/index.html"
+    SupportFW bool                 //Support floatWindow. If yes, floatWindow dir will be loaded
+    LaunchFWDir string             //This link will be launched instead of 'StartDir' if fw mode
+    SupportEmb bool                //Support embedded mode
+    LaunchEmb string             //This link will be launched instead of StartDir / Fw if a file is opened with this module
+    InitFWSize [int, int]         //Floatwindow init size. [0] => Width, [1] => Height
+    InitEmbSize [int, int]        //Embedded mode init size. [0] => Width, [1] => Height
+    SupportedExt string_array     //Supported File Extensions. e.g. ".mp3", ".flac", ".wav"
 }
 ```
 
 #### Print to STDOUT (console)
+
 To print something for debug, you can print text directly to ArOZ Online Core terminal using
 
 ```
@@ -282,17 +290,21 @@ delay(5000);
 For async delayed / timer ticking operations like setTimeout or setInterval is currently not supported.
 
 ### System Functions
+
 System Functions are AGI functions that can be called anytime (system startup / scheduled task and user request tasks)
 The following variables and functions are categorized as system functions.
 
 #### CONST
+
 ```
 BUILD_VERSION
 INTERNVAL_VERSION
 LOADED_MODULES
 LOADED_STORAGES
 ```
+
 #### VAR
+
 ```
 HTTP_RESP
 HTTP_HEADER (Default: "text/plain")
@@ -300,19 +312,21 @@ HTTP_HEADER (Default: "text/plain")
 
 You can set HTTP_RESP with HTTP_HEADER to create custom response headers.
 For example, you can serve an HTML file using agi gateway
+
 ```
 HTTP_RESP = "<html><body>Hello World</body></html>";
 HTTP_HEADER = "text/html";
 ```
 
 #### Response Handlers
+
 ```
 sendResp("Any string");
-sendJSONResp(JSON.stringify({text: "Hello World"));	//aka send Resp with JSON header
-
+sendJSONResp(JSON.stringify({text: "Hello World"));    //aka send Resp with JSON header
 ```
 
 #### Database Related
+
 ```
 newDBTableIfNotExists("tablename");
 dropDBTable("tablename");
@@ -323,22 +337,25 @@ deleteDBItem("tablename", "key");
 ```
 
 #### Register and Packages
+
 ```
 registerModule(JSON.stringify(moduleLaunchInfo)); //See moduleLaunchInfo in the sections above
 requirepkg("ffmpeg");
 execpkg("ffmpeg",'-i "files/users/TC/Desktop/群青.mp3" "files/users/TC/Desktop/群青.flac'); //ffmpeg must be required() before use
-
 ```
 
 #### Structure & OOP
+
 ```
 includes("hello world.js"); //Include another js / agi file within the current running one, return false if failed
 ```
 
 ### User Functions
+
 Users function are function group that only be usable when the interface is started from a user request.
 
 #### CONST
+
 ```
 USERNAME
 USERICON
@@ -351,6 +368,7 @@ USER_MODULES //Might return ["*"] for admin permission
 ```
 
 #### Filepath Virtualization
+
 ```
 decodeVirtualPath("user:/Desktop"); //Convert virtual path (e.g. user:/Desktop) to real path (e.g. ./files/user/username/Desktop)
 decodeAbsoluteVirtualPath("user:/Desktop"); //Same as decodeVirtualPath but return in absolute path instead of relative path from the arozos binary root
@@ -358,27 +376,51 @@ encodeRealPath("files/users/User/Desktop"); //Convert realpath into virtual path
 ```
 
 #### Permission Related
+
 ```
 getUserPermissionGroup();
 userIsAdmin(); => Return true / false
 ```
 
 #### User Creation, Edit and Removal
+
 All the command in this section require administrator permission. To check if user is admin, use ``` userIsAdmin() ```.
 
 ```
 userExists(username);
-createUser(username, password, defaultGroup);	//defaultGroup must be one of the permission group that exists in the system
+createUser(username, password, defaultGroup);    //defaultGroup must be one of the permission group that exists in the system
 removeUser(username); //Return true if success, false if failed
 ```
 
+### Serverless Function (agi v2.1)
+
+Since agi v2.1, developers can access agi and do dynamic programming via external agi call using ARZ Serverless panel. The following APIs allow devs to access GET, POST parameters and request Body on demand.
+
+Notes: These functions are only usable when called via the ARZ Serverless endpoints (URI start from ```/api/remote/```)
+
+#### CONST
+
+```
+REQ_METHOD //Get the method of request, e.g. GET / HEAD / POST
+```
+
+#### FUNCTIONS
+
+```
+getPara(key) //Return the GET value of given key
+postPara(key) //Return the POST value of given key
+readBody() //Get the whole request body as string
+```
+
+When there is an invalid operations or undefined keys, these functions always return null as default.
+
 #### Library requirement
+
 You can request other library to be loaded and have extra functions to work with files / images.
+
 ```
 requirelib("filelib");
 ```
-
-
 
 #### Include other script files
 
@@ -387,8 +429,6 @@ You can also include another js file to load shared code between scripts
 ```
 includes("hello world.js")
 ```
-
-
 
 ### Execute tasks in another routine
 
@@ -414,38 +454,37 @@ To get the payload in child routine, get the following variable (Default: empty 
 PARENT_PAYLOAD
 ```
 
-
-
 ### filelib
 
 filelib is the core library for users to interact with the local filesystem.
 
 To use any of the library, the agi script must call the requirelib before calling any filelib functions. Example as follows.
-```
 
+```
 if (!requirelib("filelib")){
-	console.log("Filelib import failed");
+    console.log("Filelib import failed");
 }else{
-	console.log(filelib.fileExists("user:/Desktop/"));
+    console.log(filelib.fileExists("user:/Desktop/"));
 }
 ```
 
 #### Filelib functions
+
 ```
-	filelib.writeFile("user:/Desktop/test.txt", "Hello World"); 		//Write to file
-	filelib.readFile("user:/Desktop/test.txt");							//Read from file
-	filelib.deleteFile("user:/Desktop/test.txt"); 						//Delete a file by given path
-	filelib.readdir("user:/Desktop/"); 									//List all subdirectories within this directory
-	filelib.walk("user:/Desktop/"); 									//Recursive scan dir and return all files and folder in subdirs
-	filelib.glob("user:/Desktop/*.jpg", "smallToLarge");
-	filelib.aglob("user:/Desktop/*.jpg", "user");
-	filelib.filesize("user:/Desktop/test.jpg");
-	filelib.fileExists("user:/Desktop/test.jpg");
-	filelib.isDir("user:/Desktop/NewFolder/");
-	filelib.md5("user:/Desktop/test.jpg");
-	filelib.mkdir("user/Desktop/NewFolder");	
-	filelib.mtime("user:/Desktop/test.jpg", true); 							//Get modification time, return unix timestamp. Set the 2nd paramter to false for human readble format
-	filelib.rname("user:/Deskop"); 										//Get Rootname, return "User"
+    filelib.writeFile("user:/Desktop/test.txt", "Hello World");         //Write to file
+    filelib.readFile("user:/Desktop/test.txt");                            //Read from file
+    filelib.deleteFile("user:/Desktop/test.txt");                         //Delete a file by given path
+    filelib.readdir("user:/Desktop/");                                     //List all subdirectories within this directory
+    filelib.walk("user:/Desktop/");                                     //Recursive scan dir and return all files and folder in subdirs
+    filelib.glob("user:/Desktop/*.jpg", "smallToLarge");
+    filelib.aglob("user:/Desktop/*.jpg", "user");
+    filelib.filesize("user:/Desktop/test.jpg");
+    filelib.fileExists("user:/Desktop/test.jpg");
+    filelib.isDir("user:/Desktop/NewFolder/");
+    filelib.md5("user:/Desktop/test.jpg");
+    filelib.mkdir("user/Desktop/NewFolder");    
+    filelib.mtime("user:/Desktop/test.jpg", true);                             //Get modification time, return unix timestamp. Set the 2nd paramter to false for human readble format
+    filelib.rname("user:/Deskop");                                         //Get Rootname, return "User"
 ```
 
 ##### Special sorting mode for glob and aglob
@@ -472,11 +511,67 @@ To use the user default option which user has set in File Manager WebApp, pass i
 filelib.aglob("user:/Desktop/*.jpg", "user");
 ```
 
+##### Return type of filelib.readdir (Since ArozOS v2.002 / AGI 2.1)
+
+For filelib.readdir, it will return an array with the following object structure
+
+```go
+type fileInfo struct {
+    Filename string
+    Filepath string
+    Ext      string
+    Filesize int64
+    Modtime  int64
+    IsDir    bool
+}
+```
+
+Example return value (in JSON object, not stringify JSON string)
+
+```json
+[
+  {
+    "Ext": ".mp3",
+    "Filename": "MyMusic.mp3",
+    "Filepath": "user:/Desktop/MyMusic.mp3",
+    "Filesize": 12841616,
+    "IsDir": false,
+    "Modtime": 1653400359
+  },
+  {
+    "Ext": ".shortcut",
+    "Filename": "Code Studio.shortcut",
+    "Filepath": "user:/Desktop/Code Studio.shortcut",
+    "Filesize": 63,
+    "IsDir": false,
+    "Modtime": 1644421891
+  },
+  {
+    "Ext": ".txt",
+    "Filename": "END USER LICENSE.txt",
+    "Filepath": "files/users/TC/Desktop/END USER LICENSE.txt",
+    "Filesize": 11698,
+    "IsDir": false,
+    "Modtime": 1653318436
+  }
+]
+```
+
+### Relative path support when execute in personal page (Since ArozOS v2.005 / AGI 2.2)
+
+AGI 2.2 filelib support execution of file operations as relative path when the file is executed via personal page link. For example:
+
+```javascript
+var content = filelib.readFile("./untitled.md");
+```
+
+**In other library or use case, please use the full path of resources instead.**
+
 ### appdata
 
 An API for access files inside the web folder. This API only provide read only functions. Include the appdata lib as follows.
 
-```
+```javascript
 requirelib("appdata");
 ```
 
@@ -487,13 +582,10 @@ appdata.readFile("UnitTest/appdata.txt"); //Return false (boolean) if read faile
 appdata.listDir("UnitTest/backend/"); //Return a list of files in JSON string
 ```
 
-
-
 ### imagelib
 
 A basic image handling library to process images. Allowing basic image resize,
 get image dimension and others (to be expanded)
-
 
 ```
 //Include the library
@@ -501,14 +593,14 @@ requirelib("imagelib");
 ```
 
 #### ImageLib functions
+
 ```
-imagelib.getImageDimension("user:/Desktop/test.jpg"); 									//return [width, height]
-imagelib.resizeImage("user:/Desktop/input.png", "user:/Desktop/output.png", 500, 300); 	//Resize input.png to 500 x 300 pixal and write to output.png
+imagelib.getImageDimension("user:/Desktop/test.jpg");                                     //return [width, height]
+imagelib.resizeImage("user:/Desktop/input.png", "user:/Desktop/output.png", 500, 300);     //Resize input.png to 500 x 300 pixal and write to output.png
 imagelib.loadThumbString("user:/Desktop/test.jpg"); //Load the given file's thumbnail as base64 string, return false if failed
 imagelib.cropImage("user:/Desktop/test.jpg", "user:/Desktop/out.jpg",100,100,200,200)); 
 //Classify an image using neural network, since v1.119
 imagelib.classify("tmp:/classify.jpg", "yolo3"); 
-
 ```
 
 #### Crop Image Options
@@ -525,8 +617,6 @@ Crop the given image with the following arguemnts:
 
 return true if success, false if failed
 ```
-
-
 
 #### AI Classifier Options (since v1.119)
 
@@ -564,8 +654,6 @@ Here is an example code for parsing the output, or you can also directly throw i
     }
 ```
 
-
-
 ### http
 
 A basic http function group that allow GET / POST / HEAD / Download request to other web resources
@@ -576,15 +664,20 @@ requirelib("http");
 ```
 
 #### http functions
+
 ```
 http.get("http://example.com/api/"); //Create a get request, return the respond body
 http.post("http://localhost:8080/system/file_system/listDir", JSON.stringify({
     dir: "user:/Desktop",
     sort: "default"
-}));	//Create a POST request with JSON payload
+}));    //Create a POST request with JSON payload
 http.head("http://localhost:8080/", "Content-Type"); //Get the header field "Content-Type" from the requested url, leave 2nd paramter empty to return the whole header in JSON string
 http.download("http://example.com/music.mp3", "user:/Desktop", "(Optional) My Music.mp3")
 
+
+//Since agi v2.0
+http.getb64("http://example.com/photo.png"); //Get target resources as base64 bytes, return null if error
+http.getCode("http://redirect.example.com"); //Get response code for the target endpoint,if the code is redirection related (e.g. 302), a new varaible "_location" will be created to store the redirection address in String.
 ```
 
 ### websocket
@@ -605,8 +698,6 @@ websocket.send("Hello World"); //Send websocket to client (web UI)
 websocket.close(); //Close websocket connection
 ```
 
-
-
 #### Usage Example
 
 Font-end
@@ -621,15 +712,15 @@ function getWSEndpoint(){
     wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port);
     return wsControlEndpoint;
 }
-            
+
 let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=UnitTest/special/websocket.js");
 
 socket.onopen = function(e) {
-	log("✔️ Socket Opened");
+    log("✔️ Socket Opened");
 };
 
 socket.onmessage = function(event) {
-	log(`✔️ Received: ${event.data}`);
+    log(`✔️ Received: ${event.data}`);
 };
 
 socket.onclose = function(event) {
@@ -643,14 +734,13 @@ socket.onclose = function(event) {
 };
 
 socket.onerror = function(error) {
-	log(`❌ ERROR! ${error.message}`);
+    log(`❌ ERROR! ${error.message}`);
 };
 ```
 
 Backend example (without error handling). See the UnitTest/special/websocket.js for example with error handling.
 
 ```
-
 function setup(){
     //Require the WebSocket Library
     requirelib("websocket");
@@ -687,7 +777,6 @@ if (setup()){
 }else{
     console.log("WebSocket Setup Failed.")
 }
-
 ```
 
 ### iot
@@ -698,8 +787,6 @@ The iot library provide access to the iot hardware control endpoints (or endpoin
 //Include the library
 requirelib("iot");
 ```
-
-
 
 #### iot functions
 
@@ -712,7 +799,6 @@ iot.disconnect(devid) //Disconnect a given device using device id
 iot.status(devid) //Get the status of an iot device given its device ID, ID can be accessed using DeviceUUID key form an iot device object.
 iot.exec(devid, epname, payload); //Execute iot command using device id, endpoint name and payload (object).
 iot.iconTag(devid) //Get the device icon name from the device id
-
 ```
 
 #### Example Return from iot.list() or iot.scan()
@@ -734,7 +820,7 @@ iot.iconTag(devid) //Get the device icon name from the device id
       ],
       "DeviceUUID":"84:F3:EB:3C:C7:F9",
       "Handler":{ 
-      	//hidden fields 
+          //hidden fields 
       },
       "IPAddr":"192.168.0.177",
       "Manufacturer":"Sonoff",
@@ -749,12 +835,7 @@ iot.iconTag(devid) //Get the device icon name from the device id
       "Version":""
    }
 ]
-
 ```
-
-
-
-
 
 #### Usage Example
 
@@ -762,33 +843,30 @@ The following code do not handle errors. Please see iot.exec.js for a full examp
 
 ```
 if (iot.ready() == true){
-	//Get device list from the iot manager
-	var deviceList = iot.list();
-	
-	//Assume the first device is the one we want to control
-	var thisDevice = deviceList[0];
-	
-	//Assume the first endpoint is the one we want to execute
-	var targetEndpoint = thisDevice.ControlEndpoints[0];
-	
-	//Connect to the iot device
-	iot.connect(thisDevice.DeviceUUID);
-	
-	//Execute the endpoint and get response from iot device
-	var results = iot.exec(thisDevice.DeviceUUID, targetEndpoint.Name, {});
-	
-	//Disconnect the iot device after use
-	iot.disconnect(thisDevice.DeviceUUID);
-	
-	if (results == false){
-		console.log("Something went wrong");
-	}else{
-		console.log("It works!" + JSON.stringify(results))
-	}
+    //Get device list from the iot manager
+    var deviceList = iot.list();
+
+    //Assume the first device is the one we want to control
+    var thisDevice = deviceList[0];
+
+    //Assume the first endpoint is the one we want to execute
+    var targetEndpoint = thisDevice.ControlEndpoints[0];
+
+    //Connect to the iot device
+    iot.connect(thisDevice.DeviceUUID);
+
+    //Execute the endpoint and get response from iot device
+    var results = iot.exec(thisDevice.DeviceUUID, targetEndpoint.Name, {});
+
+    //Disconnect the iot device after use
+    iot.disconnect(thisDevice.DeviceUUID);
+
+    if (results == false){
+        console.log("Something went wrong");
+    }else{
+        console.log("It works!" + JSON.stringify(results))
+    }
 }
-
-
-
 ```
 
 For detailed example for other functions, see the js file located at ```UnitTest/backend/iot.*.js```
@@ -817,4 +895,3 @@ share.removeShare(shareUUID);
 For ```shareFile``` timeout value, **if set to 0 or unset, it will default to "forever"**. Hence, the share will not be automatically removed after timeout 
 
 Please also note that the share timeout is done by the AGI gateway system runtime. Hence, if you have shutdown / reset your ArozOS within the set period of time, your share **will not get automatically removed after the system startup again**.
-

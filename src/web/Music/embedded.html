@@ -191,13 +191,13 @@
 	</div>
 	<div class="bottomBackground" >
 		<!-- Song Title at the bottom black area-->
-		<div id="songtitle" class="songlabel">Loading Song Information...</div>
-		<div id="fileSize" style="position:absolute;bottom:5px;left:5px;color:#77767b;">N/A</div>
+		<div id="songtitle" class="songlabel">Loading Song Information</div>
+		<div id="fileSize" style="position:absolute;bottom:5px;left:5px;color:#77767b;"><i class="file outline icon"></i> 0.0 MB</div>
 		<div style="position:absolute;right:3px;bottom:3px;color:#77767b;"><i class='leaf icon'></i>AirMusic</div>
 	</div>
 	<!-- The sections below are for mobile interfaces -->
 	<div id="nearbyFilelist" class="sameDirFileList">
-		<div class="listitem" onClick="playThis(this);">N/A</div>
+		<div class="listitem" onClick="playThis(this);"><div style="width: 100%; text-align: center;"><i class="ui loading spinner icon"></i></div></div>
 	</div>
 	<!-- autoplay -->
 	<audio id="mainPlayer" style="display:none;" preload="auto" autoplay></audio>
@@ -227,10 +227,18 @@
 		}
 
 		//Ignore all other input files.
-		playingFileInfo = ao_module_loadInputFiles()[0];
+		var playingFileInfo = ao_module_loadInputFiles()[0];
 		//Get the song title and meta data from server
 		var songInfo = [];
 		var songList = [];
+
+		if (playingFileInfo.filepath != undefined){
+			player.src = "../media?file=" + encodeURIComponent(playingFileInfo.filepath);
+		}
+
+		if (playingFileInfo.filename != undefined){
+			ao_module_setWindowTitle(playingFileInfo.filename);
+		}
 
 		ao_module_agirun("Music/functions/getMeta.js", {
 			file: encodeURIComponent(playingFileInfo.filepath)
@@ -240,10 +248,10 @@
 				if (data[i][0] == playingFileInfo.filename){
 					songInfo = data[i];
 					//Set the audio element src
-					player.src = "../media?file=" + encodeURIComponent(data[i][1]);
-					//Update window title
-					ao_module_setWindowTitle(data[i][0]);
+					//player.src = "../media?file=" + encodeURIComponent(data[i][1]);
 
+					//Update window title
+					//ao_module_setWindowTitle(data[i][0]);
 					updatePlayerThemeAndBackground(data[i][1]);
 				}
 			}
@@ -553,8 +561,7 @@
 		function loadSongFromSongInfo(playSongInfo){
 			var songName = ao_module_codec.decodeUmFilename(playSongInfo[0]);
 			var songPath = playSongInfo[1];
-			var fileSize = playSongInfo[3];
-
+			var fileSize = playSongInfo[3];	
 			$(player).attr('src',"/media?file=" + encodeURIComponent(songPath));
 			
 			ao_module_setWindowTitle(songName);

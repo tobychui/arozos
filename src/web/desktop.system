@@ -343,7 +343,7 @@
             left: 0px;
             height: 500px;
             width: 400px;
-            background-color: #fcffff;
+            background-color: #ffffff;
             box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
             z-index: 1113;
         }
@@ -2007,10 +2007,13 @@
         let minxWidth = 120;
         let minHeight = 100;
         function resizeDown(object, event) {
-            if ($(this).hasClass("fixedsize")) {
+            if (object.length > 1){
+                object = object[0];
+            }
+            if ($(object).hasClass("fixedsize")) {
                 return false;
             }
-            
+
             //Mouse down, start resizing
             resizingWindow = true;
             resizingWindowTarget = object;
@@ -2989,6 +2992,13 @@
         //================== DESKTOP FILE LOCATION FUNCTIONS ====================
         function initDesktopFiles(optionObject = {}, callback = undefined) {
             $.get("system/desktop/listDesktop", function(data) {
+                if (data.error !== undefined){
+                    console.log("[Desktop] Unable to list desktop files: ", data.error);
+                    if (callback !== undefined) {
+                        callback(false);
+                    }
+                    return;
+                }
                 //Prase optionObject
                 var noflash = false;
                 if (typeof optionObject.noflash !== "undefined"){
@@ -3149,7 +3159,7 @@
 
                 if (callback !== undefined) {
                     //console.log(callback);
-                    callback();
+                    callback(true);
                 }
             });
         }
@@ -3522,6 +3532,10 @@
                 }
             }
             
+            var iconTextReadjustment = "";
+            if (isChrome){
+                iconTextReadjustment = "font-size: 92%;"
+            }
            
             var thisIcon = $(`<${htmlType} href="javascript:void(0);" class="launchIcon" 
                     type="${properties.type}" 
@@ -3538,7 +3552,7 @@
                     style="width:${properties.iwidth}px; height:${properties.iheight}px;left:${properties.screenX}px; top:${properties.screenY}px;">
                     <span class="launchIconWrapper">
                         <img class="launchIconImage ${properties.size}" src="${properties.imagePath}" style="${imageStyleOverride}" draggable="false"></img>
-                        <p class="launchIconText ${properties.size}">${properties.shortenedName}</p>
+                        <p class="launchIconText ${properties.size}" style="${iconTextReadjustment}">${properties.shortenedName}</p>
                     </span>
                     </${htmlType}>`);
 

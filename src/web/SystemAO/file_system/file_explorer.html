@@ -829,12 +829,16 @@
 
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" style="color: #2bbbdf !important;" onclick="deleteFile(true);";>
-                <i class="recycle icon"></i> <span locale="opr/remove/confirm">Move to Trash</span>
+                    <i class="recycle icon"></i> <span locale="opr/remove/confirm">Move to Trash</span>
+                </div>
+                <div class="popupbuttons whiteTheme allowHover" style="background-color: #ff7a7a !important;" onclick="hideAllPopupWindows(); forceDelete();">
+                    <i class="trash icon"></i> <span locale="opr/per-remove/title">Delete Permanently</span>
                 </div>
                 <div class="popupbuttons whiteTheme allowHover" onclick="cancelDelete();hideAllPopupWindows();">
                     <i class="remove icon"></i> <span locale="opr/remove/cancel">Cancel</span>
                 </div>
-
+                
+              
             </div>
         </div>
 
@@ -1099,8 +1103,8 @@
             <div class="item" onclick="deleteFile();">
                 <i class="trash icon"></i> <span locale="contextmenu/delete">Delete</span>
             </div>
-            <div class="item backuponly" onclick="openBackupManager();">
-                <i class="block layout icon"></i> <span locale="contextmenu/backup">Backup & Restore</span>
+            <div class="item folderonly singleObjectOnlyHide" onclick="createDesktopShortcut();">
+                <i class="external square icon"></i> <span locale="opr/shorcut/title">Create Shortcut on Desktop</span>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="refreshList();">
@@ -1116,9 +1120,11 @@
             <div class="item noSelectionOnly" onclick="showCurrentDirectoryProperties();">
                 <i class="notice icon"></i> <span locale="contextmenu/properties">Properties</span>
             </div>
+            <div class="item vrootonly" onclick="showSharesManager();">
+                <i class="share alternate icon"></i> <span locale="contextmenu/sharemanager">Open Shares Manager</span>
+            </div>
             <!-- This properties show the vroot properties -->
-             <!-- This properties shows the currentDirectory properties instead of the selected file properties-->
-             <div class="item vrootonly" onclick="showVrootProperties();">
+            <div class="item vrootonly" onclick="showVrootProperties();">
                 <i class="notice icon"></i> <span locale="contextmenu/properties">Properties</span>
             </div>
         </div>
@@ -1311,13 +1317,14 @@
                     if (enableAutoRefresh == false){
                         return;
                     }
+                    let currentPagePath = currentPath;
                     getDirHash(function(hash){
                         if (hash.error !== undefined){
                             //Something went wrong. Ignore this request
                             console.log(hash.error)
                         }else{
-                            //Check if the hash match with the last hash.
-                            if (hash != currentPathHash){
+                            //Check if the hash match with the last hash && user is still on the same page
+                            if (hash != currentPathHash && currentPagePath == currentPath){
                                 //console.log(currentPathHash, hash);
                                 refreshList();
                                 currentPathHash = hash;
@@ -1451,6 +1458,7 @@
 
             // ============================== FOLDER LISTING FUNCTIONS ====================
             function listDirectory(path, callback=undefined, recordUndo=true){
+                enableAutoRefresh = false;
                 var recordPreviousPage = true;
                 if (recordUndo == false){
                     recordPreviousPage = false;
@@ -1525,6 +1533,7 @@
                 }
                
                 //Get sort mode from server side
+                let loadStartPath = currentPath;
                 $.ajax({
                     url: "../../system/file_system/sortMode",
                     data: {opr: "get", folder: currentPath},
@@ -1551,6 +1560,11 @@
                                     return;
                                 }
 
+                                if (currentPath != loadStartPath){
+                                    //Use switch to another path before the load finish. Do not render
+                                    return;
+                                }
+
                                 if (data.error !== undefined){
                                     //Parse path error. Try to refresh the page
                                     if (data.error.length >= "Redirect:".length && data.error.substr(0,9) == "Redirect:"){
@@ -1566,21 +1580,20 @@
                                             listDirectory(currentRoot);
                                         }else if (redirectAction == "userroot"){
                                             listDirectory("user:/")
+                                        }else{
+                                            //Try to breakdown the redirection path
+                                            listDirectory(redirectAction, undefined, false);
                                         }
                                         return
                                     }
-                                    //console.log("Path parse error! Redirecting to parent directory.", data.error);
-                                    //var pdir = currentPath.split("/");
-                                    //pdir.pop(); pdir.pop();
-                                    //pdir = pdir.join("/");
-                                    //currentPath = pdir;
-                                    enableAutoRefresh = false;
+
+                                    
                                     //Check if it is already rooted and no more parent ahead
                                     if (currentPath == ""){
                                         currentPath = "user:/";
                                     }
                                     
-                                    //Print folder not found exceotion
+                                    //Print folder not found exception
                                     $("#folderList").show();
                                     $("#folderList").html(`<div class="ts basic segment ${currentTheme}">
                                         <div class="ts header">
@@ -1591,9 +1604,7 @@
                                     </div>`);
                                     $("#fileList").hide();
 
-                                    //listDirectory(currentPath, function(){
-                                    //    window.location.reload();
-                                    //});
+                                    enableAutoRefresh = false;
                                     return;
                                 }else{
                                     enableAutoRefresh = true;
@@ -1613,10 +1624,18 @@
                                         if (callback !== undefined){
                                             callback();
                                         }
+
+                                        enableAutoRefresh = true;
                                     });
                                 }
-                            } 
+                            },
+                            error: function(){
+                                enableAutoRefresh = true;
+                            }
                         });
+                    },
+                    error: function(){
+                        enableAutoRefresh = true;
                     }
                 });
             }
@@ -1756,7 +1775,7 @@
                         icon = ao_module_utils.getIconFromExt(ext);
 
                         //Check if the shortcut object exists
-                        if (files[i].Shortcut != undefined){
+                        if (files[i].Shortcut != undefined && files[i].Shortcut != null){
                             icon = files[i].Shortcut.Icon;
                         }
 
@@ -2048,6 +2067,8 @@
                 $(".fileObject").off("click").on('click',function(evt){
                     if (!ctrlHold && isMobile && !ctrlHold){
                         //If on mobile, click means open (only on not muilti selection mode)
+                        evt.preventDefault();
+                        evt.stopImmediatePropagation();
                         openthis(this,evt);
                         return
                     }
@@ -2084,17 +2105,6 @@
                         $(this).addClass("selected");
                         lastClickedFileID = $(this).attr("fileID");
                     }
-
-                    if ($(".fileObject.selected").length != 1){
-                        //Multiple object selected
-                        $(".singleObjectOnly").addClass("disabled");
-                        $(".singleObjectOnlyHide").hide();
-                    }else{
-                        //Single object
-                        $(".singleObjectOnly").removeClass("disabled");
-                        $(".singleObjectOnlyHide").show();
-                    }
-
                 });
 
                 //Bind right click select on items
@@ -2105,6 +2115,7 @@
                             $(".fileObject.selected").removeClass("selected");
                             $(this).addClass("selected");
                         }
+                        
                     }
                 });
 
@@ -2169,9 +2180,18 @@
                     $("#contextmenu").find(".noSelectionOnly").hide();
                     $("#contextmenu").find(".vrootonly").hide();
                     $("#contextmenu").find(".zipFileOnly").hide();
-                    
-                    //Hide backup manual
-                    $("#contextmenu").find(".backuponly").hide();
+
+                    //Hide general menu options for single / multiple
+                    if ($(".fileObject.selected").length > 1){
+                        //Multiple object selected
+                        $(".singleObjectOnly").addClass("disabled");
+                        $(".singleObjectOnlyHide").hide();
+                        console.log("Hiding");
+                    }else{
+                        //Single object
+                        $(".singleObjectOnly").removeClass("disabled");
+                        $(".singleObjectOnlyHide").show();
+                    }
 
                     //Check if this is folder or file. Replace the suitable selections
                     if ($(this).attr("type") == "folder"){
@@ -2183,6 +2203,7 @@
                         $("#contextmenu").find(".folderonly").hide();
                         $("#contextmenu").find(".fileonly").show();
                     }
+                    console.log($(this).attr("type"));
 
                     if (searchMode == true){
                         $("#contextmenu").find(".shareonly").show();
@@ -2209,7 +2230,6 @@
                             $(".zipFileOnly").show();
                         }
                     });
-
                 });
 
                 //Right click on empty space of the file selector
@@ -2254,18 +2274,10 @@
                         //Correct one. Show vroot functions
                         e.preventDefault();
                         var rootname = $(e.target).attr("rootname");
-                        var containBackup = $(e.target).attr("contain-backup") == "true";
                         $(e.target).addClass("active");
                         $("#contextmenu").find(".item").hide();
                         $("#contextmenu").find(".vroothide").hide();
                         $("#contextmenu").find(".vrootonly").show();
-
-                        //Check if this is a backup drive
-                        if (containBackup == true){
-                            $("#contextmenu").find(".backuponly").show();
-                        }else{
-                            $("#contextmenu").find(".backuponly").hide();
-                        }
 
                         //Show context menu
                         calculateContextMenuOffsets(e);
@@ -2447,6 +2459,13 @@
                                     window.location.reload();
                                 });
                                 return;
+                            }else if (data.error == "Unable to resolve target directory"){
+                                //Resolve failed. Back to user:/
+                                var pdir = currentPath.split("/");
+                                pdir = pdir.shift() + "/";
+                                listDirectory(pdir, function(){
+                                    window.location.reload();
+                                });
                             }
                         }
                         callback(data);
@@ -3005,12 +3024,49 @@
 
             function cancelDelete(){
                 deleteFileList=[];
-                
-            }
+            }            
 
             function cancelForceDelete(){
                 $("#forceDeleteConfirmBox").fadeOut(100);
                 forceDeleteList = [];
+            }
+
+            function createDesktopShortcut(){
+                let folders = [];
+                let filenames = [];
+                if ($(".fileObject.selected").length == 0){
+                    return;
+                }
+                $(".fileObject.selected").each(function(){
+                    var thisFilepath = $(this).attr("filepath");
+                    var thisFilename = $(this).attr("filename");
+                    if($(this).attr("type") == "folder"){
+                        folders.push(thisFilepath);
+                        filenames.push(thisFilename);
+                    }
+                });
+
+                let targetFolder = folders[0];
+                let targetFilename = filenames[0];
+                $.ajax({
+                    url: "../../system/desktop/createShortcut",
+                    method: "POST",
+                    data: {
+                        stype: "folder",
+                        stext: targetFilename,
+                        spath: targetFolder,
+                        sicon: "img/system/folder-shortcut.png",
+                        sdest: "user:/Desktop/",
+                    },
+                    success: function(data){
+                        if (data.error !== undefined){
+                            console.log("[File Manager] Shortcut creation failed: ", data.error)
+                            msgbox("remove",applocale.getString("opr/shorcut/error", "Shortcut creation failed. See console for more information.") , 3000);
+                        }else{
+                            msgbox("checkmark", applocale.getString("opr/shorcut/ok", "Shortcut created successfully"),  3000);
+                        }
+                    }
+                })
             }
 
             function upload(){
@@ -3909,7 +3965,7 @@
                 $("#shareFileEmbedded").attr("src", "");
                 $.ajax({
                     url: "../../system/file_system/share/delete",
-                    data: {path: selectedFile},
+                    data: {vpath: selectedFile},
                     success: function(data){
                         console.log(data);
                         $("#qrcode").html(`<img src="img/private.png">`);
@@ -4574,6 +4630,18 @@
             });
         }
 
+        function showSharesManager(){
+            var rootname = [$("#storageroot").find(".dir.item.active").attr("filepath")];
+            var hashPassthrough = encodeURIComponent(JSON.stringify(rootname));
+            ao_module_newfw({
+                url: "SystemAO/file_system/sharelist.html#" + hashPassthrough,
+                width: 420,
+                height: 580,
+                appicon: "img/system/share.svg",
+                title: "Shares Manager"
+            });
+        }
+
         function openBackupManager(){
             var rootname = [$("#storageroot").find(".dir.item.active").attr("filepath")];
             var hashPassthrough = encodeURIComponent(JSON.stringify(rootname));
@@ -4644,8 +4712,13 @@
                     if (data.error !== undefined){
                       
                     }else{
-                        console.log("[File Explorer] Setting huge file cutoff size at: " + ao_module_utils.formatBytes(data.Avilable/16));
-                        largeFileCutoffSize = data.Avilable/16 - 4096;
+                        if (!isNaN(data.Avilable) && data.Avilable > 0){
+                            largeFileCutoffSize = data.Avilable/16 - 4096;
+                            console.log("[File Explorer] Setting huge file cutoff size at: " + ao_module_utils.formatBytes(data.Avilable/16));
+                        }else if (isNaN(data.Avilable)){
+                            console.log("[File Explorer] Unable to read available tmp disk size. Using default huge file cutoff size.");
+                        }
+                        
                     }
                 },
                 error: function(){

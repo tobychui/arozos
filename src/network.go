@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 
@@ -11,18 +10,20 @@ import (
 	"imuslab.com/arozos/mod/network/netstat"
 	ssdp "imuslab.com/arozos/mod/network/ssdp"
 	upnp "imuslab.com/arozos/mod/network/upnp"
+	"imuslab.com/arozos/mod/network/websocket"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/www"
 )
 
 var (
-	MDNS *mdns.MDNSHost
-	UPNP *upnp.UPnPClient
-	SSDP *ssdp.SSDPHost
+	MDNS            *mdns.MDNSHost
+	UPNP            *upnp.UPnPClient
+	SSDP            *ssdp.SSDPHost
+	WebSocketRouter *websocket.Router
 )
 
 func NetworkServiceInit() {
-	log.Println("Starting ArOZ Network Services")
+	systemWideLogger.PrintAndLog("Network", "Starting ArOZ Network Services", nil)
 
 	//Create a router that allow users with System Setting access to access these api endpoints
 	router := prout.NewModuleRouter(prout.RouterOption{
@@ -67,6 +68,7 @@ func NetworkServiceInit() {
 		userWwwHandler = www.NewWebRootHandler(www.Options{
 			UserHandler: userHandler,
 			Database:    sysdb,
+			AgiGateway:  AGIGateway,
 		})
 
 		router.HandleFunc("/system/network/www/toggle", userWwwHandler.HandleToggleHomepage)
@@ -82,6 +84,17 @@ func NetworkServiceInit() {
 		})
 
 	}
+
+	userRouter := prout.NewModuleRouter(prout.RouterOption{
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			common.SendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	WebSocketRouter = websocket.NewRouter()
+	userRouter.HandleFunc("/system/ws", WebSocketRouter.HandleWebSocketRouting)
 
 }
 
@@ -103,7 +116,7 @@ func StartNetworkServices() {
 		})
 
 		if err != nil {
-			log.Println("MDNS Startup Failed: " + err.Error() + ". Running in Offline Mode.")
+			systemWideLogger.PrintAndLog("Network", "MDNS Startup Failed. Running in Offline Mode.", err)
 		} else {
 			MDNS = m
 		}
@@ -117,7 +130,7 @@ func StartNetworkServices() {
 		//Get outbound ip
 		obip, err := network.GetOutboundIP()
 		if err != nil {
-			log.Println("SSDP Startup Failed: " + err.Error() + ". Running in Offline Mode.")
+			systemWideLogger.PrintAndLog("Network", "SSDP Startup Failed. Running in Offline Mode.", err)
 		} else {
 			thisIp := obip.String()
 			adv, err := ssdp.NewSSDPHost(thisIp, *listen_port, "system/ssdp.xml", ssdp.SSDPOption{
@@ -132,7 +145,7 @@ func StartNetworkServices() {
 			})
 
 			if err != nil {
-				log.Println("SSDP Startup Failed: " + err.Error() + ". Running in Offline Mode.")
+				systemWideLogger.PrintAndLog("Network", "SSDP Startup Failed. Running in Offline Mode.", err)
 			} else {
 				//OK! Start SSDP Service
 				SSDP = adv
@@ -155,7 +168,7 @@ func StartNetworkServices() {
 		}
 
 		if err != nil {
-			log.Println("UPnP Startup Failed: " + err.Error())
+			systemWideLogger.PrintAndLog("Network", "UPnP Startup Failed: "+err.Error(), err)
 		} else {
 
 			//Bind the http port if running in https and http server is not disabled
@@ -181,7 +194,7 @@ func StartNetworkServices() {
 			}
 
 			localEndpoint := obipstring + ":" + strconv.Itoa(*listen_port)
-			log.Println("Automatic Port Forwarding Completed. Forwarding all request from " + connectionEndpoint + " to " + localEndpoint)
+			systemWideLogger.PrintAndLog("Network", "Automatic Port Forwarding Completed. Forwarding all request from "+connectionEndpoint+" to "+localEndpoint, nil)
 
 		}
 
@@ -189,22 +202,22 @@ func StartNetworkServices() {
 }
 
 func StopNetworkServices() {
-	//log.Println("Shutting Down Network Services...")
+	//systemWideLogger.PrintAndLog("Shutting Down Network Services...",nil)
 	//Shutdown uPNP service if enabled
 	if *allow_upnp {
-		log.Println("\r- Shutting down uPNP service")
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down uPNP service", nil)
 		UPNP.Close()
 	}
 
 	//Shutdown SSDP service if enabled
 	if *allow_ssdp {
-		log.Println("\r- Shutting down SSDP service")
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down SSDP service", nil)
 		SSDP.Close()
 	}
 
 	//Shutdown MDNS if enabled
 	if *allow_mdns {
-		log.Println("\r- Shutting down MDNS service")
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down MDNS service", nil)
 		MDNS.Close()
 	}
 }

@@ -6,17 +6,19 @@ package ftp
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/afero"
-	fs "imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/filesystem/hidden"
+	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/user"
+)
+
+var (
+	aofsCanRead  = 1
+	aofsCanWrite = 2
 )
 
 type aofs struct {
@@ -25,129 +27,86 @@ type aofs struct {
 }
 
 func (a aofs) Create(name string) (afero.File, error) {
-	rewritePath, _, err := a.pathRewrite(name)
+	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
 	}
-	if !a.checkAllowAccess(rewritePath, "write") {
-		return nil, errors.New("Permission Denied")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return nil, errors.New("Permission denied")
 	}
-	//log.Println("Create", rewritePath)
-	fd, err := os.Create(rewritePath)
-	if err != nil {
-		return nil, err
-	}
-	return fd, nil
+	return fsh.FileSystemAbstraction.Create(rewritePath)
 }
 
 func (a aofs) Chown(name string, uid, gid int) error {
-	rewritePath, _, err := a.pathRewrite(name)
+	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
 	}
-
-	if !a.checkAllowAccess(rewritePath, "write") {
-		return errors.New("Permission Denied")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return errors.New("Permission denied")
 	}
-
-	return os.Chown(name, uid, gid)
+	return fsh.FileSystemAbstraction.Chown(rewritePath, uid, gid)
 }
 
 func (a aofs) Mkdir(name string, perm os.FileMode) error {
-	rewritePath, _, err := a.pathRewrite(name)
+	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
 	}
-	if !a.checkAllowAccess(rewritePath, "write") {
-		return errors.New("Permission Denied")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return errors.New("Permission denied")
 	}
-
-	os.Mkdir(rewritePath, perm)
-	return nil
+	return fsh.FileSystemAbstraction.Mkdir(rewritePath, perm)
 }
 
 func (a aofs) MkdirAll(path string, perm os.FileMode) error {
-	rewritePath, _, err := a.pathRewrite(path)
+	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
 		return err
 	}
-	if !a.checkAllowAccess(rewritePath, "write") {
-		return errors.New("Permission Denied")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return errors.New("Permission denied")
 	}
-
-	os.MkdirAll(rewritePath, perm)
-	return nil
+	return fsh.FileSystemAbstraction.MkdirAll(rewritePath, perm)
 }
 
 func (a aofs) Open(name string) (afero.File, error) {
-	rewritePath, _, err := a.pathRewrite(name)
+	//fmt.Println("FTP OPEN")
+	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
 	}
-	if !a.checkAllowAccess(rewritePath, "read") {
-		return nil, errors.New("Permission Denied")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return nil, errors.New("Permission denied")
 	}
-	//log.Println("Open", name, rewritePath)
-
-	fd, err := os.Open(rewritePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return fd, nil
-
+	return fsh.FileSystemAbstraction.Open(rewritePath)
 }
 
 func (a aofs) Stat(name string) (os.FileInfo, error) {
-	rewritePath, _, err := a.pathRewrite(name)
+	//fmt.Println("FTP STAT")
+	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
 	}
-	if !a.checkAllowAccess(rewritePath, "read") {
-		return nil, errors.New("Permission Denied")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanRead) {
+		return nil, errors.New("Permission denied")
 	}
-	//log.Println("Stat", rewritePath)
-	fileStat, err := os.Stat(rewritePath)
-
-	return fileStat, err
+	return fsh.FileSystemAbstraction.Stat(rewritePath)
 }
 
 func (a aofs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
-	rewritePath, _, err := a.pathRewrite(name)
+	//fmt.Println("FTP OPEN FILE")
+	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return nil, err
 	}
-	//log.Println("OpenFile", rewritePath)
-	if !fileExists(rewritePath) {
-		if !a.checkAllowAccess(rewritePath, "write") {
-			return nil, errors.New("Directory is Read Only")
-		}
-
-		//Set ownership of this file to user.
-		//Cannot use SetOwnership due to the filesize of the given file didn't exists yet
-		fsh, _ := a.userinfo.GetFileSystemHandlerFromRealPath(rewritePath)
-		fsh.CreateFileRecord(rewritePath, a.userinfo.Username)
-
-		//Create the upload pending file
-		fd, err := os.Create(rewritePath)
-		if err != nil {
-			return nil, err
-		}
-		return fd, nil
-	} else {
-		if !a.checkAllowAccess(rewritePath, "read") {
-			return nil, errors.New("Permission Denied")
-		}
-		fd, err := os.Open(rewritePath)
-		if err != nil {
-			return nil, err
-		}
-		return fd, nil
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return nil, errors.New("Permission denied")
 	}
+	return fsh.FileSystemAbstraction.OpenFile(rewritePath, flag, perm)
 }
 
 func (a aofs) AllocateSpace(size int) error {
-	//log.Println("AllocateSpace", size)
 	if a.userinfo.StorageQuota.HaveSpace(int64(size)) {
 		return nil
 	}
@@ -155,67 +114,71 @@ func (a aofs) AllocateSpace(size int) error {
 }
 
 func (a aofs) Remove(name string) error {
-	rewritePath, _, err := a.pathRewrite(name)
+	fsh, rewritePath, err := a.pathRewrite(name)
 	if err != nil {
 		return err
 	}
-	if !a.checkAllowAccess(rewritePath, "write") {
-		return errors.New("Target is Read Only")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return errors.New("Permission denied")
 	}
 
-	isHiddenFile, _ := hidden.IsHidden(rewritePath, true)
-	if isHiddenFile {
-		//Hidden files, include cache or trash
-		return errors.New("Access denied for hidden files")
-	}
-
-	log.Println(a.userinfo.Username + " removed " + rewritePath + " via FTP endpoint")
-	os.MkdirAll(filepath.Dir(rewritePath)+"/.metadata/.trash/", 0755)
-	os.Rename(rewritePath, filepath.Dir(rewritePath)+"/.metadata/.trash/"+filepath.Base(rewritePath)+"."+strconv.Itoa(int(time.Now().Unix())))
-	return nil
+	return fsh.FileSystemAbstraction.Remove(rewritePath)
 }
 
 func (a aofs) RemoveAll(path string) error {
-	rewritePath, _, err := a.pathRewrite(path)
+	fsh, rewritePath, err := a.pathRewrite(path)
 	if err != nil {
 		return err
 	}
-	//log.Println("RemoveAll", rewritePath)
-	isHiddenFile, _ := hidden.IsHidden(rewritePath, true)
-	if isHiddenFile {
-		//Hidden files, include cache or trash
-		return errors.New("Target is Read Only")
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return errors.New("Permission denied")
 	}
-	if !a.checkAllowAccess(rewritePath, "write") {
-		return errors.New("Permission Denied")
-	}
-	os.MkdirAll(filepath.Dir(rewritePath)+"/.metadata/.trash/", 0755)
-	os.Rename(rewritePath, filepath.Dir(rewritePath)+"/.metadata/.trash/"+filepath.Base(rewritePath)+"."+strconv.Itoa(int(time.Now().Unix())))
-	return nil
+	return fsh.FileSystemAbstraction.RemoveAll(rewritePath)
 }
 
 func (a aofs) Rename(oldname, newname string) error {
-	oldpath, _, err := a.pathRewrite(oldname)
+	fshsrc, rewritePathsrc, err := a.pathRewrite(oldname)
 	if err != nil {
 		return err
 	}
-	newpath, _, err := a.pathRewrite(newname)
-	if err != nil {
-		return err
-	}
-	if !a.checkAllowAccess(oldpath, "write") {
-		return errors.New("Target is Read Only")
-	}
-	if !a.checkAllowAccess(newpath, "write") {
-		return errors.New("Target is Read Only")
-	}
-	if fileExists(newpath) {
-		return errors.New("File already exists")
-	}
-	os.Rename(oldpath, newpath)
-	//log.Println("Rename", oldpath, newpath)
-	return nil
 
+	fshdest, rewritePathdest, err := a.pathRewrite(newname)
+	if err != nil {
+		return err
+	}
+	if !a.checkAllowAccess(fshsrc, rewritePathsrc, aofsCanWrite) {
+		return errors.New("Permission denied")
+	}
+	if !a.checkAllowAccess(fshdest, rewritePathdest, aofsCanWrite) {
+		return errors.New("Permission denied")
+	}
+
+	if !fshdest.FileSystemAbstraction.FileExists(filepath.Dir(rewritePathdest)) {
+		fshdest.FileSystemAbstraction.MkdirAll(filepath.Dir(rewritePathdest), 0775)
+	}
+
+	if fshsrc.UUID == fshdest.UUID {
+		//Renaming in same fsh
+		return fshsrc.FileSystemAbstraction.Rename(rewritePathsrc, rewritePathdest)
+	} else {
+		//Cross fsh read write.
+		f, err := fshsrc.FileSystemAbstraction.ReadStream(rewritePathsrc)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		err = fshdest.FileSystemAbstraction.WriteStream(rewritePathdest, f, 0775)
+		if err != nil {
+			return err
+		}
+
+		err = fshsrc.FileSystemAbstraction.RemoveAll(rewritePathsrc)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a aofs) Name() string {
@@ -223,43 +186,54 @@ func (a aofs) Name() string {
 }
 
 func (a aofs) Chmod(name string, mode os.FileMode) error {
-	//log.Println("Chmod", name, mode)
-	return nil
+	fsh, rewritePath, err := a.pathRewrite(name)
+	if err != nil {
+		return err
+	}
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return errors.New("Permission denied")
+	}
+	return fsh.FileSystemAbstraction.Chmod(rewritePath, mode)
 }
 
 func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	//log.Println("Chtimes", name, atime, mtime)
-	return nil
+	fsh, rewritePath, err := a.pathRewrite(name)
+	if err != nil {
+		return err
+	}
+	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
+		return errors.New("Permission denied")
+	}
+	return fsh.FileSystemAbstraction.Chtimes(rewritePath, atime, mtime)
 }
 
 //arozos adaptive functions
 //This function rewrite the path from ftp representation to real filepath on disk
-func (a aofs) pathRewrite(path string) (string, *fs.FileSystemHandler, error) {
+func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, error) {
 	path = filepath.ToSlash(filepath.Clean(path))
 	//log.Println("Original path: ", path)
 	if path == "/" {
 		//Roots. Show ftpbuf root
-		fsHandlers := a.userinfo.GetAllFileSystemHandler()
-		for _, fsh := range fsHandlers {
+		fshs := a.userinfo.GetAllFileSystemHandler()
+		for _, fsh := range fshs {
 			//Create a folder representation for this virtual directory
-			if !(fsh.Hierarchy == "backup" || fsh.Filesystem == "virtual") {
-				os.Mkdir(a.tmpFolder+fsh.UUID, 0755)
+			if !fsh.RequireBuffer {
+				fsh.FileSystemAbstraction.Mkdir(filepath.Join(a.tmpFolder, fsh.UUID), 0755)
 			}
-
 		}
 
 		readmeContent, err := ioutil.ReadFile("./system/ftp/README.txt")
 		if err != nil {
 			readmeContent = []byte("DO NOT UPLOAD FILES INTO THE ROOT DIRECTORY")
 		}
-		ioutil.WriteFile(a.tmpFolder+"README.txt", readmeContent, 0755)
+		ioutil.WriteFile(filepath.Join(a.tmpFolder, "README.txt"), readmeContent, 0755)
 
 		//Return the tmpFolder root
 		tmpfs, _ := a.userinfo.GetFileSystemHandlerFromVirtualPath("tmp:/")
-		return a.tmpFolder, tmpfs, nil
+		return tmpfs, a.tmpFolder, nil
 	} else if path == "/README.txt" {
 		tmpfs, _ := a.userinfo.GetFileSystemHandlerFromVirtualPath("tmp:/")
-		return a.tmpFolder + "README.txt", tmpfs, nil
+		return tmpfs, a.tmpFolder + "README.txt", nil
 	} else if len(path) > 0 {
 		//Rewrite the path for any alternative filepath
 		//Get the uuid of the filepath
@@ -268,66 +242,41 @@ func (a aofs) pathRewrite(path string) (string, *fs.FileSystemHandler, error) {
 		fsHandlerUUID := subpaths[0]
 		remainingPaths := subpaths[1:]
 
-		//Look for the fsHandler with this UUID
-		fsHandlers := a.userinfo.GetAllFileSystemHandler()
-		for _, fsh := range fsHandlers {
-			//Create a folder representation for this virtual directory
-			if fsh.UUID == fsHandlerUUID {
-				//This is the correct handler
-				if fsh.Hierarchy == "user" {
-					return filepath.ToSlash(filepath.Clean(fsh.Path)) + "/users/" + a.userinfo.Username + "/" + strings.Join(remainingPaths, "/"), fsh, nil
-				} else if fsh.Hierarchy == "public" {
-					return filepath.ToSlash(filepath.Clean(fsh.Path)) + "/" + strings.Join(remainingPaths, "/"), fsh, nil
-				}
-
-			}
+		fsh, err := a.userinfo.GetFileSystemHandlerFromVirtualPath(fsHandlerUUID + ":")
+		if err != nil {
+			return nil, "", errors.New("File System Abstraction not found")
 		}
 
-		//fsh not found.
-		return "", nil, errors.New("Path is READ ONLY")
+		/*
+			if fsh.RequireBuffer {
+				//Not supported
+				return nil, "", errors.New("Buffered file system not supported by FTP driver")
+			}
+		*/
+
+		rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(fsh.UUID+":/"+strings.Join(remainingPaths, "/"), a.userinfo.Username)
+		if err != nil {
+			return nil, "", errors.New("File System Handler Hierarchy not supported by FTP driver")
+		}
+		return fsh, rpath, nil
 	} else {
 		//fsh not found.
-		return "", nil, errors.New("Invalid path")
+		return nil, "", errors.New("Invalid path")
 	}
 }
 
 //Check if user has access to the given path, mode can be string {read / write}
-func (a aofs) checkAllowAccess(path string, mode string) bool {
-	//Convert the realpath to virtualpath
-	vpath, err := a.userinfo.RealPathToVirtualPath(path)
+func (a aofs) checkAllowAccess(fsh *filesystem.FileSystemHandler, path string, mode int) bool {
+	vpath, err := fsh.FileSystemAbstraction.RealPathToVirtualPath(path, a.userinfo.Username)
 	if err != nil {
-		log.Println("ERROR: " + a.userinfo.Username + " tried to access " + path + " but failed: " + err.Error())
 		return false
 	}
 
-	isHiddenFolder, _ := hidden.IsHidden(vpath, true)
-	if isHiddenFolder {
-		return false
-	}
-
-	if mode == "read" {
+	if mode == aofsCanRead {
 		return a.userinfo.CanRead(vpath)
-	} else if mode == "write" {
+	} else if mode == aofsCanWrite {
 		return a.userinfo.CanWrite(vpath)
-	}
-	log.Println(path, mode)
-	//Unknown path. Return false for security purposes
-	return false
-}
-
-//Helper functs
-func isDir(path string) bool {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
+	} else {
 		return false
 	}
-	return fileInfo.IsDir()
-}
-
-func fileExists(path string) bool {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return false
-	}
-
-	return true
 }

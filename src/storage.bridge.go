@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 	storage "imuslab.com/arozos/mod/storage"
@@ -16,7 +15,7 @@ import (
 func BridgeStoragePoolInit() {
 	bridgeRecords, err := bridgeManager.ReadConfig()
 	if err != nil {
-		log.Println("[ERROR] Fail to read File System Handler bridge config")
+		systemWideLogger.PrintAndLog("Storage", "Fail to read File System Handler bridge config", err)
 		return
 	}
 
@@ -35,16 +34,16 @@ func BridgeStoragePoolInit() {
 
 		err = BridgeFSHandlerToGroup(fsh, basePool)
 		if err != nil {
-			log.Println("Failed to bridge "+fsh.UUID+":/ to "+basePool.Owner, err.Error())
+			systemWideLogger.PrintAndLog("Storage", "Failed to bridge "+fsh.UUID+":/ to "+basePool.Owner+err.Error(), err)
 		}
-		log.Println(fsh.UUID + ":/ bridged to " + basePool.Owner + " Storage Pool")
+		systemWideLogger.PrintAndLog("Storage", fsh.UUID+":/ bridged to "+basePool.Owner+" Storage Pool", nil)
 	}
 }
 
 func BridgeStoragePoolForGroup(group string) {
 	bridgeRecords, err := bridgeManager.ReadConfig()
 	if err != nil {
-		log.Println("Failed to bridge FSH for group " + group)
+		systemWideLogger.PrintAndLog("Storage", "Failed to bridge FSH for group "+group, err)
 		return
 	}
 
@@ -64,9 +63,9 @@ func BridgeStoragePoolForGroup(group string) {
 
 			err = BridgeFSHandlerToGroup(fsh, basePool)
 			if err != nil {
-				log.Println("Failed to bridge "+fsh.UUID+":/ to "+basePool.Owner, err.Error())
+				systemWideLogger.PrintAndLog("Storage", "Failed to bridge "+fsh.UUID+":/ to "+basePool.Owner+err.Error(), err)
 			}
-			log.Println(fsh.UUID + ":/ bridged to " + basePool.Owner + " Storage Pool")
+			systemWideLogger.PrintAndLog("Storage", fsh.UUID+":/ bridged to "+basePool.Owner+" Storage Pool", nil)
 		}
 	}
 }

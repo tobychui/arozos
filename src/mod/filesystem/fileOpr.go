@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/hidden"
 
 	archiver "github.com/mholt/archiver/v3"
@@ -161,13 +162,20 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 	return nil
 }
 
-//Aroz Zip File with progress update function (current filename / current file count / total file count / progress in percentage)
-func ArozZipFileWithProgress(filelist []string, outputfile string, includeTopLevelFolder bool, progressHandler func(string, int, int, float64)) error {
+/*
+	Aroz Zip File with progress update function
+	Returns the following progress: (current filename / current file count / total file count / progress in percentage)
+	if output is local path that is out of the scope of any fsh, leave outputFsh as nil
+*/
+func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, progressHandler func(string, int, int, float64)) error {
+	fmt.Println("WEBSOCKET ZIPPING", targetFshs, filelist)
 	//Get the file count from the filelist
 	totalFileCount := 0
-	for _, srcpath := range filelist {
-		if IsDir(srcpath) {
-			filepath.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
+	for i, srcpath := range filelist {
+		thisFsh := targetFshs[i]
+		fshAbs := thisFsh.FileSystemAbstraction
+		if thisFsh.FileSystemAbstraction.IsDir(srcpath) {
+			fshAbs.Walk(srcpath, func(_ string, info os.FileInfo, _ error) error {
 				if !info.IsDir() {
 					totalFileCount++
 				}
@@ -180,100 +188,14 @@ func ArozZipFileWithProgress(filelist []string, outputfile string, includeTopLev
 	}
 
 	//Create the target zip file
-	file, err := os.Create(outputfile)
-	if err != nil {
-		panic(err)
+	var file arozfs.File
+	var err error
+	if outputFsh != nil {
+		file, err = outputFsh.FileSystemAbstraction.Create(outputfile)
+	} else {
+		//Force local fs
+		file, err = os.Create(outputfile)
 	}
-	defer file.Close()
-
-	writer := zip.NewWriter(file)
-	defer writer.Close()
-
-	currentFileCount := 0
-	for _, srcpath := range filelist {
-		if IsDir(srcpath) {
-			//This is a directory
-			topLevelFolderName := filepath.ToSlash(filepath.Base(filepath.Dir(srcpath)) + "/" + filepath.Base(srcpath))
-			err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if info.IsDir() {
-					return nil
-				}
-
-				if insideHiddenFolder(path) == true {
-					//This is hidden file / folder. Skip this
-					return nil
-				}
-				file, err := os.Open(path)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-
-				relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
-				if includeTopLevelFolder {
-					relativePath = topLevelFolderName + "/" + relativePath
-				} else {
-					relativePath = filepath.Base(srcpath) + "/" + relativePath
-				}
-
-				f, err := writer.Create(relativePath)
-				if err != nil {
-					return err
-				}
-
-				_, err = io.Copy(f, file)
-				if err != nil {
-					return err
-				}
-
-				//Update the zip progress
-				currentFileCount++
-				progressHandler(filepath.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
-				return nil
-			})
-
-			if err != nil {
-				return err
-			}
-		} else {
-			//This is a file
-			topLevelFolderName := filepath.Base(filepath.Dir(srcpath))
-			file, err := os.Open(srcpath)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-			relativePath := filepath.Base(srcpath)
-			if includeTopLevelFolder {
-				relativePath = topLevelFolderName + "/" + relativePath
-			}
-			f, err := writer.Create(relativePath)
-			if err != nil {
-				return err
-			}
-
-			_, err = io.Copy(f, file)
-			if err != nil {
-				return err
-			}
-
-			//Update the zip progress
-			currentFileCount++
-			progressHandler(filepath.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
-
-		}
-	}
-
-	return nil
-}
-
-//ArOZ Zip FIle, but with no progress display
-func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
-	//Create the target zip file
-	file, err := os.Create(outputfile)
 	if err != nil {
 		return err
 	}
@@ -282,11 +204,15 @@ func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder boo
 	writer := zip.NewWriter(file)
 	defer writer.Close()
 
-	for _, srcpath := range filelist {
-		if IsDir(srcpath) {
+	currentFileCount := 0
+	for i, srcpath := range filelist {
+		thisFsh := targetFshs[i]
+		fshAbs := thisFsh.FileSystemAbstraction
+		//Local File System
+		if fshAbs.IsDir(srcpath) {
 			//This is a directory
-			topLevelFolderName := filepath.ToSlash(filepath.Base(filepath.Dir(srcpath)) + "/" + filepath.Base(srcpath))
-			err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+			topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+			err = fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -294,21 +220,22 @@ func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder boo
 					return nil
 				}
 
-				if insideHiddenFolder(path) == true {
+				if insideHiddenFolder(path) {
 					//This is hidden file / folder. Skip this
 					return nil
 				}
-				file, err := os.Open(path)
+
+				thisFile, err := fshAbs.ReadStream(path)
 				if err != nil {
 					return err
 				}
-				defer file.Close()
+				defer thisFile.Close()
 
 				relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
 				if includeTopLevelFolder {
 					relativePath = topLevelFolderName + "/" + relativePath
 				} else {
-					relativePath = filepath.Base(srcpath) + "/" + relativePath
+					relativePath = arozfs.Base(srcpath) + "/" + relativePath
 				}
 
 				f, err := writer.Create(relativePath)
@@ -316,11 +243,14 @@ func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder boo
 					return err
 				}
 
-				_, err = io.Copy(f, file)
+				_, err = io.Copy(f, thisFile)
 				if err != nil {
 					return err
 				}
 
+				//Update the zip progress
+				currentFileCount++
+				progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
 				return nil
 			})
 
@@ -329,26 +259,206 @@ func ArozZipFile(filelist []string, outputfile string, includeTopLevelFolder boo
 			}
 		} else {
 			//This is a file
-			topLevelFolderName := filepath.Base(filepath.Dir(srcpath))
-			file, err := os.Open(srcpath)
+			topLevelFolderName := arozfs.Base(filepath.Dir(srcpath))
+			thisFile, err := fshAbs.ReadStream(srcpath)
 			if err != nil {
 				return err
 			}
-			defer file.Close()
-			relativePath := filepath.Base(srcpath)
+			defer thisFile.Close()
+			relativePath := arozfs.Base(srcpath)
 			if includeTopLevelFolder {
 				relativePath = topLevelFolderName + "/" + relativePath
 			}
+
 			f, err := writer.Create(relativePath)
 			if err != nil {
 				return err
 			}
 
-			_, err = io.Copy(f, file)
+			_, err = io.Copy(f, thisFile)
 			if err != nil {
 				return err
 			}
 
+			//Update the zip progress
+			currentFileCount++
+			progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+
+		}
+	}
+
+	return nil
+}
+
+/*
+	ArozZipFile
+	Zip file without progress update, support local file system or buffer space
+	To use it with local file system, pass in nil in fsh for each item in filelist, e.g.
+	filesystem.ArozZipFile([]*filesystem.FileSystemHandler{nil}, []string{zippingSource}, nil, targetZipFilename, false)
+*/
+func ArozZipFile(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool) error {
+	//Create the target zip file
+	var file arozfs.File
+	var err error
+	if outputFsh != nil {
+		file, err = outputFsh.FileSystemAbstraction.Create(outputfile)
+	} else {
+		//Force local fs
+		file, err = os.Create(outputfile)
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := zip.NewWriter(file)
+	defer writer.Close()
+
+	for i, srcpath := range filelist {
+		thisFsh := sourceFshs[i]
+		var fshAbs FileSystemAbstraction
+		if thisFsh == nil {
+			//Use local fs functions
+			if IsDir(srcpath) {
+				//This is a directory
+				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+				err = filepath.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if info.IsDir() {
+						return nil
+					}
+
+					if insideHiddenFolder(path) {
+						//This is hidden file / folder. Skip this
+						return nil
+					}
+					thisFile, err := os.Open(path)
+					if err != nil {
+						return err
+					}
+					defer thisFile.Close()
+
+					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
+					if includeTopLevelFolder {
+						relativePath = topLevelFolderName + "/" + relativePath
+					} else {
+						relativePath = arozfs.Base(srcpath) + "/" + relativePath
+					}
+
+					f, err := writer.Create(relativePath)
+					if err != nil {
+						return err
+					}
+
+					_, err = io.Copy(f, thisFile)
+					if err != nil {
+						return err
+					}
+
+					return nil
+				})
+
+				if err != nil {
+					return err
+				}
+			} else {
+				//This is a file
+				topLevelFolderName := arozfs.Base(filepath.Dir(srcpath))
+				thisFile, err := os.Open(srcpath)
+				if err != nil {
+					return err
+				}
+				defer thisFile.Close()
+				relativePath := arozfs.Base(srcpath)
+				if includeTopLevelFolder {
+					relativePath = topLevelFolderName + "/" + relativePath
+				}
+				f, err := writer.Create(relativePath)
+				if err != nil {
+					return err
+				}
+
+				_, err = io.Copy(f, thisFile)
+				if err != nil {
+					return err
+				}
+
+			}
+		} else {
+			//Use file system abstraction
+			fshAbs = thisFsh.FileSystemAbstraction
+			if fshAbs.IsDir(srcpath) {
+				//This is a directory
+				topLevelFolderName := filepath.ToSlash(arozfs.Base(filepath.Dir(srcpath)) + "/" + arozfs.Base(srcpath))
+				err = fshAbs.Walk(srcpath, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+
+					if info.IsDir() {
+						return nil
+					}
+
+					if insideHiddenFolder(path) {
+						//This is hidden file / folder. Skip this
+						return nil
+					}
+
+					thisFile, err := fshAbs.ReadStream(path)
+					if err != nil {
+						fmt.Println(err)
+						return err
+					}
+					defer thisFile.Close()
+
+					relativePath := strings.ReplaceAll(filepath.ToSlash(path), filepath.ToSlash(filepath.Clean(srcpath))+"/", "")
+					if includeTopLevelFolder {
+						relativePath = topLevelFolderName + "/" + relativePath
+					} else {
+						relativePath = arozfs.Base(srcpath) + "/" + relativePath
+					}
+
+					f, err := writer.Create(relativePath)
+					if err != nil {
+						return err
+					}
+
+					_, err = io.Copy(f, thisFile)
+					if err != nil {
+						return err
+					}
+
+					return nil
+				})
+
+				if err != nil {
+					return err
+				}
+			} else {
+				//This is a file
+				topLevelFolderName := arozfs.Base(filepath.Dir(srcpath))
+				thisFile, err := fshAbs.ReadStream(srcpath)
+				if err != nil {
+					return err
+				}
+				defer thisFile.Close()
+				relativePath := arozfs.Base(srcpath)
+				if includeTopLevelFolder {
+					relativePath = topLevelFolderName + "/" + relativePath
+				}
+				f, err := writer.Create(relativePath)
+				if err != nil {
+					return err
+				}
+
+				_, err = io.Copy(f, thisFile)
+				if err != nil {
+					return err
+				}
+
+			}
 		}
 	}
 
@@ -375,18 +485,18 @@ func ViewZipFile(filepath string) ([]string, error) {
 	return filelist, err
 }
 
-func FileCopy(src string, dest string, mode string, progressUpdate func(int, string)) error {
-	srcRealpath, _ := filepath.Abs(src)
-	destRealpath, _ := filepath.Abs(dest)
-	if IsDir(src) && strings.Contains(filepath.ToSlash(destRealpath)+"/", filepath.ToSlash(srcRealpath)+"/") {
+func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressUpdate func(int, string)) error {
+	srcFshAbs := srcFsh.FileSystemAbstraction
+	destFshAbs := destFsh.FileSystemAbstraction
+	if srcFshAbs.IsDir(src) && strings.HasPrefix(dest, src) {
 		//Recursive operation. Reject
 		return errors.New("Recursive copy operation.")
 	}
 
 	//Check if the copy destination file already have an identical file
-	copiedFilename := filepath.Base(src)
+	copiedFilename := arozfs.Base(src)
 
-	if fileExists(filepath.Join(dest, filepath.Base(src))) {
+	if destFshAbs.FileExists(filepath.Join(dest, arozfs.Base(src))) {
 		if mode == "" {
 			//Do not specific file exists principle
 			return errors.New("Destination file already exists.")
@@ -397,7 +507,7 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 		} else if mode == "overwrite" {
 			//Continue with the following code
 			//Check if the copy and paste dest are identical
-			if filepath.ToSlash(filepath.Clean(src)) == filepath.ToSlash(filepath.Clean(filepath.Join(dest, filepath.Base(src)))) {
+			if filepath.ToSlash(filepath.Clean(src)) == filepath.ToSlash(filepath.Clean(filepath.Join(dest, arozfs.Base(src)))) {
 				//Source and target identical. Cannot overwrite.
 				return errors.New("Source and destination paths are identical.")
 
@@ -405,12 +515,12 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 
 		} else if mode == "keep" {
 			//Keep the file but saved with 'Copy' suffix
-			newFilename := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy" + filepath.Ext(src)
+			newFilename := strings.TrimSuffix(arozfs.Base(src), filepath.Ext(src)) + " - Copy" + filepath.Ext(src)
 			//Check if the newFilename already exists. If yes, continue adding suffix
 			duplicateCounter := 0
-			for fileExists(filepath.Join(dest, newFilename)) {
+			for destFshAbs.FileExists(filepath.Join(dest, newFilename)) {
 				duplicateCounter++
-				newFilename = strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy(" + strconv.Itoa(duplicateCounter) + ")" + filepath.Ext(src)
+				newFilename = strings.TrimSuffix(arozfs.Base(src), filepath.Ext(src)) + " - Copy(" + strconv.Itoa(duplicateCounter) + ")" + filepath.Ext(src)
 				if duplicateCounter > 1024 {
 					//Maxmium loop encountered. For thread safty, terminate here
 					return errors.New("Too many copies of identical files.")
@@ -426,79 +536,58 @@ func FileCopy(src string, dest string, mode string, progressUpdate func(int, str
 
 	}
 
-	//Fix the lacking / at the end if true
-	if dest[len(dest)-1:] != "/" {
-		dest = dest + "/"
-	}
-
 	//Ready to move. Check if both folder are located in the same root devices. If not, use copy and delete method.
-	if IsDir(src) {
+	if srcFshAbs.IsDir(src) {
 		//Source file is directory. CopyFolder
-
 		realDest := filepath.Join(dest, copiedFilename)
-
-		//err := dircpy.Copy(src, realDest)
-
-		err := dirCopy(src, realDest, progressUpdate)
+		err := dirCopy(srcFsh, src, destFsh, realDest, progressUpdate)
 		if err != nil {
 			return err
-
 		}
 
 	} else {
 		//Source is file only. Copy file.
 		realDest := filepath.Join(dest, copiedFilename)
-		source, err := os.Open(src)
+		f, err := srcFshAbs.ReadStream(src)
 		if err != nil {
 			return err
-
 		}
-
-		destination, err := os.Create(realDest)
+		defer f.Close()
+		err = destFshAbs.WriteStream(realDest, f, 0775)
 		if err != nil {
 			return err
 		}
 
 		if progressUpdate != nil {
 			//Set progress to 100, leave it to upper level abstraction to handle
-			progressUpdate(100, filepath.Base(realDest))
+			progressUpdate(100, arozfs.Base(realDest))
 		}
-
-		_, err = io.Copy(destination, source)
-		if err != nil {
-			return err
-		}
-		source.Close()
-		destination.Close()
-
 	}
 	return nil
 }
 
-func FileMove(src string, dest string, mode string, fastMove bool, progressUpdate func(int, string)) error {
-	srcRealpath, _ := filepath.Abs(src)
-	destRealpath, _ := filepath.Abs(dest)
-	if IsDir(src) && strings.Contains(filepath.ToSlash(destRealpath)+"/", filepath.ToSlash(srcRealpath)+"/") {
+func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressUpdate func(int, string)) error {
+	srcAbst := srcFsh.FileSystemAbstraction
+	destAbst := destFsh.FileSystemAbstraction
+
+	src = filepath.ToSlash(src)
+	dest = filepath.ToSlash(dest)
+	if srcAbst.IsDir(src) && strings.HasPrefix(dest, src) {
 		//Recursive operation. Reject
 		return errors.New("Recursive move operation.")
 	}
 
-	if !fileExists(dest) {
-		if fileExists(filepath.Dir(dest)) {
+	if !destAbst.FileExists(dest) {
+		if destAbst.FileExists(filepath.Dir(dest)) {
 			//User pass in the whole path for the folder. Report error usecase.
 			return errors.New("Dest location should be an existing folder instead of the full path of the moved file.")
 		}
-		return errors.New("Dest folder not found")
-	}
-	//Fix the lacking / at the end if true
-	if dest[len(dest)-1:] != "/" {
-		dest = dest + "/"
+		os.MkdirAll(dest, 0775)
 	}
 
 	//Check if the target file already exists.
-	movedFilename := filepath.Base(src)
-
-	if fileExists(filepath.Join(dest, filepath.Base(src))) {
+	movedFilename := arozfs.Base(src)
+	if destAbst.FileExists(filepath.Join(dest, arozfs.Base(src))) {
 		//Handle cases where file already exists
 		if mode == "" {
 			//Do not specific file exists principle
@@ -509,19 +598,19 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 		} else if mode == "overwrite" {
 			//Continue with the following code
 			//Check if the copy and paste dest are identical
-			if filepath.ToSlash(filepath.Clean(src)) == filepath.ToSlash(filepath.Clean(filepath.Join(dest, filepath.Base(src)))) {
+			if filepath.ToSlash(filepath.Clean(src)) == filepath.ToSlash(filepath.Clean(filepath.Join(dest, arozfs.Base(src)))) {
 				//Source and target identical. Cannot overwrite.
 				return errors.New("Source and destination paths are identical.")
 			}
 
 		} else if mode == "keep" {
 			//Keep the file but saved with 'Copy' suffix
-			newFilename := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy" + filepath.Ext(src)
+			newFilename := strings.TrimSuffix(arozfs.Base(src), filepath.Ext(src)) + " - Copy" + filepath.Ext(src)
 			//Check if the newFilename already exists. If yes, continue adding suffix
 			duplicateCounter := 0
-			for fileExists(filepath.Join(dest, newFilename)) {
+			for destAbst.FileExists(filepath.Join(dest, newFilename)) {
 				duplicateCounter++
-				newFilename = strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + " - Copy(" + strconv.Itoa(duplicateCounter) + ")" + filepath.Ext(src)
+				newFilename = strings.TrimSuffix(arozfs.Base(src), filepath.Ext(src)) + " - Copy(" + strconv.Itoa(duplicateCounter) + ")" + filepath.Ext(src)
 				if duplicateCounter > 1024 {
 					//Maxmium loop encountered. For thread safty, terminate here
 					return errors.New("Too many copies of identical files.")
@@ -536,7 +625,7 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 
 	if fastMove {
 		//Ready to move with the quick rename method
-		realDest := dest + movedFilename
+		realDest := filepath.Join(dest, movedFilename)
 		err := os.Rename(src, realDest)
 		if err == nil {
 			//Fast move success
@@ -547,23 +636,23 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 	}
 
 	//Ready to move. Check if both folder are located in the same root devices. If not, use copy and delete method.
-	if IsDir(src) {
+	if srcAbst.IsDir(src) {
 		//Source file is directory. CopyFolder
-		realDest := dest + movedFilename
+		realDest := filepath.Join(dest, movedFilename)
 		//err := dircpy.Copy(src, realDest)
 
-		err := dirCopy(src, realDest, progressUpdate)
+		err := dirCopy(srcFsh, src, destFsh, realDest, progressUpdate)
 		if err != nil {
 			return err
 		} else {
 			//Move completed. Remove source file.
-			os.RemoveAll(src)
+			srcAbst.RemoveAll(src)
 			return nil
 		}
 
 	} else {
 		//Source is file only. Copy file.
-		realDest := dest + movedFilename
+		realDest := filepath.Join(dest, movedFilename)
 		/*
 			Updates 20-10-2020, replaced io.Copy to BufferedLargeFileCopy
 			Legacy code removed.
@@ -571,17 +660,24 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 
 		//Update the progress
 		if progressUpdate != nil {
-			progressUpdate(100, filepath.Base(src))
+			progressUpdate(100, arozfs.Base(src))
 		}
 
-		err := BufferedLargeFileCopy(src, realDest, 8192)
+		f, err := srcAbst.ReadStream(src)
 		if err != nil {
-			log.Println("BLFC error: ", err.Error())
+			fmt.Println(err)
+			return err
+		}
+		defer f.Close()
+
+		err = destAbst.WriteStream(realDest, f, 0755)
+		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 
 		//Delete the source file after copy
-		err = os.Remove(src)
+		err = srcAbst.Remove(src)
 		counter := 0
 		for err != nil {
 			//Sometime Windows need this to prevent windows caching bring problems to file remove
@@ -600,16 +696,17 @@ func FileMove(src string, dest string, mode string, fastMove bool, progressUpdat
 }
 
 //Copy a given directory, with no progress udpate
-func CopyDir(src string, dest string) error {
-	return dirCopy(src, dest, func(progress int, name string) {})
+func CopyDir(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string) error {
+	return dirCopy(srcFsh, src, destFsh, dest, func(progress int, name string) {})
 }
 
 //Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
-func dirCopy(src string, realDest string, progressUpdate func(int, string)) error {
-
+func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressUpdate func(int, string)) error {
+	srcFshAbs := srcFsh.FileSystemAbstraction
+	destFshAbs := destFsh.FileSystemAbstraction
 	//Get the total file counts
 	totalFileCounts := int64(0)
-	filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	srcFshAbs.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			//Updates 22 April 2021, chnaged from file count to file size for progress update
 			//totalFileCounts++
@@ -619,25 +716,23 @@ func dirCopy(src string, realDest string, progressUpdate func(int, string)) erro
 	})
 
 	//Make the destinaton directory
-	if !fileExists(realDest) {
-		os.Mkdir(realDest, 0755)
+	if !destFshAbs.FileExists(realDest) {
+		destFshAbs.Mkdir(realDest, 0755)
 	}
 
 	//Start moving
 	fileCounter := int64(0)
-
-	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		srcAbs, _ := filepath.Abs(src)
-		pathAbs, _ := filepath.Abs(path)
-
-		var folderRootRelative string = strings.Replace(pathAbs, srcAbs, "", 1)
+	src = filepath.ToSlash(src)
+	err := srcFshAbs.Walk(src, func(path string, info os.FileInfo, err error) error {
+		path = filepath.ToSlash(path)
+		var folderRootRelative string = strings.TrimPrefix(path, src)
 		if folderRootRelative == "" {
 			return nil
 		}
 
 		if info.IsDir() {
 			//Mkdir base on relative path
-			return os.MkdirAll(filepath.Join(realDest, folderRootRelative), 0755)
+			return destFshAbs.MkdirAll(filepath.Join(realDest, folderRootRelative), 0755)
 		} else {
 			//fileCounter++
 			fileCounter += info.Size()
@@ -647,25 +742,23 @@ func dirCopy(src string, realDest string, progressUpdate func(int, string)) erro
 
 			//Update move progress
 			if progressUpdate != nil {
-				progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), filepath.Base(fileSrc))
+				progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), arozfs.Base(fileSrc))
 			}
 
 			//Move the file using BLFC
-			err := BufferedLargeFileCopy(fileSrc, fileDest, 8192)
+			f, err := srcFshAbs.ReadStream(fileSrc)
 			if err != nil {
-				//Ignore and continue
-				log.Println("BLFC Error:", err.Error())
-				return nil
+				fmt.Println(err)
+				return err
 			}
-			/*
-				//Move fiel using IO Copy
-				err := BasicFileCopy(fileSrc, fileDest)
-				if err != nil {
-					log.Println("Basic Copy Error: ", err.Error())
-					return nil
-				}
+			defer f.Close()
 
-			*/
+			err = destFshAbs.WriteStream(fileDest, f, 0755)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+
 		}
 		return nil
 	})
@@ -699,6 +792,8 @@ func BasicFileCopy(src string, dst string) error {
 }
 
 //Use for copying large file using buffering method. Allowing copying large file with little RAM
+//Deprecated Since ArozOS v2.000
+/*
 func BufferedLargeFileCopy(src string, dst string, BUFFERSIZE int64) error {
 	sourceFileStat, err := os.Stat(src)
 	if err != nil {
@@ -741,9 +836,11 @@ func BufferedLargeFileCopy(src string, dst string, BUFFERSIZE int64) error {
 	}
 	return nil
 }
+*/
 
+//Check if a local path is dir, do not use with file system abstraction realpath
 func IsDir(path string) bool {
-	if fileExists(path) == false {
+	if !FileExists(path) {
 		return false
 	}
 	fi, err := os.Stat(path)
@@ -760,7 +857,7 @@ func IsDir(path string) bool {
 	return false
 }
 
-//Unzip tar.gz file
+//Unzip tar.gz file, use for unpacking web.tar.gz for lazy people
 func ExtractTarGzipFile(filename string, outfile string) error {
 	f, err := os.Open(filename)
 	if err != nil {

@@ -13,13 +13,15 @@ import (
 
 	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/filesystem/shortcut"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 )
 
 //Desktop script initiation
 func DesktopInit() {
-	log.Println("Starting Desktop Services")
+	systemWideLogger.PrintAndLog("Desktop", "Starting Desktop Services", nil)
 
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "Desktop",
@@ -45,6 +47,7 @@ func DesktopInit() {
 	//Initialize desktop database
 	err := sysdb.NewTable("desktop")
 	if err != nil {
+		log.Println("Unable to create database table for Desktop. Please validation your installation.")
 		log.Fatal(err)
 		os.Exit(1)
 	}
@@ -73,7 +76,8 @@ func desktop_initUserFolderStructure(username string) {
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 	homedir, err := userinfo.GetHomeDirectory()
 	if err != nil {
-		log.Println(err)
+		systemWideLogger.PrintAndLog("Desktop", "Unable to initiate user desktop folder", err)
+		return
 	}
 
 	if !fs.FileExists(filepath.Join(homedir, "Desktop")) {
@@ -139,8 +143,11 @@ func desktop_handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fsh, subpath, _ := GetFSHandlerSubpathFromVpath(target)
+	fshAbs := fsh.FileSystemAbstraction
+
 	//Check if the file actually exists and it is on desktop
-	rpath, err := userinfo.VirtualPathToRealPath(target)
+	rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
 		common.SendErrorResponse(w, err.Error())
 		return
@@ -151,13 +158,13 @@ func desktop_handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !fs.FileExists(rpath) {
+	if !fshAbs.FileExists(rpath) {
 		common.SendErrorResponse(w, "File not exists")
 		return
 	}
 
 	//OK. Change the name of the shortcut
-	originalShortcut, err := ioutil.ReadFile(rpath)
+	originalShortcut, err := fshAbs.ReadFile(rpath)
 	if err != nil {
 		common.SendErrorResponse(w, "Shortcut file read failed")
 		return
@@ -173,7 +180,7 @@ func desktop_handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 	//Change the 2nd line to the new name
 	lines[1] = new
 	newShortcutContent := strings.Join(lines, "\n")
-	err = ioutil.WriteFile(rpath, []byte(newShortcutContent), 0755)
+	err = fshAbs.WriteFile(rpath, []byte(newShortcutContent), 0755)
 	if err != nil {
 		common.SendErrorResponse(w, err.Error())
 		return
@@ -190,10 +197,17 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 	desktop_initUserFolderStructure(username)
 
 	//List all files inside the user desktop directory
-	userDesktopRealpath, _ := userinfo.VirtualPathToRealPath("user:/Desktop/")
-	files, err := filepath.Glob(userDesktopRealpath + "/*")
+	fsh, subpath, err := GetFSHandlerSubpathFromVpath("user:/Desktop/")
 	if err != nil {
-		log.Fatal("Error. Desktop unable to load user files for :" + username)
+		common.SendErrorResponse(w, "Desktop file load failed")
+		return
+	}
+	fshAbs := fsh.FileSystemAbstraction
+	userDesktopRealpath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+
+	files, err := fshAbs.Glob(userDesktopRealpath + "/*")
+	if err != nil {
+		common.SendErrorResponse(w, "Desktop file load failed")
 		return
 	}
 
@@ -223,13 +237,13 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		}
 		this = filepath.ToSlash(this)
 		thisFileObject := new(desktopObject)
-		thisFileObject.Filepath, _ = userinfo.RealPathToVirtualPath(this)
+		thisFileObject.Filepath, _ = fshAbs.RealPathToVirtualPath(this, userinfo.Username)
 		thisFileObject.Filename = filepath.Base(this)
 		thisFileObject.Ext = filepath.Ext(this)
-		thisFileObject.IsDir = fs.IsDir(this)
+		thisFileObject.IsDir = fshAbs.IsDir(this)
 		if thisFileObject.IsDir {
 			//Check if this dir is empty
-			filesInFolder, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(this)) + "/*")
+			filesInFolder, _ := fshAbs.Glob(filepath.ToSlash(filepath.Clean(this)) + "/*")
 			fc := 0
 			for _, f := range filesInFolder {
 				if filepath.Base(f)[:1] != "." {
@@ -249,7 +263,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		isShortcut := false
 		if filepath.Ext(this) == ".shortcut" {
 			isShortcut = true
-			shortcutInfo, _ := ioutil.ReadFile(this)
+			shortcutInfo, _ := fshAbs.ReadFile(this)
 			infoSegments := strings.Split(strings.ReplaceAll(string(shortcutInfo), "\r\n", "\n"), "\n")
 			if len(infoSegments) < 4 {
 				thisFileObject.ShortcutType = "invalid"
@@ -264,7 +278,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		thisFileObject.IsShortcut = isShortcut
 
 		//Check if this file is shared
-		thisFileObject.IsShared = shareManager.FileIsShared(this)
+		thisFileObject.IsShared = shareManager.FileIsShared(userinfo, this)
 		//Check the file location
 		username, _ := authAgent.GetUserName(w, r)
 		x, y, _ := getDesktopLocatioFromPath(thisFileObject.Filename, username)
@@ -306,7 +320,9 @@ func getDesktopLocatioFromPath(filename string, username string) (int, int, erro
 func setDesktopLocationFromPath(filename string, username string, x int, y int) error {
 	//You cannot directly set path of others people's deskop. Hence, fullpath needed to be parsed from auth username
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
-	desktoppath, _ := userinfo.VirtualPathToRealPath("user:/Desktop/")
+	fsh, subpath, _ := GetFSHandlerSubpathFromVpath("user:/Desktop/")
+	fshAbs := fsh.FileSystemAbstraction
+	desktoppath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	path := filepath.Join(desktoppath, filename)
 	type iconLocation struct {
 		X int
@@ -318,18 +334,18 @@ func setDesktopLocationFromPath(filename string, username string, x int, y int) 
 	newLocation.Y = y
 
 	//Check if the file exits
-	if fs.FileExists(path) == false {
+	if !fshAbs.FileExists(path) {
 		return errors.New("Given filename not exists.")
 	}
 
 	//Parse the location to json
 	jsonstring, err := json.Marshal(newLocation)
 	if err != nil {
-		log.Fatal("Unable to parse new file location on desktop for file: " + path)
+		log.Println("[Desktop] Unable to parse new file location on desktop for file: " + path)
 		return err
 	}
 
-	//log.Println(key,string(jsonstring))
+	//systemWideLogger.PrintAndLog(key,string(jsonstring),nil)
 	//Write result to database
 	sysdb.Write("desktop", username+"/filelocation/"+filename, string(jsonstring))
 	return nil
@@ -445,7 +461,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		//List all the currnet themes in the list
 		themes, err := filepath.Glob("web/img/desktop/bg/*")
 		if err != nil {
-			log.Fatal("Error. Unable to search bg from destkop image root. Are you sure the web data folder exists?")
+			log.Println("[Desktop] Unable to search bg from destkop image root. Are you sure the web data folder exists?")
 			return
 		}
 		//Prase the results to json array
@@ -484,7 +500,9 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		//Return the results as JSON string
 		jsonString, err := json.Marshal(desktopThemeList)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("[Desktop] Marshal desktop wallpaper list error: " + err.Error())
+			common.SendJSONResponse(w, string("[]"))
+			return
 		}
 		common.SendJSONResponse(w, string(jsonString))
 		return
@@ -503,14 +521,20 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if loadUserTheme != "" {
 		//Load user theme base on folder path
-		rpath, err := userinfo.VirtualPathToRealPath(loadUserTheme)
+		userFsh, err := GetFsHandlerByUUID("user:/")
+		if err != nil {
+			common.SendErrorResponse(w, "Unable to resolve user root path")
+			return
+		}
+		userFshAbs := userFsh.FileSystemAbstraction
+		rpath, err := userFshAbs.VirtualPathToRealPath(loadUserTheme, userinfo.Username)
 		if err != nil {
 			common.SendErrorResponse(w, "Custom folder load failed")
 			return
 		}
 
 		//Check if the folder exists
-		if !fs.FileExists(rpath) {
+		if !userFshAbs.FileExists(rpath) {
 			common.SendErrorResponse(w, "Custom folder load failed")
 			return
 		}
@@ -536,7 +560,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		//Convert the image list back to vpaths
 		virtualImageList := []string{}
 		for _, image := range imageList {
-			vpath, err := userinfo.RealPathToVirtualPath(image)
+			vpath, err := userFshAbs.RealPathToVirtualPath(image, userinfo.Username)
 			if err != nil {
 				continue
 			}
@@ -595,15 +619,12 @@ func desktop_preference_handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
-	username, err := authAgent.GetUserName(w, r)
-
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//user not logged in. Redirect to login page.
 		common.SendErrorResponse(w, "User not logged in")
 		return
 	}
-
-	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 
 	shortcutType, err := common.Mv(r, "stype", true)
 	if err != nil {
@@ -629,28 +650,50 @@ func desktop_shortcutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//OK to proceed. Generate a shortcut on the user desktop
-	userDesktopPath, _ := userinfo.VirtualPathToRealPath("user:/Desktop")
-	if !fs.FileExists(userDesktopPath) {
-		os.MkdirAll(userDesktopPath, 0755)
+	shortcutCreationDest, err := common.Mv(r, "sdest", true)
+	if err != nil {
+		//Default create on desktop
+		shortcutCreationDest = "user:/Desktop/"
 	}
 
-	//Check if there are desktop icon. If yes, override icon on module
-	if shortcutType == "module" && fs.FileExists("./web/"+filepath.ToSlash(filepath.Dir(shortcutIcon)+"/desktop_icon.png")) {
-		shortcutIcon = filepath.ToSlash(filepath.Join(filepath.Dir(shortcutIcon), "/desktop_icon.png"))
+	if !userinfo.CanWrite(shortcutCreationDest) {
+		common.SendErrorResponse(w, "Permission denied")
+		return
 	}
 
-	shortcutText = strings.ReplaceAll(shortcutText, "/", "")
-	for strings.Contains(shortcutText, "../") {
-		shortcutText = strings.ReplaceAll(shortcutText, "../", "")
+	//Resolve vpath to fsh and subpath
+	fsh, subpath, err := GetFSHandlerSubpathFromVpath(shortcutCreationDest)
+	if err != nil {
+		common.SendErrorResponse(w, err.Error())
+		return
 	}
-	shortcutFilename := userDesktopPath + "/" + shortcutText + ".shortcut"
+	fshAbs := fsh.FileSystemAbstraction
+
+	shorcutRealDest, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil {
+		common.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Filter illegal characters in the shortcut filename
+	shortcutText = arozfs.FilterIllegalCharInFilename(shortcutText, " ")
+
+	//If dest not exists, create it
+	if !fshAbs.FileExists(shorcutRealDest) {
+		fshAbs.MkdirAll(shorcutRealDest, 0755)
+	}
+
+	//Generate a filename for the shortcut
+	shortcutFilename := shorcutRealDest + "/" + shortcutText + ".shortcut"
 	counter := 1
-	for fs.FileExists(shortcutFilename) {
-		shortcutFilename = userDesktopPath + "/" + shortcutText + "(" + strconv.Itoa(counter) + ")" + ".shortcut"
+	for fshAbs.FileExists(shortcutFilename) {
+		shortcutFilename = shorcutRealDest + "/" + shortcutText + "(" + strconv.Itoa(counter) + ")" + ".shortcut"
 		counter++
 	}
-	err = ioutil.WriteFile(shortcutFilename, []byte(shortcutType+"\n"+shortcutText+"\n"+shortcutPath+"\n"+shortcutIcon), 0755)
+
+	//Write the shortcut to file
+	shortcutContent := shortcut.GenerateShortcutBytes(shortcutPath, shortcutType, shortcutText, shortcutIcon)
+	err = fshAbs.WriteFile(shortcutFilename, shortcutContent, 0775)
 	if err != nil {
 		common.SendErrorResponse(w, err.Error())
 		return

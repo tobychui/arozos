@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"imuslab.com/arozos/mod/common"
@@ -13,7 +12,7 @@ import (
 func permissionNewHandler() {
 	ph, err := permission.NewPermissionHandler(sysdb)
 	if err != nil {
-		log.Println("Permission Handler creation failed.")
+		systemWideLogger.PrintAndLog("Permission", "Permission Handler creation failed.", err)
 		panic(err)
 	}
 	permissionHandler = ph

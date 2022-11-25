@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -36,7 +35,7 @@ func portForwardInit() {
 			//Forward the recorded port
 			err := UPNP.ForwardPort(portNumber, policyName)
 			if err != nil {
-				log.Println("Port Fordware Failed: ", err.Error(), ". Skipping "+policyName)
+				systemWideLogger.PrintAndLog("UpnP", "Port Fordware Failed: "+err.Error()+". Skipping "+policyName, err)
 			}
 
 		}
@@ -95,7 +94,7 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 				ReadOnly: readOnly,
 			}
 
-			//log.Println(thisPort)
+			//systemWideLogger.PrintAndLog(thisPort,nil)
 
 			forwardPorts = append(forwardPorts, thisPort)
 		}

@@ -18,8 +18,6 @@ func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
 		return nil, err
 	}
 
-	log.Println("Key-value Database Service Started: " + dbfile)
-
 	tableMap := sync.Map{}
 	//Build the table list from database
 	err = db.View(func(tx *bolt.Tx) error {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 
@@ -197,7 +196,7 @@ func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	connType, _ := common.Mv(r, "ConnType", true)
 	password, _ := common.Mv(r, "pwd", true)
-	log.Println("WiFi Switch Request Received. Genering Network Configuration...")
+	systemWideLogger.PrintAndLog("WiFi", "WiFi Switch Request Received. Genering Network Configuration...", nil)
 
 	identity, err := common.Mv(r, "identity", true)
 	if err != nil {
@@ -216,7 +215,7 @@ func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	common.SendJSONResponse(w, string(jsonString))
 
-	log.Println("WiFi Connected")
+	systemWideLogger.PrintAndLog("WiFi", "WiFi Connected", nil)
 
 }
 

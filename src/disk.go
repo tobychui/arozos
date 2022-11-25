@@ -7,7 +7,6 @@ package main
 */
 
 import (
-	"log"
 	"net/http"
 
 	"imuslab.com/arozos/mod/common"
@@ -86,7 +85,7 @@ func DiskServiceInit() {
 			smartListener, err := smart.NewSmartListener()
 			if err != nil {
 				//Listener creation failed
-				log.Println("Failed to create SMART listener: " + err.Error())
+				systemWideLogger.PrintAndLog("Disk", "Failed to create SMART listener: "+err.Error(), err)
 			} else {
 				//Listener created. Register endpoints
 
@@ -127,7 +126,8 @@ func DiskServiceInit() {
 			adminRouter.HandleFunc("/system/disk/diskmg/platform", diskmg.HandlePlatform)
 			adminRouter.HandleFunc("/system/disk/diskmg/mount", func(w http.ResponseWriter, r *http.Request) {
 				//Mount option require passing in all filesystem handlers
-				diskmg.HandleMount(w, r, fsHandlers)
+				allFsh := GetAllLoadedFsh()
+				diskmg.HandleMount(w, r, allFsh)
 			})
 			adminRouter.HandleFunc("/system/disk/diskmg/format", func(w http.ResponseWriter, r *http.Request) {
 				//Check if request are made in POST mode
@@ -145,7 +145,8 @@ func DiskServiceInit() {
 				}
 
 				//Format option require passing in all filesystem handlers
-				diskmg.HandleFormat(w, r, fsHandlers)
+				allFsh := GetAllLoadedFsh()
+				diskmg.HandleFormat(w, r, allFsh)
 			})
 			adminRouter.HandleFunc("/system/disk/diskmg/mpt", diskmg.HandleListMountPoints)
 		}

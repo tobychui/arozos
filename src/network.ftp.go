@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
@@ -97,7 +97,7 @@ func storageHandleFTPPassiveModeSettings(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		log.Println("Updatng FTP Server PassiveMode to", passive)
+		systemWideLogger.PrintAndLog("FTP", "Updating FTP Server PassiveMode to"+passive, nil)
 		if passive == "true" {
 			sysdb.Write("ftp", "passive", true)
 		} else {
@@ -133,7 +133,7 @@ func storageHandleFTPServerStop(w http.ResponseWriter, r *http.Request) {
 		ftpServer.Close()
 	}
 	sysdb.Write("ftp", "default", false)
-	log.Println("FTP Server Stopped")
+	systemWideLogger.PrintAndLog("FTP", "FTP Server Stopped", nil)
 	common.SendOK(w)
 }
 
@@ -141,10 +141,10 @@ func storageHandleFTPServerStop(w http.ResponseWriter, r *http.Request) {
 func storageHandleFTPuPnP(w http.ResponseWriter, r *http.Request) {
 	enable, _ := common.Mv(r, "enable", false)
 	if enable == "true" {
-		log.Println("Enabling UPnP on FTP Server Port")
+		systemWideLogger.PrintAndLog("FTP", "Enabling UPnP on FTP Server Port", nil)
 		sysdb.Write("ftp", "upnp", true)
 	} else {
-		log.Println("Disabling UPnP on FTP Server Port")
+		systemWideLogger.PrintAndLog("FTP", "Disabling UPnP on FTP Server Port", nil)
 		sysdb.Write("ftp", "upnp", false)
 	}
 
@@ -173,7 +173,7 @@ func storageHandleFTPAccessUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Updating FTP Access group to: ", groups)
+	systemWideLogger.PrintAndLog("FTP", "Updating FTP Access group to: "+strings.Join(groups, ","), nil)
 	//Set the accessable group
 	ftp.UpdateAccessableGroups(sysdb, groups)
 
@@ -339,7 +339,7 @@ func storageFTPServerStart() error {
 				//Forward the port
 				err := UPNP.ForwardPort(ftpServer.Port, *host_name+" FTP Server")
 				if err != nil {
-					log.Println("Failed to start FTP Server UPnP: ", err)
+					systemWideLogger.PrintAndLog("FTP", "Failed to start FTP Server UPnP ", err)
 					ftpServer.UPNPEnabled = false
 					return err
 				} else {

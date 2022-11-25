@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -28,6 +27,8 @@ type Handler struct {
 	// Logger is an optional error logger. If non-nil, it will be called
 	// for all HTTP requests.
 	Logger func(*http.Request, error)
+	//External Event Listener for the webdev request
+	RequestEventListener func(path string)
 }
 
 func (h *Handler) stripPrefix(p string) (string, int, error) {
@@ -540,10 +541,12 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 		}
 
 		//Arozos custom properties
-		if len(reqPath) > 1 && filepath.Base(reqPath)[:1] == "." {
-			//Hidden file. Do not show
-			return nil
-		}
+		/*
+			if len(reqPath) > 1 && filepath.Base(reqPath)[:1] == "." {
+				//Hidden file. Do not show
+				return nil
+			}
+		*/
 
 		var pstats []Propstat
 		if pf.Propname != nil {
@@ -571,6 +574,9 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 		return mw.write(makePropstatResponse(href, pstats))
 	}
 
+	if h.RequestEventListener != nil {
+		h.RequestEventListener(reqPath)
+	}
 	walkErr := walkFS(ctx, h.FileSystem, depth, reqPath, fi, walkFn)
 	closeErr := mw.close()
 	if walkErr != nil {

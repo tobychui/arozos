@@ -12,11 +12,10 @@ import (
 )
 
 type Capacity struct {
-	PhysicalDevice    string //The ID of the physical device, like C:/ or /dev/sda1
-	MountingHierarchy string //The Mounting Hierarchy of the vroot
-	Used              int64  //Used capacity in bytes
-	Avilable          int64  //Avilable capacity in bytes
-	Total             int64  //Total capacity in bytes
+	PhysicalDevice string //The ID of the physical device, like C:/ or /dev/sda1
+	Used           int64  //Used capacity in bytes
+	Available      int64  //Avilable capacity in bytes
+	Total          int64  //Total capacity in bytes
 }
 
 func GetCapacityInfoFromPath(realpath string) (*Capacity, error) {
@@ -39,7 +38,7 @@ func GetCapacityInfoFromPath(realpath string) (*Capacity, error) {
 				return &Capacity{
 					PhysicalDevice: ldi.Device,
 					Used:           ldi.Used,
-					Avilable:       ldi.Available,
+					Available:      ldi.Available,
 					Total:          ldi.Volume,
 				}, nil
 			}
@@ -88,7 +87,7 @@ func GetCapacityInfoFromPath(realpath string) (*Capacity, error) {
 		return &Capacity{
 			PhysicalDevice: diskInfoSlice[0],
 			Used:           used * 1024,
-			Avilable:       availbe * 1024,
+			Available:      availbe * 1024,
 			Total:          total * 1024,
 		}, nil
 	}

@@ -48,19 +48,24 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 			folders = append(folders, file)
 		}
 	}
+	/*
+		for _, folder := range folders {
+			//Copy the module
+			//WIP
 
-	for _, folder := range folders {
-		//Copy the module
-		err = fs.CopyDir(folder, "./web/"+filepath.Base(folder))
-		if err != nil {
-			log.Println(err)
-			continue
+					err = fs.CopyDir(folder, "./web/"+filepath.Base(folder))
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+
+
+				//Activate the module
+				m.ActivateModuleByRoot("./web/"+filepath.Base(folder), gateway)
+				m.ModuleSortList()
+
 		}
-
-		//Activate the module
-		m.ActivateModuleByRoot("./web/"+filepath.Base(folder), gateway)
-		m.ModuleSortList()
-	}
+	*/
 
 	//Remove the tmp folder
 	os.RemoveAll(unzipTmpFolder)
@@ -118,12 +123,14 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	}
 
 	//Do the copying
-	for _, src := range copyPendingList {
-		log.Println(src)
-		fs.FileCopy(src, "./web/", "skip", func(progress int, filename string) {
-			log.Println("Copying ", filename)
-		})
-	}
+	//WIP
+	/*
+		for _, src := range copyPendingList {
+			fs.FileCopy(src, "./web/", "skip", func(progress int, filename string) {
+				log.Println("Copying ", filename)
+			})
+		}
+	*/
 
 	//Clean up the download folder
 	os.RemoveAll(downloadFolder)

@@ -92,6 +92,10 @@
                 "opr/openwith/openInNewWindow": "直接於新視窗開啟檔案",
                 "opr/openwith/cancel": "取消",
 
+                "opr/shorcut/title": "在桌面建立捷徑",
+                "opr/shorcut/ok": "捷徑建立成功",
+                "opr/shorcut/error": "桌面建立捷徑失敗",
+
                 "opr/zip/zipping": "正在壓縮 ",
                 "opr/zip/unzipping": "正在解壓縮 ",
                 "opr/zip/nozipfile": "沒有已選擇的壓縮檔",
@@ -118,6 +122,7 @@
                 "contextmenu/backup": "備份及還原",
                 "contextmenu/refresh": "重新整理",
                 "contextmenu/download": "下載",
+                "contextmenu/sharemanager": "分享管理員",
                 "contextmenu/properties": "內容",
 
                 "upload/count/uploading": " 上載中",
@@ -157,6 +162,8 @@
                 "message/Preference value too long. Preference value can only store maximum 1024 characters.":"設定值太長。設定值只能夠少於 1024 字元",
                 "message/User not logged in":"使用者未登入",
                 "message/Folder not exists":"找不到資料夾",
+                "message/Failed to move file to trash":"無法移動到資源回收箱",
+                "message/Incompatible File System Type: Try SHIFT + DELETE to delete file permanently":"檔案系統不支援檔案回收：請使用 SHIFT + DELETE 以永久移除檔案",
 
                 "message/noMatchResults":"找不到匹配的檔案",
                 "message/noMatchResultsDesc":"伺服器找不到與此關鍵字匹配的檔案",
@@ -297,6 +304,10 @@
                 "opr/openwith/openInNewWindow": "直接於新視窗開啟檔案",
                 "opr/openwith/cancel": "取消",
 
+                "opr/shorcut/title": "在桌面建立捷徑",
+                "opr/shorcut/ok": "捷徑建立成功",
+                "opr/shorcut/error": "桌面建立捷徑失敗",
+
                 "opr/zip/zipping": "正在壓縮 ",
                 "opr/zip/unzipping": "正在解壓縮 ",
                 "opr/zip/nozipfile": "沒有已選擇的壓縮檔",
@@ -323,6 +334,7 @@
                 "contextmenu/backup": "備份及還原",
                 "contextmenu/refresh": "重新整理",
                 "contextmenu/download": "下載",
+                "contextmenu/sharemanager": "分享管理員",
                 "contextmenu/properties": "內容",
 
                 "upload/count/uploading": " 上載中",
@@ -362,6 +374,8 @@
                 "message/Preference value too long. Preference value can only store maximum 1024 characters.":"設定值太長。設定值只能夠少於 1024 字元",
                 "message/User not logged in":"使用者未登入",
                 "message/Folder not exists":"找不到資料夾",
+                "message/Failed to move file to trash":"無法移動到資源回收箱",
+                "message/Incompatible File System Type: Try SHIFT + DELETE to delete file permanently":"檔案系統不支援檔案回收：請使用 SHIFT + DELETE 以永久移除檔案",
 
                 "message/noMatchResults":"找不到匹配的檔案",
                 "message/noMatchResultsDesc":"伺服器找不到與此關鍵字匹配的檔案",
@@ -499,6 +513,10 @@
                 "opr/openwith/openInNewWindow": "直接于新视窗打开文件",
                 "opr/openwith/cancel": "取消",
 
+                "opr/shortcut/title": "在桌面建立捷径", 
+                "opr/shortcut/ok": "捷径建立成功", 
+                "opr/shorcut/error": "桌面建立捷径失败",
+
                 "opr/zip/zipping": "正在压缩 ",
                 "opr/zip/unzipping": "正在解压缩 ",
                 "opr/zip/nozipfile": "没有已选择的压缩文件",
@@ -525,6 +543,7 @@
                 "contextmenu/backup": "备份及还原",
                 "contextmenu/refresh": "重新整理",
                 "contextmenu/download": "下载",
+                "contextmenu/sharemanager": "分享管理员",
                 "contextmenu/properties": "内容",
 
                 "upload/count/uploading": " 上传中",
@@ -564,6 +583,8 @@
                 "message/Preference value too long. Preference value can only store maximum 1024 characters.":"设定值太长。设定值只能够少于 1024 字元",
                 "message/User not logged in":"使用者未登入",
                 "message/Folder not exists":"找不到资料夹", 
+                "message/Failed to move file to trash":"无法移动到资源回收箱",
+                "message/Incompatible File System Type: Try SHIFT + DELETE to delete file permanently":"档案系统不支援文件回收：请使用 SHIFT + DELETE 以永久移除文件",
 
                 "message/noMatchResults":"找不到匹配的文件",
                 "message/noMatchResultsDesc":"伺服器找不到与此关键字匹配的文件",

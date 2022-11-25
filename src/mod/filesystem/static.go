@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"net/url"
 
 	mimetype "github.com/gabriel-vasile/mimetype"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
 )
 
@@ -32,7 +34,7 @@ type FileData struct {
 	Displaysize string
 	ModTime     int64
 	IsShared    bool
-	Shortcut    *shortcut.ShortcutData //This will return nil or undefined if it is not a shortcut file
+	Shortcut    *arozfs.ShortcutData //This will return nil or undefined if it is not a shortcut file
 }
 
 type TrashedFile struct {
@@ -62,6 +64,25 @@ type FileProperties struct {
 	IsDirectory    bool
 }
 
+/*
+	HierarchySpecificConfig Template
+*/
+
+type EmptyHierarchySpecificConfig struct {
+	HierarchyType string
+}
+
+func (e EmptyHierarchySpecificConfig) ResolveVrootPath(string, string) (string, error) {
+	return "", nil
+}
+func (e EmptyHierarchySpecificConfig) ResolveRealPath(string, string) (string, error) {
+	return "", nil
+}
+
+var DefaultEmptyHierarchySpecificConfig = EmptyHierarchySpecificConfig{
+	HierarchyType: "placeholder",
+}
+
 //Check if the two file system are identical.
 func MatchingFileSystem(fsa *FileSystemHandler, fsb *FileSystemHandler) bool {
 	return fsa.Filesystem == fsb.Filesystem
@@ -84,16 +105,21 @@ func GetIDFromVirtualPath(vpath string) (string, string, error) {
 	return vdID, path, nil
 }
 
-func GetFileDataFromPath(vpath string, realpath string, sizeRounding int) FileData {
-	fileSize := GetFileSize(realpath)
+func GetFileDataFromPath(fsh *FileSystemHandler, vpath string, realpath string, sizeRounding int) FileData {
+	fileSize := fsh.FileSystemAbstraction.GetFileSize(realpath)
 	displaySize := GetFileDisplaySize(fileSize, sizeRounding)
-	modtime, _ := GetModTime(realpath)
+	modtime, _ := fsh.FileSystemAbstraction.GetModTime(realpath)
 
-	var shortcutInfo *shortcut.ShortcutData = nil
+	var shortcutInfo *arozfs.ShortcutData = nil
 	if filepath.Ext(realpath) == ".shortcut" {
-		scd, err := shortcut.ReadShortcut(realpath)
-		if err == nil {
-			shortcutInfo = scd
+		shortcutContent, err := fsh.FileSystemAbstraction.ReadFile(realpath)
+		if err != nil {
+			shortcutInfo = nil
+		} else {
+			shortcutInfo, err = shortcut.ReadShortcut(shortcutContent)
+			if err != nil {
+				shortcutInfo = nil
+			}
 		}
 	}
 
@@ -101,7 +127,7 @@ func GetFileDataFromPath(vpath string, realpath string, sizeRounding int) FileDa
 		Filename:    filepath.Base(realpath),
 		Filepath:    vpath,
 		Realpath:    filepath.ToSlash(realpath),
-		IsDir:       IsDir(realpath),
+		IsDir:       fsh.FileSystemAbstraction.IsDir(realpath),
 		Filesize:    fileSize,
 		Displaysize: displaySize,
 		ModTime:     modtime,
@@ -149,7 +175,7 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 		}
 
 		//Check if device exists
-		if !fileExists(mountdev) {
+		if !FileExists(mountdev) {
 			//Device driver not exists.
 			return errors.New("Device not exists: " + mountdev)
 		}
@@ -165,7 +191,7 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 		}
 
 		//Check if the path exists
-		if !fileExists(mountpt) {
+		if !FileExists(mountpt) {
 			//Mounted but path still not found. Skip this device
 			return errors.New("Unable to find " + mountpt)
 		}
@@ -266,41 +292,38 @@ func GetDirctorySize(filename string, includeHidden bool) (int64, int) {
 
 func GetFileDisplaySize(filesize int64, rounding int) string {
 	precisionString := "%." + strconv.Itoa(rounding) + "f"
-	var bytes float64
-	bytes = float64(filesize)
-
-	var kilobytes float64
-	kilobytes = (bytes / 1024)
+	bytes := float64(filesize)
+	kilobytes := float64(bytes / 1024)
 	if kilobytes < 1 {
 		return fmt.Sprintf(precisionString, bytes) + "Bytes"
 	}
-	var megabytes float64
-	megabytes = (float64)(kilobytes / 1024)
+
+	megabytes := float64(kilobytes / 1024)
 	if megabytes < 1 {
 		return fmt.Sprintf(precisionString, kilobytes) + "KB"
 	}
-	var gigabytes float64
-	gigabytes = (megabytes / 1024)
+
+	gigabytes := float64(megabytes / 1024)
 	if gigabytes < 1 {
 		return fmt.Sprintf(precisionString, megabytes) + "MB"
 	}
-	var terabytes float64
-	terabytes = (gigabytes / 1024)
+
+	terabytes := float64(gigabytes / 1024)
 	if terabytes < 1 {
 		return fmt.Sprintf(precisionString, gigabytes) + "GB"
 	}
-	var petabytes float64
-	petabytes = (terabytes / 1024)
+
+	petabytes := float64(terabytes / 1024)
 	if petabytes < 1 {
 		return fmt.Sprintf(precisionString, terabytes) + "TB"
 	}
-	var exabytes float64
-	exabytes = (petabytes / 1024)
+
+	exabytes := float64(petabytes / 1024)
 	if exabytes < 1 {
 		return fmt.Sprintf(precisionString, petabytes) + "PB"
 	}
-	var zettabytes float64
-	zettabytes = (exabytes / 1024)
+
+	zettabytes := float64(exabytes / 1024)
 	if zettabytes < 1 {
 		return fmt.Sprintf(precisionString, exabytes) + "EB"
 	}
@@ -315,9 +338,12 @@ func DecodeURI(inputPath string) string {
 	return inputPath
 }
 
-func GetMime(filepath string) (string, string, error) {
-	mime, err := mimetype.DetectFile(filepath)
-	return mime.String(), mime.Extension(), err
+func GetMime(filename string) (string, string, error) {
+	fileMime, err := mimetype.DetectFile(filename)
+	if err != nil {
+		return mime.TypeByExtension(filepath.Ext(filename)), filepath.Ext(filename), nil
+	}
+	return fileMime.String(), fileMime.Extension(), nil
 }
 
 func GetModTime(filepath string) (int64, error) {
@@ -386,16 +412,17 @@ func GetFileSHA256Sum(filename string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func GetFileMD5Sum(filename string) (string, error) {
-	file, err := os.Open(filename)
+func GetFileMD5Sum(fsh *FileSystemHandler, rpath string) (string, error) {
+	file, err := fsh.FileSystemAbstraction.ReadStream(rpath)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
 
 	h := md5.New()
 	if _, err := io.Copy(h, file); err != nil {
 		return "", err
 	}
+
+	file.Close()
 	return hex.EncodeToString(h.Sum(nil)), nil
 }

@@ -57,5 +57,5 @@ func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *h
 	}
 	scriptContent := string(scriptContentByte)
 
-	g.ExecuteAGIScript(scriptContent, script, scriptScope, w, r, targetUser)
+	g.ExecuteAGIScript(scriptContent, nil, script, scriptScope, w, r, targetUser)
 }
