@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/sessions"
 	uuid "github.com/satori/go.uuid"
+	"imuslab.com/arozos/mod/utils"
 )
 
 //Autologin token. This token will not expire until admin removal
@@ -112,7 +113,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	}
 
 	session, _ := a.SessionStore.Get(r, a.SessionName)
-	token, err := mv(r, "token", false)
+	token, err := utils.GetPara(r, "token")
 	if err != nil {
 		//Username not defined
 		sendErrorResponse(w, "Token not defined or empty.")
@@ -163,7 +164,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 
 	session.Save(r, w)
 
-	redirectTarget, _ := mv(r, "redirect", false)
+	redirectTarget, _ := utils.GetPara(r, "redirect")
 	if redirectTarget != "" {
 		//Redirect to target website
 		http.Redirect(w, r, redirectTarget, http.StatusTemporaryRedirect)

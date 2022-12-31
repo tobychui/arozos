@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -49,7 +50,7 @@ func NewLogger() (*Logger, error) {
 
 //Log the current authentication to record, Require the request object and login status
 func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
-	username, _ := mv(r, "username", true)
+	username, _ := utils.PostPara(r, "username")
 	timestamp := time.Now().Unix()
 	//handling the reverse proxy remote IP issue
 	remoteIP := r.Header.Get("X-FORWARDED-FOR")

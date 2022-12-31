@@ -353,7 +353,9 @@
                 navigator.mediaDevices.getDisplayMedia({
                         displaySurface: 'monitor',
                         logicalSurface: true,
-                        cursor: 'always'
+                        cursor: 'always',
+                        video: true,
+                        audio: true
                     }).then(function(camera) {
                     callback(camera);
                 }).catch(function(error) {

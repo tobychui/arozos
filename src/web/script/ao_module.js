@@ -929,7 +929,7 @@ class ao_module_utils{
         }
 
         if (seconds > 0){
-            resultDuration += seconds + " Secound"
+            resultDuration += seconds + " Second"
             if (seconds > 1){
                 resultDuration += "s"
             }

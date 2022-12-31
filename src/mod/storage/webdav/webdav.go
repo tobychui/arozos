@@ -24,6 +24,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/network/webdav"
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type Server struct {
@@ -88,13 +89,13 @@ func (s *Server) HandleClearAllPending(w http.ResponseWriter, r *http.Request) {
 
 //Handle allow and remove permission of a windows WebDAV Client
 func (s *Server) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
-	opr, err := mv(r, "opr", true)
+	opr, err := utils.PostPara(r, "opr")
 	if err != nil {
 		sendErrorResponse(w, "Invalid operations")
 		return
 	}
 
-	uuid, err := mv(r, "uuid", true)
+	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
 		sendErrorResponse(w, "Invalid uuid")
 		return
@@ -147,7 +148,7 @@ func (s *Server) HandlePermissionEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleConnectionList(w http.ResponseWriter, r *http.Request) {
-	target, _ := mv(r, "target", false)
+	target, _ := utils.GetPara(r, "target")
 	results := []*WindowClientInfo{}
 	if target == "" {
 		//List not logged in clients
@@ -214,6 +215,12 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 		reqRoot = reqInfo[1]
 	}
 
+	if strings.TrimSpace(reqRoot) == "" {
+		//No vroot defined.
+		http.NotFound(w, r)
+		return
+	}
+
 	//Windows File Explorer. Handle with special case
 	if r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir") && r.TLS == nil {
 		log.Println("Windows File Explorer Connection. Routing using alternative handler")
@@ -259,7 +266,7 @@ func (s *Server) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(reqRoot + ":/")
 	if err != nil {
 		log.Println("[WebDAV] Failed to load File System Handler from request root: ", reqRoot+":/", err.Error())
-		http.Error(w, "Invalid ", http.StatusUnauthorized)
+		http.Error(w, "Invalid ", http.StatusInternalServerError)
 		return
 	}
 
@@ -322,22 +329,4 @@ func (s *Server) getFsFromRealRoot(fsh *filesystem.FileSystemHandler, username s
 	}
 
 	return fs
-	/*
-		tfs, ok := s.filesystems.Load(realRoot)
-		if !ok {
-			//This file system handle hasn't been created. Create it now
-			fs := &webdav.Handler{
-				Prefix:     prefix,
-				FileSystem: webdav.Dir(realRoot),
-				LockSystem: webdav.NewMemLS(),
-			}
-
-			//Store the file system handler
-			s.filesystems.Store(realRoot, fs)
-
-			return fs
-		} else {
-			return tfs.(*webdav.Handler)
-		}
-	*/
 }

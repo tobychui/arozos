@@ -15,6 +15,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	agi "imuslab.com/arozos/mod/agi"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -28,7 +29,7 @@ import (
 //Install a module via selecting a zip file
 func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) error {
 	//Check if file exists
-	if !fileExists(realpath) {
+	if !utils.FileExists(realpath) {
 		return errors.New("*Module Installer* Installer file not found. Given: " + realpath)
 	}
 
@@ -43,7 +44,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 	files, _ := filepath.Glob(unzipTmpFolder + "/*")
 	folders := []string{}
 	for _, file := range files {
-		if IsDir(file) && fileExists(filepath.Join(file, "init.agi")) {
+		if utils.IsDir(file) && utils.FileExists(filepath.Join(file, "init.agi")) {
 			//This looks like a module folder
 			folders = append(folders, file)
 		}
@@ -111,7 +112,7 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	downloadedFiles, _ := filepath.Glob(downloadFolder + "/*")
 	copyPendingList := []string{}
 	for _, file := range downloadedFiles {
-		if IsDir(file) {
+		if utils.IsDir(file) {
 			//Exclude two special folder: github and images
 			if filepath.Base(file) == ".github" || filepath.Base(file) == "images" || filepath.Base(file)[:1] == "." {
 				//Reserved folder for putting Github readme screenshots or other things
@@ -150,8 +151,8 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.Gateway) error {
 	//Check if there is init.agi. If yes, load it as an module
 	thisModuleEstimataedRoot := filepath.Join("./web/", filepath.Base(moduleFolder))
-	if fileExists(thisModuleEstimataedRoot) {
-		if fileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
+	if utils.FileExists(thisModuleEstimataedRoot) {
+		if utils.FileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
 			//Load this as an module
 			startDef, err := ioutil.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
 			if err != nil {
@@ -194,7 +195,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 			//Only allow uninstalling of modules with start dir (aka installable)
 
 			//Check if WebApp or subservice
-			if fileExists(filepath.Join("./web", mod.StartDir)) {
+			if utils.FileExists(filepath.Join("./web", mod.StartDir)) {
 				//This is a WebApp module
 				totalsize, _ := fs.GetDirctorySize(filepath.Join("./web", filepath.Dir(mod.StartDir)), false)
 
@@ -230,7 +231,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 	}
 
 	js, _ := json.Marshal(results)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Uninstall the given module
@@ -250,7 +251,7 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	}
 
 	//Check if the module exists
-	if fileExists(filepath.Join("./web", moduleName)) {
+	if utils.FileExists(filepath.Join("./web", moduleName)) {
 		//Remove the module
 		log.Println("Removing Module: ", moduleName)
 		os.RemoveAll(filepath.Join("./web", moduleName))

@@ -11,6 +11,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type LargeFileScanner struct {
@@ -26,12 +27,12 @@ func NewLargeFileScanner(u *user.UserHandler) *LargeFileScanner {
 func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := s.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Check if limit is set. If yes, use the limit in return
-	limit, err := mv(r, "number", false)
+	limit, err := utils.GetPara(r, "number")
 	if err != nil {
 		limit = "20"
 	}
@@ -112,5 +113,5 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 
 	//Format the results and return
 	jsonString, _ := json.Marshal(fileList[:limitInt])
-	sendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }

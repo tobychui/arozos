@@ -54,7 +54,7 @@ type SubServiceRouter struct {
 
 func NewSubServiceRouter(ReservePaths []string, basePort int, userHandler *user.UserHandler, moduleHandler *modules.ModuleHandler, parentPort int) *SubServiceRouter {
 	//Create a service logger
-	thisLogger, _ := logger.NewLogger("system", "system/logs/subservice", true)
+	thisLogger, _ := logger.NewLogger("subserv", "system/logs/subservice", true)
 
 	return &SubServiceRouter{
 		ReservePaths:      ReservePaths,

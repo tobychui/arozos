@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type endpointFormat struct {
@@ -23,7 +23,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	sysdb := g.Option.UserHandler.GetDatabase()
 
 	if !sysdb.TableExists("external_agi") {
-		common.SendErrorResponse(w, "Invalid Request")
+		utils.SendErrorResponse(w, "Invalid Request")
 		return
 	}
 
@@ -33,7 +33,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	// check if it contains only two part, [rexec uuid]
 	if len(subpathElements) != 3 {
-		common.SendErrorResponse(w, "Invalid Request")
+		utils.SendErrorResponse(w, "Invalid Request")
 		return
 	}
 
@@ -41,7 +41,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	// get the info from the database
 	data, isExist := g.checkIfExternalEndpointExist(subpathElements[2])
 	if !isExist {
-		common.SendErrorResponse(w, "Malform Request, invaild UUID given")
+		utils.SendErrorResponse(w, "Malform Request, invaild UUID given")
 		return
 	}
 
@@ -51,12 +51,12 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	// get the userinfo and the realPath
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromUsername(usernameFromDb)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid username")
+		utils.SendErrorResponse(w, "Invalid username")
 		return
 	}
 	fsh, realPath, err := virtualPathToRealPath(pathFromDb, userInfo)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid filepath")
+		utils.SendErrorResponse(w, "Invalid filepath")
 		return
 	}
 
@@ -67,10 +67,10 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	duration := time.Since(start)
 
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	common.SendTextResponse(w, result)
+	utils.SendTextResponse(w, result)
 
 	log.Println("[Remote AGI] IP:", r.RemoteAddr, " executed the script ", pathFromDb, "(", realPath, ")", " on behalf of", userInfo.Username, "with total duration: ", duration)
 
@@ -79,7 +79,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 	// get db
@@ -90,9 +90,9 @@ func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 	var dat endpointFormat
 
 	// uuid: [path, id]
-	path, err := common.Mv(r, "path", false)
+	path, err := utils.GetPara(r, "path")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
@@ -104,19 +104,19 @@ func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 
 	jsonStr, err := json.Marshal(dat)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid JSON string: "+err.Error())
+		utils.SendErrorResponse(w, "Invalid JSON string: "+err.Error())
 		return
 	}
 	sysdb.Write("external_agi", id, string(jsonStr))
 
 	// send the uuid to frontend
-	common.SendJSONResponse(w, "\""+id+"\"")
+	utils.SendJSONResponse(w, "\""+id+"\"")
 }
 
 func (g *Gateway) RemoveExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -126,35 +126,35 @@ func (g *Gateway) RemoveExternalEndPoint(w http.ResponseWriter, r *http.Request)
 		sysdb.NewTable("external_agi")
 	}
 	// get path
-	uuid, err := common.Mv(r, "uuid", false)
+	uuid, err := utils.GetPara(r, "uuid")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid uuid given")
+		utils.SendErrorResponse(w, "Invalid uuid given")
 		return
 	}
 
 	// check if endpoint is here
 	data, isExist := g.checkIfExternalEndpointExist(uuid)
 	if !isExist {
-		common.SendErrorResponse(w, "UUID does not exists in the database!")
+		utils.SendErrorResponse(w, "UUID does not exists in the database!")
 		return
 	}
 
 	// make sure user cant see other's endpoint
 	if data.Username != userInfo.Username {
-		common.SendErrorResponse(w, "Permission denied")
+		utils.SendErrorResponse(w, "Permission denied")
 		return
 	}
 
 	// delete record
 	sysdb.Delete("external_agi", uuid)
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -170,7 +170,7 @@ func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
 	// O(n) method to do the lookup
 	entries, err := sysdb.ListTable("external_agi")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid table")
+		utils.SendErrorResponse(w, "Invalid table")
 		return
 	}
 	for _, keypairs := range entries {
@@ -189,10 +189,10 @@ func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
 	// marhsal and return
 	returnJson, err := json.Marshal(dataFromDB)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid JSON: "+err.Error())
+		utils.SendErrorResponse(w, "Invalid JSON: "+err.Error())
 		return
 	}
-	sendJSONResponse(w, string(returnJson))
+	utils.SendJSONResponse(w, string(returnJson))
 }
 
 func (g *Gateway) checkIfExternalEndpointExist(uuid string) (endpointFormat, bool) {

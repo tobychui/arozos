@@ -79,6 +79,7 @@ func (a aofs) Open(name string) (afero.File, error) {
 	if !a.checkAllowAccess(fsh, rewritePath, aofsCanWrite) {
 		return nil, errors.New("Permission denied")
 	}
+
 	return fsh.FileSystemAbstraction.Open(rewritePath)
 }
 
@@ -217,8 +218,9 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 		fshs := a.userinfo.GetAllFileSystemHandler()
 		for _, fsh := range fshs {
 			//Create a folder representation for this virtual directory
+
 			if !fsh.RequireBuffer {
-				fsh.FileSystemAbstraction.Mkdir(filepath.Join(a.tmpFolder, fsh.UUID), 0755)
+				os.MkdirAll(filepath.Join(a.tmpFolder, fsh.UUID), 0755)
 			}
 		}
 
@@ -246,13 +248,6 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 		if err != nil {
 			return nil, "", errors.New("File System Abstraction not found")
 		}
-
-		/*
-			if fsh.RequireBuffer {
-				//Not supported
-				return nil, "", errors.New("Buffered file system not supported by FTP driver")
-			}
-		*/
 
 		rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(fsh.UUID+":/"+strings.Join(remainingPaths, "/"), a.userinfo.Username)
 		if err != nil {

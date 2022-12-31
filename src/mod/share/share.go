@@ -36,12 +36,12 @@ import (
 	"github.com/valyala/fasttemplate"
 
 	"imuslab.com/arozos/mod/auth"
-	"imuslab.com/arozos/mod/common"
 	filesystem "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type Options struct {
@@ -236,7 +236,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 		resizedThumb := resize.Resize(250, 0, thumb, resize.Lanczos3)
 		draw.Draw(resultopg, resultopg.Bounds(), resizedThumb, image.Point{-(resultopg.Bounds().Dx() - resizedThumb.Bounds().Dx() - 90), -60}, draw.Over)
-	} else if isDir(shareEntry.FileRealPath) {
+	} else if utils.IsDir(shareEntry.FileRealPath) {
 		//Is directory but no thumbnail. Use default foldr share thumbnail
 		thumbnailFile, err := os.Open("./system/share/folder.png")
 		if err != nil {
@@ -269,7 +269,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	directServe := false
 	relpath := ""
 
-	id, err := mv(r, "id", false)
+	id, err := utils.GetPara(r, "id")
 	if err != nil {
 		//ID is not defined in the URL paramter. New ID defination is based on the subpath content
 		requestURI := filepath.ToSlash(filepath.Clean(r.URL.Path))
@@ -347,17 +347,17 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	} else {
 
 		//Parse and redirect to new share path
-		download, _ := mv(r, "download", false)
+		download, _ := utils.GetPara(r, "download")
 		if download == "true" {
 			directDownload = true
 		}
 
-		serve, _ := mv(r, "serve", false)
+		serve, _ := utils.GetPara(r, "serve")
 		if serve == "true" {
 			directServe = true
 		}
 
-		relpath, _ = mv(r, "rel", false)
+		relpath, _ = utils.GetPara(r, "rel")
 
 		redirectURL := "./" + id + "/"
 		if directDownload == true {
@@ -383,7 +383,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			} else {
@@ -396,7 +396,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -409,7 +409,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, allowedpg := range shareOption.Accessibles {
-				if inArray(thisUsersGroupByName, allowedpg) {
+				if utils.StringInArray(thisUsersGroupByName, allowedpg) {
 					//This required group is inside this user's group. OK
 				} else {
 					//This required group is not inside user's group. Reject
@@ -436,13 +436,13 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
 
 			//Check if username in the allowed user list
-			if !inArray(shareOption.Accessibles, thisuserinfo.Username) && shareOption.Owner != thisuserinfo.Username {
+			if !utils.StringInArray(shareOption.Accessibles, thisuserinfo.Username) && shareOption.Owner != thisuserinfo.Username {
 				//Serve permission denied page
 				if directDownload || directServe {
 					w.WriteHeader(http.StatusForbidden)
@@ -461,7 +461,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -474,7 +474,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, thisUserPg := range thisUsersGroupByName {
-				if inArray(shareOption.Accessibles, thisUserPg) {
+				if utils.StringInArray(shareOption.Accessibles, thisUserPg) {
 					allowAccess = true
 				}
 			}
@@ -886,23 +886,23 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 //Check if a file is shared
 func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 	//Get the vpath from paramters
-	vpath, err := mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		sendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	fsh, _ := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
 	pathHash, err := shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
 	if err != nil {
-		sendErrorResponse(w, "Unable to get share from given path")
+		utils.SendErrorResponse(w, "Unable to get share from given path")
 		return
 	}
 	type Result struct {
@@ -918,7 +918,7 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 			IsShared:  false,
 			ShareUUID: &shareEntry.ShareOption{},
 		})
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 
 	} else {
 		//Share exists
@@ -927,7 +927,7 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 			IsShared:  true,
 			ShareUUID: thisSharedInfo,
 		})
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	}
 
 }
@@ -935,34 +935,34 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 //Create new share from the given path
 func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 	//Get the vpath from paramters
-	vpath, err := mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		sendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get the target fsh that this vpath come from
 	vpathSourceFsh := userinfo.GetRootFSHFromVpathInUserScope(vpath)
 	if vpathSourceFsh == nil {
-		sendErrorResponse(w, "Invalid vpath given")
+		utils.SendErrorResponse(w, "Invalid vpath given")
 		return
 	}
 
 	share, err := s.CreateNewShare(userinfo, vpathSourceFsh, vpath)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	js, _ := json.Marshal(share)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 // Handle Share Edit.
@@ -977,17 +977,17 @@ func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
-	uuid, err := mv(r, "uuid", true)
+	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
-		sendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
-	shareMode, _ := mv(r, "mode", true)
+	shareMode, _ := utils.PostPara(r, "mode")
 	if shareMode == "" {
 		shareMode = "signedin"
 	}
@@ -996,20 +996,20 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 	so := s.options.ShareEntryTable.GetShareObjectFromUUID(uuid)
 	if so == nil {
 		//This share url not exists
-		sendErrorResponse(w, "Share UUID not exists")
+		utils.SendErrorResponse(w, "Share UUID not exists")
 		return
 	}
 
 	//Check if the user has permission to edit this share
 	if !s.CanModifyShareEntry(userinfo, so.FileVirtualPath) {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	//Validate and extract the storage mode
 	ok, sharetype, settings := validateShareModes(shareMode)
 	if !ok {
-		sendErrorResponse(w, "Invalid share setting")
+		utils.SendErrorResponse(w, "Invalid share setting")
 		return
 	}
 
@@ -1039,7 +1039,7 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 		s.options.ShareEntryTable.Database.Write("share", uuid, so)
 	}
 
-	sendOK(w)
+	utils.SendOK(w)
 
 }
 
@@ -1047,23 +1047,23 @@ func (s *Manager) HandleDeleteShare(w http.ResponseWriter, r *http.Request) {
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get the vpath from paramters
-	uuid, err := mv(r, "uuid", true)
+	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
 		//Try to get it from vpath
-		vpath, err := mv(r, "vpath", true)
+		vpath, err := utils.PostPara(r, "vpath")
 		if err != nil {
-			sendErrorResponse(w, "Invalid uuid or vpath given")
+			utils.SendErrorResponse(w, "Invalid uuid or vpath given")
 			return
 		}
 
 		targetSa := s.GetShareObjectFromUserAndVpath(userinfo, vpath)
 		if targetSa == nil {
-			sendErrorResponse(w, "Invalid uuid or vpath given")
+			utils.SendErrorResponse(w, "Invalid uuid or vpath given")
 			return
 		}
 		uuid = targetSa.UUID
@@ -1073,19 +1073,19 @@ func (s *Manager) HandleDeleteShare(w http.ResponseWriter, r *http.Request) {
 	err = s.DeleteShareByUUID(userinfo, uuid)
 
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 	} else {
-		sendOK(w)
+		utils.SendOK(w)
 	}
 }
 
 func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
-	fshId, _ := common.Mv(r, "fsh", false)
+	fshId, _ := utils.GetPara(r, "fsh")
 	results := []*shareEntry.ShareOption{}
 	if fshId == "" {
 		//List all
@@ -1103,7 +1103,7 @@ func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
 		//List fsh only
 		targetFsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(fshId)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		sharesInThisFsh := s.ListAllShareByFshId(targetFsh.UUID, userinfo)
@@ -1149,7 +1149,7 @@ func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(reducedResult)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 /*
@@ -1188,7 +1188,7 @@ func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSys
 func ServePermissionDeniedPage(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusForbidden)
 	pageContent := []byte("Permissioned Denied")
-	if fileExists("system/share/permissionDenied.html") {
+	if utils.FileExists("system/share/permissionDenied.html") {
 		content, err := ioutil.ReadFile("system/share/permissionDenied.html")
 		if err == nil {
 			pageContent = content
@@ -1208,7 +1208,7 @@ func ServePermissionDeniedPage(w http.ResponseWriter) {
 func validateShareModes(mode string) (bool, string, []string) {
 	// user:a,b,c,d
 	validModes := []string{"anyone", "signedin", "samegroup"}
-	if inArray(validModes, mode) {
+	if utils.StringInArray(validModes, mode) {
 		//Standard modes
 		return true, mode, []string{}
 	} else if len(mode) > 7 && mode[:7] == "groups:" {

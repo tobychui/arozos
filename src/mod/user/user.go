@@ -61,6 +61,7 @@ func (u *UserHandler) GetPermissionHandler() *permission.PermissionHandler {
 	return u.phandler
 }
 
+//Get the user's base storage pool, in most case it is the system pool
 func (u *UserHandler) GetStoragePool() *storage.StoragePool {
 	return u.basePool
 }
@@ -164,7 +165,7 @@ func (u *UserHandler) GetUsersInPermissionGroup(permissionGroupName string) ([]*
 	//Check if the given group exists
 	if u.phandler.GetPermissionGroupByName(permissionGroupName) == nil {
 		//Permission group with given name not exists
-		return results, errors.New("Permission group not exists")
+		return results, errors.New("permission group not exists")
 	}
 
 	AllRegisteredUsers := u.authAgent.ListUsers()

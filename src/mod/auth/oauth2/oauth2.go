@@ -14,6 +14,7 @@ import (
 	syncdb "imuslab.com/arozos/mod/auth/oauth2/syncdb"
 	reg "imuslab.com/arozos/mod/auth/register"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type OauthHandler struct {
@@ -63,11 +64,11 @@ func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, c
 func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	enabled := oh.readSingleConfig("enabled")
 	if enabled == "" || enabled == "false" {
-		sendTextResponse(w, "OAuth disabled")
+		utils.SendTextResponse(w, "OAuth disabled")
 		return
 	}
 	//add cookies
-	redirect, err := mv(r, "redirect", false)
+	redirect, err := utils.GetPara(r, "redirect")
 	//store the redirect url to the sync map
 	uuid := ""
 	if err != nil {
@@ -86,36 +87,36 @@ func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	enabled := oh.readSingleConfig("enabled")
 	if enabled == "" || enabled == "false" {
-		sendTextResponse(w, "OAuth disabled")
+		utils.SendTextResponse(w, "OAuth disabled")
 		return
 	}
 	//read the uuid(aka the state parameter)
 	uuid, err := r.Cookie("uuid_login")
 	if err != nil {
-		sendTextResponse(w, "Invalid redirect URI.")
+		utils.SendTextResponse(w, "Invalid redirect URI.")
 		return
 	}
 
-	state, err := mv(r, "state", true)
+	state, err := utils.PostPara(r, "state")
 	if state != uuid.Value {
-		sendTextResponse(w, "Invalid oauth state.")
+		utils.SendTextResponse(w, "Invalid oauth state.")
 		return
 	}
 	if err != nil {
-		sendTextResponse(w, "Invalid state parameter.")
+		utils.SendTextResponse(w, "Invalid state parameter.")
 		return
 	}
 
-	code, err := mv(r, "code", true)
+	code, err := utils.PostPara(r, "code")
 	if err != nil {
-		sendTextResponse(w, "Invalid state parameter.")
+		utils.SendTextResponse(w, "Invalid state parameter.")
 		return
 	}
 
 	//exchange the infromation to get code
 	token, err := oh.googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		sendTextResponse(w, "Code exchange failed.")
+		utils.SendTextResponse(w, "Code exchange failed.")
 		return
 	}
 
@@ -123,7 +124,7 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 	username, err := getUserInfo(token.AccessToken, oh.coredb)
 	if err != nil {
 		oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "web")
-		sendTextResponse(w, "Failed to obtain user info.")
+		utils.SendTextResponse(w, "Failed to obtain user info.")
 		return
 	}
 
@@ -136,7 +137,7 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 			http.Redirect(w, r, "/public/register/register.system?user="+username, http.StatusFound)
 		} else {
 			oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "web")
-			sendHTMLResponse(w, "You are not allowed to register in this system.&nbsp;<a href=\"/\">Back</a>")
+			utils.SendHTMLResponse(w, "You are not allowed to register in this system.&nbsp;<a href=\"/\">Back</a>")
 		}
 	} else {
 		log.Println(username + " logged in via OAuth.")
@@ -182,9 +183,9 @@ func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
 	}
 	json, err := json.Marshal(returnFormat{Enabled: enabledB, AutoRedirect: autoredirectB})
 	if err != nil {
-		sendErrorResponse(w, "Error occurred while marshalling JSON response")
+		utils.SendErrorResponse(w, "Error occurred while marshalling JSON response")
 	}
-	sendJSONResponse(w, string(json))
+	utils.SendJSONResponse(w, string(json))
 }
 
 //https://golangcode.com/add-a-http-cookie/
@@ -201,12 +202,12 @@ func (oh *OauthHandler) addCookie(w http.ResponseWriter, name, value string, ttl
 func (oh *OauthHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 	enabled, err := strconv.ParseBool(oh.readSingleConfig("enabled"))
 	if err != nil {
-		sendTextResponse(w, "Invalid config value [key=enabled].")
+		utils.SendTextResponse(w, "Invalid config value [key=enabled].")
 		return
 	}
 	autoredirect, err := strconv.ParseBool(oh.readSingleConfig("autoredirect"))
 	if err != nil {
-		sendTextResponse(w, "Invalid config value [key=autoredirect].")
+		utils.SendTextResponse(w, "Invalid config value [key=autoredirect].")
 		return
 	}
 	idp := oh.readSingleConfig("idp")
@@ -227,22 +228,24 @@ func (oh *OauthHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		empty, err := json.Marshal(Config{})
 		if err != nil {
-			sendErrorResponse(w, "Error while marshalling config")
+			utils.SendErrorResponse(w, "Error while marshalling config")
+			return
 		}
-		sendJSONResponse(w, string(empty))
+		utils.SendJSONResponse(w, string(empty))
+		return
 	}
-	sendJSONResponse(w, string(config))
+	utils.SendJSONResponse(w, string(config))
 }
 
 func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
-	enabled, err := mv(r, "enabled", true)
+	enabled, err := utils.PostPara(r, "enabled")
 	if err != nil {
-		sendErrorResponse(w, "enabled field can't be empty")
+		utils.SendErrorResponse(w, "enabled field can't be empty")
 		return
 	}
-	autoredirect, err := mv(r, "autoredirect", true)
+	autoredirect, err := utils.PostPara(r, "autoredirect")
 	if err != nil {
-		sendErrorResponse(w, "enabled field can't be empty")
+		utils.SendErrorResponse(w, "enabled field can't be empty")
 		return
 	}
 
@@ -251,27 +254,27 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 		showError = false
 	}
 
-	idp, err := mv(r, "idp", true)
+	idp, err := utils.PostPara(r, "idp")
 	if err != nil {
 		if showError {
-			sendErrorResponse(w, "idp field can't be empty")
+			utils.SendErrorResponse(w, "idp field can't be empty")
 			return
 		}
 	}
-	redirecturl, err := mv(r, "redirecturl", true)
+	redirecturl, err := utils.PostPara(r, "redirecturl")
 	if err != nil {
 		if showError {
-			sendErrorResponse(w, "redirecturl field can't be empty")
+			utils.SendErrorResponse(w, "redirecturl field can't be empty")
 			return
 		}
 	}
-	serverurl, err := mv(r, "serverurl", true)
+	serverurl, err := utils.PostPara(r, "serverurl")
 	if err != nil {
 		if showError {
 			if idp != "Gitlab" {
 				serverurl = ""
 			} else {
-				sendErrorResponse(w, "serverurl field can't be empty")
+				utils.SendErrorResponse(w, "serverurl field can't be empty")
 				return
 			}
 		}
@@ -280,17 +283,17 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 		serverurl = ""
 	}
 
-	clientid, err := mv(r, "clientid", true)
+	clientid, err := utils.PostPara(r, "clientid")
 	if err != nil {
 		if showError {
-			sendErrorResponse(w, "clientid field can't be empty")
+			utils.SendErrorResponse(w, "clientid field can't be empty")
 			return
 		}
 	}
-	clientsecret, err := mv(r, "clientsecret", true)
+	clientsecret, err := utils.PostPara(r, "clientsecret")
 	if err != nil {
 		if showError {
-			sendErrorResponse(w, "clientsecret field can't be empty")
+			utils.SendErrorResponse(w, "clientsecret field can't be empty")
 			return
 		}
 	}
@@ -312,7 +315,7 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 		Endpoint:     getEndpoint(oh.coredb),
 	}
 
-	sendOK(w)
+	utils.SendOK(w)
 }
 
 func (oh *OauthHandler) readSingleConfig(key string) string {

@@ -156,11 +156,16 @@ func (a ServerMessageBlockFileSystemAbstraction) Stat(filename string) (os.FileI
 }
 func (a ServerMessageBlockFileSystemAbstraction) Close() error {
 	//Stop connection checker
-	a.tickerChan <- true
+	go func() {
+		a.tickerChan <- true
+	}()
 
 	//Unmount the smb folder
+	time.Sleep(300 * time.Millisecond)
 	a.share.Umount()
+	time.Sleep(300 * time.Millisecond)
 	a.session.Logoff()
+	time.Sleep(300 * time.Millisecond)
 	conn := *(a.conn)
 	conn.Close()
 

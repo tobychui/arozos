@@ -20,6 +20,8 @@ import (
 	//"os/exec"
 	"errors"
 	"runtime"
+
+	"imuslab.com/arozos/mod/utils"
 	//"time"
 )
 
@@ -38,7 +40,7 @@ func NewSmartListener() (*SMARTListener, error) {
 		return &SMARTListener{}, errors.New("not supported platform")
 	}
 
-	if !(fileExists(smartExec)) {
+	if !(utils.FileExists(smartExec)) {
 		return &SMARTListener{}, errors.New("smartctl not found")
 	}
 
@@ -123,7 +125,7 @@ func fillCapacity(devicesList *DevicesList) {
 
 func (s *SMARTListener) GetSMART(w http.ResponseWriter, r *http.Request) {
 	jsonText, _ := json.Marshal(s.DriveList)
-	sendJSONResponse(w, string(jsonText))
+	utils.SendJSONResponse(w, string(jsonText))
 }
 
 func getBinary() string {

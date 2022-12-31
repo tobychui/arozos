@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
 	prout "imuslab.com/arozos/mod/prouter"
 	subservice "imuslab.com/arozos/mod/subservice"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -52,7 +52,7 @@ func SubserviceInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

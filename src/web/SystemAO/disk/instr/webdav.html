@@ -1,0 +1,50 @@
+<div class="ui message maconly instr" style="display:none; margin-top: 0;">
+    <h4><i class="apple icon"></i> Login Method for MacOS</h4>
+    <p>If you are using MacOS, you can select "Connect to Network Server", enter the endpoint of the arozos WebDAV service (<span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/{vroot_name}) and login with your arozos username and password.</p>
+</div>
+<div class="ui blue message windowonly nontls instr" style="display:none; margin-top: 0;">
+    <h4><i class="windows icon"></i> Login Method for Windows (Non SSL / TLS Mode)</h4>
+    <p>If you are using Windows File Explorer as your WebDAV Client without TLS enabled on arozos server, <b>WebDAV will run in compatibility mode and Basic Auth is not usable. You must authenticate through this Web UI. </b> Please follow the steps below to authenticate your Windows WebDAV Client.</p>
+    <ol class="ui list">
+        <li>Mount the WebDAV endpoint in your File Explorer (Endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/{vroot_name})</li>
+        <li>Connect with no username and password</li>
+        <li>You will be directed to a READONLY directory. Refresh this page and see if there is a new client pop up in the "Access Pending Clients" list.</li>
+        <li>Click "Allow Access" to assign your user storage pool to be accessiable by this Windows WebDAV Client(s). (Sometime more than 1 conncetions will be used by the same File Explorer)</li>
+        <li>Refresh your file list in File Explorer and your root folder (user:/) should be listed</li>
+    </ol>
+</div>
+<div class="ui teal message windowonly tls instr" style="display:none">
+    <h4><i class="windows icon"></i> Login Method for Windows (With SSL / TLS MODE)</h4>
+    <p>If you are using Windows File Explorer as your WebDAV Client, go to "My Computer" and add a network drive with the following endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/{vroot_name}</p>
+</div>
+<a onclick="showAllInstr(this);" style="cursor: pointer;">Show instruction for other platforms</a>
+<script>
+    var isMac = navigator.platform.indexOf('Mac') > -1;
+    var isWindows = navigator.platform.indexOf('Win') > -1;
+    
+    //Update tutorial information
+    $(".hostname").text(window.location.hostname);
+    $(".port").text(window.location.port);
+    if (window.location.port == ""){
+        $(".port").text("80");
+    }
+    $(".protocol").text(location.protocol);
+    if (isMac){
+        $(".maconly").show();
+    }else if (isWindows){
+        $(".windowonly").show();
+    }
+
+    //Check if running in HTTPS mode. If yes, hide this functions
+    if (location.protocol == 'https:'){
+        $("#nontlsWindowsSettings").hide();
+        $(".nontls").hide();
+    }else{
+        $(".tls").hide();
+    }
+
+    function showAllInstr(object){
+        $(".instr").show();
+        $(object).hide();
+    }
+</script>

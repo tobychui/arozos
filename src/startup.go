@@ -117,13 +117,15 @@ func RunStartup() {
 	notificationInit() //Notification system init
 
 	//Start High Level Services that requires full arozos architectures
-	FTPServerInit() //Start FTP Server Endpoints
-	WebDAVInit()    //Start WebDAV Endpoint
-	ClusterInit()   //Start Cluster Services
-	IoTHubInit()    //Inialize ArozOS IoT Hub module
+	FileServerInit()
+	//FTPServerInit() //Start FTP Server Endpoints
+	//WebDAVInit()    //Start WebDAV Endpoint
+	ClusterInit() //Start Cluster Services
+	IoTHubInit()  //Inialize ArozOS IoT Hub module
 
 	ModuleInstallerInit() //Start Module Installer
 
 	//Finally
 	moduleHandler.ModuleSortList() //Sort the system module list
+
 }

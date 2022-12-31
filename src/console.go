@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
-//Handle console command from the console module
+// Handle console command from the console module
 func consoleCommandHandler(input string) string {
 	//chunk := strings.Split(input, " ");
 	chunk, err := parseCommandLine(input)
@@ -24,7 +24,7 @@ func consoleCommandHandler(input string) string {
 			filename := chunk[2]
 			fmt.Println("Dumping user list to " + filename + " csv file")
 			csv := authAgent.ExportUserListAsCSV()
-			err := ioutil.WriteFile(filename, []byte(csv), 0755)
+			err := os.WriteFile(filename, []byte(csv), 0755)
 			if err != nil {
 				return err.Error()
 			}
@@ -88,7 +88,7 @@ func consoleCommandHandler(input string) string {
 				tableList = append(tableList, k.(string))
 				return true
 			})
-			if !common.StringInArray(tableList, chunk[2]) {
+			if !utils.StringInArray(tableList, chunk[2]) {
 				return "Table not exists"
 			} else if chunk[2] == "auth" {
 				return "You cannot view this database table"
@@ -211,7 +211,7 @@ func consoleCommandHandler(input string) string {
 	return "Invalid Command. Given: '" + strings.Join(chunk, " ") + "'"
 }
 
-//Check if the given line input match the requirement
+// Check if the given line input match the requirement
 func matchSubfix(chunk []string, match []string, minlength int, usageExample string) bool {
 	matching := true
 	//Check if the chunk contains minmium length of the command request

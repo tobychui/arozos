@@ -9,13 +9,13 @@ package main
 import (
 	"net/http"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/disk/diskcapacity"
 	"imuslab.com/arozos/mod/disk/diskmg"
 	diskspace "imuslab.com/arozos/mod/disk/diskspace"
 	smart "imuslab.com/arozos/mod/disk/smart"
 	sortfile "imuslab.com/arozos/mod/disk/sortfile"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func DiskServiceInit() {
@@ -26,7 +26,7 @@ func DiskServiceInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -71,7 +71,7 @@ func DiskServiceInit() {
 			AdminOnly:   true,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				common.SendErrorResponse(w, "Permission Denied")
+				utils.SendErrorResponse(w, "Permission Denied")
 			},
 		})
 

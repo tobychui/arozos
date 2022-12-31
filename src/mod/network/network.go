@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gitlab.com/NebulousLabs/go-upnp"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type NICS struct {
@@ -27,7 +28,7 @@ type NICS struct {
 func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		sendJSONResponse(w, err.Error())
+		utils.SendJSONResponse(w, err.Error())
 	}
 	var NICList []NICS
 	for _, i := range interfaces {
@@ -111,7 +112,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendJSONResponse(w, string(jsonData))
+	utils.SendJSONResponse(w, string(jsonData))
 }
 
 //Get the IP address of the NIC that can conncet to the internet
@@ -192,7 +193,7 @@ func IsIPv6Addr(ip string) (bool, error) {
 }
 
 func GetPing(w http.ResponseWriter, r *http.Request) {
-	sendJSONResponse(w, "pong")
+	utils.SendJSONResponse(w, "pong")
 }
 
 func GetIpFromRequest(r *http.Request) (string, error) {

@@ -83,6 +83,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 		}
 
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", "arozos-http-client/1.1")
 
 		//Send the request
 		client := &http.Client{}

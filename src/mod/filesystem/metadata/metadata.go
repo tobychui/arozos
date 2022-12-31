@@ -17,6 +17,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/fssort"
 	hidden "imuslab.com/arozos/mod/filesystem/hidden"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -137,7 +138,7 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 	//That object not exists. Generate cache image
 	//Audio formats that might contains id4 thumbnail
 	id4Formats := []string{".mp3", ".ogg", ".flac"}
-	if inArray(id4Formats, strings.ToLower(filepath.Ext(rpath))) {
+	if utils.StringInArray(id4Formats, strings.ToLower(filepath.Ext(rpath))) {
 		img, err := generateThumbnailForAudio(fsh, cacheFolder, rpath, generateOnly)
 		rh.renderingFiles.Delete(rpath)
 		return img, err
@@ -145,7 +146,7 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 
 	//Generate resized image for images
 	imageFormats := []string{".png", ".jpeg", ".jpg"}
-	if inArray(imageFormats, strings.ToLower(filepath.Ext(rpath))) {
+	if utils.StringInArray(imageFormats, strings.ToLower(filepath.Ext(rpath))) {
 		img, err := generateThumbnailForImage(fsh, cacheFolder, rpath, generateOnly)
 		rh.renderingFiles.Delete(rpath)
 		return img, err
@@ -153,7 +154,7 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 
 	//Video formats, extract from the 5 sec mark
 	vidFormats := []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
-	if inArray(vidFormats, strings.ToLower(filepath.Ext(rpath))) {
+	if utils.StringInArray(vidFormats, strings.ToLower(filepath.Ext(rpath))) {
 		img, err := generateThumbnailForVideo(fsh, cacheFolder, rpath, generateOnly)
 		rh.renderingFiles.Delete(rpath)
 		return img, err
@@ -161,7 +162,7 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 
 	//3D Model Formats
 	modelFormats := []string{".stl", ".obj"}
-	if inArray(modelFormats, strings.ToLower(filepath.Ext(rpath))) {
+	if utils.StringInArray(modelFormats, strings.ToLower(filepath.Ext(rpath))) {
 		img, err := generateThumbnailForModel(fsh, cacheFolder, rpath, generateOnly)
 		rh.renderingFiles.Delete(rpath)
 		return img, err

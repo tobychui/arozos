@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"imuslab.com/arozos/mod/common"
 	module "imuslab.com/arozos/mod/modules"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type settingModule struct {
@@ -91,16 +91,16 @@ func system_setting_getSettingGroups() []settingGroup {
 			Name:     "Clusters & Scheduling",
 			Group:    "Cluster",
 			IconPath: "SystemAO/system_setting/img/cluster.svg",
-			Desc:     "System Functions related to Time and Dates",
+			Desc:     "Cluster, Network Scanning and Task Scheduling",
 		},
 		{
-			Name:     "Security & Keys",
+			Name:     "Security & Auth",
 			Group:    "Security",
 			IconPath: "SystemAO/system_setting/img/security.svg",
-			Desc:     "System Security and Keypairs",
+			Desc:     "System Security and Auth Credentials",
 		},
 		{
-			Name:     "Advance Options",
+			Name:     "Developer Options",
 			Group:    "Advance",
 			IconPath: "SystemAO/system_setting/img/code.svg",
 			Desc:     "Advance configs for developers",
@@ -122,12 +122,12 @@ func registerSetting(thismodule settingModule) {
 func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	allSettingGroups := system_setting_getSettingGroups()
-	listGroup, _ := common.Mv(r, "listGroup", false)
+	listGroup, _ := utils.GetPara(r, "listGroup")
 	if len(listGroup) > 0 {
 		//List the given group
 		var results []settingModule
@@ -147,18 +147,18 @@ func system_setting_handleListing(w http.ResponseWriter, r *http.Request) {
 
 		if len(results) > 0 {
 			jsonString, _ := json.Marshal(results)
-			common.SendJSONResponse(w, string(jsonString))
+			utils.SendJSONResponse(w, string(jsonString))
 			return
 		} else {
 			//This group not found,
-			common.SendErrorResponse(w, "Group not found")
+			utils.SendErrorResponse(w, "Group not found")
 			return
 		}
 
 	} else {
 		//List all root groups
 		jsonString, _ := json.Marshal(allSettingGroups)
-		common.SendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 		return
 	}
 

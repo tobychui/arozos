@@ -56,9 +56,9 @@ func executeShutdownSequence() {
 	StopNetworkServices()
 
 	//Shutdown FTP Server
-	if ftpServer != nil {
+	if FTPManager != nil {
 		systemWideLogger.PrintAndLog("System", "<!> Shutting down FTP Server", nil)
-		ftpServer.Close()
+		FTPManager.StopFtpServer()
 	}
 
 	//Cleaning up tmp files
@@ -86,9 +86,6 @@ func main() {
 		enablehw := false
 		allow_hardware_management = &enablehw
 	}
-
-	//Setup handler for Ctrl +C
-	SetupCloseHandler()
 
 	//Clean up previous tmp files
 	final_tmp_directory := filepath.Clean(*tmp_directory) + "/tmp/"
@@ -129,6 +126,9 @@ func main() {
 	if *demo_mode {
 		sysdb.UpdateReadWriteMode(true)
 	}
+
+	//Setup handler for Ctrl +C
+	SetupCloseHandler()
 
 	//Start http server
 	go func() {

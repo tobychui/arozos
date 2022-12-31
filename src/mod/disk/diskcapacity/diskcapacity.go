@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/disk/diskcapacity/dftool"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -43,20 +43,20 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 	//Check if the request user is authenticated
 	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get vpath from paramter
-	vpath, err := common.Mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		common.SendErrorResponse(w, "Vpath is not defined")
+		utils.SendErrorResponse(w, "Vpath is not defined")
 		return
 	}
 
 	capinfo, err := cr.ResolveCapacityInfo(userinfo.Username, vpath)
 	if err != nil {
-		common.SendErrorResponse(w, "Unable to resolve path capacity information: "+err.Error())
+		utils.SendErrorResponse(w, "Unable to resolve path capacity information: "+err.Error())
 		return
 	}
 
@@ -70,7 +70,7 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 
 	//Send the requested path capacity information
 	js, _ := json.Marshal(capinfo)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 
 }
 
@@ -93,7 +93,7 @@ func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (*Capacit
 
 	realpath = filepath.ToSlash(filepath.Clean(realpath))
 
-	if common.FileExists(realpath) && !arozfs.IsNetworkDrive(fsh.Filesystem) {
+	if utils.FileExists(realpath) && !arozfs.IsNetworkDrive(fsh.Filesystem) {
 		//This is a local disk
 		capinfo, err := dftool.GetCapacityInfoFromPath(realpath)
 		if err != nil {

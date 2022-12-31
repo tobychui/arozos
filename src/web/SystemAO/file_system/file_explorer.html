@@ -1536,6 +1536,7 @@
                 let loadStartPath = currentPath;
                 $.ajax({
                     url: "../../system/file_system/sortMode",
+                    metod: "POST",
                     data: {opr: "get", folder: currentPath},
                     success: function(data){
                         if (data.error == undefined){
@@ -5040,7 +5041,7 @@
                                 $(this).addClass("ended");
 
                                 //Update 15-11-2020
-                                //Remove this taskbar after 3 secounds to prevent lags during > 2000 uploads
+                                //Remove this taskbar after 3 seconds to prevent lags during > 2000 uploads
                                 $.when($(this).delay(1000).fadeOut("fast")).then(function(){
                                     $(this).remove();
                                     updateUploadFileCount();

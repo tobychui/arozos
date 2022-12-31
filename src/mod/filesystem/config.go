@@ -66,7 +66,7 @@ func ValidateOption(options *FileSystemOption) error {
 	}
 
 	//Check if mount point exists
-	if options.Mountpt != "" && !arozfs.IsNetworkDrive(options.Filesystem) {
+	if options.Automount && options.Mountpt == "" && !arozfs.IsNetworkDrive(options.Filesystem) {
 		return errors.New("Mount point cannot be empty")
 	}
 

@@ -11,6 +11,7 @@ import (
 	"imuslab.com/arozos/mod/agi"
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -176,7 +177,7 @@ func serveNotFoundTemplate(w http.ResponseWriter, r *http.Request) {
 
 func handleWebrootError(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusInternalServerError)
-	if fileExists("./system/www/nowebroot.html") {
+	if utils.FileExists("./system/www/nowebroot.html") {
 		content, err := ioutil.ReadFile("./system/www/nowebroot.html")
 		if err != nil {
 			w.Write([]byte("500 - Internal Server Error"))

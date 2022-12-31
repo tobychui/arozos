@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func (u *User) GetHomeDirectory() (string, error) {
@@ -39,7 +39,7 @@ func (u *User) GetAllAccessibleFileSystemHandler() []*fs.FileSystemHandler {
 //Try to get the root file system handler from vpath where the root file system handler must be in user scope of permission
 func (u *User) GetRootFSHFromVpathInUserScope(vpath string) *fs.FileSystemHandler {
 	allFsh := u.GetAllAccessibleFileSystemHandler()
-	var vpathSourceFsh *filesystem.FileSystemHandler
+	var vpathSourceFsh *fs.FileSystemHandler
 	for _, thisFsh := range allFsh {
 		if thisFsh.IsRootOf(vpath) {
 			vpathSourceFsh = thisFsh
@@ -54,7 +54,7 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	uuids := []string{}
 	//Get all FileSystem Handler from this user's Home Directory (aka base directory)
 	for _, store := range u.HomeDirectories.Storages {
-		if store.Closed == false {
+		if !store.Closed {
 			//Only return opened file system handlers
 			results = append(results, store)
 			uuids = append(uuids, store.UUID)
@@ -67,8 +67,8 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 		//For each permission group that this user is in
 		for _, store := range pg.StoragePool.Storages {
 			//Get each of the storage of this permission group is assigned to
-			if !inSlice(uuids, store.UUID) {
-				if store.Closed == false {
+			if !utils.StringInArray(uuids, store.UUID) {
+				if !store.Closed {
 					//Only return opened file system handlers
 					results = append(results, store)
 					uuids = append(uuids, store.UUID)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/utils"
 )
 
 //Inject aroz online custom functions into the virtual machine
@@ -362,7 +363,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 
 			//Check if the script file exists
 			targetScriptPath := filepath.ToSlash(filepath.Join(filepath.Dir(scriptFile), scriptName))
-			if !fileExists(targetScriptPath) {
+			if !utils.FileExists(targetScriptPath) {
 				g.raiseError(errors.New("*AGI* Target path not exists!"))
 				return otto.FalseValue()
 			}

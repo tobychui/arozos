@@ -85,7 +85,10 @@ func (a *SSDPHost) Start() {
 		for {
 			select {
 			case <-aliveTick:
-				ad.Alive()
+				if ad != nil {
+					ad.Alive()
+				}
+
 			case <-quit:
 				ad.Bye()
 				ad.Close()

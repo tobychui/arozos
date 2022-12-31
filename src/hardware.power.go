@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func HardwarePowerInit() {
@@ -31,9 +31,9 @@ func HardwarePowerInit() {
 
 func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
 	if *allow_hardware_management {
-		common.SendJSONResponse(w, "true")
+		utils.SendJSONResponse(w, "true")
 	} else {
-		common.SendJSONResponse(w, "false")
+		utils.SendJSONResponse(w, "false")
 	}
 }
 
@@ -46,25 +46,25 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userinfo.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	if !sudo_mode {
-		common.SendErrorResponse(w, "Sudo mode required")
+		utils.SendErrorResponse(w, "Sudo mode required")
 		return
 	}
 
 	//Double check password for this user
-	password, err := common.Mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
-		common.SendErrorResponse(w, "Password Incorrect")
+		utils.SendErrorResponse(w, "Password Incorrect")
 		return
 	}
 
 	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		common.SendErrorResponse(w, rejectionReason)
+		utils.SendErrorResponse(w, rejectionReason)
 		return
 	}
 
@@ -74,7 +74,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			systemWideLogger.PrintAndLog("Power", string(out), err)
-			common.SendErrorResponse(w, string(out))
+			utils.SendErrorResponse(w, string(out))
 		}
 		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
@@ -85,7 +85,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			systemWideLogger.PrintAndLog("Power", string(out), err)
-			common.SendErrorResponse(w, string(out))
+			utils.SendErrorResponse(w, string(out))
 		}
 		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
@@ -96,12 +96,12 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			systemWideLogger.PrintAndLog("Power", string(out), err)
-			common.SendErrorResponse(w, string(out))
+			utils.SendErrorResponse(w, string(out))
 		}
 		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
@@ -113,25 +113,25 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userinfo.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	if !sudo_mode {
-		common.SendErrorResponse(w, "Sudo mode required")
+		utils.SendErrorResponse(w, "Sudo mode required")
 		return
 	}
 
 	//Double check password for this user
-	password, err := common.Mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
-		common.SendErrorResponse(w, "Password Incorrect")
+		utils.SendErrorResponse(w, "Password Incorrect")
 		return
 	}
 
 	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		common.SendErrorResponse(w, rejectionReason)
+		utils.SendErrorResponse(w, rejectionReason)
 		return
 	}
 
@@ -141,7 +141,7 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			systemWideLogger.PrintAndLog("Power", string(out), err)
-			common.SendErrorResponse(w, string(out))
+			utils.SendErrorResponse(w, string(out))
 		}
 		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
@@ -152,7 +152,7 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			systemWideLogger.PrintAndLog("Power", string(out), err)
-			common.SendErrorResponse(w, string(out))
+			utils.SendErrorResponse(w, string(out))
 		}
 		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
@@ -163,9 +163,9 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			systemWideLogger.PrintAndLog("Power", string(out), err)
-			common.SendErrorResponse(w, string(out))
+			utils.SendErrorResponse(w, string(out))
 		}
 		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
-	common.SendOK(w)
+	utils.SendOK(w)
 }

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	uuid "github.com/satori/go.uuid"
-	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -92,7 +92,7 @@ func systemIdHandlePing(w http.ResponseWriter, r *http.Request) {
 	}{
 		"OK",
 	})
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 func systemIdGenerateSystemUUID() {
@@ -138,13 +138,13 @@ func systemHandleListLicense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(results)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 	//Check if user has logged in
 	if authAgent.CheckAuth(r) == false {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -172,7 +172,7 @@ func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 		VendorIcon: iconVendor,
 	})
 
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 func systemIdResponseBetaScan(w http.ResponseWriter, r *http.Request) {
@@ -209,5 +209,5 @@ func systemIdGetDriveStates(w http.ResponseWriter, r *http.Request) {
 		"-1B/-1B",
 	})
 	jsonString, _ := json.Marshal(results)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }

@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +27,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }
 
 func Ifconfig(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +41,7 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +65,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetUSB(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +79,7 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
@@ -92,5 +94,5 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }

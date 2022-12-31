@@ -40,7 +40,7 @@
 				border: 0px !important;
 			}
 
-			.rightMenuItem button:not(.inverted){
+			.rightMenuItem button:not(.inverted):not(.sidebarToggle.selected){
 				background-color: white !important;
 			}
 
@@ -73,7 +73,7 @@
 				border-bottom: 2px solid #41e8e5;
 			}
 
-			#bookmarkbar{
+			.sidebar{
 				position: fixed;
 				right: 0px;
 				top: 42px;
@@ -87,6 +87,20 @@
 				-webkit-box-shadow: -10px 1px 11px -5px rgba(0,0,0,0.15);
 				-moz-box-shadow: -10px 1px 11px -5px rgba(0,0,0,0.15);
 
+			}
+
+			.sidebarToggle.selected{
+				background-color: #e2e2e2 !important;
+			}
+
+			#downloadDropper{
+				border: 1px solid grey;
+				width: 100%;
+				height: 200px;
+				cursor: move; /* fallback if grab cursor is unsupported */
+    			cursor: grab;
+				padding: 1em;
+				text-align: center;
 			}
 
 		</style>
@@ -116,7 +130,7 @@
 			</div>
 			<div class="right menu">
 				<div class="ui rightMenuItem">
-					<button class="ui tiny icon button" onclick="toggleBookmark();">
+					<button class="ui tiny icon button sidebarToggle" onclick="toggleBookmark(this);">
 						<i class="blue bookmark icon"></i>
 					</button>
 				</div>
@@ -130,16 +144,38 @@
 						<i class="grey external icon"></i>
 					</button>
 				</div>
+				<div class="ui rightMenuItem">
+					<button class="ui tiny icon button sidebarToggle" title="Download Manager" onclick="toggleDownloadManager(this);">
+						<i class="grey download icon"></i>
+					</button>
+				</div>
 			</div>
 		  </div>
 		  <iframe id="xframe" src="./blank.html" allow="fullscreen" referrerpolicy="no-referrer">
 
 		  </iframe>
-		  <div id="bookmarkbar" style="display:none;">
+		  <div id="bookmarkbar" class="sidebar" style="display:none;">
 			<div class="ui container">
 				<div id="bookmarklist" class="ui middle aligned divided list">
 					
 				</div>
+			</div>
+		  </div>
+		  <div id="downloadManager" class="sidebar" style="display:none;">
+			<div class="ui container">
+				<div id="downloadDropper" allowdrop="true" ondrop="drop(event)" ondragstart="return false;" onclick="event.preventDefault(); openURLEnter();" ondblclick="event.preventDefault();event.stopImmediatePropagation();" ondragover="allowDrop(event);" draggable="false">
+					<p style="margin-top: 3em;">Drop a link, image into this area; or click this area to enter a URL for download</p>
+				</div>
+				<div class="ui action fluid input" id="iframeMode" style="display:none;">
+					<input type="text" id="manualInputURL" placeholder="Copy link here to download">
+					<button class="ui icon green basic button" onclick="downloadFromManualInputURL();"><i class="ui download icon"></i></button>
+				</div>
+			</div>
+			
+			<div class="ui divider"></div>
+			<p>Downloaded Files</p>
+			<div class="ui list" id="downloadList" style="min-height: 300px;">
+				
 			</div>
 		  </div>
 		  <div id="notvdiWarning">
@@ -155,9 +191,138 @@
 			let historyStack = [];
 			let historyPopStack = [];
 			let currentURL = "about:blank";
+			let downloadPendingURL = "newfile.txt";
+			let preferDownloadLocation = "user:/Desktop";
 			let currentTitle = "";
 			let bookmarkBuffer = [];
 			let titleBuffer = {};
+
+			//Drag drop download function
+			function drop(ev) {
+				ev.preventDefault();
+				ev.stopImmediatePropagation();
+				var target = $(ev.target);
+				if (!(target.is("div") || target.is("a"))) {
+					target = $(target).parent();
+				}
+
+				var linkObject = ev.dataTransfer.getData('text/html');
+				window.debug = ev.dataTransfer;
+            	var remoteLink = ($(linkObject).find("a").length>0 || $(linkObject).is("a"))? ($(linkObject).find("a").attr("href")|| $(linkObject).attr("href")):($(linkObject).find("img").length>0?$(linkObject).find('img').attr("src"):($(linkObject).attr('src')!=""?$(linkObject).attr('src'):undefined));
+				console.log(ev.dataTransfer, linkObject, remoteLink);
+				if (remoteLink == undefined){
+					return;
+				}
+
+				downloadToFile(remoteLink);
+			}
+
+			function allowDrop(ev) {
+				ev.preventDefault();
+			}
+
+			function openURLEnter(){
+				let url = prompt("Enter the URL to be downloaded", "http://");
+				url = url.trim();
+				if (url == null || url == undefined || url == "http://" || url == "https://"){
+					return;
+				}
+				downloadToFile(url);
+			}
+
+			function downloadFromManualInputURL(){
+				var url = $("#manualInputURL").val();
+				downloadToFile(url);
+			}
+
+			function downloadToFile(downloadURL){
+				downloadPendingURL = downloadURL;
+				selectSaveLocation();
+			}
+
+			//save location selector
+			function selectSaveLocation() {
+				var filename = decodeURI(downloadPendingURL.split("/").pop().split("?").shift());
+				option = {
+					defaultName: filename //Default filename used in new operation
+				}
+				ao_module_openFileSelector(fileSelected, preferDownloadLocation, "new", false, option);
+			}
+
+			function updateDownloadProg(elementId){
+				if ($("#" + elementId).attr("status") ==  "downloading"){
+					//This task is still downloading. Get its current size and 
+					//arrange next progress update check
+					ao_module_agirun("Browser/functions/sizechk.js", {
+						filepath: $("#" + elementId).attr('fpath')
+					}, function(data){
+						console.log(data);
+						if (data == -1){
+							$("#" + elementId).find(".downproc").text("[Starting]");
+						}else{
+							$("#" + elementId).find(".downproc").text("[" + ao_module_utils.formatBytes(data, 1) + "]");
+						}
+						
+						setTimeout(function(){
+							updateDownloadProg(elementId);
+						}, 1000);
+					});
+					
+				}else{
+					$("#" + elementId).find(".downproc").text("");
+				}
+			}
+
+			function fileSelected(filedata) {
+				var fileFullpath = filedata[0].filepath;
+				var pathchunk = fileFullpath.split("/");
+				var filename = pathchunk.pop();
+				var filepath = pathchunk.join("/");
+				preferDownloadLocation = filepath;
+				
+				//Append a download pending item to the list
+				var thisDownloadUUID = "download_" + Date.now(); 
+				$("#downloadList").append(`
+					<div class="item downloadTask" id="${thisDownloadUUID}" fpath="${fileFullpath}" status="downloading">
+						<i class="download icon mainicon"></i>
+						<a class="content" onclick="openFileLocation('${filepath}', '${filename}');">
+							${filename} <span class="downproc"></span>
+						</a>
+					</div>
+				`);
+				updateDownloadProg(thisDownloadUUID);
+
+				//Call AGI to download the file
+				ao_module_agirun("Browser/functions/download.js", {
+					link: downloadPendingURL,
+					filename: filename,
+					filepath: filepath
+				}, function(data){
+					console.log(data);
+					$("#" + thisDownloadUUID).find(".mainicon").attr("class", "green checkmark icon mainicon");
+					$("#" + thisDownloadUUID).attr("status", "done");
+				}, function(){
+					//Error callback
+					$("#" + thisDownloadUUID).find(".mainicon").attr("class", "red remove icon mainicon");
+					$("#" + thisDownloadUUID).attr("status", "error");
+				})
+			}
+
+			function openFileLocation(filepath, filename){
+				ao_module_openPath(filepath, filename);
+			}
+
+			function allowDragAndDrop(enable=false){
+				if(enable){
+					$("#downloadDropper").show();
+					$("#iframeMode").hide();
+				}else{
+					$("#downloadDropper").hide();
+					$("#iframeMode").show();
+				}
+			}
+
+
 
 			//Check if currently under vdi mode
 			if (ao_module_virtualDesktop == false){
@@ -168,8 +333,24 @@
 				$(this).closest('.message').transition('fade');
 			});
 
-			function toggleBookmark(){
+			function toggleBookmark(object){
+				$(".sidebar:not(#bookmarkbar)").hide();
+				var isVisable = $("#bookmarkbar").is(":visible")
 				$("#bookmarkbar").fadeToggle('fast');
+				$(".sidebarToggle.selected").removeClass("selected");
+				if (!isVisable){
+					$(object).addClass('selected');
+				}
+			}
+
+			function toggleDownloadManager(object){
+				$(".sidebar:not(#downloadManager)").hide();
+				var isVisable = $("#downloadManager").is(":visible")
+				$("#downloadManager").fadeToggle('fast');
+				$(".sidebarToggle.selected").removeClass("selected");
+				if (!isVisable){
+					$(object).addClass('selected');
+				}
 			}
 
 			//Perform window resize element size calculation
@@ -247,6 +428,7 @@
 						historyStack.push(JSON.parse(JSON.stringify(currentURL)));
 					}
 					currentURL = targetURL;
+					allowDragAndDrop(false);
 					return;
 				}
 
@@ -281,6 +463,7 @@
 						$("#xframe").attr("src", "notfound.html#" + targetURL);
 					}else{
 						if (allowIframe == true){
+							allowDragAndDrop(false);
 							$("#xframe").removeAttr("srcdoc");
 							$("#xframe").attr("src", targetURL);
 							$("#toolbar").removeClass("proxy");
@@ -299,6 +482,7 @@
 								$("#xframe").off("load");
 							});
 						}else{
+							allowDragAndDrop(true);
 							proxyWebContent(targetURL, function(content){
 								$("#xframe").attr("src", "");
 								$("#xframe").attr("srcdoc", content);

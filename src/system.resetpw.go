@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	auth "imuslab.com/arozos/mod/auth"
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -22,52 +22,52 @@ func system_resetpw_init() {
 
 //Validate if the ysername and rkey is valid
 func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Request) {
-	username, err := common.Mv(r, "username", true)
+	username, err := utils.PostPara(r, "username")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid username or key")
+		utils.SendErrorResponse(w, "Invalid username or key")
 		return
 	}
-	rkey, err := common.Mv(r, "rkey", true)
+	rkey, err := utils.PostPara(r, "rkey")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid username or key")
+		utils.SendErrorResponse(w, "Invalid username or key")
 		return
 	}
 
 	if username == "" || rkey == "" {
-		common.SendErrorResponse(w, "Invalid username or rkey")
+		utils.SendErrorResponse(w, "Invalid username or rkey")
 		return
 	}
 
 	//Check if the pair is valid
 	err = system_resetpw_validateResetKey(username, rkey)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 
 }
 
 func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
-	username, _ := common.Mv(r, "username", true)
-	rkey, _ := common.Mv(r, "rkey", true)
-	newpw, _ := common.Mv(r, "pw", true)
+	username, _ := utils.PostPara(r, "username")
+	rkey, _ := utils.PostPara(r, "rkey")
+	newpw, _ := utils.PostPara(r, "pw")
 	if username == "" || rkey == "" || newpw == "" {
-		common.SendErrorResponse(w, "Internal Server Error")
+		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 
 	//Check user exists
 	if !authAgent.UserExists(username) {
-		common.SendErrorResponse(w, "Username not exists")
+		utils.SendErrorResponse(w, "Username not exists")
 		return
 	}
 
 	//Validate rkey
 	err := system_resetpw_validateResetKey(username, rkey)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -75,11 +75,11 @@ func system_resetpw_confirmReset(w http.ResponseWriter, r *http.Request) {
 	newHashedPassword := auth.Hash(newpw)
 	err = sysdb.Write("auth", "passhash/"+username, newHashedPassword)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 
 }
 
@@ -102,13 +102,13 @@ func system_resetpw_validateResetKey(username string, key string) error {
 
 func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) {
 	//Check if the user click on this link with reset password key string. If not, ask the user to input one
-	acc, err := common.Mv(r, "acc", false)
+	acc, err := utils.GetPara(r, "acc")
 	if err != nil || acc == "" {
 		system_resetpw_serveIdEnterInterface(w, r)
 		return
 	}
 
-	resetkey, err := common.Mv(r, "rkey", false)
+	resetkey, err := utils.GetPara(r, "rkey")
 	if err != nil || resetkey == "" {
 		system_resetpw_serveIdEnterInterface(w, r)
 		return
@@ -117,13 +117,13 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 	//Check if the code is valid
 	err = system_resetpw_validateResetKey(acc, resetkey)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid username or resetKey")
+		utils.SendErrorResponse(w, "Invalid username or resetKey")
 		return
 	}
 
 	//OK. Create the New Password Entering UI
-	imageBase64, _ := common.LoadImageAsBase64("./web/" + iconVendor)
-	template, err := common.Templateload("system/reset/resetPasswordTemplate.html", map[string]interface{}{
+	imageBase64, _ := utils.LoadImageAsBase64("./web/" + iconVendor)
+	template, err := utils.Templateload("system/reset/resetPasswordTemplate.html", map[string]interface{}{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,
 		"username":    acc,
@@ -138,8 +138,8 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 
 func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request) {
 	//Reset Key or Username not found, Serve entering interface
-	imageBase64, _ := common.LoadImageAsBase64("./web/" + iconVendor)
-	template, err := common.Templateload("system/reset/resetCodeTemplate.html", map[string]interface{}{
+	imageBase64, _ := utils.LoadImageAsBase64("./web/" + iconVendor)
+	template, err := utils.Templateload("system/reset/resetCodeTemplate.html", map[string]interface{}{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,
 	})

@@ -9,6 +9,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 //Get the full vpath if the passing value is a relative path
@@ -57,7 +58,7 @@ func checkUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope
 
 //validate the given path is a script from webroot
 func isValidAGIScript(scriptPath string) bool {
-	return fileExists(filepath.Join("./web", scriptPath)) && (filepath.Ext(scriptPath) == ".js" || filepath.Ext(scriptPath) == ".agi")
+	return utils.FileExists(filepath.Join("./web", scriptPath)) && (filepath.Ext(scriptPath) == ".js" || filepath.Ext(scriptPath) == ".agi")
 }
 
 //Return the script root of the current executing script
@@ -78,4 +79,24 @@ func specialURIDecode(inputPath string) string {
 	inputPath, _ = url.QueryUnescape(inputPath)
 	inputPath = strings.ReplaceAll(inputPath, "{{plus_sign}}", "+")
 	return inputPath
+}
+
+//Check if the target path is escaping the rootpath, accept relative and absolute path
+func checkRootEscape(rootPath string, targetPath string) (bool, error) {
+	rootAbs, err := filepath.Abs(rootPath)
+	if err != nil {
+		return true, err
+	}
+
+	targetAbs, err := filepath.Abs(targetPath)
+	if err != nil {
+		return true, err
+	}
+
+	if len(targetAbs) < len(rootAbs) || targetAbs[:len(rootAbs)] != rootAbs {
+		//Potential path escape. Return true
+		return true, nil
+	}
+
+	return false, nil
 }

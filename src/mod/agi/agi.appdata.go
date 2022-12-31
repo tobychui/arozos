@@ -10,6 +10,7 @@ import (
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/filesystem"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -40,7 +41,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 		}
 
 		//Check if this is path escape
-		escaped, err := g.checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
+		escaped, err := checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
@@ -53,7 +54,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 
 		//Check if file exists
 		targetFile := filepath.Join(webRoot, relpath)
-		if fileExists(targetFile) && !filesystem.IsDir(targetFile) {
+		if utils.FileExists(targetFile) && !filesystem.IsDir(targetFile) {
 			content, err := ioutil.ReadFile(targetFile)
 			if err != nil {
 				g.raiseError(err)
@@ -81,7 +82,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 		}
 
 		//Check if this is path escape
-		escaped, err := g.checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
+		escaped, err := checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
@@ -94,7 +95,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 
 		//Check if file exists
 		targetFolder := filepath.Join(webRoot, relpath)
-		if fileExists(targetFolder) && filesystem.IsDir(targetFolder) {
+		if utils.FileExists(targetFolder) && filesystem.IsDir(targetFolder) {
 			//Glob the directory for filelist
 			files, err := filepath.Glob(filepath.ToSlash(filepath.Clean(targetFolder)) + "/*")
 			if err != nil {

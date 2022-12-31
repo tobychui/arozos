@@ -11,13 +11,13 @@ import (
 	"strconv"
 	"strings"
 
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
 	rx, tx, err := GetNetworkInterfaceStats()
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -30,7 +30,7 @@ func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(currnetNetSpec)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Get network interface stats, return accumulated rx bits, tx bits and error if any

@@ -3763,9 +3763,16 @@
             var sourceFilepath = ev.dataTransfer.getData("filepath");
             //To handle multiple file transfer from file explorer
             var sourceFilelist = ev.dataTransfer.getData("filedata"); 
+
+            //To handle drag dropping URLs onto desktop
+            var linkObject = ev.dataTransfer.getData('text/html');
+            var remoteLink = ($(linkObject).find("a").length>0 || $(linkObject).is("a"))? ($(linkObject).find("a").attr("href")|| $(linkObject).attr("href")):($(linkObject).find("img").length>0?$(linkObject).find('img').attr("src"):($(linkObject).attr('src')!=""?$(linkObject).attr('src'):undefined));
+            //var remoteSrc = $(linkObject).find("img").length>0?$(linkObject).find('img').attr("src"):undefined; //If dragging in media (e.g. img / audio)
             console.log(target)
             console.log(sourceFilename);
             console.log(sourceFilepath);
+            console.log(remoteLink);
+            
             if (sourceFilelist !== ""){
                 sourceFilelist = JSON.parse(sourceFilelist);
             }
@@ -4672,11 +4679,10 @@
                                             if (data.error !== undefined){
                                                 console.log(data.error);
                                             }
-                                           
+                                            refresh(undefined, true);
                                         }
                                     });
                                 });
-                                refresh(undefined, true);
                             }
                         }
                     });

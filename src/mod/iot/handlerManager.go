@@ -2,11 +2,11 @@ package iot
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -62,7 +62,7 @@ func (m *Manager) HandleScannerList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(stats)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Get the device object by id
@@ -77,9 +77,9 @@ func (m *Manager) GetDeviceByID(devid string) *Device {
 
 //Handle listing of all avaible scanner and its stats
 func (m *Manager) HandleIconLoad(w http.ResponseWriter, r *http.Request) {
-	devid, err := mv(r, "devid", false)
+	devid, err := utils.GetPara(r, "devid")
 	if err != nil {
-		sendErrorResponse(w, "Invalid device id")
+		utils.SendErrorResponse(w, "Invalid device id")
 		return
 	}
 
@@ -88,8 +88,8 @@ func (m *Manager) HandleIconLoad(w http.ResponseWriter, r *http.Request) {
 	iconName := targetDevice.Handler.Icon(targetDevice)
 
 	iconFilePath := "./web/SystemAO/iot/hub/img/devices/" + iconName + ".png"
-	fmt.Println(iconFilePath)
-	if fileExists(iconFilePath) {
+	//fmt.Println(iconFilePath)
+	if utils.FileExists(iconFilePath) {
 		http.ServeFile(w, r, iconFilePath)
 	} else {
 		http.ServeFile(w, r, "./web/SystemAO/iot/hub/img/devices/unknown.png")
@@ -98,24 +98,24 @@ func (m *Manager) HandleIconLoad(w http.ResponseWriter, r *http.Request) {
 
 //Handle listing of all avaible scanner and its stats
 func (m *Manager) HandleExecute(w http.ResponseWriter, r *http.Request) {
-	devid, err := mv(r, "devid", true)
+	devid, err := utils.PostPara(r, "devid")
 	if err != nil {
-		sendErrorResponse(w, "Invalid device id")
+		utils.SendErrorResponse(w, "Invalid device id")
 		return
 	}
 
-	eptname, err := mv(r, "eptname", true)
+	eptname, err := utils.PostPara(r, "eptname")
 	if err != nil {
-		sendErrorResponse(w, "Invalid endpoint name")
+		utils.SendErrorResponse(w, "Invalid endpoint name")
 		return
 	}
 
-	payload, _ := mv(r, "payload", true)
+	payload, _ := utils.PostPara(r, "payload")
 
 	//Get device by device id
 	dev := m.GetDeviceByID(devid)
 	if dev == nil {
-		sendErrorResponse(w, "Given device id not found")
+		utils.SendErrorResponse(w, "Given device id not found")
 		return
 	}
 
@@ -134,19 +134,19 @@ func (m *Manager) HandleExecute(w http.ResponseWriter, r *http.Request) {
 	//Send request to the target IoT device
 	result, err := dev.Handler.Execute(dev, &targetEndpoint, payload)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	js, _ := json.Marshal(result)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Get status of the given device ID
 func (m *Manager) HandleGetDeviceStatus(w http.ResponseWriter, r *http.Request) {
-	devid, err := mv(r, "devid", true)
+	devid, err := utils.PostPara(r, "devid")
 	if err != nil {
-		sendErrorResponse(w, "Invalid device id")
+		utils.SendErrorResponse(w, "Invalid device id")
 		return
 	}
 
@@ -156,19 +156,19 @@ func (m *Manager) HandleGetDeviceStatus(w http.ResponseWriter, r *http.Request) 
 			//Found. Get it status and return
 			status, err := dev.Handler.Status(dev)
 			if err != nil {
-				sendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 				return
 			}
 
 			//Return the status
 			js, _ := json.Marshal(status)
-			sendJSONResponse(w, string(js))
+			utils.SendJSONResponse(w, string(js))
 			return
 		}
 	}
 
 	//Not found
-	sendErrorResponse(w, "Given device ID does not match any scanned devices")
+	utils.SendErrorResponse(w, "Given device ID does not match any scanned devices")
 }
 
 //Handle IoT Scanning Request
@@ -177,7 +177,7 @@ func (m *Manager) HandleScanning(w http.ResponseWriter, r *http.Request) {
 	scannedDevices := m.ScanDevices()
 
 	js, _ := json.Marshal(scannedDevices)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Handle IoT Listing Request
@@ -188,7 +188,7 @@ func (m *Manager) HandleListing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(m.cachedDeviceList)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 func (m *Manager) GetCachedDeviceList() []*Device {

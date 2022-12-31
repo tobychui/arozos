@@ -24,7 +24,6 @@ import (
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/compatibility"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
@@ -40,6 +39,7 @@ import (
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	storage "imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/utils"
 )
 
 var (
@@ -66,7 +66,7 @@ func FileSystemInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -232,41 +232,41 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 	//Get the user information
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get the search target root path
-	vpath, err := common.Mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid vpath given")
+		utils.SendErrorResponse(w, "Invalid vpath given")
 		return
 	}
 
-	keyword, err := common.Mv(r, "keyword", true)
+	keyword, err := utils.PostPara(r, "keyword")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid keyword given")
+		utils.SendErrorResponse(w, "Invalid keyword given")
 		return
 	}
 
 	//Check if case sensitive is enabled
-	casesensitve, _ := common.Mv(r, "casesensitive", true)
+	casesensitve, _ := utils.PostPara(r, "casesensitive")
 
 	vrootID, _, err := filesystem.GetIDFromVirtualPath(vpath)
 	var targetFSH *filesystem.FileSystemHandler = nil
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 	targetFSH, err = GetFsHandlerByUUID(vrootID)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	//Translate the vpath to realpath if this is an actual path on disk
 	resolvedPath, err := targetFSH.FileSystemAbstraction.VirtualPathToRealPath(vpath, userinfo.Username)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 	rpath := resolvedPath
@@ -277,14 +277,14 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 
 		//Updates 31-12-2021: Do not allow wildcard search on virtual type's FSH
 		if targetFSH == nil {
-			common.SendErrorResponse(w, "Invalid path given")
+			utils.SendErrorResponse(w, "Invalid path given")
 			return
 		}
 		targetFshAbs := targetFSH.FileSystemAbstraction
 		wildcard := keyword[1:]
 		matchingFiles, err := targetFshAbs.Glob(filepath.Join(rpath, wildcard))
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -302,13 +302,13 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if escaped {
-			common.SendErrorResponse(w, "Search keywords contain escape character!")
+			utils.SendErrorResponse(w, "Search keywords contain escape character!")
 			return
 		}
 
 		//OK. Tidy up the results
 		js, _ := json.Marshal(results)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	} else {
 		//Updates 2022-02-16: Build the fuzzy matcher if it is not a wildcard search
 		matcher := fuzzy.NewFuzzyMatcher(keyword, casesensitve == "true")
@@ -336,12 +336,12 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		//OK. Tidy up the results
 		js, _ := json.Marshal(results)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	}
 
 }
@@ -369,7 +369,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Get filename and upload path
-	filename, err := common.Mv(r, "filename", false)
+	filename, err := utils.GetPara(r, "filename")
 	if filename == "" || err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Invalid filename given"))
@@ -377,7 +377,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Get upload target directory
-	uploadTarget, err := common.Mv(r, "path", false)
+	uploadTarget, err := utils.GetPara(r, "path")
 	if uploadTarget == "" || err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Invalid path given"))
@@ -416,7 +416,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Check if it is huge file upload mode
 	isHugeFile := false
-	hugefile, _ := common.Mv(r, "hugefile", false)
+	hugefile, _ := utils.GetPara(r, "hugefile")
 	if hugefile == "true" && !fsh.RequireBuffer {
 		//Huge file mode is only compatible with local file systems
 		//For remote file system, use buffer to tmp then upload method
@@ -723,7 +723,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -734,7 +734,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	//Check if this is running under demo mode. If yes, reject upload
 	if *demo_mode {
-		common.SendErrorResponse(w, "You cannot upload in demo mode")
+		utils.SendErrorResponse(w, "You cannot upload in demo mode")
 		return
 	}
 
@@ -742,27 +742,27 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		//Filesize too big
 		systemWideLogger.PrintAndLog("File System", "Upload file size too big", err)
-		common.SendErrorResponse(w, "File too large")
+		utils.SendErrorResponse(w, "File too large")
 		return
 	}
 
 	file, handler, err := r.FormFile("file")
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Error Retrieving File from upload by user: "+userinfo.Username, err)
-		common.SendErrorResponse(w, "Unable to parse file from upload")
+		utils.SendErrorResponse(w, "Unable to parse file from upload")
 		return
 	}
 
 	//Get upload target directory
-	uploadTarget, _ := common.Mv(r, "path", true)
+	uploadTarget, _ := utils.PostPara(r, "path")
 	if uploadTarget == "" {
-		common.SendErrorResponse(w, "Upload target cannot be empty.")
+		utils.SendErrorResponse(w, "Upload target cannot be empty.")
 		return
 	}
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(uploadTarget)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid upload target")
+		utils.SendErrorResponse(w, "Invalid upload target")
 		return
 	}
 
@@ -771,7 +771,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	//Translate the upload target directory
 	realUploadPath, err := targetFs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
-		common.SendErrorResponse(w, "Upload target is invalid or permission denied.")
+		utils.SendErrorResponse(w, "Upload target is invalid or permission denied.")
 		return
 	}
 
@@ -806,17 +806,17 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	//Check if the upload target is read only.
 	accmode := userinfo.GetPathAccessPermission(uploadTarget)
 	if accmode == arozfs.FsReadOnly {
-		common.SendErrorResponse(w, "The upload target is Read Only.")
+		utils.SendErrorResponse(w, "The upload target is Read Only.")
 		return
 	} else if accmode == arozfs.FsDenied {
-		common.SendErrorResponse(w, "Access Denied")
+		utils.SendErrorResponse(w, "Access Denied")
 		return
 	}
 
 	//Check for storage quota
 	uploadFileSize := handler.Size
 	if !userinfo.StorageQuota.HaveSpace(uploadFileSize) {
-		common.SendErrorResponse(w, "User Storage Quota Exceeded")
+		utils.SendErrorResponse(w, "User Storage Quota Exceeded")
 		return
 	}
 
@@ -832,7 +832,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	err = targetFs.WriteStream(destFilepath, file, 0775)
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Write stream to destination file system abstraction from upload failed", err)
-		common.SendErrorResponse(w, "Write upload to destination disk failed")
+		utils.SendErrorResponse(w, "Write upload to destination disk failed")
 		return
 
 	}
@@ -864,18 +864,18 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Duration(100 - (currentTimeMilli - uploadStartTime)))
 	}
 	//Completed
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 //Validate if the copy and target process will involve file overwriting problem.
 func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	vsrcFiles, _ := common.Mv(r, "src", true)
-	vdestFile, _ := common.Mv(r, "dest", true)
+	vsrcFiles, _ := utils.PostPara(r, "src")
+	vdestFile, _ := utils.PostPara(r, "dest")
 	var duplicateFiles []string = []string{}
 
 	//Loop through all files are see if there are duplication during copy and paste
@@ -883,13 +883,13 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	decodedSourceFiles, _ := url.QueryUnescape(vsrcFiles)
 	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
 	if err != nil {
-		common.SendErrorResponse(w, "Source file JSON parse error.")
+		utils.SendErrorResponse(w, "Source file JSON parse error.")
 		return
 	}
 
 	destFsh, destSubpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
 	if err != nil {
-		common.SendErrorResponse(w, "Operation Valid Failed: "+err.Error())
+		utils.SendErrorResponse(w, "Operation Valid Failed: "+err.Error())
 		return
 	}
 
@@ -906,7 +906,7 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonString, _ := json.Marshal(duplicateFiles)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 //Scan all directory and get trash file and send back results with WebSocket
@@ -914,7 +914,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 	//Get and check user permission
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -959,7 +959,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 				virtualFilepath, _ := thisFshAbs.RealPathToVirtualPath(file, userinfo.Username)
 				virtualOrgPath, _ := thisFshAbs.RealPathToVirtualPath(filepath.Dir(filepath.Dir(filepath.Dir(file))), userinfo.Username)
 				rawsize := thisFshAbs.GetFileSize(file)
-				timestampInt64, _ := common.StringToInt64(timestamp)
+				timestampInt64, _ := utils.StringToInt64(timestamp)
 				removeTimeDate := time.Unix(timestampInt64, 0)
 				if thisFshAbs.IsDir(file) {
 					originalExt = ""
@@ -1004,7 +1004,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	username := userinfo.Username
@@ -1012,7 +1012,7 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 	results := []trashedFile{}
 	files, fshs, err := system_fs_listTrash(username)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -1025,7 +1025,7 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 		virtualFilepath, _ := fsAbs.RealPathToVirtualPath(file, userinfo.Username)
 		virtualOrgPath, _ := fsAbs.RealPathToVirtualPath(filepath.Dir(filepath.Dir(filepath.Dir(file))), userinfo.Username)
 		rawsize := fsAbs.GetFileSize(file)
-		timestampInt64, _ := common.StringToInt64(timestamp)
+		timestampInt64, _ := utils.StringToInt64(timestamp)
 		removeTimeDate := time.Unix(timestampInt64, 0)
 		if fsAbs.IsDir(file) {
 			originalExt = ""
@@ -1050,26 +1050,26 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 
 	//Format and return the json results
 	jsonString, _ := json.Marshal(results)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 //Restore a trashed file to its parent dir
 func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	targetTrashedFile, err := common.Mv(r, "src", true)
+	targetTrashedFile, err := utils.PostPara(r, "src")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid src given")
+		utils.SendErrorResponse(w, "Invalid src given")
 		return
 	}
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(targetTrashedFile)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
@@ -1077,13 +1077,13 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	//Translate it to realpath
 	realpath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if !fshAbs.FileExists(realpath) {
-		common.SendErrorResponse(w, "File not exists")
+		utils.SendErrorResponse(w, "File not exists")
 		return
 	}
 
 	//Check if this is really a trashed file
 	if filepath.Base(filepath.Dir(realpath)) != ".trash" {
-		common.SendErrorResponse(w, "File not in trashbin")
+		utils.SendErrorResponse(w, "File not in trashbin")
 		return
 	}
 
@@ -1100,21 +1100,21 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 		fshAbs.Remove(filepath.Dir(realpath))
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 //Clear all trashed file in the system
 func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 	u, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	fileList, fshs, err := system_fs_listTrash(u.Username)
 
 	if err != nil {
-		common.SendErrorResponse(w, "Unable to clear trash: "+err.Error())
+		utils.SendErrorResponse(w, "Unable to clear trash: "+err.Error())
 		return
 	}
 
@@ -1135,7 +1135,7 @@ func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 //Get all trash in a string list
@@ -1186,7 +1186,7 @@ func system_fs_listTrash(username string) ([]string, []*filesystem.FileSystemHan
 func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -1197,9 +1197,9 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileType, _ := common.Mv(r, "type", true)     //File creation type, {file, folder}
-	vsrc, _ := common.Mv(r, "src", true)          //Virtual file source folder, do not include filename
-	filename, _ := common.Mv(r, "filename", true) //Filename for the new file
+	fileType, _ := utils.PostPara(r, "type")     //File creation type, {file, folder}
+	vsrc, _ := utils.PostPara(r, "src")          //Virtual file source folder, do not include filename
+	filename, _ := utils.PostPara(r, "filename") //Filename for the new file
 
 	if fileType == "" && filename == "" {
 		//List all the supported new filetype
@@ -1224,20 +1224,20 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 		jsonString, err := json.Marshal(newItemList)
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Unable to parse JSON string for new item list", err)
-			common.SendErrorResponse(w, "Unable to parse new item list. See server log for more information.")
+			utils.SendErrorResponse(w, "Unable to parse new item list. See server log for more information.")
 			return
 		}
-		common.SendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 		return
 	} else if fileType != "" && filename != "" {
 		if vsrc == "" {
-			common.SendErrorResponse(w, "Missing paramter: 'src'")
+			utils.SendErrorResponse(w, "Missing paramter: 'src'")
 			return
 		}
 
 		fsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrc)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		fshAbs := fsh.FileSystemAbstraction
@@ -1245,17 +1245,17 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 		//Translate the path to realpath
 		rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid path given")
+			utils.SendErrorResponse(w, "Invalid path given")
 			return
 		}
 
 		//Check if directory is readonly
 		accmode := userinfo.GetPathAccessPermission(vsrc)
 		if accmode == arozfs.FsReadOnly {
-			common.SendErrorResponse(w, "This directory is Read Only")
+			utils.SendErrorResponse(w, "This directory is Read Only")
 			return
 		} else if accmode == arozfs.FsDenied {
-			common.SendErrorResponse(w, "Access Denied")
+			utils.SendErrorResponse(w, "Access Denied")
 			return
 		}
 
@@ -1264,7 +1264,7 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 
 		if fileType == "file" {
 			for fshAbs.FileExists(newfilePath) {
-				common.SendErrorResponse(w, "Given filename already exists")
+				utils.SendErrorResponse(w, "Given filename already exists")
 				return
 			}
 			ext := filepath.Ext(filename)
@@ -1281,26 +1281,26 @@ func system_fs_handleNewObjects(w http.ResponseWriter, r *http.Request) {
 			err = fshAbs.WriteFile(newfilePath, defaultFileCotent, 0775)
 			if err != nil {
 				systemWideLogger.PrintAndLog("File System", "Unable to create new file: "+err.Error(), err)
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 				return
 			}
 
 		} else if fileType == "folder" {
 			if fshAbs.FileExists(newfilePath) {
-				common.SendErrorResponse(w, "Given folder already exists")
+				utils.SendErrorResponse(w, "Given folder already exists")
 				return
 			}
 			//Create the folder at target location
 			err := fshAbs.Mkdir(newfilePath, 0755)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 				return
 			}
 		}
 
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else {
-		common.SendErrorResponse(w, "Missing paramter(s).")
+		utils.SendErrorResponse(w, "Missing paramter(s).")
 		return
 	}
 }
@@ -1317,14 +1317,14 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	//Get and check user permission
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
-	operation, _ := common.Mv(r, "opr", false) //Accept copy and move
-	vsrcFiles, _ := common.Mv(r, "src", false)
-	vdestFile, _ := common.Mv(r, "dest", false)
-	existsOpr, _ := common.Mv(r, "existsresp", false)
+	operation, _ := utils.GetPara(r, "opr") //Accept copy and move
+	vsrcFiles, _ := utils.GetPara(r, "src")
+	vdestFile, _ := utils.GetPara(r, "dest")
+	existsOpr, _ := utils.GetPara(r, "existsresp")
 
 	if existsOpr == "" {
 		existsOpr = "keep"
@@ -1337,7 +1337,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Websocket file operation source file JSON parse error", err)
-		common.SendErrorResponse(w, "Source file JSON parse error.")
+		utils.SendErrorResponse(w, "Source file JSON parse error.")
 		return
 	}
 
@@ -1354,7 +1354,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 
 	destFsh, subpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	destFshAbs := destFsh.FileSystemAbstraction
@@ -1686,7 +1686,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	//Check if user logged in
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -1697,15 +1697,15 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	operation, _ := common.Mv(r, "opr", true)
-	vsrcFiles, _ := common.Mv(r, "src", true)
-	vdestFile, _ := common.Mv(r, "dest", true)
-	vnfilenames, _ := common.Mv(r, "new", true) //Only use when rename or create new file / folder
+	operation, _ := utils.PostPara(r, "opr")
+	vsrcFiles, _ := utils.PostPara(r, "src")
+	vdestFile, _ := utils.PostPara(r, "dest")
+	vnfilenames, _ := utils.PostPara(r, "new") //Only use when rename or create new file / folder
 
 	//Check if operation valid.
 	if operation == "" {
 		//Undefined operations.
-		common.SendErrorResponse(w, "Undefined operations paramter: Missing 'opr' in request header.")
+		utils.SendErrorResponse(w, "Undefined operations paramter: Missing 'opr' in request header.")
 		return
 	}
 
@@ -1715,7 +1715,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	decodedSourceFiles := system_fs_specialURIDecode(vsrcFiles)
 	err = json.Unmarshal([]byte(decodedSourceFiles), &sourceFiles)
 	if err != nil {
-		common.SendErrorResponse(w, "Source file JSON parse error.")
+		utils.SendErrorResponse(w, "Source file JSON parse error.")
 		return
 	}
 
@@ -1725,7 +1725,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		vnfilenames, _ := url.QueryUnescape(vnfilenames)
 		err = json.Unmarshal([]byte(vnfilenames), &newFilenames)
 		if err != nil {
-			common.SendErrorResponse(w, "Unable to parse JSON for new filenames")
+			utils.SendErrorResponse(w, "Unable to parse JSON for new filenames")
 			return
 		}
 	}
@@ -1736,7 +1736,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		srcFshs := []*filesystem.FileSystemHandler{}
 		destFsh, subpath, err := GetFSHandlerSubpathFromVpath(vdestFile)
 		if err != nil {
-			common.SendErrorResponse(w, "Unable to resolve zip destination path")
+			utils.SendErrorResponse(w, "Unable to resolve zip destination path")
 			return
 		}
 		destFshAbs := destFsh.FileSystemAbstraction
@@ -1776,7 +1776,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 		err = filesystem.ArozZipFile(srcFshs, rsrcFiles, zipDestFsh, zipFileTargetLocation, false)
 		if err != nil {
 			os.Remove(zipFileTargetLocation)
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -1815,34 +1815,34 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 			if operation == "rename" {
 				//Check if the usage is correct.
 				if vdestFile != "" {
-					common.SendErrorResponse(w, "Rename only accept 'src' and 'new'. Please use move if you want to move a file.")
+					utils.SendErrorResponse(w, "Rename only accept 'src' and 'new'. Please use move if you want to move a file.")
 					return
 				}
 				//Check if new name paramter is passed in.
 				if len(newFilenames) == 0 {
-					common.SendErrorResponse(w, "Missing paramter (JSON string): 'new'")
+					utils.SendErrorResponse(w, "Missing paramter (JSON string): 'new'")
 					return
 				}
 				//Check if the source filenames and new filenanmes match
 				if len(newFilenames) != len(sourceFiles) {
-					common.SendErrorResponse(w, "New filenames do not match with source filename's length.")
+					utils.SendErrorResponse(w, "New filenames do not match with source filename's length.")
 					return
 				}
 
 				//Check if the target dir is not readonly
 				accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
 				if accmode == arozfs.FsReadOnly {
-					common.SendErrorResponse(w, "This directory is Read Only")
+					utils.SendErrorResponse(w, "This directory is Read Only")
 					return
 				} else if accmode == arozfs.FsDenied {
-					common.SendErrorResponse(w, "Access Denied")
+					utils.SendErrorResponse(w, "Access Denied")
 					return
 				}
 
 				thisFilename := filepath.Base(newFilenames[i])
 				//Check if the name already exists. If yes, return false
 				if srcFshAbs.FileExists(filepath.Join(filepath.Dir(rsrcFile), thisFilename)) {
-					common.SendErrorResponse(w, "File already exists")
+					utils.SendErrorResponse(w, "File already exists")
 					return
 				}
 
@@ -1851,7 +1851,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				err = srcFshAbs.Rename(rsrcFile, targetNewName)
 				if err != nil {
 					systemWideLogger.PrintAndLog("File System", "File rename failed", err)
-					common.SendErrorResponse(w, err.Error())
+					utils.SendErrorResponse(w, err.Error())
 					return
 				}
 
@@ -1877,27 +1877,27 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				*/
 
 				if !srcFshAbs.FileExists(rsrcFile) {
-					common.SendErrorResponse(w, "Source file not exists")
+					utils.SendErrorResponse(w, "Source file not exists")
 					return
 				}
 
 				//Check if the source file is read only.
 				accmode := userinfo.GetPathAccessPermission(string(vsrcFile))
 				if accmode == arozfs.FsReadOnly {
-					common.SendErrorResponse(w, "This source file is Read Only")
+					utils.SendErrorResponse(w, "This source file is Read Only")
 					return
 				} else if accmode == arozfs.FsDenied {
-					common.SendErrorResponse(w, "Access Denied")
+					utils.SendErrorResponse(w, "Access Denied")
 					return
 				}
 
 				if rdestFile == "" {
-					common.SendErrorResponse(w, "Undefined dest location")
+					utils.SendErrorResponse(w, "Undefined dest location")
 					return
 				}
 
 				//Get exists overwrite mode
-				existsOpr, _ := common.Mv(r, "existsresp", true)
+				existsOpr, _ := utils.PostPara(r, "existsresp")
 
 				//Check if use fast move instead
 				//Check if the source and destination folder are under the same root. If yes, use os.Rename for faster move operations
@@ -1913,7 +1913,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 				err = filesystem.FileMove(srcFsh, rsrcFile, destFsh, rdestFile, existsOpr, true, nil)
 				if err != nil {
-					common.SendErrorResponse(w, err.Error())
+					utils.SendErrorResponse(w, err.Error())
 					//Restore the ownership if remove failed
 					userinfo.SetOwnerOfFile(srcFsh, vsrcFile)
 					return
@@ -1929,37 +1929,37 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 			} else if operation == "copy" {
 				//Copy file. See move example and change 'opr' to 'copy'
 				if !srcFshAbs.FileExists(rsrcFile) {
-					common.SendErrorResponse(w, "Source file not exists")
+					utils.SendErrorResponse(w, "Source file not exists")
 					return
 				}
 
 				//Check if the desintation is read only.
 				if !userinfo.CanWrite(vdestFile) {
-					common.SendErrorResponse(w, "Access Denied")
+					utils.SendErrorResponse(w, "Access Denied")
 					return
 				}
 
 				if !destFshAbs.FileExists(rdestFile) {
 					if destFshAbs.FileExists(filepath.Dir(rdestFile)) {
 						//User pass in the whole path for the folder. Report error usecase.
-						common.SendErrorResponse(w, "Dest location should be an existing folder instead of the full path of the copied file")
+						utils.SendErrorResponse(w, "Dest location should be an existing folder instead of the full path of the copied file")
 						return
 					}
-					common.SendErrorResponse(w, "Dest folder not found")
+					utils.SendErrorResponse(w, "Dest folder not found")
 					return
 				}
 
-				existsOpr, _ := common.Mv(r, "existsresp", true)
+				existsOpr, _ := utils.PostPara(r, "existsresp")
 
 				//Check if the user have space for the extra file
 				if !userinfo.StorageQuota.HaveSpace(filesystem.GetFileSize(rdestFile)) {
-					common.SendErrorResponse(w, "Storage Quota Full")
+					utils.SendErrorResponse(w, "Storage Quota Full")
 					return
 				}
 
 				err = filesystem.FileCopy(srcFsh, rsrcFile, destFsh, rdestFile, existsOpr, nil)
 				if err != nil {
-					common.SendErrorResponse(w, err.Error())
+					utils.SendErrorResponse(w, err.Error())
 					return
 				}
 
@@ -1972,13 +1972,13 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//Delete the file permanently
 				if !srcFshAbs.FileExists(rsrcFile) {
 					//Check if it is a non escapted file instead
-					common.SendErrorResponse(w, "Source file not exists")
+					utils.SendErrorResponse(w, "Source file not exists")
 					return
 
 				}
 
 				if !userinfo.CanWrite(vsrcFile) {
-					common.SendErrorResponse(w, "Access Denied")
+					utils.SendErrorResponse(w, "Access Denied")
 					return
 				}
 
@@ -2001,7 +2001,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				err = srcFshAbs.RemoveAll(rsrcFile)
 				if err != nil {
 					systemWideLogger.PrintAndLog("File System", "Unable to remove file from "+srcFsh.UUID, err)
-					common.SendErrorResponse(w, err.Error())
+					utils.SendErrorResponse(w, err.Error())
 					return
 				}
 
@@ -2009,14 +2009,14 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//Put it into a subfolder named trash and allow it to to be removed later
 				if !srcFshAbs.FileExists(rsrcFile) {
 					//Check if it is a non escapted file instead
-					common.SendErrorResponse(w, "Source file not exists")
+					utils.SendErrorResponse(w, "Source file not exists")
 					return
 
 				}
 
 				//Check if the upload target is read only.
 				if !userinfo.CanWrite(vsrcFile) {
-					common.SendErrorResponse(w, "Access Denied")
+					utils.SendErrorResponse(w, "Access Denied")
 					return
 				}
 
@@ -2034,13 +2034,13 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				srcFshAbs.MkdirAll(trashDir, 0755)
 				hidden.HideFile(filepath.Dir(trashDir))
 				hidden.HideFile(trashDir)
-				err = srcFshAbs.Rename(rsrcFile, trashDir+filepath.Base(rsrcFile)+"."+common.Int64ToString(time.Now().Unix()))
+				err = srcFshAbs.Rename(rsrcFile, trashDir+filepath.Base(rsrcFile)+"."+utils.Int64ToString(time.Now().Unix()))
 				if err != nil {
 					if srcFsh.RequireBuffer {
-						common.SendErrorResponse(w, "Incompatible File System Type: Try SHIFT + DELETE to delete file permanently")
+						utils.SendErrorResponse(w, "Incompatible File System Type: Try SHIFT + DELETE to delete file permanently")
 					} else {
 						systemWideLogger.PrintAndLog("File System", "Failed to move file to trash. See log for more info.", err)
-						common.SendErrorResponse(w, "Failed to move file to trash")
+						utils.SendErrorResponse(w, "Failed to move file to trash")
 					}
 					return
 				}
@@ -2049,7 +2049,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 
 				//Check if the user can write to the target dest file
 				if !userinfo.CanWrite(string(vdestFile)) {
-					common.SendErrorResponse(w, "Access Denied")
+					utils.SendErrorResponse(w, "Access Denied")
 					return
 				}
 
@@ -2057,7 +2057,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				if !destFshAbs.FileExists(rdestFile) {
 					err = destFshAbs.MkdirAll(rdestFile, 0755)
 					if err != nil {
-						common.SendErrorResponse(w, err.Error())
+						utils.SendErrorResponse(w, err.Error())
 						return
 					}
 				}
@@ -2077,7 +2077,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				//OK! Unzip to destination
 				err := filesystem.Unzip(unzipSource, unzipDest)
 				if err != nil {
-					common.SendErrorResponse(w, err.Error())
+					utils.SendErrorResponse(w, err.Error())
 					return
 				}
 
@@ -2105,53 +2105,53 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 			} else {
-				common.SendErrorResponse(w, "Unknown file opeartion given")
+				utils.SendErrorResponse(w, "Unknown file opeartion given")
 				return
 			}
 		}
 
 	}
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 //Allow systems to store key value pairs in the database as preferences.
 func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
-	key, _ := common.Mv(r, "key", false)
-	value, _ := common.Mv(r, "value", false)
-	remove, _ := common.Mv(r, "remove", false)
+	key, _ := utils.GetPara(r, "key")
+	value, _ := utils.GetPara(r, "value")
+	remove, _ := utils.GetPara(r, "remove")
 
 	if key != "" && value == "" && remove == "" {
 		//Get mode. Read the prefernece with given key
 		result := ""
 		err := sysdb.Read("fs", "pref/"+key+"/"+username, &result)
 		if err != nil {
-			common.SendJSONResponse(w, "{\"error\":\"Key not found.\"}")
+			utils.SendJSONResponse(w, "{\"error\":\"Key not found.\"}")
 			return
 		}
-		common.SendTextResponse(w, result)
+		utils.SendTextResponse(w, result)
 	} else if key != "" && value == "" && remove == "true" {
 		//Remove mode. Delete this key from sysdb
 		err := sysdb.Delete("fs", "pref/"+key+"/"+username)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 		}
 
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else if key != "" && value != "" {
 		//Set mode. Set the preference with given key
 		if len(value) > 1024 {
 			//Size too big. Reject storage
-			common.SendErrorResponse(w, "Preference value too long. Preference value can only store maximum 1024 characters.")
+			utils.SendErrorResponse(w, "Preference value too long. Preference value can only store maximum 1024 characters.")
 			return
 		}
 		sysdb.Write("fs", "pref/"+key+"/"+username, value)
-		common.SendOK(w)
+		utils.SendOK(w)
 	}
 }
 
@@ -2171,7 +2171,7 @@ func system_fs_removeUserPreferences(username string) {
 
 func system_fs_listDrives(w http.ResponseWriter, r *http.Request) {
 	if authAgent.CheckAuth(r) == false {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
@@ -2219,17 +2219,17 @@ func system_fs_listDrives(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonString, _ := json.Marshal(drives)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	username := userinfo.Username
-	userRoot, _ := common.Mv(r, "user", false)
+	userRoot, _ := utils.GetPara(r, "user")
 	if userRoot == "true" {
 		type fileObject struct {
 			Filename string
@@ -2253,7 +2253,7 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 			filesInUserRoot = append(filesInUserRoot, *thisFile)
 		}
 		jsonString, _ := json.Marshal(filesInUserRoot)
-		common.SendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 	} else {
 		type rootObject struct {
 			rootID     string //The vroot id
@@ -2273,7 +2273,7 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 		}
 
 		jsonString, _ := json.Marshal(roots)
-		common.SendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 	}
 
 }
@@ -2349,33 +2349,33 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	vpath, err := common.Mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		common.SendErrorResponse(w, "path not defined")
+		utils.SendErrorResponse(w, "path not defined")
 		return
 	}
 
 	vrootID, subpath, _ := filesystem.GetIDFromVirtualPath(vpath)
 	fsh, err := GetFsHandlerByUUID(vrootID)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
 
 	rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	fileStat, err := fshAbs.Stat(rpath)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -2431,7 +2431,7 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonString, _ := json.Marshal(result)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 
 }
 
@@ -2446,20 +2446,25 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 */
 
 func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
-	currentDir, _ := common.Mv(r, "dir", true)
+	currentDir, err := utils.PostPara(r, "dir")
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
 	//Commented this line to handle dirname that contains "+" sign
 	//currentDir, _ = url.QueryUnescape(currentDir)
-	sortMode, _ := common.Mv(r, "sort", true)
-	showHidden, _ := common.Mv(r, "showHidden", true)
+	sortMode, _ := utils.PostPara(r, "sort")
+	showHidden, _ := utils.PostPara(r, "showHidden")
+
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		//user not logged in. Redirect to login page.
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	if currentDir == "" {
-		common.SendErrorResponse(w, "Invalid dir given.")
+		utils.SendErrorResponse(w, "Invalid dir given.")
 		return
 	}
 
@@ -2470,7 +2475,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(currentDir)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -2479,7 +2484,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	//Normal file systems
 	realpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	if !fshAbs.FileExists(realpath) {
@@ -2494,7 +2499,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 		} else {
 			//Folder not exists
 			systemWideLogger.PrintAndLog("File System", "Requested path: "+realpath+" does not exists", nil)
-			common.SendErrorResponse(w, "Folder not exists")
+			utils.SendErrorResponse(w, "Folder not exists")
 			return
 		}
 
@@ -2506,6 +2511,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 	files, err := fshAbs.ReadDir(realpath)
 	if err != nil {
+		utils.SendErrorResponse(w, "Readdir Failed: "+err.Error())
 		systemWideLogger.PrintAndLog("File System", "Unable to read dir: "+err.Error(), err)
 		return
 	}
@@ -2582,34 +2588,34 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonString, _ := json.Marshal(results)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 
 }
 
 //Handle getting a hash from a given contents in the given path
 func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
-	currentDir, err := common.Mv(r, "dir", true)
+	currentDir, err := utils.GetPara(r, "dir")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid dir given")
+		utils.SendErrorResponse(w, "Invalid dir given")
 		return
 	}
 
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(currentDir)
 	if err != nil {
-		common.SendErrorResponse(w, "Unable to resolve target directory")
+		utils.SendErrorResponse(w, "Unable to resolve target directory")
 		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
 
 	rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid dir given")
+		utils.SendErrorResponse(w, "Invalid dir given")
 		return
 	}
 
@@ -2618,7 +2624,7 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 	/*
 		filesInDir, err := fshAbs.Glob(currentDir + "*")
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -2634,7 +2640,7 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 	*/
 	finfos, err := fshAbs.ReadDir(rpath)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	filenames := []string{}
@@ -2651,7 +2657,7 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 	//Build a hash base on the filelist
 	h := sha256.New()
 	h.Write([]byte(strings.Join(filenames, ",")))
-	common.SendTextResponse(w, hex.EncodeToString((h.Sum(nil))))
+	utils.SendTextResponse(w, hex.EncodeToString((h.Sum(nil))))
 }
 
 /*
@@ -2662,30 +2668,30 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	opr, err := common.Mv(r, "opr", true)
+	opr, err := utils.PostPara(r, "opr")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid opr or opr not defined")
+		utils.SendErrorResponse(w, "Invalid opr or opr not defined")
 		return
 	}
 
-	vsrc, _ := common.Mv(r, "src", true)
+	vsrc, _ := utils.PostPara(r, "src")
 	if vsrc == "" {
-		common.SendErrorResponse(w, "Invalid src paramter")
+		utils.SendErrorResponse(w, "Invalid src paramter")
 		return
 	}
 
-	vdest, _ := common.Mv(r, "dest", true)
+	vdest, _ := utils.PostPara(r, "dest")
 	rdest := ""
 
 	//Convert source path from JSON string to object
 	virtualSourcePaths := []string{}
 	err = json.Unmarshal([]byte(vsrc), &virtualSourcePaths)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -2695,13 +2701,13 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	for _, vpath := range virtualSourcePaths {
 		thisSrcFsh, subpath, err := GetFSHandlerSubpathFromVpath(vpath)
 		if err != nil {
-			common.SendErrorResponse(w, "Unable to resolve file: "+vpath)
+			utils.SendErrorResponse(w, "Unable to resolve file: "+vpath)
 			return
 		}
 		thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
 		thisrpath, err := thisSrcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 		if err != nil || !thisSrcFshAbs.FileExists(thisrpath) {
-			common.SendErrorResponse(w, "File not exists: "+vpath)
+			utils.SendErrorResponse(w, "File not exists: "+vpath)
 			return
 		}
 
@@ -2717,15 +2723,15 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 		//Given target virtual dest
 		destFsh, subpath, err = GetFSHandlerSubpathFromVpath(rdest)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 	} else {
 		//Given no virtual dest. Zip to tmp:/
-		filename = common.Int64ToString(time.Now().Unix()) + ".zip"
+		filename = utils.Int64ToString(time.Now().Unix()) + ".zip"
 		destFsh, subpath, err = GetFSHandlerSubpathFromVpath(filepath.Join("tmp:/", filename))
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 	}
@@ -2741,28 +2747,28 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	if opr == "zip" {
 		//Check if destination location exists
 		if rdest == "" || !destFshAbs.FileExists(filepath.Dir(zipOutput)) {
-			common.SendErrorResponse(w, "Invalid dest location")
+			utils.SendErrorResponse(w, "Invalid dest location")
 			return
 		}
 
 		//OK. Create the zip at the desired location
 		err := filesystem.ArozZipFile(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else if opr == "tmpzip" {
 		//Zip to tmp folder
 		err := filesystem.ArozZipFile(sourceFshs, realSourcePaths, zipDestFsh, zipOutput, false)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		//Send the tmp filename to the user
-		common.SendTextResponse(w, "tmp:/"+filename)
+		utils.SendTextResponse(w, "tmp:/"+filename)
 	}
 
 	if destFsh.RequireBuffer {
@@ -2779,30 +2785,30 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 func system_fs_FileVersionHistory(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	path, err := common.Mv(r, "path", true)
+	path, err := utils.PostPara(r, "path")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(path)
 	if err != nil {
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid path given")
+			utils.SendErrorResponse(w, "Invalid path given")
 			return
 		}
 	}
 	fshAbs := fsh.FileSystemAbstraction
 
-	opr, _ := common.Mv(r, "opr", true)
+	opr, _ := utils.PostPara(r, "opr")
 
 	rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
-		common.SendErrorResponse(w, "Unable to translate virtual path")
+		utils.SendErrorResponse(w, "Unable to translate virtual path")
 		return
 	}
 
@@ -2811,63 +2817,63 @@ func system_fs_FileVersionHistory(w http.ResponseWriter, r *http.Request) {
 
 		fileVersionData, err := localversion.GetFileVersionData(fsh, rpath)
 		if err != nil {
-			common.SendErrorResponse(w, "Unable to load version information: "+err.Error())
+			utils.SendErrorResponse(w, "Unable to load version information: "+err.Error())
 			return
 		}
 
 		js, _ := json.Marshal(fileVersionData)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 
 	} else if opr == "delete" {
 		//Delete file history of given history ID
-		historyID, err := common.Mv(r, "histid", true)
+		historyID, err := utils.PostPara(r, "histid")
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid history id given")
+			utils.SendErrorResponse(w, "Invalid history id given")
 			return
 		}
 
 		err = localversion.RemoveFileHistory(fsh, rpath, historyID)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else if opr == "deleteAll" {
 		//Delete all file history of given vpath
 		err = localversion.RemoveAllRelatedFileHistory(fsh, rpath)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
-		common.SendOK(w)
+		utils.SendOK(w)
 
 	} else if opr == "restore" {
 		//Restore file history of given history ID
-		historyID, err := common.Mv(r, "histid", true)
+		historyID, err := utils.PostPara(r, "histid")
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid history id given")
+			utils.SendErrorResponse(w, "Invalid history id given")
 			return
 		}
 		err = localversion.RestoreFileHistory(fsh, rpath, historyID)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else if opr == "new" {
 		//Create a new snapshot of this file
 		err = localversion.CreateFileSnapshot(fsh, rpath)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else {
-		common.SendErrorResponse(w, "Unknown opr")
+		utils.SendErrorResponse(w, "Unknown opr")
 	}
 
 }
@@ -2885,15 +2891,15 @@ func system_fs_clearVersionHistories() {
 //Handle cache rendering with websocket pipeline
 func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
-	vpath, err := common.Mv(r, "folder", false)
+	vpath, err := utils.GetPara(r, "folder")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid folder paramter")
+		utils.SendErrorResponse(w, "Invalid folder paramter")
 		return
 	}
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(vpath)
 	if err != nil {
-		common.SendErrorResponse(w, "Unable to resolve target directory")
+		utils.SendErrorResponse(w, "Unable to resolve target directory")
 		return
 	}
 	rpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
@@ -2912,13 +2918,13 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 //Handle loading of one thumbnail
 func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
-	vpath, err := common.Mv(r, "vpath", false)
+	vpath, err := utils.GetPara(r, "vpath")
 	if err != nil {
-		common.SendErrorResponse(w, "vpath not defined")
+		utils.SendErrorResponse(w, "vpath not defined")
 		return
 	}
 
-	byteMode, _ := common.Mv(r, "bytes", false)
+	byteMode, _ := utils.GetPara(r, "bytes")
 	isByteMode := byteMode == "true"
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(vpath)
 	if err != nil {
@@ -2926,7 +2932,7 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		common.SendErrorResponse(w, "Unable to resolve target directory")
+		utils.SendErrorResponse(w, "Unable to resolve target directory")
 		return
 	}
 	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
@@ -2935,7 +2941,7 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -2951,48 +2957,48 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 	} else {
 		thumbnailPath, err := thumbRenderHandler.LoadCache(fsh, rpath, false)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		js, _ := json.Marshal(thumbnailPath)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	}
 }
 
 //Handle file thumbnail caching
 func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
 	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
-	vfolderpath, err := common.Mv(r, "folder", false)
+	vfolderpath, err := utils.GetPara(r, "folder")
 	if err != nil {
-		common.SendErrorResponse(w, "folder not defined")
+		utils.SendErrorResponse(w, "folder not defined")
 		return
 	}
 
 	fsh, _, err := GetFSHandlerSubpathFromVpath(vfolderpath)
 	if err != nil {
-		common.SendErrorResponse(w, "unable to resolve path")
+		utils.SendErrorResponse(w, "unable to resolve path")
 		return
 	}
 
 	thumbRenderHandler.BuildCacheForFolder(fsh, vfolderpath, userinfo.Username)
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 //Handle the get and set of sort mode of a particular folder
 func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
-	folder, err := common.Mv(r, "folder", true)
+	folder, err := utils.PostPara(r, "folder")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid folder given")
+		utils.SendErrorResponse(w, "Invalid folder given")
 		return
 	}
 
-	opr, _ := common.Mv(r, "opr", true)
+	opr, _ := utils.PostPara(r, "opr")
 
 	folder = filepath.ToSlash(filepath.Clean(folder))
 
@@ -3004,42 +3010,42 @@ func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Req
 
 		js, err := json.Marshal(sortMode)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	} else if opr == "set" {
-		sortMode, err := common.Mv(r, "mode", true)
+		sortMode, err := utils.PostPara(r, "mode")
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid sort mode given")
+			utils.SendErrorResponse(w, "Invalid sort mode given")
 			return
 		}
 
-		if !common.StringInArray([]string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent"}, sortMode) {
-			common.SendErrorResponse(w, "Not supported sort mode: "+sortMode)
+		if !utils.StringInArray([]string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent"}, sortMode) {
+			utils.SendErrorResponse(w, "Not supported sort mode: "+sortMode)
 			return
 		}
 
 		sysdb.Write("fs-sortpref", userinfo.Username+"/"+folder, sortMode)
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else {
-		common.SendErrorResponse(w, "Invalid opr mode")
+		utils.SendErrorResponse(w, "Invalid opr mode")
 		return
 	}
 }
 
 //Handle setting and loading of file permission on Linux
 func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
-	file, err := common.Mv(r, "file", true)
+	file, err := utils.PostPara(r, "file")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid file")
+		utils.SendErrorResponse(w, "Invalid file")
 		return
 	}
 
 	//Translate the file to real path
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
@@ -3047,40 +3053,40 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	newMode, _ := common.Mv(r, "mode", true)
+	newMode, _ := utils.PostPara(r, "mode")
 	if newMode == "" {
 		//Read the file mode
 
 		//Check if the file exists
 		if !fshAbs.FileExists(rpath) {
-			common.SendErrorResponse(w, "File not exists!")
+			utils.SendErrorResponse(w, "File not exists!")
 			return
 		}
 
 		//Read the file permission
 		filePermission, err := fsp.GetFilePermissions(fsh, rpath)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		//Send the file permission to client
 		js, _ := json.Marshal(filePermission)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	} else {
 		//Set the file mode
 		//Check if the file exists
 		if !filesystem.FileExists(rpath) {
-			common.SendErrorResponse(w, "File not exists!")
+			utils.SendErrorResponse(w, "File not exists!")
 			return
 		}
 
 		//Check if windows. If yes, ignore this request
 		if runtime.GOOS == "windows" {
-			common.SendErrorResponse(w, "Windows host not supported")
+			utils.SendErrorResponse(w, "Windows host not supported")
 			return
 		}
 
@@ -3092,13 +3098,13 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 		} else if fsh.Hierarchy == "public" {
 			//Require admin
 			if userinfo.IsAdmin() == false {
-				common.SendErrorResponse(w, "Permission Denied")
+				utils.SendErrorResponse(w, "Permission Denied")
 				return
 			}
 		} else {
 			//Not implemeneted. Require admin
 			if userinfo.IsAdmin() == false {
-				common.SendErrorResponse(w, "Permission Denied")
+				utils.SendErrorResponse(w, "Permission Denied")
 				return
 			}
 		}
@@ -3108,10 +3114,10 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 
 		err := fsp.SetFilePermisson(fsh, rpath, newMode)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		} else {
-			common.SendOK(w)
+			utils.SendOK(w)
 		}
 	}
 }

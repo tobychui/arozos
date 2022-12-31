@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -72,7 +74,7 @@ func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	sendJSONResponse(w, string(jsonData))
+	utils.SendJSONResponse(w, string(jsonData))
 }
 
 func wmicGetinfo(wmicName string, itemName string) []string {

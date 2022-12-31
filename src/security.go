@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/security/csrf"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -31,7 +31,7 @@ func security_init() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

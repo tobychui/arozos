@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/compatibility"
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/network/gzipmiddleware"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -60,7 +60,7 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (*f
 		return nil, "", "", errors.New("Invalid paramters. Multiple ? found")
 	}
 
-	targetfile, _ := common.Mv(r, "file", false)
+	targetfile, _ := utils.GetPara(r, "file")
 	targetfile, err = url.QueryUnescape(targetfile)
 	if err != nil {
 		return nil, "", "", err
@@ -121,13 +121,13 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (*f
 func serveMediaMime(w http.ResponseWriter, r *http.Request) {
 	targetFsh, _, realFilepath, err := media_server_validateSourceFile(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	targetFshAbs := targetFsh.FileSystemAbstraction
 	if targetFsh.RequireBuffer {
 		//File is not on local. Guess its mime by extension
-		common.SendTextResponse(w, "application/"+filepath.Ext(realFilepath)[1:])
+		utils.SendTextResponse(w, "application/"+filepath.Ext(realFilepath)[1:])
 		return
 	}
 
@@ -140,7 +140,7 @@ func serveMediaMime(w http.ResponseWriter, r *http.Request) {
 		mime = m
 	}
 
-	common.SendTextResponse(w, mime)
+	utils.SendTextResponse(w, mime)
 }
 
 func serverMedia(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +148,7 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 	//Serve normal media files
 	targetFsh, vpath, realFilepath, err := media_server_validateSourceFile(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -156,7 +156,7 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 
 	//Check if downloadMode
 	downloadMode := false
-	dw, _ := common.Mv(r, "download", false)
+	dw, _ := utils.GetPara(r, "download")
 	if dw == "true" {
 		downloadMode = true
 	}
@@ -170,7 +170,7 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 	if downloadMode {
 		escapedRealFilepath, err := url.PathUnescape(realFilepath)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		filename := filepath.Base(escapedRealFilepath)
@@ -194,7 +194,7 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(realFilepath))))
 			remoteStream, err := targetFshAbs.ReadStream(realFilepath)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 				return
 			}
 			io.Copy(w, remoteStream)
@@ -228,7 +228,7 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 
 			remoteStream, err := targetFshAbs.ReadStream(realFilepath)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 				return
 			}
 			defer remoteStream.Close()

@@ -11,6 +11,7 @@ import (
 	"github.com/oliamb/cutter"
 	"imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
@@ -68,7 +69,7 @@ func generateThumbnailForVideo(fsh *filesystem.FileSystemHandler, cacheFolder st
 			//return the image as well
 			ctx, err := getImageAsBase64(fsh, outputFile)
 			return ctx, err
-		} else if !fileExists(outputFile) {
+		} else if !utils.FileExists(outputFile) {
 			return "", errors.New("Image generation failed")
 		}
 		return "", nil

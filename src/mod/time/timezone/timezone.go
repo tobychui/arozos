@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -75,7 +77,7 @@ func ShowTime(w http.ResponseWriter, r *http.Request) {
 		Timezone: Timezone,
 	}
 	returnString, _ := json.Marshal(returnStruct)
-	sendJSONResponse(w, string(returnString))
+	utils.SendJSONResponse(w, string(returnString))
 }
 
 func ConvertWinTZtoLinuxTZ(WinTZ string) string {

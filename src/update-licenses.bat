@@ -1,1 +1,0 @@
-go-licenses report imuslab.com/arozos > web\SystemAO\info\gomod-license.csv

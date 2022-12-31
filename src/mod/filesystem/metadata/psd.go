@@ -10,6 +10,7 @@ import (
 	"github.com/oliamb/cutter"
 	_ "github.com/oov/psd"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
@@ -73,7 +74,7 @@ func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder stri
 		//return the image as well
 		ctx, err := getImageAsBase64(fsh, outputFile)
 		return ctx, err
-	} else if !fileExists(outputFile) {
+	} else if !utils.FileExists(outputFile) {
 		return "", errors.New("Image generation failed")
 	}
 	return "", nil

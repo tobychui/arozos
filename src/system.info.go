@@ -6,14 +6,15 @@ import (
 	"runtime"
 	"time"
 
-	"imuslab.com/arozos/mod/common"
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
+	"imuslab.com/arozos/mod/info/logviewer"
 	usage "imuslab.com/arozos/mod/info/usageinfo"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/updates"
+	"imuslab.com/arozos/mod/utils"
 )
 
-//InitShowSysInformation xxx
+// InitShowSysInformation xxx
 func SystemInfoInit() {
 	systemWideLogger.PrintAndLog("System", "Operation System: "+runtime.GOOS, nil)
 	systemWideLogger.PrintAndLog("System", "System Architecture: "+runtime.GOARCH, nil)
@@ -24,7 +25,7 @@ func SystemInfoInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -33,7 +34,7 @@ func SystemInfoInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -42,7 +43,7 @@ func SystemInfoInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -142,27 +143,45 @@ func SystemInfoInit() {
 			adminRouter.HandleFunc("/system/update/restart", func(w http.ResponseWriter, r *http.Request) {
 				launcherVersion, err := updates.GetLauncherVersion()
 				if err != nil {
-					common.SendErrorResponse(w, err.Error())
+					utils.SendErrorResponse(w, err.Error())
 					return
 				}
-				execute, _ := common.Mv(r, "exec", true)
+				execute, _ := utils.PostPara(r, "exec")
 				if execute == "true" && r.Method == http.MethodPost {
 					//Do the update
 					systemWideLogger.PrintAndLog("System", "REQUESTING LAUNCHER FOR UPDATE RESTART", nil)
 					executeShutdownSequence()
-					common.SendOK(w)
+					utils.SendOK(w)
 				} else if execute == "true" {
 					//Prevent redirection attack
 					w.WriteHeader(http.StatusMethodNotAllowed)
 					w.Write([]byte("405 - Method Not Allowed"))
 				} else {
 					//Return the launcher message
-					common.SendTextResponse(w, string(launcherVersion))
+					utils.SendTextResponse(w, string(launcherVersion))
 				}
 
 			})
 		}
 	}()
+
+	//Log Viewer, so developers can debug inside arozos
+	logViewer := logviewer.NewLogViewer(&logviewer.ViewerOption{
+		RootFolder: "system/logs/",
+		Extension:  ".log",
+	})
+
+	adminRouter.HandleFunc("/system/log/list", logViewer.HandleListLog)
+	adminRouter.HandleFunc("/system/log/read", logViewer.HandleReadLog)
+
+	registerSetting(settingModule{
+		Name:         "System Log",
+		Desc:         "View ArozOS System Log",
+		IconPath:     "SystemAO/updates/img/update.png",
+		Group:        "Advance",
+		StartDir:     "SystemAO/advance/logview.html",
+		RequireAdmin: true,
+	})
 
 }
 
@@ -178,7 +197,7 @@ func InfoHandleGetRuntimeInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(runtimeInfo)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
@@ -199,5 +218,5 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(info)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }

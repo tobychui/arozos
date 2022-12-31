@@ -4,21 +4,23 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 //Handle AGI Exectuion Request with token, design for letting other web scripting language like php to interface with AGI
 func (g *Gateway) HandleAgiExecutionRequestWithToken(w http.ResponseWriter, r *http.Request) {
-	token, err := mv(r, "token", false)
+	token, err := utils.GetPara(r, "token")
 	if err != nil {
 		//Username not defined
-		sendErrorResponse(w, "Token not defined or empty.")
+		utils.SendErrorResponse(w, "Token not defined or empty.")
 		return
 	}
 
-	script, err := mv(r, "script", false)
+	script, err := utils.GetPara(r, "script")
 	if err != nil {
 		//Username not defined
-		sendErrorResponse(w, "Script path not defined or empty.")
+		utils.SendErrorResponse(w, "Script path not defined or empty.")
 		return
 	}
 

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"imuslab.com/arozos/mod/common"
 	permission "imuslab.com/arozos/mod/permission"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func permissionNewHandler() {
@@ -27,7 +27,7 @@ func permissionInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -36,7 +36,7 @@ func permissionInit() {
 		if authAgent.GetUserCounts() == 0 {
 			//There is no user within the system. Only allow register of admin account
 			js, _ := json.Marshal([]string{"administrator"})
-			common.SendJSONResponse(w, string(js))
+			utils.SendJSONResponse(w, string(js))
 			//permissionHandler.HandleListGroup(w, r)
 		} else {
 			//There are already users in the system. Only allow authorized users

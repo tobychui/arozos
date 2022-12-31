@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/robertkrimen/otto"
-	"imuslab.com/arozos/mod/common"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -23,7 +23,7 @@ func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, sc
 		if key == "" {
 			return otto.NullValue()
 		}
-		value, err := common.Mv(r, key, false)
+		value, err := utils.GetPara(r, key)
 		if err != nil {
 			return otto.NullValue()
 		}
@@ -40,7 +40,7 @@ func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, sc
 		if key == "" {
 			return otto.NullValue()
 		}
-		value, err := common.Mv(r, key, true)
+		value, err := utils.PostPara(r, key)
 		if err != nil {
 			return otto.NullValue()
 		}

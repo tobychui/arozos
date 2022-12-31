@@ -26,7 +26,8 @@ func sendOK(w http.ResponseWriter) {
 	w.Write([]byte("\"OK\""))
 }
 
-func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
+//TODO: Deprecate this Mv
+func Mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 	if postMode == false {
 		//Access the paramter via GET
 		keys, ok := r.URL.Query()[getParamter]

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	auth "imuslab.com/arozos/mod/auth"
-	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func AuthInit() {
@@ -33,7 +33,7 @@ func AuthInit() {
 	authAgent = auth.NewAuthenticationAgent("ao_auth", []byte(*session_key), sysdb, *allow_public_registry, func(w http.ResponseWriter, r *http.Request) {
 		//Login Redirection Handler, redirect it login.system
 		w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-		http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, 307)
+		http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, http.StatusTemporaryRedirect)
 	})
 
 	if *allow_autologin {
@@ -60,7 +60,7 @@ func AuthSettingsInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

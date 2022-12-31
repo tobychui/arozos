@@ -22,6 +22,7 @@ import (
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/time/nightly"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -184,7 +185,7 @@ func (g *Gateway) raiseError(err error) {
 //Check if this table is restricted table. Return true if the access is valid
 func (g *Gateway) filterDBTable(tablename string, existsCheck bool) bool {
 	//Check if table is restricted
-	if stringInSlice(tablename, g.ReservedTables) {
+	if utils.StringInArray(g.ReservedTables, tablename) {
 		return false
 	}
 
@@ -200,7 +201,7 @@ func (g *Gateway) filterDBTable(tablename string, existsCheck bool) bool {
 
 //Handle request from RESTFUL API
 func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
-	scriptContent, err := mv(r, "script", true)
+	scriptContent, err := utils.PostPara(r, "script")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("400 - Bad Request (Missing script content)"))
@@ -216,9 +217,9 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	startupRoot = filepath.ToSlash(filepath.Clean(startupRoot))
 
 	//Get the script files for the plugin
-	scriptFile, err := mv(r, "script", false)
+	scriptFile, err := utils.GetPara(r, "script")
 	if err != nil {
-		sendErrorResponse(w, "Invalid script path")
+		utils.SendErrorResponse(w, "Invalid script path")
 		return
 	}
 	scriptFile = specialURIDecode(scriptFile)
@@ -228,7 +229,7 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	scriptScope := "./web/"
 	for _, thisScope := range g.Option.ActivateScope {
 		thisScope = filepath.ToSlash(filepath.Clean(thisScope))
-		if fileExists(thisScope + "/" + scriptFile) {
+		if utils.FileExists(thisScope + "/" + scriptFile) {
 			scriptExists = true
 			scriptFile = thisScope + "/" + scriptFile
 			scriptScope = thisScope
@@ -236,7 +237,7 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	}
 
 	if !scriptExists {
-		sendErrorResponse(w, "Script not found")
+		utils.SendErrorResponse(w, "Script not found")
 		return
 	}
 
@@ -323,7 +324,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	//Get the return valu from the script
 	value, err := vm.Get("HTTP_RESP")
 	if err != nil {
-		sendTextResponse(w, "")
+		utils.SendTextResponse(w, "")
 		return
 	}
 	valueString, err := value.ToString()
@@ -340,6 +341,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 
 /*
 	Execute AGI script with given user information
+	scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
 	Pass in http.Request pointer to enable serverless GET / POST request
 */
 func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, r *http.Request) (string, error) {

@@ -5,58 +5,58 @@ import (
 	"net/http"
 	"strings"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/network"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func (wl *WhiteList) HandleAddWhitelistedIP(w http.ResponseWriter, r *http.Request) {
-	ipRange, err := common.Mv(r, "iprange", true)
+	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid ip range given")
+		utils.SendErrorResponse(w, "Invalid ip range given")
 		return
 	}
 
 	err = wl.SetWhitelist(ipRange)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func (wl *WhiteList) HandleRemoveWhitelistedIP(w http.ResponseWriter, r *http.Request) {
-	ipRange, err := common.Mv(r, "iprange", true)
+	ipRange, err := utils.PostPara(r, "iprange")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid ip range given")
+		utils.SendErrorResponse(w, "Invalid ip range given")
 		return
 	}
 
 	err = wl.UnsetWhitelist(ipRange)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func (wl *WhiteList) HandleSetWhitelistEnable(w http.ResponseWriter, r *http.Request) {
-	enableMode, _ := common.Mv(r, "enable", true)
+	enableMode, _ := utils.PostPara(r, "enable")
 	if enableMode == "" {
 		//Get the current whitelist status
 		js, _ := json.Marshal(wl.Enabled)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 		return
 	} else {
 		if strings.ToLower(enableMode) == "true" {
 			wl.SetWhitelistEnabled(true)
-			common.SendOK(w)
+			utils.SendOK(w)
 		} else if strings.ToLower(enableMode) == "false" {
 			wl.SetWhitelistEnabled(false)
-			common.SendOK(w)
+			utils.SendOK(w)
 		} else {
-			common.SendErrorResponse(w, "Invalid mode given")
+			utils.SendErrorResponse(w, "Invalid mode given")
 		}
 	}
 }
@@ -64,7 +64,7 @@ func (wl *WhiteList) HandleSetWhitelistEnable(w http.ResponseWriter, r *http.Req
 func (wl *WhiteList) HandleListWhitelistedIPs(w http.ResponseWriter, r *http.Request) {
 	bannedIpRanges := wl.ListWhitelistedIpRanges()
 	js, _ := json.Marshal(bannedIpRanges)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 func (wl *WhiteList) CheckIsWhitelistedByRequest(r *http.Request) bool {

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -32,7 +32,7 @@ func StartupFlagsInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -49,7 +49,7 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 		EnableHomePage    bool
 		EnableDirListing  bool
 	}
-	opr, _ := common.Mv(r, "opr", true)
+	opr, _ := utils.PostPara(r, "opr")
 	if opr == "" {
 		//List the current boot flag, all units in MB
 		js, _ := json.Marshal(bootFlags{
@@ -62,12 +62,12 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 			*enable_dir_listing,
 		})
 
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	} else if opr == "set" {
 		//Set and update the boot flags
-		newSettings, err := common.Mv(r, "value", true)
+		newSettings, err := utils.PostPara(r, "value")
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid new seting value")
+			utils.SendErrorResponse(w, "Invalid new seting value")
 			return
 		}
 
@@ -83,7 +83,7 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 		}
 		err = json.Unmarshal([]byte(newSettings), &newConfig)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -97,8 +97,8 @@ func handleBootFlagsFunction(w http.ResponseWriter, r *http.Request) {
 		*allow_homepage = newConfig.EnableHomePage
 		*enable_dir_listing = newConfig.EnableDirListing
 
-		common.SendOK(w)
+		utils.SendOK(w)
 	} else {
-		common.SendErrorResponse(w, "Unknown operation")
+		utils.SendErrorResponse(w, "Unknown operation")
 	}
 }

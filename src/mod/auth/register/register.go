@@ -23,6 +23,7 @@ import (
 	auth "imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
 	permission "imuslab.com/arozos/mod/permission"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type RegisterOptions struct {
@@ -84,9 +85,9 @@ func createDefaultGroup(ph *permission.PermissionHandler) {
 
 func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Request) {
 	if h.AllowRegistry {
-		sendJSONResponse(w, "true")
+		utils.SendJSONResponse(w, "true")
 	} else {
-		sendJSONResponse(w, "false")
+		utils.SendJSONResponse(w, "false")
 	}
 }
 
@@ -200,49 +201,49 @@ func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 //Handle the request for creating a new user
 func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.Request) {
 	if h.AllowRegistry == false {
-		sendErrorResponse(w, "Public account registry is currently closed")
+		utils.SendErrorResponse(w, "Public account registry is currently closed")
 		return
 	}
 	//Get input paramter
-	email, err := mv(r, "email", true)
+	email, err := utils.PostPara(r, "email")
 	if err != nil {
-		sendErrorResponse(w, "Invalid Email")
+		utils.SendErrorResponse(w, "Invalid Email")
 		return
 	}
 
 	//Validate the email is a email
 	if !isValidEmail(email) {
-		sendErrorResponse(w, "Invalid or malformed email")
+		utils.SendErrorResponse(w, "Invalid or malformed email")
 		return
 	}
 
-	username, err := mv(r, "username", true)
+	username, err := utils.PostPara(r, "username")
 	if username == "" || strings.TrimSpace(username) == "" || err != nil {
-		sendErrorResponse(w, "Invalid Username")
+		utils.SendErrorResponse(w, "Invalid Username")
 		return
 	}
 
-	password, err := mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if password == "" || err != nil {
-		sendErrorResponse(w, "Invalid Password")
+		utils.SendErrorResponse(w, "Invalid Password")
 		return
 	}
 
 	//Check if password too short
 	if len(password) < 8 {
-		sendErrorResponse(w, "Password too short. Must be at least 8 characters.")
+		utils.SendErrorResponse(w, "Password too short. Must be at least 8 characters.")
 		return
 	}
 
 	//Check if the username is too short
 	if len(username) < 2 {
-		sendErrorResponse(w, "Username too short. Must be at least 2 characters.")
+		utils.SendErrorResponse(w, "Username too short. Must be at least 2 characters.")
 		return
 	}
 
 	//Check if the user already exists
 	if h.authAgent.UserExists(username) {
-		sendErrorResponse(w, "This username has already been used")
+		utils.SendErrorResponse(w, "This username has already been used")
 		return
 	}
 
@@ -251,21 +252,21 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	if h.permissionHandler.GroupExists(defaultGroup) == false {
 		//Public registry user group not exists. Raise 500 Error
 		log.Println("[CRITICAL] PUBLIC REGISTRY USER GROUP NOT FOUND! PLEASE RESTART YOUR SYSTEM!")
-		sendErrorResponse(w, "Internal Server Error")
+		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 
 	//OK. Record this user to the system
 	err = h.authAgent.CreateUserAccount(username, password, []string{defaultGroup})
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Write email to database as well
 	h.database.Write("register", "user/email/"+username, email)
 
-	sendOK(w)
+	utils.SendOK(w)
 	log.Println("New User Registered: ", email, username, strings.Repeat("*", len(password)))
 
 }
@@ -275,22 +276,22 @@ func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Reque
 	//Get username from request
 	username, err := h.authAgent.GetUserName(w, r)
 	if err != nil {
-		sendErrorResponse(w, "Unable to get username from request")
+		utils.SendErrorResponse(w, "Unable to get username from request")
 		return
 	}
 
-	email, err := mv(r, "email", true)
+	email, err := utils.PostPara(r, "email")
 	if err != nil {
 		//Return the user current email
 		currentEmail, _ := h.GetUserEmail(username)
 		js, _ := json.Marshal(currentEmail)
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 		return
 	}
 
 	//Validate the email is a email
 	if !isValidEmail(email) {
-		sendErrorResponse(w, "Invalid or malformed email")
+		utils.SendErrorResponse(w, "Invalid or malformed email")
 		return
 	}
 

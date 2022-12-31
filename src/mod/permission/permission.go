@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"net/http"
 	"strings"
 
 	db "imuslab.com/arozos/mod/database"
 	fs "imuslab.com/arozos/mod/filesystem"
 	storage "imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type PermissionGroup struct {
@@ -115,7 +115,7 @@ func (h *PermissionHandler) GetUsersPermissionGroup(username string) ([]*Permiss
 	//Look for all the avaible permission groups
 	results := []*PermissionGroup{}
 	for _, gp := range h.PermissionGroups {
-		if inSlice(permissionGroupNames, gp.Name) {
+		if utils.StringInArray(permissionGroupNames, gp.Name) {
 			//Change the pointer to a new varable to it won't get overwritten by the range function
 			newPointer := gp
 			results = append(results, newPointer)
@@ -197,7 +197,7 @@ func (h *PermissionHandler) NewPermissionGroup(name string, isadmin bool, storag
 func (h *PermissionHandler) GetPermissionGroupByNameList(namelist []string) []*PermissionGroup {
 	results := []*PermissionGroup{}
 	for _, gp := range h.PermissionGroups {
-		if inSlice(namelist, gp.Name) {
+		if utils.StringInArray(namelist, gp.Name) {
 			thisPointer := gp
 			results = append(results, thisPointer)
 		}
@@ -213,61 +213,4 @@ func (h *PermissionHandler) GetPermissionGroupByName(name string) *PermissionGro
 		}
 	}
 	return nil
-}
-
-//Helper function
-func inSlice(slice []string, val string) bool {
-	for _, item := range slice {
-		if item == val {
-			return true
-		}
-	}
-	return false
-}
-
-//Send text response with given w and message as string
-func sendTextResponse(w http.ResponseWriter, msg string) {
-	w.Write([]byte(msg))
-}
-
-//Send JSON response, with an extra json header
-func sendJSONResponse(w http.ResponseWriter, json string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(json))
-}
-
-func sendErrorResponse(w http.ResponseWriter, errMsg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte("{\"error\":\"" + errMsg + "\"}"))
-}
-
-func sendOK(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte("\"OK\""))
-}
-
-func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
-	if postMode == false {
-		//Access the paramter via GET
-		keys, ok := r.URL.Query()[getParamter]
-
-		if !ok || len(keys[0]) < 1 {
-			//log.Println("Url Param " + getParamter +" is missing")
-			return "", errors.New("GET paramter " + getParamter + " not found or it is empty")
-		}
-
-		// Query()["key"] will return an array of items,
-		// we only want the single item.
-		key := keys[0]
-		return string(key), nil
-	} else {
-		//Access the parameter via POST
-		r.ParseForm()
-		x := r.Form.Get(getParamter)
-		if len(x) == 0 || x == "" {
-			return "", errors.New("POST paramter " + getParamter + " not found or it is empty")
-		}
-		return string(x), nil
-	}
-
 }

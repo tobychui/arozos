@@ -6,6 +6,7 @@
 */
 
 if (requirelib("imagelib")){
+    //if (imagelib.cropImage("ccns:/test.jpg", "user:/Desktop/ccns.jpg",100,100,200,200)){
     if (imagelib.cropImage("user:/Desktop/test.jpg", "user:/Desktop/out.jpg",100,100,200,200)){
         //Cropping suceed
         sendJSONResp(JSON.stringify("ok"))

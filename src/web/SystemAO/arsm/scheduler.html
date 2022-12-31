@@ -140,8 +140,7 @@
                                 New Scheduled Task
                             </div>
                             <ul class="list">
-                                <li>You can add an agi script (.agi / .js) from one of your directories or</li>
-                                <li>A shell script (.bat or .sh) if you have admin privileges.</li>
+                                <li>Add an agi script (.agi / .js) from one of your directories by selecting below</li>
                             </ul>
                             </div>
                         <form class="ui form" onsubmit="handleTaskSubmition(event);">
@@ -209,17 +208,6 @@
                             <br> <br>
                             <small>Fields with <span class="compulsory">*</span> are compulsory</small>
                         </form>
-
-                        <div class="ui info message">
-                            <i class="close icon" onclick='$(this).parent().fadeOut();'></i>
-                            <div class="header">
-                                Tips for running shell scripts
-                            </div>
-                            <ul class="list">
-                                <li>The execution root of all bash script and batch script are based on the arozos root.</li>
-                                <li>Remember always use absolute path inside your scripts.</li>
-                            </ul>
-                        </div>
                         <br><br>
                     </div>
 
@@ -302,12 +290,12 @@
                                     return
                                 }
                             }
-                            var scriptName = task.ScriptFile.split("/").pop();
+                            var scriptName = task.ScriptVpath.split("/").pop();
                             $("#scheduleList").append(`<tr>
                                 <td class="collapsing">
                                     <i class="code file outline icon"></i> ${scriptName}
                                 </td>
-                                <td>${task.ScriptFile}</td>
+                                <td>${task.ScriptVpath}</td>
                                 <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
                                 <td class="right aligned collapsing">${moment.unix(task.BaseTime).format('LLL')}</td>
                             </tr>`);
@@ -342,10 +330,7 @@
                                 }
                             }
 
-                            var scriptLocation = task.ScriptFile;
-                            if (task.JobType == "function"){
-                                scriptLocation = "[Internal Function]"
-                            }
+                            var scriptLocation = task.ScriptVpath;
                             $("#scheduleListAllContent").append(`<tr>
                                 <td class="collapsing">
                                     <i class="user icon"></i> ${task.Name} (${task.Creator})
@@ -484,17 +469,9 @@
                                 }
                             }
 
-                            var scriptLocation = task.ScriptFile;
-                            if (task.JobType == "function"){
-                                scriptLocation = "[Internal Function]";
-                            }
-
+                            var scriptLocation = task.ScriptVpath;
                             var removebutton = `<button class="ui negative mini button" name="${task.Name}" onclick="removeTask(this);">Remove</button>`;
-                            if (task.JobType == "function"){
-                                //Cannot be removed
-                                removebutton = `[READ ONLY]`;
-                            }
-
+                            
                             $("#removeScheduleList").append(`<tr>
                                 <td class="collapsing">
                                     <i class="user icon"></i> ${task.Name} (${task.Creator})

@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 	//user "imuslab.com/arozos/mod/user"
 )
 
@@ -47,45 +47,45 @@ func system_disk_quota_updateAllUserQuotaEstimation() {
 func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Unknown User")
+		utils.SendErrorResponse(w, "Unknown User")
 		return
 	}
 
 	//Check if admin
 	if !userinfo.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
-	groupname, err := common.Mv(r, "groupname", true)
+	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
-		common.SendErrorResponse(w, "Group name not defned")
+		utils.SendErrorResponse(w, "Group name not defned")
 		return
 	}
 
-	quotaSizeString, err := common.Mv(r, "quota", true)
+	quotaSizeString, err := utils.PostPara(r, "quota")
 	if err != nil {
-		common.SendErrorResponse(w, "Quota not defined")
+		utils.SendErrorResponse(w, "Quota not defined")
 		return
 	}
 
-	quotaSize, err := common.StringToInt64(quotaSizeString)
+	quotaSize, err := utils.StringToInt64(quotaSizeString)
 	if err != nil || quotaSize < 0 {
-		common.SendErrorResponse(w, "Invalid quota size given")
+		utils.SendErrorResponse(w, "Invalid quota size given")
 		return
 	}
 	//Qutasize unit is in MB
 	quotaSize = quotaSize << 20
 
 	systemWideLogger.PrintAndLog("Quota", "Updating "+groupname+" to "+strconv.FormatInt(quotaSize, 10)+"WIP", nil)
-	common.SendOK(w)
+	utils.SendOK(w)
 
 }
 
 func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Unknown User")
+		utils.SendErrorResponse(w, "Unknown User")
 		return
 	}
 
@@ -102,7 +102,7 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 		Total:     userinfo.StorageQuota.TotalStorageQuota,
 	})
 
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 
 	go func() {
 		//Update this user's quota estimation in go routine
@@ -114,7 +114,7 @@ func system_disk_quota_handleQuotaInfo(w http.ResponseWriter, r *http.Request) {
 func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Unknown User")
+		utils.SendErrorResponse(w, "Unknown User")
 		return
 	}
 
@@ -158,5 +158,5 @@ func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http
 
 	//Return the distrubution using json string
 	jsonString, _ := json.Marshal(ss)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }

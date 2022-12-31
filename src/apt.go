@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	apt "imuslab.com/arozos/mod/apt"
-	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func PackagManagerInit() {
@@ -20,7 +20,7 @@ func PackagManagerInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

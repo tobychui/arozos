@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -152,7 +152,7 @@ func (l LocalFileSystemAbstraction) RealPathToVirtualPath(fullpath string, usern
 		}
 	*/
 	fullpath = filepath.ToSlash(fullpath)
-	if strings.HasPrefix(fullpath, l.UUID+":") && !common.FileExists(fullpath) {
+	if strings.HasPrefix(fullpath, l.UUID+":") && !utils.FileExists(fullpath) {
 		return "", arozfs.ErrRpathResolveFailed
 	}
 	prefix := filepath.ToSlash(filepath.Join(l.Rootpath, "users", username))
@@ -169,7 +169,7 @@ func (l LocalFileSystemAbstraction) RealPathToVirtualPath(fullpath string, usern
 }
 
 func (l LocalFileSystemAbstraction) FileExists(realpath string) bool {
-	return common.FileExists(realpath)
+	return utils.FileExists(realpath)
 }
 
 func (l LocalFileSystemAbstraction) IsDir(realpath string) bool {

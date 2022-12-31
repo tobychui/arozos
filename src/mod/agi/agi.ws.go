@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/robertkrimen/otto"
+	uuid "github.com/satori/go.uuid"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -84,7 +85,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 		}
 
 		//Generate a UUID for this connection
-		connUUID := newUUIDv4()
+		connUUID := uuid.NewV4().String()
 		vm.Set("_websocket_conn_id", connUUID)
 		connections.Store(connUUID, c)
 

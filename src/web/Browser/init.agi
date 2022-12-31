@@ -10,6 +10,7 @@ var moduleLaunchInfo = {
 	IconPath: "Browser/img/module_icon.png",
 	Version: "1.0",
 	StartDir: "Browser/index.html",
+	SupportFW: true,
 	InitFWSize: [720, 480],
 	SupportedExt: []
 }

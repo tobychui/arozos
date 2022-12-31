@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"imuslab.com/arozos/mod/network/mdns"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -37,39 +38,39 @@ func (d *Discoverer) HandleScanningRequest(w http.ResponseWriter, r *http.Reques
 	result.LastUpdate = d.LastScanningTime
 
 	js, _ := json.Marshal(result)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Get networkHosts that are offline
 func (d *Discoverer) HandleScanRecord(w http.ResponseWriter, r *http.Request) {
 	offlineNodes, err := d.GetOfflineHosts()
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	js, err := json.Marshal(offlineNodes)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Send wake on land to target
 func (d *Discoverer) HandleWakeOnLan(w http.ResponseWriter, r *http.Request) {
-	mac, err := mv(r, "mac", false)
+	mac, err := utils.GetPara(r, "mac")
 	if err != nil {
-		sendErrorResponse(w, "Invalid mac address")
+		utils.SendErrorResponse(w, "Invalid mac address")
 		return
 	}
 
 	err = d.SendWakeOnLan(mac)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	sendOK(w)
+	utils.SendOK(w)
 }

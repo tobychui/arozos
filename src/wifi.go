@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"imuslab.com/arozos/mod/common"
 	wifi "imuslab.com/arozos/mod/network/wifi"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -31,7 +31,7 @@ func WiFiInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -77,21 +77,21 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Internal Server Error")
+		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 
 	if !user.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
-	status, _ := common.Mv(r, "status", true)
+	status, _ := utils.PostPara(r, "status")
 	if status == "" {
 		//Show current power status
 		infs, err := wifiManager.GetWirelessInterfaces()
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -110,32 +110,32 @@ func network_wifi_handleWiFiPower(w http.ResponseWriter, r *http.Request) {
 		}
 
 		js, _ := json.Marshal(results)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 
 	} else {
 		//Change current power status
-		wlaninterface, err := common.Mv(r, "interface", true)
+		wlaninterface, err := utils.PostPara(r, "interface")
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid interface")
+			utils.SendErrorResponse(w, "Invalid interface")
 			return
 		}
 
 		if status == "on" {
 			err := wifiManager.SetInterfacePower(wlaninterface, true)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 			} else {
-				common.SendOK(w)
+				utils.SendOK(w)
 			}
 		} else if status == "off" {
 			err := wifiManager.SetInterfacePower(wlaninterface, false)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 			} else {
-				common.SendOK(w)
+				utils.SendOK(w)
 			}
 		} else {
-			common.SendErrorResponse(w, "Invalid status")
+			utils.SendErrorResponse(w, "Invalid status")
 		}
 	}
 
@@ -145,75 +145,75 @@ func network_wifi_handleScan(w http.ResponseWriter, r *http.Request) {
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Internal Server Error")
+		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 
 	if !user.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	//Get a list of current on system wireless interface
 	wirelessInterfaces, err := wifiManager.GetWirelessInterfaces()
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	if len(wirelessInterfaces) == 0 {
 		//No wireless interface
-		common.SendErrorResponse(w, "Wireless Interface Not Found")
+		utils.SendErrorResponse(w, "Wireless Interface Not Found")
 		return
 	}
 
 	//Get the first ethernet interface and use it to scan nearby wifi
 	scannedWiFiInfo, err := wifiManager.ScanNearbyWiFi(wirelessInterfaces[0])
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	jsonString, _ := json.Marshal(scannedWiFiInfo)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 func network_wifi_handleConnect(w http.ResponseWriter, r *http.Request) {
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Internal Server Error")
+		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 	//Get information from client and create a new network config file
 	if !user.IsAdmin() {
-		common.SendErrorResponse(w, "Permission denied")
+		utils.SendErrorResponse(w, "Permission denied")
 		return
 	}
 
-	ssid, err := common.Mv(r, "ESSID", true)
+	ssid, err := utils.PostPara(r, "ESSID")
 	if err != nil {
-		common.SendErrorResponse(w, "ESSID not given")
+		utils.SendErrorResponse(w, "ESSID not given")
 		return
 	}
-	connType, _ := common.Mv(r, "ConnType", true)
-	password, _ := common.Mv(r, "pwd", true)
+	connType, _ := utils.PostPara(r, "ConnType")
+	password, _ := utils.PostPara(r, "pwd")
 	systemWideLogger.PrintAndLog("WiFi", "WiFi Switch Request Received. Genering Network Configuration...", nil)
 
-	identity, err := common.Mv(r, "identity", true)
+	identity, err := utils.PostPara(r, "identity")
 	if err != nil {
 		identity = ""
 	}
 
 	result, err := wifiManager.ConnectWiFi(ssid, password, connType, identity)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	jsonString, err := json.Marshal(result)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 
 	systemWideLogger.PrintAndLog("WiFi", "WiFi Connected", nil)
 
@@ -223,40 +223,40 @@ func network_wifi_handleWiFiRemove(w http.ResponseWriter, r *http.Request) {
 	//Require admin permission to scan and connect wifi
 	user, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "Internal Server Error")
+		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 
 	if !user.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	//Get ESSID from post request
-	ESSID, err := common.Mv(r, "ESSID", true)
+	ESSID, err := utils.PostPara(r, "ESSID")
 	if err != nil {
-		common.SendErrorResponse(w, "ESSID not given")
+		utils.SendErrorResponse(w, "ESSID not given")
 		return
 	}
 
 	err = wifiManager.RemoveWifi(ESSID)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 	}
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func network_wifi_handleWiFiInfo(w http.ResponseWriter, r *http.Request) {
 	//Get and return the current conencted WiFi Information
 	_, err := authAgent.GetUserName(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	ESSID, interfaceName, err := wifiManager.GetConnectedWiFi()
 	if err != nil {
-		common.SendErrorResponse(w, "Failed to retrieve WiFi Information")
+		utils.SendErrorResponse(w, "Failed to retrieve WiFi Information")
 		return
 	}
 
@@ -264,5 +264,5 @@ func network_wifi_handleWiFiInfo(w http.ResponseWriter, r *http.Request) {
 		"ESSID":     ESSID,
 		"Interface": interfaceName,
 	})
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
