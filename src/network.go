@@ -127,7 +127,7 @@ func StartNetworkServices() {
 			Vendor:       deviceVendor,
 			BuildVersion: build_version,
 			MinorVersion: internal_version,
-		})
+		}, *force_mac)
 
 		if err != nil {
 			systemWideLogger.PrintAndLog("Network", "MDNS Startup Failed. Running in Offline Mode.", err)
@@ -244,7 +244,7 @@ func StopNetworkServices() {
 
 var networkFileServerDaemon []*fileservers.Server = []*fileservers.Server{}
 
-//Initiate all File Server services
+// Initiate all File Server services
 func FileServerInit() {
 	//Register System Setting
 	registerSetting(settingModule{
@@ -407,7 +407,7 @@ func FileServerInit() {
 	adminRouter.HandleFunc("/system/network/server/toggle", NetworkHandleFileServerToggle)
 }
 
-//Toggle the target File Server Services
+// Toggle the target File Server Services
 func NetworkHandleFileServerToggle(w http.ResponseWriter, r *http.Request) {
 	servid, err := utils.PostPara(r, "id")
 	if err != nil {
@@ -447,13 +447,13 @@ func NetworkHandleFileServerToggle(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Return a list of supported File Server Services
+// Return a list of supported File Server Services
 func NetworkHandleGetFileServerServiceList(w http.ResponseWriter, r *http.Request) {
 	js, _ := json.Marshal(networkFileServerDaemon)
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Get the status of a file server type.
+// Get the status of a file server type.
 func NetworkHandleGetFileServerStatus(w http.ResponseWriter, r *http.Request) {
 	servid, _ := utils.GetPara(r, "id")
 	if servid == "" {
@@ -478,7 +478,7 @@ func NetworkHandleGetFileServerStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Get a list of endpoint usable by this service
+// Get a list of endpoint usable by this service
 func NetworkHandleGetFileServerEndpoints(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {

@@ -17,7 +17,6 @@ import (
 	"image/jpeg"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"math"
 	"mime"
@@ -56,7 +55,7 @@ type Manager struct {
 	options Options
 }
 
-//Create a new Share Manager
+// Create a new Share Manager
 func NewShareManager(options Options) *Manager {
 	//Return a new manager object
 	return &Manager{
@@ -94,7 +93,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 	draw.Draw(resultopg, base.Bounds(), base, image.Point{0, 0}, draw.Src)
 
 	//Append filename to the image
-	fontBytes, err := ioutil.ReadFile("./system/share/fonts/TaipeiSansTCBeta-Light.ttf")
+	fontBytes, err := os.ReadFile("./system/share/fonts/TaipeiSansTCBeta-Light.ttf")
 	if err != nil {
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
@@ -261,7 +260,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 }
 
-//Main function for handle share. Must be called with http.HandleFunc (No auth)
+// Main function for handle share. Must be called with http.HandleFunc (No auth)
 func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	//New download method variables
 	subpathElements := []string{}
@@ -325,7 +324,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 		} else if len(subpathElements) == 1 {
 			//ID is missing. Serve the id input page
-			content, err := ioutil.ReadFile("system/share/index.html")
+			content, err := os.ReadFile("system/share/index.html")
 			if err != nil {
 				//Handling index not found. Is server updated correctly?
 				w.WriteHeader(http.StatusInternalServerError)
@@ -648,7 +647,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				return
 			} else {
 				//Show download page. Do not allow serving
-				content, err := ioutil.ReadFile("./system/share/downloadPageFolder.html")
+				content, err := os.ReadFile("./system/share/downloadPageFolder.html")
 				if err != nil {
 					http.NotFound(w, r)
 					return
@@ -785,7 +784,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				}
 			} else {
 				//Serve the download page
-				content, err := ioutil.ReadFile("./system/share/downloadPage.html")
+				content, err := os.ReadFile("./system/share/downloadPage.html")
 				if err != nil {
 					http.NotFound(w, r)
 					return
@@ -813,7 +812,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					previewTemplate = filepath.Join(templateRoot, "default.html")
 				}
 
-				tp, err := ioutil.ReadFile(previewTemplate)
+				tp, err := os.ReadFile(previewTemplate)
 				if err != nil {
 					tp = []byte("")
 				}
@@ -863,7 +862,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			//Send not found page
-			content, err := ioutil.ReadFile("./system/share/notfound.html")
+			content, err := os.ReadFile("./system/share/notfound.html")
 			if err != nil {
 				http.NotFound(w, r)
 				return
@@ -883,7 +882,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Check if a file is shared
+// Check if a file is shared
 func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 	//Get the vpath from paramters
 	vpath, err := utils.PostPara(r, "path")
@@ -932,7 +931,7 @@ func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Create new share from the given path
+// Create new share from the given path
 func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 	//Get the vpath from paramters
 	vpath, err := utils.PostPara(r, "path")
@@ -1153,11 +1152,11 @@ func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-	Check if the user can open the share in File Manager
+Check if the user can open the share in File Manager
 
-	There are two conditions where the user can open the file in file manager
-	1. If the user is the owner of the file
-	2. If the user is NOT the owner of the file but the target fsh is public accessible and in user's fsh list
+There are two conditions where the user can open the file in file manager
+1. If the user is the owner of the file
+2. If the user is NOT the owner of the file but the target fsh is public accessible and in user's fsh list
 */
 func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, userinfo *user.User) bool {
 	if share.Owner == userinfo.Username {
@@ -1178,7 +1177,7 @@ func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, u
 	return false
 }
 
-//Craete a new file or folder share
+// Craete a new file or folder share
 func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSystemHandler, vpath string) (*shareEntry.ShareOption, error) {
 	//Translate the vpath to realpath
 	return s.options.ShareEntryTable.CreateNewShare(srcFsh, vpath, userinfo.Username, userinfo.GetUserPermissionGroupNames())
@@ -1189,7 +1188,7 @@ func ServePermissionDeniedPage(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusForbidden)
 	pageContent := []byte("Permissioned Denied")
 	if utils.FileExists("system/share/permissionDenied.html") {
-		content, err := ioutil.ReadFile("system/share/permissionDenied.html")
+		content, err := os.ReadFile("system/share/permissionDenied.html")
 		if err == nil {
 			pageContent = content
 		}
@@ -1198,12 +1197,11 @@ func ServePermissionDeniedPage(w http.ResponseWriter) {
 }
 
 /*
-	Validate Share Mode string
-	will return
-	1. bool => Is valid
-	2. permission type: {basic / groups / users}
-	3. mode string
-
+Validate Share Mode string
+will return
+1. bool => Is valid
+2. permission type: {basic / groups / users}
+3. mode string
 */
 func validateShareModes(mode string) (bool, string, []string) {
 	// user:a,b,c,d
@@ -1285,7 +1283,7 @@ func (s *Manager) GetPathHashFromShare(thisShareOption *shareEntry.ShareOption) 
 	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
 }
 
-//Check and clear shares that its pointinf files no longe exists
+// Check and clear shares that its pointinf files no longe exists
 func (s *Manager) ValidateAndClearShares() {
 	//Iterate through all shares within the system
 	s.options.ShareEntryTable.FileToUrlMap.Range(func(k, v interface{}) bool {
@@ -1309,7 +1307,7 @@ func (s *Manager) ValidateAndClearShares() {
 
 }
 
-//Check if the user has the permission to modify this share entry
+// Check if the user has the permission to modify this share entry
 func (s *Manager) CanModifyShareEntry(userinfo *user.User, vpath string) bool {
 	shareEntry := s.GetShareObjectFromUserAndVpath(userinfo, vpath)
 	if shareEntry == nil {

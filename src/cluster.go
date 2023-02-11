@@ -27,11 +27,11 @@ func ClusterInit() {
 		thisDiscoverer := neighbour.NewDiscoverer(MDNS, sysdb)
 		//Start a scan immediately (in go routine for non blocking)
 		go func() {
-			thisDiscoverer.UpdateScan(3)
+			thisDiscoverer.UpdateScan(10)
 		}()
 
 		//Setup the scanning timer
-		thisDiscoverer.StartScanning(300, 5)
+		thisDiscoverer.StartScanning(300, 15)
 		NeighbourDiscoverer = &thisDiscoverer
 
 		//Register the settings

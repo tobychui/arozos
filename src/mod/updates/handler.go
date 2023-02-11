@@ -3,9 +3,9 @@ package updates
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"runtime"
 	"time"
 
@@ -137,7 +137,7 @@ func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Handle getting information for vendor update
+// Handle getting information for vendor update
 func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	type UpdatePackageInfo struct {
 		Config UpdateConfig
@@ -146,7 +146,7 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if update config find. If yes, parse that
-	updateFileContent, err := ioutil.ReadFile("./system/update.json")
+	updateFileContent, err := os.ReadFile("./system/update.json")
 	if err != nil {
 		utils.SendErrorResponse(w, "No vendor update config found")
 		return
@@ -171,7 +171,7 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Handle check if there is a pending update
+// Handle check if there is a pending update
 func HandlePendingCheck(w http.ResponseWriter, r *http.Request) {
 	if utils.FileExists("./updates/") && utils.FileExists("./updates/web/") && utils.FileExists("./updates/system/") {
 		//Update is pending

@@ -3,7 +3,6 @@ package gzipmiddleware
 import (
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,7 +16,7 @@ import (
 
 var gzPool = sync.Pool{
 	New: func() interface{} {
-		w := gzip.NewWriter(ioutil.Discard)
+		w := gzip.NewWriter(io.Discard)
 		gzip.NewWriterLevel(w, gzip.BestCompression)
 		return w
 	},
@@ -38,7 +37,7 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 }
 
 /*
-	Compresstion function for http.FileServer
+Compresstion function for http.FileServer
 */
 func Compress(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +90,7 @@ func (w gzipFuncResponseWriter) Write(b []byte) (int, error) {
 }
 
 /*
-	Compress Function for http.HandleFunc
+Compress Function for http.HandleFunc
 */
 func CompressFunc(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

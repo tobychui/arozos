@@ -39,7 +39,7 @@ type HostRecord struct {
 	LastOnline int64
 }
 
-//New Discoverer return a nearby Aroz Discover agent
+// New Discoverer return a nearby Aroz Discover agent
 func NewDiscoverer(MDNS *mdns.MDNSHost, Database *database.Database) Discoverer {
 	//Create a new table for neighbour records
 	Database.NewTable("neighbour")
@@ -52,7 +52,7 @@ func NewDiscoverer(MDNS *mdns.MDNSHost, Database *database.Database) Discoverer 
 	}
 }
 
-//Return a list of NetworkHost with the same domain
+// Return a list of NetworkHost with the same domain
 func (d *Discoverer) GetNearbyHosts() []*mdns.NetworkHost {
 	nearbyHosts := []*mdns.NetworkHost{}
 	for _, host := range d.NearbyHosts {
@@ -62,7 +62,7 @@ func (d *Discoverer) GetNearbyHosts() []*mdns.NetworkHost {
 	return nearbyHosts
 }
 
-//Start Scanning, interval and scna Duration in seconds
+// Start Scanning, interval and scan Duration in seconds
 func (d *Discoverer) StartScanning(interval int, scanDuration int) {
 	log.Println("ArozOS Neighbour Scanning Started")
 	if d.ScannerRunning() {
@@ -86,10 +86,15 @@ func (d *Discoverer) StartScanning(interval int, scanDuration int) {
 		}
 	}()
 
+	go func() {
+		//Run initial scanning
+		d.UpdateScan(scanDuration)
+		log.Println("ArozOS Neighbour Scanning Completed, ", len(d.NearbyHosts), " neighbours found!")
+	}()
+
 	//Update the Discoverer settings
 	d.d = done
 	d.t = ticker
-	log.Println("ArozOS Neighbour Scanning Completed, ", len(d.NearbyHosts), " neighbours found!")
 }
 
 func (d *Discoverer) UpdateScan(scanDuration int) {
@@ -152,7 +157,7 @@ func (d *Discoverer) GetOfflineHosts() ([]*HostRecord, error) {
 	return results, nil
 }
 
-//Try to wake on lan one of the network host
+// Try to wake on lan one of the network host
 func (d *Discoverer) SendWakeOnLan(macAddr string) error {
 	return wakeonlan.WakeTarget(macAddr)
 }

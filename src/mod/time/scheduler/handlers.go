@@ -219,7 +219,7 @@ func (a *Scheduler) HandleShowLog(w http.ResponseWriter, r *http.Request) {
 		//Show log content
 		filename = strings.ReplaceAll(filepath.ToSlash(filename), "/", "")
 		if fileExists(filepath.Join(logFolder, filename)) {
-			logContent, err := ioutil.ReadFile(filepath.Join(logFolder, filename))
+			logContent, err := os.ReadFile(filepath.Join(logFolder, filename))
 			if err != nil {
 				sendTextResponse(w, "Unable to load log file: "+filename)
 			} else {

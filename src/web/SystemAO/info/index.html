@@ -108,9 +108,9 @@
     });
 
     function initSystemInfo() {
-        $.getJSON("../../system/info/getArOZInfo", function(data) {
+        $.getJSON("../../system/info/getArOZInfo?icon=true", function(data) {
             $("#modelname").html(data["DeviceModel"]);
-            $("#icon").attr("src", "/SystemAO/info/" + data["VendorIcon"]);
+            $("#icon").attr("src", "data:image/png;base64," + data["VendorIcon"]);
             $("#build").html(data["BuildVersion"]);
             $("#manufacturer").html(data["DeviceVendor"]);
         });

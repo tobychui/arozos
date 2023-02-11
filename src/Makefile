@@ -43,6 +43,7 @@ web.tar.gz:
 	# -mv ./dist/system/storage.json ./dist/system/storage.json.example
 	-rm -rf ./dist/system/aecron/
 	-rm -rf ./dist/system/logs/
+	-rm -rf ./dist/system/storage/
 	-rm ./dist/system/cron.json
 	-rm ./dist/system/bridge.json
 	-rm ./dist/system/auth/authlog.db

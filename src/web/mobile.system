@@ -582,11 +582,13 @@
 
             function initUserDefinedThemeColor(){
                 $.ajax({
-                    url: "../../system/file_system/preference",
-                    data: {key: "themecolor"},
+                    url: "system/desktop/preference",
+                    data: {preference: "themecolor"},
+                    method: "POST",
                     success: function(data){
+                        console.log(data);
                         if (data.error == undefined && data != ""){
-                            $(".themeColor").css("background-color", data);
+                            setThemeColor(data);
                         }
                     }
                 });

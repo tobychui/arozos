@@ -2,9 +2,9 @@ package www
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -34,7 +34,7 @@ type Handler struct {
 }
 
 /*
-	New WebRoot Handler create a new handler for handling and routing webroots
+New WebRoot Handler create a new handler for handling and routing webroots
 */
 func NewWebRootHandler(options Options) *Handler {
 	//Create the homepage database table
@@ -178,7 +178,7 @@ func serveNotFoundTemplate(w http.ResponseWriter, r *http.Request) {
 func handleWebrootError(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusInternalServerError)
 	if utils.FileExists("./system/www/nowebroot.html") {
-		content, err := ioutil.ReadFile("./system/www/nowebroot.html")
+		content, err := os.ReadFile("./system/www/nowebroot.html")
 		if err != nil {
 			w.Write([]byte("500 - Internal Server Error"))
 		} else {

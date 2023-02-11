@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 
 	"path/filepath"
 	"runtime"
@@ -46,6 +47,7 @@ var (
 	thumbRenderHandler *metadata.RenderHandler
 	shareEntryTable    *shareEntry.ShareEntryTable
 	shareManager       *share.Manager
+	wsConnectionStore  sync.Map
 )
 
 type trashedFile struct {
@@ -58,6 +60,16 @@ type trashedFile struct {
 	RemoveDate       string
 	OriginalPath     string
 	OriginalFilename string
+}
+
+type fileOperationTask struct {
+	ID                  string  //Unique id for the task operation
+	Owner               string  //Owner of the file opr
+	Src                 string  //Source folder for opr
+	Dest                string  //Destination folder for opr
+	Progress            float64 //Progress for the operation
+	LatestFile          string  //Latest file that is current transfering
+	FileOperationSignal int     //Current control signal of the file opr
 }
 
 func FileSystemInit() {
@@ -194,6 +206,13 @@ func FileSystemInit() {
 	//Handle the main share function
 	//Share function is now routed by the main router
 	//http.HandleFunc("/share", shareManager.HandleShareAccess)
+
+	/*
+		File Operation Resume Functions
+	*/
+	//Create a sync map for file operation opened connections
+	wsConnectionStore = sync.Map{}
+	router.HandleFunc("/system/file_system/ongoing", system_fs_HandleOnGoingTasks)
 
 	/*
 		Nighly Tasks
@@ -347,17 +366,17 @@ func system_fs_handleFileSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-	Handle low-memory upload operations
+Handle low-memory upload operations
 
-	This function is specailly designed to work with low memory devices
-	(e.g. ZeroPi / Orange Pi Zero with 512MB RAM)
+This function is specailly designed to work with low memory devices
+(e.g. ZeroPi / Orange Pi Zero with 512MB RAM)
 
-	Two cases
-	1. Not Buffer FS + Huge File
-	=> Write chunks to fsa + merge to fsa
+Two cases
+1. Not Buffer FS + Huge File
+=> Write chunks to fsa + merge to fsa
 
-	2. Else
-	=> write chunks to tmp (via os package) + merge to fsa
+2. Else
+=> write chunks to tmp (via os package) + merge to fsa
 */
 func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	//Get user info
@@ -715,10 +734,10 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-	Handle FORM POST based upload
+Handle FORM POST based upload
 
-	This function is design for general SBCs or computers with more than 2GB of RAM
-	(e.g. Raspberry Pi 4 / Linux Server)
+This function is design for general SBCs or computers with more than 2GB of RAM
+(e.g. Raspberry Pi 4 / Linux Server)
 */
 func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -867,7 +886,7 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Validate if the copy and target process will involve file overwriting problem.
+// Validate if the copy and target process will involve file overwriting problem.
 func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -909,7 +928,7 @@ func system_fs_validateFileOpr(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(jsonString))
 }
 
-//Scan all directory and get trash file and send back results with WebSocket
+// Scan all directory and get trash file and send back results with WebSocket
 func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 	//Get and check user permission
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
@@ -1000,7 +1019,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Scan all the directory and get trash files within the system
+// Scan all the directory and get trash files within the system
 func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -1053,7 +1072,7 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(jsonString))
 }
 
-//Restore a trashed file to its parent dir
+// Restore a trashed file to its parent dir
 func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -1103,7 +1122,7 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Clear all trashed file in the system
+// Clear all trashed file in the system
 func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 	u, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -1138,7 +1157,7 @@ func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Get all trash in a string list
+// Get all trash in a string list
 func system_fs_listTrash(username string) ([]string, []*filesystem.FileSystemHandler, error) {
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 	scanningRoots := []*filesystem.FileSystemHandler{}
@@ -1372,7 +1391,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	if operation == "move" || operation == "copy" || operation == "zip" || operation == "unzip" {
 
 	} else {
-		systemWideLogger.PrintAndLog("File System", "This file operation is not supported on WebSocket file operations endpoint. Please use the legacy endpoint instead. Received: "+operation, errors.New("operaiton not supported on websocket endpoint"))
+		systemWideLogger.PrintAndLog("File System", "This file operation is not supported on WebSocket file operations endpoint. Please use the POST request endpoint instead. Received: "+operation, errors.New("operaiton not supported on websocket endpoint"))
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - Not supported operation"))
 		return
@@ -1389,9 +1408,26 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Create the file operation task and remember it
+	oprId := strconv.Itoa(int(time.Now().Unix())) + "_" + uuid.NewV4().String()
+	thisFileOperationTask := fileOperationTask{
+		ID:         oprId,
+		Owner:      userinfo.Username,
+		Src:        arozfs.ToSlash(filepath.Dir(sourceFiles[0])),
+		Dest:       arozfs.ToSlash(vdestFile),
+		Progress:   0.0,
+		LatestFile: arozfs.ToSlash(filepath.Base(sourceFiles[0])),
+	}
+	wsConnectionStore.Store(oprId, &thisFileOperationTask)
+
+	//Send over the oprId for this file operation for tracking
+	time.Sleep(300 * time.Millisecond)
+	c.WriteMessage(1, []byte("{\"oprid\":\""+oprId+"\"}"))
+
 	type ProgressUpdate struct {
 		LatestFile string
 		Progress   int
+		StatusFlag int
 		Error      string
 	}
 
@@ -1413,10 +1449,13 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					LatestFile: filepath.Base(vsrcs),
 					Progress:   -1,
 					Error:      "File not exists",
+					StatusFlag: filesystem.FsOpr_Error,
 				}
 				js, _ := json.Marshal(stopStatus)
 				c.WriteMessage(1, js)
 				c.Close()
+				//Remove the task from ongoing tasks list
+				wsConnectionStore.Delete(oprId)
 				return
 			}
 			rsrc, err := thisSrcFsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
@@ -1425,10 +1464,13 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					LatestFile: filepath.Base(rsrc),
 					Progress:   -1,
 					Error:      "File not exists",
+					StatusFlag: filesystem.FsOpr_Error,
 				}
 				js, _ := json.Marshal(stopStatus)
 				c.WriteMessage(1, js)
 				c.Close()
+				//Remove the task from ongoing tasks list
+				wsConnectionStore.Delete(oprId)
 				return
 			}
 
@@ -1444,15 +1486,18 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Create the zip file
-		err = filesystem.ArozZipFileWithProgress(sourceFileFsh, realSourceFiles, zipDestFsh, zipDestPath, false, func(currentFilename string, _ int, _ int, progress float64) {
+		err = filesystem.ArozZipFileWithProgress(sourceFileFsh, realSourceFiles, zipDestFsh, zipDestPath, false, func(currentFilename string, _ int, _ int, progress float64) int {
+			sig, _ := UpdateOngoingFileOperation(oprId, currentFilename, math.Ceil(progress))
 			currentStatus := ProgressUpdate{
 				LatestFile: currentFilename,
 				Progress:   int(math.Ceil(progress)),
 				Error:      "",
+				StatusFlag: sig,
 			}
 
 			js, _ := json.Marshal(currentStatus)
 			c.WriteMessage(1, js)
+			return sig
 		})
 
 		if err != nil {
@@ -1479,10 +1524,14 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 				LatestFile: filepath.Base(vdestFile),
 				Progress:   -1,
 				Error:      "Access Denied: No Write Permission",
+				StatusFlag: filesystem.FsOpr_Error,
 			}
 			js, _ := json.Marshal(stopStatus)
 			c.WriteMessage(1, js)
 			c.Close()
+			//Remove the task from ongoing tasks list
+			wsConnectionStore.Delete(oprId)
+			return
 		}
 
 		//Create the destination folder
@@ -1497,10 +1546,14 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					LatestFile: filepath.Base(vsrcs),
 					Progress:   -1,
 					Error:      "File not exists",
+					StatusFlag: filesystem.FsOpr_Error,
 				}
 				js, _ := json.Marshal(stopStatus)
 				c.WriteMessage(1, js)
 				c.Close()
+				//Remove the task from ongoing tasks list
+				wsConnectionStore.Delete(oprId)
+				return
 			}
 			thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
 			rsrc, err := thisSrcFshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
@@ -1509,10 +1562,14 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					LatestFile: filepath.Base(rsrc),
 					Progress:   -1,
 					Error:      "File not exists",
+					StatusFlag: filesystem.FsOpr_Error,
 				}
 				js, _ := json.Marshal(stopStatus)
 				c.WriteMessage(1, js)
 				c.Close()
+				//Remove the task from ongoing tasks list
+				wsConnectionStore.Delete(oprId)
+				return
 			}
 			if thisSrcFsh.RequireBuffer {
 				localBufferFilepath, err := bufferRemoteFileToLocal(thisSrcFsh, rsrc, false)
@@ -1521,10 +1578,14 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 						LatestFile: filepath.Base(rsrc),
 						Progress:   -1,
 						Error:      "Failed to buffer file to local disk",
+						StatusFlag: filesystem.FsOpr_Error,
 					}
 					js, _ := json.Marshal(stopStatus)
 					c.WriteMessage(1, js)
 					c.Close()
+					//Remove the task from ongoing tasks list
+					wsConnectionStore.Delete(oprId)
+					return
 				}
 				realSourceFiles = append(realSourceFiles, localBufferFilepath)
 			} else {
@@ -1539,16 +1600,19 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Unzip the files
-		filesystem.ArozUnzipFileWithProgress(realSourceFiles, unzipDest, func(currentFile string, filecount int, totalfile int, progress float64) {
+		filesystem.ArozUnzipFileWithProgress(realSourceFiles, unzipDest, func(currentFile string, filecount int, totalfile int, progress float64) int {
 			//Generate the status update struct
+			sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(progress))
 			currentStatus := ProgressUpdate{
 				LatestFile: filepath.Base(currentFile),
 				Progress:   int(math.Ceil(progress)),
 				Error:      "",
+				StatusFlag: sig,
 			}
-
 			js, _ := json.Marshal(currentStatus)
 			c.WriteMessage(1, js)
+
+			return sig
 		})
 
 		if destFsh.RequireBuffer {
@@ -1574,6 +1638,8 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//Other operations that allow multiple source files to handle one by one
 		for i := 0; i < len(sourceFiles); i++ {
+			//TODO: REMOVE DEBUG
+			//time.Sleep(3 * time.Second)
 			vsrcFile := sourceFiles[i]
 			thisSrcFsh, subpath, err := GetFSHandlerSubpathFromVpath(vsrcFile)
 			if err != nil {
@@ -1581,10 +1647,13 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					LatestFile: filepath.Base(vsrcFile),
 					Progress:   -1,
 					Error:      "File not exists",
+					StatusFlag: filesystem.FsOpr_Error,
 				}
 				js, _ := json.Marshal(stopStatus)
 				c.WriteMessage(1, js)
 				c.Close()
+				//Remove the task from ongoing tasks list
+				wsConnectionStore.Delete(oprId)
 				return
 			}
 			thisSrcFshAbs := thisSrcFsh.FileSystemAbstraction
@@ -1596,28 +1665,34 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 					LatestFile: filepath.Base(rsrcFile),
 					Progress:   -1,
 					Error:      "File not exists",
+					StatusFlag: filesystem.FsOpr_Error,
 				}
 				js, _ := json.Marshal(stopStatus)
 				c.WriteMessage(1, js)
 				c.Close()
+				//Remove the task from ongoing tasks list
+				wsConnectionStore.Delete(oprId)
 				return
 			}
 
 			if operation == "move" {
-				err := filesystem.FileMove(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, true, func(progress int, currentFile string) {
+				err := filesystem.FileMove(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, true, func(progress int, currentFile string) int {
 					//Multply child progress to parent progress
 					blockRatio := float64(100) / float64(len(sourceFiles))
 					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
 
 					//Construct return struct
+					sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(overallRatio))
 					currentStatus := ProgressUpdate{
 						LatestFile: filepath.Base(currentFile),
 						Progress:   int(overallRatio),
 						Error:      "",
+						StatusFlag: sig,
 					}
 
 					js, _ := json.Marshal(currentStatus)
 					c.WriteMessage(1, js)
+					return sig
 				})
 
 				//Handle move starting error
@@ -1626,10 +1701,13 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 						LatestFile: filepath.Base(rsrcFile),
 						Progress:   -1,
 						Error:      err.Error(),
+						StatusFlag: filesystem.FsOpr_Error,
 					}
 					js, _ := json.Marshal(stopStatus)
 					c.WriteMessage(1, js)
 					c.Close()
+					//Remove the task from ongoing tasks list
+					wsConnectionStore.Delete(oprId)
 					return
 				}
 
@@ -1637,20 +1715,22 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 				metadata.RemoveCache(thisSrcFsh, rsrcFile)
 
 			} else if operation == "copy" {
-				err := filesystem.FileCopy(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, func(progress int, currentFile string) {
+				err := filesystem.FileCopy(thisSrcFsh, rsrcFile, destFsh, rdestFile, existsOpr, func(progress int, currentFile string) int {
 					//Multply child progress to parent progress
 					blockRatio := float64(100) / float64(len(sourceFiles))
 					overallRatio := blockRatio*float64(i) + blockRatio*(float64(progress)/float64(100))
 
 					//Construct return struct
+					sig, _ := UpdateOngoingFileOperation(oprId, filepath.Base(currentFile), math.Ceil(overallRatio))
 					currentStatus := ProgressUpdate{
 						LatestFile: filepath.Base(currentFile),
 						Progress:   int(overallRatio),
 						Error:      "",
+						StatusFlag: sig,
 					}
-
 					js, _ := json.Marshal(currentStatus)
 					c.WriteMessage(1, js)
+					return sig
 				})
 
 				//Handle Copy starting error
@@ -1659,15 +1739,22 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 						LatestFile: filepath.Base(rsrcFile),
 						Progress:   -1,
 						Error:      err.Error(),
+						StatusFlag: filesystem.FsOpr_Error,
 					}
 					js, _ := json.Marshal(stopStatus)
 					c.WriteMessage(1, js)
 					c.Close()
+					//Remove the task from ongoing tasks list
+					wsConnectionStore.Delete(oprId)
 					return
 				}
 			}
 		}
 	}
+
+	//Remove the task from ongoing tasks list
+	//TODO: REMOVE DEBUG
+	wsConnectionStore.Delete(oprId)
 
 	//Close WebSocket connection after finished
 	time.Sleep(1 * time.Second)
@@ -2114,7 +2201,7 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Allow systems to store key value pairs in the database as preferences.
+// Allow systems to store key value pairs in the database as preferences.
 func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
@@ -2327,7 +2414,7 @@ func system_fs_specialURIEncode(inputPath string) string {
 	return inputPath
 }
 
-//Handle file properties request
+// Handle file properties request
 func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 	type fileProperties struct {
 		VirtualPath    string
@@ -2592,7 +2679,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Handle getting a hash from a given contents in the given path
+// Handle getting a hash from a given contents in the given path
 func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 	currentDir, err := utils.GetPara(r, "dir")
 	if err != nil {
@@ -2664,7 +2751,7 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 	File zipping and unzipping functions
 */
 
-//Handle all zip related API
+// Handle all zip related API
 func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -2781,7 +2868,7 @@ func system_fs_zipHandler(w http.ResponseWriter, r *http.Request) {
 	cleanFsBufferFileFromList(realSourcePaths)
 }
 
-//Manage file version history
+// Manage file version history
 func system_fs_FileVersionHistory(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -2888,7 +2975,7 @@ func system_fs_clearVersionHistories() {
 	}
 }
 
-//Handle cache rendering with websocket pipeline
+// Handle cache rendering with websocket pipeline
 func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
 	vpath, err := utils.GetPara(r, "folder")
@@ -2915,7 +3002,7 @@ func system_fs_handleCacheRender(w http.ResponseWriter, r *http.Request) {
 	thumbRenderHandler.HandleLoadCache(w, r, fsh, rpath, sortMode)
 }
 
-//Handle loading of one thumbnail
+// Handle loading of one thumbnail
 func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
 	vpath, err := utils.GetPara(r, "vpath")
@@ -2966,7 +3053,7 @@ func system_fs_handleThumbnailLoad(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Handle file thumbnail caching
+// Handle file thumbnail caching
 func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
 	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
 	vfolderpath, err := utils.GetPara(r, "folder")
@@ -2985,7 +3072,7 @@ func system_fs_handleFolderCache(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Handle the get and set of sort mode of a particular folder
+// Handle the get and set of sort mode of a particular folder
 func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -3034,7 +3121,7 @@ func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Req
 	}
 }
 
-//Handle setting and loading of file permission on Linux
+// Handle setting and loading of file permission on Linux
 func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 	file, err := utils.PostPara(r, "file")
 	if err != nil {
@@ -3122,7 +3209,7 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Clear the old files inside the tmp file
+// Clear the old files inside the tmp file
 func system_fs_clearOldTmpFiles() {
 	filesToBeDelete := []string{}
 	tmpAbs, _ := filepath.Abs(*tmp_directory)
@@ -3183,7 +3270,7 @@ func system_fs_clearOldTmpFiles() {
 
 */
 
-//Generate a random buffer filepath. Remember to delete file after usage
+// Generate a random buffer filepath. Remember to delete file after usage
 func getFsBufferFilepath(originalFilename string, keepOriginalName bool) string {
 	thisBuffFilename := uuid.NewV4().String()
 	tmpDir := filepath.Join(*tmp_directory, "fsBuff")
@@ -3196,7 +3283,7 @@ func getFsBufferFilepath(originalFilename string, keepOriginalName bool) string 
 	return filepath.ToSlash(targetFile)
 }
 
-//Generate a buffer filepath and buffer the remote file to local. Remember to remove file after done.
+// Generate a buffer filepath and buffer the remote file to local. Remember to remove file after done.
 func bufferRemoteFileToLocal(targetFsh *filesystem.FileSystemHandler, rpath string, keepOriginalName bool) (string, error) {
 	newBufferFilename := getFsBufferFilepath(rpath, keepOriginalName)
 	src, err := targetFsh.FileSystemAbstraction.ReadStream(rpath)
@@ -3217,7 +3304,7 @@ func bufferRemoteFileToLocal(targetFsh *filesystem.FileSystemHandler, rpath stri
 	return newBufferFilename, nil
 }
 
-//Check if a file is buffer filepath
+// Check if a file is buffer filepath
 func isFsBufferFilepath(filename string) bool {
 	tmpDir := filepath.Join(*tmp_directory, "fsBuff")
 	filenameAbs, _ := filepath.Abs(filename)
@@ -3238,4 +3325,114 @@ func cleanFsBufferFileFromList(filelist []string) {
 			}
 		}
 	}
+}
+
+/*
+	File operation load and resume features
+*/
+
+// Handle all the on going task requests.
+// Accept parameter: flag={continue / pause / stop}
+func system_fs_HandleOnGoingTasks(w http.ResponseWriter, r *http.Request) {
+	//Get the user information
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	statusFlag, _ := utils.PostPara(r, "flag")
+	oprid, _ := utils.PostPara(r, "oprid")
+
+	if statusFlag == "" {
+		//No flag defined. Print all operations
+		ongoingTasks := GetAllOngoingFileOperationForUser(userinfo.Username)
+		js, _ := json.Marshal(ongoingTasks)
+		utils.SendJSONResponse(w, string(js))
+	} else if statusFlag != "" {
+		if oprid == "" {
+			utils.SendErrorResponse(w, "oprid is empty or not set")
+			return
+		}
+
+		//Get the operation record
+		oprRecord, err := GetOngoingFileOperationByOprID(oprid)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+
+		if statusFlag == "continue" {
+			//Continue the file operation
+			oprRecord.FileOperationSignal = filesystem.FsOpr_Continue
+		} else if statusFlag == "pause" {
+			//Pause the file operation until the flag is set to other status
+			oprRecord.FileOperationSignal = filesystem.FsOpr_Pause
+		} else if statusFlag == "cancel" {
+			//Cancel and stop the operation
+			oprRecord.FileOperationSignal = filesystem.FsOpr_Cancel
+		} else {
+			utils.SendErrorResponse(w, "unsupported operation")
+			return
+		}
+
+		SetOngoingFileOperation(oprRecord)
+
+		utils.SendOK(w)
+	} else if oprid != "" && statusFlag == "" {
+		//Get the operation record
+		oprRecord, err := GetOngoingFileOperationByOprID(oprid)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+
+		js, _ := json.Marshal(oprRecord)
+		utils.SendJSONResponse(w, string(js))
+
+	}
+
+}
+
+func GetAllOngoingFileOperationForUser(username string) []*fileOperationTask {
+	results := []*fileOperationTask{}
+	wsConnectionStore.Range(func(key, value interface{}) bool {
+		//oprid := key.(string)
+		taskInfo := value.(*fileOperationTask)
+		if taskInfo.Owner == username {
+			results = append(results, taskInfo)
+		}
+		return true
+	})
+
+	return results
+}
+
+// Get an ongoing task record
+func GetOngoingFileOperationByOprID(oprid string) (*fileOperationTask, error) {
+	object, ok := wsConnectionStore.Load(oprid)
+	if !ok {
+		return nil, errors.New("task not exists")
+	}
+
+	return object.(*fileOperationTask), nil
+}
+
+// Set or update an ongoing task record
+func SetOngoingFileOperation(opr *fileOperationTask) {
+	wsConnectionStore.Store(opr.ID, opr)
+}
+
+// Update the status of an onging task record, return latest status code and error if any
+func UpdateOngoingFileOperation(oprid string, currentFile string, progress float64) (int, error) {
+	t, err := GetOngoingFileOperationByOprID(oprid)
+	if err != nil {
+		return 0, err
+	}
+
+	t.LatestFile = currentFile
+	t.Progress = progress
+
+	SetOngoingFileOperation(t)
+	return t.FileOperationSignal, nil
 }

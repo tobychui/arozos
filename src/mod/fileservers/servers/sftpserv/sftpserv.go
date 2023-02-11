@@ -176,7 +176,9 @@ func (m *Manager) HandleToogleUPnP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//Remove UPnP forwarded port
-		m.option.Upnp.ClosePort(m.listeningPort)
+		if m.option.Upnp != nil {
+			m.option.Upnp.ClosePort(m.listeningPort)
+		}
 
 		utils.SendOK(w)
 	} else {

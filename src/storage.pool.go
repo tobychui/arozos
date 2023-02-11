@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -60,7 +59,7 @@ func StoragePoolEditorInit() {
 
 }
 
-//Handle editing of a given File System Handler
+// Handle editing of a given File System Handler
 func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 	opr, _ := utils.PostPara(r, "opr")
 	group, err := utils.PostPara(r, "group")
@@ -147,7 +146,7 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 		//Merge the old config file if exists
 		oldConfigs := []fs.FileSystemOption{}
 		if fs.FileExists(configFile) {
-			originalConfigFile, _ := ioutil.ReadFile(configFile)
+			originalConfigFile, _ := os.ReadFile(configFile)
 			err := json.Unmarshal(originalConfigFile, &oldConfigs)
 			if err != nil {
 				systemWideLogger.PrintAndLog("Storage", err.Error(), err)
@@ -156,7 +155,7 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 
 		oldConfigs = append(oldConfigs, newFsOption)
 		js, _ := json.MarshalIndent(oldConfigs, "", " ")
-		err = ioutil.WriteFile(configFile, js, 0775)
+		err = os.WriteFile(configFile, js, 0775)
 		if err != nil {
 			utils.SendErrorResponse(w, err.Error())
 			return
@@ -171,7 +170,7 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Get the FSH configuration for the given group and uuid
+// Get the FSH configuration for the given group and uuid
 func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOption, error) {
 	//Spot the desired config file
 	targerFile := ""
@@ -192,7 +191,7 @@ func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOpti
 	}
 
 	//Load and parse the file
-	configContent, err := ioutil.ReadFile(targerFile)
+	configContent, err := os.ReadFile(targerFile)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +234,7 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 	}
 
 	//Load and parse the file
-	configContent, err := ioutil.ReadFile(targerFile)
+	configContent, err := os.ReadFile(targerFile)
 	if err != nil {
 		return err
 	}
@@ -271,10 +270,10 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 
 	//Write config back to file
 	js, _ := json.MarshalIndent(newConfig, "", " ")
-	return ioutil.WriteFile(targerFile, js, 0775)
+	return os.WriteFile(targerFile, js, 0775)
 }
 
-//Handle Storage Pool toggle on-off
+// Handle Storage Pool toggle on-off
 func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 	fsh, _ := utils.PostPara(r, "fsh")
 	if fsh == "" {
@@ -348,7 +347,7 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Handle reload of storage pool
+// Handle reload of storage pool
 func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 	pool, _ := utils.PostPara(r, "pool")
 
@@ -466,7 +465,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 			//No config. Create an empty one
 			initConfig := []fs.FileSystemOption{}
 			js, _ := json.MarshalIndent(initConfig, "", " ")
-			ioutil.WriteFile(targetConfigFile, js, 0775)
+			os.WriteFile(targetConfigFile, js, 0775)
 		}
 	}
 
@@ -493,7 +492,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 		//Remove it from the json file
 		//Read and parse from old config
 		oldConfigs := []fs.FileSystemOption{}
-		originalConfigFile, _ := ioutil.ReadFile(targetConfigFile)
+		originalConfigFile, _ := os.ReadFile(targetConfigFile)
 		err = json.Unmarshal(originalConfigFile, &oldConfigs)
 		if err != nil {
 			utils.SendErrorResponse(w, "Failed to parse original config file")
@@ -512,7 +511,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 		if len(newConfigs) > 0 {
 			js, _ := json.Marshal(newConfigs)
 			resultingJson := pretty.Pretty(js)
-			ioutil.WriteFile(targetConfigFile, resultingJson, 0777)
+			os.WriteFile(targetConfigFile, resultingJson, 0777)
 		} else {
 			os.Remove(targetConfigFile)
 		}
@@ -521,7 +520,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-//Constract a fsoption from form
+// Constract a fsoption from form
 func buildOptionFromRequestForm(payload string) (fs.FileSystemOption, error) {
 	newFsOption := fs.FileSystemOption{}
 	err := json.Unmarshal([]byte(payload), &newFsOption)
@@ -573,7 +572,7 @@ func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
 	//If file exists, merge it to
 	oldConfigs := []fs.FileSystemOption{}
 	if fs.FileExists(configFile) {
-		originalConfigFile, _ := ioutil.ReadFile(configFile)
+		originalConfigFile, _ := os.ReadFile(configFile)
 		err := json.Unmarshal(originalConfigFile, &oldConfigs)
 		if err != nil {
 			systemWideLogger.PrintAndLog(err,nil)
@@ -586,7 +585,7 @@ func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
 	js, _ := json.Marshal(oldConfigs)
 	resultingJson := pretty.Pretty(js)
 
-	err = ioutil.WriteFile(configFile, resultingJson, 0775)
+	err = os.WriteFile(configFile, resultingJson, 0775)
 	if err != nil {
 		//Write Error. This could sometime happens on Windows host for unknown reason
 		js, _ := json.Marshal(errorObject{
@@ -624,7 +623,7 @@ func HandleListStoragePoolsConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Read and serve it
-	configContent, err := ioutil.ReadFile(targetFile)
+	configContent, err := os.ReadFile(targetFile)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
@@ -633,7 +632,7 @@ func HandleListStoragePoolsConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Return all storage pool mounted to the system, aka base pool + pg pools
+// Return all storage pool mounted to the system, aka base pool + pg pools
 func HandleListStoragePools(w http.ResponseWriter, r *http.Request) {
 	filter, _ := utils.GetPara(r, "filter")
 
@@ -663,7 +662,7 @@ func HandleListStoragePools(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Handler for bridging two FSH, require admin permission
+// Handler for bridging two FSH, require admin permission
 func HandleFSHBridging(w http.ResponseWriter, r *http.Request) {
 	//Get the target pool and fsh to bridge
 	basePool, err := utils.PostPara(r, "base")

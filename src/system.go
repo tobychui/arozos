@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,10 +14,10 @@ import (
 )
 
 /*
-	System Identification API
+System Identification API
 
-	This module handles cross cluster scanning, responses and more that related
-	to functions that identifiy this as a ArOZ Online device
+This module handles cross cluster scanning, responses and more that related
+to functions that identifiy this as a ArOZ Online device
 */
 func SystemIDInit() {
 	//Initialize device UUID if not exists
@@ -81,7 +81,7 @@ func SystemIDInit() {
 }
 
 /*
-	Ping function. This function handles the request
+Ping function. This function handles the request
 */
 func systemIdHandlePing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -103,13 +103,13 @@ func systemIdGenerateSystemUUID() {
 			//User has defined the uuid. Use user defined one instead.
 			thisuuid = *system_uuid
 		}
-		err := ioutil.WriteFile("./system/dev.uuid", []byte(thisuuid), 0755)
+		err := os.WriteFile("./system/dev.uuid", []byte(thisuuid), 0755)
 		if err != nil {
 			log.Fatal(err)
 		}
 		deviceUUID = thisuuid
 	} else {
-		thisuuid, err := ioutil.ReadFile("./system/dev.uuid")
+		thisuuid, err := os.ReadFile("./system/dev.uuid")
 		if err != nil {
 			log.Fatal("Failed to read system uuid file (system/dev.uuid).")
 		}
@@ -118,7 +118,7 @@ func systemIdGenerateSystemUUID() {
 }
 
 func systemIdGetSystemUUID() string {
-	fileUUID, err := ioutil.ReadFile("./system/dev.uuid")
+	fileUUID, err := os.ReadFile("./system/dev.uuid")
 	if err != nil {
 		systemWideLogger.PrintAndLog("Storage", "Unable to read system UUID from dev.uuid file", err)
 		log.Fatal(err)
@@ -133,7 +133,7 @@ func systemHandleListLicense(w http.ResponseWriter, r *http.Request) {
 	for _, file := range licenses {
 		fileName := filepath.Base(file)
 		name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-		content, _ := ioutil.ReadFile(file)
+		content, _ := os.ReadFile(file)
 		results = append(results, []string{name, string(content)})
 	}
 
@@ -156,7 +156,6 @@ func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 		Build      string
 		Version    string
 		Model      string
-		VendorIcon string
 	}
 
 	//thisDevIP := network_info_GetOutboundIP().String()
@@ -169,7 +168,6 @@ func systemIdHandleRequest(w http.ResponseWriter, r *http.Request) {
 		Build:      build_version,
 		Version:    internal_version,
 		Model:      deviceModel,
-		VendorIcon: iconVendor,
 	})
 
 	utils.SendJSONResponse(w, string(jsonString))

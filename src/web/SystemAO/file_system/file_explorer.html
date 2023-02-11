@@ -4706,17 +4706,17 @@
 
             //Get the avaible space on tmp disk and decide the cutoff file size that need to directly write to disk
             $.ajax({
-                url: "../../system/disk/space/resolve",
+                url: "../../system/disk/space/tmp",
                 method: "POST",
-                data: {path: "tmp:/"},
+                data: {},
                 success: function(data){
                     if (data.error !== undefined){
-                      
+                        console.log("[File Explorer] Unable to auto-detect huge file cutoff size: " + data.error);
                     }else{
-                        if (!isNaN(data.Avilable) && data.Avilable > 0){
-                            largeFileCutoffSize = data.Avilable/16 - 4096;
-                            console.log("[File Explorer] Setting huge file cutoff size at: " + ao_module_utils.formatBytes(data.Avilable/16));
-                        }else if (isNaN(data.Avilable)){
+                        if (!isNaN(data.Available) && data.Available > 0){
+                            largeFileCutoffSize = data.Available/16 - 4096;
+                            console.log("[File Explorer] Setting huge file cutoff size at: " + ao_module_utils.formatBytes(data.Available/16));
+                        }else if (isNaN(data.Available)){
                             console.log("[File Explorer] Unable to read available tmp disk size. Using default huge file cutoff size.");
                         }
                         
@@ -4727,8 +4727,6 @@
                 }
             });
         }
-
-        let uploadBufferedRefreshTimer;
        
         function uploadFile(file, uuid=undefined, targetDir=undefined) {
             if (file.size > postUploadModeCutoff && lowMemoryMode){

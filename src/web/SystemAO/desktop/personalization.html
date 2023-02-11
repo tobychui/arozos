@@ -628,15 +628,16 @@
 
                             //Save the current color
                             var thisColorCode = $(this).attr("hex");
-                            previousColorCode["floatWindow"] = $(parent.window.content.document).find(".floatWindow .controls").css("background-color");
-                            previousColorCode["statusbar"] =  $(parent.window.content.document).find("#statusbar").css("background-color");
-                            previousColorCode["navimenu"] =  $(parent.window.content.document).find("#navimenu").css("background-color");
+                            var parentDocument = parent.window.document;
+                            previousColorCode["floatWindow"] = $(parentDocument).find(".floatWindow .controls").css("background-color");
+                            previousColorCode["statusbar"] =  $(parentDocument).find("#statusbar").css("background-color");
+                            previousColorCode["navimenu"] =  $(parentDocument).find("#navimenu").css("background-color");
 
                             //Set the preview color
                             if (ao_module_virtualDesktop){
-                                $(parent.window.content.document).find(".floatWindow .controls").css("background-color",hexToRgbA(thisColorCode, 0.85));
-                                $(parent.window.content.document).find("#statusbar").css("background-color",thisColorCode );
-                                $(parent.window.content.document).find("#navimenu").css("background-color",hexToRgbA(thisColorCode, 0.5));
+                                $(parentDocument).find(".floatWindow .controls").css("background-color",hexToRgbA(thisColorCode, 0.85));
+                                $(parentDocument).find("#statusbar").css("background-color",thisColorCode );
+                                $(parentDocument).find("#navimenu").css("background-color",hexToRgbA(thisColorCode, 0.5));
                             }
                         },
                         mouseout: function() {
@@ -645,10 +646,11 @@
                             $(".themeColorSolid").css("background-color", "");
 
                             //Restore the original color
+                            var parentDocument = parent.window.document;
                             if (ao_module_virtualDesktop && !cancelColorRestore){
-                                $(parent.window.content.document).find(".floatWindow .controls").css("background-color",previousColorCode["floatWindow"]);
-                                $(parent.window.content.document).find("#statusbar").css("background-color",previousColorCode["statusbar"]);
-                                $(parent.window.content.document).find("#navimenu").css("background-color",previousColorCode["navimenu"]);
+                                $(parentDocument).find(".floatWindow .controls").css("background-color",previousColorCode["floatWindow"]);
+                                $(parentDocument).find("#statusbar").css("background-color",previousColorCode["statusbar"]);
+                                $(parentDocument).find("#navimenu").css("background-color",previousColorCode["navimenu"]);
                             }else if (cancelColorRestore){
                                 cancelColorRestore = false;
                             }

@@ -83,89 +83,28 @@ func (l LocalFileSystemAbstraction) Close() error {
 */
 
 func (l LocalFileSystemAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	subpath = filepath.ToSlash(subpath)
-	if strings.HasPrefix(subpath, l.UUID+":") {
-		//This is full virtual path. Trim the uuid and correct the subpath
-		subpath = subpath[len(l.UUID+":"):]
+	rpath, err := arozfs.GenericVirtualPathToRealPathTranslator(l.UUID, l.Hierarchy, subpath, username)
+	if err != nil {
+		return "", err
 	}
 
-	if l.Hierarchy == "user" {
-		return filepath.ToSlash(filepath.Join(l.Rootpath, "users", username, subpath)), nil
-	} else if l.Hierarchy == "public" {
-		return filepath.ToSlash(filepath.Join(l.Rootpath, subpath)), nil
-	}
-	return "", arozfs.ErrVpathResolveFailed
+	//Append the local root path to the translated path to allow read write from os package
+	rpath = filepath.Join(l.Rootpath, rpath)
+
+	//fmt.Println("VIRTUAL TO REAL", l.Rootpath, subpath, rpath)
+	return rpath, nil
 }
 
 func (l LocalFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
-	/*
-		thisStorageRootAbs, err := filepath.Abs(l.Rootpath)
-		if err != nil {
-			//Fail to abs this path. Maybe this is a emulated file system?
-			thisStorageRootAbs = l.Rootpath
-		}
-		thisStorageRootAbs = filepath.ToSlash(filepath.Clean(thisStorageRootAbs))
-
-		subPath := ""
-		if len(fullpath) > len(l.Rootpath) && filepath.ToSlash(fullpath[:len(l.Rootpath)]) == filepath.ToSlash(l.Rootpath) {
-			//This realpath is in contained inside this storage root
-			subtractionPath := l.Rootpath
-			if l.Hierarchy == "user" {
-				//Check if this file is belongs to this user
-				startOffset := len(filepath.Clean(l.Rootpath) + "/users/")
-				if len(fullpath) < startOffset+len(username) {
-					//This file is not owned by this user
-					return "", errors.New("File not owned by this user")
-				} else {
-					userNameMatch := fullpath[startOffset : startOffset+len(username)]
-					if userNameMatch != username {
-						//This file is not owned by this user
-						return "", errors.New("File not owned by this user")
-					}
-				}
-
-				//Generate subtraction path
-				subtractionPath = filepath.ToSlash(filepath.Clean(filepath.Join(l.Rootpath, "users", username)))
-			}
-
-			if len(subtractionPath) < len(fullpath) {
-				subPath = fullpath[len(subtractionPath):]
-			}
-
-		} else if len(fullpath) > len(thisStorageRootAbs) && filepath.ToSlash(fullpath[:len(thisStorageRootAbs)]) == filepath.ToSlash(thisStorageRootAbs) {
-			//The realpath contains the absolute path of this storage root
-			subtractionPath := thisStorageRootAbs
-			if l.Hierarchy == "user" {
-				subtractionPath = thisStorageRootAbs + "/users/" + username + "/"
-			}
-
-			if len(subtractionPath) < len(fullpath) {
-				subPath = fullpath[len(subtractionPath):]
-			}
-		} else if filepath.ToSlash(fullpath) == filepath.ToSlash(l.Rootpath) {
-			//Storage Root's root
-			subPath = ""
-		}
-
-		if len(subPath) > 1 && subPath[:1] == "/" {
-			subPath = subPath[1:]
-		}
-	*/
-	fullpath = filepath.ToSlash(fullpath)
-	if strings.HasPrefix(fullpath, l.UUID+":") && !utils.FileExists(fullpath) {
-		return "", arozfs.ErrRpathResolveFailed
-	}
-	prefix := filepath.ToSlash(filepath.Join(l.Rootpath, "users", username))
-	if l.Hierarchy == "public" {
-		prefix = filepath.ToSlash(l.Rootpath)
-	}
-	fullpath = filepath.ToSlash(filepath.Clean(fullpath))
-	subPath := strings.TrimPrefix(fullpath, prefix)
-	if !strings.HasPrefix(subPath, "/") {
-		subPath = "/" + subPath
+	//Trim the absolute / relative path before passing into generic translator
+	fullpath = arozfs.ToSlash(fullpath)
+	if strings.HasPrefix(fullpath, arozfs.ToSlash(filepath.Clean(l.Rootpath))) {
+		fullpath = strings.TrimPrefix(fullpath, arozfs.ToSlash(filepath.Clean(l.Rootpath)))
 	}
 
-	return l.UUID + ":" + filepath.ToSlash(subPath), nil
+	vpath, err := arozfs.GenericRealPathToVirtualPathTranslator(l.UUID, l.Hierarchy, arozfs.ToSlash(fullpath), username)
+	//fmt.Println("REAL TO VIRTUAL", arozfs.ToSlash(filepath.Clean(l.Rootpath)), fullpath, vpath)
+	return vpath, err
 }
 
 func (l LocalFileSystemAbstraction) FileExists(realpath string) bool {

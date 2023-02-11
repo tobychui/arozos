@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Office Viewer</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+  <!--  <link rel="stylesheet" href="./include/jquery_ui/themes/start/jquery-ui.min.css"> -->
+  <script src="./include/jquery/jquery-1.12.4.min.js"></script>
+  <!-- <script src="./include/jquery_ui/jquery-ui.min.js"></script> -->
+  <script src="../script/ao_module.js"></script>
+  <!--Docs-->
+  <script src="./include/docx/jszip-utils.js"></script>
+  <script src="./include/docx/mammoth.browser.min.js"></script>
+  <!--PPTX-->
+  <link rel="stylesheet" href="./include/PPTXjs/css/pptxjs.css">
+  <link rel="stylesheet" href="./include/PPTXjs/css/nv.d3.min.css">
+  <script type="text/javascript" src="./include/PPTXjs/js/filereader.js"></script>
+  <script type="text/javascript" src="./include/PPTXjs/js/d3.min.js"></script>
+  <script type="text/javascript" src="./include/PPTXjs/js/nv.d3.min.js"></script>
+  <script type="text/javascript" src="./include/PPTXjs/js/pptxjs.js"></script>
+  <script type="text/javascript" src="./include/PPTXjs/js/divs2slides.js"></script>
+  <!--All Spreadsheet -->
+  <link rel="stylesheet" href="./include/SheetJS/handsontable.full.min.css">
+  <script type="text/javascript" src="./include/SheetJS/handsontable.full.min.js"></script>
+  <script type="text/javascript" src="./include/SheetJS/xlsx.full.min.js"></script>
+  <!--officeToHtml-->
+  <script src="./include/officeToHtml/officeToHtml.js"></script>
+  <link rel="stylesheet" href="./include/officeToHtml/officeToHtml.css">
+  <style>
+    body{
+      background-color: rgb(245, 245, 245);
+      margin: 0;
+    }
+
+    #resolte-contaniner{
+      background-color: white;
+      width: 100%; 
+    }
+
+    /*
+      CSS Overwrite for docx
+    */
+    #resolte-contaniner.docx{
+      margin: 2em;
+      margin-top: 0.8em;
+      padding: 4em;
+      overflow-y: auto;
+      width: calc(100% - 4em);
+    }
+
+    #resolte-contaniner.docx img{
+      max-width: calc(100% - 1em);
+    }
+
+    /*
+      CSS overwrite for pptx
+    */
+    #resolte-contaniner.pptx .slides-toolbar{
+        width: 100% !important;
+    }
+    #resolte-contaniner.pptx .slide{
+      margin-left: auto;
+      margin-right: auto;
+      max-width: calc(100% - 1em);
+    }
+
+  </style>
+</head>
+<body>
+  <div id="fileOpenDetails" class="ui container" style="margin-top: 0.4em;">
+    <p>File Rendered:  <a href="" id="filename" target="_blank"></a></p>
+  </div>
+  <div id="resolte-contaniner">
+    
+  </div>
+  <script>
+    //Get the input file from the hash
+    let inputFiles = ao_module_loadInputFiles();
+    let loadingURL = "";
+    if (inputFiles != null){
+      var loadingfile = inputFiles[0];
+      //Render file information
+      $("#filename").text(loadingfile.filepath);
+      $("#filename").attr("href", "/media?download=true&file=" + loadingfile.filepath);
+      ao_module_setWindowTitle("OfficeViewer - " + loadingfile.filename);
+      //Get extension and update css rendering rules
+      var ext = loadingfile.filepath.split(".").pop();
+      if (ext == "docx" || ext == "doc"){
+        $("#resolte-contaniner").addClass("docx");
+      }else if (ext == "pptx" || ext == "ppt"){
+        $("#resolte-contaniner").addClass("pptx");
+      }else if (ext == "xlsx" || ext == "xls" || ext == "csv"){
+        $("#resolte-contaniner").addClass("xlsx");
+      }
+      loadFile("/media?file=" + loadingfile.filepath);
+    }else{
+      //No set files. Redirect to index
+      window.location.href = "./index.html"
+    }
+    function loadFile(file_path){
+        $("#resolte-contaniner").officeToHtml({
+          url: file_path,
+          pdfSetting: {
+            setLang: "",
+            setLangFilesPath: ""
+          }
+        });
+      }
+  </script>
+</body>
+
+</html>

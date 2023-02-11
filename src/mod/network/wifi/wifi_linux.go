@@ -1,10 +1,10 @@
+//go:build linux
 // +build linux
 
 package wifi
 
 import (
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -17,7 +17,7 @@ import (
 	"github.com/valyala/fasttemplate"
 )
 
-//Toggle WiFi On Off. Only allow on sudo mode
+// Toggle WiFi On Off. Only allow on sudo mode
 func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 	status := "up"
 	if on == false {
@@ -67,7 +67,7 @@ func (w *WiFiManager) GetInterfacePowerStatuts(wlanInterface string) (bool, erro
 
 }
 
-//Scan Nearby WiFi
+// Scan Nearby WiFi
 func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	rcmd := `iwlist ` + interfaceName + ` scan`
 	if w.sudo_mode {
@@ -261,7 +261,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	return results, nil
 }
 
-//Hack the signal level out of the nmcli bars
+// Hack the signal level out of the nmcli bars
 func (w *WiFiManager) getSignalLevelEstimation(bar string) string {
 	bar = strings.TrimSpace(bar)
 	if bar == "▂▄▆█" {
@@ -277,7 +277,7 @@ func (w *WiFiManager) getSignalLevelEstimation(bar string) string {
 	}
 }
 
-//Get all the network interfaces
+// Get all the network interfaces
 func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 	rcmd := `iw dev | awk '$1=="Interface"{print $2}'`
 	cmd := exec.Command("bash", "-c", rcmd)
@@ -390,7 +390,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	if writeToConfig == true {
 		log.Println("*WiFi* WiFi Config Generated. Writing to file...")
 		//Write config file to disk
-		err := ioutil.WriteFile("./system/network/wifi/ap/"+ssid+".config", []byte(networkConfigFile), 0755)
+		err := os.WriteFile("./system/network/wifi/ap/"+ssid+".config", []byte(networkConfigFile), 0755)
 		if err != nil {
 			log.Println(err.Error())
 			return &WiFiConnectionResult{Success: false}, err
@@ -401,7 +401,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 
 	//Start creating the new wpa_supplicant file
 	//Get header
-	configHeader, err := ioutil.ReadFile("./system/network/wifi/wpa_supplicant.conf_template.config")
+	configHeader, err := os.ReadFile("./system/network/wifi/wpa_supplicant.conf_template.config")
 	if err != nil {
 		//Template header not found. Use default one from Raspberry Pi
 		log.Println("*WiFi* Warning! wpa_supplicant template file not found. Using default template.")
@@ -422,7 +422,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	networks := []string{}
 
 	for _, configFile := range networksConfigs {
-		thisNetworkConfig, err := ioutil.ReadFile(configFile)
+		thisNetworkConfig, err := os.ReadFile(configFile)
 		if err != nil {
 			log.Println("*WiFi* Failed to read Network Config File: " + configFile)
 			continue
@@ -449,7 +449,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	})
 
 	//Try to write the new config to wpa_supplicant
-	err = ioutil.WriteFile(w.wpa_supplicant_path, []byte(newconfig), 0777)
+	err = os.WriteFile(w.wpa_supplicant_path, []byte(newconfig), 0777)
 	if err != nil {
 		log.Println("*WiFi* Failed to update wpa_supplicant config, are you sure you have access permission to that file?")
 		return &WiFiConnectionResult{Success: false}, err
@@ -462,8 +462,8 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//Maybe the user forgot to set the flag. Try auto detect.
-		autoDetectedWIface, err := w.GetWirelessInterfaces();
-		if err != nil || len(autoDetectedWIface) == 0{
+		autoDetectedWIface, err := w.GetWirelessInterfaces()
+		if err != nil || len(autoDetectedWIface) == 0 {
 			log.Println("failed to restart network: " + string(out))
 			return &WiFiConnectionResult{Success: false}, err
 		}
@@ -477,7 +477,6 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			return &WiFiConnectionResult{Success: false}, err
 		}
 
-		
 	}
 
 	log.Println("*WiFi* Trying to connect new AP")
@@ -505,8 +504,8 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 
 }
 
-//Get the current connected wifi, return ESSID, wifi interface name and error if any
-//Return ESSID, interface and error
+// Get the current connected wifi, return ESSID, wifi interface name and error if any
+// Return ESSID, interface and error
 func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 	cmd := exec.Command("iwgetid")
 	out, err := cmd.CombinedOutput()
@@ -626,7 +625,7 @@ func (w *WiFiManager) RemoveWifi(ssid string) error {
 	return nil
 }
 
-//Helper functions
+// Helper functions
 func fileInDir(filesourcepath string, directory string) bool {
 	filepathAbs, err := filepath.Abs(filesourcepath)
 	if err != nil {

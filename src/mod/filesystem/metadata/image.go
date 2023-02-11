@@ -2,8 +2,10 @@ package metadata
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/jpeg"
+	"os"
 	"path/filepath"
 
 	"github.com/nfnt/resize"
@@ -11,21 +13,43 @@ import (
 	"imuslab.com/arozos/mod/filesystem"
 )
 
+// Generate thumbnail for image. Require real filepath
 func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
 	if fsh.RequireBuffer {
 		return "", nil
 	}
 	fshAbs := fsh.FileSystemAbstraction
-	imageBytes, err := fshAbs.ReadFile(file)
-	if err != nil {
-		return "", err
+	var img image.Image
+	var err error
+
+	if fshAbs.GetFileSize(file) > (25 << 20) {
+		//Maxmium image size to be converted is 25MB, on 500MB (~250MB usable) Linux System
+		//This file is too large to convert
+		return "", errors.New("image file too large")
 	}
-	//Resize to desiered width
-	img, _, err := image.Decode(bytes.NewReader(imageBytes))
-	if err != nil {
-		return "", err
+	if fsh.RequireBuffer {
+		//This fsh is remote. Buffer to RAM
+		imageBytes, err := fshAbs.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		img, _, err = image.Decode(bytes.NewReader(imageBytes))
+		if err != nil {
+			return "", err
+		}
+	} else {
+		srcImage, err := fshAbs.OpenFile(file, os.O_RDONLY, 0775)
+		if err != nil {
+			return "", err
+		}
+		defer srcImage.Close()
+		img, _, err = image.Decode(srcImage)
+		if err != nil {
+			return "", err
+		}
 	}
 
+	//Resize to desiered width
 	//Check boundary to decide resize mode
 	b := img.Bounds()
 	imgWidth := b.Max.X

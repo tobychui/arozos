@@ -6,8 +6,8 @@ package main
 */
 
 import (
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
@@ -17,7 +17,7 @@ func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
 	notFoundPage := "./web/SystemAO/notfound.html"
 	if fs.FileExists(notFoundPage) {
 
-		notFoundTemplateBytes, err := ioutil.ReadFile(notFoundPage)
+		notFoundTemplateBytes, err := os.ReadFile(notFoundPage)
 		notFoundTemplate := string(notFoundTemplateBytes)
 		if err != nil {
 			http.NotFound(w, r)
@@ -39,7 +39,7 @@ func errorHandleInternalServerError(w http.ResponseWriter, r *http.Request) {
 	internalServerErrPage := "./web/SystemAO/internalServerError.html"
 	if fs.FileExists(internalServerErrPage) {
 
-		templateBytes, err := ioutil.ReadFile(internalServerErrPage)
+		templateBytes, err := os.ReadFile(internalServerErrPage)
 		template := string(templateBytes)
 		if err != nil {
 			http.NotFound(w, r)
@@ -61,7 +61,7 @@ func errorHandleInternalServerError(w http.ResponseWriter, r *http.Request) {
 func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
 	unauthorizedPage := "./web/SystemAO/unauthorized.html"
 	if fs.FileExists(unauthorizedPage) {
-		notFoundTemplateBytes, err := ioutil.ReadFile(unauthorizedPage)
+		notFoundTemplateBytes, err := os.ReadFile(unauthorizedPage)
 		notFoundTemplate := string(notFoundTemplateBytes)
 		if err != nil {
 			http.NotFound(w, r)
@@ -78,7 +78,7 @@ func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Get escape root path, example /asd/asd => ../../
+// Get escape root path, example /asd/asd => ../../
 func getRootEscapeFromCurrentPath(requestURL string) string {
 	rel := ""
 	if !strings.Contains(requestURL, "/") {

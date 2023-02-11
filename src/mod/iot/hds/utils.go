@@ -3,7 +3,7 @@ package hds
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -31,7 +31,7 @@ func tryGet(url string) (string, error) {
 		return "", errors.New("Server side return status code " + strconv.Itoa(resp.StatusCode))
 	}
 
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -39,7 +39,7 @@ func tryGet(url string) (string, error) {
 	return string(content), nil
 }
 
-//Check if the given ip address is HDS device, return its UUID if true
+// Check if the given ip address is HDS device, return its UUID if true
 func tryGetHDSUUID(ip string) (string, error) {
 	uuid, err := tryGet("http://" + ip + "/uuid")
 	if err != nil {
@@ -50,7 +50,7 @@ func tryGetHDSUUID(ip string) (string, error) {
 	return uuid, nil
 }
 
-//Get the HDS device info, return Device Name, Class and error if any
+// Get the HDS device info, return Device Name, Class and error if any
 func tryGetHDSInfo(ip string) (string, string, error) {
 	infoStatus, err := tryGet("http://" + ip + "/info")
 	if err != nil {
@@ -65,7 +65,7 @@ func tryGetHDSInfo(ip string) (string, string, error) {
 	return infodata[0], infodata[1], nil
 }
 
-//Get the HDS device status. Only use this when you are sure the device is an HDS device
+// Get the HDS device status. Only use this when you are sure the device is an HDS device
 func getHDSStatus(ip string) (string, error) {
 	status, err := tryGet("http://" + ip + "/status")
 	if err != nil {

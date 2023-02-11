@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/mail"
@@ -77,7 +77,7 @@ func NewRegisterHandler(database *db.Database, authAgent *auth.AuthAgent, ph *pe
 	}
 }
 
-//Create the default usergroup used by new users
+// Create the default usergroup used by new users
 func createDefaultGroup(ph *permission.PermissionHandler) {
 	//Default storage space: 15GB
 	ph.NewPermissionGroup("default", false, 15<<30, []string{}, "Desktop")
@@ -91,11 +91,11 @@ func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Req
 	}
 }
 
-//Handle and serve the register itnerface
+// Handle and serve the register itnerface
 func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http.Request) {
 	//Serve the register interface
 	if h.AllowRegistry {
-		template, err := ioutil.ReadFile("system/auth/register.system")
+		template, err := os.ReadFile("system/auth/register.system")
 		if err != nil {
 			log.Println("Template not found: system/auth/register.system")
 			http.NotFound(w, r)
@@ -126,7 +126,7 @@ func readImageFileAsBase64(src string) (string, error) {
 	}
 
 	reader := bufio.NewReader(f)
-	content, err := ioutil.ReadAll(reader)
+	content, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
 	}
@@ -134,12 +134,12 @@ func readImageFileAsBase64(src string) (string, error) {
 	return encoded, nil
 }
 
-//Get the default usergroup for this register handler
+// Get the default usergroup for this register handler
 func (h *RegisterHandler) GetDefaultUserGroup() string {
 	return h.DefaultUserGroup
 }
 
-//Set the default usergroup for this register handler
+// Set the default usergroup for this register handler
 func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
 	if !h.permissionHandler.GroupExists(groupname) {
 		return errors.New("Group not exists")
@@ -154,12 +154,12 @@ func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
 	return nil
 }
 
-//Toggle registry on the fly
+// Toggle registry on the fly
 func (h *RegisterHandler) SetAllowRegistry(allow bool) {
 	h.AllowRegistry = allow
 }
 
-//Clearn Register information by removing all users info whose account is no longer registered
+// Clearn Register information by removing all users info whose account is no longer registered
 func (h *RegisterHandler) CleanRegisters() {
 	entries, _ := h.database.ListTable("register")
 	for _, keypairs := range entries {
@@ -176,7 +176,7 @@ func (h *RegisterHandler) CleanRegisters() {
 	}
 }
 
-//List all User Emails, return [username(string), email(string), stillResitered(bool)]
+// List all User Emails, return [username(string), email(string), stillResitered(bool)]
 func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 	results := [][]interface{}{}
 	entries, _ := h.database.ListTable("register")
@@ -198,7 +198,7 @@ func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 	return results
 }
 
-//Handle the request for creating a new user
+// Handle the request for creating a new user
 func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.Request) {
 	if h.AllowRegistry == false {
 		utils.SendErrorResponse(w, "Public account registry is currently closed")
@@ -271,7 +271,7 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 
 }
 
-//Change Email for the registered user
+// Change Email for the registered user
 func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Request) {
 	//Get username from request
 	username, err := h.authAgent.GetUserName(w, r)
@@ -299,7 +299,7 @@ func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Reque
 	h.database.Write("register", "user/email/"+username, email)
 }
 
-//Get user email by name
+// Get user email by name
 func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
 	userEmail := ""
 	err := h.database.Read("register", "user/email/"+username, &userEmail)
@@ -309,7 +309,7 @@ func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
 	return userEmail, nil
 }
 
-//Helper functions
+// Helper functions
 func isValidEmail(email string) bool {
 	_, err := mail.ParseAddress(email)
 	return err == nil

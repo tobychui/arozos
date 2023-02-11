@@ -188,7 +188,7 @@ func agiGatewayTest(w http.ResponseWriter, r *http.Request){
         log.Println(err)
     }else{
         //Try to read the resp body
-        bodyBytes, err := ioutil.ReadAll(resp.Body)
+        bodyBytes, err := os.ReadAll(resp.Body)
         if err != nil{
             log.Println(err)
             w.Write([]byte(err.Error()))

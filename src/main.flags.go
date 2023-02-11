@@ -29,14 +29,16 @@ var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "0.2.008"                       //Internal build version, [fork_id].[major_release_no].[minor_release_no]
+var internal_version = "0.2.012"                       //Internal build version, [fork_id].[major_release_no].[minor_release_no]
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
 var deviceModel = "AR100"                              //Hardware Model of the system
 var deviceModelDesc = "General Purpose Cloud Platform" //Device Model Description
-var iconVendor = "img/vendor/vendor_icon.png"          //Vendor icon location
-var iconSystem = "img/vendor/system_icon.png"          //System icon location
+var vendorResRoot = "./vendor-res/"                    //Root folder for vendor overwrite resources
+
+//var iconVendor = "vendor/vendor_icon.png"              //Vendor icon location
+//var iconSystem = "vendor/system_icon.png"              //System icon location
 
 // =========== RUNTTIME RELATED ================
 var max_upload_size int64 = 8192 << 20                         //Maxmium upload size, default 8GB
@@ -57,6 +59,7 @@ var disable_subservices = flag.Bool("disable_subservice", false, "Disable subser
 var allow_upnp = flag.Bool("allow_upnp", false, "Enable uPNP service, recommended for host under NAT router")
 var allow_ssdp = flag.Bool("allow_ssdp", true, "Enable SSDP service, disable this if you do not want your device to be scanned by Windows's Network Neighborhood Page")
 var allow_mdns = flag.Bool("allow_mdns", true, "Enable MDNS service. Allow device to be scanned by nearby ArOZ Hosts")
+var force_mac = flag.String("force_mac", "", "Force MAC address to be used for discovery services. If not set, it will use the first NIC")
 var disable_ip_resolve_services = flag.Bool("disable_ip_resolver", false, "Disable IP resolving if the system is running under reverse proxy environment")
 var enable_gzip = flag.Bool("gzip", true, "Enable gzip compress on file server")
 
@@ -69,6 +72,7 @@ var session_key = flag.String("session_key", "", "Session key, must be 16, 24 or
 
 // Flags related to hardware or interfaces
 var allow_hardware_management = flag.Bool("enable_hwman", true, "Enable hardware management functions in system")
+var allow_power_management = flag.Bool("enable_pwman", true, "Enable power management of the host system")
 var wpa_supplicant_path = flag.String("wpa_supplicant_config", "/etc/wpa_supplicant/wpa_supplicant.conf", "Path for the wpa_supplicant config")
 var wan_interface_name = flag.String("wlan_interface_name", "wlan0", "The default wireless interface for connecting to an AP")
 

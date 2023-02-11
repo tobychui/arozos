@@ -515,6 +515,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 			}
 			fstat, _ := de.Info()
 			vpath, _ := realpathToVirtualpath(fsh, filepath.ToSlash(filepath.Join(rpath, de.Name())), u)
+
 			thisInfo := fileInfo{
 				Filename: de.Name(),
 				Filepath: vpath,

@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -87,7 +86,7 @@ func LoadBaseStoragePool() error {
 	fsHandlers = append(fsHandlers, tmpHandler)
 
 	//Load all the storage config from file
-	rawConfig, err := ioutil.ReadFile(*storage_config_file)
+	rawConfig, err := os.ReadFile(*storage_config_file)
 	if err != nil {
 		//File not found. Use internal storage only
 		systemWideLogger.PrintAndLog("Storage", "Storage configuration file not found. Using internal storage only.", err)

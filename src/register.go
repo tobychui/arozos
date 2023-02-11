@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 
 	reg "imuslab.com/arozos/mod/auth/register"
+	fs "imuslab.com/arozos/mod/filesystem"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -16,9 +18,14 @@ var (
 
 func RegisterSystemInit() {
 	//Register the endpoints for public registration
+	imgsrc := filepath.Join(vendorResRoot, "vendor_icon.png")
+	if !fs.FileExists(imgsrc) {
+		imgsrc = "./web/img/public/vendor_icon.png"
+	}
+
 	rh := reg.NewRegisterHandler(sysdb, authAgent, permissionHandler, reg.RegisterOptions{
 		Hostname:   *host_name,
-		VendorIcon: "web/" + iconVendor,
+		VendorIcon: imgsrc,
 	})
 
 	registerHandler = rh

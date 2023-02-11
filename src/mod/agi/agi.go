@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -41,7 +40,7 @@ var (
 	errTimeout  = errors.New("errTimeout")
 )
 
-//Lib interface, require vm, user, target system file handler and the vpath of the running script
+// Lib interface, require vm, user, target system file handler and the vpath of the running script
 type AgiLibIntergface func(*otto.Otto, *user.User, *filesystem.FileSystemHandler, string) //Define the lib loader interface for AGI Libraries
 type AgiPackage struct {
 	InitRoot string //The initialization of the root for the module that request this package
@@ -131,7 +130,7 @@ func (g *Gateway) RegisterNightlyOperations() {
 func (g *Gateway) InitiateAllWebAppModules() {
 	startupScripts, _ := filepath.Glob(filepath.ToSlash(filepath.Clean(g.Option.StartupRoot)) + "/*/init.agi")
 	for _, script := range startupScripts {
-		scriptContentByte, _ := ioutil.ReadFile(script)
+		scriptContentByte, _ := os.ReadFile(script)
 		scriptContent := string(scriptContentByte)
 		log.Println("[AGI] Gateway script loaded (" + script + ")")
 		//Create a new vm for this request
@@ -182,7 +181,7 @@ func (g *Gateway) raiseError(err error) {
 	//To be implemented
 }
 
-//Check if this table is restricted table. Return true if the access is valid
+// Check if this table is restricted table. Return true if the access is valid
 func (g *Gateway) filterDBTable(tablename string, existsCheck bool) bool {
 	//Check if table is restricted
 	if utils.StringInArray(g.ReservedTables, tablename) {
@@ -199,7 +198,7 @@ func (g *Gateway) filterDBTable(tablename string, existsCheck bool) bool {
 	return true
 }
 
-//Handle request from RESTFUL API
+// Handle request from RESTFUL API
 func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
 	scriptContent, err := utils.PostPara(r, "script")
 	if err != nil {
@@ -210,7 +209,7 @@ func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *u
 	g.ExecuteAGIScript(scriptContent, nil, "", "", w, r, thisuser)
 }
 
-//Handle user requests
+// Handle user requests
 func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
 	//Get user object from the request
 	startupRoot := g.Option.StartupRoot
@@ -268,20 +267,19 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	}
 
 	//Get the content of the script
-	scriptContentByte, _ := ioutil.ReadFile(scriptFile)
+	scriptContentByte, _ := os.ReadFile(scriptFile)
 	scriptContent := string(scriptContentByte)
 
 	g.ExecuteAGIScript(scriptContent, nil, scriptFile, scriptScope, w, r, thisuser)
 }
 
 /*
-	Executing the given AGI Script contents. Requires:
-	scriptContent: The AGI command sequence
-	scriptFile: The filepath of the script file
-	scriptScope: The scope of the script file, aka the module base path
-	w / r : Web request and response writer
-	thisuser: userObject
-
+Executing the given AGI Script contents. Requires:
+scriptContent: The AGI command sequence
+scriptFile: The filepath of the script file
+scriptScope: The scope of the script file, aka the module base path
+w / r : Web request and response writer
+thisuser: userObject
 */
 func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSystemHandler, scriptFile string, scriptScope string, w http.ResponseWriter, r *http.Request, thisuser *user.User) {
 	//Create a new vm for this request
@@ -294,7 +292,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	contentType := r.Header.Get("Content-type")
 	if strings.Contains(contentType, "application/json") {
 		//For shitty people who use Angular
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		fields := map[string]interface{}{}
 		json.Unmarshal(body, &fields)
 		for k, v := range fields {
@@ -340,9 +338,9 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 }
 
 /*
-	Execute AGI script with given user information
-	scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
-	Pass in http.Request pointer to enable serverless GET / POST request
+Execute AGI script with given user information
+scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
+Pass in http.Request pointer to enable serverless GET / POST request
 */
 func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, r *http.Request) (string, error) {
 	//Create a new vm for this request
@@ -407,11 +405,10 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 }
 
 /*
-
-	Get user specific tmp filepath for buffering remote file. Return filepath and closer
-	tempFilepath, closerFunction := g.getUserSpecificTempFilePath(u, "myfile.txt")
-	//Do something with it, after done
-	closerFunction();
+Get user specific tmp filepath for buffering remote file. Return filepath and closer
+tempFilepath, closerFunction := g.getUserSpecificTempFilePath(u, "myfile.txt")
+//Do something with it, after done
+closerFunction();
 */
 func (g *Gateway) getUserSpecificTempFilePath(u *user.User, filename string) (string, func()) {
 	uuid := uuid.NewV4().String()
@@ -423,7 +420,7 @@ func (g *Gateway) getUserSpecificTempFilePath(u *user.User, filename string) (st
 }
 
 /*
-	Buffer remote reosurces to local by fsh and rpath. Return buffer filepath on local device and its closer function
+Buffer remote reosurces to local by fsh and rpath. Return buffer filepath on local device and its closer function
 */
 func (g *Gateway) bufferRemoteResourcesToLocal(fsh *filesystem.FileSystemHandler, u *user.User, rpath string) (string, func(), error) {
 	buffFile, closerFunc := g.getUserSpecificTempFilePath(u, rpath)

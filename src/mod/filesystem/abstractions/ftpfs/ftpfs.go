@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -278,7 +277,7 @@ func (l FTPFSAbstraction) ReadFile(filename string) ([]byte, error) {
 	}
 	defer r.Close()
 
-	return ioutil.ReadAll(r)
+	return io.ReadAll(r)
 }
 func (l FTPFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
 	results := []fs.DirEntry{}
@@ -360,7 +359,7 @@ func (l FTPFSAbstraction) Heartbeat() error {
 	return nil
 }
 
-//Utilities
+// Utilities
 func filterFilepath(rawpath string) string {
 	rawpath = arozfs.ToSlash(filepath.Clean(strings.TrimSpace(rawpath)))
 	if strings.HasPrefix(rawpath, "./") {

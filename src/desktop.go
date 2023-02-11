@@ -104,7 +104,6 @@ func desktop_hostdetailHandler(w http.ResponseWriter, r *http.Request) {
 		InternalVersion string
 		DeviceVendor    string
 		DeviceModel     string
-		VendorIcon      string
 	}
 
 	jsonString, _ := json.Marshal(returnStruct{
@@ -114,7 +113,6 @@ func desktop_hostdetailHandler(w http.ResponseWriter, r *http.Request) {
 		InternalVersion: internal_version,
 		DeviceVendor:    deviceVendor,
 		DeviceModel:     deviceModel,
-		VendorIcon:      iconVendor,
 	})
 
 	utils.SendJSONResponse(w, string(jsonString))
@@ -189,7 +187,11 @@ func desktop_handleShortcutRename(w http.ResponseWriter, r *http.Request) {
 
 func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 	//Check if the user directory already exists
-	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
+	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "user not logged in!")
+		return
+	}
 	username := userinfo.Username
 
 	//Initiate the user folder structure. Do nothing if the structure already exists.
@@ -202,7 +204,11 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fshAbs := fsh.FileSystemAbstraction
-	userDesktopRealpath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	userDesktopRealpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
 
 	files, err := fshAbs.Glob(userDesktopRealpath + "/*")
 	if err != nil {
@@ -227,7 +233,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		IconY         int
 	}
 
-	var desktopFiles []desktopObject
+	desktopFiles := []desktopObject{}
 	for _, this := range files {
 		//Always use linux convension for directory seperator
 		if filepath.Base(this)[:1] == "." {

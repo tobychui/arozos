@@ -35,7 +35,7 @@ type File interface {
 	WriteString(s string) (n int, err error)
 }
 
-//A shortcut representing struct
+// A shortcut representing struct
 type ShortcutData struct {
 	Type string //The type of shortcut
 	Name string //The name of the shortcut
@@ -71,12 +71,12 @@ var (
 	ErrNullOperation         = errors.New("FS_NULL_OPR")
 )
 
-//Generate a File Manager redirection error message
+// Generate a File Manager redirection error message
 func NewRedirectionError(targetVpath string) error {
 	return errors.New("Redirect:" + targetVpath)
 }
 
-//Check if a file system is network drive
+// Check if a file system is network drive
 func IsNetworkDrive(fstype string) bool {
 	if fstype == "webdav" || fstype == "ftp" || fstype == "smb" || fstype == "sftp" {
 		return true
@@ -85,7 +85,7 @@ func IsNetworkDrive(fstype string) bool {
 	return false
 }
 
-//Get a list of supported file system types for mounting via arozos
+// Get a list of supported file system types for mounting via arozos
 func GetSupportedFileSystemTypes() []string {
 	return []string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs", "webdav", "ftp", "smb", "sftp"}
 }
@@ -94,7 +94,7 @@ func GetSupportedFileSystemTypes() []string {
 	Standard file system abstraction translate function
 */
 
-//Generic virtual path to real path translator
+// Generic virtual path to real path translator
 func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpath string, username string) (string, error) {
 	subpath = ToSlash(filepath.Clean(subpath))
 	subpath = ToSlash(filepath.Clean(strings.TrimSpace(subpath)))
@@ -118,7 +118,7 @@ func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpa
 	return "", errors.New("unsupported filesystem hierarchy")
 }
 
-//Generic real path to virtual path translator
+// Generic real path to virtual path translator
 func GenericRealPathToVirtualPathTranslator(uuid string, hierarchy string, rpath string, username string) (string, error) {
 	rpath = ToSlash(filepath.Clean(strings.TrimSpace(rpath)))
 	if strings.HasPrefix(rpath, "./") {
@@ -137,10 +137,11 @@ func GenericRealPathToVirtualPathTranslator(uuid string, hierarchy string, rpath
 	if !strings.HasPrefix(rpath, "/") {
 		rpath = "/" + rpath
 	}
+
 	return uuid + ":" + rpath, nil
 }
 
-//Generic function for abstraction driver to filter incoming paths
+// Generic function for abstraction driver to filter incoming paths
 func GenericPathFilter(filename string) string {
 	filename = ToSlash(filepath.Clean(filename))
 	rawpath := strings.TrimSpace(filename)
@@ -152,7 +153,7 @@ func GenericPathFilter(filename string) string {
 	return rawpath
 }
 
-//Filter illegal characters in filename
+// Filter illegal characters in filename
 func FilterIllegalCharInFilename(filename string, replacement string) string {
 	re, _ := regexp.Compile(`[\\\[\]$?#<>+%!"'|{}:@]`)
 	return re.ReplaceAllString(filename, replacement)

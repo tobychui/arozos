@@ -1,7 +1,7 @@
 package agi
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/robertkrimen/otto"
@@ -57,7 +57,7 @@ func (g *Gateway) injectServerlessFunctions(vm *otto.Otto, scriptFile string, sc
 			return otto.NullValue()
 		}
 
-		bodyContent, err := ioutil.ReadAll(r.Body)
+		bodyContent, err := io.ReadAll(r.Body)
 		if err != nil {
 			return otto.NullValue()
 		}

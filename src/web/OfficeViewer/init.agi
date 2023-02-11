@@ -1,0 +1,24 @@
+/*
+	Office Viewer - Basic office file renderer
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "OfficeViewer",
+	Desc: "Basic office file viewer for docx, pptx and xlsx",
+	Group: "Office",
+	IconPath: "OfficeViewer/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "OfficeViewer/index.html",
+	SupportFW: true,
+	InitFWSize: [350, 170],
+	LaunchFWDir: "OfficeViewer/index.html",
+	SupportEmb: true,
+	LaunchEmb: "OfficeViewer/embedded.html",
+	InitEmbSize: [1060, 680],
+	SupportedExt: [".docx",".pptx",".xlsx", ".csv"]
+}
+
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

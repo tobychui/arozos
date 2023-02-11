@@ -23,6 +23,9 @@
                 "title/unzipping":"正在解壓 ",
                 "title/file":" 個檔案",
                 "title/files":" 個檔案",
+                "button/pause":"暫停",
+                "button/resume":"繼續",
+                "button/cancel":"取消",
                 "error/Access Denied":"存取被拒",
                 "error/Source file not exists":"來源檔案不存在",
                 "error/Source and destination paths are identical.":"目的地與來源資料位置相同",
@@ -32,6 +35,7 @@
                 "error/This source file is Read Only":"此來源檔案是唯讀檔案",
                 "error/File already exists":"檔案已經存在",
                 "error/This directory is Read Only":"此資料夾是唯讀檔案",
+                "error/Operation cancelled by user": "使用者已取消此檔案操作",
                 "":""
             },
             "titles":{
@@ -71,6 +75,7 @@
                 "error/This source file is Read Only":"此來源檔案是唯讀檔案",
                 "error/File already exists":"檔案已經存在",
                 "error/This directory is Read Only":"此資料夾是唯讀檔案",
+                "error/Operation cancelled by user": "使用者已取消此檔案操作",
                 "":""
             },
             "titles":{
@@ -110,6 +115,7 @@
                 "error/This source file is Read Only":"此来源文件是唯读档案",
                 "error/File already exists":"文件已经存在",
                 "error/This directory is Read Only":"此资料夹是唯读档案", 
+                "error/Operation cancelled by user": "使用者已取消此档案操作",
                 "":""
             },
             "titles":{

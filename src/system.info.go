@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"runtime"
 	"time"
 
+	fs "imuslab.com/arozos/mod/filesystem"
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
 	"imuslab.com/arozos/mod/info/logviewer"
 	usage "imuslab.com/arozos/mod/info/usageinfo"
@@ -59,12 +61,18 @@ func SystemInfoInit() {
 		StartDir: "SystemAO/info/overview.html",
 	})
 
+	//Load the vendor icon
+	vendorIconSrc := filepath.Join(vendorResRoot, "vendor_icon.png")
+	if !fs.FileExists(vendorIconSrc) {
+		vendorIconSrc = "./web/img/public/vendor_icon.png"
+	}
+	imageBase64, _ := utils.LoadImageAsBase64(vendorIconSrc)
 	if *allow_hardware_management {
 		infoServer = info.NewInfoServer(info.ArOZInfo{
 			BuildVersion: build_version + "." + internal_version,
 			DeviceVendor: deviceVendor,
 			DeviceModel:  deviceModel,
-			VendorIcon:   "../../" + iconVendor,
+			VendorIcon:   imageBase64,
 			SN:           deviceUUID,
 			HostOS:       runtime.GOOS,
 			CPUArch:      runtime.GOARCH,
@@ -75,7 +83,9 @@ func SystemInfoInit() {
 		router.HandleFunc("/system/info/ifconfig", info.Ifconfig)
 		router.HandleFunc("/system/info/getDriveStat", info.GetDriveStat)
 		router.HandleFunc("/system/info/usbPorts", info.GetUSB)
-		router.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
+
+		//For low-memory mode detection
+		authRouter.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
 
 		//Register as a system setting
 		registerSetting(settingModule{
@@ -107,7 +117,7 @@ func SystemInfoInit() {
 			BuildVersion: build_version + "." + internal_version,
 			DeviceVendor: deviceVendor,
 			DeviceModel:  deviceModel,
-			VendorIcon:   "../../" + iconVendor,
+			VendorIcon:   imageBase64,
 			SN:           deviceUUID,
 			HostOS:       "virtualized",
 			CPUArch:      "generic",
@@ -120,6 +130,15 @@ func SystemInfoInit() {
 
 	//ArOZ Info do not need permission router
 	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
+
+	//Router to handle login background image loading
+	http.HandleFunc("/system/info/wallpaper", func(w http.ResponseWriter, r *http.Request) {
+		imgsrc := filepath.Join(vendorResRoot, "auth_bg.jpg")
+		if !fs.FileExists(imgsrc) {
+			imgsrc = "./web/img/public/auth_bg.jpg"
+		}
+		http.ServeFile(w, r, imgsrc)
+	})
 
 	go func() {
 		if updates.CheckLauncherPortResponsive() {

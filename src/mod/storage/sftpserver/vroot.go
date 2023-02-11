@@ -2,7 +2,6 @@ package sftpserver
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -181,7 +180,7 @@ func (fs *root) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (fs *root) OpenFile(r *sftp.Request) (sftp.WriterAtReaderAt, error) {
-	fmt.Println("Open File", r.Filepath)
+	//fmt.Println("Open File", r.Filepath)
 	fsh, _, rpath, err := fs.getFshAndSubpathFromSFTPPathname(r.Filepath)
 	if err != nil {
 		return nil, err
@@ -453,7 +452,7 @@ func (fs *root) getFshAndSubpathFromSFTPPathname(pathname string) (*filesystem.F
 func (fs *root) lfetch(path string) (sftpFileInterface, error) {
 	path = strings.TrimSpace(path)
 	if path == "/" {
-		fmt.Println("Requesting SFTP Root")
+		//fmt.Println("Requesting SFTP Root")
 		return fs.rootFile, nil
 	}
 

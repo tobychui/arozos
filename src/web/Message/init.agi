@@ -1,0 +1,20 @@
+/*
+	Message - Quick chatroom tool for ArozOS
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Message",
+	Desc: "Maybe the best messenging app on ArozOS",
+	Group: "Office",
+	IconPath: "Message/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "Message/index.html",
+	SupportFW: true,
+	InitFWSize: [340, 630],
+	SupportedExt: []
+}
+
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

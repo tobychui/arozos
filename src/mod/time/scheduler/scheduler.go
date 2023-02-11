@@ -3,8 +3,8 @@ package scheduler
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -55,7 +55,7 @@ func NewScheduler(option *ScheudlerOption) (*Scheduler, error) {
 		//Cronfile not exists. Create it
 		emptyJobList := []*Job{}
 		ls, _ := json.Marshal(emptyJobList)
-		err := ioutil.WriteFile(option.CronFile, ls, 0755)
+		err := os.WriteFile(option.CronFile, ls, 0755)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +171,7 @@ func (a *Scheduler) Close() {
 	}
 }
 
-//Add an job object to system scheduler
+// Add an job object to system scheduler
 func (a *Scheduler) AddJobToScheduler(job *Job) error {
 	a.jobs = append(a.jobs, job)
 	return nil

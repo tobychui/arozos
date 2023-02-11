@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#4b75ff">
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+		<script src="../script/semantic/semantic.min.js"></script>
+		<link rel="icon" type="image/png" href="img/module_icon.png">
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+		<title>Message</title>
+		<style>
+			body{
+                background-color: rgb(250, 250, 250);
+			}
+
+			#banner{
+				background: rgb(74,179,255);
+				background: linear-gradient(153deg, rgba(74,179,255,1) 0%, rgba(182,183,247,1) 52%, rgba(133,87,255,1) 100%); 
+				padding: 1.2em;
+				-webkit-border-bottom-right-radius: 20px;
+				-webkit-border-bottom-left-radius: 20px;
+				-moz-border-radius-bottomright: 20px;
+				-moz-border-radius-bottomleft: 20px;
+				border-bottom-right-radius: 20px;
+				border-bottom-left-radius: 20px;
+				margin-bottom: 0.4em;
+			}
+
+			#banner h2{
+				color: white;
+			}
+
+			.latestMessage{
+				color: rgb(43, 40, 40);
+			}
+
+			.chatroom{
+				cursor: pointer;
+				transition: opacity 0.1s ease-in-out;
+			}
+
+			.chatroom:hover{
+				opacity: 0.7;
+			}
+		</style>
+	</head>
+	<body>
+        <div id="banner">
+			<div class="ui container">
+				<h2>Message</h2>
+
+				<div class="ui fluid small icon input">
+					<input type="text" placeholder="Search">
+					<i class="circular search link icon"></i>
+				</div>
+			</div>
+		</div>
+		<div id="chatHistoryList" class="ui container">
+			
+		</div>
+		<div class="ui divider"></div>
+		<br><br>
+		<script>
+			function initUserList(){
+				$.get("../system/users/list", function(data){
+					console.log(data);
+					data.forEach(function(user){
+						let username = user[0];
+						let usericon = user[2];
+						if (usericon == ""){
+							usericon = "img/noicon.png";
+						}
+						let chatroomID = username;
+						$("#chatHistoryList").append(`<div class="ui message chatroom">
+						<a class="ui feed" href="chat.html#${chatroomID}">
+							<div class="event">
+								<div class="label" style="padding-top: 0.3em;">
+									<img src="${usericon}">
+								</div>
+							<div class="content" style="margin-top: 0; position: relative;">
+								<div class="summary">
+									<h3 style="margin-bottom: 0; font-size: 1.2em;">${username}</h3>
+									<small class="latestMessage">
+										(No Message)
+									</small>
+								</div>
+								<div class="date" style="position: absolute; right: 0;top:0;">
+									Offline
+								</div>
+							</div>
+							</div>
+						</a>
+					</div>`);
+					})
+				});
+			}
+			initUserList();
+		</script>
+	</body>
+</html>

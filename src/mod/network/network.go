@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -115,7 +115,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(jsonData))
 }
 
-//Get the IP address of the NIC that can conncet to the internet
+// Get the IP address of the NIC that can conncet to the internet
 func GetOutboundIP() (net.IP, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -128,7 +128,7 @@ func GetOutboundIP() (net.IP, error) {
 	return localAddr.IP, nil
 }
 
-//Get External IP address, will require 3rd party services
+// Get External IP address, will require 3rd party services
 func GetExternalIPAddr() (string, error) {
 	u, err := upnp.Discover()
 	if err != nil {
@@ -150,7 +150,7 @@ func GetExternalIPAddrVia3rdPartyServices() (string, error) {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}

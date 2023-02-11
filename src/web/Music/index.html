@@ -14,11 +14,13 @@
 	<!-- Handle native playback on Chrome Andoird-->
 	<script src="native.js"></script>
 
+	<!-- Handle data saving local music cache on PWA-->
+	<script src="./dexie.js"></script>
 	<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
 	<title>AirMusic</title>
 </head>
 <body>
-<div id="mainMenu" class="ui basic fluid AMmenu menu bottomBlue" style="z-index:80;position:fixed;position:top:0px;left:0px;width:100%;">
+<div id="mainMenu" class="ui basic fluid AMmenu menu bottomBlue" style="z-index:80; position:fixed; top:0px; left:0px; width:100%;">
     <button class="ui item icon noBorder AMmenu button" onClick="toggleLeftMenu();"><i class="content icon"></i></button>
 	<div class="item noBorder AMmenu" style="padding-right:0px;padding-top:12px;"><i id="AMmenuIcon" class="music icon large whiteFont"></i></div>
 	<div class="item noBorder AMmenu" style="padding-left:3px;padding-top:3px;padding-bottom:5px;min-width:50%;">
@@ -320,7 +322,7 @@
 <div id="settingInterface" class="quickMenu">
 	<div style="">
 		<div class="ui relaxed list" style="padding:0px !important;">
-			<div id="settingMenuTitle" class="item whiteFont" style="">N/A</div>
+			<div id="settingMenuTitle" class="item whiteFont" style="margin-bottom: 1em;">N/A</div>
 			<div class="item selectable whiteFont" onclick="showPlaylistInterface(); $('#settingInterface').fadeOut('fast');"><i class="add icon" style="margin-right:5px;"></i> Add to playlist</div>
 			<div class="item selectable whiteFont" onClick="openInFileExplorer(); hideAllquickMenu();"><i class="folder open icon" style="margin-right:5px;"></i> Open in File Explorer</div>
 			<div class="item selectable whiteFont" onClick="searchOnYoutube(); hideAllquickMenu();"><i class="youtube play icon" style="margin-right:5px;"></i>Search on Youtube</div>
@@ -389,29 +391,24 @@
 	var isAndroid = ua.indexOf("android") > -1; //&& ua.indexOf("mobile");
 	var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
 	var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-	var cacheAvailable = 'caches' in self;
-	let cacheDb, cacheStore, cacheDbTx;
-	var dbExists = !(!window.indexedDB);
+	var dexiedb = new Dexie("AirMusic");
+	var dbExists = true;
 
 	//Init database connection if indexedDB Exists
 	if (dbExists){
-		let cacheDbConn = window.indexedDB.open('airmusic', 4);
-		cacheDbConn.onupgradeneeded = function(event) { 
-			cacheDb = event.target.result;
-			cacheDbTx = event.target.transaction;
-			cacheStore = cacheDb.createObjectStore("files",{keyPath:"filename"});
-			cacheStore = cacheDb.createObjectStore("thumblist",{keyPath:"filename"});
-		};
-		cacheDbConn.onerror = function(event) {
-			console.log("ERROR: " + event.target.errorCode)
-		};
-		cacheDbConn.onsuccess = function(event) {
-			cacheDb = event.target.result
+		dexiedb.version(2).stores({
+			files: `
+				filename,
+				cachetime,
+				content`,
+			thumbnails: `
+				filename,
+				cachetime,
+				content`,
+		});
 
-			//Database connection established.
-			//Clear old cache in the system if any
-			clearExpiredCache();
-		}
+		//Clear expire cache if exists
+		clearExpiredCache();
 	}
 
 	//Embed native mediaSession for any device that supports it 
@@ -468,12 +465,14 @@
 				//Create a dummy folder and trick the system to load to the previous states
 				var a = '<div></div>';
 				a = $(a).attr("filepath",currentPath);
-				openFolder(a[0],{playIDAfterOpen: playingFileDetail[0],startPaused: initPauseState});
+				openFolder(a[0],{
+					playIDAfterOpen: playingFileDetail[0],
+					startPaused: initPauseState}
+				);
 			}else{
 				//currentpath is empty, aka Music Mode
 				loadSongList();
 			}
-
 			
 		}else{
 			//No state to restore. Restore Viewing Tab instead.
@@ -509,7 +508,18 @@
 		$("#mainList").html("");
 		togglePagingMode(false);
 		//Render the elements
-		$("#mainList").append(`<div class="mainList item">HELLO WORLD</div>`);
+		$("#mainList").append(`
+			<div class="mainList item"  onclick="HandleClearAllCache();">
+				<div class="ui header selectable" style="margin:0px !important;">
+					<img class="ui small image" src="img/delete.svg" style="margin-right: 0.2em; filter: invert(100%);">
+					<div class="content whiteFont" style="padding-top: 2px; line-height:1em;width : 80%; font-weight: lighter;">
+					Clear All Local Cache
+					<div class="sub header fileinfo" style="color: #c7c7c7;">Free up application space on mobile devices</div>
+				</div>
+				</div>
+			 </div>
+
+		`);
 		hideLeftMenu();
 
 		//Update the headers
@@ -1255,24 +1265,25 @@
 	}
 
 	//Check if a music file thumbnail exists in cache
-	function getThumbnailFromCache(filepath, callback){
+	async function getThumbnailFromCache(filepath){
 		if (dbExists){
-			let dbTx = cacheDb.transaction("thumblist","readwrite");
-			let tstore = dbTx.objectStore("thumblist");
-			let retrv = tstore.get(filepath);
-			retrv.onsuccess = (event) => {
-				let cachefile = retrv.result;
-				if (cachefile == undefined || cachefile.content == undefined){
-					//thumbnail not exists in cache.
-					callback(undefined);
-				}else{
-					//load from cache
-					callback(cachefile);
-				}
-			}
-				
+			const thumbrecord = await dexiedb.thumbnails.get({
+				filename: filepath
+			});
+			return thumbrecord;
 		}
-		return callback(undefined);
+		return undefined;
+	}
+
+	//Check if a music file exists in cache
+	async function getSongFromCache(filepath){
+		if (dbExists){
+			const songCache = await dexiedb.files.get({
+				filename: filepath
+			});
+			return songCache;
+		}
+		return undefined;
 	}
 
 	function loadThumbnailToMusicList(selector = ".mainList.file.item"){
@@ -1286,8 +1297,8 @@
 			realVpath = realVpath.join("=");
 			//console.log(thisFileItemID, realVpath, rawname);
 
-			getThumbnailFromCache(realVpath, function(cachedThumb){
-				if (cachedThumb == undefined){
+			getThumbnailFromCache(realVpath).then(cachedThumb => {
+				if (cachedThumb == undefined || cachedThumb.content == undefined){
 					//Load the thumbnail for this item in list
 					fetch("../system/file_system/loadThumbnail?vpath=" + encodeURIComponent(realVpath))
 					.then((response) => response.json())
@@ -1306,27 +1317,26 @@
 
 						if (dbExists){
 							//Put this thumbnail into cache
-							let dbTx = cacheDb.transaction("thumblist","readwrite");
-							let tstore = dbTx.objectStore("thumblist");
-							let retrv = tstore.put({
+							dexiedb.thumbnails.put({
 								"filename": realVpath,
 								"cachetime":parseInt(Date.now() / 1000),
-								"content": data.content,
+								"content": data,
 							});
 						}
 					});
 				}else{
 					//Use the result as thumbnail
 					console.log("Loaded from cache" , realVpath)
-					$("#" + thisFileItemID).find("img").attr("src","data:image/jpg;base64," + cachedThumb);
+					$("#" + thisFileItemID).find("img").attr("src","data:image/jpg;base64," + cachedThumb.content);
 					$(".dropdownList.file.item").each(function(){
 						var thisFilepath = JSON.parse(decodeURIComponent($(this).attr("filepath")));
 						if ($(this).attr("listid") == thisFileItemID && thisFilepath == filepath){
-							$(this).find("img").attr("src","data:image/jpg;base64," + cachedThumb);
+							$(this).find("img").attr("src","data:image/jpg;base64," + cachedThumb.content);
 						}
 					});
 				}
 			});
+			
 			
 			
 			/*
@@ -1351,16 +1361,17 @@
 
 	function loadThumbnail(filepath){
 		//Load the thumbnail
-		var realVpath = filepath.split("=");
+		let realVpath = filepath.split("=");
 		realVpath.shift();
 		realVpath = realVpath.join("=");
 		playingSongVpath = realVpath;
-		getThumbnailFromCache(realVpath, function(thumbdata){
+		let useDefaultTheme = false; //If set to false, pick from albumn art
+		getThumbnailFromCache(realVpath).then(thumbdata => {
 			if (playingSongVpath != realVpath){
 				//Already switch to another song
 				return;
 			}
-			if (thumbdata == undefined){
+			if (thumbdata == undefined || thumbdata.content == undefined){
 				//No thumbnail found. Load it from server
 				//console.log("Thumbnail cache not found", realVpath);
 				ao_module_agirun("Music/functions/getThumbnail.js", {
@@ -1379,6 +1390,7 @@
 								{ src: "img/default.png",   sizes: '512x512',   type: 'image/png' }
 							]
 						}
+						useDefaultTheme = true;
 					}else{
 						$("#albumnArtImage").attr("src","data:image/jpg;base64," + data);
 						$("#smallPlayerThumb").attr("src","data:image/jpg;base64," + data);
@@ -1389,7 +1401,10 @@
 							]
 						}
 					}
-					resizeQuickAdjust();
+					resizeQuickAdjust(useDefaultTheme);
+					
+					//Update theme color
+					updatePlayerThemeAndBackground(useDefaultTheme);
 				});
 			}else{
 				//Thumbnail found.
@@ -1402,8 +1417,10 @@
 						{ src: "data:image/jpg;base64," + thumbdata.content,   sizes: '480x480',   type: 'image/jpg' }
 					]
 				}
-
+				//Update theme color
+				updatePlayerThemeAndBackground(useDefaultTheme);
 			}
+			
 			
 		});
 		
@@ -1521,10 +1538,14 @@
 	function togglePlayMode(){
 	    if (currentPlaying){
 	        originalVol = audioElement[0].volume;
-	        fadeAudio();
+	        //fadeAudio(); //<- This cause some issue on PWA
+			audioElement[0].pause();
+			updateStateReferingURL();
 	        setPlaying(false);
 	    }else{
-	        gainAudio();
+	        //gainAudio();
+			audioElement[0].play();
+			updateStateReferingURL();
 	        setPlaying(true);
 	    }
 	}
@@ -1606,13 +1627,8 @@
 		var playbackURL = "../" + rootPath + "=" + encodeURIComponent(filename); //Convert absolute dir to relative
 		var ext = filename.split(".").pop();
 		playingSongVpath = filename;
-		if (dbExists && (!isFirefox)){
-			cacheDbTx = cacheDb.transaction("files","readwrite");
-			cacheStore = cacheDbTx.objectStore("files");
-
-			let retrvReq = cacheStore.get(filename);
-			retrvReq.onsuccess = (event) => {
-				let cachefile = retrvReq.result;
+		if (dbExists){
+			getSongFromCache(filename).then(cachefile => {
 				if (cachefile == undefined || cachefile.content == undefined){
 					//No cache. Play from streaming and cache this
 					$("#mainAudioPlayer").attr("src", playbackURL);
@@ -1620,11 +1636,10 @@
 
 					//Only cache non video audio tracks
 					if (isSupportedCachingAudioFormat(ext)){
+						
 						loadAudioFileURLAsBlob(playbackURL, function(fileBlob){
 							//Store the blob into indexDB
-							let cacheDbTx2 = cacheDb.transaction("files","readwrite");
-							let cacheStore2 = cacheDbTx2.objectStore("files");
-							cacheStore2.put({
+							dexiedb.files.put({
 								"filename": filename,
 								"cachetime": parseInt(Date.now() / 1000),
 								"content": fileBlob
@@ -1655,6 +1670,9 @@
 						//Put the final data into audio elements
 						$("#mainAudioPlayer").attr("src", adjustedAudioData);
 						startPlaybackAfterAudioLoaded(audio, playAfterLoad);
+
+						//Update the cachetime
+						dexiedb.files.update(filename, {cachetime:parseInt(Date.now() / 1000)});
 					};
 					reader.readAsDataURL(cachefile.content);
 				}else{
@@ -1662,7 +1680,8 @@
 					$("#mainAudioPlayer").attr("src", playbackURL);
 					startPlaybackAfterAudioLoaded(audio, playAfterLoad);
 				}
-			}
+			});
+			
 		}else{
 			//IndexedDB not found
 			$("#mainAudioPlayer").attr("src", playbackURL);
@@ -1946,6 +1965,67 @@
 	    });
 	    hideLeftMenu();
 	}
+
+	function updatePlayerThemeAndBackground(useDefault=true){
+		if (useDefault){
+			$("#playerInterface").css({
+				"background": "rgba(20,20,20,0.5)",
+			});
+
+		}else{
+			let avgc = getAverageRGB($("#albumnArtImage")[0]);
+			$("#playerInterface").css({
+				"background": `rgba(${avgc.r},${avgc.g},${avgc.b},0.5)`,
+			});
+
+			console.log(avgc);
+		}
+	}
+
+	function getAverageRGB(imgEl) {
+		var blockSize = 5, 
+			defaultRGB = {r:0,g:0,b:0}, 
+			canvas = document.createElement('canvas'),
+			context = canvas.getContext && canvas.getContext('2d'),
+			data, width, height,
+			i = -4,
+			length,
+			rgb = {r:0,g:0,b:0},
+			count = 0;
+
+		if (!context) {
+			return defaultRGB;
+		}
+
+		height = canvas.height = imgEl.naturalHeight || imgEl.offsetHeight || imgEl.height;
+		width = canvas.width = imgEl.naturalWidth || imgEl.offsetWidth || imgEl.width;
+
+		context.drawImage(imgEl, 0, 0);
+
+		try {
+			data = context.getImageData(0, 0, width, height);
+		} catch(e) {
+			/* security error, img on diff domain */
+			return defaultRGB;
+		}
+
+		length = data.data.length;
+
+		while ( (i += blockSize * 4) < length ) {
+			++count;
+			rgb.r += data.data[i];
+			rgb.g += data.data[i+1];
+			rgb.b += data.data[i+2];
+		}
+
+		// ~~ used to floor values
+		rgb.r = ~~(rgb.r/count);
+		rgb.g = ~~(rgb.g/count);
+		rgb.b = ~~(rgb.b/count);
+
+		return rgb;
+
+		}
 	
 	function isMobile(){
 		if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {
@@ -1957,7 +2037,7 @@
 	function setWindowHash(hashValue){
 		hashValue = JSON.stringify(hashValue);
 
-		if (!isAndroid){
+		if (!isMobile()){
 			return;
 		}
 		
@@ -2383,8 +2463,6 @@
 			if (i > pageKeepRange[1]){
 				targetPage += 1;
 			}
-			
-		
 
 			$("#currentPlayingMainList").append(`<div class="dropdownList file item" style="${opacityShowing}" filepath="${ao_module_utils.objectToAttr(playingList[i][0])}" listid="${i + 1}" rawname="${ao_module_utils.objectToAttr(playingList[i][1])}">
 				<div class="ui header selectable" style="margin:0px !important;" onClick="playSongFromDropdownList(this);" targetPage="${targetPage}">
@@ -2420,14 +2498,18 @@
 		xhr.send();
 	}
 
+	function HandleClearAllCache(){
+		if (confirm("Confirm Clearing All Local Cache?")){
+			clearAllCache();
+			alert("All cache cleared")
+		}
+	}
+
 	//Clear all cached audio files
 	function clearAllCache(){
-		let dbtx = cacheDb.transaction("files","readwrite");
-		let fstore = dbtx.objectStore("files");
-		var clearReq = fstore.clear();
-		clearReq.onsuccess = function(e){
-			console.log("All cache file cleared");
-		}
+		dexiedb.files.clear();
+		dexiedb.thumbnails.clear();
+		console.log("All cached data cleared");
 	}
 
 	function removeCacheByFilename(filename, callback=undefined){
@@ -2443,90 +2525,23 @@
 
 	//Clear all expired cache
 	function clearExpiredCache(){
-		var expireTime = 604800; //1 week
-		
-		getAllFileCache(function(allCachedTracks){
-			var expiredFilenames = [];
-			//Check all the cache to see which is expired
-			allCachedTracks.forEach(function(track){
-				if (track.cachetime + expireTime < Date.now()/1000){
-					//Expired. Clear this cache
-					expiredFilenames.push(track.filename);
-					console.log("[AirMusic] Expired track cleared: ", track);
-				}
-				
-			});
+		var expireTime = 604800; //604800 = 1 week
+		var expireTimestamp = Date.now()/1000 - expireTime; //Any cache time before this is expired
 
-			
-			//Delete those cache that have expired
-			expiredFilenames.forEach(function(filenameToBeDeleted){
-				removeCacheByFilename(filenameToBeDeleted);
-			});
-
-			console.log("[AirMusic] File cache clearning cycle completed");
+		/*
+		dexiedb.files.where("cachetime").below(expireTimestamp).each(function(item){
+			console.log("Deleting File for" + item.filename);
 		});
 
-		getAllFileCache(function(allCachedTracks){
-			var expiredFilenames = [];
-			//Check all the cache to see which is expired
-			allCachedTracks.forEach(function(track){
-				if (track.cachetime + expireTime < Date.now()/1000){
-					//Expired. Clear this cache
-					expiredFilenames.push(track.filename);
-					console.log("Expired track cleared: ", track);
-				}
-				
-			});
-
-			//Delete those cache that have expired
-			expiredFilenames.forEach(function(filenameToBeDeleted){
-				removeCacheByFilename(filenameToBeDeleted);
-			});
-
-			console.log("[AirMusic] Thumbnail cache clearning cycle completed")
+		dexiedb.thumbnails.where("cachetime").below(expireTimestamp).each(function(item){
+			console.log("Deleting Thumbnail for" + item.filename);
 		});
-	}
+		*/
 
-	function getAllFileCache(callback) {
-		var trans = cacheDb.transaction("files", IDBTransaction.READ_ONLY);
-		var store = trans.objectStore("files");
-		var items = [];
-		trans.oncomplete = function(evt) {  
-			callback(items);
-		};
-		var cursorRequest = store.openCursor();
-		cursorRequest.onerror = function(error) {
-			console.log(error);
-		};
-		cursorRequest.onsuccess = function(evt) {                    
-			var cursor = evt.target.result;
-			if (cursor) {
-				items.push(cursor.value);
-				cursor.continue();
-			}
-		};
+		dexiedb.files.where("cachetime").below(expireTimestamp).delete();
+		dexiedb.thumbnails.where("cachetime").below(expireTimestamp).delete();
+		console.log("[AirMusic] Expire cache cleared")
 	}
-
-	function getAllThumbCache(callback) {
-		var trans = cacheDb.transaction("thumblist", IDBTransaction.READ_ONLY);
-		var store = trans.objectStore("thumblist");
-		var items = [];
-		trans.oncomplete = function(evt) {  
-			callback(items);
-		};
-		var cursorRequest = store.openCursor();
-		cursorRequest.onerror = function(error) {
-			console.log(error);
-		};
-		cursorRequest.onsuccess = function(evt) {                    
-			var cursor = evt.target.result;
-			if (cursor) {
-				items.push(cursor.value);
-				cursor.continue();
-			}
-		};
-	}
-
 
 	function replaceImageToDefault(target){
 		$(target).attr('src', "img/eq.svg");
@@ -2755,39 +2770,10 @@
 	
 	function setStorage(configName,configValue){
 		ao_module_storage.setStorage("AirMusic",configName,configValue);
-		/*
-    	$.ajax({
-    	  type: 'GET',
-    	  url: "../system/file_system/preference",
-    	  data: {key: "AirMusic/" + configName,value:configValue},
-    	  success: function(data){},
-    	  async:true
-		});
-		*/
     	return true;
     }
     
     function loadStorage(configName){
-		/*
-    	var result = "";
-    	$.ajax({
-    	  type: 'GET',
-    	  url: "../system/file_system/preference",
-    	  data: {key: "AirMusic/" + configName},
-    	  success: function(data){
-				if (data.error !== undefined){
-					result = "";
-				}else{
-					result = data;
-				}
-			  },
-    	  error: function(data){result = "";},
-    	  async:false,
-    	  timeout: 3000
-    	});
-		return result;
-		*/
-
 		return ao_module_storage.loadStorage("AirMusic",configName);
     }
 

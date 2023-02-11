@@ -32,7 +32,7 @@ type CapacityInfo struct {
 	Total             int64
 }
 
-//Create a new Capacity Resolver with the given user handler
+// Create a new Capacity Resolver with the given user handler
 func NewCapacityResolver(u *user.UserHandler) *Resolver {
 	return &Resolver{
 		UserHandler: u,
@@ -71,7 +71,20 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 	//Send the requested path capacity information
 	js, _ := json.Marshal(capinfo)
 	utils.SendJSONResponse(w, string(js))
+}
 
+// Get the capacity in tmp folder, accessible by everyone by default
+func (cr *Resolver) HandleTmpCapacityResolving(w http.ResponseWriter, r *http.Request) {
+	//Check if the request user is authenticated
+	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	capinfo, _ := cr.ResolveCapacityInfo(userinfo.Username, "tmp:/")
+	js, _ := json.Marshal(capinfo)
+	utils.SendJSONResponse(w, string(js))
 }
 
 func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (*CapacityInfo, error) {

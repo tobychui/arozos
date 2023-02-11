@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/valyala/fasttemplate"
 )
@@ -17,7 +17,7 @@ import (
 */
 
 func Templateload(filename string, replacement map[string]interface{}) (string, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return "", nil
 	}

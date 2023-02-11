@@ -3,9 +3,9 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
@@ -14,7 +14,7 @@ import (
 	user "imuslab.com/arozos/mod/user"
 )
 
-//Define path translation function
+// Define path translation function
 func virtualPathToRealPath(vpath string, u *user.User) (*filesystem.FileSystemHandler, string, error) {
 	fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 	if err != nil {
@@ -31,9 +31,9 @@ func realpathToVirtualpath(fsh *filesystem.FileSystemHandler, path string, u *us
 	return fsh.FileSystemAbstraction.RealPathToVirtualPath(path, u.Username)
 }
 
-//Inject user based functions into the virtual machine
-//Note that the fsh might be nil and scriptPath must be real path of script being executed
-//**Use local file system check if fsh == nil**
+// Inject user based functions into the virtual machine
+// Note that the fsh might be nil and scriptPath must be real path of script being executed
+// **Use local file system check if fsh == nil**
 func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemHandler, scriptPath string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) {
 	username := u.Username
 	vm.Set("USERNAME", username)
@@ -283,7 +283,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		}
 
 		//Run the script
-		scriptContent, _ := ioutil.ReadFile(targetScriptPath)
+		scriptContent, _ := os.ReadFile(targetScriptPath)
 		go func() {
 			//Create a new VM to execute the script (also for isolation)
 			vm := otto.New()

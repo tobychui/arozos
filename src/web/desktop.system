@@ -471,9 +471,9 @@
             background-color: #242330;
         }
         
-        #contextmenu {
+        .contextmenu {
             position: fixed;
-            z-index: 3000;
+            z-index: 3000 !important;
             left: 20px;
             top: 20px;
         }
@@ -566,19 +566,39 @@
         }
 
         .quicktools{
-            padding-left: 0.7em;
+            margin-top: -0.1em;
+            position: relative;
             text-align:center; 
             height: 100%;
         }
 
-        .quicktools:hover{
-            background-color: rgba(240,240,240,0.2);
+        .qtwrapper{
+            cursor:pointer;
+            display: inline-block;
+            border-radius: 0.4em;
         }
 
-        .qtwrapper{
-            padding:4px;
-            padding-right: 8px;
-            cursor:pointer;
+        .qtwrapper.backgroundtask{
+            padding-left:8px;
+            padding-right: 6px;
+            padding-top: 7px;
+            padding-bottom: 5px;
+        }
+
+        .qtwrapper.backgroundtask i{
+            margin-top: -1px;
+            margin-right: 1px;
+        }
+
+        .qtwrapper.content{
+            padding-left:6px;
+            padding-right: 4px;
+            padding-top: 4px;
+            padding-bottom: 8px;
+        }
+
+        .qtwrapper:hover{
+            background-color: rgba(240,240,240,0.2);
         }
 
         .notificationbar{
@@ -711,6 +731,10 @@
             border: 1px solid #ebebeb;
             padding-top:8px;
             padding-bottom:8px;
+
+            box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+            -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+            -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
         }
 
         #quickAccessPanel .item{
@@ -886,18 +910,74 @@
                 padding:2px;
                 word-wrap: break-word;
             }
-    
 
-            
+            /*
+                Background Task UI
+            */
+            #backgroundTaskPanel{
+                background-color:white;
+                position:absolute;
+                top:28px;
+                right:50px;
+                z-index:115;
+                width:400px;
+                border-radius: 10px;
+                border-top-right-radius: 0px;
+                border-top-left-radius: 0px;
+                border: 1px solid #ebebeb;
+                padding-top:8px;
+                padding-bottom:8px;
+                max-height: 50vh;
+                overflow-y: auto;
+                overflow-x: hidden;
 
+                box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+                -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+                -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+            }
+
+            .backgroundtaskObject{
+                padding: 0.4em;
+                padding-right: 0.8em;
+                padding-left: 1.2em;
+            }
+
+            .backgroundtaskObject .progress, .backgroundtaskObject .bar{
+                height: 1em !important;
+            }
+
+            .backgroundtaskObject .bar{
+                min-width: 0px !important;
+            }
+
+            .backgroundtaskObject .progress .bar{
+                background-color: #2b4871;
+            }
+
+            .backgroundtaskObject.paused .progress .bar{
+                background-color: #d6ba3e;
+            }
+
+            .backgroundtaskObject.stopping .progress .bar{
+                background-color: #d63e3e;
+            }
+
+            .backgroundtaskObject .circular.button i{
+                color: rgb(160, 160, 160) !important;
+                display: inline-block;
+                width: 10px !important;
+            }
 
 
         /*
                 Z-index layering
                 Layer -1 : Background Images
+                Layer 0: Status Bar
                 Layer 0 - 99: Not focused tab
                 Layer 100: Focused tab drag drop layer
                 Layer 101: Focused Tab / File Descriptor Tag
+                Layer 114: Quick Access Panel
+                Layer 115: Background Task Panel
                 ...
                 Layer 400 - 499: Non-focused top most FloatWindows
                 Layer 500: Top Mot FloatWindow drag drop layer
@@ -935,8 +1015,11 @@
         <div class="clock statusbarpadding" onclick="toggleNotification();" ontouchstart="toggleNotification();">
             ArozOS Desktop
         </div>
-        <div class="quicktools statusbarpadding" onclick="showToolPanel();" ontouchend="showToolPanel();">
-            <div class="qtwrapper">
+        <div class="quicktools statusbarpadding">
+            <div id="backgroundtaskBtn" class="qtwrapper backgroundtask" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
+                <i class="clone icon"></i>
+            </div>
+            <div class="qtwrapper content" onclick="showToolPanel();" ontouchend="showToolPanel();" style="margin-right: 0.4em;">
                 <i class="content icon"></i>
             </div>
         </div>
@@ -1046,6 +1129,34 @@
         </div>
     </div>
 
+    <!-- Background Task Panel -->
+    <div id="backgroundTaskPanel" class="" style="display:none;">
+        <!--
+        <div class="backgroundtaskObject">
+            <small>src > dest (test.mp4)</small>
+            <div class="ui grid">
+                <div class="twelve wide column" style="padding-right: 0.4em;">
+                    <div class="ui mini active progress">
+                        <div class="bar" style="width: 50%;">
+                            <div class="progress">50%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="four wide column"  style="padding-top: 0.4em; padding-left: 0;" align="right">
+                    <button class="circular ui mini basic icon button">
+                        <i class="pause icon"></i>
+                    </button>
+                    <button class="circular ui mini basic red icon button">
+                        <i class="remove icon" style="color: red !important;"></i>
+                    </button>
+                </div>
+              </div>
+              <div class="ui divider" style="margin-top: 0;"></div>
+        </div>
+        -->
+    </div>
+
+    <!-- Content / Quick Access Panel-->
     <div id="quickAccessPanel" class="" style="display:none;">
         <div class="ui small items" style="margin-bottom: 0;">
             <div class="item">
@@ -1085,11 +1196,14 @@
             <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
         </div>
         <div class="ui divider" style="margin: 0.4em;"></div>
-        <div class="item hardware" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
+        <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
             <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
         </div>
-        <div class="item hardware" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
+        <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
             <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
+        </div>
+        <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
+            <small id="sysinfo"></small>
         </div>
     </div>
     <div>
@@ -1161,13 +1275,15 @@
 
         //Upload related
         let uploadFileChunkSize = 1024 * 512; //512KB per chunk in low memory upload
+        let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
+        let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
 
         //Others
         var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
         var hostInfo = {};
         var userInfo = {};
-        var hardwareman = false;
+        var powerman = false;
         var downloadMode = false;
         var lowMemoryMode = true;
 
@@ -1210,11 +1326,37 @@
             hookLaunchMenuEvents();
             initTheme();
             initStartupSounds();
+            initUploadCuttoffValues();
 
             //Login cookie expire check
             setInterval(function() {
                 checkConnection();
             }, 15000);
+        }
+
+        function initUploadCuttoffValues(){
+             //Get the avaible space on tmp disk and decide the cutoff file size that need to directly write to disk
+            $.ajax({
+                url: "system/disk/space/tmp",
+                method: "POST",
+                data: {},
+                success: function(data){
+                    if (data.error !== undefined){
+                        console.log("%c[Desktop] Unable to auto-detect huge file cutoff size: " + data.error, 'color: #e64747');
+                    }else{
+                        if (!isNaN(data.Available) && data.Available > 0){
+                            largeFileCutoffSize = data.Available/16 - 4096;
+                            console.log("%c[Desktop] Setting huge file cutoff size at: " + ao_module_utils.formatBytes(data.Available/16), 'color: #036ffc');
+                        }else if (isNaN(data.Available)){
+                            console.log("%c[Desktop] Unable to read available tmp disk size. Using default huge file cutoff size.", 'color: #e64747');
+                        }
+                        
+                    }
+                },
+                error: function(){
+                    //Hardware mode disabled. Use default value.
+                }
+            });
         }
 
         function handleManualCheckReconnect(button){
@@ -1233,6 +1375,144 @@
             });
         }
 
+        function centerTruncat(fullStr, strLen, separator) {
+            if (fullStr.length <= strLen) return fullStr;
+
+            separator = separator || '...';
+
+            var sepLen = separator.length,
+                charsToShow = strLen - sepLen,
+                frontChars = Math.ceil(charsToShow/2),
+                backChars = Math.floor(charsToShow/2);
+
+            return fullStr.substr(0, frontChars) + 
+                separator + 
+                fullStr.substr(fullStr.length - backChars);
+        };
+
+        function handleBackgroundTaskPauseToggle(oprid, btn=undefined, currentlyPaused=false){
+            console.log(oprid, currentlyPaused);
+            if (btn != undefined){
+                $(btn).addClass("disabled");
+                $(btn).html(`<i class="ui spinner loading icon"></i>`);
+            }
+            if (currentlyPaused){
+                //Resume
+                $.ajax({
+                    url: "system/file_system/ongoing",
+                    method: "POST",
+                    data: {"oprid": oprid, "flag": "continue"},
+                    success: function(data){
+                        if (data.error != undefined){
+                            console.log(data.error);
+                        }
+                        updateBackgroundgTaskList();
+                    }
+                });
+            }else{
+                //Pause
+                $.ajax({
+                    url: "system/file_system/ongoing",
+                    method: "POST",
+                    data: {"oprid": oprid, "flag": "pause"},
+                    success: function(data){
+                        if (data.error != undefined){
+                            console.log(data.error);
+                        }
+                        updateBackgroundgTaskList();
+                    }
+                });
+            }
+        }
+
+        function handleBackgroundTaskCancel(oprid, btn=undefined){
+            $.ajax({
+                url: "system/file_system/ongoing",
+                method: "POST",
+                data: {"oprid": oprid, "flag": "cancel"},
+                success: function(data){
+                    if (data.error != undefined){
+                        console.log(data.error);
+                    }else{
+                        //Disable further operation untill task cancelled
+                        if (btn != undefined){
+                            $(btn).addClass("disabled");
+                            $(btn).html(`<i class="ui spinner loading icon"></i>`);
+                        }
+                      
+                    }
+                    updateBackgroundgTaskList();
+                }
+            });
+        }
+
+        //The background task checking function will ping server side at a more 
+        //frequent interval if there is a background task running
+        var rapidIntervalTaskListing = undefined;
+        function updateBackgroundgTaskList(){
+            //Update background tasks
+            $.get("system/file_system/ongoing", function(tasks){
+
+                tasks.sort(function(a, b) { 
+                    return a.ID > b.ID;
+                });
+
+                console.log(tasks);
+                $("#backgroundTaskPanel").html("");
+                tasks.forEach(function(task){
+                    console.log(task);
+                    var pausedClass = "";
+                    var pauseIcon = "pause";
+                    var cancelBtnDisabled = "";
+                    if (task.FileOperationSignal == 1){
+                        pausedClass = "paused";
+                        pauseIcon = "play";
+                    }else if (task.FileOperationSignal == 2){
+                        pausedClass = "stopping";
+                        cancelBtnDisabled = "disabled";
+                    }
+                    $("#backgroundTaskPanel").append(`<div class="backgroundtaskObject ${pausedClass}">
+                        <small>${centerTruncat(task.Src, 22, "...")} <i class="angle right icon"></i> ${centerTruncat(task.Dest, 22, "...")} (${centerTruncat(task.LatestFile, 30, "...")})</small>
+                        <div class="ui grid">
+                            <div class="twelve wide column" style="padding-right: 0.4em; padding-bottom: 0.4em;">
+                                <div class="ui mini active progress">
+                                    <div class="bar" style="width: ${task.Progress}%;">
+                                        <div class="progress">${task.Progress}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="four wide column"  style="padding-top: 0.4em; padding-left: 0;  padding-bottom: 0.4em;" align="right">
+                                <button class="circular ui mini basic icon ${cancelBtnDisabled} button" oprid="${task.ID}" onclick="handleBackgroundTaskPauseToggle('${task.ID}', this, ${task.FileOperationSignal==1});">
+                                    <i class="${pauseIcon} icon"></i>
+                                </button>
+                                <button class="circular ui mini basic red icon ${cancelBtnDisabled} button" oprid="${task.ID}" onclick="handleBackgroundTaskCancel('${task.ID}', this);">
+                                    <i class="remove icon" style="color: red !important;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>`);
+                });
+
+                if (tasks.length > 0){
+                    if (rapidIntervalTaskListing != undefined){
+                        clearTimeout(rapidIntervalTaskListing);
+                        rapidIntervalTaskListing = undefined;
+                    }
+                    rapidIntervalTaskListing = setTimeout(function(){
+                        updateBackgroundgTaskList();
+                    }, 1000);
+                    $("#backgroundtaskBtn").find("i").attr("class", "loading circle notch icon");
+                }else{
+                    $("#backgroundTaskPanel").append(`<div class="ui basic segment" style="width: 100%;">
+                        <i class="ui checkmark icon"></i> ${applocale.getString("backgroundTasks/noTasks", "No running background tasks")}
+                        <a style="cursor: pointer; float: right; margin-top: 0.2em;" onclick="updateBackgroundgTaskList();">${applocale.getString("backgroundTasks/refresh", "Refresh")}</a>
+                    </div>`);
+                    $("#backgroundtaskBtn").find("i").attr("class", "circle notch icon");
+                }
+                
+            });
+        }
+        updateBackgroundgTaskList();
       
         function checkConnection(timeout=15000, callback=undefined){
             $.ajax({
@@ -1240,6 +1520,8 @@
                 success: function(data) {
                     if (data == true) {
                         //Continue session
+                        updateBackgroundgTaskList();
+                      
                     } else {
                         //Session timeout. Redirect to system index
                         loggingOut = true;
@@ -1286,6 +1568,10 @@
             z = z || '0';
             n = n + '';
             return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+        }
+
+        function showBackgroundTaskPanel(){
+            $("#backgroundTaskPanel").slideToggle("fast");
         }
 
         function showToolPanel(){
@@ -1353,7 +1639,7 @@
                 //Update the ui element as well
                 $(".hostname").text(hostInfo.Hostname);
                 document.title = hostInfo.Hostname;
-
+                $("#sysinfo").text(hostInfo.DeviceModel + " firmware:" + hostInfo.BuildVersion + " " + hostInfo.InternalVersion);
             });
 
             //Setup volume bar
@@ -1380,13 +1666,14 @@
             $.get("system/power/accessCheck",function(data){
                 if (data == true){
                     //Hardware management mode is on
-                    hardwareman = true;
+                    powerman = true;
                 }else{
                     //Hardware management mode is off
-                    $(".item.hardware").hide();
-                    hardwareman = false;
+                    $(".item.powerman").remove();
+                    powerman = false;
                 }   
             });
+
 
         }
 
@@ -6171,10 +6458,11 @@
             $("#subcontextmenu").hide();
             $("#contextmenu").hide()
             $("#quickAccessPanel").slideUp("fast");
+            $("#backgroundTaskPanel").slideUp("fast");
         }
 
         function restart(){
-            if (!hardwareman){
+            if (!powerman){
                 return
             }
             var apiObject = {
@@ -6199,7 +6487,7 @@
         }
 
         function shutdown(){
-            if (!hardwareman){
+            if (!powerman){
                 return
             }
 
@@ -6235,10 +6523,10 @@
                         //Permission denied or other reasons that cannot access harwdare info. Use default mode
                         lowMemoryMode = true;
                     }else{
-                        //Check if ramsize > 1.8 GB (2GB). If yes, switch to large memory upload mode
+                        //Check if ramsize > 3.8 GB (4GB). If yes, switch to large memory upload mode
                         var memsize = JSON.parse(data);
                         if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 3.8){
-                            console.log("%c[Desktop] Setting upload mode to large memory mode", 'color: #2ba16e');
+                            console.log("%c[Desktop] Setting upload mode to large memory mode", 'color: #036ffc');
                             lowMemoryMode = false;
                         }
                     }
@@ -6285,7 +6573,7 @@
         }
 
         function uploadFile(file, callback=undefined, uploadingIconUUID = undefined) {
-            if (lowMemoryMode){
+            if (file.size > postUploadModeCutoff && lowMemoryMode){
                 /*
                     Low Memory Upload Mode
                 */
@@ -6319,7 +6607,14 @@
                     uploadDir = uploadDir + subpath;
                 }
 
-                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir);
+                let hugeFileMode = "";
+                if (file.size > largeFileCutoffSize){
+                    //Filesize over cutoff line. Use huge file mode
+                    hugeFileMode = "&hugefile=true";
+                }
+                
+
+                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir + hugeFileMode);
                 let currentSendingIndex = 0;
                 let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
                 
@@ -6591,8 +6886,9 @@
         //Load the user define theme color to overwrite the default color if exists
         function initUserDefinedThemeColor(){
             $.ajax({
-                url: "system/file_system/preference",
-                data: {key: "themecolor"},
+                url: "system/desktop/preference",
+                data: {preference: "themecolor"},
+                method: "POST",
                 success: function(data){
                     if (data.error == undefined && data != ""){
                         setThemeColor(data);

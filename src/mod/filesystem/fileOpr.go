@@ -32,7 +32,7 @@ import (
 	archiver "github.com/mholt/archiver/v3"
 )
 
-//A basic file zipping function
+// A basic file zipping function
 func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) error {
 	z := archiver.Zip{
 		CompressionLevel:       flate.DefaultCompression,
@@ -46,7 +46,7 @@ func ZipFile(filelist []string, outputfile string, includeTopLevelFolder bool) e
 	return err
 }
 
-//A basic file unzip function
+// A basic file unzip function
 func Unzip(source, destination string) error {
 	archive, err := zip.OpenReader(source)
 	if err != nil {
@@ -88,8 +88,8 @@ func Unzip(source, destination string) error {
 	return nil
 }
 
-//Aroz Unzip File with progress update function  (current filename / current file count / total file count / progress in percentage)
-func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHandler func(string, int, int, float64)) error {
+// Aroz Unzip File with progress update function  (current filename / current file count / total file count / progress in percentage)
+func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHandler func(string, int, int, float64) int) error {
 	//Gether the total number of files in all zip files
 	totalFileCounts := 0
 	unzippedFileCount := 0
@@ -133,7 +133,16 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 				//Folder is created already be the steps above.
 				//Update the progress
 				unzippedFileCount++
-				progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+				statusCode := progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+				for statusCode == 1 {
+					//Wait for the task to be resumed
+					time.Sleep(1 * time.Second)
+					statusCode = progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+				}
+				if statusCode == 2 {
+					//Cancel
+					return errors.New("Operation cancelled by user")
+				}
 				continue
 			}
 
@@ -155,7 +164,16 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 
 			//Update the progress
 			unzippedFileCount++
-			progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+			statusCode := progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+			for statusCode == 1 {
+				//Wait for the task to be resumed
+				time.Sleep(1 * time.Second)
+				statusCode = progressHandler(file.Name, unzippedFileCount, totalFileCounts, float64(unzippedFileCount)/float64(totalFileCounts)*100.0)
+			}
+			if statusCode == 2 {
+				//Cancel
+				return errors.New("Operation cancelled by user")
+			}
 		}
 	}
 
@@ -163,12 +181,12 @@ func ArozUnzipFileWithProgress(filelist []string, outputfile string, progressHan
 }
 
 /*
-	Aroz Zip File with progress update function
-	Returns the following progress: (current filename / current file count / total file count / progress in percentage)
-	if output is local path that is out of the scope of any fsh, leave outputFsh as nil
+Aroz Zip File with progress update function
+Returns the following progress: (current filename / current file count / total file count / progress in percentage)
+if output is local path that is out of the scope of any fsh, leave outputFsh as nil
 */
-func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, progressHandler func(string, int, int, float64)) error {
-	fmt.Println("WEBSOCKET ZIPPING", targetFshs, filelist)
+func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, progressHandler func(string, int, int, float64) int) error {
+	//fmt.Println("WEBSOCKET ZIPPING", targetFshs, filelist)
 	//Get the file count from the filelist
 	totalFileCount := 0
 	for i, srcpath := range filelist {
@@ -250,7 +268,16 @@ func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string,
 
 				//Update the zip progress
 				currentFileCount++
-				progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+				statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+				for statusCode == 1 {
+					//Wait for the task to be resumed
+					time.Sleep(1 * time.Second)
+					statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+				}
+				if statusCode == 2 {
+					//Cancel
+					return errors.New("Operation cancelled by user")
+				}
 				return nil
 			})
 
@@ -282,8 +309,16 @@ func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string,
 
 			//Update the zip progress
 			currentFileCount++
-			progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
-
+			statusCode := progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+			for statusCode == 1 {
+				//Wait for the task to be resumed
+				time.Sleep(1 * time.Second)
+				statusCode = progressHandler(arozfs.Base(srcpath), currentFileCount, totalFileCount, (float64(currentFileCount)/float64(totalFileCount))*float64(100))
+			}
+			if statusCode == 2 {
+				//Cancel
+				return errors.New("Operation cancelled by user")
+			}
 		}
 	}
 
@@ -291,10 +326,10 @@ func ArozZipFileWithProgress(targetFshs []*FileSystemHandler, filelist []string,
 }
 
 /*
-	ArozZipFile
-	Zip file without progress update, support local file system or buffer space
-	To use it with local file system, pass in nil in fsh for each item in filelist, e.g.
-	filesystem.ArozZipFile([]*filesystem.FileSystemHandler{nil}, []string{zippingSource}, nil, targetZipFilename, false)
+ArozZipFile
+Zip file without progress update, support local file system or buffer space
+To use it with local file system, pass in nil in fsh for each item in filelist, e.g.
+filesystem.ArozZipFile([]*filesystem.FileSystemHandler{nil}, []string{zippingSource}, nil, targetZipFilename, false)
 */
 func ArozZipFile(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool) error {
 	//Create the target zip file
@@ -485,7 +520,7 @@ func ViewZipFile(filepath string) ([]string, error) {
 	return filelist, err
 }
 
-func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressUpdate func(int, string)) error {
+func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, progressUpdate func(int, string) int) error {
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 	if srcFshAbs.IsDir(src) && strings.HasPrefix(dest, src) {
@@ -560,13 +595,22 @@ func FileCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 
 		if progressUpdate != nil {
 			//Set progress to 100, leave it to upper level abstraction to handle
-			progressUpdate(100, arozfs.Base(realDest))
+			statusCode := progressUpdate(100, arozfs.Base(realDest))
+			for statusCode == 1 {
+				//Wait for the task to be resumed
+				time.Sleep(1 * time.Second)
+				statusCode = progressUpdate(100, arozfs.Base(realDest))
+			}
+			if statusCode == 2 {
+				//Cancel
+				return errors.New("Operation cancelled by user")
+			}
 		}
 	}
 	return nil
 }
 
-func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressUpdate func(int, string)) error {
+func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string, mode string, fastMove bool, progressUpdate func(int, string) int) error {
 	srcAbst := srcFsh.FileSystemAbstraction
 	destAbst := destFsh.FileSystemAbstraction
 
@@ -660,7 +704,16 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 
 		//Update the progress
 		if progressUpdate != nil {
-			progressUpdate(100, arozfs.Base(src))
+			statusCode := progressUpdate(100, arozfs.Base(src))
+			for statusCode == 1 {
+				//Wait for the task to be resumed
+				time.Sleep(1 * time.Second)
+				statusCode = progressUpdate(100, arozfs.Base(realDest))
+			}
+			if statusCode == 2 {
+				//Cancel
+				return errors.New("Operation cancelled by user")
+			}
 		}
 
 		f, err := srcAbst.ReadStream(src)
@@ -695,13 +748,13 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 	return nil
 }
 
-//Copy a given directory, with no progress udpate
+// Copy a given directory, with no progress udpate
 func CopyDir(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, dest string) error {
-	return dirCopy(srcFsh, src, destFsh, dest, func(progress int, name string) {})
+	return dirCopy(srcFsh, src, destFsh, dest, func(progress int, name string) int { return 0 })
 }
 
-//Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
-func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressUpdate func(int, string)) error {
+// Replacment of the legacy dirCopy plugin with filepath.Walk function. Allowing real time progress update to front end
+func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, realDest string, progressUpdate func(int, string) int) error {
 	srcFshAbs := srcFsh.FileSystemAbstraction
 	destFshAbs := destFsh.FileSystemAbstraction
 	//Get the total file counts
@@ -742,13 +795,22 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 
 			//Update move progress
 			if progressUpdate != nil {
-				progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), arozfs.Base(fileSrc))
+				statusCode := progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), arozfs.Base(fileSrc))
+				for statusCode == 1 {
+					//Wait for the task to be resumed
+					time.Sleep(1 * time.Second)
+					statusCode = progressUpdate(int(float64(fileCounter)/float64(totalFileCounts)*100), arozfs.Base(fileSrc))
+				}
+				if statusCode == 2 {
+					//Cancel
+					return errors.New("Operation cancelled by user")
+				}
 			}
 
 			//Move the file using BLFC
 			f, err := srcFshAbs.ReadStream(fileSrc)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 				return err
 			}
 			defer f.Close()
@@ -838,7 +900,7 @@ func BufferedLargeFileCopy(src string, dst string, BUFFERSIZE int64) error {
 }
 */
 
-//Check if a local path is dir, do not use with file system abstraction realpath
+// Check if a local path is dir, do not use with file system abstraction realpath
 func IsDir(path string) bool {
 	if !FileExists(path) {
 		return false
@@ -857,7 +919,7 @@ func IsDir(path string) bool {
 	return false
 }
 
-//Unzip tar.gz file, use for unpacking web.tar.gz for lazy people
+// Unzip tar.gz file, use for unpacking web.tar.gz for lazy people
 func ExtractTarGzipFile(filename string, outfile string) error {
 	f, err := os.Open(filename)
 	if err != nil {

@@ -5,7 +5,6 @@ package ftp
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,8 +207,8 @@ func (a aofs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	return fsh.FileSystemAbstraction.Chtimes(rewritePath, atime, mtime)
 }
 
-//arozos adaptive functions
-//This function rewrite the path from ftp representation to real filepath on disk
+// arozos adaptive functions
+// This function rewrite the path from ftp representation to real filepath on disk
 func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, error) {
 	path = filepath.ToSlash(filepath.Clean(path))
 	//log.Println("Original path: ", path)
@@ -224,11 +223,11 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 			}
 		}
 
-		readmeContent, err := ioutil.ReadFile("./system/ftp/README.txt")
+		readmeContent, err := os.ReadFile("./system/ftp/README.txt")
 		if err != nil {
 			readmeContent = []byte("DO NOT UPLOAD FILES INTO THE ROOT DIRECTORY")
 		}
-		ioutil.WriteFile(filepath.Join(a.tmpFolder, "README.txt"), readmeContent, 0755)
+		os.WriteFile(filepath.Join(a.tmpFolder, "README.txt"), readmeContent, 0755)
 
 		//Return the tmpFolder root
 		tmpfs, _ := a.userinfo.GetFileSystemHandlerFromVirtualPath("tmp:/")
@@ -260,7 +259,7 @@ func (a aofs) pathRewrite(path string) (*filesystem.FileSystemHandler, string, e
 	}
 }
 
-//Check if user has access to the given path, mode can be string {read / write}
+// Check if user has access to the given path, mode can be string {read / write}
 func (a aofs) checkAllowAccess(fsh *filesystem.FileSystemHandler, path string, mode int) bool {
 	vpath, err := fsh.FileSystemAbstraction.RealPathToVirtualPath(path, a.userinfo.Username)
 	if err != nil {

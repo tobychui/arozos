@@ -37,7 +37,7 @@ type Manager struct {
 	option ManagerOption
 }
 
-//Create a new FTP Manager
+// Create a new FTP Manager
 func NewFTPManager(option *ManagerOption) *Manager {
 	//Create database related tables
 	option.Sysdb.NewTable("ftp")
@@ -152,6 +152,7 @@ func (m *Manager) StopFtpServer() {
 	if m.option.FtpServer != nil {
 		m.option.FtpServer.Close()
 	}
+
 	m.option.Sysdb.Write("ftp", "default", false)
 	m.option.Logger.PrintAndLog("FTP", "FTP Server Stopped", nil)
 }

@@ -25,7 +25,7 @@ type Handler struct {
 	lastScanTime int64
 }
 
-//Create a new Sonoff S2X Protocol Handler
+// Create a new Sonoff S2X Protocol Handler
 func NewProtocolHandler(scanner *mdns.MDNSHost) *Handler {
 	//Create a new MDNS Host
 	return &Handler{
@@ -41,7 +41,7 @@ func (h *Handler) Start() error {
 
 func (h *Handler) Scan() ([]*iot.Device, error) {
 	results := []*iot.Device{}
-	scannedDevices := h.scanner.Scan(10, "")
+	scannedDevices := h.scanner.Scan(30, "")
 	for _, dev := range scannedDevices {
 		if dev.Port == 80 {
 			if len(dev.IPv4) == 0 {

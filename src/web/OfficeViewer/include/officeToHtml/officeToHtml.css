@@ -1,0 +1,111 @@
+﻿.wbSheets_clas {
+  position: relative;
+  padding: 1em;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+.wbSheets_clas .ui-tabs-nav {
+  position: absolute;
+  left: 0.25em;
+  right: 0.25em;
+  bottom: 0.25em;
+  padding: 0em 0.2em 0.2em;
+}
+.wbSheets_clas .ui-tabs-nav li {
+  border-top: none;
+  border-bottom: 1px solid #ccc;
+  -moz-border-radius: 0px 0px 4px 4px;
+  -webkit-border-radius: 0px 0px 4px 4px;
+  border-radius: 0px 0px 4px 4px;
+}
+.wbSheets_clas .ui-tabs-nav li.ui-tabs-selected,
+.wbSheets_clas .ui-tabs-nav li.ui-state-active {
+  top: -1px;
+}
+.wbSheets_clas_ul {
+  text-align: center;
+  list-style: none;
+  margin: 200px 0 20px;
+  line-height: 35px;
+  height: 37px;
+  overflow: hidden;
+  font-size: 12px;
+  position: absolute;
+  left: 0.25em;
+  right: 0.25em;
+  bottom: 0.25em;
+  padding: 0em 0.2em 0.2em;
+  z-index: 1000;
+}
+
+.wbSheets_clas_ul li {
+  border: 1px solid #aaa;
+  background: #d1d1d1;
+  background: linear-gradient(top, #ececec 50%, #d1d1d1 100%);
+  display: inline-block;
+  position: relative;
+  z-index: 0;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 #fff;
+  text-shadow: 0 1px #fff;
+  margin: 0 -5px;
+  padding: 0 30px;
+}
+
+.wbSheets_clas_ul a {
+  color: #555;
+  text-decoration: none;
+}
+
+.wbSheets_clas_ul li.selected {
+  background: #fff;
+  color: #333;
+  z-index: 2;
+  border-top-color: #fff;
+}
+
+.wbSheets_clas_ul:before {
+  position: absolute;
+  content: "";
+  width: 100%;
+  top: 0;
+  left: 0;
+  border-top: 1px solid #aaa;
+  z-index: 1;
+}
+
+.wbSheets_clas_ul li:before,
+.wbSheets_clas_ul li:after {
+  border: 1px solid #aaa;
+  position: absolute;
+  top: -1px;
+  width: 6px;
+  height: 6px;
+  content: "";
+}
+
+.wbSheets_clas_ul li:before {
+  left: -7px;
+  border-top-right-radius: 6px;
+  border-width: 1px 1px 0px 0px;
+  box-shadow: 2px 0px 0 #ececec;
+}
+
+.wbSheets_clas_ul li:after {
+  right: -7px;
+  border-top-left-radius: 6px;
+  border-width: 1px 0px 0px 1px;
+  box-shadow: -2px 0px 0 #ececec;
+}
+
+.wbSheets_clas_ul li.selected:before {
+  box-shadow: 2px 0px 0 #fff;
+}
+
+.wbSheets_clas_ul li.selected:after {
+  box-shadow: -2px 0px 0 #fff;
+}
+#wbSheets_search_warpper{
+  padding: 10px;
+}

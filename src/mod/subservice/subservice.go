@@ -3,7 +3,6 @@ package subservice
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -153,7 +152,7 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 	//Check if there are config files that replace the -info tag. If yes, use it instead.
 	out := []byte{}
 	if fileExists(servicePath + "/moduleInfo.json") {
-		launchConfig, err := ioutil.ReadFile(servicePath + "/moduleInfo.json")
+		launchConfig, err := os.ReadFile(servicePath + "/moduleInfo.json")
 		if err != nil {
 			if startupMode {
 				log.Fatal("Failed to read moduleInfo.json: "+binaryname, err)
@@ -488,7 +487,7 @@ func (sr *SubServiceRouter) KillSubService(serviceDir string) error {
 			}
 
 			//Write a suspended file into the module
-			ioutil.WriteFile("subservice/"+ss.ServiceDir+"/.disabled", []byte(""), 0755)
+			os.WriteFile("subservice/"+ss.ServiceDir+"/.disabled", []byte(""), 0755)
 		}
 	}
 

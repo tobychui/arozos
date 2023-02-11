@@ -4,8 +4,8 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -15,7 +15,7 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-//Inject aroz online custom functions into the virtual machine
+// Inject aroz online custom functions into the virtual machine
 func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptScope string) {
 	//Define system core modules and definations
 	sysdb := g.Option.UserHandler.GetDatabase()
@@ -369,7 +369,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			}
 
 			//Run the script
-			scriptContent, _ := ioutil.ReadFile(targetScriptPath)
+			scriptContent, _ := os.ReadFile(targetScriptPath)
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
 				//Script execution failed

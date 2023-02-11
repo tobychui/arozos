@@ -2,14 +2,14 @@ package updates
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 )
 
-//Download updates from given URL, return real time progress of stage (int),  progress (int) and status text (string)
+// Download updates from given URL, return real time progress of stage (int),  progress (int) and status text (string)
 func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL string, progressUpdateFunction func(int, float64, string)) error {
 	//Create the update download folder
 	os.RemoveAll("./updates")
@@ -96,7 +96,7 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 			errorMessage = err.Error()
 			return err
 		}
-		checksumFileContent, err := ioutil.ReadFile(checksumDownloadTarget)
+		checksumFileContent, err := os.ReadFile(checksumDownloadTarget)
 		if err != nil {
 			errorMessage = err.Error()
 			return err
@@ -146,7 +146,7 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 	return nil
 }
 
-//Get the update sizes, return binary size, webpack size and error if any
+// Get the update sizes, return binary size, webpack size and error if any
 func GetUpdateSizes(binaryURL string, webpackURL string) (int, int, error) {
 	bps, err := getDownloadFileSize(binaryURL)
 	if err != nil {
@@ -170,7 +170,7 @@ func GetLauncherVersion() (string, error) {
 		return "", errors.New("No launcher found. Unable to restart")
 	}
 
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", errors.New("Read launcher response failed")
 	}

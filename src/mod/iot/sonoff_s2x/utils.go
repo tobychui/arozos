@@ -3,7 +3,7 @@ package sonoff_s2x
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,7 +28,7 @@ func tryGet(url string) (string, error) {
 		return "", errors.New("Server side return status code " + strconv.Itoa(resp.StatusCode))
 	}
 
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}

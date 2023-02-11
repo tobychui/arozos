@@ -33,7 +33,7 @@ func mrouter(h http.Handler) http.Handler {
 			red, _ := utils.GetPara(r, "redirect")
 
 			//Append the redirection addr into the template
-			imgsrc := "./web/" + iconSystem
+			imgsrc := filepath.Join(vendorResRoot, "auth_icon.png")
 			if !fs.FileExists(imgsrc) {
 				imgsrc = "./web/img/public/auth_icon.png"
 			}

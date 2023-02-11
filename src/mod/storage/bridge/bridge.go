@@ -3,7 +3,6 @@ package bridge
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
 )
 
@@ -30,17 +29,17 @@ func NewBridgeRecord(filename string) *Record {
 	}
 }
 
-//Read bridge record
+// Read bridge record
 func (r *Record) ReadConfig() ([]*BridgeConfig, error) {
 	result := []*BridgeConfig{}
 
 	if _, err := os.Stat(r.Filename); os.IsNotExist(err) {
 		//File not exists. Create it
 		js, _ := json.Marshal([]*BridgeConfig{})
-		ioutil.WriteFile(r.Filename, js, 0775)
+		os.WriteFile(r.Filename, js, 0775)
 	}
 
-	content, err := ioutil.ReadFile(r.Filename)
+	content, err := os.ReadFile(r.Filename)
 	if err != nil {
 		return result, err
 	}
@@ -52,7 +51,7 @@ func (r *Record) ReadConfig() ([]*BridgeConfig, error) {
 	return result, nil
 }
 
-//Append a new config into the Bridge Record
+// Append a new config into the Bridge Record
 func (r *Record) AppendToConfig(config *BridgeConfig) error {
 	currentConfigs, err := r.ReadConfig()
 	if err != nil {
@@ -73,7 +72,7 @@ func (r *Record) AppendToConfig(config *BridgeConfig) error {
 	return err
 }
 
-//Remove a given config from file
+// Remove a given config from file
 func (r *Record) RemoveFromConfig(FSHUUID string, groupOwner string) error {
 	currentConfigs, err := r.ReadConfig()
 	if err != nil {
@@ -92,7 +91,7 @@ func (r *Record) RemoveFromConfig(FSHUUID string, groupOwner string) error {
 
 }
 
-//Check if the given UUID in this pool is a bridge object
+// Check if the given UUID in this pool is a bridge object
 func (r *Record) IsBridgedFSH(FSHUUID string, groupOwner string) (bool, error) {
 	currentConfigs, err := r.ReadConfig()
 	if err != nil {
@@ -107,9 +106,9 @@ func (r *Record) IsBridgedFSH(FSHUUID string, groupOwner string) (bool, error) {
 	return false, nil
 }
 
-//Write FSHConfig to disk
+// Write FSHConfig to disk
 func (r *Record) WriteConfig(config []*BridgeConfig) error {
 	js, _ := json.MarshalIndent(config, "", " ")
-	err := ioutil.WriteFile(r.Filename, js, 0775)
+	err := os.WriteFile(r.Filename, js, 0775)
 	return err
 }

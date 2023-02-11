@@ -3,8 +3,8 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
@@ -55,7 +55,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 		//Check if file exists
 		targetFile := filepath.Join(webRoot, relpath)
 		if utils.FileExists(targetFile) && !filesystem.IsDir(targetFile) {
-			content, err := ioutil.ReadFile(targetFile)
+			content, err := os.ReadFile(targetFile)
 			if err != nil {
 				g.raiseError(err)
 				return otto.FalseValue()

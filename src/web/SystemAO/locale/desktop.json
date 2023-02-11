@@ -39,6 +39,9 @@
                 "quickAccess/restart":"重新啟動伺服器",
                 "quickAccess/poweroff":"關機伺服器",
 
+                "backgroundTasks/noTasks": "沒有執行中之背景任務",
+                "backgroundTasks/refresh": "重新載入",
+
                 "contextmenu/New": "新增",
                 "contextmenu/Open": "開啟",
                 "contextmenu/Open With": "使用 … 開啟",
@@ -134,6 +137,9 @@
                 "quickAccess/fullscreen":"切換全螢幕",
                 "quickAccess/restart":"重新啟動伺服器",
                 "quickAccess/poweroff":"關機伺服器",
+
+                "backgroundTasks/noTasks": "沒有執行中之背景任務",
+                "backgroundTasks/refresh": "重新載入",
 
                 "contextmenu/New": "新增",
                 "contextmenu/Open": "開啟",
@@ -231,6 +237,9 @@
                 "quickAccess/fullscreen":"切换全屏幕",
                 "quickAccess/restart":"服务器重启",
                 "quickAccess/poweroff":"服务器关机",
+
+                "backgroundTasks/noTasks": "没有执行中之背景任务",
+                "backgroundTasks/refresh": "重新载入",
 
                 "contextmenu/New": "新增",
                 "contextmenu/Open": "打开",

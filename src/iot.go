@@ -96,6 +96,11 @@ func IoTHubInit() {
 		iotManager.RegisterHandler(tasmotaSonoffS2x)
 
 		//Add more here if needed
+		//Start the initial scanning
+		go func() {
+			iotManager.ScanDevices()
+			systemWideLogger.PrintAndLog("IoT", "Initial IoT device scanning completed", nil)
+		}()
 
 		//Finally, inject the gateway into the AGI interface
 		AGIGateway.Option.IotManager = iotManager

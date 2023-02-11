@@ -3,7 +3,6 @@ package modules
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -26,7 +25,7 @@ import (
 
 */
 
-//Install a module via selecting a zip file
+// Install a module via selecting a zip file
 func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) error {
 	//Check if file exists
 	if !utils.FileExists(realpath) {
@@ -75,7 +74,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 	return nil
 }
 
-//Reload all modules from agi file again
+// Reload all modules from agi file again
 func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 	//Clear the current registered module list
 	newModuleList := []*ModuleInfo{}
@@ -92,7 +91,7 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 	return nil
 }
 
-//Install a module via git clone
+// Install a module via git clone
 func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
 	//Download the module from the gitURL
 	log.Println("Starting module installation by Git cloning ", gitURL)
@@ -154,7 +153,7 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 	if utils.FileExists(thisModuleEstimataedRoot) {
 		if utils.FileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
 			//Load this as an module
-			startDef, err := ioutil.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
+			startDef, err := os.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
 			if err != nil {
 				log.Println("*Module Activator* Failed to read init.agi from " + filepath.Base(moduleFolder))
 				return errors.New("Failed to read init.agi from " + filepath.Base(moduleFolder))
@@ -175,7 +174,7 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 	return nil
 }
 
-//Handle and return the information of the current installed modules
+// Handle and return the information of the current installed modules
 func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r *http.Request) {
 	type ModuleInstallInfo struct {
 		Name          string //Name of the module
@@ -234,7 +233,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Uninstall the given module
+// Uninstall the given module
 func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	//Check if this module is allowed to be removed
 	var targetModuleInfo *ModuleInfo = nil

@@ -4,8 +4,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	auth "imuslab.com/arozos/mod/auth"
+	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -20,7 +22,7 @@ func system_resetpw_init() {
 	http.HandleFunc("/system/reset/confirmPasswordReset", system_resetpw_confirmReset)
 }
 
-//Validate if the ysername and rkey is valid
+// Validate if the ysername and rkey is valid
 func system_resetpw_validateResetKeyHandler(w http.ResponseWriter, r *http.Request) {
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
@@ -122,7 +124,11 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 	}
 
 	//OK. Create the New Password Entering UI
-	imageBase64, _ := utils.LoadImageAsBase64("./web/" + iconVendor)
+	vendorIconSrc := filepath.Join(vendorResRoot, "vendor_icon.png")
+	if !fs.FileExists(vendorIconSrc) {
+		vendorIconSrc = "./web/img/public/vendor_icon.png"
+	}
+	imageBase64, _ := utils.LoadImageAsBase64(vendorIconSrc)
 	template, err := utils.Templateload("system/reset/resetPasswordTemplate.html", map[string]interface{}{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,
@@ -138,7 +144,11 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 
 func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request) {
 	//Reset Key or Username not found, Serve entering interface
-	imageBase64, _ := utils.LoadImageAsBase64("./web/" + iconVendor)
+	imgsrc := filepath.Join(vendorResRoot, "vendor_icon.png")
+	if !fs.FileExists(imgsrc) {
+		imgsrc = "./web/img/public/vendor_icon.png"
+	}
+	imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
 	template, err := utils.Templateload("system/reset/resetCodeTemplate.html", map[string]interface{}{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,

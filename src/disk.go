@@ -30,12 +30,22 @@ func DiskServiceInit() {
 		},
 	})
 
+	//Anyone logged in can load router
+	authRouter := prout.NewModuleRouter(prout.RouterOption{
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			utils.SendErrorResponse(w, "Permission Denied")
+		},
+	})
+
 	//Disk Space Display endpoint
 	router.HandleFunc("/system/disk/space/list", diskspace.HandleDiskSpaceList)
 
 	//Handle Virtual Disk Properties display endpoints
 	dc := diskcapacity.NewCapacityResolver(userHandler)
 	router.HandleFunc("/system/disk/space/resolve", dc.HandleCapacityResolving)
+	authRouter.HandleFunc("/system/disk/space/tmp", dc.HandleTmpCapacityResolving)
 
 	//New Large File Scanner
 	lfs := sortfile.NewLargeFileScanner(userHandler)

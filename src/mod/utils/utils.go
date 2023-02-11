@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -19,12 +19,12 @@ import (
 
 */
 
-//Response related
+// Response related
 func SendTextResponse(w http.ResponseWriter, msg string) {
 	w.Write([]byte(msg))
 }
 
-//Send JSON response, with an extra json header
+// Send JSON response, with an extra json header
 func SendJSONResponse(w http.ResponseWriter, json string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
@@ -80,7 +80,7 @@ func Mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 }
 */
 
-//Get GET parameter
+// Get GET parameter
 func GetPara(r *http.Request, key string) (string, error) {
 	keys, ok := r.URL.Query()[key]
 	if !ok || len(keys[0]) < 1 {
@@ -90,7 +90,7 @@ func GetPara(r *http.Request, key string) (string, error) {
 	}
 }
 
-//Get POST paramter
+// Get POST paramter
 func PostPara(r *http.Request, key string) (string, error) {
 	r.ParseForm()
 	x := r.Form.Get(key)
@@ -137,12 +137,12 @@ func LoadImageAsBase64(filepath string) (string, error) {
 	}
 	f, _ := os.Open(filepath)
 	reader := bufio.NewReader(f)
-	content, _ := ioutil.ReadAll(reader)
+	content, _ := io.ReadAll(reader)
 	encoded := base64.StdEncoding.EncodeToString(content)
 	return string(encoded), nil
 }
 
-//Use for redirections
+// Use for redirections
 func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation string) string {
 	if strings.Count(requestURI, "/") == 1 {
 		//Already root level
@@ -155,7 +155,7 @@ func ConstructRelativePathFromRequestURL(requestURI string, redirectionLocation 
 	return redirectionLocation
 }
 
-//Check if given string in a given slice
+// Check if given string in a given slice
 func StringInArray(arr []string, str string) bool {
 	for _, a := range arr {
 		if a == str {

@@ -23,8 +23,16 @@ import (
 	"imuslab.com/arozos/mod/filesystem/shortcut"
 )
 
-//Structure definations
+// Control Signals for background file operation tasks
+const (
+	FsOpr_Continue  = 0 //Continue file operations
+	FsOpr_Pause     = 1 //Pause and wait until opr back to continue
+	FsOpr_Cancel    = 2 //Cancel and finish the file operation
+	FsOpr_Error     = 3 //Error occured in recent sections
+	FsOpr_Completed = 4 //Operation completed. Delete pending
+)
 
+// Structure definations
 type FileData struct {
 	Filename    string
 	Filepath    string
@@ -83,12 +91,12 @@ var DefaultEmptyHierarchySpecificConfig = EmptyHierarchySpecificConfig{
 	HierarchyType: "placeholder",
 }
 
-//Check if the two file system are identical.
+// Check if the two file system are identical.
 func MatchingFileSystem(fsa *FileSystemHandler, fsb *FileSystemHandler) bool {
 	return fsa.Filesystem == fsb.Filesystem
 }
 
-//Get the ID part of a virtual path, return ID, subpath and error
+// Get the ID part of a virtual path, return ID, subpath and error
 func GetIDFromVirtualPath(vpath string) (string, string, error) {
 	if !strings.Contains(vpath, ":") {
 		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
@@ -225,8 +233,8 @@ func IsInsideHiddenFolder(path string) bool {
 }
 
 /*
-	Wildcard Replacement Glob, design to hanle path with [ or ] inside.
-	You can also pass in normal path for globing if you are not sure.
+Wildcard Replacement Glob, design to hanle path with [ or ] inside.
+You can also pass in normal path for globing if you are not sure.
 */
 func WGlob(path string) ([]string, error) {
 	files, err := filepath.Glob(path)
@@ -257,8 +265,8 @@ func WGlob(path string) ([]string, error) {
 }
 
 /*
-	Get Directory size, require filepath and include Hidden files option(true / false)
-	Return total file size and file count
+Get Directory size, require filepath and include Hidden files option(true / false)
+Return total file size and file count
 */
 func GetDirctorySize(filename string, includeHidden bool) (int64, int) {
 	var size int64 = 0
@@ -378,7 +386,7 @@ func UnderTheSameRoot(srcAbs string, destAbs string) (bool, error) {
 	return false, nil
 }
 
-//Get the physical root of a given filepath, e.g. C: or /home
+// Get the physical root of a given filepath, e.g. C: or /home
 func GetPhysicalRootFromPath(filename string) (string, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {

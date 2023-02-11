@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -289,7 +288,7 @@ func (s SFTPFileSystemAbstraction) ReadFile(filename string) ([]byte, error) {
 		return []byte(""), err
 	}
 
-	return ioutil.ReadAll(f)
+	return io.ReadAll(f)
 }
 func (s SFTPFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
 	filename = arozfs.GenericPathFilter(filename)

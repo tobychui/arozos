@@ -63,8 +63,8 @@
 </head>
 <body>
     <img id="img" style="max-height: 100vh;max-width: 100%;">
-    <img class="left arrow" onclick="previousImage();" src="embedded/arrow-left.svg">
-    <img class="right arrow" onclick="nextImage();" src="embedded/arrow-right.svg">
+    <img class="left arrow" style="display:none;" onclick="previousImage();" src="embedded/arrow-left.svg">
+    <img class="right arrow" style="display:none;" onclick="nextImage();" src="embedded/arrow-right.svg">
     <img class="zoom in" onclick="zoomIn();" src="embedded/zoom-in.svg">
     <img class="zoom out" onclick="zoomOut();" src="embedded/zoom-out.svg">
     <img class="print" onclick="PrintImage();" src="embedded/print.svg">
@@ -223,7 +223,7 @@
                     alert(data.error);
                 }else{
                     nearbyFileList = data;
-
+                    $(".arrow").css("display", "");
                     //Track which index currently the user is viewing
                     for (var i = 0; i < nearbyFileList.length; i++){
                         var thisPath = nearbyFileList[i];
@@ -270,10 +270,14 @@
             var nextPhoto = currentViewingIndex;
             if (e.keyCode == 37){
                 //<-
-                previousImage();
+                if (nearbyFileList.length > 0){
+                    previousImage();
+                }
             }else if (e.keyCode == 39){
                 //->
-                nextImage();
+                if (nearbyFileList.length > 0){
+                    nextImage();
+                }
             }else{
                 //Invalid keycode to operate
                 return;

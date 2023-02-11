@@ -11,8 +11,9 @@ import (
 )
 
 type MDNSHost struct {
-	MDNS *zeroconf.Server
-	Host *NetworkHost
+	MDNS          *zeroconf.Server
+	Host          *NetworkHost
+	IfaceOverride *net.Interface
 }
 
 type NetworkHost struct {
@@ -29,9 +30,14 @@ type NetworkHost struct {
 	Online       bool
 }
 
-func NewMDNS(config NetworkHost) (*MDNSHost, error) {
+// Create a new MDNS discoverer, set MacOverride to empty string for using the first NIC discovered
+func NewMDNS(config NetworkHost, MacOverride string) (*MDNSHost, error) {
 	//Get host MAC Address
 	macAddress, err := getMacAddr()
+	if err != nil {
+		return nil, err
+	}
+
 	macAddressBoardcast := ""
 	if err == nil {
 		macAddressBoardcast = strings.Join(macAddress, ",")
@@ -46,9 +52,59 @@ func NewMDNS(config NetworkHost) (*MDNSHost, error) {
 		return &MDNSHost{}, err
 	}
 
+	//Discover the iface to override if exists
+	var overrideIface *net.Interface = nil
+	if MacOverride != "" {
+		ifaceIp := ""
+		ifaces, err := net.Interfaces()
+		if err != nil {
+			log.Println("[mDNS] Unable to override iface MAC: " + err.Error() + ". Resuming with default iface")
+		}
+
+		foundMatching := false
+		for _, iface := range ifaces {
+			thisIfaceMac := iface.HardwareAddr.String()
+			thisIfaceMac = strings.ReplaceAll(thisIfaceMac, ":", "-")
+			MacOverride = strings.ReplaceAll(MacOverride, ":", "-")
+			if strings.EqualFold(thisIfaceMac, strings.TrimSpace(MacOverride)) {
+				//This is the correct iface to use
+				overrideIface = &iface
+				addrs, err := iface.Addrs()
+
+				if err == nil && len(addrs) > 0 {
+					ifaceIp = addrs[0].String()
+				}
+
+				for _, addr := range addrs {
+					var ip net.IP
+					switch v := addr.(type) {
+					case *net.IPNet:
+						ip = v.IP
+					case *net.IPAddr:
+						ip = v.IP
+					}
+
+					if ip.To4() != nil {
+						//This NIC have Ipv4 addr
+						ifaceIp = ip.String()
+					}
+				}
+				foundMatching = true
+				break
+			}
+		}
+
+		if !foundMatching {
+			log.Println("[mDNS] Unable to find the target iface with MAC address: " + MacOverride + ". Resuming with default iface")
+		} else {
+			log.Println("[mDNS] Entering force MAC address mode, listening on: " + MacOverride + "(IP address: " + ifaceIp + ")")
+		}
+	}
+
 	return &MDNSHost{
-		MDNS: server,
-		Host: &config,
+		MDNS:          server,
+		Host:          &config,
+		IfaceOverride: overrideIface,
 	}, nil
 }
 
@@ -59,10 +115,16 @@ func (m *MDNSHost) Close() {
 
 }
 
-//Scan with given timeout and domain filter. Use m.Host.Domain for scanning similar typed devices
+// Scan with given timeout and domain filter. Use m.Host.Domain for scanning similar typed devices
 func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 	// Discover all services on the network (e.g. _workstation._tcp)
-	resolver, err := zeroconf.NewResolver(nil)
+
+	var zcoption zeroconf.ClientOption = nil
+	if m.IfaceOverride != nil {
+		zcoption = zeroconf.SelectIfaces([]net.Interface{*m.IfaceOverride})
+	}
+
+	resolver, err := zeroconf.NewResolver(zcoption)
 	if err != nil {
 		log.Fatalln("Failed to initialize resolver:", err.Error())
 	}
@@ -75,7 +137,6 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
 			if domainFilter == "" {
-
 				//This is a ArOZ Online Host
 				//Split the required information out of the text element
 				TEXT := entry.Text
@@ -113,7 +174,7 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 
 			} else {
 				if stringInSlice("domain="+domainFilter, entry.Text) {
-					//This is a ArOZ Online Host
+					//This is generic scan request
 					//Split the required information out of the text element
 					TEXT := entry.Text
 					properties := map[string]string{}
@@ -163,7 +224,6 @@ func (m *MDNSHost) Scan(timeout int, domainFilter string) []*NetworkHost {
 	}
 
 	//Update the master scan record
-
 	<-ctx.Done()
 	return discoveredHost
 }

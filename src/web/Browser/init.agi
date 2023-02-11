@@ -11,6 +11,7 @@ var moduleLaunchInfo = {
 	Version: "1.0",
 	StartDir: "Browser/index.html",
 	SupportFW: true,
+	LaunchFWDir: "Browser/index.html",
 	InitFWSize: [720, 480],
 	SupportedExt: []
 }

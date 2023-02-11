@@ -10,7 +10,7 @@ import (
 )
 
 func HardwarePowerInit() {
-	if *allow_hardware_management {
+	if *allow_power_management {
 		//Only register these paths when hardware management is enabled
 		http.HandleFunc("/system/power/shutdown", hardware_power_poweroff)
 		http.HandleFunc("/system/power/restart", hardware_power_restart)
@@ -30,7 +30,7 @@ func HardwarePowerInit() {
 }
 
 func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
-	if *allow_hardware_management {
+	if *allow_power_management {
 		utils.SendJSONResponse(w, "true")
 	} else {
 		utils.SendJSONResponse(w, "false")

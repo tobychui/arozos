@@ -3,9 +3,9 @@ package sftpserver
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"sync"
 
 	"github.com/pkg/sftp"
@@ -26,8 +26,8 @@ type Instance struct {
 	ConnectedClients sync.Map
 }
 
-//Create a new SFTP Server
-//listeningIP in the format of 0.0.0.0:2022
+// Create a new SFTP Server
+// listeningIP in the format of 0.0.0.0:2022
 func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
@@ -45,7 +45,7 @@ func NewSFTPServer(sftpConfig *SFTPConfig) (*Instance, error) {
 		},
 	}
 
-	privateBytes, err := ioutil.ReadFile(sftpConfig.KeyFile)
+	privateBytes, err := os.ReadFile(sftpConfig.KeyFile)
 	if err != nil {
 		return nil, err
 	}

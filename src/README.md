@@ -11,6 +11,20 @@ This README file is intended for developer only. If you are normal users, please
 - Do not change the sequence in the startup() function unless necessary
 - When in doubt, add startup flags (and use startup flag to disable experimental functions on startup)
 
+
+
+## Vendor Resources Overwrite
+
+If you want to overwrite vendor related resources in ArozOS 2.012 or above, create a folder in the system root named ```vendor-res``` and put the replacement files inside here. Here is a list of supported replacement resources files
+
+| Filename        | Recommended Format | Usage                    |
+| --------------- | ------------------ | ------------------------ |
+| auth_bg.jpg     | 2938 x 1653 px     | Login Wallpaper          |
+| auth_icon.png   | 5900 x 1180 px     | Authentication Page Logo |
+| vendor_icon.png | 1560 x 600 px      | Vendor Brand Icon        |
+
+(To be expanded)
+
 ## File System Virtualization and File System Abstractions Layers
 
 The ArozOS system contains both the virtualization layer and abstraction layer. The easiest way to check if your path is under which layer is by looking at their starting dir name.

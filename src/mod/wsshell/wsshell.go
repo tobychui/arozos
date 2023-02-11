@@ -3,7 +3,6 @@ package wsshell
 import (
 	"bufio"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -18,11 +17,10 @@ import (
 )
 
 /*
-	Bash Module
-	author: tobychui
+Bash Module
+author: tobychui
 
-	This module handles the connection of bash terminal to websocket interface
-
+This module handles the connection of bash terminal to websocket interface
 */
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -143,7 +141,7 @@ func (t *Terminal) HandleOpen(w http.ResponseWriter, r *http.Request) {
 
 	} else if runtime.GOOS == "linux" {
 		//Send message of the day
-		content, err := ioutil.ReadFile("/etc/motd")
+		content, err := os.ReadFile("/etc/motd")
 		if err != nil {
 			//Unable to read the motd, use the arozos default one
 			c.WriteMessage(1, []byte("Terminal Connected. Start type something!"))

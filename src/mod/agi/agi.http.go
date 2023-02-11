@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -46,7 +46,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 			return otto.NullValue()
 		}
 
-		bodyContent, err := ioutil.ReadAll(res.Body)
+		bodyContent, err := io.ReadAll(res.Body)
 		if err != nil {
 			return otto.NullValue()
 		}
@@ -94,7 +94,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 		}
 		defer resp.Body.Close()
 
-		bodyContent, err := ioutil.ReadAll(resp.Body)
+		bodyContent, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return otto.NullValue()
 		}
@@ -235,7 +235,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 			return otto.NullValue()
 		}
 
-		bodyContent, err := ioutil.ReadAll(res.Body)
+		bodyContent, err := io.ReadAll(res.Body)
 		if err != nil {
 			return otto.NullValue()
 		}
