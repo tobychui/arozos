@@ -417,7 +417,16 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 			//Pool should be exists. Close it
 			pg := permissionHandler.GetPermissionGroupByName(pool)
 
-			pg.StoragePool.Close()
+			//Record a list of uuids that reloaded, use for later checking for bridge remount
+			reloadedFshUUIDs := []string{}
+			for _, fsh := range pg.StoragePool.Storages {
+				//Close the fsh if it is not a bridged one
+				isBridged, _ := bridgeManager.IsBridgedFSH(fsh.UUID, pg.Name)
+				if !isBridged && !fsh.Closed {
+					fsh.Close()
+					reloadedFshUUIDs = append(reloadedFshUUIDs, fsh.UUID)
+				}
+			}
 
 			//Create an empty pool for this permission group
 			newEmptyPool := storage.StoragePool{}
@@ -427,6 +436,23 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 			//If there is no handler in config, the empty one will be kept
 			LoadStoragePoolForGroup(pg)
 			BridgeStoragePoolForGroup(pg.Name)
+
+			//Get all the groups that have bridged the reloaded fshs
+			rebridgePendingMap := map[string]bool{}
+			for _, fshuuid := range reloadedFshUUIDs {
+				pgs := bridgeManager.GetBridgedGroups(fshuuid)
+				for _, pg := range pgs {
+					rebridgePendingMap[pg] = true
+				}
+			}
+
+			//Debridge and rebridge all the related storage pools
+			for pg, _ := range rebridgePendingMap {
+				DebridgeAllFSHandlerFromGroup(pg)
+				time.Sleep(100 * time.Millisecond)
+				BridgeStoragePoolForGroup(pg)
+			}
+
 		}
 	}
 

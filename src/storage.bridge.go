@@ -70,6 +70,42 @@ func BridgeStoragePoolForGroup(group string) {
 	}
 }
 
+//Debridge all bridged FSH from this group, origin (i.e. not bridged) fsh will be skipped
+func DebridgeAllFSHandlerFromGroup(group string) error {
+	targetSp, err := GetStoragePoolByOwner(group)
+	if err != nil {
+		return err
+	}
+
+	originFsh := []*fs.FileSystemHandler{}
+	for _, fsh := range targetSp.Storages {
+		isBridged, err := bridgeManager.IsBridgedFSH(fsh.UUID, group)
+		if err != nil {
+			return err
+		}
+
+		if !isBridged {
+			//Append the fsh that is not bridged into the origin list
+			originFsh = append(originFsh, fsh)
+		} else {
+			systemWideLogger.PrintAndLog("Storage", fsh.UUID+":/ de-bridged from "+group+" Storage Pool", nil)
+		}
+	}
+
+	targetPg := permissionHandler.GetPermissionGroupByName(group)
+	if targetPg == nil {
+		return errors.New("permission group not exists")
+	}
+
+	newSp, err := storage.NewStoragePool(originFsh, group)
+	if err != nil {
+		return err
+	}
+
+	targetPg.StoragePool = newSp
+	return nil
+}
+
 //Bridge a FSH to a given Storage Pool
 func BridgeFSHandlerToGroup(fsh *fs.FileSystemHandler, sp *storage.StoragePool) error {
 	//Check if the fsh already exists in the basepool
@@ -82,6 +118,7 @@ func BridgeFSHandlerToGroup(fsh *fs.FileSystemHandler, sp *storage.StoragePool) 
 	return nil
 }
 
+//Debridge a fsh from a given group by fsh ID
 func DebridgeFSHandlerFromGroup(fshUUID string, sp *storage.StoragePool) error {
 	isBridged, err := bridgeManager.IsBridgedFSH(fshUUID, sp.Owner)
 	if err != nil || !isBridged {

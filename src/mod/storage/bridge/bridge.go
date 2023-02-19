@@ -106,6 +106,22 @@ func (r *Record) IsBridgedFSH(FSHUUID string, groupOwner string) (bool, error) {
 	return false, nil
 }
 
+//Get a list of group owners that have this fsh uuid as "bridged" fs
+func (r *Record) GetBridgedGroups(FSHUUID string) []string {
+	results := []string{}
+	currentConfigs, err := r.ReadConfig()
+	if err != nil {
+		return results
+	}
+
+	for _, config := range currentConfigs {
+		if config.FSHUUID == FSHUUID {
+			results = append(results, config.SPOwner)
+		}
+	}
+	return results
+}
+
 // Write FSHConfig to disk
 func (r *Record) WriteConfig(config []*BridgeConfig) error {
 	js, _ := json.MarshalIndent(config, "", " ")

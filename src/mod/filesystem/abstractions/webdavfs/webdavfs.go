@@ -239,6 +239,7 @@ func (e WebDAVFileSystem) Walk(rootpath string, walkFn filepath.WalkFunc) error 
 }
 
 func (e WebDAVFileSystem) Close() error {
+	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 

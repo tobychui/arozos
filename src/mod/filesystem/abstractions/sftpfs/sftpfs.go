@@ -202,11 +202,12 @@ func (s SFTPFileSystemAbstraction) Close() error {
 	if err != nil {
 		return err
 	}
-
+	time.Sleep(300 * time.Millisecond)
 	err = s.conn.Close()
 	if err != nil {
 		return err
 	}
+	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 

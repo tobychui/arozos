@@ -179,6 +179,7 @@ func (l FTPFSAbstraction) Stat(filename string) (os.FileInfo, error) {
 	return nil, arozfs.ErrNullOperation
 }
 func (l FTPFSAbstraction) Close() error {
+	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 

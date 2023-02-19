@@ -38,6 +38,11 @@ type ServerMessageBlockFileSystemAbstraction struct {
 
 func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, ipaddr string, rootShare string, username string, password string) (ServerMessageBlockFileSystemAbstraction, error) {
 	log.Println("[SMB-FS] Connecting to " + uuid + ":/ (" + ipaddr + ")")
+	//Patch the ip address if port not found
+	if !strings.Contains(ipaddr, ":") {
+		log.Println("[SMB-FS] Port not set. Using default SMB port (:445)")
+		ipaddr = ipaddr + ":445" //Default port for SMB
+	}
 	nd := net.Dialer{Timeout: 10 * time.Second}
 	conn, err := nd.Dial("tcp", ipaddr)
 	if err != nil {
@@ -168,7 +173,7 @@ func (a ServerMessageBlockFileSystemAbstraction) Close() error {
 	time.Sleep(300 * time.Millisecond)
 	conn := *(a.conn)
 	conn.Close()
-
+	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 

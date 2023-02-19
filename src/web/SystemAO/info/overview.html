@@ -103,15 +103,15 @@
             accumulateOperationTime();
         });
 
+        initHostInfo();
         initUserInfo();
         initStorageInfo();
         initHomepageState();
-        initHostInfo();
     });
 
     function initHostInfo(){
-        $.get("../../system/info/getArOZInfo", function(data){
-            $("#icon").attr('src', data.VendorIcon);
+        $.get("../../system/info/getArOZInfo?icon=true", function(data){
+            $("#icon").attr('src', 'data:image/png;base64,' + data.VendorIcon);
             $("#hostname").text(data.HostName);
             $("#version").text(data.BuildVersion);
         });

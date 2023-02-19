@@ -130,7 +130,8 @@ func (s *StoragePool) DetachFsHandler(uuid string) {
 func (s *StoragePool) Close() {
 	//For each storage pool, close it
 	for _, fsh := range s.Storages {
-		fsh.Close()
+		if !fsh.Closed {
+			fsh.Close()
+		}
 	}
-
 }

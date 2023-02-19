@@ -101,7 +101,7 @@
             </div>
             <div class="field">
                 <label>Path</label>
-                <input type="text" name="path" placeholder="e.g. /media/mydrive">
+                <input type="text" name="path" placeholder="e.g. /media/mydrive" onchange="checkPathProtocol(this);">
             </div>
             <div class="field">
                 <label>Access Permission</label>
@@ -132,20 +132,20 @@
             <div class="field">
                 <label>Filesystem Type</label>
                 <div id="fstype" class="ui selection dropdown">
-                <input type="hidden" name="filesystem" value="ntfs" onchange="handleFileSystemTypeChange(this.value);">
-                <i class="dropdown icon"></i>
-                <div class="default text">Filesystem Type</div>
-                <div class="menu">
-                    <div class="item" data-value="ext4">EXT4</div>
-                    <!-- <div class="item" data-value="ext3">EXT3</div> -->
-                    <div class="item" data-value="ntfs">NTFS</div>
-                    <div class="item" data-value="vfat">VFAT</div>
-                    <div class="item" data-value="fat">FAT</div>
-                    <div class="item" data-value="webdav">WebDAV</div>
-                    <div class="item" data-value="smb">SMB</div>
-                    <div class="item" data-value="ftp">FTP</div>
-                    <div class="item" data-value="sftp">SFTP</div>
-                </div>
+                    <input type="hidden" name="filesystem" value="ntfs" onchange="handleFileSystemTypeChange(this.value);">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Filesystem Type</div>
+                    <div class="menu">
+                        <div class="item" data-value="ext4">EXT4</div>
+                        <!-- <div class="item" data-value="ext3">EXT3</div> -->
+                        <div class="item" data-value="ntfs">NTFS</div>
+                        <div class="item" data-value="vfat">VFAT</div>
+                        <div class="item" data-value="fat">FAT</div>
+                        <div class="item" data-value="webdav">WebDAV</div>
+                        <div class="item" data-value="smb">SMB</div>
+                        <div class="item" data-value="ftp">FTP</div>
+                        <div class="item" data-value="sftp">SFTP</div>
+                    </div>
                 </div>
             </div>
             <div class="localfs">
@@ -265,6 +265,33 @@
                 });
 
                 $("#mainForm").attr("action", "../../system/storage/pool/edit?opr=set&uuid=" + input.uuid + "&group=" + input.group);
+            }
+        }
+
+        function checkPathProtocol(object){
+            var newPath = $(object).val();
+            if (newPath.startsWith("http://") || newPath.startsWith("https://")){
+                //WebDAV
+                $("#fstype").dropdown("set selected", "webdav");
+                newPath = newPath.replace("http://", "");
+                newPath = newPath.replace("https://", "");
+                $(object).val(newPath);
+            }else if (newPath.startsWith("ftp://")){
+                //FTP
+                $("#fstype").dropdown("set selected", "ftp");
+                newPath = newPath.replace("ftp://", "");
+                $(object).val(newPath);
+            }else if (newPath.startsWith("sftp://")){
+                //SFTP
+                $("#fstype").dropdown("set selected", "sftp");
+                newPath = newPath.replace("sftp://", "");
+                $(object).val(newPath);
+            }else if (newPath.startsWith("\\\\")){
+                //SMB, Copy directly from Windows
+                $("#fstype").dropdown("set selected", "smb");
+                newPath = newPath.replace("\\\\", "");
+                newPath = newPath.split("\\").join("/");
+                $(object).val(newPath);
             }
         }
 

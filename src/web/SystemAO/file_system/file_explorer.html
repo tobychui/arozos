@@ -1919,12 +1919,6 @@
                     protocol = "ws://";
                 }
 
-                if (path == "share:/"){
-                    //Share root do not contains any actual folder. Fallback to file based rendering
-                    startFallbackThumbnailLoader();
-                    return
-                }
-
                 var port = window.location.port;
                 if (window.location.port == ""){
                     if (location.protocol !== 'https:') {
