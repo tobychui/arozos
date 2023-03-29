@@ -220,6 +220,11 @@ function ao_module_getInstanceByPath(matchingPath){
 
 //Close the current window
 function ao_module_close(){
+    ao_module_closeHandler();
+}
+
+//Close handler for WebApp special handling of ao_module_close()
+function ao_module_closeHandler(){
     if (!ao_module_virtualDesktop){
         window.close('','_parent','');
         window.location.href = ao_root + "SystemAO/closeTabInsturction.html";

@@ -123,7 +123,7 @@ func FileSystemInit() {
 		Version:     "1.0",
 		StartDir:    "SystemAO/file_system/file_explorer.html",
 		SupportFW:   true,
-		InitFWSize:  []int{1080, 580},
+		InitFWSize:  []int{1075, 600},
 		LaunchFWDir: "SystemAO/file_system/file_explorer.html",
 		SupportEmb:  false,
 	})
@@ -519,9 +519,6 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			if msg == "done" {
 				//Start the merging process
 				break
-			} else {
-				//Unknown operations
-
 			}
 		} else if mt == 2 {
 			//File block. Save it to tmp folder
@@ -631,7 +628,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, filesrc := range chunkName {
+	for counter, filesrc := range chunkName {
 		var srcChunkReader arozfs.File
 		if isHugeFile {
 			srcChunkReader, err = fshAbs.Open(filesrc)
@@ -644,7 +641,9 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			c.WriteMessage(1, []byte(`{\"error\":\"Failed to open Source Chunk\"}`))
 			return
 		}
+
 		io.Copy(out, srcChunkReader)
+
 		srcChunkReader.Close()
 
 		//Delete file immediately to save space
@@ -654,6 +653,9 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			os.Remove(filesrc)
 		}
 
+		//Write to websocket for the percentage of upload is written fro tmp to dest
+		moveProg := strconv.Itoa(int(math.Round(float64(counter)/float64(len(chunkName))*100))) + "%"
+		c.WriteMessage(1, []byte(`{\"move\":\"`+moveProg+`"}`))
 	}
 
 	out.Close()
@@ -2257,7 +2259,7 @@ func system_fs_removeUserPreferences(username string) {
 }
 
 func system_fs_listDrives(w http.ResponseWriter, r *http.Request) {
-	if authAgent.CheckAuth(r) == false {
+	if !authAgent.CheckAuth(r) {
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
@@ -2370,36 +2372,6 @@ func system_fs_listRoot(w http.ResponseWriter, r *http.Request) {
 	You can also pass in normal path for globing if you are not sure.
 */
 
-func system_fs_specialGlob(path string) ([]string, error) {
-	//Quick fix for foldername containing -] issue
-	path = strings.ReplaceAll(path, "[", "[[]")
-	files, err := filepath.Glob(path)
-	if err != nil {
-		return []string{}, err
-	}
-
-	if strings.Contains(path, "[") == true || strings.Contains(path, "]") == true {
-		if len(files) == 0 {
-			//Handle reverse check. Replace all [ and ] with *
-			newSearchPath := strings.ReplaceAll(path, "[", "?")
-			newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
-			//Scan with all the similar structure except [ and ]
-			tmpFilelist, _ := filepath.Glob(newSearchPath)
-			for _, file := range tmpFilelist {
-				file = filepath.ToSlash(file)
-				if strings.Contains(file, filepath.ToSlash(filepath.Dir(path))) {
-					files = append(files, file)
-				}
-			}
-		}
-	}
-	//Convert all filepaths to slash
-	for i := 0; i < len(files); i++ {
-		files[i] = filepath.ToSlash(files[i])
-	}
-	return files, nil
-}
-
 func system_fs_specialURIDecode(inputPath string) string {
 	inputPath = strings.ReplaceAll(inputPath, "+", "{{plus_sign}}")
 	inputPath, _ = url.QueryUnescape(inputPath)
@@ -2407,12 +2379,14 @@ func system_fs_specialURIDecode(inputPath string) string {
 	return inputPath
 }
 
+/*
 func system_fs_specialURIEncode(inputPath string) string {
 	inputPath = strings.ReplaceAll(inputPath, " ", "{{space_sign}}")
 	inputPath, _ = url.QueryUnescape(inputPath)
 	inputPath = strings.ReplaceAll(inputPath, "{{space_sign}}", "%20")
 	return inputPath
 }
+*/
 
 // Handle file properties request
 func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
@@ -2576,13 +2550,15 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	if !fshAbs.FileExists(realpath) {
 		//Path not exists
-		userRoot, _ := fshAbs.VirtualPathToRealPath("", userinfo.Username)
-		if filepath.Clean(realpath) == filepath.Clean(userRoot) {
+		userRoot, _ := fshAbs.VirtualPathToRealPath("/", userinfo.Username)
+		if filepath.Clean(realpath) == filepath.Clean(userRoot) || realpath == "" {
 			//Initiate user folder (Initiaed in user object)
-			userinfo.GetHomeDirectory()
-		} else if !strings.Contains(filepath.ToSlash(filepath.Clean(currentDir)), "/") {
-			//User root not created. Create the root folder
-			os.MkdirAll(filepath.Clean(realpath), 0775)
+			err = fshAbs.MkdirAll(userRoot, 0775)
+			if err != nil {
+				systemWideLogger.PrintAndLog("File System", "Unable to create user root on "+fsh.UUID+": "+err.Error(), nil)
+				utils.SendErrorResponse(w, "Unable to create user root folder due to file system error")
+				return
+			}
 		} else {
 			//Folder not exists
 			systemWideLogger.PrintAndLog("File System", "Requested path: "+realpath+" does not exists", nil)
@@ -2598,7 +2574,7 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 
 	files, err := fshAbs.ReadDir(realpath)
 	if err != nil {
-		utils.SendErrorResponse(w, "Readdir Failed: "+err.Error())
+		utils.SendErrorResponse(w, "Readdir Failed: "+strings.ReplaceAll(err.Error(), "\\", "/"))
 		systemWideLogger.PrintAndLog("File System", "Unable to read dir: "+err.Error(), err)
 		return
 	}
@@ -2707,23 +2683,24 @@ func system_fs_handleDirHash(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Get a list of files in this directory
-	currentDir = filepath.ToSlash(filepath.Clean(rpath)) + "/"
 	/*
-		filesInDir, err := fshAbs.Glob(currentDir + "*")
-		if err != nil {
-			utils.SendErrorResponse(w, err.Error())
-			return
-		}
+		currentDir = filepath.ToSlash(filepath.Clean(rpath)) + "/"
 
-
-		filenames := []string{}
-		for _, file := range filesInDir {
-			if len(filepath.Base(file)) > 0 && string([]rune(filepath.Base(file))[0]) != "." {
-				//Ignore hidden files
-				filenames = append(filenames, filepath.Base(file))
+			filesInDir, err := fshAbs.Glob(currentDir + "*")
+			if err != nil {
+				utils.SendErrorResponse(w, err.Error())
+				return
 			}
 
-		}
+
+			filenames := []string{}
+			for _, file := range filesInDir {
+				if len(filepath.Base(file)) > 0 && string([]rune(filepath.Base(file))[0]) != "." {
+					//Ignore hidden files
+					filenames = append(filenames, filepath.Base(file))
+				}
+
+			}
 	*/
 	finfos, err := fshAbs.ReadDir(rpath)
 	if err != nil {
@@ -3108,7 +3085,7 @@ func system_fs_handleFolderSortModePreference(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		if !utils.StringInArray([]string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent"}, sortMode) {
+		if !utils.StringInArray(fssort.ValidSortModes, sortMode) {
 			utils.SendErrorResponse(w, "Not supported sort mode: "+sortMode)
 			return
 		}
@@ -3137,6 +3114,10 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(file)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
 	if err != nil {
@@ -3184,13 +3165,13 @@ func system_fs_handleFilePermission(w http.ResponseWriter, r *http.Request) {
 			//Always ok as this is owned by the user
 		} else if fsh.Hierarchy == "public" {
 			//Require admin
-			if userinfo.IsAdmin() == false {
+			if !userinfo.IsAdmin() {
 				utils.SendErrorResponse(w, "Permission Denied")
 				return
 			}
 		} else {
 			//Not implemeneted. Require admin
-			if userinfo.IsAdmin() == false {
+			if !userinfo.IsAdmin() {
 				utils.SendErrorResponse(w, "Permission Denied")
 				return
 			}

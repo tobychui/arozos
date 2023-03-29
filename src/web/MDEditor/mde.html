@@ -206,12 +206,7 @@
             }
 
             function closeThisWindow(){
-                if (!ao_module_virtualDesktop){
-                    window.close('','_parent','');
-                    window.location.href = ao_root + "SystemAO/closeTabInsturction.html";
-                    return;
-                }
-                parent.closeFwProcess(ao_module_windowID);
+                ao_module_closeHandler();
             }
        </script>
     </body>

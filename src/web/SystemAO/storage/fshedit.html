@@ -273,8 +273,8 @@
             if (newPath.startsWith("http://") || newPath.startsWith("https://")){
                 //WebDAV
                 $("#fstype").dropdown("set selected", "webdav");
-                newPath = newPath.replace("http://", "");
-                newPath = newPath.replace("https://", "");
+                //newPath = newPath.replace("http://", "");
+                //newPath = newPath.replace("https://", "");
                 $(object).val(newPath);
             }else if (newPath.startsWith("ftp://")){
                 //FTP

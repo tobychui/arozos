@@ -132,7 +132,7 @@ func SystemInfoInit() {
 	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
 
 	//Router to handle login background image loading
-	http.HandleFunc("/system/info/wallpaper", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/system/info/wallpaper.jpg", func(w http.ResponseWriter, r *http.Request) {
 		imgsrc := filepath.Join(vendorResRoot, "auth_bg.jpg")
 		if !fs.FileExists(imgsrc) {
 			imgsrc = "./web/img/public/auth_bg.jpg"

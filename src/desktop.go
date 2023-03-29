@@ -73,22 +73,25 @@ The functions in this section handle file listing and its icon locations.
 func desktop_initUserFolderStructure(username string) {
 	//Call to filesystem for creating user file struture at root dir
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
-	homedir, err := userinfo.GetHomeDirectory()
+	userfsh, err := userinfo.GetHomeFileSystemHandler()
 	if err != nil {
 		systemWideLogger.PrintAndLog("Desktop", "Unable to initiate user desktop folder", err)
 		return
 	}
 
-	if !fs.FileExists(filepath.Join(homedir, "Desktop")) {
+	userFsa := userfsh.FileSystemAbstraction
+	userDesktopPath, _ := userFsa.VirtualPathToRealPath("user:/Desktop", userinfo.Username)
+	if !userFsa.FileExists(userDesktopPath) {
 		//Desktop directory not exists. Create one and copy a template desktop
-		os.MkdirAll(homedir+"Desktop", 0755)
+		userFsa.MkdirAll(userDesktopPath, 0755)
 
+		//Copy template file from system folder if exists
 		templateFolder := "./system/desktop/template/"
 		if fs.FileExists(templateFolder) {
 			templateFiles, _ := filepath.Glob(templateFolder + "*")
 			for _, tfile := range templateFiles {
 				input, _ := os.ReadFile(tfile)
-				os.WriteFile(homedir+"Desktop/"+filepath.Base(tfile), input, 0755)
+				userFsa.WriteFile(arozfs.ToSlash(filepath.Join(userDesktopPath, filepath.Base(tfile))), input, 0755)
 			}
 		}
 	}
@@ -346,7 +349,7 @@ func setDesktopLocationFromPath(filename string, username string, x int, y int) 
 	//Parse the location to json
 	jsonstring, err := json.Marshal(newLocation)
 	if err != nil {
-		log.Println("[Desktop] Unable to parse new file location on desktop for file: " + path)
+		systemWideLogger.PrintAndLog("Desktop", "Unable to parse new file location on desktop for file: "+path, err)
 		return err
 	}
 
@@ -474,7 +477,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		//List all the currnet themes in the list
 		themes, err := filepath.Glob("web/img/desktop/bg/*")
 		if err != nil {
-			log.Println("[Desktop] Unable to search bg from destkop image root. Are you sure the web data folder exists?")
+			systemWideLogger.PrintAndLog("Desktop", "Unable to search bg from destkop image root. Are you sure the web data folder exists?", err)
 			return
 		}
 		//Prase the results to json array
@@ -513,7 +516,7 @@ func desktop_theme_handler(w http.ResponseWriter, r *http.Request) {
 		//Return the results as JSON string
 		jsonString, err := json.Marshal(desktopThemeList)
 		if err != nil {
-			log.Println("[Desktop] Marshal desktop wallpaper list error: " + err.Error())
+			systemWideLogger.PrintAndLog("Desktop", "Unable to render desktop wallpaper list", err)
 			utils.SendJSONResponse(w, string("[]"))
 			return
 		}

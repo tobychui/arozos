@@ -25,7 +25,7 @@
         min-width:calc(100% - 500px);
         min-height:100%;
         background-color:#faf7eb;
-        background-image:url("system/info/wallpaper");
+        background-image:url("./system/info/wallpaper.jpg");
         -webkit-background-size: cover;
         -moz-background-size: cover;
         -o-background-size: cover;

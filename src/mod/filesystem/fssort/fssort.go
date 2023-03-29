@@ -14,6 +14,8 @@ type sortBufferedStructure struct {
 	ModTime  int64
 }
 
+var ValidSortModes = []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart", "fileTypeAsce", "fileTypeDesc"}
+
 /*
 	Quick utilties to sort file list according to different modes
 */
@@ -60,6 +62,28 @@ func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode s
 		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime })
 	} else if sortMode == "smart" {
 		parsedFilelist = SortNaturalFilelist(parsedFilelist)
+	} else if sortMode == "fileTypeAsce" {
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			exti := filepath.Ext(parsedFilelist[i].Filename)
+			extj := filepath.Ext(parsedFilelist[j].Filename)
+
+			exti = strings.TrimPrefix(exti, ".")
+			extj = strings.TrimPrefix(extj, ".")
+
+			return exti < extj
+
+		})
+	} else if sortMode == "fileTypeDesc" {
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			exti := filepath.Ext(parsedFilelist[i].Filename)
+			extj := filepath.Ext(parsedFilelist[j].Filename)
+
+			exti = strings.TrimPrefix(exti, ".")
+			extj = strings.TrimPrefix(extj, ".")
+
+			return exti > extj
+
+		})
 	}
 
 	results := []string{}
@@ -96,7 +120,7 @@ func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) []fs.DirEntry {
 }
 
 func SortModeIsSupported(sortMode string) bool {
-	return contains(sortMode, []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart"})
+	return contains(sortMode, ValidSortModes)
 }
 
 func contains(item string, slice []string) bool {

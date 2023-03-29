@@ -1,15 +1,32 @@
 h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple LiGothic Medium", "STHeiti"}
 
-.ts.primary.button{
-    background-color:#4287f5;
-    border: 1px solid transparent;
+/* General purpose theme settings */
+body.whiteTheme {
+    --body_text: black;
+    --body_background: rgb(250, 250, 250);
+    --body_background_secondary: #fcfcfc;
+    --body_background_active: #fcfcfce1;
+    --divider: #f0f0f0;
+    --theme_color: #92cfe7;
+    --text_color: rgb(29, 29, 29);
+    --text_color_secondary: rgb(139, 139, 139);
+    --text_color_invert: rgb(182, 182, 182);
 }
-.ts.primary.button:hover{
-    background-color:#3570cf !important;
+
+body.darkTheme{
+    --body_text: rgb(236, 236, 236);
+    --body_background: rgb(37, 37, 37);
+    --body_background_secondary: #27292d;
+    --body_background_active: #3d3f47;
+    --divider: #465561;
+    --theme_color: #6682c4;
+    --text_color: rgb(241, 241, 241);
+    --text_color_secondary: rgb(214, 214, 214);
+    --text_color_invert: rgb(63, 63, 63);
 }
+
 
 /* floatWindow CSS */
-
 .floatWindow{
     position:fixed;
     width:1024px;

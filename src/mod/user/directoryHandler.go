@@ -1,14 +1,11 @@
 package user
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
-
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/utils"
 )
 
+/*
 func (u *User) GetHomeDirectory() (string, error) {
 	//Return the realpath of the user home directory
 	for _, dir := range u.HomeDirectories.Storages {
@@ -21,6 +18,12 @@ func (u *User) GetHomeDirectory() (string, error) {
 	}
 
 	return "", errors.New("User root not found. Is this a permission group instead of a real user?")
+}
+*/
+
+//Get the user home file system handler, aka user:/
+func (u *User) GetHomeFileSystemHandler() (*fs.FileSystemHandler, error) {
+	return getHandlerFromID(u.HomeDirectories.Storages, "user")
 }
 
 //Get all user Acessible file system handlers (ignore special fsh like backups)

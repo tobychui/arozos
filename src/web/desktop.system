@@ -28,11 +28,11 @@
         }
 
         body:not(.darkTheme){
-            color: #5a5a5a;
+            color: var(--body_text, #5a5a5a);
         }
 
         body.darkTheme{
-            color: #f0f0f0;
+            color: var(--body_text,#f0f0f0);
         }
 
         * {
@@ -348,9 +348,9 @@
             z-index: 1113;
         }
 
-        #listMenu.darkTheme{
-            background-color: #242330;
-            color: white;
+        body.darkTheme #listMenu{
+            background-color: var(--body_background, #242330);
+            color: var(--text_color, white);
             -webkit-box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
             -moz-box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
             box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
@@ -361,18 +361,18 @@
             border-bottom: 2px solid #34b7eb;
         }
 
-        i.darkTheme{
-            color: white;
+        body.darkTheme i{
+            color: var(--text_color);
         }
 
-        #listMenu #searchBar.darkTheme::selection{
-            background: white;
+        body.darkTheme #listMenu #searchBar::selection{
+            background: var(--body_background);
         }
 
-        #listMenu.darkTheme .searchBar input{
-            background-color: #17161f !important;
-            color: white !important;
-            border: 1px solid #17161f;
+        body.darkTheme #listMenu .searchBar input{
+            background-color: var(--body_background_secondary, #17161f) !important;
+            color: var(--text_color_secondary, white) !important;
+            border: 1px solid var(--divider, #17161f);
         }
         
         #listMenu .listItemWrapper {
@@ -393,9 +393,9 @@
             padding-top: 8px;
         }
 
-        #listMenu.darkTheme .listItemWrapper .groups {
-            background-color: #17161f;
-            color: white;
+        body.darkTheme #listMenu .listItemWrapper .groups {
+            background-color: var(--body_background, #17161f);
+            color: var(--text_color, white);
         }
         
         #listMenu .listItemWrapper .groups .item {
@@ -413,8 +413,8 @@
             background-color: #dedede;
         }
 
-        #listMenu.darkTheme .listItemWrapper .groups .item:hover {
-            background-color: #242330;
+        body.darkTheme #listMenu .listItemWrapper .groups .item:hover {
+            background-color: var(--body_background_active, #242330);
         }
         
         #listMenu .listItemWrapper .items {
@@ -423,8 +423,16 @@
             display: inline-block;
             overflow-y: auto;
             padding-top: 8px;
-            box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.5);
+            
             vertical-align: top;
+        }
+
+        body.whiteTheme #listMenu .listItemWrapper .items {
+            box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.5); 
+        }
+
+        body.darkTheme #listMenu .listItemWrapper .items {
+            box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.11); 
         }
 
         #listMenu.darkTheme .listItemWrapper .items {
@@ -442,8 +450,8 @@
             background-color: #f5f5f5;
         }
 
-        #listMenu.darkTheme .listItemWrapper .items .item:hover {
-            background-color: #17161f !important;
+        body.darkTheme #listMenu .listItemWrapper .items .item:hover {
+            background-color: var(--body_background_active, #17161f) !important;
             margin-right: 5px;
         }
         
@@ -467,8 +475,11 @@
             background-color: #dedede;
         }
 
-        #listMenu.darkTheme .poweroption:hover {
-            background-color: #242330;
+        body.darkTheme #listMenu .poweroption{
+            color: var(--text_color_secondary); 
+        }
+        body.darkTheme #listMenu .poweroption:hover {
+            background-color: var(--body_background_active);
         }
         
         .contextmenu {
@@ -719,7 +730,7 @@
         }
 
         #quickAccessPanel{
-            background-color:white;
+            background-color:var(--body_background);
             position:absolute;
             top:28px;
             right:4px;
@@ -747,45 +758,50 @@
             
         }
 
-        #quickAccessPanel:not(.darkTheme) .item{
-            color: #5a5a5a;
-        }
-
-        #quickAccessPanel.darkTheme .item{
-            color: #eeeeee;
+        #quickAccessPanel .item{
+            color: var(--text_color);
         }
 
         #quickAccessPanel .item:hover{
-           background-color:#fafafa;
+           background-color:var(--body_background_active);
         }
 
         /*
             Handle dark theme for the quick access panel
         */
 
-        #quickAccessPanel.darkTheme{
-            background-color: #242330;
-            color: white;
+        #quickAccessPanel{
+            background-color: var(--body_background);
+            color: var(--text_color);
             border: 1px solid transparent;
+        }
+
+        body.darkTheme #quickAccessPanel{
             -webkit-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
             -moz-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
             box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
         }
-        #quickAccessPanel.darkTheme .item:hover{
-           background-color:#17161f;
+
+        #quickAccessPanel .header{
+           color: var(--text_color);
         }
-        #quickAccessPanel.darkTheme .header{
-           color: white;
+
+        #quickAccessPanel .meta{
+           color: var(--text_color_secondary);
         }
-        #quickAccessPanel.darkTheme .progress{
-           background-color: #0c0c0f;
+        
+        #quickAccessPanel .progress{
+           background-color: var(--body_background_active);
         }
-        #quickAccessPanel.darkTheme .header{
-           color: white;
+
+        #quickAccessPanel .progress .bar{
+            background-color: var(--theme_color) !important;
         }
-        #quickAccessPanel.darkTheme .inverted.button{
-           background-color: #17161f;
-           border: 1px solid black;
+
+        #quickAccessPanel .button{
+           background-color: var(--body_background_secondary);
+           border: 1px solid var(--divider);
+           color: var(--text_color);
         }
 
         .item.module{
@@ -837,6 +853,13 @@
 
         .iframewrapper iframe{
             border: 0px;
+        }
+
+        /* File operation progress tracker */
+        #backgroundTaskPanel{
+            background-color: var(--body_background) !important;
+            color: var(--text_color);
+            border: var(--divider) !important;
         }
 
          /* Offline blinking warning css */
@@ -1002,7 +1025,7 @@
     </script>
 </head>
 
-<body style="background-color:black;">
+<body class="whiteTheme" style="background-color:black;">
     <!-- Background frames-->
     <div id="bgwrapper" class="background-wrapper" allowdrop="true" ondrop="drop(event)" ondragstart="return false;" onclick="event.preventDefault(); hideAllContextMenus();" ondblclick="event.preventDefault();event.stopImmediatePropagation();" ondragover="allowDrop(event);"
         align="center" draggable="false">
@@ -1292,7 +1315,7 @@
         var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
         var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
         var isMacOS = (navigator.appVersion.indexOf("Mac")!=-1);
-        var isTouchScreen = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+        var isTouchScreen = window.matchMedia("(any-pointer: coarse)").matches;
 
         //Check and prepare localization
         if (applocale){
@@ -6832,23 +6855,13 @@
         }
 
         function setDarkTheme(){
-            $("#listMenu").addClass("darkTheme");
+            $("body").removeClass("whiteTheme").addClass("darkTheme");
             $("#powerIcon").attr("src","img/system/power-white.svg");
-            $("#quickAccessPanel").addClass("darkTheme");
-            $("#quickAccessPanel").find(".button").addClass("inverted");
-            $("#searchBar").addClass("darkTheme");
-            $("#searchBar").parent().find("i").addClass("darkTheme");
-            $("#usergroups").css("color", "white");
         }
 
         function setWhiteTheme(){
-            $("#listMenu").removeClass("darkTheme");
+            $("body").removeClass("darkTheme").addClass("whiteTheme");
             $("#powerIcon").attr("src","img/system/power.svg");
-            $("#quickAccessPanel").removeClass("darkTheme");
-            $("#quickAccessPanel").find(".button").removeClass("inverted");
-            $("#searchBar").removeClass("darkTheme");
-            $("#searchBar").parent().find("i").removeClass("darkTheme");
-            $("#usergroups").css("color", "");
         }
 
         function hexToRgbA(hex, transparent=1){

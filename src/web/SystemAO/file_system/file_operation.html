@@ -697,7 +697,7 @@
                             if (operationConfig.callbackWindowID == "desktop"){
                                 //Special call from desktop
                                 parent.eval(operationConfig.callbackFunction);
-                            }else if (operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
+                            }else if (ao_module_virtualDesktop && operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
                                 var callbackWindowObject = parent.getFloatWindowByID(operationConfig.callbackWindowID)
                                 var windowObject = $(callbackWindowObject).find("iframe")[0];
                                 if (windowObject == undefined || windowObject == null){
@@ -720,6 +720,10 @@
 
                             if (!enterErrorMode){
                                 ao_module_close();
+                                setTimeout(function(){
+                                    //If ao_module_close is not working for some reason
+                                    open(location, '_self').close();
+                                }, 500);
                             }
                         }, 1000);
                     }else if (opr == "download"){
