@@ -937,7 +937,7 @@
         </div>
         <div class="quicktools statusbarpadding" onclick="showToolPanel();" ontouchend="showToolPanel();">
             <div class="qtwrapper">
-                <i class="content icon"></i>
+                <i class="content icon" style="transform: translateY(-3px);"></i>
             </div>
         </div>
     </div>
