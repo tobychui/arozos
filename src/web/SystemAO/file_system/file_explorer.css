@@ -312,6 +312,7 @@ body.darkTheme .ui.icon.button{
 .ui.selection.dropdown{
     background-color: var(--dropdown_bg) !important;
     color: var(--dropdown_txt) !important;
+    min-width: 13em !important;
 }
 
 /* special case when using in mobile sidebar */

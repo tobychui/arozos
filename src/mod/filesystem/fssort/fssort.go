@@ -17,7 +17,7 @@ type sortBufferedStructure struct {
 var ValidSortModes = []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart", "fileTypeAsce", "fileTypeDesc"}
 
 /*
-	Quick utilties to sort file list according to different modes
+Quick utilties to sort file list according to different modes
 */
 func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode string) []string {
 	//Build a filelist with information based on the given filelist
@@ -57,9 +57,20 @@ func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode s
 	} else if sortMode == "largeToSmall" {
 		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].Filesize > parsedFilelist[j].Filesize })
 	} else if sortMode == "mostRecent" {
-		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime > parsedFilelist[j].ModTime })
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			if parsedFilelist[i].ModTime == parsedFilelist[j].ModTime {
+				return strings.ToLower(parsedFilelist[i].Filename) < strings.ToLower(parsedFilelist[j].Filename)
+			}
+			return parsedFilelist[i].ModTime > parsedFilelist[j].ModTime
+
+		})
 	} else if sortMode == "leastRecent" {
-		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime })
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			if parsedFilelist[i].ModTime == parsedFilelist[j].ModTime {
+				return strings.ToLower(parsedFilelist[i].Filename) > strings.ToLower(parsedFilelist[j].Filename)
+			}
+			return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime
+		})
 	} else if sortMode == "smart" {
 		parsedFilelist = SortNaturalFilelist(parsedFilelist)
 	} else if sortMode == "fileTypeAsce" {

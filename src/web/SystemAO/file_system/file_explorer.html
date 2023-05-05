@@ -227,21 +227,21 @@
         <!-- Force delete confirmation box -->
         <div id="forceDeleteConfirmBox" class="popup" style="display:none;">
             <div class="popupheader">
-                <i class="trash icon"></i> <span locale="opr/per-remove/title">Permanently Remove Files</span>
+                <i class="trash icon"></i> <span locale="opr/pre-remove/title">Permanently Remove Files</span>
                 <div class="popupcloser" onclick="hideAllPopupWindows();">
                     <i class="remove icon"></i>
                 </div>
             </div>
             <div class="popupcontent" style="padding:12px;">
-                <p locale="opr/per-remove/questions">Are you sure you want to remove these files <u>permanently?</u><br>This action is <u>irreversible</u>.</p>
+                <p locale="opr/pre-remove/questions">Are you sure you want to remove these files <u>permanently?</u><br>This action is <u>irreversible</u>.</p>
                 <div class="ui list deleteFilelist" style="max-height:350px;overflow-y:auto; ">
 
                 </div>
                 <div class="popupbuttons allowHover" style="background-color: #eb4034 !important;" onclick="forceDelete(true);";>
-                <i class="trash icon"></i> <span locale="opr/per-remove/confirm">Confirm</span>
+                <i class="trash icon"></i> <span locale="opr/pre-remove/confirm">Confirm</span>
                 </div>
                 <div class="popupbuttons allowHover" onclick="cancelForceDelete();">
-                    <i class="remove icon"></i> <span locale="opr/per-remove/cancel">Cancel</span>
+                    <i class="remove icon"></i> <span locale="opr/pre-remove/cancel">Cancel</span>
                 </div>
 
             </div>
@@ -264,7 +264,7 @@
                     <i class="recycle icon"></i> <span locale="opr/remove/confirm">Move to Trash</span>
                 </div>
                 <div class="popupbuttons allowHover" style="background-color: #ff7a7a !important;" onclick="hideAllPopupWindows(); forceDelete();">
-                    <i class="trash icon"></i> <span locale="opr/per-remove/title">Delete Permanently</span>
+                    <i class="trash icon"></i> <span locale="opr/pre-remove/title">Delete Permanently</span>
                 </div>
                 <div class="popupbuttons allowHover" onclick="cancelDelete(); ">
                     <i class="remove icon"></i> <span locale="opr/remove/cancel">Cancel</span>
@@ -702,8 +702,16 @@
                                 parentdir = parentdir.join("/");
                                 loadListModeFromDB(function(){
                                     listDirectory(parentdir, function(){
-                                        focusFileObject(focusFilename);
-                                    });
+                                        if (focusFilename != ""){
+                                            //Timeout to give the DOM time to render
+                                            //DO NOT REPLACE THIS WITH listDirectoryAndHighlight
+                                            //Additional delay are required on page load
+                                            setTimeout(function(){
+                                                focusFileObject(focusFilename);
+                                            }, 300);
+                                            
+                                        }
+                                    })
                                 });
                             }
                         }
@@ -1372,7 +1380,7 @@
 
                         var date = new Date(modTime * 1000);
 
-                        $("#fileList").find(".fileDetailList").append(`<tr class="fileObject details" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event,true);" type="file">
+                        $("#fileList").find(".fileDetailList").append(`<tr class="fileObject details" draggable="true" ondragstart="onFileObjectDragStart(this,event);" ondrop="dropToFolder(event)" ondragover="allowDrop(event)" fileID="${fl + i}" filename="${filename}" filepath="${filepath}" ondblclick="openthis(this,event,true);" type="file">
                             <td style="word-break: break-all; text-overflow: ellipsis !important; min-width: 250px;"><i class="${icon} icon" style="margin-right:12px;"></i>  <span class="filename">${filename}</span></td>
                             <td class="light-text">${ext}</td>
                             <td class="light-text">${Displaysize}</td>
@@ -1564,7 +1572,11 @@
             var lastClickedFileID = 0;
             function bindFileObjectEvents(){
                 $(".fileObject").off("click").on("click",function(evt){
-                    evt.stopImmediatePropagation();
+                    if (isMobile){
+                        //There are no context menu in mobile
+                        //Stop event propagation to document.click event
+                        evt.stopImmediatePropagation();
+                    }
                     if (renameMode && $(this).find(".renameinput").length == 0){
                         exitRenameModeWithConfirm();
                         return;
@@ -1873,7 +1885,7 @@
             function changeViewMode(object){
                 var targetMode = $(object).attr("mode");
                 viewMode = targetMode;
-                listDirectory(currentPath);
+                refreshList(undefined, true);
                 updateViewmodeButtons();
                 setPreference("file_explorer/listmode",targetMode)
             }
@@ -1950,8 +1962,8 @@
             function focusFileObject(targetFileName){
                 $(".fileObject").each(function(){
                     if ($(this).attr("filename") == targetFileName){
-                        $(this).addClass("selected");
                         scrollToFileLocation(this);
+                        $(this).addClass("selected");
                     }
                 });
             }
@@ -2100,7 +2112,7 @@
 
             //=================================== FILE OPERATIONS ========================
 
-            function refreshList(callback){
+            function refreshList(callback = undefined, keepSelectedItems = false){
                 if (searchMode == true){
                     //Refresh the search result
                     if ($("#searchInput").val().length >  0){
@@ -2114,8 +2126,28 @@
                     //Desktop mode only, to prevent focus out when ctrl Up
                     ctrlHold = false;
                 }
+
+                let filenameBackups = [];
+                if (keepSelectedItems){
+                    //Backup all the selected filenames
+                    $(".fileObject.selected").each(function(){
+                        filenameBackups.push($(this).attr("filename"));
+                    });
+                }
+                console.log(filenameBackups);
                 updateCtrlDisplay();
-                listDirectory(currentPath, callback);
+                listDirectory(currentPath, function(){
+                    if (keepSelectedItems){
+                        $(".fileObject").each(function(){
+                            if (filenameBackups.includes($(this).attr("filename"))){
+                                $(this).addClass("selected");
+                            }
+                        });
+                    }
+                    if (callback != undefined){
+                        callback();
+                    }
+                });
             }
 
            function zipFile(){
@@ -2828,7 +2860,7 @@
                     //Drop the first segment, only keep last one in extreme cases
                     console.log(counter, l);
                     domPathChunks.shift();
-                    fullpath = `<div class="section">...</div>` + domPathChunks.join(`<div class="divider">/</div>`);
+                    fullpath = `<div class="section">...</div><div class="divider">/</div>` + domPathChunks.join(`<div class="divider">/</div>`);
                     $("#pre-render").html(fullpath);
                     pathWidth = $("#pre-render").width();
                     counter++;
@@ -3316,7 +3348,6 @@
                 }
                 var targetModuleInfo = JSON.parse(decodeURIComponent($(".openWithModule.selected").attr("launchInfo")));
                 var targetObjects = $(".selected.fileObject");
-                console.log(targetModuleInfo);
 
                 //Phrase launch mode from the module info
                 var launchURL = targetModuleInfo.StartDir
@@ -3393,7 +3424,17 @@
 
                 //Directly passing the file information to the startdir
                 fileHash = encodeURIComponent(JSON.stringify(filelist));
-                window.open("../../" + targetModuleInfo.StartDir + "#" + fileHash);
+                console.log(targetModuleInfo);
+
+                if (targetModuleInfo.StartDir == ""){
+                    //Not a module supporting fw mode
+                    if (targetModuleInfo.SupportEmb == true && targetModuleInfo.LaunchEmb != ""){
+                        window.open("../../" + targetModuleInfo.LaunchEmb + "#" + fileHash);
+                    }
+                }else{
+                    window.open("../../" + targetModuleInfo.StartDir + "#" + fileHash);
+                }
+                
                 hideAllPopupWindows();
             }
 

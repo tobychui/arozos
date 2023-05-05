@@ -69,7 +69,7 @@ golang.org/x/image,https://cs.opensource.google/go/x/image/+/e7cb9697:LICENSE,BS
 golang.org/x/net,https://cs.opensource.google/go/x/net/+/v0.2.0:LICENSE,BSD-3-Clause
 golang.org/x/oauth2,https://cs.opensource.google/go/x/oauth2/+/0ebed06d:LICENSE,BSD-3-Clause
 golang.org/x/sync/syncmap,https://cs.opensource.google/go/x/sync/+/7fc1605a:LICENSE,BSD-3-Clause
-golang.org/x/sys,https://cs.opensource.google/go/x/sys/+/v0.2.0:LICENSE,BSD-3-Clause
+golang.org/x/sys,https://cs.opensource.google/go/x/sys/+/v0.3.0:LICENSE,BSD-3-Clause
 golang.org/x/text,https://cs.opensource.google/go/x/text/+/v0.4.0:LICENSE,BSD-3-Clause
 gopkg.in/asn1-ber.v1,https://github.com/go-asn1-ber/asn1-ber/blob/f715ec2f112d/LICENSE,MIT
 gopkg.in/sourcemap.v1,https://github.com/go-sourcemap/sourcemap/blob/v1.0.5/LICENSE,BSD-2-Clause

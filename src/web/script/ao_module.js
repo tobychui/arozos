@@ -126,6 +126,10 @@ function ao_module_loadInputFiles(){
         }
         var inputFileInfo = window.location.hash.substring(1,window.location.hash.length);
         inputFileInfo = JSON.parse(decodeURIComponent(inputFileInfo));
+
+        if (inputFileInfo.length == 0){
+            return null;
+        }
         return inputFileInfo
     }catch{
         return null;

@@ -1704,6 +1704,8 @@
             var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
             if (typeof action == "undefined"){
                 $(".notificationbar").stop().finish().fadeToggle("fast", function(){
+                    /*
+                    //Firefox 103 now support backdrop-filter
                     if ($(this).is(":visible")){
                         if (isFirefox){
                             $("#bgwrapper").addClass("blured");
@@ -1721,10 +1723,13 @@
                             $("#listMenu").removeClass("blured");
                         }
                     }
+                    */
                 });
             }else{
                 if (action == "hide"){
                     $(".notificationbar").stop().finish().fadeOut("fast");
+                     /*
+                    //Firefox 103 now support backdrop-filter
                     if (isFirefox){
                         $("#bgwrapper").removeClass("blured");
                         $("#iconwrapper").removeClass("blured");
@@ -1732,9 +1737,12 @@
                         $(".floatWindow").removeClass("blured");
                         $("#listMenu").removeClass("blured");
                     }
+                    */
                   
                 }else if (action == "show"){
                     $(".notificationbar").stop().finish().fadeIn("fast");
+                    /*
+                    //Firefox 103 now support backdrop-filter
                     if (isFirefox){
                         $("#bgwrapper").addClass("blured");
                         $("#iconwrapper").addClass("blured");
@@ -1742,6 +1750,7 @@
                         $(".floatWindow").addClass("blured");
                         $("#listMenu").addClass("blured");
                     }
+                    */
                 }
             }
         }
@@ -2939,10 +2948,16 @@
                 backgroundStyle = `background-color: ${bgcolor};`;
             }
 
-            //Check if the theme color is applied. If yes, generate the floatWindow with overwritten theem color
+            //Check if the theme color is applied. If yes, generate the floatWindow with overwritten theme color
             var overWriteThemeColor = "";
+            var overWriteIframeWrapperBorderStyle = "";
             if (desktopThemeColor != ""){
-                overWriteThemeColor = `background-color: ${hexToRgbA(desktopThemeColor, 0.85)}`;
+                var overWriteBackgroundColor = hexToRgbA(desktopThemeColor, 0.25);
+                overWriteThemeColor = `background-color: ${overWriteBackgroundColor}`;
+                overWriteIframeWrapperBorderStyle = `border-left: 3px solid ${overWriteBackgroundColor};
+                    border-right: 3px solid ${overWriteBackgroundColor};
+                    border-bottom: 3px solid ${overWriteBackgroundColor};
+                    backdrop-filter: blur(5px);`
             }
 
             //Updates 2022-06-24: Added touch screen docking buttons
@@ -2973,7 +2988,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="iframewrapper">
+                <div class="iframewrapper" style="${overWriteIframeWrapperBorderStyle}">
                     <iframe src="${url}" allowfullscreen="true"></iframe>
                     <div class="iframecover"></div>
                 </div>
@@ -5012,6 +5027,7 @@
                     
                 }else if (renameMode){
                     event.preventDefault();
+                    event.stopImmediatePropagation();
                     exitRenameMode();
                 }
             
@@ -6882,10 +6898,16 @@
             desktopThemeColor = newThemeColor;
 
             //Update the related elements
-            $("#statusbar").css("background-color",newThemeColor);
+            $("#statusbar").css("background-color",hexToRgbA(newThemeColor, 0.8));
             $("#navimenu").css("background-color",hexToRgbA(newThemeColor, 0.5));
-            $(".floatWindow .controls").css("background-color",hexToRgbA(newThemeColor, 0.85));
 
+            var themeColorForBoarders = hexToRgbA(newThemeColor, 0.25);
+            $(".floatWindow .controls").css("background-color",themeColorForBoarders);
+            $(".floatWindow .iframewrapper").css({
+                "border-left":"3px solid " + themeColorForBoarders,
+                "border-right":"3px solid " + themeColorForBoarders,
+                "border-bottom":"3px solid " + themeColorForBoarders,
+            })
             //List menu theme color bar
             $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
             $("#volumebar").css("background-color", newThemeColor);

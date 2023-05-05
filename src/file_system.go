@@ -123,7 +123,7 @@ func FileSystemInit() {
 		Version:     "1.0",
 		StartDir:    "SystemAO/file_system/file_explorer.html",
 		SupportFW:   true,
-		InitFWSize:  []int{1075, 600},
+		InitFWSize:  []int{1075, 610},
 		LaunchFWDir: "SystemAO/file_system/file_explorer.html",
 		SupportEmb:  false,
 	})

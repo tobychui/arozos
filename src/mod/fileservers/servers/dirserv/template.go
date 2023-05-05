@@ -53,7 +53,7 @@ func getPageHeader(pathname string) string {
 		<tr>
 			<th></th>
 			<th class="textfield">Name</th>
-			<th class="textfield">Last Modifiy</th>
+			<th class="textfield">Last Modify</th>
 			<th class="textfield">Size</th>
 			<th class="textfield"></th>
 		</tr>

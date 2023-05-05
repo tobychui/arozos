@@ -97,6 +97,51 @@
             "placeholder":{
 
             }
-        }
+        },
+        "en-us":{
+            "fwtitle": "Disk Overview",
+            "strings": {
+            "title/title": "Disk Overview",
+            "title/desc": "Mounting point of the hard disk corresponding to this virtual storage device",
+            "diskinfo/physical": "Physical Hard Disk",
+            "diskinfo/hierarchy": "Storage Device Structure (Format)",
+            "hierarchy/User": "Storage Hierarchy",
+            "hierarchy/Public": "Shared Disk",
+            "hierarchy/Backup": "Backup Disk",
+            "spaceinfo/totalUsed": "Used Disk Space",
+            "spaceinfo/userUsed": "User Disk Space",
+            "spaceinfo/Usable": "Available Disk Space",
+            "spaceinfo/Capacity": "Disk Capacity",
+            "unit/bytes": " Bytes",
+            "button/close": "Confirm",
+            "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name":"日本語",
+            "fontFamily":"\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "fwtitle": "ディスクの概要",
+            "strings": {
+                "title/title": "ディスクの概要",
+                "title/desc": "この仮想ストレージ装置に対応する物理ハードディスクのマウント位置",
+                "diskinfo/physical": "物理ハードディスク",
+                "diskinfo/hierarchy": "ストレージデバイス構造（フォーマット）",
+                "hierarchy/User": "ユーザー隔離",
+                "hierarchy/Public": "共有ディスク",
+                "hierarchy/Backup": "バックアップディスク",
+                "spaceinfo/totalUsed": "使用済みの空間",
+                "spaceinfo/userUsed": "ユーザー占有空間",
+                "spaceinfo/Usable": "利用可能な空間",
+                "spaceinfo/Capacity": "ディスク容量",
+                "unit/bytes": " バイト",
+                "button/close": "確認",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+            }
+        
     }
 }

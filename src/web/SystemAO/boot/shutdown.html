@@ -30,12 +30,16 @@
     <body>
         <br><br><br>
         <div class="main">
-            <img class="brandicon" src="../../img/vendor/vendor_icon.png">
+            <img class="brandicon" id="icon" src="#">
             <p id="countdown">Host server is shutting down in 60 seconds</p>
         </div>
         <script>
             //ArozOS default shutdown after 60 seconds after shutdown request has been made.
             //Shut it down
+            $.getJSON("../../system/info/getArOZInfo?icon=true", function(data) {
+                $("#icon").attr("src", "data:image/png;base64," + data["VendorIcon"]);
+            });
+
             let counter = 60;
             function handleCountdown(){
                 setTimeout(function(){

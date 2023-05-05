@@ -452,40 +452,101 @@
 	});
 
 	function returnToPreviousState(){
-		var hash = window.location.hash;
-		if (hash != ""){
-			//There are state to restore. Restore using the given hash value
-			hash = decodeURIComponent(hash.substring(1));
-			var previousState = JSON.parse(hash);
-			console.log(previousState);
-			var currentPath = previousState.path;
-			var playingFileDetail = previousState.pfp;
-			var initPauseState = previousState.pause;
-			if (currentPath != ""){
-				//Create a dummy folder and trick the system to load to the previous states
-				var a = '<div></div>';
-				a = $(a).attr("filepath",currentPath);
-				openFolder(a[0],{
-					playIDAfterOpen: playingFileDetail[0],
-					startPaused: initPauseState}
-				);
+		var inputFiles = ao_module_loadInputFiles();
+		if (inputFiles == null || (inputFiles.path != undefined && inputFiles.pfp != undefined)){
+			//It doesn't seems like is an input file. 
+			//Fall back to legacy process
+			var hash = window.location.hash;
+			if (hash != ""){
+				//There are state to restore. Restore using the given hash value
+				hash = decodeURIComponent(hash.substring(1));
+				var previousState = JSON.parse(hash);
+				console.log(previousState);
+				var currentPath = previousState.path;
+				var playingFileDetail = previousState.pfp;
+				var initPauseState = previousState.pause;
+				if (currentPath != ""){
+					//Create a dummy folder and trick the system to load to the previous states
+					var a = '<div></div>';
+					a = $(a).attr("filepath",encodeURIComponent(currentPath));
+					openFolder(a[0],{
+						playIDAfterOpen: playingFileDetail[0],
+						startPaused: initPauseState}
+					);
+				}else{
+					//currentpath is empty, aka Music Mode
+					loadSongList();
+				}
+				
 			}else{
-				//currentpath is empty, aka Music Mode
-				loadSongList();
+				//No state to restore. Restore Viewing Tab instead.
+				var vt = loadStorage("viewingTab");
+				if (vt != ""){
+					if (vt == "music"){
+						loadSongList();
+						
+					}else if(vt == "folder"){
+						loadFolderView();
+						
+					}else if(vt == "playlist"){
+						loadPlaylistView();
+						
+					}else if(vt == "network"){
+						loadNetworkView();
+					}
+				}else{
+					//Default action
+					loadSongList();
+				}
+			}
+		}else{
+			//It is a ArozOS 1.0+ file loading hash. 
+			//load the file as search mode
+		
+			let loadInputfileCallback = function(){
+				enterSearchMode();
+				$("#mainList").html("");
+				let idCounter = 0;
+				inputFiles.forEach(function(musicFile){
+					let songTitle = musicFile.filename.split(".").shift();
+					$("#mainList").append(`<div class="mainList file item" filepath="${ao_module_utils.objectToAttr("/media?file=" + musicFile.filepath)}" id="${idCounter + 1}" rawname=${ao_module_utils.objectToAttr(songTitle)}>
+						<div class="ui header selectable" style="margin:0px !important;" onClick="playSong(this);">
+							<img class="ui small image" src="img/eq.svg" style="margin-right: 0.2em;"></img>
+							<div class="content whiteFont" style="padding-top:5px;line-height:1em;width : 80%;">
+								${songTitle}
+								<div class="sub header fileinfo" style="color: #c7c7c7;">Loaded by external module</div>
+							</div>
+						</div>
+						<div class="topRightCorner" align="center">
+							${idCounter + 1}
+						</div>
+					</div>`);
+
+					//Build the playlist
+					displayList.push([
+						"/media?file=" + musicFile.filepath,
+						songTitle,
+						musicFile.filename.split(".").pop(),
+						"External",
+					]);
+
+					idCounter++;
+				});
+
+				loadThumbnailToMusicList();
 			}
 			
-		}else{
-			//No state to restore. Restore Viewing Tab instead.
+
 			var vt = loadStorage("viewingTab");
 			if (vt != ""){
 				if (vt == "music"){
-					loadSongList();
+					loadSongList(undefined, loadInputfileCallback);
 					
 				}else if(vt == "folder"){
-					loadFolderView();
+					loadFolderView(loadInputfileCallback);
 					
 				}else if(vt == "playlist"){
-					loadPlaylistView();
+					loadPlaylistView(loadInputfileCallback);
 					
 				}else if(vt == "network"){
 					loadNetworkView();
@@ -494,6 +555,7 @@
 				//Default action
 				loadSongList();
 			}
+
 		}
 	}
 
@@ -1862,7 +1924,7 @@
 	}
 
 	//List the number of playlist stored in this database
-	function loadPlaylistView(){
+	function loadPlaylistView(callback=undefined){
 		currentMode = "playlist";
 		//Clear the main list
 		$("#mainList").html("");
@@ -1894,11 +1956,15 @@
 			$("#interfaceTitle").text("Playlist");
 			$("#AMmenuIcon").attr("class","list icon large whiteFont");
 			$("#interfaceDetails").text("[" + data.length + " playlist]");
+
+			if (callback != undefined){
+				callback();
+			}
 		});
 		
 	}
 	
-	function loadFolderView(){
+	function loadFolderView(callback=undefined){
 		currentMode = "folder";
 	    currentPath = "";
 	    var tempalte = '<div class="mainList item" filepath={filepath} id={id} tag="folder" onClick="openFolder(this);">\
@@ -1962,6 +2028,10 @@
 	            $("#mainList").append(box);
 	        }
 	        $("#interfaceDetails").text("[" + data.length + " folders]");
+
+			if (callback != undefined){
+				callback();
+			}
 	    });
 	    hideLeftMenu();
 	}
@@ -2213,13 +2283,11 @@
 
 			//Check if auto playback is required. If yes, play it with the given filepath.
 			if (playIDAfterOpen != -1){
-				$(".mainList.item").each(function(){
-					if ($(this).attr("id") == playIDAfterOpen){
-						//This is the file that require to playback after the folder loaded
-						playSong($(this).find(".ts.header.selectable"),startPaused);
-						setTimeout(resizeQuickAdjust,500);
-					}
-				});
+				let targetSongItem = $("#" + playIDAfterOpen);
+				if (targetSongItem.length > 0){
+					playSong($(targetSongItem).find(".ui.header.selectable"),startPaused);
+					setTimeout(resizeQuickAdjust,500);
+				}
 			}
 
 			//Load thumbnail for song in list
@@ -2547,7 +2615,7 @@
 		$(target).attr('src', "img/eq.svg");
 	}
 	
-	function loadSongList(type = "all"){
+	function loadSongList(type = "all", callback=undefined){
 		currentPath = "";
 		currentMode = "music";
     
@@ -2588,6 +2656,10 @@
 	        }
 
 			renderDisplayList(displayList,renderRange[0], renderRange[1] );
+
+			if (callback != undefined){
+				callback();
+			}
 
 	    }, function(){
 			alert("Failed to access listSong API with type: " + type)
