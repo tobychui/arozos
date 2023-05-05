@@ -79,7 +79,7 @@ Here are the meaning of all the fields
 | ------------ | ------------------------------------------------------------ | ------------------ | ---------------------------------------------------- |
 | Name         | Name of the WebApp                                           | String             | Music                                                |
 | Desc         | Description of the WebApp                                    | String             | Just another music player                            |
-| Group        | Catergory of the WebApp                                      | String**           | Media                                                |
+| Group        | Catergory of the WebApp                                      | String             | Media                                                |
 | IconPath     | Path to find the module icon (and desktop icon)              | String             | Music/img/module_icon.png                            |
 | Version      | Version number of the WebApp                                 | String             | 0.1.0                                                |
 | StartDir     | Entry point of the webapp                                    | String             | Music/index.html                                     |
@@ -91,9 +91,9 @@ Here are the meaning of all the fields
 | InitEmbSize  | The preferred size for embedded file player                  | Integer Array (2)  | [360, 254]                                           |
 | SupportedExt | The extension that is supported by this webapp as default file opener | String Array       | [".mp3",".flac",".wav",".ogg",".aac",".webm",".mp4"] |
 
-#### WebApp Categories
+#### WebApp Group
 
-There are a few preset WebApp categories that the desktop can load. 
+There are a few preset WebApp groups that the desktop can load. 
 
 - Media
 - Office
@@ -103,9 +103,9 @@ There are a few preset WebApp categories that the desktop can load.
 - System Settings
 - System Tools
 
-Other category strings will be listed in "Others" in the desktop start menu.
+Other groups strings will be listed in "Others" in the desktop start menu.
 
-Here are some reserved categories for special purposes. Use them only when you are handling development special cases.
+Here are some reserved groups for special purposes. Use them only when you are handling development of special use cases.
 
 - Utilities 
   (This type of webapps will ignore user permission systems and allow all user to access it. **It is use for HTML front-end side only webapps.** )
