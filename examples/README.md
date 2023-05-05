@@ -182,3 +182,215 @@ If you want to schedule the task to run in a fixed interval, you can use the AGI
 
 
 
+## Floating Windows API
+
+When your app is launched using float window systems on ArozOS desktop, you can adjust the current windows of your WebApp with some of the following APIs included in the ao_module.js wrapper. You can find the wrapper library that ship with ArozOS in each version in ```./web/script/ao_module.js```.
+
+To include it, add this into your html head section
+
+```html
+<script src="../script/ao_module.js"></script>
+
+//DO NOT DO THIS!!!!
+<script src="/script/ao_module.js"></script>
+```
+
+As the relative path is critical for the script to finds it relative location to system root, **DO NOT USE ABSOLUTE PATH IN THE INCLUDE SCRIPT**
+
+### Float Window Control Functions
+
+These functions are in global scope with your JavaScript. These are use to interact with the desktop interface for perform dynamic float window properties change. here are some functions by categories
+
+| Function Name                             | Usage                                                        | Example                                            |
+| ----------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
+| ao_module_setFixedWindowSize()            | Set the float window to non-resizable                        |                                                    |
+| ao_module_setResizableWindowSize()        | Set the float window to be resizable                         |                                                    |
+| ao_module_setWindowSize(width, height)    | Change the size of the float window                          | ao_module_setWindowSize(480, 240)                  |
+| ao_module_setWindowTitle(newTitle)        | Update the title of the float window                         | ao_module_setWindowTitle("Loading File")           |
+| ao_module_makeSingleInstance()            | Load the current path into another instance's windows if exists |                                                    |
+| ao_module_getInstanceByPath(matchingPath) | Get other float window instance that have the same starting path | ao_module_getInstanceByPath("NotepadA/index.html") |
+| ao_module_close()                         | Close this float window                                      |                                                    |
+| ao_module_focus()                         | Focus this float window and move to top                      |                                                    |
+| ao_module_setTopMost()                    | Fix this float window top most                               |                                                    |
+| ao_module_unsetTopMost()                  | Unfix this float window from top most                        |                                                    |
+
+### Creating New Float Window in WebApp
+
+You can call to the ```ao_module_newfw``` function to start another float window object. Here is a basic usage of such function call
+
+```javascript
+ao_module_newfw({
+    url: "Dummy/index.html",
+    title: "Dummy Module",
+    appicon: "Dummy/img/icon.png"
+});
+```
+
+Here is another example involving all possible paramters.
+
+```javascript
+ao_module_newfw({
+    url: "Dummy/index.html",
+    uid: "CustomUUID",
+    width: 1024,
+    height: 768,
+    appicon: "Dummy/img/icon.png",
+    title: "Dummy Module",
+    left: 100,
+    top: 100,
+    parent: ao_module_windowID,
+    callback: "childCallbackHandler"
+});
+```
+
+### Handling Embedded Mode Input File / File Open
+
+You can check if ArozOS File Manager is passing in any file for you to open using ```ao_module_loadInputFiles``` function. This function will return null if there are no files being passed in or return an array if there are any.
+
+Here is an example to get and load the files.
+
+```javascript
+var inputFiles = ao_module_loadInputFiles();
+if (inputFiles != null){
+	inputFiles.forEach(function(f){
+		console.log(f.filename, f.filepath);
+	});
+}
+```
+
+
+
+### Parent and Callback
+
+If your current float window is started by another float window that has set parent object ID and callback, you can send data back to the parent float window which started the current window. 
+
+To check if the current float Window have a parent object, use ```ao_module_hasParentCallback()``` which will return a boolean. Then, you can call to ```ao_module_parentCallback(data)``` to send data back to parent.  Here is an example of such callback.
+
+```javascript
+let callbackData = {payload: "Hello World!"};
+if (ao_module_hasParentCallback()){
+	ao_module_parentCallback(JSON.stringify(callbackData));
+    ao_module_close();
+}else{
+	alert("Parent no longer exists")
+}
+```
+
+### Upload File
+
+To upload file, you can use the basic API included in the ao_module wrapper.
+
+```javascript
+function ao_module_uploadFile(file, targetPath, callback=undefined, progressCallback=undefined, failedcallback=undefined)
+```
+
+However, if the upload is large or involve complex checking logic, please use RESTFUL API provided by File Manager for detailer flow controls. 
+
+### File Utilities Functions
+
+#### Open File Selector
+
+```ao_module_openFileSelector``` allow user to pick a file from the current ArozOS Host. The function definition is as follows.
+
+```function ao_module_openFileSelector(callback,root="user:/", type="file",allowMultiple=false, options=undefined)```
+
+Here is a basic example of starting a file selector from a WebApp.
+
+```javascript
+ao_module_openFileSelector(fileSelected, "user:/Desktop", "file", true);
+
+ function fileSelected(filedata){
+        for (var i=0; i < filedata.length; i++){
+            var filename = filedata[i].filename;
+            var filepath = filedata[i].filepath;
+            //Do something here
+        }
+    }
+```
+
+ Possible selection type: {file / folder / all / new}
+
+| file   | File Only                 |
+| ------ | ------------------------- |
+| folder | Folder Only               |
+| all    | Anything (File or Folder) |
+| new    | Create new file           |
+
+#### Open Server File path
+
+```ao_module_openPath``` allows you to open a folder and redirect a user to a given file. The function definition is as follows.
+
+```javascript
+function ao_module_openPath(path, filename=undefined)
+```
+
+Here is an example
+
+```javascript
+ao_module_openPath("user:/Desktop", "music.mp3")
+```
+
+This will start a File Manager instance and open user:/Desktop. After the folder is loaded, music.mp3 will be highlighted.
+
+#### Open Local File Path
+
+```ao_module_selectFiles``` allows you to pop-up a file selector on their local computer and return the selected files in callback. The browser build-in file selector is used for this operation.
+
+```javascript
+function ao_module_selectFiles(callback, fileType="file", accept="*", allowMultiple=false)
+```
+
+### Run Backend Files
+
+```ao_module_agirun``` can be used to execute backend files in .js or .agi extension. See "ArOZ Gateway Interface (AGI)" section for more information.
+
+### Close Function Override
+
+To override the ao_module close function, you can define your own ao_module close function at the end of your script just before closing body. Here is an example of such override.
+
+```html
+<!-- your HTML code -->
+<script>
+	//Your JavaScript
+	
+	function ao_module_close(){
+        //Your on-close logic here, for example: 
+		saveDocuments();
+        
+        //on-close logic done. Pass the close action back to ao_module wrapper
+		ao_module_closeHandler();
+	}
+</script>
+</body>
+</html>
+```
+
+
+
+## Utilities
+
+ao_module.js also contains some utilities that you might find helpful.
+
+```javascript
+//ao_module_codec (Deprecated)
+
+//ao_module_storage
+ao_module_storage.setStorage(moduleName, configName,configValue); //Store module config on server side
+ao_module_storage.loadStorage(moduleName, configName); //Load module config from server side
+
+//ao_module_utils
+ao_module_utils.objectToAttr(object); //object to DOM attr
+ao_module_utils.attrToObject(attr); //DOM attr to Object
+ao_module_utils.getRandomUID(); //Get random UUID from timestamp
+ao_module_utils.getIconFromExt(ext); //Get icon tag from file extension
+ao_module_utils.stringToBlob(text, mimetype="text/plain") //Convert string to blob
+ao_module_utils.blobToFile(blob, filename, mimetype="text/plain") //Convert blob to file
+ao_module_utils.getDropFileInfo(dropEvent); //Get the filepath and filename list from file explorer drag drop
+ao_module_utils.readFileFromFileObject(fileObject, successCallback, failedCallback=undefined) //Read file object as text
+ao_module_utils.durationConverter(seconds) //Convert duration in seconds to Days / Hours / Minutes / Seconds
+ao_module_utils.formatBytes(byte, decimals); //Format file byte size to human readable size
+ao_module_utils.timeConverter(unix_timestamp); //Get human readable timestamp 
+ao_module_utils.getWebSocketEndpoint() //Build server websocket endpoint root, e.g. wss://192.168.1.100:8080/
+ao_module_utils.formatBytes(bytes, decimalPlace=2) //Convert and rounds bytes into KB, MB, GB or TB
+```
+
