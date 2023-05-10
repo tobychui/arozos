@@ -14,17 +14,23 @@
 
 ### Networking
 
-- FTP Server
-- Static Web Server
-- WebDAV Server
+- Basic Realtime Network Statistic
+- Static Web Server (with build in Web Editor!)
+- mDNS discovery + SSDP broadcast
 - UPnP Port Forwarding
-- Samba (Supported via 3rd party sub-services)
 - WiFi Management (Support wpa_supplicant for Rpi or nmcli for Armbian)
 
 ### File / Disk Management
 
-- Mount / Format Disk Utilities (support NTFS, EXT4 and more!)
-- Virtual File System Architecture
+- Mount Disk Utilities
+  - Local File Systems (ext4, NTFS, FAT etc)
+  - Remote File Systems (WebDAV, SMB, SFTP etc)
+
+- Build in Network File Sharing Servers
+  - FTP, WebDAV, SFTP
+  - Basic Auth based simple HTTP interface for legacy devices with outdated browser
+
+- Virtual File System + Sandbox Architecture
 - File Sharing (Similar to Google Drive)
 - Basic File Operations with Real-time Progress (Copy / Cut / Paste / New File or Folder etc)
 
@@ -42,13 +48,15 @@
 
 ### Others
 
-- Require as little as 512MB system memory and 8GB system storage
+- Require as little as 512MB system memory and 16GB system storage
 - Base on one of the most stable Linux distro - Debian
-- Support for Desktop, Laptop (touchpad) and Mobile screen sizes
+- Support for Responsive Web Design (RWD) for different screen size
+- Support use as Progress WebApp (PWA) on mobile devices
+- Support desktop devices with touch screen
 
 ## Installation
 
-Require GO 1.14 or above (See [Instllation tutorial](https://dev.to/tobychui/install-go-on-raspberry-pi-os-shortest-tutorial-4pb))
+Require GO 1.20 or above (See [Instllation tutorial](https://dev.to/tobychui/install-go-on-raspberry-pi-os-shortest-tutorial-4pb)) and FFMPEG
 
 Run the following the command to build the system
 
@@ -64,77 +72,60 @@ go build
 
 ## Deploy
 
-### For Raspberry Pi (For Raspberry Pi 4B+)
+### Linux (armv6 / v7, arm64 and amd64)
 
-If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface. If you cannot find the new device in your network, you can also connect to the ArozOS directly via ```http://{raspberry_pi_ip_address}:8080/```
+*(e.g. Raspberry Pi 4B, Raspberry Pi Zero W, Orange Pi, $5 tiny VPS with Debian)*
 
+Install the latest version of Raspberry Pi OS on an SD card and boot it up. After initialization done, connect to it via SSH or use the Terminal on the Pi's desktop to enter the following command
 
-
-**All the image listed above require 8GB or above microSD card**
-
-To optain the .img file, you can unzip the compressed image using 7zip. If you don't have it, you can get it [here](https://www.7-zip.org/download.html)
-
-### For All Pi models
-
-#### Build from source using installer script (Recommended)
-
-Since v1.119, arozos pre-build image has been moved from the original Raspberry Pi OS 32-bit to 64-bit for better utilization of system resources. For older version of Pis, you can install arozos with the command below with a fresh installation of Raspberry Pi OS
-
-```
-curl -L https://raw.githubusercontent.com/tobychui/arozos/master/installer/install_for_pi.sh | bash
+```bash
+wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/2.0/installer/install.sh && bash install.sh
 ```
 
-or without curl
+and follow the on-screen instruction to setup your arozos system. After installation, depending on the processing power and disk speed of your host, 
 
-```
-cd ~/
-wget https://raw.githubusercontent.com/tobychui/arozos/master/installer/install_for_pi.sh
-sudo chmod 775 ./install_for_pi.sh
-./install_for_pi.sh
-```
-
-The installer will install all the required dependencies including ffmpeg and go compiler. To confirm installation success, check for the execution status of arozos using the following command.
+If you selected install to systemd service, you can check the status of the service using 
 
 ```
 sudo systemctl status arozos
 ```
 
-#### Using prebuilt binary
-
-See installation steps for other ARM SBC (but use the ```arozos_linux_arm``` binary instead of ```arozos_linux_arm64```)
-
-### For other ARM SBC(e.g. Orange Pi / Banana Pi / Friendly ARM's Pis)
-
-Download the correct architecture binary from the "release" tab and upload the binary with the "web" and "system" folder in "/src".
-After upload, you should have the following file structure
+Otherwise, you will need to manually start the arozos using the following command
 
 ```
-$ ls
-arozos_linux_arm64  web  system
+cd ~/arozos
+sudo ./arozos
+# or if you have launcher installed
+sudo ./launcher
 ```
 
-Start the binary by calling ``` sudo ./arozos_linux_arm64 ``` (or without sudo if you prefer no hardware management)
+### Windows (amd64)
 
-### Windows
+If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable and following the steps below.
 
-If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable.
+1. Create a folder a name that has no space and ASCII only
+2. Download the arozos_windows_amd64.exe from the [Release Page](https://github.com/tobychui/arozos/releases) 
+3. Download the web.tar.gz from the Release Page
+4. Put both files into the same folder you created in step 1
+5. Double click the exe file to start ArozOS
 
-This system can be built and run on Windows hosts with the following build instructions
+**Some features are not available for Windows build**
+
+**Windows arm64 version are experimental and not tested**
+
+### OpenWRT (mipsle) / Linux (riscv64)
+
+OpenWRT build and Linux RSICV64 is experimental and might contains weird bugs. If you are interested to test or maintain these builds, please contact me directly.
 
 ```
-# Download the whole repo as zip and cd into it
-cd .\arozos\src\
-go build
-arozos.exe
+wget -O arozos {binary_path_from_release}
+wget -O web.tar.gz {web.tar.gz_path_from_release}
+sudo ./arozos
 ```
 
-**However, not all features are available for Windows**. 
+### Docker
 
-## Docker
-
-Thanks [Saren](https://github.com/Saren-Arterius) for creating this amazing DockerFile
-
-See his repo over [here](https://github.com/Saren-Arterius/aroz-dockerize)
+WIP
 
 ## Screenshots
 
@@ -149,10 +140,10 @@ See his repo over [here](https://github.com/Saren-Arterius/aroz-dockerize)
 
 ### Supported Startup Parameters
 
-The following startup parameters are supported (v1.113)
+The following startup parameters are supported (v2.016)
 
 ```
--allow_autologin
+  -allow_autologin
         Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot (default true)
   -allow_cluster
         Enable cluster operations within LAN. Require allow_mdns=true flag (default true)
@@ -168,6 +159,10 @@ The following startup parameters are supported (v1.113)
         Enable uPNP service, recommended for host under NAT router
   -beta_scan
         Allow compatibility to ArOZ Online Beta Clusters
+  -bufffile_size int
+        Maxmium buffer file size (in MB) for buffer required file system abstractions (default 25)
+  -buffpool_size int
+        Maxmium buffer pool size (in MB) for buffer required file system abstractions (default 1024)
   -cert string
         TLS certificate file (.crt) (default "localhost.crt")
   -console
@@ -182,8 +177,14 @@ The following startup parameters are supported (v1.113)
         Disable IP resolving if the system is running under reverse proxy environment
   -disable_subservice
         Disable subservices completely
+  -enable_buffpool
+        Enable buffer pool for buffer required file system abstractions (default true)
   -enable_hwman
         Enable hardware management functions in system (default true)
+  -enable_pwman
+        Enable power management of the host system (default true)
+  -force_mac string
+        Force MAC address to be used for discovery services. If not set, it will use the first NIC
   -gzip
         Enable gzip compress on file server (default true)
   -homepage
@@ -194,6 +195,8 @@ The following startup parameters are supported (v1.113)
         Amount of buffer memory for IO operations (default 1024)
   -key string
         TLS key file (.key) (default "localhost.key")
+  -logging
+        Enable logging to file for debug purpose (default true)
   -max_upload_size int
         Maxmium upload size in MB. Must not exceed the available ram on your system (default 8192)
   -ntt int
@@ -251,37 +254,21 @@ Example
 
 See documentation for more examples.
 
-### ArozOS Launcher (Required for OTA Update support)
+### ArozOS Launcher
 
-See https://github.com/aroz-online/launcher
+Launcher is required for performing OTA updates in arozos so you don't need to ssh into your host everytime you need to update ArozOS. You can install it via the installation script or install it manually. See more in the following repository. 
+
+https://github.com/aroz-online/launcher
 
 ### Storage Configuration
 
-#### Deploying Single Machine
+(WIP)
 
-If you are deploying single machine, you can visit System Setting > Disk & Storage > Storage Pools and edit the "system" storage pool for setting up the global storage pools for all users in the system.
+## WebApp Development
 
-![](img/screenshots/sp.png)
+See examples folder for more details.
 
-#### Deploying on Multiple Machines
 
-If you are deploying on multiple machines, you can take a look at the storage configuration file located in:
-
-```
-src/system/storage.json.example
-```
-
-Rename the storage.json.example to storage.json and start arozos. The required virtual storage drives will be mounted accordingly.
-
-## ArOZ JavaScript Gateway Interface (AGI) / Plugin Loader
-
-The ArOZ AJGI / AGI interface provide a javascript programmable interface for ArOZ Online users to create 
-plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
-(also named the module root). See more details in the ![AJGI Documentation](https://github.com/tobychui/arozos/blob/master/src/AGI%20Documentation.md).
-
-## ArozOS OTA Update Launcher
-
-Since v1.119, ArozOS can perform OTA update with the help of the [ArozOS Launcher](https://github.com/aroz-online/launcher). See the launcher's github repo for installation instructions.
 
 ## Other Resources
 
@@ -326,7 +313,7 @@ Feel free to create a PR if you have written an article for ArozOS!
 ### Source Code
 
 ArozOS - General purpose cloud desktop platform
-Copyright (C) 2021  tobychui
+Copyright (C) 2023  tobychui
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.
 
@@ -336,7 +323,7 @@ You should have received a copy of the GNU General Public License along with thi
 
 ### Documentations
 
-Copyright (C)  2021 tobychui
+Copyright (C)  2023 tobychui
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3
 or any later version published by the Free Software Foundation;
@@ -346,8 +333,4 @@ Free Documentation License".
 
 ### Artwork and Mascot Design
 
-Copyright (C)  2021 tobychui, All Right Reserved
-
-## Buy me a coffee
-
-I am working on this project as a hobby / side project and I am not really into collecting donation from this project. 
+Copyright (C)  2023 tobychui, All Right Reserved
