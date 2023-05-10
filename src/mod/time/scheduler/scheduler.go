@@ -138,7 +138,7 @@ func (a *Scheduler) createTicker(duration time.Duration) chan bool {
 								//Resolve the sript path to realpath
 								//Run the script with this user scope
 								thisJob.lastExecutionTime = time.Now().Unix()
-								resp, err := a.options.Gateway.ExecuteAGIScriptAsUser(fsh, rpath, targetUser, nil)
+								resp, err := a.options.Gateway.ExecuteAGIScriptAsUser(fsh, rpath, targetUser, nil, nil)
 								if err != nil {
 									a.cronlogError(thisJob.Name+" execution error: "+err.Error(), err)
 									thisJob.lastExecutionOutput = err.Error()

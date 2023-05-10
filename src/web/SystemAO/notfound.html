@@ -37,7 +37,7 @@
             <div>
                 <h3 class="">Page Not Found</h3>
                 <div class="ui divider"></div>
-                <p>The page or resource you are trying to access does not exist. <br><a href="{{root_escape}}">Back</a></p>
+                <p>The page or resource you are trying to access does not exist. <br><a style="cursor: pointer;" onclick="back();">Back</a></p>
                 <div class="ui divider"></div>
                 <div style="text-align: left;">
                     <small>Request time: <span id="reqtime"></span></small><br>
@@ -46,6 +46,20 @@
             </div>
         </div>
         <script>
+            var ao_module_virtualDesktop = false;
+            try{
+                ao_module_virtualDesktop = !(!parent.isDesktopMode);
+            }catch(ex){
+                
+            }
+
+            function back(){
+                if (ao_module_virtualDesktop){
+                    history.back();
+                }else{
+                    window.location.href = "{{root_escape}}";
+                }
+            }
             $("#reqtime").text(new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'}));
         </script>
     </body>

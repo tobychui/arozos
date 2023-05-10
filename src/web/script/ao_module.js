@@ -771,16 +771,21 @@ class ao_module_codec{
 
 
 /**
-ArOZ Online Module Utils for quick deploy of ArOZ Online WebApps
+    ArOZ Online Module Utils for quick deploy of ArOZ Online WebApps
 
-ao_module_utils.objectToAttr(object); //object to DOM attr
-ao_module_utils.attrToObject(attr); //DOM attr to Object
-ao_module_utils.getRandomUID(); //Get random UUID from timestamp
-ao_module_utils.getIconFromExt(ext); //Get icon tag from file extension
-
-ao_module_utils.getDropFileInfo(dropEvent); //Get the filepath and filename list from file explorer drag drop
-ao_module_utils.formatBytes(byte, decimals); //Format file byte size to human readable size
-ao_module_utils.timeConverter(unix_timestamp); //Get human readable timestamp 
+    ao_module_utils.objectToAttr(object); //object to DOM attr
+    ao_module_utils.attrToObject(attr); //DOM attr to Object
+    ao_module_utils.getRandomUID(); //Get random UUID from timestamp
+    ao_module_utils.getIconFromExt(ext); //Get icon tag from file extension
+    ao_module_utils.stringToBlob(text, mimetype="text/plain") //Convert string to blob
+    ao_module_utils.blobToFile(blob, filename, mimetype="text/plain") //Convert blob to file
+    ao_module_utils.getDropFileInfo(dropEvent); //Get the filepath and filename list from file explorer drag drop
+    ao_module_utils.readFileFromFileObject(fileObject, successCallback, failedCallback=undefined) //Read file object as text
+    ao_module_utils.durationConverter(seconds) //Convert duration in seconds to Days / Hours / Minutes / Seconds
+    ao_module_utils.formatBytes(byte, decimals); //Format file byte size to human readable size
+    ao_module_utils.timeConverter(unix_timestamp); //Get human readable timestamp 
+    ao_module_utils.getWebSocketEndpoint() //Build server websocket endpoint root, e.g. wss://192.168.1.100:8080/
+    ao_module_utils.formatBytes(bytes, decimalPlace=2) //Convert and rounds bytes into KB, MB, GB or TB
 **/
 class ao_module_utils{
     

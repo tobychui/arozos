@@ -146,7 +146,7 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 
 	//Execute it if it is agi file
 	if fsh.FileSystemAbstraction.FileExists(targetFilePath) && filepath.Ext(targetFilePath) == ".agi" {
-		result, err := h.Options.AgiGateway.ExecuteAGIScriptAsUser(fsh, targetFilePath, userinfo, r)
+		result, err := h.Options.AgiGateway.ExecuteAGIScriptAsUser(fsh, targetFilePath, userinfo, w, r)
 		if err != nil {
 			w.Write([]byte("500 - Internal Server Error \n" + err.Error()))
 			return

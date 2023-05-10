@@ -63,14 +63,15 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	// execute!
 	start := time.Now()
 	//g.ExecuteAGIScript(scriptContent, "", "", w, r, userInfo)
-	result, err := g.ExecuteAGIScriptAsUser(fsh, realPath, userInfo, r)
+	result, err := g.ExecuteAGIScriptAsUser(fsh, realPath, userInfo, w, r)
 	duration := time.Since(start)
 
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	utils.SendTextResponse(w, result)
+
+	w.Write([]byte(result))
 
 	log.Println("[Remote AGI] IP:", r.RemoteAddr, " executed the script ", pathFromDb, "(", realPath, ")", " on behalf of", userInfo.Username, "with total duration: ", duration)
 

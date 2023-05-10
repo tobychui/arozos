@@ -2,10 +2,6 @@
 
 <img src="https://img.shields.io/badge/License-GPLv3-blue"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In%20Hong%20Kong-香港開發-blueviolet">
 
-## README is update pending
-
-This is a copy of the ArozOS v1.0 readme file. We didn't have time to update this yet so please do not following the instruction below to compile ArozOS 2.0. (We recommend using make if you want to try the latest version on any devices)  
-
 ## Features
 
 ### User Interface

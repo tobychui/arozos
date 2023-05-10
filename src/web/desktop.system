@@ -1480,7 +1480,7 @@
                     return a.ID > b.ID;
                 });
 
-                console.log(tasks);
+                //console.log(tasks);
                 $("#backgroundTaskPanel").html("");
                 tasks.forEach(function(task){
                     console.log(task);

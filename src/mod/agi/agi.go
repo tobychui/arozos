@@ -291,7 +291,7 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
 	if strings.Contains(contentType, "application/json") {
-		//For shitty people who use Angular
+		//For people who use Angular
 		body, _ := io.ReadAll(r.Body)
 		fields := map[string]interface{}{}
 		json.Unmarshal(body, &fields)
@@ -338,11 +338,11 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 }
 
 /*
-Execute AGI script with given user information
-scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
-Pass in http.Request pointer to enable serverless GET / POST request
+	Execute AGI script with given user information
+	scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
+	Pass in http.Request pointer to enable serverless GET / POST request
 */
-func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, r *http.Request) (string, error) {
+func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, error) {
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
@@ -395,6 +395,15 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	value, err := vm.Get("HTTP_RESP")
 	if err != nil {
 		return "", err
+	}
+
+	if w != nil {
+		//Serverless: Get respond header type from the vm
+		header, _ := vm.Get("HTTP_HEADER")
+		headerString, _ := header.ToString()
+		if headerString != "" {
+			w.Header().Set("Content-Type", headerString)
+		}
 	}
 
 	valueString, err := value.ToString()
