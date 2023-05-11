@@ -54,15 +54,16 @@
 - Support use as Progress WebApp (PWA) on mobile devices
 - Support desktop devices with touch screen
 
-## Installation
+## Build from Source
 
-Require GO 1.20 or above (See [Instllation tutorial](https://dev.to/tobychui/install-go-on-raspberry-pi-os-shortest-tutorial-4pb)) and FFMPEG
+Require GO 1.20 or above (See [Instllation tutorial](https://dev.to/tobychui/install-go-on-raspberry-pi-os-shortest-tutorial-4pb)) and ffmpeg (Optional: wpa_supplicant or nmcli)
 
 Run the following the command to build the system
 
-```
+```bash
 git clone https://github.com/tobychui/arozos
 cd ./arozos/src/
+go mod tidy
 go build
 ./arozos 
 #sudo ./arozos for enabling hardware and WiFi management features
@@ -70,19 +71,19 @@ go build
 
 (Yes, it is that simple)
 
-## Deploy
+## Install from Precompiled Binary
 
 ### Linux (armv6 / v7, arm64 and amd64)
 
-*(e.g. Raspberry Pi 4B, Raspberry Pi Zero W, Orange Pi, $5 tiny VPS with Debian)*
+*(e.g. Raspberry Pi 4B, Raspberry Pi Zero W, Orange Pi, $5 tiny VPS on lightsail or ramnode, only tested with Debian based Linux)*
 
-Install the latest version of Raspberry Pi OS on an SD card and boot it up. After initialization done, connect to it via SSH or use the Terminal on the Pi's desktop to enter the following command
+Install the latest version of Raspberry Pi OS / Armbian / Debian on an SD card / boot drive and boot it up. After setup and initialization is done, connect to it via SSH or use the Terminal App on your desktop to enter the following command
 
 ```bash
 wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/2.0/installer/install.sh && bash install.sh
 ```
 
-and follow the on-screen instruction to setup your arozos system. After installation, depending on the processing power and disk speed of your host, 
+and follow the on-screen instruction to setup your arozos system. 
 
 If you selected install to systemd service, you can check the status of the service using 
 
@@ -99,6 +100,14 @@ sudo ./arozos
 sudo ./launcher
 ```
 
+After installation, depending on the processing power and disk speed of your host, it will take some time for arozos to unzip the required files. Wait around 3 - 5 minutes and visit the following link to continue root admin account setups.
+
+```
+http://{ip_address_of_your_host}:8080/
+```
+
+To uninstall your ArozOS in case you screw something up, use the uninstall script in the installer folder.
+
 ### Windows (amd64)
 
 If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable and following the steps below.
@@ -108,6 +117,8 @@ If you are deploying on Windows, you need to add ffmpeg to %PATH% environment va
 3. Download the web.tar.gz from the Release Page
 4. Put both files into the same folder you created in step 1
 5. Double click the exe file to start ArozOS
+6. Click on "Allow Access" if your Windows Firewall blocked ArozOS from accessing your network
+7. Visit ```http://localhost:8080/``` in your web browser to continue root admin account setups.
 
 **Some features are not available for Windows build**
 
@@ -120,12 +131,13 @@ OpenWRT build and Linux RSICV64 is experimental and might contains weird bugs. I
 ```
 wget -O arozos {binary_path_from_release}
 wget -O web.tar.gz {web.tar.gz_path_from_release}
+chmod -x ./arozos
 sudo ./arozos
 ```
 
 ### Docker
 
-WIP
+Not exists yet
 
 ## Screenshots
 
@@ -256,19 +268,56 @@ See documentation for more examples.
 
 ### ArozOS Launcher
 
-Launcher is required for performing OTA updates in arozos so you don't need to ssh into your host everytime you need to update ArozOS. You can install it via the installation script or install it manually. See more in the following repository. 
+Launcher is required for performing OTA updates in arozos so you don't need to ssh into your host every time you need to update ArozOS. You can install it via the installation script or install it manually. See more in the following repository. 
 
 https://github.com/aroz-online/launcher
 
 ### Storage Configuration
 
-(WIP)
+Visit System Settings > Disk & Storage > Storage Pools and follow on screen instructions to setup your disk.
+
+![](img/screenshots/sp.png)
+
+- Name: Name of this virtual disk in ArozOS system, (e.g. Movie Storage)
+- UUID: UUID of this virtual disk in ArozOS system, **must be unique, ascii only and no space** (e.g. movie)
+- Path: The mounting path of the disk **in Host OS** or **Protocol Specific IP Address / URLs**. Here are some examples
+  - Local disk (ntfs / ext4 etc): /media/storage1
+  - WebDAV: https://example.com.com/webdav/storage
+  - FTP / SFTP: 192.168.1.220:2022
+  - SMB: 192.168.0.110/MyShare
+    (Where "MyShare" is one of the Shares inside File Explorer if you visit \\\\192.168.0.110\)
+- Access Permission: Read Only or Read Write 
+- Storage Hierarchy
+  - Isolated User Folder: User cannot see other user's files
+  - Public Access Folders: User can see each other's files and edit them if permission is set to "READ WRITE"
+- File System Type: The disk format (if local disk) or protocols (if remote file system) to mount / establish connection
+
+Here are some local disk only options. You can leave them out if you have already setup automatic disk mount in /etc/fstab
+
+- Mount Device: The physical disk location on your host (e.g. /dev/sda1)
+- Mount Point: The target path to mount the disk to. (e.g. /media/storage)
+- Automount: Check this if you want ArozOS to mount the disk for you
+  *Notes: You cannot auto-mount a disk required by ArozOS -root options. Use /etc/fstab for it if that is your use case. This function is designed for delay start and reduce the power spike during system startup & disk spinups.*  
+
+Here are some network disk only options
+
+- Username
+- Password
+
+Credentials of your account on the remote server that you are trying to mount remotely
+
+### File Servers
+
+If you want to share files from ArozOS, there are many ways you can do it. 
+
+- Share API: Right click a file in File Manager and click Share. 
+- User Accounts: Create user account for a user who want to access your file and limit the scope of file access with permission group storage pool settings
+- Network File Servers: Create a single shared user in a permission group with limited access settings and enable network file server in System Settings > Networks & Connections > File Servers > WebDAV / SFTP / FTP. Follow the on-screen guide to setup the access mode.
+- Legacy Browser Server: Share files to legacy devices via basic HTTP and Basic Auth. You can enable it in System Settings > Networks & Connections > File Servers > Directory Server. You can login with your current ArozOS user credentials.
 
 ## WebApp Development
 
-See examples folder for more details.
-
-
+See [examples](examples/) folder for more details.
 
 ## Other Resources
 
