@@ -3,7 +3,6 @@ package gzipmiddleware
 import (
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,7 +16,7 @@ import (
 
 var gzPool = sync.Pool{
 	New: func() interface{} {
-		w := gzip.NewWriter(ioutil.Discard)
+		w := gzip.NewWriter(io.Discard)
 		gzip.NewWriterLevel(w, gzip.BestCompression)
 		return w
 	},
@@ -29,7 +28,7 @@ type gzipResponseWriter struct {
 }
 
 func (w *gzipResponseWriter) WriteHeader(status int) {
-	w.Header().Del("Content-Length")
+	//w.Header().Del("Content-Length")
 	w.ResponseWriter.WriteHeader(status)
 }
 
@@ -38,12 +37,18 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 }
 
 /*
-	Compresstion function for http.FileServer
+Compresstion function for http.FileServer
 */
 func Compress(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			//If the client do not support gzip
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		//Handle very special case where it is /share/download
+		if strings.HasPrefix(r.URL.RequestURI(), "/share/download/") {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -85,7 +90,7 @@ func (w gzipFuncResponseWriter) Write(b []byte) (int, error) {
 }
 
 /*
-	Compress Function for http.HandleFunc
+Compress Function for http.HandleFunc
 */
 func CompressFunc(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

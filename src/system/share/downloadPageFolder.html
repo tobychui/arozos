@@ -115,6 +115,7 @@
                         </tbody>
                       </table>
                     <a href="{{downloadurl}}"><button class="button-primary">Download All</button></a>
+                    <button id="sharebtn" onclick="share();">Share</button>
                     <p style="font-size: 80%;"><b>Depending on folder size, zipping might take a while to complete.</b></p>
                     <p>Request File ID: {{reqid}}<br>
                     Request Timestamp: {{reqtime}}</p>
@@ -154,6 +155,29 @@
       $(window).on("resize", function(e){
         handleWindowResize();
       });
+
+      if (location.protocol !== 'https:') {
+         document.getElementById("sharebtn").remove()
+      }
+
+      function share(){
+        let shareData = {
+          title: "{{filename}}",
+          text: '{{filename}} - File Share from {{hostname}}',
+          url: window.location.href,
+        }
+
+        navigator.share(shareData).then(() =>
+          function(){
+            //Share succ
+          }
+        ).catch((e) =>
+          function(){
+              //Share failed
+          }
+        )
+      }
+
 
       function handleWindowResize(){
         if (window.innerWidth < 550){

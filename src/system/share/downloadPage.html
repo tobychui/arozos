@@ -89,6 +89,7 @@
                         </tbody>
                       </table>
                     <a href="{{downloadurl}}"><button class="button-primary">Download</button></a>
+                    <button id="sharebtn" onclick="share();">Share</button>
                     <br><br>
                     <p>Request File ID: {{reqid}}</p>
                     <p>Request Timestamp: {{reqtime}}</p>
@@ -109,7 +110,28 @@
 
         
     <script>
-     
+      if (location.protocol !== 'https:') {
+         document.getElementById("sharebtn").remove()
+      }
+
+      function share(){
+        let shareData = {
+          title: "{{filename}}",
+          text: '{{filename}} - File Share from {{hostname}}',
+          url: window.location.href,
+        }
+
+        navigator.share(shareData).then(() =>
+          function(){
+            //Share succ
+          }
+        ).catch((e) =>
+          function(){
+              //Share failed
+          }
+        )
+      }
+      
     </script>
     </body>
 </html>

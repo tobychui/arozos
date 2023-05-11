@@ -3,12 +3,12 @@ package agi
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	_ "image/jpeg"
 	"image/png"
 	_ "image/png"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -18,8 +18,11 @@ import (
 	"github.com/oliamb/cutter"
 	"github.com/robertkrimen/otto"
 
+	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/neuralnet"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -36,8 +39,7 @@ func (g *Gateway) ImageLibRegister() {
 	}
 }
 
-func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
-
+func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
 	//Get image dimension, requires filepath (virtual)
 	vm.Set("_imagelib_getImageDimension", func(call otto.FunctionCall) otto.Value {
 		imageFileVpath, err := call.Argument(0).ToString()
@@ -46,21 +48,43 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 			return otto.FalseValue()
 		}
 
-		imagePath, err := virtualPathToRealPath(imageFileVpath, u)
+		fsh, imagePath, err := virtualPathToRealPath(imageFileVpath, u)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
 
-		if !fileExists(imagePath) {
+		if !fsh.FileSystemAbstraction.FileExists(imagePath) {
 			g.raiseError(errors.New("File not exists! Given " + imagePath))
 			return otto.FalseValue()
 		}
 
-		file, err := os.Open(imagePath)
-		if err != nil {
-			g.raiseError(err)
-			return otto.FalseValue()
+		openingPath := imagePath
+		var closerFunc func()
+		var file arozfs.File
+		if fsh.RequireBuffer {
+			bufferPath, cf := g.getUserSpecificTempFilePath(u, imagePath)
+			closerFunc = cf
+			defer closerFunc()
+			c, err := fsh.FileSystemAbstraction.ReadFile(imagePath)
+			if err != nil {
+				g.raiseError(errors.New("Read from file system failed: " + err.Error()))
+				return otto.FalseValue()
+			}
+			os.WriteFile(bufferPath, c, 0775)
+			openingPath = bufferPath
+
+			file, err = os.Open(openingPath)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+		} else {
+			file, err = fsh.FileSystemAbstraction.Open(openingPath)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
 		}
 
 		image, _, err := image.DecodeConfig(file)
@@ -101,44 +125,104 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		//Convert the virtual paths to real paths
-		rsrc, err := virtualPathToRealPath(vsrc, u)
+		srcfsh, rsrc, err := virtualPathToRealPath(vsrc, u)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
-		rdest, err := virtualPathToRealPath(vdest, u)
+		destfsh, rdest, err := virtualPathToRealPath(vdest, u)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
 
 		ext := strings.ToLower(filepath.Ext(rdest))
-		if !inArray([]string{".jpg", ".jpeg", ".png"}, ext) {
+		if !utils.StringInArray([]string{".jpg", ".jpeg", ".png"}, ext) {
 			g.raiseError(errors.New("File extension not supported. Only support .jpg and .png"))
 			return otto.FalseValue()
 		}
 
-		if fileExists(rdest) {
-			err := os.Remove(rdest)
+		if destfsh.FileSystemAbstraction.FileExists(rdest) {
+			err := destfsh.FileSystemAbstraction.Remove(rdest)
 			if err != nil {
 				g.raiseError(err)
 				return otto.FalseValue()
 			}
 		}
 
+		resizeOpeningFile := rsrc
+		resizeWritingFile := rdest
+		var srcFile arozfs.File
+		var destFile arozfs.File
+		if srcfsh.RequireBuffer {
+			resizeOpeningFile, _, err = g.bufferRemoteResourcesToLocal(srcfsh, u, rsrc)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			srcFile, err = os.Open(resizeOpeningFile)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+		} else {
+			srcFile, err = srcfsh.FileSystemAbstraction.Open(resizeOpeningFile)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+		}
+		defer srcFile.Close()
+
+		if destfsh.RequireBuffer {
+			resizeWritingFile, _, err = g.bufferRemoteResourcesToLocal(destfsh, u, rdest)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+
+			destFile, err = os.OpenFile(resizeWritingFile, os.O_CREATE|os.O_WRONLY, 0775)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+		} else {
+			destFile, err = destfsh.FileSystemAbstraction.OpenFile(resizeWritingFile, os.O_CREATE|os.O_WRONLY, 0775)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+		}
+		defer destFile.Close()
+
 		//Resize the image
-		src, err := imaging.Open(rsrc)
+		//src, err := imaging.Open(resizeOpeningFile)
+		src, err := imaging.Decode(srcFile)
 		if err != nil {
 			//Opening failed
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
 		src = imaging.Resize(src, int(width), int(height), imaging.Lanczos)
-		err = imaging.Save(src, rdest)
+		//err = imaging.Save(src, resizeWritingFile)
+		f, err := imaging.FormatFromFilename(resizeWritingFile)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
+
+		err = imaging.Encode(destFile, src, f)
+		if err != nil {
+			g.raiseError(err)
+			return otto.FalseValue()
+		}
+
+		if destfsh.RequireBuffer {
+			c, _ := os.ReadFile(resizeWritingFile)
+			destfsh.FileSystemAbstraction.WriteFile(rdest, c, 0775)
+		}
+
 		return otto.TrueValue()
 	})
 
@@ -179,20 +263,23 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		//Convert the virtual paths to realpaths
-		rsrc, err := virtualPathToRealPath(vsrc, u)
+
+		srcFsh, rsrc, err := virtualPathToRealPath(vsrc, u)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
-		rdest, err := virtualPathToRealPath(vdest, u)
+		srcFshAbs := srcFsh.FileSystemAbstraction
+		destFsh, rdest, err := virtualPathToRealPath(vdest, u)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Try to read the source image
-		imageBytes, err := ioutil.ReadFile(rsrc)
+		imageBytes, err := srcFshAbs.ReadFile(rsrc)
 		if err != nil {
+			fmt.Println(err)
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
@@ -204,18 +291,35 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		//Crop the image
-		croppedImg, err := cutter.Crop(img, cutter.Config{
+		croppedImg, _ := cutter.Crop(img, cutter.Config{
 			Width:  int(width),
 			Height: int(height),
 			Anchor: image.Point{int(posx), int(posy)},
 			Mode:   cutter.TopLeft,
 		})
 
-		//Create the new image
-		out, err := os.Create(rdest)
-		if err != nil {
-			g.raiseError(err)
-			return otto.FalseValue()
+		//Create the output file
+		var out arozfs.File
+		destWritePath := ""
+		if destFsh.RequireBuffer {
+			destWritePath, _ = g.getUserSpecificTempFilePath(u, rdest)
+
+			//Create the new image in buffer file
+			out, err = os.Create(destWritePath)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+			defer out.Close()
+
+		} else {
+			//Create the target file via FSA
+			out, err = destFsh.FileSystemAbstraction.Create(rdest)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+			defer out.Close()
 		}
 
 		if strings.ToLower(filepath.Ext(rdest)) == ".png" {
@@ -226,8 +330,15 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 			g.raiseError(errors.New("Not supported format: Only support jpg or png"))
 			return otto.FalseValue()
 		}
-
 		out.Close()
+
+		if destFsh.RequireBuffer {
+			c, _ := os.ReadFile(destWritePath)
+			err := destFsh.FileSystemAbstraction.WriteFile(rdest, c, 0775)
+			if err != nil {
+				fmt.Println(">", err.Error())
+			}
+		}
 
 		return otto.TrueValue()
 	})
@@ -240,15 +351,15 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 			return otto.FalseValue()
 		}
 
-		//Convert the vsrc to real path
-		rsrc, err := virtualPathToRealPath(vsrc, u)
+		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vsrc)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
+		rpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(vsrc, u.Username)
 
 		//Get the files' thumb base64 string
-		base64String, err := g.Option.FileSystemRender.LoadCache(rsrc, false)
+		base64String, err := g.Option.FileSystemRender.LoadCache(fsh, rpath, false)
 		if err != nil {
 			return otto.FalseValue()
 		} else {
@@ -274,15 +385,26 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		//Convert the vsrc to real path
-		rsrc, err := virtualPathToRealPath(vsrc, u)
+		fsh, rsrc, err := virtualPathToRealPath(vsrc, u)
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
 		}
 
+		analysisSrc := rsrc
+		var closerFunc func()
+		if fsh.RequireBuffer {
+			analysisSrc, closerFunc, err = g.bufferRemoteResourcesToLocal(fsh, u, rsrc)
+			if err != nil {
+				g.raiseError(err)
+				return otto.FalseValue()
+			}
+			defer closerFunc()
+		}
+
 		if classifier == "default" || classifier == "darknet19" {
 			//Use darknet19 for classification
-			r, err := neuralnet.AnalysisPhotoDarknet19(rsrc)
+			r, err := neuralnet.AnalysisPhotoDarknet19(analysisSrc)
 			if err != nil {
 				g.raiseError(err)
 				return otto.FalseValue()
@@ -298,7 +420,7 @@ func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User) {
 
 		} else if classifier == "yolo3" {
 			//Use yolo3 for classification, return positions of object as well
-			r, err := neuralnet.AnalysisPhotoYOLO3(rsrc)
+			r, err := neuralnet.AnalysisPhotoYOLO3(analysisSrc)
 			if err != nil {
 				g.raiseError(err)
 				return otto.FalseValue()

@@ -4,22 +4,25 @@ import (
 	"bytes"
 	"image"
 	"image/jpeg"
-	"os"
 	"path/filepath"
 
 	"github.com/dhowden/tag"
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
+	"imuslab.com/arozos/mod/filesystem"
 )
 
-func generateThumbnailForAudio(cacheFolder string, file string, generateOnly bool) (string, error) {
-
+func generateThumbnailForAudio(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if fsh.RequireBuffer {
+		return "", nil
+	}
+	fshAbs := fsh.FileSystemAbstraction
 	//This extension is supported by id4. Call to library
-	f, err := os.Open(file)
-	defer f.Close()
+	f, err := fshAbs.Open(file)
 	if err != nil {
 		return "", err
 	}
+	defer f.Close()
 	m, err := tag.ReadFrom(f)
 	if err != nil {
 		return "", err
@@ -34,7 +37,10 @@ func generateThumbnailForAudio(cacheFolder string, file string, generateOnly boo
 		}
 
 		//Create an empty file
-		out, _ := os.Create(cacheFolder + filepath.Base(file) + ".jpg")
+		out, err := fshAbs.Create(cacheFolder + filepath.Base(file) + ".jpg")
+		if err != nil {
+			return "", err
+		}
 		defer out.Close()
 
 		b := img.Bounds()
@@ -50,18 +56,19 @@ func generateThumbnailForAudio(cacheFolder string, file string, generateOnly boo
 		}
 
 		//Crop out the center
-		croppedImg, err := cutter.Crop(m, cutter.Config{
+		croppedImg, _ := cutter.Crop(m, cutter.Config{
 			Width:  480,
 			Height: 480,
 			Mode:   cutter.Centered,
 		})
 
 		//Write the cache image to disk
+
 		jpeg.Encode(out, croppedImg, nil)
 
 		if !generateOnly {
 			//return the image as well
-			ctx, err := getImageAsBase64(cacheFolder + filepath.Base(file) + ".jpg")
+			ctx, err := getImageAsBase64(fsh, cacheFolder+filepath.Base(file)+".jpg")
 			return ctx, err
 		}
 

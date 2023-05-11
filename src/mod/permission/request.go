@@ -15,11 +15,13 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 //Handle group editing operations
 func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Request) {
-	listPermission, _ := mv(r, "showper", false)
+	listPermission, _ := utils.GetPara(r, "showper")
 	if listPermission == "" {
 		//Only show the user group name
 		results := []string{}
@@ -27,7 +29,7 @@ func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Reque
 			results = append(results, gp.Name)
 		}
 		jsonString, _ := json.Marshal(results)
-		sendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 	} else {
 		//Show user group and its module permissions
 		results := make(map[string][]interface{})
@@ -39,78 +41,78 @@ func (h *PermissionHandler) HandleListGroup(w http.ResponseWriter, r *http.Reque
 			results[gp.Name] = thisGroupInfo
 		}
 		jsonString, _ := json.Marshal(results)
-		sendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 	}
 }
 
 //Listing a group's detail for editing or updating the group content
 func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
-	groupname, err := mv(r, "groupname", true)
+	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
-		sendErrorResponse(w, "Group name not defined")
+		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}
 
-	listmode, _ := mv(r, "list", false)
+	listmode, _ := utils.GetPara(r, "list")
 	if listmode == "" {
 		//Edit update mode
-		permission, err := mv(r, "permission", true)
+		permission, err := utils.PostPara(r, "permission")
 		if err != nil {
-			sendErrorResponse(w, "Group name not defined")
+			utils.SendErrorResponse(w, "Group name not defined")
 			return
 		}
 
 		permissionSlice := []string{}
 		err = json.Unmarshal([]byte(permission), &permissionSlice)
 		if err != nil {
-			sendErrorResponse(w, "Failed to parse module list")
+			utils.SendErrorResponse(w, "Failed to parse module list")
 			return
 		}
 
-		isAdmin, err := mv(r, "isAdmin", true)
+		isAdmin, err := utils.PostPara(r, "isAdmin")
 		if err != nil {
-			sendErrorResponse(w, "Admin permission not defined")
+			utils.SendErrorResponse(w, "Admin permission not defined")
 			return
 		}
 
 		//Do not allow removal of admin permission from administrator group
 		if isAdmin == "false" && groupname == "administrator" {
-			sendErrorResponse(w, "You cannot unset admin permission from administrator group")
+			utils.SendErrorResponse(w, "You cannot unset admin permission from administrator group")
 			return
 		}
 
-		quota, err := mv(r, "defaultQuota", true)
+		quota, err := utils.PostPara(r, "defaultQuota")
 		if err != nil {
-			sendErrorResponse(w, "Default Quota not defined")
+			utils.SendErrorResponse(w, "Default Quota not defined")
 			return
 		}
 
-		interfaceModule, err := mv(r, "interfaceModule", true)
+		interfaceModule, err := utils.PostPara(r, "interfaceModule")
 		if err != nil {
-			sendErrorResponse(w, "Default Interface Module not defined")
+			utils.SendErrorResponse(w, "Default Interface Module not defined")
 			return
 		}
 
 		//Check if the group name already exists
 		if !h.GroupExists(groupname) {
-			sendErrorResponse(w, "Group not exists")
+			utils.SendErrorResponse(w, "Group not exists")
 			return
 		}
 
 		quotaInt, err := strconv.Atoi(quota)
 		if err != nil {
-			sendErrorResponse(w, "Invalid Quota.")
+			utils.SendErrorResponse(w, "Invalid Quota.")
 			return
 		}
 
 		h.UpdatePermissionGroup(groupname, isAdmin == "true", int64(quotaInt), permissionSlice, interfaceModule)
-		sendOK(w)
+		utils.SendOK(w)
 	} else {
 		//Listing mode
 
 		//Check if the group exists
 		if !h.GroupExists(groupname) {
-			sendErrorResponse(w, "Group not exists")
+			utils.SendErrorResponse(w, "Group not exists")
 			return
 		}
 
@@ -119,64 +121,64 @@ func (h *PermissionHandler) HandleGroupEdit(w http.ResponseWriter, r *http.Reque
 
 		//pg will not be nil because group exists has checked it availbilty
 		jsonString, _ := json.Marshal(pg)
-		sendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 
 	}
 
 }
 
 func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
-	groupname, err := mv(r, "groupname", true)
+	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
-		sendErrorResponse(w, "Group name not defined")
+		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}
 
-	permission, err := mv(r, "permission", true)
+	permission, err := utils.PostPara(r, "permission")
 	if err != nil {
-		sendErrorResponse(w, "Group name not defined")
+		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}
 
 	permissionSlice := []string{}
 	err = json.Unmarshal([]byte(permission), &permissionSlice)
 	if err != nil {
-		sendErrorResponse(w, "Failed to parse module list")
+		utils.SendErrorResponse(w, "Failed to parse module list")
 		return
 	}
 
-	isAdmin, err := mv(r, "isAdmin", true)
+	isAdmin, err := utils.PostPara(r, "isAdmin")
 	if err != nil {
-		sendErrorResponse(w, "Admin permission not defined")
+		utils.SendErrorResponse(w, "Admin permission not defined")
 		return
 	}
 
-	quota, err := mv(r, "defaultQuota", true)
+	quota, err := utils.PostPara(r, "defaultQuota")
 	if err != nil {
-		sendErrorResponse(w, "Default Quota not defined")
+		utils.SendErrorResponse(w, "Default Quota not defined")
 		return
 	}
 
-	interfaceModule, err := mv(r, "interfaceModule", true)
+	interfaceModule, err := utils.PostPara(r, "interfaceModule")
 	if err != nil {
-		sendErrorResponse(w, "Default Interface Module not defined")
+		utils.SendErrorResponse(w, "Default Interface Module not defined")
 		return
 	}
 
 	//Check if the group name already exists
 	if h.GroupExists(groupname) {
-		sendErrorResponse(w, "Group already exists")
+		utils.SendErrorResponse(w, "Group already exists")
 		return
 	}
 
 	quotaInt, err := strconv.Atoi(quota)
 	if err != nil {
-		sendErrorResponse(w, "Invalid Quota.")
+		utils.SendErrorResponse(w, "Invalid Quota.")
 		return
 	}
 
 	if quotaInt < -1 {
-		sendErrorResponse(w, "Quota cannot be smaller than -1. (Set to -1 for unlimited quota)")
+		utils.SendErrorResponse(w, "Quota cannot be smaller than -1. (Set to -1 for unlimited quota)")
 		return
 	}
 
@@ -194,26 +196,26 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 		h.LoadPermissionGroupsFromDatabase()
 	*/
 
-	sendOK(w)
+	utils.SendOK(w)
 	log.Println("Creating New Permission Group:", groupname, permission, isAdmin, quota)
 }
 
 func (h *PermissionHandler) HandleGroupRemove(w http.ResponseWriter, r *http.Request) {
-	groupname, err := mv(r, "groupname", true)
+	groupname, err := utils.PostPara(r, "groupname")
 	if err != nil {
-		sendErrorResponse(w, "Group name not defined")
+		utils.SendErrorResponse(w, "Group name not defined")
 		return
 	}
 
 	//Check if the group name  exists
 	if !h.GroupExists(groupname) {
-		sendErrorResponse(w, "Group not exists")
+		utils.SendErrorResponse(w, "Group not exists")
 		return
 	}
 
 	//Check if this is administrator group
 	if groupname == "administrator" {
-		sendErrorResponse(w, "You cannot remove Administrator group.")
+		utils.SendErrorResponse(w, "You cannot remove Administrator group.")
 		return
 	}
 
@@ -236,5 +238,5 @@ func (h *PermissionHandler) HandleGroupRemove(w http.ResponseWriter, r *http.Req
 	//Update 27-12-2020: Replaced database reload with new group list creation
 	//h.LoadPermissionGroupsFromDatabase()
 
-	sendOK(w)
+	utils.SendOK(w)
 }

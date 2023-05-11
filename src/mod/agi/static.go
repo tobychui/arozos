@@ -5,8 +5,47 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
+
+//Get the full vpath if the passing value is a relative path
+//Return the original vpath if any error occured
+func relativeVpathRewrite(fsh *filesystem.FileSystemHandler, vpath string, vm *otto.Otto, u *user.User) string {
+	//Check if the vpath contain a UUID
+	if strings.Contains(vpath, ":/") || (len(vpath) > 0 && vpath[len(vpath)-1:] == ":") {
+		//This vpath contain root uuid.
+		return vpath
+	}
+
+	//We have no idea where the script is from. Trust its vpath is always full path
+	if fsh == nil {
+		return vpath
+	}
+
+	//Get the script execution root path
+	rootPath, err := vm.Get("__FILE__")
+	if err != nil {
+		return vpath
+	}
+
+	rootPathString, err := rootPath.ToString()
+	if err != nil {
+		return vpath
+	}
+
+	//Convert the root path to vpath
+	rootVpath, err := fsh.FileSystemAbstraction.RealPathToVirtualPath(rootPathString, u.Username)
+	if err != nil {
+		return vpath
+	}
+
+	rootScriptDir := filepath.Dir(rootVpath)
+	return arozfs.ToSlash(filepath.Clean(filepath.Join(rootScriptDir, vpath)))
+}
 
 //Check if the user can access this script file
 func checkUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope string) bool {
@@ -19,7 +58,7 @@ func checkUserAccessToScript(thisuser *user.User, scriptFile string, scriptScope
 
 //validate the given path is a script from webroot
 func isValidAGIScript(scriptPath string) bool {
-	return fileExists(filepath.Join("./web", scriptPath)) && (filepath.Ext(scriptPath) == ".js" || filepath.Ext(scriptPath) == ".agi")
+	return utils.FileExists(filepath.Join("./web", scriptPath)) && (filepath.Ext(scriptPath) == ".js" || filepath.Ext(scriptPath) == ".agi")
 }
 
 //Return the script root of the current executing script
@@ -42,31 +81,22 @@ func specialURIDecode(inputPath string) string {
 	return inputPath
 }
 
-func specialGlob(path string) ([]string, error) {
-	files, err := filepath.Glob(path)
+//Check if the target path is escaping the rootpath, accept relative and absolute path
+func checkRootEscape(rootPath string, targetPath string) (bool, error) {
+	rootAbs, err := filepath.Abs(rootPath)
 	if err != nil {
-		return []string{}, err
+		return true, err
 	}
 
-	if strings.Contains(path, "[") == true || strings.Contains(path, "]") == true {
-		if len(files) == 0 {
-			//Handle reverse check. Replace all [ and ] with *
-			newSearchPath := strings.ReplaceAll(path, "[", "?")
-			newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
-			newSearchPath = strings.ReplaceAll(newSearchPath, "：", "?")
-			//Scan with all the similar structure except [ and ]
-			tmpFilelist, _ := filepath.Glob(newSearchPath)
-			for _, file := range tmpFilelist {
-				file = filepath.ToSlash(file)
-				if strings.Contains(file, filepath.ToSlash(filepath.Dir(path))) {
-					files = append(files, file)
-				}
-			}
-		}
+	targetAbs, err := filepath.Abs(targetPath)
+	if err != nil {
+		return true, err
 	}
-	//Convert all filepaths to slash
-	for i := 0; i < len(files); i++ {
-		files[i] = filepath.ToSlash(files[i])
+
+	if len(targetAbs) < len(rootAbs) || targetAbs[:len(rootAbs)] != rootAbs {
+		//Potential path escape. Return true
+		return true, nil
 	}
-	return files, nil
+
+	return false, nil
 }

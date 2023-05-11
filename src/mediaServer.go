@@ -1,16 +1,23 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
-	"log"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/compatibility"
+	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/network/gzipmiddleware"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -39,39 +46,44 @@ func mediaServer_init() {
 	http.HandleFunc("/media/download/", serverMedia)
 }
 
-//This function validate the incoming media request and return the real path for the targed file
-func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (string, error) {
+//This function validate the incoming media request and return fsh, vpath, rpath and err if any
+func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (*filesystem.FileSystemHandler, string, string, error) {
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
-		return "", errors.New("User not logged in")
+		return nil, "", "", errors.New("User not logged in")
 	}
 
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 
 	//Validate url valid
 	if strings.Count(r.URL.String(), "?") > 1 {
-		return "", errors.New("Invalid paramters. Multiple ? found")
+		return nil, "", "", errors.New("Invalid paramters. Multiple ? found")
 	}
 
-	targetfile, _ := common.Mv(r, "file", false)
+	targetfile, _ := utils.GetPara(r, "file")
 	targetfile, err = url.QueryUnescape(targetfile)
 	if err != nil {
-		return "", err
+		return nil, "", "", err
 	}
 	if targetfile == "" {
-		return "", errors.New("Missing paramter 'file'")
+		return nil, "", "", errors.New("Missing paramter 'file'")
 	}
 
 	//Translate the virtual directory to realpath
-	realFilepath, err := userinfo.VirtualPathToRealPath(targetfile)
-	if fs.FileExists(realFilepath) && fs.IsDir(realFilepath) {
-		return "", errors.New("Given path is not a file.")
+	fsh, subpath, err := GetFSHandlerSubpathFromVpath(targetfile)
+	if err != nil {
+		return nil, "", "", errors.New("Unable to load from target file system")
+	}
+	fshAbs := fsh.FileSystemAbstraction
+	realFilepath, err := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
+	if fshAbs.FileExists(realFilepath) && fshAbs.IsDir(realFilepath) {
+		return nil, "", "", errors.New("Given path is not a file")
 	}
 	if err != nil {
-		return "", errors.New("Unable to translate the given filepath")
+		return nil, "", "", errors.New("Unable to translate the given filepath")
 	}
 
-	if !fs.FileExists(realFilepath) {
+	if !fshAbs.FileExists(realFilepath) {
 		//Sometime if url is not URL encoded, this error might be shown as well
 
 		//Try to use manual segmentation
@@ -89,31 +101,38 @@ func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (st
 		}
 		urlInfo := strings.Split(originalURL, "file=")
 		possibleVirtualFilePath := urlInfo[len(urlInfo)-1]
-		possibleRealpath, err := userinfo.VirtualPathToRealPath(possibleVirtualFilePath)
+		possibleRealpath, err := fshAbs.VirtualPathToRealPath(possibleVirtualFilePath, userinfo.Username)
 		if err != nil {
-			log.Println("Error when trying to serve file in compatibility mode", err.Error())
-			return "", errors.New("Error when trying to serve file in compatibility mode")
+			systemWideLogger.PrintAndLog("Media Server", "Error when trying to serve file in compatibility mode", err)
+			return nil, "", "", errors.New("Error when trying to serve file in compatibility mode")
 		}
-		if fs.FileExists(possibleRealpath) {
+		if fshAbs.FileExists(possibleRealpath) {
 			realFilepath = possibleRealpath
-			log.Println("[Media Server] Serving file " + filepath.Base(possibleRealpath) + " in compatibility mode. Do not to use '&' or '+' sign in filename! ")
-			return realFilepath, nil
+			systemWideLogger.PrintAndLog("Media Server", "Serving file "+filepath.Base(possibleRealpath)+" in compatibility mode. Do not to use '&' or '+' sign in filename! ", nil)
+			return fsh, targetfile, realFilepath, nil
 		} else {
-			return "", errors.New("File not exists")
+			return nil, "", "", errors.New("File not exists")
 		}
 	}
 
-	return realFilepath, nil
+	return fsh, targetfile, realFilepath, nil
 }
 
 func serveMediaMime(w http.ResponseWriter, r *http.Request) {
-	realFilepath, err := media_server_validateSourceFile(w, r)
+	targetFsh, _, realFilepath, err := media_server_validateSourceFile(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
+	targetFshAbs := targetFsh.FileSystemAbstraction
+	if targetFsh.RequireBuffer {
+		//File is not on local. Guess its mime by extension
+		utils.SendTextResponse(w, "application/"+filepath.Ext(realFilepath)[1:])
+		return
+	}
+
 	mime := "text/directory"
-	if !fs.IsDir(realFilepath) {
+	if !targetFshAbs.IsDir(realFilepath) {
 		m, _, err := fs.GetMime(realFilepath)
 		if err != nil {
 			mime = ""
@@ -121,20 +140,23 @@ func serveMediaMime(w http.ResponseWriter, r *http.Request) {
 		mime = m
 	}
 
-	common.SendTextResponse(w, mime)
+	utils.SendTextResponse(w, mime)
 }
 
 func serverMedia(w http.ResponseWriter, r *http.Request) {
+	userinfo, _ := userHandler.GetUserInfoFromRequest(w, r)
 	//Serve normal media files
-	realFilepath, err := media_server_validateSourceFile(w, r)
+	targetFsh, vpath, realFilepath, err := media_server_validateSourceFile(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
+	targetFshAbs := targetFsh.FileSystemAbstraction
+
 	//Check if downloadMode
 	downloadMode := false
-	dw, _ := common.Mv(r, "download", false)
+	dw, _ := utils.GetPara(r, "download")
 	if dw == "true" {
 		downloadMode = true
 	}
@@ -148,7 +170,7 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 	if downloadMode {
 		escapedRealFilepath, err := url.PathUnescape(realFilepath)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		filename := filepath.Base(escapedRealFilepath)
@@ -166,11 +188,155 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 		*/
 
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-		w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+		w.Header().Set("Content-Type", compatibility.BrowserCompatibilityOverrideContentType(r.UserAgent(), filename, r.Header.Get("Content-Type")))
+		if targetFsh.RequireBuffer || !filesystem.FileExists(realFilepath) {
+			//Stream it directly from remote
+			w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(realFilepath))))
+			remoteStream, err := targetFshAbs.ReadStream(realFilepath)
+			if err != nil {
+				utils.SendErrorResponse(w, err.Error())
+				return
+			}
+			io.Copy(w, remoteStream)
+			remoteStream.Close()
+		} else {
+			http.ServeFile(w, r, escapedRealFilepath)
+		}
 
-		http.ServeFile(w, r, escapedRealFilepath)
 	} else {
-		http.ServeFile(w, r, realFilepath)
+		if targetFsh.RequireBuffer {
+			w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(realFilepath))))
+			//Check buffer exists
+			ps, _ := targetFsh.GetUniquePathHash(vpath, userinfo.Username)
+			buffpool := filepath.Join(*tmp_directory, "fsbuffpool")
+			buffFile := filepath.Join(buffpool, ps)
+			if fs.FileExists(buffFile) {
+				//Stream the buff file if hash matches
+				remoteFileHash, err := getHashFromRemoteFile(targetFsh.FileSystemAbstraction, realFilepath)
+				if err == nil {
+					localFileHash, err := os.ReadFile(buffFile + ".hash")
+					if err == nil {
+						if string(localFileHash) == remoteFileHash {
+							//Hash matches. Serve local buffered file
+							http.ServeFile(w, r, buffFile)
+							return
+						}
+					}
+				}
+
+			}
+
+			remoteStream, err := targetFshAbs.ReadStream(realFilepath)
+			if err != nil {
+				utils.SendErrorResponse(w, err.Error())
+				return
+			}
+			defer remoteStream.Close()
+			io.Copy(w, remoteStream)
+
+			if *enable_buffering {
+				os.MkdirAll(buffpool, 0775)
+				go func() {
+					BufferRemoteFileToTmp(buffFile, targetFsh, realFilepath)
+				}()
+			}
+
+		} else if !filesystem.FileExists(realFilepath) {
+			//Streaming from remote file system that support fseek
+			f, err := targetFsh.FileSystemAbstraction.Open(realFilepath)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - Internal Server Error"))
+				return
+			}
+			fstat, _ := f.Stat()
+			defer f.Close()
+			http.ServeContent(w, r, filepath.Base(realFilepath), fstat.ModTime(), f)
+		} else {
+			http.ServeFile(w, r, realFilepath)
+		}
+
 	}
 
+}
+
+func BufferRemoteFileToTmp(buffFile string, fsh *filesystem.FileSystemHandler, rpath string) error {
+	if fs.FileExists(buffFile + ".download") {
+		return errors.New("another buffer process running")
+	}
+
+	//Generate a stat file for the buffer
+	hash, err := getHashFromRemoteFile(fsh.FileSystemAbstraction, rpath)
+	if err != nil {
+		//Do not buffer
+		return err
+	}
+	os.WriteFile(buffFile+".hash", []byte(hash), 0775)
+
+	//Buffer the file from remote to local
+	f, err := fsh.FileSystemAbstraction.ReadStream(rpath)
+	if err != nil {
+		os.Remove(buffFile + ".hash")
+		return err
+	}
+	defer f.Close()
+
+	dest, err := os.OpenFile(buffFile+".download", os.O_CREATE|os.O_WRONLY, 0775)
+	if err != nil {
+		os.Remove(buffFile + ".hash")
+		return err
+	}
+	defer dest.Close()
+
+	io.Copy(dest, f)
+	f.Close()
+	dest.Close()
+
+	os.Rename(buffFile+".download", buffFile)
+
+	//Clean the oldest buffpool item if size too large
+	dirsize, _ := fs.GetDirctorySize(filepath.Dir(buffFile), false)
+	oldestModtime := time.Now().Unix()
+	oldestFile := ""
+	for int(dirsize) > *bufferPoolSize<<20 {
+		//fmt.Println("CLEARNING BUFF", dirsize)
+		files, _ := filepath.Glob(filepath.ToSlash(filepath.Dir(buffFile)) + "/*")
+		for _, file := range files {
+			if filepath.Ext(file) == ".hash" {
+				continue
+			}
+			thisModTime, _ := fs.GetModTime(file)
+			if thisModTime < oldestModtime {
+				oldestModtime = thisModTime
+				oldestFile = file
+			}
+		}
+
+		os.Remove(oldestFile)
+		os.Remove(oldestFile + ".hash")
+
+		dirsize, _ = fs.GetDirctorySize(filepath.Dir(buffFile), false)
+		oldestModtime = time.Now().Unix()
+	}
+	return nil
+}
+
+func getHashFromRemoteFile(fshAbs filesystem.FileSystemAbstraction, rpath string) (string, error) {
+	filestat, err := fshAbs.Stat(rpath)
+	if err != nil {
+		//Always pull from remote
+		return "", err
+	}
+
+	if filestat.Size() >= int64(*bufferPoolSize<<20) {
+		return "", errors.New("Unable to buffer: file larger than buffpool size")
+	}
+
+	if filestat.Size() >= int64(*bufferFileMaxSize<<20) {
+		return "", errors.New("File larger than max buffer file size")
+	}
+
+	statHash := strconv.Itoa(int(filestat.ModTime().Unix() + filestat.Size()))
+	hash := md5.Sum([]byte(statHash))
+	return hex.EncodeToString(hash[:]), nil
 }

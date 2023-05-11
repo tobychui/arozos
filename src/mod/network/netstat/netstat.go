@@ -3,21 +3,21 @@ package netstat
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
 	rx, tx, err := GetNetworkInterfaceStats()
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -30,10 +30,10 @@ func HandleGetNetworkInterfaceStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(currnetNetSpec)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
-//Get network interface stats, return accumulated rx bits, tx bits and error if any
+// Get network interface stats, return accumulated rx bits, tx bits and error if any
 func GetNetworkInterfaceStats() (int64, int64, error) {
 	if runtime.GOOS == "windows" {
 		cmd := exec.Command("wmic", "path", "Win32_PerfRawData_Tcpip_NetworkInterface", "Get", "BytesReceivedPersec,BytesSentPersec,BytesTotalPersec")
@@ -89,7 +89,7 @@ func GetNetworkInterfaceStats() (int64, int64, error) {
 		rxSum := int64(0)
 		txSum := int64(0)
 		for _, rxByteFile := range allIfaceRxByteFiles {
-			rxBytes, err := ioutil.ReadFile(rxByteFile)
+			rxBytes, err := os.ReadFile(rxByteFile)
 			if err == nil {
 				rxBytesInt, err := strconv.Atoi(strings.TrimSpace(string(rxBytes)))
 				if err == nil {
@@ -99,7 +99,7 @@ func GetNetworkInterfaceStats() (int64, int64, error) {
 
 			//Usually the tx_bytes file is nearby it. Read it as well
 			txByteFile := filepath.Join(filepath.Dir(rxByteFile), "tx_bytes")
-			txBytes, err := ioutil.ReadFile(txByteFile)
+			txBytes, err := os.ReadFile(txByteFile)
 			if err == nil {
 				txBytesInt, err := strconv.Atoi(strings.TrimSpace(string(txBytes)))
 				if err == nil {

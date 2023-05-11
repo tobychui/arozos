@@ -1,6 +1,7 @@
 package compatibility
 
 import (
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -39,4 +40,21 @@ func FirefoxBrowserVersionForBypassUploadMetaHeaderCheck(userAgent string) bool 
 	}
 	//Not Firefox.
 	return true
+}
+
+//Handle browser compatibility issue regarding some special format type
+func BrowserCompatibilityOverrideContentType(userAgent string, filename string, contentType string) string {
+	if strings.Contains(userAgent, "Mozilla") && strings.Contains(userAgent, "Firefox/") {
+		//Firefox. Handle specal content-type serving
+		if filepath.Ext(filename) == ".ai" {
+			//Handle issue #105 for .ai file downloaded as .pdf on Firefox
+			//https://github.com/tobychui/arozos/issues/105
+			return "application/ai"
+		} else if filepath.Ext(filename) == ".apk" {
+			return "application/apk"
+		} else if filepath.Ext(filename) == ".iso" {
+			return "application/x-iso9660-image"
+		}
+	}
+	return contentType
 }

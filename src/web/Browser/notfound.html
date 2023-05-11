@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+		<meta name="theme-color" content="#4b75ff">
+		<link rel="stylesheet" href="../script/semantic/semantic.min.css">
+		<script src="../script/jquery.min.js"></script>
+		<script src="../script/ao_module.js"></script>
+		<script src="../script/semantic/semantic.min.js"></script>
+		
+		<link rel="manifest" crossorigin="use-credentials" href="manifest.json">
+		<title>Not Found</title>
+		<style>
+
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="ui container">
+            <div class="main">
+                <h1><i class="remove icon"></i>Website Not Found</h1>
+                <p>Unable to connect to <span id="targeturl"></span> </p>
+                <div class="ui divider"></div>
+                <h3>The URL you are requesting does not exists or not responding</h3>
+                <p>We cannot request any header from the URL endpoint given. Please try again later or return to <a style="cursor: pointer;" onclick="parent.loadWebsite('about:blank');">home page</a>.</p>
+
+                <img class="ui tiny image" style="cursor: pointer;" onclick="parent.loadWebsite('arozos.com');" src="img/logo.png">
+            </div>
+        </div>
+       <script>
+        if (window.location.hash.length > 1){
+            $("#targeturl").text(window.location.hash.substr(1));
+        }
+       </script>
+    </body>
+</html>

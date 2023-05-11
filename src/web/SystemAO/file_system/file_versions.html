@@ -9,15 +9,30 @@
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
-
+            .backgroundIcon{
+                position: fixed;
+                bottom: 0px;
+                right: 0px;
+                opacity: 0.3;
+                margin-right: -8em;
+                margin-bottom: -5em;
+                z-index: -99;
+                pointer-events: none;
+                user-select: none;
+            }
         </style>
     </head>
     <body id="filePropertiesWindow">
         <br>
+        <div class="backgroundIcon">
+            <img class="ui medium image" src="../../img/system/file-restore.svg">
+        </div>
         <div class="ui container">
             <h3 class="ui header">
-                <span locale="title/title">File Version History</span>
-                <div class="sub header" locale="title/desc">Any file versions that is more than 30 days old will be automatically removed from the system.</div>
+                <div class="content">
+                    <span locale="title/title">File Version History</span>
+                    <div class="sub header" locale="title/desc">Any file versions that is more than 30 days old will be automatically removed from the system.</div>
+                </div>
             </h3>
             <button onclick="createSnapshot();" class="ui basic green button"><i class="ui add icon"></i> <span locale="button/newver">Create New Version</span></button>
             
@@ -131,6 +146,7 @@
                                     </td>
                                 </tr>`);
                             }
+                            applocale.translate();
                         }
                     }
                 });

@@ -10,7 +10,7 @@
                 "title/desc":"關於此虛擬儲存裝置對應之磁碟機掛載點",
 
                 "diskinfo/physical":"物理磁碟機",
-                "diskinfo/hierarchy":"儲存裝置結構",
+                "diskinfo/hierarchy":"儲存裝置結構（格式）",
 
                 "hierarchy/User":"使用者分隔",
                 "hierarchy/Public":"共用磁碟區",
@@ -36,12 +36,13 @@
         },
         "zh-hk": {
             "fwtitle" : "磁碟概覽",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings":{
                 "title/title":"磁碟概覽",
                 "title/desc":"關於此虛擬儲存裝置對應之磁碟機掛載點",
 
                 "diskinfo/physical":"物理磁碟機",
-                "diskinfo/hierarchy":"儲存裝置結構",
+                "diskinfo/hierarchy":"儲存裝置結構（格式）",
 
                 "hierarchy/User":"使用者分隔",
                 "hierarchy/Public":"共用磁碟區",
@@ -73,7 +74,7 @@
                 "title/desc":"关于此虚拟储存装置对应的硬盘挂载点",
 
                 "diskinfo/physical":"物理硬盘",
-                "diskinfo/hierarchy":"储存装置结构",
+                "diskinfo/hierarchy":"储存装置结构（格式）",
 
                 "hierarchy/User":"使用者分隔",
                 "hierarchy/Public":"共用硬盘",
@@ -96,6 +97,51 @@
             "placeholder":{
 
             }
-        }
+        },
+        "en-us":{
+            "fwtitle": "Disk Overview",
+            "strings": {
+            "title/title": "Disk Overview",
+            "title/desc": "Mounting point of the hard disk corresponding to this virtual storage device",
+            "diskinfo/physical": "Physical Hard Disk",
+            "diskinfo/hierarchy": "Storage Device Structure (Format)",
+            "hierarchy/User": "Storage Hierarchy",
+            "hierarchy/Public": "Shared Disk",
+            "hierarchy/Backup": "Backup Disk",
+            "spaceinfo/totalUsed": "Used Disk Space",
+            "spaceinfo/userUsed": "User Disk Space",
+            "spaceinfo/Usable": "Available Disk Space",
+            "spaceinfo/Capacity": "Disk Capacity",
+            "unit/bytes": " Bytes",
+            "button/close": "Confirm",
+            "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name":"日本語",
+            "fontFamily":"\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "fwtitle": "ディスクの概要",
+            "strings": {
+                "title/title": "ディスクの概要",
+                "title/desc": "この仮想ストレージ装置に対応する物理ハードディスクのマウント位置",
+                "diskinfo/physical": "物理ハードディスク",
+                "diskinfo/hierarchy": "ストレージデバイス構造（フォーマット）",
+                "hierarchy/User": "ユーザー隔離",
+                "hierarchy/Public": "共有ディスク",
+                "hierarchy/Backup": "バックアップディスク",
+                "spaceinfo/totalUsed": "使用済みの空間",
+                "spaceinfo/userUsed": "ユーザー占有空間",
+                "spaceinfo/Usable": "利用可能な空間",
+                "spaceinfo/Capacity": "ディスク容量",
+                "unit/bytes": " バイト",
+                "button/close": "確認",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+            }
+        
     }
 }

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	console "imuslab.com/arozos/mod/console"
-	"imuslab.com/arozos/mod/network/gzipmiddleware"
 )
 
 /*
@@ -39,32 +38,31 @@ func SetupCloseHandler() {
 
 func executeShutdownSequence() {
 	//Shutdown authAgent
-	log.Println("\r- Shutting down auth gateway")
+	systemWideLogger.PrintAndLog("System", "<!> Shutting down auth gateway", nil)
 	authAgent.Close()
 
 	//Shutdown all storage pools
-	log.Println("\r- Shutting down storage pools")
+	systemWideLogger.PrintAndLog("System", "<!> Shutting down storage pools", nil)
 	closeAllStoragePools()
 
-	//Shutdown Subservices
-	log.Println("\r- Shutting down background subservices")
-	//system_subservice_handleShutdown()
+	//Shutdown Logger
+	systemWideLogger.Close()
 
 	//Shutdown database
-	log.Println("\r- Shutting down database")
+	systemWideLogger.PrintAndLog("System", "<!> Shutting down database", nil)
 	sysdb.Close()
 
 	//Shutdown network services
 	StopNetworkServices()
 
 	//Shutdown FTP Server
-	if ftpServer != nil {
-		log.Println("\r- Shutting down FTP Server")
-		ftpServer.Close()
+	if FTPManager != nil {
+		systemWideLogger.PrintAndLog("System", "<!> Shutting down FTP Server", nil)
+		FTPManager.StopFtpServer()
 	}
 
 	//Cleaning up tmp files
-	log.Println("\r- Cleaning up tmp folder")
+	systemWideLogger.PrintAndLog("System", "<!> Cleaning up tmp folder", nil)
 	os.RemoveAll(*tmp_directory)
 	//Do other things
 	os.Exit(0)
@@ -89,9 +87,6 @@ func main() {
 		allow_hardware_management = &enablehw
 	}
 
-	//Setup handler for Ctrl +C
-	SetupCloseHandler()
-
 	//Clean up previous tmp files
 	final_tmp_directory := filepath.Clean(*tmp_directory) + "/tmp/"
 	tmp_directory = &final_tmp_directory
@@ -114,18 +109,26 @@ func main() {
 
 	//Initiate all the static files transfer
 	fs := http.FileServer(http.Dir("./web"))
-	if *enable_gzip {
-		//Gzip enabled. Always serve with gzip if header exists
-		http.Handle("/", gzipmiddleware.Compress(mrouter(fs)))
-	} else {
-		//Normal file server without gzip
-		http.Handle("/", mrouter(fs))
-	}
+	/*
+		if *enable_gzip {
+			//Gzip enabled. Always serve with gzip if header exists
+			//http.Handle("/", gzipmiddleware.Compress(mrouter(fs)))
+			http.Handle("/", mrouter(fs))
+		} else {
+			//Normal file server without gzip
+			http.Handle("/", mrouter(fs))
+		}
+	*/
+	//Updates 2022-09-06: Gzip handler moved inside the master router
+	http.Handle("/", mrouter(fs))
 
 	//Set database read write to ReadOnly after startup if demo mode
 	if *demo_mode {
 		sysdb.UpdateReadWriteMode(true)
 	}
+
+	//Setup handler for Ctrl +C
+	SetupCloseHandler()
 
 	//Start http server
 	go func() {

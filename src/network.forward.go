@@ -2,12 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
-	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -36,7 +35,7 @@ func portForwardInit() {
 			//Forward the recorded port
 			err := UPNP.ForwardPort(portNumber, policyName)
 			if err != nil {
-				log.Println("Port Fordware Failed: ", err.Error(), ". Skipping "+policyName)
+				systemWideLogger.PrintAndLog("UpnP", "Port Fordware Failed: "+err.Error()+". Skipping "+policyName, err)
 			}
 
 		}
@@ -47,7 +46,7 @@ func portForwardInit() {
 			AdminOnly:   false,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				common.SendErrorResponse(w, "Permission Denied")
+				utils.SendErrorResponse(w, "Permission Denied")
 			},
 		})
 
@@ -64,10 +63,10 @@ func portForwardInit() {
 }
 
 func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
-	opr, _ := common.Mv(r, "opr", true)
+	opr, _ := utils.PostPara(r, "opr")
 	if opr == "" {
 		if UPNP == nil {
-			common.SendErrorResponse(w, "UPNP is not enabled")
+			utils.SendErrorResponse(w, "UPNP is not enabled")
 			return
 		}
 		//List the current forward port and names
@@ -95,30 +94,30 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 				ReadOnly: readOnly,
 			}
 
-			//log.Println(thisPort)
+			//systemWideLogger.PrintAndLog(thisPort,nil)
 
 			forwardPorts = append(forwardPorts, thisPort)
 		}
 
 		//Send the result as json
 		js, _ := json.Marshal(forwardPorts)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	} else if opr == "add" {
-		port, err := common.Mv(r, "port", true)
+		port, err := utils.PostPara(r, "port")
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid port number")
+			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
 
 		//Convert port to int
 		portNumberic, err := strconv.Atoi(port)
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid port number")
+			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
 
 		//Get the policy name
-		policyName, err := common.Mv(r, "name", true)
+		policyName, err := utils.PostPara(r, "name")
 		if err != nil {
 			policyName = "Unnamed Forward Policy"
 		}
@@ -130,25 +129,25 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 			//Forward the port
 			err := UPNP.ForwardPort(portNumberic, policyName)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 			} else {
-				common.SendOK(w)
+				utils.SendOK(w)
 			}
 		} else {
-			common.SendErrorResponse(w, "UPNP is not enabled")
+			utils.SendErrorResponse(w, "UPNP is not enabled")
 			return
 		}
 	} else if opr == "remove" {
-		port, err := common.Mv(r, "port", true)
+		port, err := utils.PostPara(r, "port")
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid port number")
+			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
 
 		//Convert port to int
 		portNumberic, err := strconv.Atoi(port)
 		if err != nil {
-			common.SendErrorResponse(w, "Invalid port number")
+			utils.SendErrorResponse(w, "Invalid port number")
 			return
 		}
 
@@ -161,12 +160,12 @@ func portforward_handleForward(w http.ResponseWriter, r *http.Request) {
 		if UPNP != nil {
 			err := UPNP.ClosePort(portNumberic)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 			} else {
-				common.SendOK(w)
+				utils.SendOK(w)
 			}
 		} else {
-			common.SendErrorResponse(w, "UPNP is not enabled")
+			utils.SendErrorResponse(w, "UPNP is not enabled")
 			return
 		}
 	}

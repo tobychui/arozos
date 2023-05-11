@@ -11,9 +11,9 @@ package smtpn
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/smtp"
+	"os"
 	"strconv"
 	"time"
 
@@ -32,7 +32,7 @@ type Agent struct {
 }
 
 func NewSMTPNotificationAgent(hostname string, configFile string, usernameToEmailFunction func(string) (string, error)) (*Agent, error) {
-	config, err := ioutil.ReadFile(configFile)
+	config, err := os.ReadFile(configFile)
 
 	if err != nil {
 		return nil, errors.New("Unable to load config from file: " + err.Error())
@@ -51,7 +51,7 @@ func NewSMTPNotificationAgent(hostname string, configFile string, usernameToEmai
 
 }
 
-//Generate an empty config filepath
+// Generate an empty config filepath
 func GenerateEmptyConfigFile(configFilepath string) error {
 	demoConfig := Agent{}
 	//Stringify the empty struct
@@ -61,7 +61,7 @@ func GenerateEmptyConfigFile(configFilepath string) error {
 	}
 
 	//Write to file
-	err = ioutil.WriteFile(configFilepath, js, 0775)
+	err = os.WriteFile(configFilepath, js, 0775)
 	return err
 
 }
@@ -104,7 +104,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 		thisEmail := thisEntry[1]
 
 		//Load email template
-		template, _ := ioutil.ReadFile("system/www/smtpn.html")
+		template, _ := os.ReadFile("system/www/smtpn.html")
 		t := fasttemplate.New(string(template), "{{", "}}")
 		s := t.ExecuteString(map[string]interface{}{
 			"receiver":  "Hello " + thisUser + ",",

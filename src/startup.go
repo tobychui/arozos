@@ -13,14 +13,16 @@ import (
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func RunStartup() {
+	systemWideLogger, _ = logger.NewLogger("system", "system/logs/system/", true)
 	//1. Initiate the main system database
 
 	//Check if system or web both not exists and web.tar.gz exists. Unzip it for the user
 	if (!fs.FileExists("system/") || !fs.FileExists("web/")) && fs.FileExists("./web.tar.gz") {
-		log.Println("Unzipping system critical files from archive")
+		log.Println("[Update] Unzipping system critical files from archive")
 		extErr := filesystem.ExtractTarGzipFile("./web.tar.gz", "./")
 		if extErr != nil {
 			//Extract failed
@@ -32,7 +34,7 @@ func RunStartup() {
 		//Extract success
 		extErr = os.Remove("./web.tar.gz")
 		if extErr != nil {
-			log.Println("Unable to remove web.tar.gz: ", extErr)
+			systemWideLogger.PrintAndLog("Update", "Unable to remove web.tar.gz: "+extErr.Error(), extErr)
 		}
 	}
 
@@ -109,19 +111,21 @@ func RunStartup() {
 	system_resetpw_init()
 	mediaServer_init()
 	security_init()
-	backup_init()
+	storageHeartbeatTickerInit()
 	OAuthInit()        //Oauth system init
 	ldapInit()         //LDAP system init
 	notificationInit() //Notification system init
 
 	//Start High Level Services that requires full arozos architectures
-	FTPServerInit() //Start FTP Server Endpoints
-	WebDAVInit()    //Start WebDAV Endpoint
-	ClusterInit()   //Start Cluster Services
-	IoTHubInit()    //Inialize ArozOS IoT Hub module
+	FileServerInit()
+	//FTPServerInit() //Start FTP Server Endpoints
+	//WebDAVInit()    //Start WebDAV Endpoint
+	ClusterInit() //Start Cluster Services
+	IoTHubInit()  //Inialize ArozOS IoT Hub module
 
 	ModuleInstallerInit() //Start Module Installer
 
 	//Finally
 	moduleHandler.ModuleSortList() //Sort the system module list
+
 }

@@ -14,8 +14,8 @@ var moduleLaunchInfo = {
 	LaunchFWDir: "Music/index.html",
 	SupportEmb: true,
 	LaunchEmb: "Music/embedded.html",
-	InitFWSize: [475, 700],
-	InitEmbSize: [360, 240],
+	InitFWSize: [475, 720],
+	InitEmbSize: [360, 254],
 	SupportedExt: [".mp3",".flac",".wav",".ogg",".aac",".webm",".mp4"]
 }
 

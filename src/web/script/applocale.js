@@ -38,7 +38,7 @@ var applocale = {
 
                 if (data.keys[applocale.lang] != undefined && data.keys[applocale.lang].fontFamily != undefined){
                     //This language has a prefered font family. Inject it
-                    $("h1, h2, h3, p, span, div, span").css({
+                    $("h1, h2, h3, p, span, div, a, button").css({
                         "font-family":data.keys[applocale.lang].fontFamily
                     });
                     console.log("[Applocale] Updating font family to: ", data.keys[applocale.lang].fontFamily)
@@ -83,6 +83,13 @@ var applocale = {
                 }
             }
         })
+
+        if (applocale.localData.keys[applocale.lang] != undefined && applocale.localData.keys[applocale.lang].fontFamily != undefined){
+            //This language has a prefered font family. Inject it
+            $("h1, h2, h3, p, span, div, a").css({
+                "font-family":applocale.localData.keys[applocale.lang].fontFamily
+            });
+        }
     },
     getString: function(key, original, type = "strings") {
         var targetLang = this.lang;

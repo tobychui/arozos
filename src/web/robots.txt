@@ -3,70 +3,76 @@
 # If you want SEO on your cloud system, remove this file from the web root.
 
 User-agent: Applebot
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: baiduspider
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: Bingbot
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: Discordbot
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: facebookexternalhit
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: Googlebot
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: Googlebot-Image
 Disallow: /SystemAO/
@@ -81,48 +87,52 @@ Disallow: /user.system
 Disallow: /homepage/
 
 User-agent: ia_archiver
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: LinkedInBot
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: msnbot
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: Naverbot
+Allow: /login.system
 Disallow: /SystemAO/
 Disallow: /system/
 Disallow: /index.html
-Disallow: /login.system
 Disallow: /mobile.system
 Disallow: /desktop.system
 Disallow: /reset.system
 Disallow: /user.system
 Disallow: /homepage/
+Disallow: /fileview/
 
 User-agent: Pinterestbot
 Disallow: /SystemAO/
@@ -222,5 +232,14 @@ Disallow: /user.system
 Disallow: /homepage/
 
 User-agent: *
-Disallow: /
+Allow: /login.system
+Disallow: /SystemAO/
+Disallow: /system/
+Disallow: /index.html
+Disallow: /mobile.system
+Disallow: /desktop.system
+Disallow: /reset.system
+Disallow: /user.system
+Disallow: /homepage/
+Disallow: /fileview/
 

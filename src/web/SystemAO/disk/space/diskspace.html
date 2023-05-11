@@ -10,6 +10,9 @@
             #diskInfo{
                 padding-left:22px;
             }
+            .usedSpace{
+                margin-top: -0.8em;
+            }
         </style>
     </head>
     <body>
@@ -56,10 +59,11 @@
                                     </div>
                                     <div class="extra text" style="width:100% !important;">
                                     <div class="ui small ${color} active progress">
-                                        <div class="bar" style="width:${usedPercentage}%;"></div>
-                                        <div class="label">Remaining: ${bytesToSize(thisDev.Available)} / ${bytesToSize(thisDev.Volume)}</div>
+                                        <div class="bar" style="width:${usedPercentage}%;">
+                                            <div class="progress">${usedPercentage}%</div>
+                                        </div>
+                                        <div class="label">Free: ${bytesToSize(thisDev.Available)} / Total: ${bytesToSize(thisDev.Volume)}</div>
                                     </div>
-                                    <p style="margin-top:-20px;">Used Space: ${thisDev.UsedPercentage}</p>
                                     </div>
                                 </div>
                             </div>`);

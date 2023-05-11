@@ -2,7 +2,7 @@ package oauth2
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -73,7 +73,7 @@ func gitlabUserInfo(accessToken string, server string) (string, error) {
 		return "", err
 	}
 	defer response.Body.Close()
-	contents, err := ioutil.ReadAll(response.Body)
+	contents, err := io.ReadAll(response.Body)
 	if err != nil {
 		return "", err
 	}

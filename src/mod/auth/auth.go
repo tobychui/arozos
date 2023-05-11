@@ -39,6 +39,7 @@ import (
 	"imuslab.com/arozos/mod/auth/explogin"
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/network"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type AuthAgent struct {
@@ -167,7 +168,7 @@ func (a *AuthAgent) HandleCheckAuth(w http.ResponseWriter, r *http.Request, hand
 func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	//Get username from request using POST mode
-	username, err := mv(r, "username", true)
+	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		//Username not defined
 		log.Println("[System Auth] Someone trying to login with username: " + username)
@@ -178,7 +179,7 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Get password from request using POST mode
-	password, err := mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
 		//Password not defined
 		a.Logger.LogAuth(r, false)
@@ -188,7 +189,7 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	//Get rememberme settings
 	rememberme := false
-	rmbme, _ := mv(r, "rmbme", true)
+	rmbme, _ := utils.PostPara(r, "rmbme")
 	if rmbme == "true" {
 		rememberme = true
 	}
@@ -362,21 +363,21 @@ func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	userCount := a.GetUserCounts()
 
 	//Get username from request
-	newusername, err := mv(r, "username", true)
+	newusername, err := utils.PostPara(r, "username")
 	if err != nil {
 		sendTextResponse(w, "Error. Missing 'username' paramter")
 		return
 	}
 
 	//Get password from request
-	password, err := mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
 		sendTextResponse(w, "Error. Missing 'password' paramter")
 		return
 	}
 
 	//Set permission group to default
-	group, err := mv(r, "group", true)
+	group, err := utils.PostPara(r, "group")
 	if err != nil {
 		sendTextResponse(w, "Error. Missing 'group' paramter")
 		return
@@ -435,7 +436,7 @@ func (a *AuthAgent) HandleUnregister(w http.ResponseWriter, r *http.Request) {
 	*/
 
 	//Get username from request
-	username, err := mv(r, "username", true)
+	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		sendErrorResponse(w, "Missing 'username' paramter")
 		return

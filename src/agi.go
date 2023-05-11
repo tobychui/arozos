@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	agi "imuslab.com/arozos/mod/agi"
-	"imuslab.com/arozos/mod/common"
+	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 var (
@@ -27,9 +27,10 @@ func AGIInit() {
 		FileSystemRender:     thumbRenderHandler,
 		ShareManager:         shareManager,
 		NightlyManager:       nightlyManager,
+		TempFolderPath:       *tmp_directory,
 	})
 	if err != nil {
-		log.Println("AGI Gateway Initialization Failed")
+		systemWideLogger.PrintAndLog("AGI", "AGI Gateway Initialization Failed", err)
 	}
 
 	//Register user request handler endpoint
@@ -45,7 +46,7 @@ func AGIInit() {
 	//Register external API request handler endpoint
 	http.HandleFunc("/api/ajgi/interface", func(w http.ResponseWriter, r *http.Request) {
 		//Check if token exists
-		token, err := common.Mv(r, "token", true)
+		token, err := utils.PostPara(r, "token")
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("401 - Unauthorized (token is empty)"))
@@ -53,11 +54,11 @@ func AGIInit() {
 		}
 
 		//Validate Token
-		if authAgent.TokenValid(token) == true {
+		if authAgent.TokenValid(token) {
 			//Valid
 			thisUsername, err := gw.Option.UserHandler.GetAuthAgent().GetTokenOwner(token)
 			if err != nil {
-				log.Println(err)
+				systemWideLogger.PrintAndLog("AGI", "Unable to validate token owner", err)
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("500 - Internal Server Error"))
 				return
@@ -73,6 +74,19 @@ func AGIInit() {
 	})
 
 	http.HandleFunc("/api/ajgi/exec", gw.HandleAgiExecutionRequestWithToken)
+
+	// external AGI related function
+	externalAGIRouter := prout.NewModuleRouter(prout.RouterOption{
+		ModuleName:  "ARZ Serverless",
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			errorHandlePermissionDenied(w, r)
+		},
+	})
+	externalAGIRouter.HandleFunc("/api/ajgi/listExt", gw.ListExternalEndpoint)
+	externalAGIRouter.HandleFunc("/api/ajgi/addExt", gw.AddExternalEndPoint)
+	externalAGIRouter.HandleFunc("/api/ajgi/rmExt", gw.RemoveExternalEndPoint)
 
 	AGIGateway = gw
 }

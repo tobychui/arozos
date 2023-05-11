@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+        <meta charset="UTF-8">
+        <meta name="theme-color" content="#4b75ff">
+        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+        <script src="../script/jquery.min.js"></script>
+        <script src="../script/ao_module.js"></script>
+        <script src="../script/semantic/semantic.min.js"></script>
+        <script type="application/javascript" src="../script/clipboard.min.js"></script>
+        <title>Serverless</title>
+        <style>
+            body{
+                background-color:white;
+            }
+                    /* Tooltip container */
+                   .tooltip {
+                   position: relative;
+                   display: inline-block;
+                   border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+                   }
+       
+                   /* Tooltip text */
+                   .tooltip .tooltiptext {
+                   visibility: hidden;
+                   width: 120px;
+                   background-color: #555;
+                   color: #fff;
+                   text-align: center;
+                   padding: 5px 0;
+                   border-radius: 6px;
+       
+                   /* Position the tooltip text */
+                   position: absolute;
+                   z-index: 1;
+                   bottom: 125%;
+                   left: 50%;
+                   margin-left: -60px;
+       
+                   /* Fade in tooltip */
+                   opacity: 0;
+                   transition: opacity 0.3s;
+                   }
+       
+                   /* Tooltip arrow */
+                   .tooltip .tooltiptext::after {
+                   content: "";
+                   position: absolute;
+                   top: 100%;
+                   left: 50%;
+                   margin-left: -5px;
+                   border-width: 5px;
+                   border-style: solid;
+                   border-color: #555 transparent transparent transparent;
+                   }
+                   
+                   .tooltitle{
+                        height: 5em;
+                        background-color: #5d6f77;
+                        color: white;
+                   }
+               </style>
+    </head>
+    <body>
+        <div class="tooltitle">
+            <br>
+            <div class="ui container">
+                <h4 class="ui header">
+                    <div class="content" style="color: white;">
+                        Serverless Control Panel
+                      <div class="sub header" style="color: rgb(233, 233, 233);">Allow external services to run AGI scripts</div>
+                    </div>
+                </h4>
+            </div>
+        </div>
+        <div id="deleteSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i>Service Deleted</div>
+        <div>
+            <table class="ui celled unstackable table">
+                <thead>
+                    <tr>
+                        <th>UUID (access token)</th>
+                        <th>AGI Path</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="records">
+                
+                </tbody>
+            </table>
+            <div style="width: 100%" align="center">
+                <div class="ui breadcrumb" id="pageIndexs">
+                </div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <div id="updateSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i>Service Added</div>
+        <div class="ui container">
+            <h4>Select AGI Script</h4>
+            <p>Select a script to be executed by 3rd party application via RESTFUL request. <br>
+                Note that the AGI script will be executed with <b>your user scope</b></p>
+            <div class="ui action fluid input">
+                <input id="agiPath" type="text" placeholder="Select Location" readonly="true">
+                <button class="ui black button" onclick="openfileselector();"><i class="folder open icon"></i> Open</button>
+            </div>
+            <button class="ui positive right floated button" onclick="add();" style="margin-top: 0.4em;"><i class="ui checkmark icon"></i> Add</button>
+            <br><br>
+            <div class="ui divider"></div>
+            <p><small>Misuse of serverless function might affect your account safty or causes data loss. Please use this function with caution and do not copy and paste code from unknown sources.</small></p>
+        </div>
+        <br><br>
+        <script>
+            $.getJSON( "/api/ajgi/listExt", function( data ) {
+                $.each( data, function( key, val ) {
+                    appendTable(key, val.path);
+                });
+                if(Object.keys(data).length == 0) {
+                    $("#records").append(`<tr id="zeroRec"><td>No registered endpoint</td></tr>`);
+                }
+            });
+
+            function openfileselector(){
+                ao_module_openFileSelector(fileLoader, "user:/", "file",false, {filter:["agi", "js"]});
+            }
+
+
+            function fileLoader(filedata){
+                for (var i=0; i < filedata.length; i++){
+                    var filename = filedata[i].filename;
+                    var filepath = filedata[i].filepath;
+                    $("#agiPath").val(filepath);
+                }
+            }
+
+            function add() {
+                var path = $("#agiPath").val();
+                $.getJSON( "/api/ajgi/addExt?path=" + path, function( data ) {
+                    if(data.error == undefined) {
+                        $("#updateSuceed").slideDown("fast").delay(3000).slideUp("fast");
+                        appendTable(data, path);
+                    }else{
+                        alert(data.error);
+                    }
+                });
+            }
+
+            function delRecord(element) {
+                $.getJSON( "/api/ajgi/rmExt?uuid=" + $(element).attr("uuid"), function( data ) {
+                    if(data == "OK") {
+                        $("#deleteSuceed").slideDown("fast").delay(3000).slideUp("fast");
+                    }else{
+                        alert(data.error);
+                    }
+                });
+                $(element).parent().parent().remove().slideUp("fast");
+                if($("#records").html().trim() == '') {
+                    $("#records").append(`<tr id="zeroRec"><td>0 record returned.</td></tr>`);
+                }
+            }
+
+            
+            var tokenAccessPath = location.protocol + "//" + window.location.host + "/api/remote/";
+            new ClipboardJS('.copyURL', {
+                text: function(trigger) {
+                        var token = $(trigger).attr("token");
+                        var url = tokenAccessPath + token;
+                        console.log( $(trigger).find(".tooltiptext"));
+                        $(trigger).find(".tooltiptext").css({
+                            "visibility": "visible",
+                            "opacity": 1,
+                        });
+                        setTimeout(function(){
+                            $(trigger).find(".tooltiptext").css({
+                                "visibility": "hidden",
+                                "opacity": 0,
+                            });
+                        }, 3000);
+                    return url;
+                }
+            });
+
+            function generateClipboardText(uuid) {
+                return `
+                    <div>
+                        <div class="content" style="font-family: monospace;">
+                           ${uuid} <a style="margin-left: 12px; font-family: Arial;" token="${uuid}" class="copyURL tooltip">
+                                <i class="copy icon"></i>  Copy
+                                <span class="tooltiptext"><i class="checkmark icon"></i> Copied</span>
+                           </a> 
+                        </div>
+                    </div>
+                `;
+            }
+
+            function appendTable(uuid, path) {
+                $("#zeroRec").remove().slideUp("fast");
+                $("#records").append(`<tr>
+                            <td>` + generateClipboardText(uuid) +`</td>
+                            <td>` + path + `</td>
+                            <td>
+                                <button class="ui icon basic circular negative button" uuid="` + uuid + `" onclick="delRecord(this)">
+                                <i class="close icon"></i>
+                                </button>
+                            </td>
+                        </tr>`);
+            }
+        </script>
+    </body>
+</html>

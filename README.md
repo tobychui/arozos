@@ -2,143 +2,145 @@
 
 <img src="https://img.shields.io/badge/License-GPLv3-blue"> <img src="https://img.shields.io/badge/Device-Raspberry%20Pi%203B%2B%20%2F%204B-red"> <img src="https://img.shields.io/badge/Made%20In%20Hong%20Kong-香港開發-blueviolet">
 
-## IMPORTANT NOTES
-The current arozos is still under intense development. System structure might change at any time. Please only develop on the current existing ArOZ Gateway Interface (AGI) JavaScript Interface or standard HTML webapps with ao_module.js endpoints.
-
 ## Features
+
 ### User Interface
+
 - Web Desktop Interface (Better than Synology DSM)
 - Ubuntu remix Windows style startup menu and task bars
 - Clean and easy to use File Manager (Support drag drop, upload etc)
 - Simplistic System Setting Menu
 - No-bull-shit module naming scheme
 
-### Networking 
-- FTP Server
-- Static Web Server
-- WebDAV Server
+### Networking
+
+- Basic Realtime Network Statistic
+- Static Web Server (with build in Web Editor!)
+- mDNS discovery + SSDP broadcast
 - UPnP Port Forwarding
-- Samba (Supported via 3rd party sub-services)
 - WiFi Management (Support wpa_supplicant for Rpi or nmcli for Armbian)
 
 ### File / Disk Management
-- Mount / Format Disk Utilities (support NTFS, EXT4 and more!)
-- Virtual File System Architecture
+
+- Mount Disk Utilities
+  - Local File Systems (ext4, NTFS, FAT etc)
+  - Remote File Systems (WebDAV, SMB, SFTP etc)
+
+- Build in Network File Sharing Servers
+  - FTP, WebDAV, SFTP
+  - Basic Auth based simple HTTP interface for legacy devices with outdated browser
+
+- Virtual File System + Sandbox Architecture
 - File Sharing (Similar to Google Drive)
 - Basic File Operations with Real-time Progress (Copy / Cut / Paste / New File or Folder etc)
 
 ### Security
+
 - oAuth
 - LDAP
 - IP White / Blacklist
 - Exponential login timeout
 
 ### Extensibility
+
 - ECMA5 (JavaScript like) scripting interface
 - 3rd party Go / Python module development with sub-service reverse proxy
 
 ### Others
-- Require as little as 512MB system memory and 8GB system storage
+
+- Require as little as 512MB system memory and 16GB system storage
 - Base on one of the most stable Linux distro - Debian
-- Support for Desktop, Laptop (touchpad) and Mobile screen sizes
+- Support for Responsive Web Design (RWD) for different screen size
+- Support use as Progress WebApp (PWA) on mobile devices
+- Support desktop devices with touch screen
 
+## Build from Source
 
-
-## Installation
-Require GO 1.14 or above (See [Instllation tutorial](https://dev.to/tobychui/install-go-on-raspberry-pi-os-shortest-tutorial-4pb))
+Require GO 1.20 or above (See [Instllation tutorial](https://dev.to/tobychui/install-go-on-raspberry-pi-os-shortest-tutorial-4pb)) and ffmpeg (Optional: wpa_supplicant or nmcli)
 
 Run the following the command to build the system
 
-```
+```bash
 git clone https://github.com/tobychui/arozos
 cd ./arozos/src/
+go mod tidy
 go build
 ./arozos 
 #sudo ./arozos for enabling hardware and WiFi management features
 ```
+
 (Yes, it is that simple)
 
-## Deploy
-### For Raspberry Pi (For Raspberry Pi 4B+)
-If you are using Raspberry Pi as your host, you can download one of the images and flash the image into your SD card. You will find a new network device named "ArozOS (ARxxx)" pop up in your "Network Neighbourhood". Double click the icon and you will be redirect to the system Web setup interface. If you cannot find the new device in your network, you can also connect to the ArozOS directly via ```http://{raspberry_pi_ip_address}:8080/```
+## Install from Precompiled Binary
 
-|Version|Download|Mirror|Remarks|
-|---|---|---|---|
-|arozos-v1.120|https://www.mediafire.com/file/rg3gkdt4asgk789/arozos_v1.120.7z/file|https://drive.google.com/file/d/1neTDxFpXxQQzsHvyqmCJOfAzjCPi8RzY/view?usp=sharing||
-|arozos v1.119|https://www.mediafire.com/file/4vx4f5boj8pfeu1/arozos_v1.119.7z/file|https://drive.google.com/file/d/1Gl_wYCvbio2lmW6YiFObIJHlejLzFrRu/view?usp=sharing|Updated to Raspberry Pi OS 64-bit. See compatible list [here](https://www.raspberrypi.com/news/raspberry-pi-os-64-bit/)|
-|arozos v1.118 (v2)|https://www.mediafire.com/file/f1i4xsp4rplwbko/arozos_v1.118_v2.7z/file|https://drive.google.com/file/d/1sgG-QOlaUmXhSiUJIB3DpnejElud1yvn/view?usp=sharing|Support Pi zero 2w|
-|arozos v1.115 (Stable)|https://www.mediafire.com/file/zbhieo59fq2sw80/arozos_v1.115.7z/file||Build in [WsTTY](https://github.com/aroz-online/WsTTY)|
-|arozos v1.114|EOL||Unstable, upgrade to 1.115 if you are still using this version|
-|arozos v1.113|https://www.mediafire.com/file/u42ha6ljfq6q0g9/arozos_v1.113.7z/file|||
-|arozos v1.112 (Stable)|https://www.mediafire.com/file/eonn1weu8jvfz29/arozos_v1.112.7z/file||Bug fix and patches for v1.111|
-|arozos v1.111 (Stable)|https://www.mediafire.com/file/cusm5jwsuey6b4k/arozos_v1.111.7z/file||IoT Hub Added|
-|arozos v1.110 (Stable)|http://www.mediafire.com/file/r7l40jv727covej/arozos_v1.110.7z/file|||
-|arozos v1.109|https://www.mediafire.com/file/mmjyv77ei9fwab5/arozos_v1.109.7z/file|||
-|arozos v1.108|https://www.mediafire.com/file/aa8176setz3ljtv/arozos_v1.108.7z/file||WebDAV Support Added|
-|arozos v1.107||https://drive.google.com/file/d/1klI6fVaSLHFr213kI35W6a6hYyBUSIrI/view?usp=sharing|Samba Supported Added|
-|arozos v1.106||https://drive.google.com/file/d/1ysZxeIQ5dBu7x5eEyCDwHtMJmJoMp9El/view?usp=sharing||
+### Linux (armv6 / v7, arm64 and amd64)
 
-**All the image listed above require 8GB or above microSD card**
+*(e.g. Raspberry Pi 4B, Raspberry Pi Zero W, Orange Pi, $5 tiny VPS on lightsail or ramnode, only tested with Debian based Linux)*
 
-To optain the .img file, you can unzip the compressed image using 7zip. If you don't have it, you can get it [here](https://www.7-zip.org/download.html)
+Install the latest version of Raspberry Pi OS / Armbian / Debian on an SD card / boot drive and boot it up. After setup and initialization is done, connect to it via SSH or use the Terminal App on your desktop to enter the following command
 
-### For All Pi models
-
-#### Build from source using installer script (Recommended)
-
-Since v1.119, arozos pre-build image has been moved from the original Raspberry Pi OS 32-bit to 64-bit for better utilization of system resources. For older version of Pis, you can install arozos with the command below with a fresh installation of Raspberry Pi OS
-
-```
-curl -L https://raw.githubusercontent.com/tobychui/arozos/master/installer/install_for_pi.sh | bash
-```
-or without curl
-```
-cd ~/
-wget https://raw.githubusercontent.com/tobychui/arozos/master/installer/install_for_pi.sh
-sudo chmod 775 ./install_for_pi.sh
-./install_for_pi.sh
+```bash
+wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/2.0/installer/install.sh && bash install.sh
 ```
 
-The installer will install all the required dependencies including ffmpeg and go compiler. To confirm installation success, check for the execution status of arozos using the following command.
+and follow the on-screen instruction to setup your arozos system. 
+
+If you selected install to systemd service, you can check the status of the service using 
 
 ```
 sudo systemctl status arozos
 ```
 
-#### Using prebuilt binary
-
-See installation steps for other ARM SBC (but use the ```arozos_linux_arm``` binary instead of ```arozos_linux_arm64```)
-
-### For other ARM SBC(e.g. Orange Pi / Banana Pi / Friendly ARM's Pis)
-
-Download the correct architecture binary from the "release" tab and upload the binary with the "web" and "system" folder in "/src".
-After upload, you should have the following file structure
+Otherwise, you will need to manually start the arozos using the following command
 
 ```
-$ ls
-arozos_linux_arm64  web  system
+cd ~/arozos
+sudo ./arozos
+# or if you have launcher installed
+sudo ./launcher
 ```
 
-Start the binary by calling ``` sudo ./arozos_linux_arm64 ``` (or without sudo if you prefer no hardware management)
+After installation, depending on the processing power and disk speed of your host, it will take some time for arozos to unzip the required files. Wait around 3 - 5 minutes and visit the following link to continue root admin account setups.
 
-### Windows
-If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable.
-
-This system can be built and run on Windows hosts with the following build instructions
 ```
-# Download the whole repo as zip and cd into it
-cd .\arozos\src\
-go build
-arozos.exe
+http://{ip_address_of_your_host}:8080/
 ```
-**However, not all features are available for Windows**. 
 
-## Docker
-Thanks [Saren](https://github.com/Saren-Arterius) for creating this amazing DockerFile
+To uninstall your ArozOS in case you screw something up, use the uninstall script in the installer folder.
 
-See his repo over [here](https://github.com/Saren-Arterius/aroz-dockerize)
+### Windows (amd64)
+
+If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable and following the steps below.
+
+1. Create a folder a name that has no space and ASCII only
+2. Download the arozos_windows_amd64.exe from the [Release Page](https://github.com/tobychui/arozos/releases) 
+3. Download the web.tar.gz from the Release Page
+4. Put both files into the same folder you created in step 1
+5. Double click the exe file to start ArozOS
+6. Click on "Allow Access" if your Windows Firewall blocked ArozOS from accessing your network
+7. Visit ```http://localhost:8080/``` in your web browser to continue root admin account setups.
+
+**Some features are not available for Windows build**
+
+**Windows arm64 version are experimental and not tested**
+
+### OpenWRT (mipsle) / Linux (riscv64)
+
+OpenWRT build and Linux RSICV64 is experimental and might contains weird bugs. If you are interested to test or maintain these builds, please contact me directly.
+
+```
+wget -O arozos {binary_path_from_release}
+wget -O web.tar.gz {web.tar.gz_path_from_release}
+chmod -x ./arozos
+sudo ./arozos
+```
+
+### Docker
+
+Not exists yet
 
 ## Screenshots
+
 ![Image](img/screenshots/1.png?raw=true)
 ![Image](img/screenshots/2.png?raw=true)
 ![Image](img/screenshots/3.png?raw=true)
@@ -149,87 +151,102 @@ See his repo over [here](https://github.com/Saren-Arterius/aroz-dockerize)
 ## Start the ArozOS Platform
 
 ### Supported Startup Parameters
-The following startup parameters are supported (v1.113)
+
+The following startup parameters are supported (v2.016)
+
 ```
--allow_autologin
-    	Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot (default true)
+  -allow_autologin
+        Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot (default true)
   -allow_cluster
-    	Enable cluster operations within LAN. Require allow_mdns=true flag (default true)
+        Enable cluster operations within LAN. Require allow_mdns=true flag (default true)
   -allow_iot
-    	Enable IoT related APIs and scanner. Require MDNS enabled (default true)
+        Enable IoT related APIs and scanner. Require MDNS enabled (default true)
   -allow_mdns
-    	Enable MDNS service. Allow device to be scanned by nearby ArOZ Hosts (default true)
+        Enable MDNS service. Allow device to be scanned by nearby ArOZ Hosts (default true)
   -allow_pkg_install
-    	Allow the system to install package using Advanced Package Tool (aka apt or apt-get) (default true)
+        Allow the system to install package using Advanced Package Tool (aka apt or apt-get) (default true)
   -allow_ssdp
-    	Enable SSDP service, disable this if you do not want your device to be scanned by Windows's Network Neighborhood Page (default true)
+        Enable SSDP service, disable this if you do not want your device to be scanned by Windows's Network Neighborhood Page (default true)
   -allow_upnp
-    	Enable uPNP service, recommended for host under NAT router
+        Enable uPNP service, recommended for host under NAT router
   -beta_scan
-    	Allow compatibility to ArOZ Online Beta Clusters
+        Allow compatibility to ArOZ Online Beta Clusters
+  -bufffile_size int
+        Maxmium buffer file size (in MB) for buffer required file system abstractions (default 25)
+  -buffpool_size int
+        Maxmium buffer pool size (in MB) for buffer required file system abstractions (default 1024)
   -cert string
-    	TLS certificate file (.crt) (default "localhost.crt")
+        TLS certificate file (.crt) (default "localhost.crt")
   -console
-    	Enable the debugging console.
+        Enable the debugging console.
   -demo_mode
-    	Run the system in demo mode. All directories and database are read only.
+        Run the system in demo mode. All directories and database are read only.
   -dir_list
-    	Enable directory listing (default true)
+        Enable directory listing (default true)
   -disable_http
-    	Disable HTTP server, require tls=true
+        Disable HTTP server, require tls=true
   -disable_ip_resolver
-    	Disable IP resolving if the system is running under reverse proxy environment
+        Disable IP resolving if the system is running under reverse proxy environment
   -disable_subservice
-    	Disable subservices completely
+        Disable subservices completely
+  -enable_buffpool
+        Enable buffer pool for buffer required file system abstractions (default true)
   -enable_hwman
-    	Enable hardware management functions in system (default true)
+        Enable hardware management functions in system (default true)
+  -enable_pwman
+        Enable power management of the host system (default true)
+  -force_mac string
+        Force MAC address to be used for discovery services. If not set, it will use the first NIC
   -gzip
-    	Enable gzip compress on file server (default true)
+        Enable gzip compress on file server (default true)
   -homepage
-    	Enable user homepage. Accessible via /www/{username}/ (default true)
+        Enable user homepage. Accessible via /www/{username}/ (default true)
   -hostname string
-    	Default name for this host (default "My ArOZ")
+        Default name for this host (default "My ArOZ")
   -iobuf int
-    	Amount of buffer memory for IO operations (default 1024)
+        Amount of buffer memory for IO operations (default 1024)
   -key string
-    	TLS key file (.key) (default "localhost.key")
+        TLS key file (.key) (default "localhost.key")
+  -logging
+        Enable logging to file for debug purpose (default true)
   -max_upload_size int
-    	Maxmium upload size in MB. Must not exceed the available ram on your system (default 8192)
+        Maxmium upload size in MB. Must not exceed the available ram on your system (default 8192)
   -ntt int
-    	Nightly tasks execution time. Default 3 = 3 am in the morning (default 3)
+        Nightly tasks execution time. Default 3 = 3 am in the morning (default 3)
   -port int
-    	Listening port for HTTP server (default 8080)
+        Listening port for HTTP server (default 8080)
   -public_reg
-    	Enable public register interface for account creation
+        Enable public register interface for account creation
   -root string
-    	User root directories (default "./files/")
+        User root directories (default "./files/")
   -session_key string
-    	Session key, must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256). Leave empty for auto generated.
+        Session key, must be 16, 24 or 32 bytes long (AES-128, AES-192 or AES-256). Leave empty for auto generated.
   -storage_config string
-    	File location of the storage config file (default "./system/storage.json")
+        File location of the storage config file (default "./system/storage.json")
   -tls
-    	Enable TLS on HTTP serving (HTTPS Mode)
+        Enable TLS on HTTP serving (HTTPS Mode)
   -tls_port int
-    	Listening port for HTTPS server (default 8443)
+        Listening port for HTTPS server (default 8443)
   -tmp string
-    	Temporary storage, can be access via tmp:/. A tmp/ folder will be created in this path. Recommend fast storage devices like SSD (default "./")
+        Temporary storage, can be access via tmp:/. A tmp/ folder will be created in this path. Recommend fast storage devices like SSD (default "./")
   -tmp_time int
-    	Time before tmp file will be deleted in seconds. Default 86400 seconds = 24 hours (default 86400)
+        Time before tmp file will be deleted in seconds. Default 86400 seconds = 24 hours (default 86400)
   -upload_async
-    	Enable file upload buffering to run in async mode (Faster upload, require RAM >= 8GB)
+        Enable file upload buffering to run in async mode (Faster upload, require RAM >= 8GB)
   -upload_buf int
-    	Upload buffer memory in MB. Any file larger than this size will be buffered to disk (slower). (default 25)
+        Upload buffer memory in MB. Any file larger than this size will be buffered to disk (slower). (default 25)
   -uuid string
-    	System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.
+        System UUID for clustering and distributed computing. Only need to config once for first time startup. Leave empty for auto generation.
   -version
-    	Show system build version
+        Show system build version
   -wlan_interface_name string
-    	The default wireless interface for connecting to an AP (default "wlan0")
+        The default wireless interface for connecting to an AP (default "wlan0")
   -wpa_supplicant_config string
-    	Path for the wpa_supplicant config (default "/etc/wpa_supplicant/wpa_supplicant.conf")
+        Path for the wpa_supplicant config (default "/etc/wpa_supplicant/wpa_supplicant.conf")
 ```
 
 Example
+
 ```
 //Starting aroz online with standard web port
 ./arozos -port 80
@@ -245,73 +262,97 @@ Example
 
 //Change max upload size to 25MB
 ./arozos -max_upload_size 25
-
 ```
 
 See documentation for more examples.
 
-### ArozOS Launcher (Required for OTA Update support)
-See https://github.com/aroz-online/launcher
+### ArozOS Launcher
+
+Launcher is required for performing OTA updates in arozos so you don't need to ssh into your host every time you need to update ArozOS. You can install it via the installation script or install it manually. See more in the following repository. 
+
+https://github.com/aroz-online/launcher
 
 ### Storage Configuration
-#### Deploying Single Machine
 
-If you are deploying single machine, you can visit System Setting > Disk & Storage > Storage Pools and edit the "system" storage pool for setting up the global storage pools for all users in the system.
+Visit System Settings > Disk & Storage > Storage Pools and follow on screen instructions to setup your disk.
 
 ![](img/screenshots/sp.png)
 
+- Name: Name of this virtual disk in ArozOS system, (e.g. Movie Storage)
+- UUID: UUID of this virtual disk in ArozOS system, **must be unique, ascii only and no space** (e.g. movie)
+- Path: The mounting path of the disk **in Host OS** or **Protocol Specific IP Address / URLs**. Here are some examples
+  - Local disk (ntfs / ext4 etc): /media/storage1
+  - WebDAV: https://example.com.com/webdav/storage
+  - FTP / SFTP: 192.168.1.220:2022
+  - SMB: 192.168.0.110/MyShare
+    (Where "MyShare" is one of the Shares inside File Explorer if you visit \\\\192.168.0.110\)
+- Access Permission: Read Only or Read Write 
+- Storage Hierarchy
+  - Isolated User Folder: User cannot see other user's files
+  - Public Access Folders: User can see each other's files and edit them if permission is set to "READ WRITE"
+- File System Type: The disk format (if local disk) or protocols (if remote file system) to mount / establish connection
 
+Here are some local disk only options. You can leave them out if you have already setup automatic disk mount in /etc/fstab
 
-#### Deploying on Multiple Machines
+- Mount Device: The physical disk location on your host (e.g. /dev/sda1)
+- Mount Point: The target path to mount the disk to. (e.g. /media/storage)
+- Automount: Check this if you want ArozOS to mount the disk for you
+  *Notes: You cannot auto-mount a disk required by ArozOS -root options. Use /etc/fstab for it if that is your use case. This function is designed for delay start and reduce the power spike during system startup & disk spinups.*  
 
-If you are deploying on multiple machines, you can take a look at the storage configuration file located in:
+Here are some network disk only options
 
-```
-src/system/storage.json.example
-```
+- Username
+- Password
 
-Rename the storage.json.example to storage.json and start arozos. The required virtual storage drives will be mounted accordingly.
+Credentials of your account on the remote server that you are trying to mount remotely
 
+### File Servers
 
+If you want to share files from ArozOS, there are many ways you can do it. 
 
+- Share API: Right click a file in File Manager and click Share. 
+- User Accounts: Create user account for a user who want to access your file and limit the scope of file access with permission group storage pool settings
+- Network File Servers: Create a single shared user in a permission group with limited access settings and enable network file server in System Settings > Networks & Connections > File Servers > WebDAV / SFTP / FTP. Follow the on-screen guide to setup the access mode.
+- Legacy Browser Server: Share files to legacy devices via basic HTTP and Basic Auth. You can enable it in System Settings > Networks & Connections > File Servers > Directory Server. You can login with your current ArozOS user credentials.
 
-## ArOZ JavaScript Gateway Interface (AGI) / Plugin Loader
-The ArOZ AJGI / AGI interface provide a javascript programmable interface for ArOZ Online users to create 
-plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
-(also named the module root). See more details in the ![AJGI Documentation](https://github.com/tobychui/arozos/blob/master/src/AGI%20Documentation.md).
+## WebApp Development
 
-## ArozOS OTA Update Launcher
-
-Since v1.119, ArozOS can perform OTA update with the help of the [ArozOS Launcher](https://github.com/aroz-online/launcher). See the launcher's github repo for installation instructions.
+See [examples](examples/) folder for more details.
 
 ## Other Resources
+
 If you are looking for other WebApps (Installed via System Setting) or subservices (Require SSH login to install, for OEM only), please take a look at our collections over here:
 https://github.com/aroz-online/WebApp-and-Subservice-Index
 
 ## Community / Q&A
+
 ### 💬 Direct Contact
+
 You can reach the authors using [Telegram](https://t.me/ArOZBeta)! We welcome all kind of feedbacks and questions.
 
 ### 🖥️ Device Compatibility Showcase
+
 Using ArozOS on something other than Raspberry Pis? Show us your server configuration & hardware specs!
 
 https://github.com/tobychui/arozos/issues/50
 
 ### 📝 Related Articles
+
 If you are looking for tutorials or need help on debugging some minor issues, feel free to take a look at these articles written by our users. (Thank you so much for sharing this project :D )
 
 #### English
+
 - [I write my own web desktop OS for 3 years and this is what it looks like now ](https://dev.to/tobychui/i-write-my-own-web-desktop-os-for-3-years-and-this-is-what-it-looks-like-now-2903)
 
 #### Chinese
+
 - [ArozOS+树莓派打造随身NAS（避坑专用）](https://blog.csdn.net/m0_37728676/article/details/113876815)
 - [ArozOS+树莓派小型NAS](http://www.huajia.online/2021/10/23/ArozOS-%E6%A0%91%E8%8E%93%E6%B4%BE%E5%B0%8F%E5%9E%8BNAS/)
 - [树莓派 Arozos 指北](https://blog.pi-dal.com/%E9%80%82%E7%94%A8%E4%BA%8E%E6%A0%91%E8%8E%93%E6%B4%BE%E7%9A%84%E9%80%9A%E7%94%A8Web%E6%A1%8C%E9%9D%A2%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F)
 - [Linux:ArozOS 安裝與建立開機自啟動服務](https://pvecli.xuan2host.com/linux-arozos-install-service/)
 
-
-
 #### Portuguese
+
 - [DESKTOP WEB construído e desenvolvido na LINGUAGEM GO](https://www.youtube.com/watch?v=C42UdgOySY)
 
 Feel free to create a PR if you have written an article for ArozOS!
@@ -321,7 +362,7 @@ Feel free to create a PR if you have written an article for ArozOS!
 ### Source Code
 
 ArozOS - General purpose cloud desktop platform
-Copyright (C) 2021  tobychui
+Copyright (C) 2023  tobychui
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.
 
@@ -331,7 +372,7 @@ You should have received a copy of the GNU General Public License along with thi
 
 ### Documentations
 
-Copyright (C)  2021 tobychui
+Copyright (C)  2023 tobychui
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3
 or any later version published by the Free Software Foundation;
@@ -341,9 +382,4 @@ Free Documentation License".
 
 ### Artwork and Mascot Design
 
-Copyright (C)  2021 tobychui, All Right Reserved
-
-
-
-## Buy me a coffee
-I am working on this project as a hobby / side project and I am not really into collecting donation from this project. 
+Copyright (C)  2023 tobychui, All Right Reserved

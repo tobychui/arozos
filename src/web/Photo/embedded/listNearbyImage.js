@@ -12,12 +12,14 @@ function listNearby(){
     dirpath = dirpath.join("/");
 
     //Get nearby files and filter out the one that is web supported photo format
-    var nearbyFiles = filelib.aglob(dirpath + "/*", "user")
+    var nearbyFiles = filelib.readdir(dirpath, "user")
     for (var i = 0; i < nearbyFiles.length; i++){
-        var ext = nearbyFiles[i].split(".").pop();
+        var thisFile = nearbyFiles[i];
+        //console.log(JSON.stringify(nearbyFiles[i]));
+        var ext = thisFile.Ext.substr(1);
         ext = ext.toLowerCase();
         if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp"){
-            result.push(nearbyFiles[i]);
+            result.push(thisFile.Filepath);
         }
     }
 

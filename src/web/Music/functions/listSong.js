@@ -85,7 +85,7 @@ function handleUserRequest(){
                 var musicFiles = [];
                 for (var i = 0; i < musicDis.length; i++){
                     var thisFileLib = musicDis[i];
-                    var allfilelist = filelib.walk(thisFileLib, "file");
+                    var allfilelist = filelib.walk(thisFileLib + "Music/", "file");
                     for (var k = 0; k < allfilelist.length; k++){
                         var ext = allfilelist[k].split('.').pop();
                         if (IsSupportExt(ext) == true && !IsMetaFile(allfilelist[k])){
@@ -225,9 +225,9 @@ function handleUserRequest(){
                     var thisRoot = thisMusicDir.split("/").shift() + "/";
                     var objcetsInRoot = [];
                     if (thisRoot == "user:/"){
-                        objcetsInRoot = filelib.glob(thisRoot + "Music/*");
+                        objcetsInRoot = filelib.readdir(thisRoot + "Music");
                     }else{
-                        objcetsInRoot = filelib.glob(thisRoot + "*");
+                        objcetsInRoot = filelib.readdir(thisRoot);
                         thisMusicDir = thisRoot;
                     }
                     
@@ -241,10 +241,11 @@ function handleUserRequest(){
                     var files = [];
                     var folders = [];
                     for (var j = 0; j < objcetsInRoot.length; j++){
-                        if (filelib.isDir(objcetsInRoot[j])){
-                            folders.push(objcetsInRoot[j]);
+                        var thisObject = objcetsInRoot[j];
+                        if (thisObject.IsDir){
+                            folders.push(thisObject.Filepath);
                         }else{
-                            files.push(objcetsInRoot[j]);
+                            files.push(thisObject.Filepath);
                         }
                     }
 
@@ -257,51 +258,56 @@ function handleUserRequest(){
                 sendJSONResp(JSON.stringify(rootInfo));
             }else{
                 //List information about other folders
-                var targetpath = decodeURIComponent(listdir)
-                var filelist = filelib.aglob(targetpath + "*")
+                var targetpath = decodeURIComponent(listdir);
+                var filelist = filelib.readdir(targetpath);
                 var files = [];
+                var fileSizes = [];
                 var folders = [];
                 for (var j = 0; j < filelist.length; j++){
-                    if (filelib.isDir(filelist[j])){
-                        folders.push(filelist[j]);
+                    var thisFile = filelist[j];
+                    if (thisFile.IsDir){
+                        folders.push(thisFile.Filepath);
                     }else{
-                        var ext = filelist[j].split(".").pop();
-                        if (IsSupportExt(ext)  && !IsMetaFile(filelist[j])){
-                            files.push(filelist[j]);
+                        var ext = thisFile.Ext.substr(1);
+                        if (IsSupportExt(ext)  && !IsMetaFile(thisFile.Filepath)){
+                            files.push(thisFile.Filepath);
+                            fileSizes.push(thisFile.Filesize);
                         }
-                        
                     }
                 }
 
                 //For each folder, get its information
                 var folderInfo = [];
                 
-                for (var i = 0; i < folders.length; i++){
+                for (var i = 0; i < folders.length; i++){ 
                     var thisFolderInfo = [];
                     var folderName = folders[i].split("/").pop();
+                    /*
                     var thisFolderSubfolder = [];
                     var thisFolderSubfiles = [];
-                    var subFolderFileList = filelib.aglob(folders[i] + "/*")
+                    var subFolderFileList = filelib.readdir(folders[i])
                     for (var j = 0; j < subFolderFileList.length; j++){
-                        if (filelib.isDir(subFolderFileList[j])){
-                            var thisFolderName = subFolderFileList[j].split("/").pop();
+                        var thisFileinfo = subFolderFileList[j];
+                        if (thisFileinfo.IsDir){
+                            var thisFolderName = thisFileinfo.Filename;
                             if (thisFolderName.substring(0,1) != "."){
-                                thisFolderSubfolder.push(subFolderFileList[j]);
+                                thisFolderSubfolder.push(thisFileinfo.Filepath);
                             }
                         }else{
-                            var ext = subFolderFileList[j].split(".").pop();
-                            if (IsSupportExt(ext) && !IsMetaFile(subFolderFileList[j])){
-                                thisFolderSubfiles.push(subFolderFileList[j]);
+                            var ext = thisFileinfo.Ext.substr(1);
+                            if (IsSupportExt(ext) && !IsMetaFile(thisFileinfo.Filepath)){
+                                thisFolderSubfiles.push(thisFileinfo.Filepath);
                             }
                             
                         }
                     }
-
+                    */
                     thisFolderInfo.push(folderName);
                     thisFolderInfo.push(folders[i] + "/");
-                    thisFolderInfo.push((thisFolderSubfiles).length + "");
-                    thisFolderInfo.push((thisFolderSubfolder).length + "");
-                    
+                    //thisFolderInfo.push((thisFolderSubfiles).length + "");
+                    //thisFolderInfo.push((thisFolderSubfolder).length + "");
+                    thisFolderInfo.push(-1);
+                    thisFolderInfo.push(-1);
                     folderInfo.push(thisFolderInfo)
                 }
                 
@@ -315,7 +321,7 @@ function handleUserRequest(){
                     filename = filename.join(".");
                     var ext = files[i].split(".").pop()
 
-                    var filesize = filelib.filesize(files[i]);
+                    var filesize = fileSizes[i];
                     filesize = bytesToSize(filesize);
 
                     thisFileInfo.push("/media?file=" + files[i]);
@@ -330,7 +336,6 @@ function handleUserRequest(){
                 results.push(folderInfo);
                 results.push(fileInfo);
                 sendJSONResp(JSON.stringify(results));
-                
             }
             
 

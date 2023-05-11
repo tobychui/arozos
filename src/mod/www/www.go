@@ -1,14 +1,17 @@
 package www
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"imuslab.com/arozos/mod/agi"
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -23,6 +26,7 @@ import (
 type Options struct {
 	UserHandler *user.UserHandler
 	Database    *database.Database
+	AgiGateway  *agi.Gateway
 }
 
 type Handler struct {
@@ -30,7 +34,7 @@ type Handler struct {
 }
 
 /*
-	New WebRoot Handler create a new handler for handling and routing webroots
+New WebRoot Handler create a new handler for handling and routing webroots
 */
 func NewWebRootHandler(options Options) *Handler {
 	//Create the homepage database table
@@ -66,7 +70,7 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	parsedRequestURL := strings.Split(filepath.ToSlash(filepath.Clean(decodedValue)[1:]), "/")
 	//Malparsed URL. Ignore request
 	if len(parsedRequestURL) < 2 {
-		http.NotFound(w, r)
+		serveNotFoundTemplate(w, r)
 		return
 	}
 
@@ -75,15 +79,14 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 
 	userinfo, err := h.Options.UserHandler.GetUserInfoFromUsername(username)
 	if err != nil {
-		http.NotFound(w, r)
+		serveNotFoundTemplate(w, r)
 		return
 	}
 
 	//Check if this user enabled homepage
 	enabled := h.CheckUserHomePageEnabled(userinfo.Username)
 	if !enabled {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("404 - Page not found"))
+		serveNotFoundTemplate(w, r)
 		return
 	}
 
@@ -91,26 +94,20 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	webroot, err := h.GetUserWebRoot(userinfo.Username)
 	if err != nil {
 		//User do not have a correctly configured webroot. Serve instruction
-		w.WriteHeader(http.StatusInternalServerError)
-		if fileExists("./system/www/nowebroot.html") {
-			content, err := ioutil.ReadFile("./system/www/nowebroot.html")
-			if err != nil {
-				w.Write([]byte("500 - Internal Server Error"))
-			} else {
-				w.Write(content)
-			}
-
-		} else {
-			w.Write([]byte("500 - Internal Server Error"))
-		}
+		handleWebrootError(w)
 		return
 	}
 
 	//User webroot real path conversion
-	webrootRealpath, err := userinfo.VirtualPathToRealPath(webroot)
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(webroot)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 - Internal Server Error"))
+		handleWebrootError(w)
+		return
+	}
+
+	webrootRealpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(webroot, userinfo.Username)
+	if err != nil {
+		handleWebrootError(w)
 		return
 	}
 
@@ -121,9 +118,8 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	targetFilePath := filepath.ToSlash(filepath.Join(webrootRealpath, rewrittenPath))
 
 	//Check if the file exists
-	if !fileExists(targetFilePath) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("404 - Page not found"))
+	if !fsh.FileSystemAbstraction.FileExists(targetFilePath) {
+		serveNotFoundTemplate(w, r)
 		return
 	}
 
@@ -132,9 +128,64 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 	}
 
+	if filepath.Ext(targetFilePath) == "" {
+		//Reading a folder. Check if index.htm or index.html exists.
+		if fsh.FileSystemAbstraction.FileExists(filepath.Join(targetFilePath, "index.html")) {
+			targetFilePath = filepath.ToSlash(filepath.Join(targetFilePath, "index.html"))
+		} else if fsh.FileSystemAbstraction.FileExists(filepath.Join(targetFilePath, "index.htm")) {
+			targetFilePath = filepath.ToSlash(filepath.Join(targetFilePath, "index.htm"))
+		} else {
+			//Not allow listing folder
+			http.ServeFile(w, r, "system/errors/forbidden.html")
+			return
+		}
+
+	}
+
 	//Record the client IP for analysis, to be added in the future if needed
 
-	//Serve the file
-	http.ServeFile(w, r, targetFilePath)
+	//Execute it if it is agi file
+	if fsh.FileSystemAbstraction.FileExists(targetFilePath) && filepath.Ext(targetFilePath) == ".agi" {
+		result, err := h.Options.AgiGateway.ExecuteAGIScriptAsUser(fsh, targetFilePath, userinfo, w, r)
+		if err != nil {
+			w.Write([]byte("500 - Internal Server Error \n" + err.Error()))
+			return
+		}
 
+		w.Write([]byte(result))
+		return
+	}
+
+	//Serve the file
+	if fsh.FileSystemAbstraction.FileExists(targetFilePath) {
+		http.ServeFile(w, r, targetFilePath)
+	} else {
+		f, err := fsh.FileSystemAbstraction.ReadStream(targetFilePath)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+			return
+		}
+		io.Copy(w, f)
+		f.Close()
+	}
+
+}
+
+func serveNotFoundTemplate(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "system/errors/notfound.html")
+}
+
+func handleWebrootError(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusInternalServerError)
+	if utils.FileExists("./system/www/nowebroot.html") {
+		content, err := os.ReadFile("./system/www/nowebroot.html")
+		if err != nil {
+			w.Write([]byte("500 - Internal Server Error"))
+		} else {
+			w.Write(content)
+		}
+
+	} else {
+		w.Write([]byte("500 - Internal Server Error"))
+	}
 }

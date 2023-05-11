@@ -2,32 +2,28 @@ package scheduler
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/tidwall/pretty"
+	"imuslab.com/arozos/mod/utils"
 )
 
 //List all the jobs related to the given user
 func (a *Scheduler) HandleListJobs(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := a.userHandler.GetUserInfoFromRequest(w, r)
+	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get username from user info
 	username := userinfo.Username
-	isAdmin := userinfo.IsAdmin()
 
 	//Check if the user request list all
 	listAll := false
-	la, _ := mv(r, "listall", false)
-	if la == "true" && isAdmin {
+	la, _ := utils.GetPara(r, "listall")
+	if la == "true" && userinfo.IsAdmin() {
 		listAll = true
 	}
 
@@ -48,64 +44,66 @@ func (a *Scheduler) HandleListJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Return the values as json
-	js, err := json.Marshal(userCreatedJobs)
-	sendJSONResponse(w, string(js))
+	js, _ := json.Marshal(userCreatedJobs)
+	utils.SendJSONResponse(w, string(js))
 }
 
 func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := a.userHandler.GetUserInfoFromRequest(w, r)
+	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get required paramaters
-	taskName, err := mv(r, "name", true)
+	taskName, err := utils.PostPara(r, "name")
 	if err != nil {
-		sendErrorResponse(w, "Invalid task name")
+		utils.SendErrorResponse(w, "Invalid task name")
 		return
 	}
 
 	//Check taskname length valid
 	if len(taskName) > 32 {
-		sendErrorResponse(w, "Task name must be shorter than 32 characters")
+		utils.SendErrorResponse(w, "Task name must be shorter than 32 characters")
 		return
 	}
 
 	//Check if the name already existsed
 	for _, runningJob := range a.jobs {
 		if runningJob.Name == taskName {
-			sendErrorResponse(w, "Task Name already occupied")
+			utils.SendErrorResponse(w, "Task Name already occupied")
 			return
 		}
 	}
 
-	scriptpath, err := mv(r, "path", true)
+	scriptpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		sendErrorResponse(w, "Invalid script path")
+		utils.SendErrorResponse(w, "Invalid script path")
 		return
 	}
 
 	//Can be empty
-	jobDescription, _ := mv(r, "desc", true)
-
-	realScriptPath, err := userinfo.VirtualPathToRealPath(scriptpath)
+	jobDescription, _ := utils.PostPara(r, "desc")
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(scriptpath)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+	fshAbs := fsh.FileSystemAbstraction
+	realScriptPath, err := fshAbs.VirtualPathToRealPath(scriptpath, userinfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	//Check if the user has permission to create this script
-	if filepath.Ext(realScriptPath) != ".js" && filepath.Ext(realScriptPath) != ".agi" {
-		//Require admin permission
-		if userinfo.IsAdmin() == false {
-			sendErrorResponse(w, "Admin permission required for scheduling non AGI script")
-			return
-		}
+	//Check if the file exists
+	if !fshAbs.FileExists(realScriptPath) {
+		utils.SendErrorResponse(w, "script file not exists")
+		return
 	}
 
 	interval := int64(86400) //default 1 day in seconds
-	intervalString, err := mv(r, "interval", true)
+	intervalString, err := utils.PostPara(r, "interval")
 	if err != nil {
 		//Default 1 day
 
@@ -114,7 +112,7 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 		intervalInt, err := strconv.ParseInt(intervalString, 10, 64)
 		if err != nil {
 			//Failed to parse interval to int
-			sendErrorResponse(w, "Invalid interval")
+			utils.SendErrorResponse(w, "invalid interval")
 			return
 		}
 
@@ -122,7 +120,7 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	baseUnixTime := time.Now().Unix()
-	baseTimeString, err := mv(r, "base", true)
+	baseTimeString, err := utils.PostPara(r, "base")
 	if err != nil {
 		//Use curent timestamp as base
 
@@ -130,7 +128,7 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 		baseTimeInt, err := strconv.Atoi(baseTimeString)
 		if err != nil {
 			//Failed to parse interval to int
-			sendErrorResponse(w, "Invalid Base Time")
+			utils.SendErrorResponse(w, "Invalid Base Time")
 			return
 		}
 
@@ -141,42 +139,39 @@ func (a *Scheduler) HandleAddJob(w http.ResponseWriter, r *http.Request) {
 	newJob := Job{
 		Name:              taskName,
 		Creator:           userinfo.Username,
-		Admin:             userinfo.IsAdmin(),
 		Description:       jobDescription,
 		ExecutionInterval: int64(interval),
 		BaseTime:          baseUnixTime,
-		ScriptFile:        realScriptPath,
+		ScriptVpath:       scriptpath,
+		FshID:             fsh.UUID,
 	}
 
 	//Write current job lists to file
 	a.jobs = append(a.jobs, &newJob)
-
-	js, _ := json.MarshalIndent(a.jobs, "", " ")
-
-	ioutil.WriteFile(a.cronfile, js, 0755)
+	a.saveJobsToCronFile()
 
 	//OK
-	sendOK(w)
+	utils.SendOK(w)
 }
 
 func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := a.userHandler.GetUserInfoFromRequest(w, r)
+	userinfo, err := a.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get required paramaters
-	taskName, err := mv(r, "name", true)
+	taskName, err := utils.PostPara(r, "name")
 	if err != nil {
-		sendErrorResponse(w, "Invalid task name")
+		utils.SendErrorResponse(w, "Invalid task name")
 		return
 	}
 
 	//Check if Job exists
 	if !a.JobExists(taskName) {
 		//Job with that name not exists
-		sendErrorResponse(w, "Job not exists")
+		utils.SendErrorResponse(w, "Job not exists")
 		return
 	}
 
@@ -185,14 +180,14 @@ func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
 	//Job exists. Check if the job is created by the user.
 	//User can only remove job created by himself or all job is he is admin
 	allowRemove := false
-	if userinfo.IsAdmin() == false && targetJob.Creator == userinfo.Username {
+	if !userinfo.IsAdmin() && targetJob.Creator == userinfo.Username {
 		allowRemove = true
-	} else if userinfo.IsAdmin() == true {
+	} else if userinfo.IsAdmin() {
 		allowRemove = true
 	}
 
 	if !allowRemove {
-		sendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
@@ -200,15 +195,15 @@ func (a *Scheduler) HandleJobRemoval(w http.ResponseWriter, r *http.Request) {
 	a.RemoveJobFromScheduleList(taskName)
 
 	//Write current job lists to file
-	js, _ := json.Marshal(a.jobs)
-	js = []byte(pretty.Pretty(js))
-	ioutil.WriteFile(a.cronfile, js, 0755)
+	a.saveJobsToCronFile()
 
-	sendOK(w)
+	utils.SendOK(w)
 }
 
+//Deprecated. Replace with system wide logger
+/*
 func (a *Scheduler) HandleShowLog(w http.ResponseWriter, r *http.Request) {
-	filename, _ := mv(r, "filename", false)
+	filename, _ := utils.GetPara(r,"filename")
 	if filename == "" {
 		//Show index
 		logFiles, _ := filepath.Glob(logFolder + "*.log")
@@ -224,7 +219,7 @@ func (a *Scheduler) HandleShowLog(w http.ResponseWriter, r *http.Request) {
 		//Show log content
 		filename = strings.ReplaceAll(filepath.ToSlash(filename), "/", "")
 		if fileExists(filepath.Join(logFolder, filename)) {
-			logContent, err := ioutil.ReadFile(filepath.Join(logFolder, filename))
+			logContent, err := os.ReadFile(filepath.Join(logFolder, filename))
 			if err != nil {
 				sendTextResponse(w, "Unable to load log file: "+filename)
 			} else {
@@ -235,3 +230,4 @@ func (a *Scheduler) HandleShowLog(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+*/

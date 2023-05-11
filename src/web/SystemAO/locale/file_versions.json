@@ -4,6 +4,7 @@
     "keys": {
         "zh-tw": {
             "fwtitle" : "檔案版本管理",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings":{
                 "title/title": "檔案版本管理",
                 "title/desc":"此檔案的舊版本將會自動於 30 天後刪除。同時間你也可以手動從下方列表中對版本備份進行刪除。",
@@ -32,6 +33,7 @@
         },
         "zh-hk": {
             "fwtitle" : "檔案版本管理",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings":{
                 "title/title": "檔案版本管理",
                 "title/desc":"此檔案的舊版本將會自動於 30 天後刪除。同時間你也可以手動從下方列表中對版本備份進行刪除。",

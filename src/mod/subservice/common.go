@@ -1,14 +1,14 @@
 package subservice
 
 import (
-	"os"
-    "log"
-	"net/http"
-	"strconv"
-	"errors"
-	"encoding/base64"
 	"bufio"
-	"io/ioutil"
+	"encoding/base64"
+	"errors"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -32,7 +32,7 @@ func sendTextResponse(w http.ResponseWriter, msg string) {
 	w.Write([]byte(msg))
 }
 
-//Send JSON response, with an extra json header
+// Send JSON response, with an extra json header
 func sendJSONResponse(w http.ResponseWriter, json string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(json))
@@ -47,17 +47,17 @@ func sendOK(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("\"OK\""))
 }
+
 /*
-	The paramter move function (mv)
+The paramter move function (mv)
 
-	You can find similar things in the PHP version of ArOZ Online Beta. You need to pass in
-	r (HTTP Request Object)
-	getParamter (string, aka $_GET['This string])
+You can find similar things in the PHP version of ArOZ Online Beta. You need to pass in
+r (HTTP Request Object)
+getParamter (string, aka $_GET['This string])
 
-	Will return
-	Paramter string (if any)
-	Error (if error)
-
+Will return
+Paramter string (if any)
+Error (if error)
 */
 func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 	if postMode == false {
@@ -86,113 +86,111 @@ func mv(r *http.Request, getParamter string, postMode bool) (string, error) {
 }
 
 func stringInSlice(a string, list []string) bool {
-    for _, b := range list {
-        if b == a {
-            return true
-        }
-    }
-    return false
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
-
 
 func fileExists(filename string) bool {
-    _, err := os.Stat(filename)
-    if os.IsNotExist(err) {
-        return false
-    }
-    return true
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
 
-
-func isDir(path string) bool{
-	if (fileExists(path) == false){
+func isDir(path string) bool {
+	if fileExists(path) == false {
 		return false
 	}
 	fi, err := os.Stat(path)
-    if err != nil {
-        log.Fatal(err)
-        return false
-    }
-    switch mode := fi.Mode(); {
-    case mode.IsDir():
-        return true
-    case mode.IsRegular():
-        return false
+	if err != nil {
+		log.Fatal(err)
+		return false
+	}
+	switch mode := fi.Mode(); {
+	case mode.IsDir():
+		return true
+	case mode.IsRegular():
+		return false
 	}
 	return false
 }
 
 func inArray(arr []string, str string) bool {
 	for _, a := range arr {
-	   if a == str {
-		  return true
-	   }
+		if a == str {
+			return true
+		}
 	}
 	return false
- }
+}
 
- func timeToString(targetTime time.Time) string{
-	 return targetTime.Format("2006-01-02 15:04:05")
- }
+func timeToString(targetTime time.Time) string {
+	return targetTime.Format("2006-01-02 15:04:05")
+}
 
- func intToString(number int) string{
+func intToString(number int) string {
 	return strconv.Itoa(number)
- }
+}
 
- func stringToInt(number string) (int, error){
+func stringToInt(number string) (int, error) {
 	return strconv.Atoi(number)
- }
+}
 
- func stringToInt64(number string) (int64, error){
+func stringToInt64(number string) (int64, error) {
 	i, err := strconv.ParseInt(number, 10, 64)
 	if err != nil {
 		return -1, err
 	}
 	return i, nil
- }
+}
 
- func int64ToString(number int64) string{
-	convedNumber:=strconv.FormatInt(number,10)
+func int64ToString(number int64) string {
+	convedNumber := strconv.FormatInt(number, 10)
 	return convedNumber
- }
+}
 
- func getUnixTime() int64{
+func getUnixTime() int64 {
 	return time.Now().Unix()
- }
+}
 
- func loadImageAsBase64(filepath string) (string, error){
-	if !fileExists(filepath){
+func loadImageAsBase64(filepath string) (string, error) {
+	if !fileExists(filepath) {
 		return "", errors.New("File not exists")
 	}
 	f, _ := os.Open(filepath)
-    reader := bufio.NewReader(f)
-    content, _ := ioutil.ReadAll(reader)
+	reader := bufio.NewReader(f)
+	content, _ := io.ReadAll(reader)
 	encoded := base64.StdEncoding.EncodeToString(content)
 	return string(encoded), nil
- }
+}
 
- func pushToSliceIfNotExist(slice []string, newItem string) []string {
+func pushToSliceIfNotExist(slice []string, newItem string) []string {
 	itemExists := false
-	for _, item := range slice{
-		if item == newItem{
+	for _, item := range slice {
+		if item == newItem {
 			itemExists = true
 		}
 	}
 
-	if !itemExists{
+	if !itemExists {
 		slice = append(slice, newItem)
 	}
 
 	return slice
- }
+}
 
- func removeFromSliceIfExists(slice []string, target string) []string {
-	 newSlice := []string{}
-	 for _, item := range slice{
-		 if item != target{
+func removeFromSliceIfExists(slice []string, target string) []string {
+	newSlice := []string{}
+	for _, item := range slice {
+		if item != target {
 			newSlice = append(newSlice, item)
-		 }
-	 }
+		}
+	}
 
-	 return newSlice;
- }
+	return newSlice
+}

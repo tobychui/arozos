@@ -4,17 +4,18 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/utils"
 )
 
-//Inject aroz online custom functions into the virtual machine
+// Inject aroz online custom functions into the virtual machine
 func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptScope string) {
 	//Define system core modules and definations
 	sysdb := g.Option.UserHandler.GetDatabase()
@@ -24,6 +25,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("INTERNAL_VERSION", g.Option.InternalVersion)
 	vm.Set("LOADED_MODULES", g.Option.LoadedModule)
 	vm.Set("LOADED_STORAGES", g.Option.UserHandler.GetStoragePool())
+	vm.Set("__FILE__", scriptFile)
 	vm.Set("HTTP_RESP", "")
 	vm.Set("HTTP_HEADER", "text/plain")
 
@@ -31,6 +33,23 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("sendResp", func(call otto.FunctionCall) otto.Value {
 		argString, _ := call.Argument(0).ToString()
 		vm.Set("HTTP_RESP", argString)
+		return otto.Value{}
+	})
+
+	vm.Set("echo", func(call otto.FunctionCall) otto.Value {
+		argString, _ := call.Argument(0).ToString()
+		currentResp, err := vm.Get("HTTP_RESP")
+		if err != nil {
+			vm.Set("HTTP_RESP", argString)
+		} else {
+			currentRespText, err := currentResp.ToString()
+			if err != nil {
+				//Unable to parse this as string. Overwrite response
+				vm.Set("HTTP_RESP", argString)
+			}
+			vm.Set("HTTP_RESP", currentRespText+argString)
+		}
+
 		return otto.Value{}
 	})
 
@@ -344,13 +363,13 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 
 			//Check if the script file exists
 			targetScriptPath := filepath.ToSlash(filepath.Join(filepath.Dir(scriptFile), scriptName))
-			if !fileExists(targetScriptPath) {
+			if !utils.FileExists(targetScriptPath) {
 				g.raiseError(errors.New("*AGI* Target path not exists!"))
 				return otto.FalseValue()
 			}
 
 			//Run the script
-			scriptContent, _ := ioutil.ReadFile(targetScriptPath)
+			scriptContent, _ := os.ReadFile(targetScriptPath)
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
 				//Script execution failed
@@ -378,7 +397,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	//Exit
 	vm.Set("exit", func(call otto.FunctionCall) otto.Value {
 		vm.Interrupt <- func() {
-			panic(exitcall)
+			panic(errExitcall)
 		}
 		return otto.NullValue()
 	})

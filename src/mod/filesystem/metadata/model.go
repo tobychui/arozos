@@ -3,14 +3,19 @@ package metadata
 import (
 	"errors"
 	"image/jpeg"
-	"os"
 	"path/filepath"
 
+	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/renderer"
 )
 
-func generateThumbnailForModel(cacheFolder string, file string, generateOnly bool) (string, error) {
-	if !fileExists(file) {
+func generateThumbnailForModel(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if fsh.RequireBuffer {
+		return "", nil
+	}
+	fshAbs := fsh.FileSystemAbstraction
+
+	if !fshAbs.FileExists(file) {
 		//The user removed this file before the thumbnail is finished
 		return "", errors.New("Source not exists")
 	}
@@ -24,24 +29,24 @@ func generateThumbnailForModel(cacheFolder string, file string, generateOnly boo
 		Height:          480,
 	})
 
-	img, err := r.RenderModel(file)
+	img, _ := r.RenderModel(file)
 	opt := jpeg.Options{
 		Quality: 90,
 	}
 
-	f, err := os.Create(outputFile)
+	f, err := fshAbs.Create(outputFile)
 	if err != nil {
 		return "", err
 	}
 
-	err = jpeg.Encode(f, img, &opt)
+	jpeg.Encode(f, img, &opt)
 	f.Close()
 
-	if !generateOnly && fileExists(outputFile) {
+	if !generateOnly && fshAbs.FileExists(outputFile) {
 		//return the image as well
-		ctx, err := getImageAsBase64(outputFile)
+		ctx, err := getImageAsBase64(fsh, outputFile)
 		return ctx, err
-	} else if !fileExists(outputFile) {
+	} else if !fshAbs.FileExists(outputFile) {
 		return "", errors.New("Image generation failed")
 	}
 	return "", nil

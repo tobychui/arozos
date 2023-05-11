@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -11,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/storage/bridge"
+	"imuslab.com/arozos/mod/utils"
 
 	"github.com/tidwall/pretty"
 	fs "imuslab.com/arozos/mod/filesystem"
@@ -37,42 +36,49 @@ func StoragePoolEditorInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
+	//Create the required folder structure
+	err := os.MkdirAll("./system/storage", 0775)
+	if err != nil {
+		log.Println("Create storage pool setting folder failed: ")
+		log.Fatal(err)
+	}
+
 	adminRouter.HandleFunc("/system/storage/pool/list", HandleListStoragePools)
 	adminRouter.HandleFunc("/system/storage/pool/listraw", HandleListStoragePoolsConfig)
-	adminRouter.HandleFunc("/system/storage/pool/newHandler", HandleStorageNewFsHandler)
+	//adminRouter.HandleFunc("/system/storage/pool/newHandler", HandleStorageNewFsHandler)
 	adminRouter.HandleFunc("/system/storage/pool/removeHandler", HandleStoragePoolRemove)
 	adminRouter.HandleFunc("/system/storage/pool/reload", HandleStoragePoolReload)
 	adminRouter.HandleFunc("/system/storage/pool/toggle", HandleFSHToggle)
 	adminRouter.HandleFunc("/system/storage/pool/edit", HandleFSHEdit)
 	adminRouter.HandleFunc("/system/storage/pool/bridge", HandleFSHBridging)
 	adminRouter.HandleFunc("/system/storage/pool/checkBridge", HandleFSHBridgeCheck)
+
 }
 
-//Handle editing of a given File System Handler
+// Handle editing of a given File System Handler
 func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
-	opr, _ := common.Mv(r, "opr", false)
-
-	uuid, err := common.Mv(r, "uuid", false)
+	opr, _ := utils.PostPara(r, "opr")
+	group, err := utils.PostPara(r, "group")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid UUID")
-		return
-	}
-
-	group, err := common.Mv(r, "group", false)
-	if err != nil {
-		common.SendErrorResponse(w, "Invalid group given")
+		utils.SendErrorResponse(w, "Invalid group given")
 		return
 	}
 
 	if opr == "get" {
+		uuid, err := utils.PostPara(r, "uuid")
+		if err != nil {
+			utils.SendErrorResponse(w, "Invalid UUID")
+			return
+		}
+
 		//Load
 		fshOption, err := getFSHConfigFromGroupAndUUID(group, uuid)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		//Hide the password info
@@ -81,30 +87,90 @@ func HandleFSHEdit(w http.ResponseWriter, r *http.Request) {
 
 		//Return as JSON
 		js, _ := json.Marshal(fshOption)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 		return
 	} else if opr == "set" {
-		//Set
-		newFsOption := buildOptionFromRequestForm(r)
-		//log.Println(newFsOption)
+		config, err := utils.PostPara(r, "config")
+		if err != nil {
+			utils.SendErrorResponse(w, "Invalid UUID")
+			return
+		}
+
+		newFsOption, err := buildOptionFromRequestForm(config)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+		//systemWideLogger.PrintAndLog("Storage", newFsOption, nil)
+
+		uuid := newFsOption.Uuid
 
 		//Read and remove the original settings from the config file
-		err := setFSHConfigByGroupAndId(group, uuid, newFsOption)
+		err = setFSHConfigByGroupAndId(group, uuid, newFsOption)
 		if err != nil {
-			errmsg, _ := json.Marshal(err.Error())
-			http.Redirect(w, r, "../../../SystemAO/storage/updateError.html#"+string(errmsg), 307)
+			utils.SendErrorResponse(w, err.Error())
 		} else {
-			http.Redirect(w, r, "../../../SystemAO/storage/updateComplete.html#"+group, 307)
+			utils.SendOK(w)
 		}
+	} else if opr == "new" {
+		//New handler
+		config, err := utils.PostPara(r, "config")
+		if err != nil {
+			utils.SendErrorResponse(w, "Invalid config")
+			return
+		}
+		newFsOption, err := buildOptionFromRequestForm(config)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+
+		//Check if group exists
+		if !permissionHandler.GroupExists(group) && group != "system" {
+			utils.SendErrorResponse(w, "Group not exists: "+group)
+			return
+		}
+
+		//Validate the config is correct
+		err = fs.ValidateOption(&newFsOption)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+
+		configFile := "./system/storage.json"
+		if group != "system" {
+			configFile = "./system/storage/" + group + ".json"
+		}
+
+		//Merge the old config file if exists
+		oldConfigs := []fs.FileSystemOption{}
+		if fs.FileExists(configFile) {
+			originalConfigFile, _ := os.ReadFile(configFile)
+			err := json.Unmarshal(originalConfigFile, &oldConfigs)
+			if err != nil {
+				systemWideLogger.PrintAndLog("Storage", err.Error(), err)
+			}
+		}
+
+		oldConfigs = append(oldConfigs, newFsOption)
+		js, _ := json.MarshalIndent(oldConfigs, "", " ")
+		err = os.WriteFile(configFile, js, 0775)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+
+		utils.SendOK(w)
 
 	} else {
 		//Unknown
-		common.SendErrorResponse(w, "Unknown opr given")
+		utils.SendErrorResponse(w, "Unknown opr given")
 		return
 	}
 }
 
-//Get the FSH configuration for the given group and uuid
+// Get the FSH configuration for the given group and uuid
 func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOption, error) {
 	//Spot the desired config file
 	targerFile := ""
@@ -116,7 +182,7 @@ func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOpti
 
 	//Check if file exists.
 	if !fs.FileExists(targerFile) {
-		log.Println("Config file not found: ", targerFile)
+		systemWideLogger.PrintAndLog("Storage", "Config file not found: "+targerFile, nil)
 		return nil, errors.New("Configuration file not found")
 	}
 
@@ -125,7 +191,7 @@ func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOpti
 	}
 
 	//Load and parse the file
-	configContent, err := ioutil.ReadFile(targerFile)
+	configContent, err := os.ReadFile(targerFile)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +199,7 @@ func getFSHConfigFromGroupAndUUID(group string, uuid string) (*fs.FileSystemOpti
 	loadedConfig := []fs.FileSystemOption{}
 	err = json.Unmarshal(configContent, &loadedConfig)
 	if err != nil {
-		log.Println("Request to parse config error: "+err.Error(), targerFile)
+		systemWideLogger.PrintAndLog("Storage", "Request to parse config error: "+err.Error()+targerFile, err)
 		return nil, err
 	}
 
@@ -159,7 +225,7 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 
 	//Check if file exists.
 	if !fs.FileExists(targerFile) {
-		log.Println("Config file not found: ", targerFile)
+		systemWideLogger.PrintAndLog("Storage", "Config file not found: "+targerFile, nil)
 		return errors.New("Configuration file not found")
 	}
 
@@ -168,7 +234,7 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 	}
 
 	//Load and parse the file
-	configContent, err := ioutil.ReadFile(targerFile)
+	configContent, err := os.ReadFile(targerFile)
 	if err != nil {
 		return err
 	}
@@ -176,16 +242,27 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 	loadedConfig := []fs.FileSystemOption{}
 	err = json.Unmarshal(configContent, &loadedConfig)
 	if err != nil {
-		log.Println("Request to parse config error: "+err.Error(), targerFile)
+		systemWideLogger.PrintAndLog("Storage", "Request to parse config error: "+err.Error()+targerFile, err)
 		return err
 	}
 
 	//Filter the old fs handler option with given uuid
 	newConfig := []fs.FileSystemOption{}
+	var overwritingConfig fs.FileSystemOption
 	for _, fso := range loadedConfig {
 		if fso.Uuid != uuid {
 			newConfig = append(newConfig, fso)
+		} else {
+			overwritingConfig = fso
 		}
+	}
+
+	//Continue using the old username and password if it is left empty
+	if options.Username == "" {
+		options.Username = overwritingConfig.Username
+	}
+	if options.Password == "" {
+		options.Password = overwritingConfig.Password
 	}
 
 	//Append the new fso to config
@@ -193,32 +270,32 @@ func setFSHConfigByGroupAndId(group string, uuid string, options fs.FileSystemOp
 
 	//Write config back to file
 	js, _ := json.MarshalIndent(newConfig, "", " ")
-	return ioutil.WriteFile(targerFile, js, 0775)
+	return os.WriteFile(targerFile, js, 0775)
 }
 
-//Handle Storage Pool toggle on-off
+// Handle Storage Pool toggle on-off
 func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
-	fsh, _ := common.Mv(r, "fsh", true)
+	fsh, _ := utils.PostPara(r, "fsh")
 	if fsh == "" {
-		common.SendErrorResponse(w, "Invalid File System Handler ID")
+		utils.SendErrorResponse(w, "Invalid File System Handler ID")
 		return
 	}
 
-	group, _ := common.Mv(r, "group", true)
+	group, _ := utils.PostPara(r, "group")
 	if group == "" {
-		common.SendErrorResponse(w, "Invalid group ID")
+		utils.SendErrorResponse(w, "Invalid group ID")
 		return
 	}
 
 	//Check if group exists
 	if group != "system" && !permissionHandler.GroupExists(group) {
-		common.SendErrorResponse(w, "Group not exists")
+		utils.SendErrorResponse(w, "Group not exists")
 		return
 	}
 
 	//Not allow to modify system reserved fsh
 	if fsh == "user" || fsh == "tmp" {
-		common.SendErrorResponse(w, "Cannot toggle system reserved File System Handler")
+		utils.SendErrorResponse(w, "Cannot toggle system reserved File System Handler")
 		return
 	}
 
@@ -242,24 +319,23 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 
 	//Target File System Handler not found
 	if targetFSH == nil {
-		common.SendErrorResponse(w, "Target File System Handler not found, given: "+fsh)
+		utils.SendErrorResponse(w, "Target File System Handler not found, given: "+fsh)
 		return
 	}
 
-	if targetFSH.Closed == true {
+	if targetFSH.Closed {
 		//Reopen the fsh database and set this to false
 		aofsPath := filepath.ToSlash(filepath.Clean(targetFSH.Path)) + "/aofs.db"
 		conn, err := database.NewDatabase(aofsPath, false)
-		if err != nil {
-			common.SendErrorResponse(w, "Filesystme database startup failed")
-			return
+		if err == nil {
+			targetFSH.FilesystemDatabase = conn
 		}
-
-		targetFSH.FilesystemDatabase = conn
 		targetFSH.Closed = false
 	} else {
 		//Close the fsh database and set this to true
-		targetFSH.FilesystemDatabase.Close()
+		if targetFSH.FilesystemDatabase != nil {
+			targetFSH.FilesystemDatabase.Close()
+		}
 		targetFSH.Closed = true
 	}
 
@@ -267,13 +343,13 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(1 * time.Second)
 
 	//Return ok
-	common.SendOK(w)
+	utils.SendOK(w)
 
 }
 
-//Handle reload of storage pool
+// Handle reload of storage pool
 func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
-	pool, _ := common.Mv(r, "pool", true)
+	pool, _ := utils.PostPara(r, "pool")
 
 	//Basepool super long string just to prevent any typo
 	if pool == "1eb201a3-d0f6-6630-5e6d-2f40480115c5" {
@@ -282,12 +358,11 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 		baseStoragePool.Close()
 		emptyPool := storage.StoragePool{}
 		baseStoragePool = &emptyPool
-		fsHandlers = []*fs.FileSystemHandler{}
 
 		//Start BasePool again
 		err := LoadBaseStoragePool()
 		if err != nil {
-			log.Println(err.Error())
+			systemWideLogger.PrintAndLog("Storage", err.Error(), err)
 		} else {
 			//Update userHandler's basePool
 			userHandler.UpdateStoragePool(baseStoragePool)
@@ -295,7 +370,7 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 
 		//Reload all permission group's pool
 		for _, pg := range permissionHandler.PermissionGroups {
-			log.Println("Reloading Storage Pool for: " + pg.Name)
+			systemWideLogger.PrintAndLog("Storage", "Reloading Storage Pool for: "+pg.Name, err)
 
 			//Pool should be exists. Close it
 			pg.StoragePool.Close()
@@ -315,35 +390,43 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 
 		if pool == "system" {
 			//Reload basepool
-
 			baseStoragePool.Close()
 			emptyPool := storage.StoragePool{}
 			baseStoragePool = &emptyPool
-			fsHandlers = []*fs.FileSystemHandler{}
 
 			//Start BasePool again
 			err := LoadBaseStoragePool()
 			if err != nil {
-				log.Println(err.Error())
+				systemWideLogger.PrintAndLog("Storage", err.Error(), err)
 			} else {
 				//Update userHandler's basePool
 				userHandler.UpdateStoragePool(baseStoragePool)
 			}
 
 			BridgeStoragePoolForGroup("system")
+
 		} else {
 			//Reload the given storage pool
 			if !permissionHandler.GroupExists(pool) {
-				common.SendErrorResponse(w, "Permission Pool owner not exists")
+				utils.SendErrorResponse(w, "Permission Pool owner not exists")
 				return
 			}
 
-			log.Println("Reloading Storage Pool for: " + pool)
+			systemWideLogger.PrintAndLog("Storage", "Reloading Storage Pool for: "+pool, nil)
 
 			//Pool should be exists. Close it
 			pg := permissionHandler.GetPermissionGroupByName(pool)
 
-			pg.StoragePool.Close()
+			//Record a list of uuids that reloaded, use for later checking for bridge remount
+			reloadedFshUUIDs := []string{}
+			for _, fsh := range pg.StoragePool.Storages {
+				//Close the fsh if it is not a bridged one
+				isBridged, _ := bridgeManager.IsBridgedFSH(fsh.UUID, pg.Name)
+				if !isBridged && !fsh.Closed {
+					fsh.Close()
+					reloadedFshUUIDs = append(reloadedFshUUIDs, fsh.UUID)
+				}
+			}
 
 			//Create an empty pool for this permission group
 			newEmptyPool := storage.StoragePool{}
@@ -353,36 +436,53 @@ func HandleStoragePoolReload(w http.ResponseWriter, r *http.Request) {
 			//If there is no handler in config, the empty one will be kept
 			LoadStoragePoolForGroup(pg)
 			BridgeStoragePoolForGroup(pg.Name)
+
+			//Get all the groups that have bridged the reloaded fshs
+			rebridgePendingMap := map[string]bool{}
+			for _, fshuuid := range reloadedFshUUIDs {
+				pgs := bridgeManager.GetBridgedGroups(fshuuid)
+				for _, pg := range pgs {
+					rebridgePendingMap[pg] = true
+				}
+			}
+
+			//Debridge and rebridge all the related storage pools
+			for pg, _ := range rebridgePendingMap {
+				DebridgeAllFSHandlerFromGroup(pg)
+				time.Sleep(100 * time.Millisecond)
+				BridgeStoragePoolForGroup(pg)
+			}
+
 		}
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
-	groupname, err := common.Mv(r, "group", true)
+	groupname, err := utils.PostPara(r, "group")
 	if err != nil {
-		common.SendErrorResponse(w, "group not defined")
+		utils.SendErrorResponse(w, "group not defined")
 		return
 	}
 
-	uuid, err := common.Mv(r, "uuid", true)
+	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
-		common.SendErrorResponse(w, "File system handler UUID not defined")
+		utils.SendErrorResponse(w, "File system handler UUID not defined")
 		return
 	}
 
 	targetConfigFile := "./system/storage.json"
 	if groupname == "system" {
 		if uuid == "user" || uuid == "tmp" {
-			common.SendErrorResponse(w, "Cannot remove system reserved file system handlers")
+			utils.SendErrorResponse(w, "Cannot remove system reserved file system handlers")
 			return
 		}
 		//Ok to continue
 	} else {
 		//Check group exists
 		if !permissionHandler.GroupExists(groupname) {
-			common.SendErrorResponse(w, "Group not exists")
+			utils.SendErrorResponse(w, "Group not exists")
 			return
 		}
 
@@ -391,7 +491,7 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 			//No config. Create an empty one
 			initConfig := []fs.FileSystemOption{}
 			js, _ := json.MarshalIndent(initConfig, "", " ")
-			ioutil.WriteFile(targetConfigFile, js, 0775)
+			os.WriteFile(targetConfigFile, js, 0775)
 		}
 	}
 
@@ -401,27 +501,27 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 		//Bridged FSH. Remove it from bridge config
 		basePool, err := GetStoragePoolByOwner(groupname)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		err = DebridgeFSHandlerFromGroup(uuid, basePool)
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
 		//Remove it from the config
 		bridgeManager.RemoveFromConfig(uuid, groupname)
-		common.SendOK(w)
+		utils.SendOK(w)
 		return
 	} else {
 		//Remove it from the json file
 		//Read and parse from old config
 		oldConfigs := []fs.FileSystemOption{}
-		originalConfigFile, _ := ioutil.ReadFile(targetConfigFile)
+		originalConfigFile, _ := os.ReadFile(targetConfigFile)
 		err = json.Unmarshal(originalConfigFile, &oldConfigs)
 		if err != nil {
-			common.SendErrorResponse(w, "Failed to parse original config file")
+			utils.SendErrorResponse(w, "Failed to parse original config file")
 			return
 		}
 
@@ -437,42 +537,28 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 		if len(newConfigs) > 0 {
 			js, _ := json.Marshal(newConfigs)
 			resultingJson := pretty.Pretty(js)
-			ioutil.WriteFile(targetConfigFile, resultingJson, 0777)
+			os.WriteFile(targetConfigFile, resultingJson, 0777)
 		} else {
 			os.Remove(targetConfigFile)
 		}
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
-//Constract a fsoption from form
-func buildOptionFromRequestForm(r *http.Request) fs.FileSystemOption {
-	r.ParseForm()
-	autoMount := (r.FormValue("automount") == "on")
-	newFsOption := fs.FileSystemOption{
-		Name:       r.FormValue("name"),
-		Uuid:       r.FormValue("uuid"),
-		Path:       r.FormValue("path"),
-		Access:     r.FormValue("access"),
-		Hierarchy:  r.FormValue("hierarchy"),
-		Automount:  autoMount,
-		Filesystem: r.FormValue("filesystem"),
-		Mountdev:   r.FormValue("mountdev"),
-		Mountpt:    r.FormValue("mountpt"),
-
-		Parentuid:  r.FormValue("parentuid"),
-		BackupMode: r.FormValue("backupmode"),
-
-		Username: r.FormValue("username"),
-		Password: r.FormValue("password"),
+// Constract a fsoption from form
+func buildOptionFromRequestForm(payload string) (fs.FileSystemOption, error) {
+	newFsOption := fs.FileSystemOption{}
+	err := json.Unmarshal([]byte(payload), &newFsOption)
+	if err != nil {
+		return fs.FileSystemOption{}, err
 	}
-
-	return newFsOption
+	return newFsOption, nil
 }
 
+/*
 func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
-	newFsOption := buildOptionFromRequestForm(r)
+	newFsOption, _ := buildOptionFromRequestForm(r)
 
 	type errorObject struct {
 		Message string
@@ -512,20 +598,20 @@ func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
 	//If file exists, merge it to
 	oldConfigs := []fs.FileSystemOption{}
 	if fs.FileExists(configFile) {
-		originalConfigFile, _ := ioutil.ReadFile(configFile)
+		originalConfigFile, _ := os.ReadFile(configFile)
 		err := json.Unmarshal(originalConfigFile, &oldConfigs)
 		if err != nil {
-			log.Println(err)
+			systemWideLogger.PrintAndLog(err,nil)
 		}
 	}
 
 	oldConfigs = append(oldConfigs, newFsOption)
 
 	//Prepare the content to be written
-	js, err := json.Marshal(oldConfigs)
+	js, _ := json.Marshal(oldConfigs)
 	resultingJson := pretty.Pretty(js)
 
-	err = ioutil.WriteFile(configFile, resultingJson, 0775)
+	err = os.WriteFile(configFile, resultingJson, 0775)
 	if err != nil {
 		//Write Error. This could sometime happens on Windows host for unknown reason
 		js, _ := json.Marshal(errorObject{
@@ -538,9 +624,10 @@ func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, post-check=0, pre-check=0")
 	http.Redirect(w, r, "../../../SystemAO/storage/poolEditor.html#"+groupName, 307)
 }
+*/
 
 func HandleListStoragePoolsConfig(w http.ResponseWriter, r *http.Request) {
-	target, _ := common.Mv(r, "target", false)
+	target, _ := utils.GetPara(r, "target")
 	if target == "" {
 		target = "system"
 	}
@@ -557,23 +644,23 @@ func HandleListStoragePoolsConfig(w http.ResponseWriter, r *http.Request) {
 		//Assume no storage.
 		nofsh := []*fs.FileSystemOption{}
 		js, _ := json.Marshal(nofsh)
-		common.SendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 		return
 	}
 
 	//Read and serve it
-	configContent, err := ioutil.ReadFile(targetFile)
+	configContent, err := os.ReadFile(targetFile)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	} else {
-		common.SendJSONResponse(w, string(configContent))
+		utils.SendJSONResponse(w, string(configContent))
 	}
 }
 
-//Return all storage pool mounted to the system, aka base pool + pg pools
+// Return all storage pool mounted to the system, aka base pool + pg pools
 func HandleListStoragePools(w http.ResponseWriter, r *http.Request) {
-	filter, _ := common.Mv(r, "filter", false)
+	filter, _ := utils.GetPara(r, "filter")
 
 	storagePools := []*storage.StoragePool{}
 
@@ -598,41 +685,41 @@ func HandleListStoragePools(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(storagePools)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
-//Handler for bridging two FSH, require admin permission
+// Handler for bridging two FSH, require admin permission
 func HandleFSHBridging(w http.ResponseWriter, r *http.Request) {
 	//Get the target pool and fsh to bridge
-	basePool, err := common.Mv(r, "base", true)
+	basePool, err := utils.PostPara(r, "base")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid base pool")
+		utils.SendErrorResponse(w, "Invalid base pool")
 		return
 	}
 
 	//Add the target FSH into the base pool
 	basePoolObject, err := GetStoragePoolByOwner(basePool)
 	if err != nil {
-		log.Println("Bridge FSH failed: ", err.Error())
-		common.SendErrorResponse(w, "Storage pool not found")
+		systemWideLogger.PrintAndLog("Storage", "Bridge FSH failed: "+err.Error(), err)
+		utils.SendErrorResponse(w, "Storage pool not found")
 		return
 	}
 
-	targetFSH, err := common.Mv(r, "fsh", true)
+	targetFSH, err := utils.PostPara(r, "fsh")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid fsh given")
+		utils.SendErrorResponse(w, "Invalid File System Handler given")
 		return
 	}
 
 	fsh, err := GetFsHandlerByUUID(targetFSH)
 	if err != nil {
-		common.SendErrorResponse(w, "Given FSH UUID does not exists")
+		utils.SendErrorResponse(w, "Given File System Handler UUID does not exists")
 		return
 	}
 
 	err = BridgeFSHandlerToGroup(fsh, basePoolObject)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -644,31 +731,31 @@ func HandleFSHBridging(w http.ResponseWriter, r *http.Request) {
 	//Write changes to file
 	err = bridgeManager.AppendToConfig(&bridgeConfig)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func HandleFSHBridgeCheck(w http.ResponseWriter, r *http.Request) {
-	basePool, err := common.Mv(r, "base", true)
+	basePool, err := utils.PostPara(r, "base")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid base pool")
+		utils.SendErrorResponse(w, "Invalid base pool")
 		return
 	}
 
-	fsh, err := common.Mv(r, "fsh", true)
+	fsh, err := utils.PostPara(r, "fsh")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid fsh UUID")
+		utils.SendErrorResponse(w, "Invalid fsh UUID")
 		return
 	}
 
 	isBridged, err := bridgeManager.IsBridgedFSH(fsh, basePool)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	js, _ := json.Marshal(isBridged)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }

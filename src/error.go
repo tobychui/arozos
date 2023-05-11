@@ -6,8 +6,8 @@ package main
 */
 
 import (
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 
 	fs "imuslab.com/arozos/mod/filesystem"
@@ -17,7 +17,7 @@ func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
 	notFoundPage := "./web/SystemAO/notfound.html"
 	if fs.FileExists(notFoundPage) {
 
-		notFoundTemplateBytes, err := ioutil.ReadFile(notFoundPage)
+		notFoundTemplateBytes, err := os.ReadFile(notFoundPage)
 		notFoundTemplate := string(notFoundTemplateBytes)
 		if err != nil {
 			http.NotFound(w, r)
@@ -35,10 +35,33 @@ func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func errorHandleInternalServerError(w http.ResponseWriter, r *http.Request) {
+	internalServerErrPage := "./web/SystemAO/internalServerError.html"
+	if fs.FileExists(internalServerErrPage) {
+
+		templateBytes, err := os.ReadFile(internalServerErrPage)
+		template := string(templateBytes)
+		if err != nil {
+			http.NotFound(w, r)
+		} else {
+			//Replace the request URL inside the page
+			template = strings.ReplaceAll(template, "{{request_url}}", r.RequestURI)
+			rel := getRootEscapeFromCurrentPath(r.RequestURI)
+			template = strings.ReplaceAll(template, "{{root_escape}}", rel)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(template))
+		}
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Internal Server Error"))
+	}
+
+}
+
 func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
 	unauthorizedPage := "./web/SystemAO/unauthorized.html"
 	if fs.FileExists(unauthorizedPage) {
-		notFoundTemplateBytes, err := ioutil.ReadFile(unauthorizedPage)
+		notFoundTemplateBytes, err := os.ReadFile(unauthorizedPage)
 		notFoundTemplate := string(notFoundTemplateBytes)
 		if err != nil {
 			http.NotFound(w, r)
@@ -47,7 +70,7 @@ func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
 			notFoundTemplate = strings.ReplaceAll(notFoundTemplate, "{{request_url}}", r.RequestURI)
 			rel := getRootEscapeFromCurrentPath(r.RequestURI)
 			notFoundTemplate = strings.ReplaceAll(notFoundTemplate, "{{root_escape}}", rel)
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(notFoundTemplate))
 		}
 	} else {
@@ -55,7 +78,7 @@ func errorHandlePermissionDenied(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Get escape root path, example /asd/asd => ../../
+// Get escape root path, example /asd/asd => ../../
 func getRootEscapeFromCurrentPath(requestURL string) string {
 	rel := ""
 	if !strings.Contains(requestURL, "/") {

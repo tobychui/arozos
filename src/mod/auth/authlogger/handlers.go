@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"time"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 type summaryDate []string
@@ -36,25 +38,25 @@ func (l *Logger) HandleIndexListing(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(summaryDate(indexes))
 	js, err := json.Marshal(indexes)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Handle of the listing of a given index (month)
 func (l *Logger) HandleTableListing(w http.ResponseWriter, r *http.Request) {
 	//Get the record name request for listing
-	month, err := mv(r, "record", true)
+	month, err := utils.PostPara(r, "record")
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	records, err := l.ListRecords(month)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -69,5 +71,5 @@ func (l *Logger) HandleTableListing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(results)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }

@@ -32,7 +32,7 @@ func util_init() {
 		SupportFW:    false,
 		SupportEmb:   true,
 		LaunchEmb:    "SystemAO/utilities/mediaPlayer.html",
-		InitEmbSize:  []int{720, 480},
+		InitEmbSize:  []int{720, 500},
 		SupportedExt: []string{".mp4", ".webm", ".ogv"},
 	})
 
@@ -48,7 +48,7 @@ func util_init() {
 		SupportFW:    false,
 		SupportEmb:   true,
 		LaunchEmb:    "SystemAO/utilities/audio.html",
-		InitEmbSize:  []int{533, 144},
+		InitEmbSize:  []int{533, 164},
 		SupportedExt: []string{".mp3", ".wav", ".ogg", ".flac"},
 	})
 
@@ -64,7 +64,7 @@ func util_init() {
 		SupportFW:    false,
 		SupportEmb:   true,
 		LaunchEmb:    "SystemAO/utilities/stlViewer.html",
-		InitEmbSize:  []int{720, 480},
+		InitEmbSize:  []int{720, 500},
 		SupportedExt: []string{".stl"},
 	})
 
@@ -80,7 +80,7 @@ func util_init() {
 		SupportFW:    false,
 		SupportEmb:   true,
 		LaunchEmb:    "SystemAO/utilities/gcodeViewer.html",
-		InitEmbSize:  []int{720, 480},
+		InitEmbSize:  []int{720, 500},
 		SupportedExt: []string{".gcode", ".gco"},
 	})
 
@@ -97,7 +97,7 @@ func util_init() {
 		SupportFW:    true,
 		SupportEmb:   false,
 		LaunchFWDir:  "SystemAO/utilities/imgPaste.html",
-		InitFWSize:   []int{720, 480},
+		InitFWSize:   []int{720, 500},
 		SupportedExt: []string{".png", ".jpg", ".jpeg", ".webp"},
 	})
 

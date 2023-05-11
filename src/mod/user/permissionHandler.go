@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	permission "imuslab.com/arozos/mod/permission"
 	storage "imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/utils"
 )
 
 //Permissions related to modules
@@ -15,13 +17,13 @@ func (u *User) GetModuleAccessPermission(moduleName string) bool {
 	//Check if this module permission is within user's permission group access
 	moduleName = strings.ToLower(moduleName)
 	for _, pg := range u.PermissionGroup {
-		if pg.IsAdmin == true {
+		if pg.IsAdmin {
 			//This user is admin. Allow all module access
 			return true
-		} else if inSliceIgnoreCase(pg.AccessibleModules, moduleName) {
+		} else if utils.StringInArrayIgnoreCase(pg.AccessibleModules, moduleName) {
 			//This permission group contain the module we want. Allow accessed
 			return true
-		} else if inSliceIgnoreCase(u.parent.UniversalModules, moduleName) {
+		} else if utils.StringInArrayIgnoreCase(u.parent.UniversalModules, moduleName) {
 			//This is system tools or utilities that everyone is allowed to access
 			return true
 		} else if moduleName == strings.ToLower(pg.DefaultInterfaceModule) {
@@ -63,7 +65,7 @@ func (u *User) GetUserAccessibleModules() []string {
 func (u *User) IsAdmin() bool {
 	isAdmin := false
 	for _, pg := range u.PermissionGroup {
-		if pg.IsAdmin == true {
+		if pg.IsAdmin {
 			isAdmin = true
 		}
 	}
@@ -75,7 +77,7 @@ func (u *User) IsAdmin() bool {
 func (u *User) GetInterfaceModules() []string {
 	results := []string{}
 	for _, pg := range u.PermissionGroup {
-		if !inSlice(results, pg.DefaultInterfaceModule) {
+		if !utils.StringInArray(results, pg.DefaultInterfaceModule) {
 			results = append(results, pg.DefaultInterfaceModule)
 		}
 
@@ -93,31 +95,31 @@ func (u *User) GetInterfaceModules() []string {
 func (u *User) GetPathAccessPermission(vpath string) string {
 	fsid, _, err := getIDFromVirtualPath(filepath.ToSlash(vpath))
 	if err != nil {
-		return "denied"
+		return arozfs.FsDenied
 	}
 	topAccessRightStoragePool, err := u.GetHighestAccessRightStoragePool(fsid)
 	if err != nil {
-		return "denied"
+		return arozfs.FsDenied
 	}
 	if topAccessRightStoragePool.Owner == u.Username {
 		//This user own this storage pool. CHeck if the fs itself is readonly
 		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
 		if fsHandler.ReadOnly {
-			return "readonly"
+			return arozfs.FsReadOnly
 		}
-		return "readwrite"
+		return arozfs.FsReadWrite
 	} else if topAccessRightStoragePool.Owner == "system" {
 		//System storage pool. Allow both read and write if the system handler is readwrite
 		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
 		if fsHandler.ReadOnly {
-			return "readonly"
+			return arozfs.FsReadOnly
 		}
-		return "readwrite"
+		return arozfs.FsReadWrite
 	} else {
 		//This user do not own this storage pool. Use the pools' config
 		fsHandler, _ := getHandlerFromID(u.GetAllFileSystemHandler(), fsid)
 		if fsHandler.ReadOnly {
-			return "readonly"
+			return arozfs.FsReadOnly
 		}
 		return topAccessRightStoragePool.OtherPermission
 	}
@@ -126,7 +128,7 @@ func (u *User) GetPathAccessPermission(vpath string) string {
 //Helper function for checking permission
 func (u *User) CanRead(vpath string) bool {
 	rwp := u.GetPathAccessPermission(vpath)
-	if rwp == "readonly" || rwp == "readwrite" {
+	if rwp == arozfs.FsReadOnly || rwp == arozfs.FsReadWrite {
 		return true
 	} else {
 		return false
@@ -135,7 +137,7 @@ func (u *User) CanRead(vpath string) bool {
 
 func (u *User) CanWrite(vpath string) bool {
 	rwp := u.GetPathAccessPermission(vpath)
-	if rwp == "readwrite" {
+	if rwp == arozfs.FsReadWrite || rwp == arozfs.FsWriteOnly {
 		return true
 	} else {
 		return false
@@ -166,7 +168,7 @@ func (u *User) GetHighestAccessRightStoragePool(fsUUID string) (*storage.Storage
 
 	//Check the highest priority in the list
 	if len(matchingStoragePool) == 0 {
-		return &storage.StoragePool{}, errors.New("No access to this filesystem was found")
+		return &storage.StoragePool{}, errors.New("no access to this filesystem was found")
 	}
 
 	currentTopStoragePool := matchingStoragePool[0]

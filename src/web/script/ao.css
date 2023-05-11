@@ -1,15 +1,36 @@
 h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple LiGothic Medium", "STHeiti"}
 
-.ts.primary.button{
-    background-color:#4287f5;
-    border: 1px solid transparent;
+/* General purpose theme settings */
+body.whiteTheme {
+    --body_text: black;
+    --body_background: rgb(250, 250, 250);
+    --body_background_secondary: #fcfcfc;
+    --body_background_active: #fcfcfce1;
+    --divider: #f0f0f0;
+    --theme_color: #92cfe7;
+    --text_color: rgb(29, 29, 29);
+    --text_color_secondary: rgb(139, 139, 139);
+    --text_color_invert: rgb(182, 182, 182);
 }
-.ts.primary.button:hover{
-    background-color:#3570cf !important;
+
+body.darkTheme{
+    --body_text: rgb(236, 236, 236);
+    --body_background: rgb(37, 37, 37);
+    --body_background_secondary: #27292d;
+    --body_background_active: #3d3f47;
+    --divider: #465561;
+    --theme_color: #6682c4;
+    --text_color: rgb(241, 241, 241);
+    --text_color_secondary: rgb(214, 214, 214);
+    --text_color_invert: rgb(63, 63, 63);
 }
+
+:root{
+    --default_fw_theme: rgba(26, 26, 26, 0.3);
+}
+
 
 /* floatWindow CSS */
-
 .floatWindow{
     position:fixed;
     width:1024px;
@@ -23,19 +44,19 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
     color:white;
     display: inline-block;
     position:absolute;
-    left:30px;
-    top:3px;
-    max-width:70%;
+    left:40.5px;
+    top:5px;
+    max-width: calc(100% - 140px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .floatWindow .controls .moduleicon{
-    height:75%;
-    width:auto;
-    margin-top:4px;
-    margin-left:8px;
+    height:18px;
+    width:18px;
+    margin-top:6px;
+    margin-left:12.5px;
     display: inline-block;
 }
 
@@ -44,7 +65,7 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
     top:0px;
     left:0px;
     width: 100%;
-    height:22px;
+    height:30px;
     padding-bottom:2px;
     user-select: none;
     border-radius: 6px 6px 0px 0px;
@@ -52,9 +73,9 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
 
 .floatWindow .iframewrapper{
     position:absolute;
-    top: 22px;
+    top: 30px;
     width:100%;
-    height: calc(100% - 22px);
+    height: calc(100% - 30px);
     border-left: 3px solid #37393e;
     border-right: 3px solid #37393e;
     border-bottom: 3px solid #37393e;
@@ -82,7 +103,11 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
 }
 
 .floatWindow .fwcontrol .buttons:hover{
-    background-color: rgba(224, 224, 224,0.3);
+    background-color: rgba(224, 224, 224,0.75);
+}
+
+.floatWindow .fwcontrol .buttons.close{
+    border-top-right-radius: 6px !important;
 }
 
 .floatWindow .fwcontrol .buttons.close:hover{
@@ -91,12 +116,11 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
 
 
 @supports (backdrop-filter: none) {
-
     .floatWindow{
         box-shadow: rgb(61, 61, 61) 1px 1px 4px;
     }
     .floatWindow .controls {
-        background-color:rgba(26, 26, 26, 0.85);
+        background-color:var(--default_fw_theme);
         backdrop-filter: blur(5px);
     }
 
@@ -105,9 +129,9 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
     }
 
     .floatWindow .iframewrapper{
-        border-left: 3px solid transparent;
-        border-right: 3px solid transparent;
-        border-bottom: 3px solid transparent;
+        border-left: 3px solid var(--default_fw_theme);;
+        border-right: 3px solid var(--default_fw_theme);;
+        border-bottom: 3px solid var(--default_fw_theme);;
         backdrop-filter: blur(5px);
     }
 
@@ -133,7 +157,7 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
     .floatWindow.white .controls .title{
         font-weight: 130%;
         color: rgb(20, 20, 20);
-        padding-right: 3px;
+        padding-right: 12.5px;
     }
 
     .floatWindow.white .iframewrapper{
@@ -157,18 +181,18 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
 .floatWindow .fwcontrol{
     position:absolute;
     top:0px;
-    right:5px;
+    right:0px;
     display: inline-block;
 }
 
 .floatWindow .fwcontrol .buttons{
     vertical-align: top;
-    padding-top:2px;
+    padding-top:5px;
     padding-bottom:2px;
-    padding-left:6px;
-    padding-right:6px;
+    padding-left:10px;
+    padding-right:10px;
     display: inline-block;
-    height:23px !important;
+    height:30px !important;
     
     color:white;
     cursor: pointer;
@@ -194,4 +218,10 @@ h1, h2, h3, p, span, div { font-family: "Microsoft JhengHei","SimHei", "Apple Li
 
 .fwdragger.resizbleCursor{
     cursor:s-resize;
+}
+
+
+.fwdragger {
+    --text-outline-color: rgba(36, 36, 36, 0.75);
+    text-shadow: 1px 0 0 var(--text-outline-color), 0 -1px 0 var(--text-outline-color), 0 1px 0 var(--text-outline-color), -1px 0 0 var(--text-outline-color);
 }

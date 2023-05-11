@@ -13,8 +13,9 @@ import (
 	"strconv"
 	"strings"
 
-	"imuslab.com/arozos/mod/common"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/network/gzipmiddleware"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func mrouter(h http.Handler) http.Handler {
@@ -29,15 +30,15 @@ func mrouter(h http.Handler) http.Handler {
 		} else if r.URL.Path == "/login.system" {
 			//Login page. Require special treatment for template.
 			//Get the redirection address from the request URL
-			red, _ := common.Mv(r, "redirect", false)
+			red, _ := utils.GetPara(r, "redirect")
 
 			//Append the redirection addr into the template
-			imgsrc := "./web/" + iconSystem
+			imgsrc := filepath.Join(vendorResRoot, "auth_icon.png")
 			if !fs.FileExists(imgsrc) {
 				imgsrc = "./web/img/public/auth_icon.png"
 			}
-			imageBase64, _ := common.LoadImageAsBase64(imgsrc)
-			parsedPage, err := common.Templateload("web/login.system", map[string]interface{}{
+			imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
+			parsedPage, err := utils.Templateload("web/login.system", map[string]interface{}{
 				"redirection_addr": red,
 				"usercount":        strconv.Itoa(authAgent.GetUserCounts()),
 				"service_logo":     imageBase64,
@@ -64,10 +65,33 @@ func mrouter(h http.Handler) http.Handler {
 			h.ServeHTTP(w, r)
 
 		} else if len(r.URL.Path) >= len("/webdav") && r.URL.Path[:7] == "/webdav" {
-			//WebDAV special handler
-			WebDavHandler.HandleRequest(w, r)
+			//WebDAV sub-router
+			if WebDAVManager == nil {
+				errorHandleInternalServerError(w, r)
+				return
+			}
+			WebDAVManager.HandleRequest(w, r)
 		} else if len(r.URL.Path) >= len("/share") && r.URL.Path[:6] == "/share" {
+			//Share Manager sub-router
+			if shareManager == nil {
+				errorHandleInternalServerError(w, r)
+				return
+			}
 			shareManager.HandleShareAccess(w, r)
+		} else if len(r.URL.Path) >= len("/api/remote") && r.URL.Path[:11] == "/api/remote" {
+			//Serverless sub-router
+			if AGIGateway == nil {
+				errorHandleInternalServerError(w, r)
+				return
+			}
+			AGIGateway.ExtAPIHandler(w, r)
+		} else if len(r.URL.Path) >= len("/fileview") && r.URL.Path[:9] == "/fileview" {
+			//File server sub-router
+			if DirListManager == nil {
+				errorHandleInternalServerError(w, r)
+				return
+			}
+			DirListManager.ServerWebFileRequest(w, r)
 		} else if r.URL.Path == "/" && authAgent.CheckAuth(r) {
 			//Use logged in and request the index. Serve the user's interface module
 			w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
@@ -118,7 +142,6 @@ func mrouter(h http.Handler) http.Handler {
 				//Enable subservice access
 				//Check if this path is reverse proxy path. If yes, serve with proxyserver
 				isRP, proxy, rewriteURL, subserviceObject := ssRouter.CheckIfReverseProxyPath(r)
-
 				if isRP {
 					//Check user permission on that module
 					ssRouter.HandleRoutingRequest(w, r, proxy, subserviceObject, rewriteURL)
@@ -144,8 +167,7 @@ func mrouter(h http.Handler) http.Handler {
 				errorHandleNotFound(w, r)
 				return
 			}
-			h.ServeHTTP(w, r)
-
+			routerStaticContentServer(h, w, r)
 		} else {
 			//User not logged in. Check if the path end with public/. If yes, allow public access
 			if !fs.FileExists(filepath.Join("./web", r.URL.Path)) {
@@ -153,18 +175,26 @@ func mrouter(h http.Handler) http.Handler {
 				errorHandleNotFound(w, r)
 			} else if r.URL.Path[len(r.URL.Path)-1:] != "/" && filepath.Base(filepath.Dir(r.URL.Path)) == "public" {
 				//This file path end with public/. Allow public access
-				h.ServeHTTP(w, r)
-			} else if *allow_homepage == true && len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/" {
+				routerStaticContentServer(h, w, r)
+			} else if *allow_homepage && len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/" {
 				//Handle public home serving if homepage mode is enabled
-				h.ServeHTTP(w, r)
+				routerStaticContentServer(h, w, r)
 			} else {
 				//Other paths
 				//Rediect to login page
 				w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-				http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.String(), 307)
+				http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.String(), 307)
 			}
 
 		}
 
 	})
+}
+
+func routerStaticContentServer(h http.Handler, w http.ResponseWriter, r *http.Request) {
+	if *enable_gzip {
+		gzipmiddleware.Compress(h).ServeHTTP(w, r)
+	} else {
+		h.ServeHTTP(w, r)
+	}
 }

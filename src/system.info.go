@@ -2,22 +2,24 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"path/filepath"
 	"runtime"
 	"time"
 
-	"imuslab.com/arozos/mod/common"
+	fs "imuslab.com/arozos/mod/filesystem"
 	info "imuslab.com/arozos/mod/info/hardwareinfo"
+	"imuslab.com/arozos/mod/info/logviewer"
 	usage "imuslab.com/arozos/mod/info/usageinfo"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/updates"
+	"imuslab.com/arozos/mod/utils"
 )
 
-//InitShowSysInformation xxx
+// InitShowSysInformation xxx
 func SystemInfoInit() {
-	log.Println("Operation System: " + runtime.GOOS)
-	log.Println("System Architecture: " + runtime.GOARCH)
+	systemWideLogger.PrintAndLog("System", "Operation System: "+runtime.GOOS, nil)
+	systemWideLogger.PrintAndLog("System", "System Architecture: "+runtime.GOARCH, nil)
 
 	//Updates 5 Dec 2020, Added permission router
 	router := prout.NewModuleRouter(prout.RouterOption{
@@ -25,7 +27,16 @@ func SystemInfoInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	//Anyone logged in can load router
+	authRouter := prout.NewModuleRouter(prout.RouterOption{
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -34,7 +45,7 @@ func SystemInfoInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -50,12 +61,18 @@ func SystemInfoInit() {
 		StartDir: "SystemAO/info/overview.html",
 	})
 
+	//Load the vendor icon
+	vendorIconSrc := filepath.Join(vendorResRoot, "vendor_icon.png")
+	if !fs.FileExists(vendorIconSrc) {
+		vendorIconSrc = "./web/img/public/vendor_icon.png"
+	}
+	imageBase64, _ := utils.LoadImageAsBase64(vendorIconSrc)
 	if *allow_hardware_management {
 		infoServer = info.NewInfoServer(info.ArOZInfo{
 			BuildVersion: build_version + "." + internal_version,
 			DeviceVendor: deviceVendor,
 			DeviceModel:  deviceModel,
-			VendorIcon:   "../../" + iconVendor,
+			VendorIcon:   imageBase64,
 			SN:           deviceUUID,
 			HostOS:       runtime.GOOS,
 			CPUArch:      runtime.GOARCH,
@@ -66,7 +83,9 @@ func SystemInfoInit() {
 		router.HandleFunc("/system/info/ifconfig", info.Ifconfig)
 		router.HandleFunc("/system/info/getDriveStat", info.GetDriveStat)
 		router.HandleFunc("/system/info/usbPorts", info.GetUSB)
-		router.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
+
+		//For low-memory mode detection
+		authRouter.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
 
 		//Register as a system setting
 		registerSetting(settingModule{
@@ -98,7 +117,7 @@ func SystemInfoInit() {
 			BuildVersion: build_version + "." + internal_version,
 			DeviceVendor: deviceVendor,
 			DeviceModel:  deviceModel,
-			VendorIcon:   "../../" + iconVendor,
+			VendorIcon:   imageBase64,
 			SN:           deviceUUID,
 			HostOS:       "virtualized",
 			CPUArch:      "generic",
@@ -107,10 +126,19 @@ func SystemInfoInit() {
 	}
 
 	//Register endpoints that do not involve hardware management
-	router.HandleFunc("/system/info/getRuntimeInfo", InfoHandleGetRuntimeInfo)
+	authRouter.HandleFunc("/system/info/getRuntimeInfo", InfoHandleGetRuntimeInfo)
 
 	//ArOZ Info do not need permission router
 	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)
+
+	//Router to handle login background image loading
+	http.HandleFunc("/system/info/wallpaper.jpg", func(w http.ResponseWriter, r *http.Request) {
+		imgsrc := filepath.Join(vendorResRoot, "auth_bg.jpg")
+		if !fs.FileExists(imgsrc) {
+			imgsrc = "./web/img/public/auth_bg.jpg"
+		}
+		http.ServeFile(w, r, imgsrc)
+	})
 
 	go func() {
 		if updates.CheckLauncherPortResponsive() {
@@ -134,27 +162,45 @@ func SystemInfoInit() {
 			adminRouter.HandleFunc("/system/update/restart", func(w http.ResponseWriter, r *http.Request) {
 				launcherVersion, err := updates.GetLauncherVersion()
 				if err != nil {
-					common.SendErrorResponse(w, err.Error())
+					utils.SendErrorResponse(w, err.Error())
 					return
 				}
-				execute, _ := common.Mv(r, "exec", true)
+				execute, _ := utils.PostPara(r, "exec")
 				if execute == "true" && r.Method == http.MethodPost {
 					//Do the update
-					log.Println("REQUESTING LAUNCHER FOR UPDATE RESTART")
+					systemWideLogger.PrintAndLog("System", "REQUESTING LAUNCHER FOR UPDATE RESTART", nil)
 					executeShutdownSequence()
-					common.SendOK(w)
+					utils.SendOK(w)
 				} else if execute == "true" {
 					//Prevent redirection attack
 					w.WriteHeader(http.StatusMethodNotAllowed)
 					w.Write([]byte("405 - Method Not Allowed"))
 				} else {
 					//Return the launcher message
-					common.SendTextResponse(w, string(launcherVersion))
+					utils.SendTextResponse(w, string(launcherVersion))
 				}
 
 			})
 		}
 	}()
+
+	//Log Viewer, so developers can debug inside arozos
+	logViewer := logviewer.NewLogViewer(&logviewer.ViewerOption{
+		RootFolder: "system/logs/",
+		Extension:  ".log",
+	})
+
+	adminRouter.HandleFunc("/system/log/list", logViewer.HandleListLog)
+	adminRouter.HandleFunc("/system/log/read", logViewer.HandleReadLog)
+
+	registerSetting(settingModule{
+		Name:         "System Log",
+		Desc:         "View ArozOS System Log",
+		IconPath:     "SystemAO/updates/img/update.png",
+		Group:        "Advance",
+		StartDir:     "SystemAO/advance/logview.html",
+		RequireAdmin: true,
+	})
 
 }
 
@@ -170,7 +216,7 @@ func InfoHandleGetRuntimeInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(runtimeInfo)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
@@ -191,5 +237,5 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(info)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }

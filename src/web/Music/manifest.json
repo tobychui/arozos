@@ -19,7 +19,7 @@
       "type": "image/png"
     }],
   "start_url": "index.html",
-  "display": "fullscreen",
+  "display": "standalone",
   "scope": "./",
   "background_color": "#4b75ff",
   "theme_color": "#4b75ff"

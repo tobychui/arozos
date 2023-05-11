@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	autologin "imuslab.com/arozos/mod/auth/autologin"
-	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -25,7 +25,7 @@ func AdvanceSettingInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

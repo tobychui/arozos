@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -52,8 +54,8 @@ func NewInfoServer(a ArOZInfo) *Server {
 }
 
 /*
-	PrintSystemHardwareDebugMessage print system information on Windows.
-	Which is lagging but helpful for debugging wmic on Windows
+PrintSystemHardwareDebugMessage print system information on Windows.
+Which is lagging but helpful for debugging wmic on Windows
 */
 func PrintSystemHardwareDebugMessage() {
 	log.Println("Windows Version: " + wmicGetinfo("os", "Caption")[0])
@@ -66,26 +68,22 @@ func PrintSystemHardwareDebugMessage() {
 }
 
 func (s *Server) GetArOZInfo(w http.ResponseWriter, r *http.Request) {
-
-	/*
-		ArOZInfo := ArOZInfo{
-			BuildVersion: build_version + "." + internal_version,
-			DeviceVendor: deviceVendor,
-			DeviceModel:  deviceModel,
-			VendorIcon:   "../../" + iconVendor,
-			SN:           deviceUUID,
-			HostOS:       runtime.GOOS,
-			CPUArch:      runtime.GOARCH,
-		}
-	*/
-
 	var jsonData []byte
 	jsonData, err := json.Marshal(s.hostInfo)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 
-	sendJSONResponse(w, string(jsonData))
+	loadImage, _ := utils.GetPara(r, "icon")
+	if loadImage != "true" {
+		t := ArOZInfo{}
+		json.Unmarshal(jsonData, &t)
+		t.VendorIcon = ""
+		jsonData, _ = json.Marshal(t)
+	}
+
+	utils.SendJSONResponse(w, string(jsonData))
 }
 
 func wmicGetinfo(wmicName string, itemName string) []string {

@@ -3,14 +3,14 @@ package updates
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"runtime"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type UpdateConfig struct {
@@ -45,55 +45,55 @@ type UpdateConfig struct {
 }
 
 func HandleUpdateCheckSize(w http.ResponseWriter, r *http.Request) {
-	webpack, err := common.Mv(r, "webpack", true)
+	webpack, err := utils.PostPara(r, "webpack")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid or empty webpack download URL")
+		utils.SendErrorResponse(w, "Invalid or empty webpack download URL")
 		return
 	}
 
-	binary, err := common.Mv(r, "binary", true)
+	binary, err := utils.PostPara(r, "binary")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid or empty binary download URL")
+		utils.SendErrorResponse(w, "Invalid or empty binary download URL")
 		return
 	}
 
 	bsize, wsize, err := GetUpdateSizes(binary, webpack)
 	if err != nil {
-		common.SendErrorResponse(w, "Failed to get update size: "+err.Error())
+		utils.SendErrorResponse(w, "Failed to get update size: "+err.Error())
 		return
 	}
 
 	js, _ := json.Marshal([]int{bsize, wsize})
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
-	webpack, err := common.Mv(r, "webpack", false)
+	webpack, err := utils.GetPara(r, "webpack")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid or empty webpack download URL")
+		utils.SendErrorResponse(w, "Invalid or empty webpack download URL")
 		return
 	}
 
-	binary, err := common.Mv(r, "binary", false)
+	binary, err := utils.GetPara(r, "binary")
 	if err != nil {
-		common.SendErrorResponse(w, "Invalid or empty binary download URL")
+		utils.SendErrorResponse(w, "Invalid or empty binary download URL")
 		return
 	}
 
-	checksum, err := common.Mv(r, "checksum", true)
+	checksum, err := utils.PostPara(r, "checksum")
 	if err != nil {
 		checksum = ""
 	}
 
 	//Update the connection to websocket
-	requireWebsocket, _ := common.Mv(r, "ws", false)
+	requireWebsocket, _ := utils.GetPara(r, "ws")
 	if requireWebsocket == "true" {
 		//Upgrade to websocket
 		var upgrader = websocket.Upgrader{}
 		upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			common.SendErrorResponse(w, "Upgrade websocket failed: "+err.Error())
+			utils.SendErrorResponse(w, "Upgrade websocket failed: "+err.Error())
 			return
 		}
 
@@ -129,15 +129,15 @@ func HandleUpdateDownloadRequest(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("Downloading Update, Stage: ", stage, " Progress: ", progress, " Status: ", statusText)
 		})
 		if err != nil {
-			common.SendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 		} else {
-			common.SendOK(w)
+			utils.SendOK(w)
 		}
 	}
 
 }
 
-//Handle getting information for vendor update
+// Handle getting information for vendor update
 func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	type UpdatePackageInfo struct {
 		Config UpdateConfig
@@ -146,9 +146,9 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Check if update config find. If yes, parse that
-	updateFileContent, err := ioutil.ReadFile("./system/update.json")
+	updateFileContent, err := os.ReadFile("./system/update.json")
 	if err != nil {
-		common.SendErrorResponse(w, "No vendor update config found")
+		utils.SendErrorResponse(w, "No vendor update config found")
 		return
 	}
 
@@ -157,7 +157,7 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(updateFileContent, &vendorUpdateConfig)
 	if err != nil {
 		log.Println("[Updates] Failed to parse update config file: ", err.Error())
-		common.SendErrorResponse(w, "Invalid or corrupted update config")
+		utils.SendErrorResponse(w, "Invalid or corrupted update config")
 		return
 	}
 
@@ -168,15 +168,15 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	js, _ := json.Marshal(updateinfo)
-	common.SendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
-//Handle check if there is a pending update
+// Handle check if there is a pending update
 func HandlePendingCheck(w http.ResponseWriter, r *http.Request) {
-	if common.FileExists("./updates/") && common.FileExists("./updates/web/") && common.FileExists("./updates/system/") {
+	if utils.FileExists("./updates/") && utils.FileExists("./updates/web/") && utils.FileExists("./updates/system/") {
 		//Update is pending
-		common.SendJSONResponse(w, "true")
+		utils.SendJSONResponse(w, "true")
 	} else {
-		common.SendJSONResponse(w, "false")
+		utils.SendJSONResponse(w, "false")
 	}
 }

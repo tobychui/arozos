@@ -1,14 +1,11 @@
 package user
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
-	"strings"
-
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
+/*
 func (u *User) GetHomeDirectory() (string, error) {
 	//Return the realpath of the user home directory
 	for _, dir := range u.HomeDirectories.Storages {
@@ -21,6 +18,12 @@ func (u *User) GetHomeDirectory() (string, error) {
 	}
 
 	return "", errors.New("User root not found. Is this a permission group instead of a real user?")
+}
+*/
+
+//Get the user home file system handler, aka user:/
+func (u *User) GetHomeFileSystemHandler() (*fs.FileSystemHandler, error) {
+	return getHandlerFromID(u.HomeDirectories.Storages, "user")
 }
 
 //Get all user Acessible file system handlers (ignore special fsh like backups)
@@ -36,12 +39,25 @@ func (u *User) GetAllAccessibleFileSystemHandler() []*fs.FileSystemHandler {
 	return results
 }
 
+//Try to get the root file system handler from vpath where the root file system handler must be in user scope of permission
+func (u *User) GetRootFSHFromVpathInUserScope(vpath string) *fs.FileSystemHandler {
+	allFsh := u.GetAllAccessibleFileSystemHandler()
+	var vpathSourceFsh *fs.FileSystemHandler
+	for _, thisFsh := range allFsh {
+		if thisFsh.IsRootOf(vpath) {
+			vpathSourceFsh = thisFsh
+			return vpathSourceFsh
+		}
+	}
+	return nil
+}
+
 func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	results := []*fs.FileSystemHandler{}
 	uuids := []string{}
 	//Get all FileSystem Handler from this user's Home Directory (aka base directory)
 	for _, store := range u.HomeDirectories.Storages {
-		if store.Closed == false {
+		if !store.Closed {
 			//Only return opened file system handlers
 			results = append(results, store)
 			uuids = append(uuids, store.UUID)
@@ -54,8 +70,8 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 		//For each permission group that this user is in
 		for _, store := range pg.StoragePool.Storages {
 			//Get each of the storage of this permission group is assigned to
-			if !inSlice(uuids, store.UUID) {
-				if store.Closed == false {
+			if !utils.StringInArray(uuids, store.UUID) {
+				if !store.Closed {
 					//Only return opened file system handlers
 					results = append(results, store)
 					uuids = append(uuids, store.UUID)
@@ -68,6 +84,7 @@ func (u *User) GetAllFileSystemHandler() []*fs.FileSystemHandler {
 	return results
 }
 
+/*
 func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 	//Get all usable filesystem handler from the user's home directory and permission groups
 	userFsHandlers := u.GetAllFileSystemHandler()
@@ -114,8 +131,6 @@ func (u *User) VirtualPathToRealPath(vpath string) (string, error) {
 				return filepath.ToSlash(filepath.Join(filepath.Clean(storage.Path), "/users/", u.Username, subpath)), nil
 			} else if storage.Hierarchy == "public" {
 				return filepath.ToSlash(filepath.Join(filepath.Clean(storage.Path), subpath)), nil
-			} else if storage.Hierarchy == "share" {
-				return (*u.parent.shareEntryTable).ResolveShareVrootPath(subpath, u.Username, u.GetUserPermissionGroupNames())
 			} else {
 				return "", errors.New("Unknown Filesystem Handler Hierarchy")
 			}
@@ -211,7 +226,7 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 		}
 		if pathContained == true {
 			//This storage is one of the root of the given realpath. Translate it into this
-			if storage.Closed == true {
+			if storage == true {
 				return "", errors.New("Request Filesystem Handler has been closed by another process")
 			}
 			return storage.UUID + ":/" + subPath, nil
@@ -221,6 +236,7 @@ func (u *User) RealPathToVirtualPath(rpath string) (string, error) {
 
 	return "", errors.New("Unable to resolve realpath in virtual devices root path")
 }
+*/
 
 //Get a file system handler from a virtual path, this file system handler might not be the highest prioity one
 func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (*fs.FileSystemHandler, error) {
@@ -229,6 +245,7 @@ func (u *User) GetFileSystemHandlerFromVirtualPath(vpath string) (*fs.FileSystem
 	return handler, err
 }
 
+/*
 func (u *User) GetFileSystemHandlerFromRealPath(rpath string) (*fs.FileSystemHandler, error) {
 	vpath, err := u.RealPathToVirtualPath(rpath)
 	if err != nil {
@@ -237,3 +254,4 @@ func (u *User) GetFileSystemHandlerFromRealPath(rpath string) (*fs.FileSystemHan
 
 	return u.GetFileSystemHandlerFromVirtualPath(vpath)
 }
+*/

@@ -13,7 +13,9 @@
                 overflow: hidden;
             }
             .banner{
-                background-color:#4287f5;
+                /*background-color:#2b4871;*/
+                background: rgb(43,72,113);
+                background: linear-gradient(153deg, rgba(43,72,113,1) 43%, rgba(141,146,147,1) 100%); 
                 height:50px;
                 padding:12px;
                 padding-left:20px;
@@ -53,6 +55,10 @@
             <div class="info"><span locale="info/progress">Progress:</span> <span id="progress"> <i class="loading spinner icon"></i> <span>Calculating</span></div>
             <div class="ui active small progress" style="margin-top:18px;">
                 <div id="progressbar" class="bar" style="width:100%; background-color:#4287f5;"></div>
+            </div>
+            <div id="advanceControlbtns" class="ui right floated small buttons" style="margin-top: -2em; display: none;">
+                <div id="pauseButton" locale="button/pause" class="ui basic grey button" onclick="togglePauseTask();">Pause</div>
+                <div id="cancelButton" class="ui basic red button" locale="button/cancel" onclick="cancelTask();">Cancel</div>
             </div>
         </div>
         <div class="ui modal" id="duplicateAction">
@@ -97,6 +103,9 @@
             */
             var operationConfig = null;
             var opr = "";
+            var oprId = "";
+            var originalIcon = "";
+            var paused = false;
             var maxPathDisplayLength = 40;
             var legacyMode = !('WebSocket' in window || 'MozWebSocket' in window); //Use AJAX instead of WebSocket if legacy mode is activated
             var enterErrorMode = false;
@@ -216,21 +225,26 @@
                 //Check which type of the oprs is about. And assign the related functions to start
                 if (operationConfig.opr == "move"){
                     $("#opricon").attr("src","img/move.gif");
+                    originalIcon = "img/move.gif";
                     cut(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
                 
                 }else if (operationConfig.opr == "copy"){
                     $("#opricon").attr("src","img/copy.gif");
+                    originalIcon = "img/copy.gif"
                     copyopr(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
                 
                 }else if (operationConfig.opr == "zip"){
                     $("#opricon").attr("src","img/zip.gif");
+                    originalIcon = "img/zip.gif"
                     zip(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
                 
                 }else if (operationConfig.opr == "unzip"){
                     $("#opricon").attr("src","img/unzip.gif");
+                    originalIcon = "img/unzip.gif"
                     unzip(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode);
                 }else if (operationConfig.opr == "unzipAndOpen"){
                     $("#opricon").attr("src","img/unzip.gif");
+                    originalIcon = "img/unzip.gif"
                     unzip(operationConfig.src, operationConfig.dest, operationConfig.overwriteMode, function(){
                         //Open the target directory
 
@@ -273,29 +287,27 @@
                         var data = evt.data;
                         var progress = JSON.parse(data);
                         console.log(progress);
-                        if (progress.Error != ""){
+                        if (progress.oprid != undefined){
+                            //This operation is assigned an ongoing task id. Show pause and cancel
+                            showPauseCancelButton();
+                            oprId = progress.oprid;
+                        }else if (progress.Error != ""){
                             //Something went wrong
                             $("#progressbar").css("background-color", "#eb3f28");
                             enterErrorMode = true;
                             handleFinish({error: progress.Error});
                         }else{
                             //Update the progress display
-                            $("#progressbar").css("width", progress.Progress + "%");
                             var currentSrc = truncate(progress.LatestFile, maxPathDisplayLength);
                             var filteredDest = operationConfig.dest.trim();
                             if (filteredDest.substr(filteredDest.length -1, 1) != "/"){
                                 filteredDest += "/"
                             }
                             var currentDest = truncate(filteredDest + progress.LatestFile, maxPathDisplayLength);
-
                             $("#src").text(currentSrc);
                             $("#dest").text(currentDest);
-                            $("#progress").text(progress.Progress + "%")
 
-                            if (progress.Progress == 100){
-                                //Set progress bar to green
-                                $("#progressbar").css("background-color", "#2bba35");
-                            }
+                            handleProgressUpdate(progress);
                         }
                     };
 
@@ -371,29 +383,27 @@
                     ws.onmessage = function (evt) { 
                         var data = evt.data;
                         var progress = JSON.parse(data);
-                        if (progress.Error != ""){
+                        if (progress.oprid != undefined){
+                            //This operation is assigned an ongoing task id. Show pause and cancel
+                            showPauseCancelButton();
+                            oprId = progress.oprid;
+                        }else if (progress.Error != ""){
                             //Something went wrong
                             $("#progressbar").css("background-color", "#eb3f28");
                             enterErrorMode = true;
                             handleFinish({error: progress.Error});
                         }else{
                             //Update the progress display
-                            $("#progressbar").css("width", progress.Progress + "%");
                             var currentSrc = truncate(srcZipRoot + "/" + progress.LatestFile, maxPathDisplayLength);
                             var filteredDest = operationConfig.dest.trim();
                             if (filteredDest.substr(filteredDest.length -1, 1) != "/"){
                                 filteredDest += "/"
                             }
                             var currentDest = truncate(filteredDest + progress.LatestFile, maxPathDisplayLength);
-
                             $("#src").text(currentSrc);
                             $("#dest").text(currentDest);
-                            $("#progress").text(progress.Progress + "%")
-
-                            if (progress.Progress == 100){
-                                //Set progress bar to green
-                                $("#progressbar").css("background-color", "#2bba35");
-                            }
+                            handleProgressUpdate(progress);
+                           
                         }
                     };
                             
@@ -449,13 +459,16 @@
                     ws.onmessage = function (evt) { 
                         var data = evt.data;
                         var progress = JSON.parse(data);
-                        if (progress.Error != ""){
+                        if (progress.oprid != undefined){
+                            //This operation is assigned an ongoing task id. Show pause and cancel
+                            showPauseCancelButton();
+                            oprId = progress.oprid;
+                        }else if (progress.Error != ""){
                             $("#progressbar").css("background-color", "#eb3f28");
                             enterErrorMode = true;
                             handleFinish({error: progress.Error});
                            
                         }else{
-                            $("#progressbar").css("width", progress.Progress + "%");
                             var currentSrc = truncate(operationConfig.src + "/" + progress.LatestFile, maxPathDisplayLength);
                             var filteredDest = operationConfig.dest.trim();
                             if (filteredDest.substr(filteredDest.length -1, 1) != "/"){
@@ -464,12 +477,8 @@
                             var currentDest = truncate(filteredDest + progress.LatestFile, maxPathDisplayLength);
                             $("#src").text(currentSrc);
                             $("#dest").text(currentDest);
-                            $("#progress").text(progress.Progress + "%")
 
-                            if (progress.Progress == 100){
-                                //Set progress bar to green
-                                $("#progressbar").css("background-color", "#2bba35");
-                            }
+                            handleProgressUpdate(progress);
                         }
                         
                     };
@@ -530,27 +539,25 @@
                     ws.onmessage = function (evt) { 
                         var data = evt.data;
                         var progress = JSON.parse(data);
-                        if (progress.Error != ""){
+                        if (progress.oprid != undefined){
+                            //This operation is assigned an ongoing task id. Show pause and cancel
+                            showPauseCancelButton();
+                            oprId = progress.oprid;
+                        }else if (progress.Error != ""){
                             $("#progressbar").css("background-color", "#eb3f28");
                             enterErrorMode = true;
                             handleFinish({error: progress.Error});
                         }else{
-                            $("#progressbar").css("width", progress.Progress + "%");
                             var currentSrc = truncate(operationConfig.src + "/" + progress.LatestFile, maxPathDisplayLength);
                             var filteredDest = operationConfig.dest.trim();
                             if (filteredDest.substr(filteredDest.length -1, 1) != "/"){
                                 filteredDest += "/"
                             }
                             var currentDest = truncate(filteredDest + progress.LatestFile, maxPathDisplayLength);
-
                             $("#src").text(currentSrc);
                             $("#dest").text(currentDest);
-                            $("#progress").text(progress.Progress + "%")
-
-                            if (progress.Progress == 100){
-                                //Set progress bar to green
-                                $("#progressbar").css("background-color", "#2bba35");
-                            }
+                            
+                            handleProgressUpdate(progress);
                         }
                         
                     };
@@ -635,14 +642,48 @@
 
                 $(".title").text(title);
             }
+            
+            function handleProgressUpdate(progress){
+                if (progress.StatusFlag != undefined){
+                    switch (progress.StatusFlag) {
+                        case 1:
+                            if ($("#opricon").attr("src") != "img/paused.png"){
+                                //Show paused UI state
+                                $("#opricon").attr("src", "img/paused.png");
+                                $("#pauseButton").text(applocale.getString("button/resume","Resume"));
+                            }
+                            break;
+                        case 2:
+                        if ($("#opricon").attr("src") != "img/error.png"){
+                                $("#opricon").attr("src", "img/error.png");
+                            }
+                            break;
+                        default:
+                            if ($("#opricon").attr("src") != originalIcon){
+                                //Show 
+                                $("#opricon").attr("src",originalIcon);
+                                $("#pauseButton").text(applocale.getString("button/pause","Pause"));
+                            }
+                    }
+                }
+                $("#progressbar").css("width", progress.Progress + "%");
+                $("#progress").text(progress.Progress + "%")
+                if (progress.Progress >= 100){
+                    //Set progress bar to green
+                    $("#progressbar").css("background-color", "#2bba35");
+                    $("#progress").text("100%");
+                }
+            }
 
             function handleFinish(data){
+                $("#advanceControlbtns").find(".button").addClass("disabled");
                 if (data.error !== undefined){
                     $("#progressbar").css("background-color","#db2828");
                     $("#progressbar").parent().removeClass('active');
-                    $(".title").html(`<i class="remove icon"></i>` + applocale.getString("error/" + data.error,data.error));
+                    $(".title").html(applocale.getString("error/" + data.error,data.error));
                     $("#opricon").attr("src", "img/error.png");
                     enterErrorMode = true;
+                    $("#cancelButton").html(applocale.getString("button/cancel", "Cancel"));
                     return
                 }else{
                     $("#progressbar").css("background-color","#21ba45");
@@ -656,7 +697,7 @@
                             if (operationConfig.callbackWindowID == "desktop"){
                                 //Special call from desktop
                                 parent.eval(operationConfig.callbackFunction);
-                            }else if (operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
+                            }else if (ao_module_virtualDesktop && operationConfig.callbackWindowID !== undefined && operationConfig.callbackFunction !== undefined){
                                 var callbackWindowObject = parent.getFloatWindowByID(operationConfig.callbackWindowID)
                                 var windowObject = $(callbackWindowObject).find("iframe")[0];
                                 if (windowObject == undefined || windowObject == null){
@@ -679,6 +720,10 @@
 
                             if (!enterErrorMode){
                                 ao_module_close();
+                                setTimeout(function(){
+                                    //If ao_module_close is not working for some reason
+                                    open(location, '_self').close();
+                                }, 500);
                             }
                         }, 1000);
                     }else if (opr == "download"){
@@ -725,7 +770,80 @@
                     }
                 })
             }
-          
+
+            /*
+                Functions related to pause and cancel of the file operations
+            */
+            
+            function togglePauseTask(){
+                if (paused){
+                    //Resume
+                    $.ajax({
+                        url: "../../system/file_system/ongoing",
+                        method: "POST",
+                        data: {"oprid": oprId, "flag": "continue"},
+                        success: function(data){
+                            if (data.error != undefined){
+                                console.log(data.error);
+                            }else{
+                                paused = false;
+                                $("#pauseButton").text(applocale.getString("button/pause","Pause"));
+                                $("#opricon").attr("src",originalIcon);
+                            }
+                        }
+                    });
+                }else{
+                    //Pause
+                    $.ajax({
+                        url: "../../system/file_system/ongoing",
+                        method: "POST",
+                        data: {"oprid": oprId, "flag": "pause"},
+                        success: function(data){
+                            if (data.error != undefined){
+                                console.log(data.error);
+                            }else{
+                                paused = true;
+                                $("#opricon").attr("src","img/paused.png");
+                                $("#pauseButton").text(applocale.getString("button/resume","Resume"));
+                            }
+                        }
+                    });
+                }
+                
+            }
+
+            //Cancel the current ongoing task
+            function cancelTask(){
+                $.ajax({
+                    url: "../../system/file_system/ongoing",
+                    method: "POST",
+                    data: {"oprid": oprId, "flag": "cancel"},
+                    success: function(data){
+                        if (data.error != undefined){
+                            console.log(data.error);
+                        }else{
+                            //Disable further operation untill task cancelled
+                            $("#advanceControlbtns").find(".button").addClass("disabled");
+                            $("#cancelButton").html(`<i class="ui loading spinner icon"></i>`);
+                        }
+                    }
+                });
+            }
+
+            function showPauseCancelButton(){
+                ao_module_setWindowSize(400,254);
+                $("#progressbar").parent().css({
+                    "margin-bottom":"1em"
+                });
+                $("#advanceControlbtns").show();
+            }
+
+
+            function hidePauseCancelButton(){
+                ao_module_setWindowSize(400,220);
+                $("#progressbar").parent().css("margin-bottom", "2.5em");
+                $("#advanceControlbtns").hide();
+            }
         </script>
     </body>
 </html>

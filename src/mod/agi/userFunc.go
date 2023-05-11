@@ -3,26 +3,38 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	user "imuslab.com/arozos/mod/user"
 )
 
-//Define path translation function
-func virtualPathToRealPath(path string, u *user.User) (string, error) {
-	return u.VirtualPathToRealPath(path)
+// Define path translation function
+func virtualPathToRealPath(vpath string, u *user.User) (*filesystem.FileSystemHandler, string, error) {
+	fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
+	if err != nil {
+		return nil, "", err
+	}
+	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
+	if err != nil {
+		return nil, "", err
+	}
+	return fsh, rpath, nil
 }
 
-func realpathToVirtualpath(path string, u *user.User) (string, error) {
-	return u.RealPathToVirtualPath(path)
+func realpathToVirtualpath(fsh *filesystem.FileSystemHandler, path string, u *user.User) (string, error) {
+	return fsh.FileSystemAbstraction.RealPathToVirtualPath(path, u.Username)
 }
 
-//Inject user based functions into the virtual machine
-func (g *Gateway) injectUserFunctions(vm *otto.Otto, scriptFile string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) {
+// Inject user based functions into the virtual machine
+// Note that the fsh might be nil and scriptPath must be real path of script being executed
+// **Use local file system check if fsh == nil**
+func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemHandler, scriptPath string, scriptScope string, u *user.User, w http.ResponseWriter, r *http.Request) {
 	username := u.Username
 	vm.Set("USERNAME", username)
 	vm.Set("USERICON", u.GetUserIcon())
@@ -33,45 +45,18 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, scriptFile string, scriptSc
 
 	//File system and path related
 	vm.Set("decodeVirtualPath", func(call otto.FunctionCall) otto.Value {
-		path, _ := call.Argument(0).ToString()
-		realpath, err := virtualPathToRealPath(path, u)
-		if err != nil {
-			reply, _ := vm.ToValue(false)
-			return reply
-		} else {
-			reply, _ := vm.ToValue(realpath)
-			return reply
-		}
+		log.Println("Call to deprecated function decodeVirtualPath")
+		return otto.FalseValue()
 	})
 
 	vm.Set("decodeAbsoluteVirtualPath", func(call otto.FunctionCall) otto.Value {
-		path, _ := call.Argument(0).ToString()
-		realpath, err := virtualPathToRealPath(path, u)
-		if err != nil {
-			reply, _ := vm.ToValue(false)
-			return reply
-		} else {
-			//Convert the real path to absolute path
-			abspath, err := filepath.Abs(realpath)
-			if err != nil {
-				reply, _ := vm.ToValue(false)
-				return reply
-			}
-			reply, _ := vm.ToValue(abspath)
-			return reply
-		}
+		log.Println("Call to deprecated function decodeAbsoluteVirtualPath")
+		return otto.FalseValue()
 	})
 
 	vm.Set("encodeRealPath", func(call otto.FunctionCall) otto.Value {
-		path, _ := call.Argument(0).ToString()
-		realpath, err := realpathToVirtualpath(path, u)
-		if err != nil {
-			reply, _ := vm.ToValue(false)
-			return reply
-		} else {
-			reply, _ := vm.ToValue(realpath)
-			return reply
-		}
+		log.Println("Call to deprecated function encodeRealPath")
+		return otto.FalseValue()
 	})
 
 	//Check if a given virtual path is readonly
@@ -261,7 +246,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, scriptFile string, scriptSc
 		} else {
 			//Check if the library name exists. If yes, run the initiation script on the vm
 			if entryPoint, ok := g.LoadedAGILibrary[libname]; ok {
-				entryPoint(vm, u)
+				entryPoint(vm, u, fsh, scriptPath)
 				return otto.TrueValue()
 			} else {
 				//Lib not exists
@@ -269,9 +254,6 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, scriptFile string, scriptSc
 				return otto.FalseValue()
 			}
 		}
-
-		//Unknown status
-		return otto.FalseValue()
 	})
 
 	//Execd (Execute & detach) run another script and detach the execution
@@ -287,20 +269,27 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, scriptFile string, scriptSc
 		payload, _ := call.Argument(1).ToString()
 
 		//Check if the script file exists
-		targetScriptPath := filepath.ToSlash(filepath.Join(filepath.Dir(scriptFile), scriptName))
-		if !fileExists(targetScriptPath) {
-			g.raiseError(errors.New("*AGI* Target path not exists!"))
-			return otto.FalseValue()
+		targetScriptPath := arozfs.ToSlash(filepath.Join(filepath.Dir(scriptPath), scriptName))
+		if fsh != nil {
+			if !fsh.FileSystemAbstraction.FileExists(targetScriptPath) {
+				g.raiseError(errors.New("[AGI] Target path not exists!"))
+				return otto.FalseValue()
+			}
+		} else {
+			if !filesystem.FileExists(targetScriptPath) {
+				g.raiseError(errors.New("[AGI] Target path not exists!"))
+				return otto.FalseValue()
+			}
 		}
 
 		//Run the script
-		scriptContent, _ := ioutil.ReadFile(targetScriptPath)
+		scriptContent, _ := os.ReadFile(targetScriptPath)
 		go func() {
 			//Create a new VM to execute the script (also for isolation)
 			vm := otto.New()
 			//Inject standard libs into the vm
-			g.injectStandardLibs(vm, scriptFile, scriptScope)
-			g.injectUserFunctions(vm, scriptFile, scriptScope, u, w, r)
+			g.injectStandardLibs(vm, scriptPath, scriptScope)
+			g.injectUserFunctions(vm, fsh, scriptPath, scriptScope, u, w, r)
 
 			vm.Set("PARENT_DETACHED", true)
 			vm.Set("PARENT_PAYLOAD", payload)

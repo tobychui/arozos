@@ -89,7 +89,7 @@
             </tr>
             <tr>
                 <td locale="diskinfo/hierarchy">
-                    Disk Hierarchy: 
+                    Hierarchy (Format): 
                 </td>
                 <td id="hierarchy">
                     
@@ -115,7 +115,7 @@
                     <div class="yellow colorblock"></div><span locale="spaceinfo/userUsed">User Used Space:</span>
                 </td>
                 <td>
-                    <span id="usedVirtualSpaceInByte" class="smallerFont"></span> <span locale="unit/bytes">Bytes</span>
+                    <span id="usedVirtualSpaceInByte" class="smallerFont"><i class="ui spinner loading icon"></i></span> <span locale="unit/bytes">Bytes</span>
                 </td>
                 <td>
                     <span id="usedVirtualSpaceInHumanReadableFormat"  class="smallerFont"></span>
@@ -148,10 +148,10 @@
             <div class="overlap bar" style="width: 100%; background-color: #b9b9b9;">
                 <div class="progress"></div>
             </div>
-            <div id="totalUsedSpace" class="overlap bar" style="min-width: 5px; width: 50%; background-color: #52bdf2;">
+            <div id="totalUsedSpace" class="overlap bar" style="min-width: 5px; width: 100%; background-color: #52bdf2;">
                 <div class="progress"></div>
             </div>
-            <div id="userUsedSpace" class="overlap bar" style="min-width: 5px; width: 30%; background-color: #e5e75c;">
+            <div id="userUsedSpace" class="overlap bar" style="min-width: 5px; width: 100%; background-color: #e5e75c;">
                 <div class="progress"></div>
             </div>
         </div>
@@ -197,8 +197,8 @@
                         $("#usedSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Used));
                         $("#usedSpaceInHumanReadableFormat").text(bytesToSize(data.Used));
 
-                        $("#usableSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Avilable));
-                        $("#usableSpaceInHumanReadableFormat").text(bytesToSize(data.Avilable));
+                        $("#usableSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Available));
+                        $("#usableSpaceInHumanReadableFormat").text(bytesToSize(data.Available));
 
                         $("#totalSpaceInBytes").text(new Intl.NumberFormat('en-US').format(data.Total));
                         $("#totalSpaceInHumanReadableFormat").text(bytesToSize(data.Total));
@@ -206,7 +206,7 @@
                         $("#phydisk").text(data.PhysicalDevice + "/");
                         var s = data.MountingHierarchy;
                         s = s[0].toUpperCase() + s.slice(1);
-                        $("#hierarchy").text(applocale.getString("hierarchy/" + s, s));
+                        $("#hierarchy").text(applocale.getString("hierarchy/" + s, s) + ` (${data.FileSystemType.toUpperCase()})`);
                         
                         $("#totalUsedSpace").css("width", (data.Used / data.Total) * 100 + "%");
                     }
@@ -221,9 +221,15 @@
                             $("#usedVirtualSpaceInByte").text("Not Available");
                             $("#usedVirtualSpaceInHumanReadableFormat").text("");
                         }
+
+                        if (diskInfo.Used == 0){
+                            //Network or special drive. Use user space as usedSpace
+                            $("#usedSpaceInBytes").text(new Intl.NumberFormat('en-US').format(folderdata.Filesize));
+                            $("#usedSpaceInHumanReadableFormat").text(bytesToSize(folderdata.Filesize));
+                        }
                        
                         
-                        if (data.Total != undefined){
+                        if (data.Total != undefined && data.Total > 0){
                             $("#userUsedSpace").css("width", (folderdata.Filesize / data.Total) * 100 + "%");
                         }else{
                             //Error when reading disk size. Just make it full width

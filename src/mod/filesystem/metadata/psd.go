@@ -4,23 +4,28 @@ import (
 	"errors"
 	"image"
 	"image/jpeg"
-	"os"
 	"path/filepath"
 
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
 	_ "github.com/oov/psd"
+	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
-func generateThumbnailForPSD(cacheFolder string, file string, generateOnly bool) (string, error) {
-	if !fileExists(file) {
+func generateThumbnailForPSD(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if fsh.RequireBuffer {
+		return "", nil
+	}
+	fshAbs := fsh.FileSystemAbstraction
+	if !fshAbs.FileExists(file) {
 		//The user removed this file before the thumbnail is finished
 		return "", errors.New("Source not exists")
 	}
 
 	outputFile := cacheFolder + filepath.Base(file) + ".jpg"
 
-	f, err := os.Open(file)
+	f, err := fshAbs.Open(file)
 	if err != nil {
 		return "", err
 	}
@@ -52,7 +57,7 @@ func generateThumbnailForPSD(cacheFolder string, file string, generateOnly bool)
 		Mode:   cutter.Centered,
 	})
 
-	outf, err := os.Create(outputFile)
+	outf, err := fshAbs.Create(outputFile)
 	if err != nil {
 		return "", err
 	}
@@ -65,11 +70,11 @@ func generateThumbnailForPSD(cacheFolder string, file string, generateOnly bool)
 	}
 	outf.Close()
 
-	if !generateOnly && fileExists(outputFile) {
+	if !generateOnly && fshAbs.FileExists(outputFile) {
 		//return the image as well
-		ctx, err := getImageAsBase64(outputFile)
+		ctx, err := getImageAsBase64(fsh, outputFile)
 		return ctx, err
-	} else if !fileExists(outputFile) {
+	} else if !utils.FileExists(outputFile) {
 		return "", errors.New("Image generation failed")
 	}
 	return "", nil

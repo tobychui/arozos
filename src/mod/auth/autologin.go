@@ -3,18 +3,19 @@ package auth
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/sessions"
 	uuid "github.com/satori/go.uuid"
+	"imuslab.com/arozos/mod/utils"
 )
 
-//Autologin token. This token will not expire until admin removal
+// Autologin token. This token will not expire until admin removal
 type AutoLoginToken struct {
 	Owner string
 	Token string
@@ -112,7 +113,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	}
 
 	session, _ := a.SessionStore.Get(r, a.SessionName)
-	token, err := mv(r, "token", false)
+	token, err := utils.GetPara(r, "token")
 	if err != nil {
 		//Username not defined
 		sendErrorResponse(w, "Token not defined or empty.")
@@ -125,7 +126,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 		//This token is not valid
 		w.WriteHeader(http.StatusUnauthorized)
 		//Try to get the autologin error page.
-		errtemplate, err := ioutil.ReadFile("./system/errors/invalidToken.html")
+		errtemplate, err := os.ReadFile("./system/errors/invalidToken.html")
 		if err != nil {
 			w.Write([]byte("401 - Unauthorized (Token not valid)"))
 		} else {
@@ -139,7 +140,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	if err == nil && currentlyLoggedUsername != username {
 		//The current client already logged in with another user account!
 		w.WriteHeader(http.StatusAccepted)
-		errtemplate, err := ioutil.ReadFile("./system/errors/alreadyLoggedin.html")
+		errtemplate, err := os.ReadFile("./system/errors/alreadyLoggedin.html")
 		if err != nil {
 			w.Write([]byte("202 - Accepted (Already logged in as another user)"))
 		} else {
@@ -163,7 +164,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 
 	session.Save(r, w)
 
-	redirectTarget, _ := mv(r, "redirect", false)
+	redirectTarget, _ := utils.GetPara(r, "redirect")
 	if redirectTarget != "" {
 		//Redirect to target website
 		http.Redirect(w, r, redirectTarget, http.StatusTemporaryRedirect)
@@ -174,7 +175,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 
 }
 
-//Check if the given autologin token is valid. Autologin token is different from session token (aka token)
+// Check if the given autologin token is valid. Autologin token is different from session token (aka token)
 func (a *AuthAgent) ValidateAutoLoginToken(token string) (bool, string) {
 	//Try to get the username from token
 	username, err := a.GetUsernameFromToken(token)

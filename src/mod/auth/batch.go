@@ -14,6 +14,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -24,7 +26,7 @@ import (
 	Each user occupied one new line
 */
 func (a *AuthAgent) HandleCreateUserAccountsFromCSV(w http.ResponseWriter, r *http.Request) {
-	csvContent, err := mv(r, "csv", true)
+	csvContent, err := utils.PostPara(r, "csv")
 	if err != nil {
 		sendErrorResponse(w, "Invalid csv")
 		return
@@ -68,13 +70,13 @@ func (a *AuthAgent) HandleCreateUserAccountsFromCSV(w http.ResponseWriter, r *ht
 	Require paramter: group, exact
 */
 func (a *AuthAgent) HandleUserDeleteByGroup(w http.ResponseWriter, r *http.Request) {
-	group, err := mv(r, "group", true)
+	group, err := utils.PostPara(r, "group")
 	if err != nil {
 		sendErrorResponse(w, "Invalid group")
 	}
 
 	requireExact := true //Default true
-	exact, _ := mv(r, "exact", true)
+	exact, _ := utils.PostPara(r, "exact")
 	if exact == "false" {
 		requireExact = false
 	}

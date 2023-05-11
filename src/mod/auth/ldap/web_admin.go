@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/auth/ldap/ldapreader"
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 	//basic components
 	enabled, err := strconv.ParseBool(ldap.readSingleConfig("enabled"))
 	if err != nil {
-		common.SendTextResponse(w, "Invalid config value [key=enabled].")
+		utils.SendTextResponse(w, "Invalid config value [key=enabled].")
 		return
 	}
 	//get the LDAP config from db
@@ -36,18 +36,18 @@ func (ldap *ldapHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		empty, err := json.Marshal(Config{})
 		if err != nil {
-			common.SendErrorResponse(w, "Error while marshalling config")
+			utils.SendErrorResponse(w, "Error while marshalling config")
 		}
-		common.SendJSONResponse(w, string(empty))
+		utils.SendJSONResponse(w, string(empty))
 	}
-	common.SendJSONResponse(w, string(config))
+	utils.SendJSONResponse(w, string(config))
 }
 
 func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	//receive the parameter
-	enabled, err := common.Mv(r, "enabled", true)
+	enabled, err := utils.PostPara(r, "enabled")
 	if err != nil {
-		common.SendErrorResponse(w, "enabled field can't be empty")
+		utils.SendErrorResponse(w, "enabled field can't be empty")
 		return
 	}
 
@@ -58,31 +58,31 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//four fields to store the LDAP authentication information
-	BindUsername, err := common.Mv(r, "bind_username", true)
+	BindUsername, err := utils.PostPara(r, "bind_username")
 	if err != nil {
 		if showError {
-			common.SendErrorResponse(w, "bind_username field can't be empty")
+			utils.SendErrorResponse(w, "bind_username field can't be empty")
 			return
 		}
 	}
-	BindPassword, err := common.Mv(r, "bind_password", true)
+	BindPassword, err := utils.PostPara(r, "bind_password")
 	if err != nil {
 		if showError {
-			common.SendErrorResponse(w, "bind_password field can't be empty")
+			utils.SendErrorResponse(w, "bind_password field can't be empty")
 			return
 		}
 	}
-	FQDN, err := common.Mv(r, "fqdn", true)
+	FQDN, err := utils.PostPara(r, "fqdn")
 	if err != nil {
 		if showError {
-			common.SendErrorResponse(w, "fqdn field can't be empty")
+			utils.SendErrorResponse(w, "fqdn field can't be empty")
 			return
 		}
 	}
-	BaseDN, err := common.Mv(r, "base_dn", true)
+	BaseDN, err := utils.PostPara(r, "base_dn")
 	if err != nil {
 		if showError {
-			common.SendErrorResponse(w, "base_dn field can't be empty")
+			utils.SendErrorResponse(w, "base_dn field can't be empty")
 			return
 		}
 	}
@@ -98,7 +98,7 @@ func (ldap *ldapHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	ldap.ldapreader = ldapreader.NewLDAPReader(BindUsername, BindPassword, FQDN, BaseDN)
 
 	//return ok
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) {
@@ -107,10 +107,10 @@ func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		errMessage, err := json.Marshal(syncorizeUserReturnInterface{Error: err.Error()})
 		if err != nil {
-			common.SendErrorResponse(w, "{\"error\":\"Error while marshalling information\"}")
+			utils.SendErrorResponse(w, "{\"error\":\"Error while marshalling information\"}")
 			return
 		}
-		common.SendJSONResponse(w, string(errMessage))
+		utils.SendJSONResponse(w, string(errMessage))
 		return
 	}
 	returnJSON := syncorizeUserReturnInterface{Userinfo: userList, Length: len(userList), TotalLength: totalLength, Error: ""}
@@ -118,13 +118,13 @@ func (ldap *ldapHandler) TestConnection(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		errMessage, err := json.Marshal(syncorizeUserReturnInterface{Error: err.Error()})
 		if err != nil {
-			common.SendErrorResponse(w, "{\"error\":\"Error while marshalling information\"}")
+			utils.SendErrorResponse(w, "{\"error\":\"Error while marshalling information\"}")
 			return
 		}
-		common.SendJSONResponse(w, string(errMessage))
+		utils.SendJSONResponse(w, string(errMessage))
 		return
 	}
-	common.SendJSONResponse(w, string(accountJSON))
+	utils.SendJSONResponse(w, string(accountJSON))
 }
 
 func (ldap *ldapHandler) checkCurrUserAdmin(w http.ResponseWriter, r *http.Request) (bool, error) {
@@ -163,18 +163,18 @@ func (ldap *ldapHandler) SynchronizeUser(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		// escape " symbol manually
 		errorMsg := strings.ReplaceAll(err.Error(), "\"", "\\\"")
-		common.SendErrorResponse(w, errorMsg)
+		utils.SendErrorResponse(w, errorMsg)
 		return
 	}
 	if !consistencyCheck {
-		common.SendErrorResponse(w, "You will no longer become the admin after synchronizing, synchronize terminated")
+		utils.SendErrorResponse(w, "You will no longer become the admin after synchronizing, synchronize terminated")
 		return
 	}
 
 	err = ldap.SynchronizeUserFromLDAP()
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	common.SendOK(w)
+	utils.SendOK(w)
 }

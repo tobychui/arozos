@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/disk/diskcapacity/dftool"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -22,7 +23,16 @@ type Resolver struct {
 	UserHandler *user.UserHandler
 }
 
-//Create a new Capacity Resolver with the given user handler
+type CapacityInfo struct {
+	PhysicalDevice    string
+	FileSystemType    string
+	MountingHierarchy string
+	Used              int64
+	Available         int64
+	Total             int64
+}
+
+// Create a new Capacity Resolver with the given user handler
 func NewCapacityResolver(u *user.UserHandler) *Resolver {
 	return &Resolver{
 		UserHandler: u,
@@ -33,20 +43,20 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 	//Check if the request user is authenticated
 	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		common.SendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
 	//Get vpath from paramter
-	vpath, err := common.Mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		common.SendErrorResponse(w, "Vpath is not defined")
+		utils.SendErrorResponse(w, "Vpath is not defined")
 		return
 	}
 
 	capinfo, err := cr.ResolveCapacityInfo(userinfo.Username, vpath)
 	if err != nil {
-		common.SendErrorResponse(w, "Unable to resolve path capacity information: "+err.Error())
+		utils.SendErrorResponse(w, "Unable to resolve path capacity information: "+err.Error())
 		return
 	}
 
@@ -60,23 +70,65 @@ func (cr *Resolver) HandleCapacityResolving(w http.ResponseWriter, r *http.Reque
 
 	//Send the requested path capacity information
 	js, _ := json.Marshal(capinfo)
-	common.SendJSONResponse(w, string(js))
-
+	utils.SendJSONResponse(w, string(js))
 }
 
-func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (*dftool.Capacity, error) {
+// Get the capacity in tmp folder, accessible by everyone by default
+func (cr *Resolver) HandleTmpCapacityResolving(w http.ResponseWriter, r *http.Request) {
+	//Check if the request user is authenticated
+	userinfo, err := cr.UserHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	capinfo, _ := cr.ResolveCapacityInfo(userinfo.Username, "tmp:/")
+	js, _ := json.Marshal(capinfo)
+	utils.SendJSONResponse(w, string(js))
+}
+
+func (cr *Resolver) ResolveCapacityInfo(username string, vpath string) (*CapacityInfo, error) {
 	//Resolve the vpath for this user
 	userinfo, err := cr.UserHandler.GetUserInfoFromUsername(username)
 	if err != nil {
 		return nil, err
 	}
 
-	realpath, err := userinfo.VirtualPathToRealPath(vpath)
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
+	if err != nil {
+		return nil, err
+	}
+
+	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, username)
 	if err != nil {
 		return nil, err
 	}
 
 	realpath = filepath.ToSlash(filepath.Clean(realpath))
 
-	return dftool.GetCapacityInfoFromPath(realpath)
+	if utils.FileExists(realpath) && !arozfs.IsNetworkDrive(fsh.Filesystem) {
+		//This is a local disk
+		capinfo, err := dftool.GetCapacityInfoFromPath(realpath)
+		if err != nil {
+			return nil, err
+		}
+		return &CapacityInfo{
+			PhysicalDevice:    capinfo.PhysicalDevice,
+			FileSystemType:    fsh.Filesystem,
+			MountingHierarchy: fsh.Hierarchy,
+			Used:              capinfo.Used,
+			Available:         capinfo.Available,
+			Total:             capinfo.Total,
+		}, nil
+	} else {
+		//This is a remote disk
+		return &CapacityInfo{
+			PhysicalDevice:    fsh.Path,
+			FileSystemType:    fsh.Filesystem,
+			MountingHierarchy: fsh.Hierarchy,
+			Used:              0,
+			Available:         0,
+			Total:             0,
+		}, nil
+	}
 }

@@ -9,7 +9,9 @@ import (
 	"sort"
 	"strconv"
 
+	"imuslab.com/arozos/mod/filesystem"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type LargeFileScanner struct {
@@ -25,12 +27,12 @@ func NewLargeFileScanner(u *user.UserHandler) *LargeFileScanner {
 func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := s.userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Check if limit is set. If yes, use the limit in return
-	limit, err := mv(r, "number", false)
+	limit, err := utils.GetPara(r, "number")
 	if err != nil {
 		limit = "20"
 	}
@@ -47,14 +49,16 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 	type FileObject struct {
 		Filename string
 		Filepath string
-		realpath string
 		Size     int64
 		IsOwner  bool
+
+		realpath string
+		thisfsh  *filesystem.FileSystemHandler
 	}
 	//Walk all filesystem handlers and buffer all files and their sizes
 	fileList := []*FileObject{}
 	for _, fsh := range fsHandlers {
-		filepath.Walk(fsh.Path, func(path string, info os.FileInfo, err error) error {
+		fsh.FileSystemAbstraction.Walk(fsh.Path, func(path string, info os.FileInfo, err error) error {
 			if info == nil || err != nil {
 				//Disk IO Error
 				return errors.New("Disk IO Error: " + err.Error())
@@ -66,11 +70,12 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 
 			//Push the current file into the filelist
 			if info.Size() > 0 {
-				vpath, _ := userinfo.RealPathToVirtualPath(path)
+				vpath, _ := fsh.FileSystemAbstraction.RealPathToVirtualPath(path, userinfo.Username)
 				fileList = append(fileList, &FileObject{
 					Filename: filepath.Base(path),
 					Filepath: vpath,
 					realpath: path,
+					thisfsh:  fsh,
 					Size:     info.Size(),
 					IsOwner:  false,
 				})
@@ -99,7 +104,7 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 
 	//Only check ownership of those requested
 	for _, file := range fileList[:limitInt] {
-		if userinfo.IsOwnerOfFile(file.realpath) {
+		if userinfo.IsOwnerOfFile(file.thisfsh, file.Filepath) {
 			file.IsOwner = true
 		} else {
 			file.IsOwner = false
@@ -108,5 +113,5 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 
 	//Format the results and return
 	jsonString, _ := json.Marshal(fileList[:limitInt])
-	sendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }

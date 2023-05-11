@@ -67,9 +67,7 @@ func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ft
 				accessOK = false
 				return nil, err
 			}
-		}
-
-		if !accessOK {
+		} else {
 			//log the signin request
 			m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")
 			//Disconnect this user as he is not in the group that is allowed to access ftp

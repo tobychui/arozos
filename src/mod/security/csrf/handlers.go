@@ -3,6 +3,8 @@ package csrf
 import (
 	"encoding/json"
 	"net/http"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 func (m *TokenManager) HandleNewToken(w http.ResponseWriter, r *http.Request) {
@@ -14,7 +16,7 @@ func (m *TokenManager) HandleNewToken(w http.ResponseWriter, r *http.Request) {
 
 	newUUID := m.GenerateNewToken(userinfo.Username)
 	js, _ := json.Marshal(newUUID)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //validate the token validation from request
@@ -24,7 +26,7 @@ func (m *TokenManager) HandleTokenValidation(w http.ResponseWriter, r *http.Requ
 		return false
 	}
 
-	token, _ := mv(r, "csrft", true)
+	token, _ := utils.PostPara(r, "csrft")
 	if token == "" {
 		return false
 	} else {

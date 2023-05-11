@@ -28,11 +28,11 @@
         }
 
         body:not(.darkTheme){
-            color: #5a5a5a;
+            color: var(--body_text, #5a5a5a);
         }
 
         body.darkTheme{
-            color: #f0f0f0;
+            color: var(--body_text,#f0f0f0);
         }
 
         * {
@@ -343,14 +343,14 @@
             left: 0px;
             height: 500px;
             width: 400px;
-            background-color: #fcffff;
+            background-color: #ffffff;
             box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
             z-index: 1113;
         }
 
-        #listMenu.darkTheme{
-            background-color: #242330;
-            color: white;
+        body.darkTheme #listMenu{
+            background-color: var(--body_background, #242330);
+            color: var(--text_color, white);
             -webkit-box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
             -moz-box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
             box-shadow: 7px -6px 7px -1px rgba(92,92,92,0.2);
@@ -361,18 +361,18 @@
             border-bottom: 2px solid #34b7eb;
         }
 
-        i.darkTheme{
-            color: white;
+        body.darkTheme i{
+            color: var(--text_color);
         }
 
-        #listMenu #searchBar.darkTheme::selection{
-            background: white;
+        body.darkTheme #listMenu #searchBar::selection{
+            background: var(--body_background);
         }
 
-        #listMenu.darkTheme .searchBar input{
-            background-color: #17161f !important;
-            color: white !important;
-            border: 1px solid #17161f;
+        body.darkTheme #listMenu .searchBar input{
+            background-color: var(--body_background_secondary, #17161f) !important;
+            color: var(--text_color_secondary, white) !important;
+            border: 1px solid var(--divider, #17161f);
         }
         
         #listMenu .listItemWrapper {
@@ -393,9 +393,9 @@
             padding-top: 8px;
         }
 
-        #listMenu.darkTheme .listItemWrapper .groups {
-            background-color: #17161f;
-            color: white;
+        body.darkTheme #listMenu .listItemWrapper .groups {
+            background-color: var(--body_background, #17161f);
+            color: var(--text_color, white);
         }
         
         #listMenu .listItemWrapper .groups .item {
@@ -413,8 +413,8 @@
             background-color: #dedede;
         }
 
-        #listMenu.darkTheme .listItemWrapper .groups .item:hover {
-            background-color: #242330;
+        body.darkTheme #listMenu .listItemWrapper .groups .item:hover {
+            background-color: var(--body_background_active, #242330);
         }
         
         #listMenu .listItemWrapper .items {
@@ -423,8 +423,16 @@
             display: inline-block;
             overflow-y: auto;
             padding-top: 8px;
-            box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.5);
+            
             vertical-align: top;
+        }
+
+        body.whiteTheme #listMenu .listItemWrapper .items {
+            box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.5); 
+        }
+
+        body.darkTheme #listMenu .listItemWrapper .items {
+            box-shadow: -2px 0px 5px 0px rgba(194, 194, 194, 0.11); 
         }
 
         #listMenu.darkTheme .listItemWrapper .items {
@@ -442,8 +450,8 @@
             background-color: #f5f5f5;
         }
 
-        #listMenu.darkTheme .listItemWrapper .items .item:hover {
-            background-color: #17161f !important;
+        body.darkTheme #listMenu .listItemWrapper .items .item:hover {
+            background-color: var(--body_background_active, #17161f) !important;
             margin-right: 5px;
         }
         
@@ -467,13 +475,16 @@
             background-color: #dedede;
         }
 
-        #listMenu.darkTheme .poweroption:hover {
-            background-color: #242330;
+        body.darkTheme #listMenu .poweroption{
+            color: var(--text_color_secondary); 
+        }
+        body.darkTheme #listMenu .poweroption:hover {
+            background-color: var(--body_background_active);
         }
         
-        #contextmenu {
+        .contextmenu {
             position: fixed;
-            z-index: 3000;
+            z-index: 3000 !important;
             left: 20px;
             top: 20px;
         }
@@ -566,19 +577,39 @@
         }
 
         .quicktools{
-            padding-left: 0.7em;
+            margin-top: -0.1em;
+            position: relative;
             text-align:center; 
             height: 100%;
         }
 
-        .quicktools:hover{
-            background-color: rgba(240,240,240,0.2);
+        .qtwrapper{
+            cursor:pointer;
+            display: inline-block;
+            border-radius: 0.4em;
         }
 
-        .qtwrapper{
-            padding:4px;
-            padding-right: 8px;
-            cursor:pointer;
+        .qtwrapper.backgroundtask{
+            padding-left:8px;
+            padding-right: 6px;
+            padding-top: 7px;
+            padding-bottom: 5px;
+        }
+
+        .qtwrapper.backgroundtask i{
+            margin-top: -1px;
+            margin-right: 1px;
+        }
+
+        .qtwrapper.content{
+            padding-left:6px;
+            padding-right: 4px;
+            padding-top: 4px;
+            padding-bottom: 8px;
+        }
+
+        .qtwrapper:hover{
+            background-color: rgba(240,240,240,0.2);
         }
 
         .notificationbar{
@@ -699,7 +730,7 @@
         }
 
         #quickAccessPanel{
-            background-color:white;
+            background-color:var(--body_background);
             position:absolute;
             top:28px;
             right:4px;
@@ -711,6 +742,10 @@
             border: 1px solid #ebebeb;
             padding-top:8px;
             padding-bottom:8px;
+
+            box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+            -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+            -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
         }
 
         #quickAccessPanel .item{
@@ -723,45 +758,50 @@
             
         }
 
-        #quickAccessPanel:not(.darkTheme) .item{
-            color: #5a5a5a;
-        }
-
-        #quickAccessPanel.darkTheme .item{
-            color: #eeeeee;
+        #quickAccessPanel .item{
+            color: var(--text_color);
         }
 
         #quickAccessPanel .item:hover{
-           background-color:#fafafa;
+           background-color:var(--body_background_active);
         }
 
         /*
             Handle dark theme for the quick access panel
         */
 
-        #quickAccessPanel.darkTheme{
-            background-color: #242330;
-            color: white;
+        #quickAccessPanel{
+            background-color: var(--body_background);
+            color: var(--text_color);
             border: 1px solid transparent;
+        }
+
+        body.darkTheme #quickAccessPanel{
             -webkit-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
             -moz-box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
             box-shadow: -5px 4px 7px -1px rgba(92,92,92,0.2);
         }
-        #quickAccessPanel.darkTheme .item:hover{
-           background-color:#17161f;
+
+        #quickAccessPanel .header{
+           color: var(--text_color);
         }
-        #quickAccessPanel.darkTheme .header{
-           color: white;
+
+        #quickAccessPanel .meta{
+           color: var(--text_color_secondary);
         }
-        #quickAccessPanel.darkTheme .progress{
-           background-color: #0c0c0f;
+        
+        #quickAccessPanel .progress{
+           background-color: var(--body_background_active);
         }
-        #quickAccessPanel.darkTheme .header{
-           color: white;
+
+        #quickAccessPanel .progress .bar{
+            background-color: var(--theme_color) !important;
         }
-        #quickAccessPanel.darkTheme .inverted.button{
-           background-color: #17161f;
-           border: 1px solid black;
+
+        #quickAccessPanel .button{
+           background-color: var(--body_background_secondary);
+           border: 1px solid var(--divider);
+           color: var(--text_color);
         }
 
         .item.module{
@@ -813,6 +853,13 @@
 
         .iframewrapper iframe{
             border: 0px;
+        }
+
+        /* File operation progress tracker */
+        #backgroundTaskPanel{
+            background-color: var(--body_background) !important;
+            color: var(--text_color);
+            border: var(--divider) !important;
         }
 
          /* Offline blinking warning css */
@@ -886,18 +933,74 @@
                 padding:2px;
                 word-wrap: break-word;
             }
-    
 
-            
+            /*
+                Background Task UI
+            */
+            #backgroundTaskPanel{
+                background-color:white;
+                position:absolute;
+                top:28px;
+                right:50px;
+                z-index:115;
+                width:400px;
+                border-radius: 10px;
+                border-top-right-radius: 0px;
+                border-top-left-radius: 0px;
+                border: 1px solid #ebebeb;
+                padding-top:8px;
+                padding-bottom:8px;
+                max-height: 50vh;
+                overflow-y: auto;
+                overflow-x: hidden;
 
+                box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+                -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+                -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
+            }
+
+            .backgroundtaskObject{
+                padding: 0.4em;
+                padding-right: 0.8em;
+                padding-left: 1.2em;
+            }
+
+            .backgroundtaskObject .progress, .backgroundtaskObject .bar{
+                height: 1em !important;
+            }
+
+            .backgroundtaskObject .bar{
+                min-width: 0px !important;
+            }
+
+            .backgroundtaskObject .progress .bar{
+                background-color: #2b4871;
+            }
+
+            .backgroundtaskObject.paused .progress .bar{
+                background-color: #d6ba3e;
+            }
+
+            .backgroundtaskObject.stopping .progress .bar{
+                background-color: #d63e3e;
+            }
+
+            .backgroundtaskObject .circular.button i{
+                color: rgb(160, 160, 160) !important;
+                display: inline-block;
+                width: 10px !important;
+            }
 
 
         /*
                 Z-index layering
                 Layer -1 : Background Images
+                Layer 0: Status Bar
                 Layer 0 - 99: Not focused tab
                 Layer 100: Focused tab drag drop layer
                 Layer 101: Focused Tab / File Descriptor Tag
+                Layer 114: Quick Access Panel
+                Layer 115: Background Task Panel
                 ...
                 Layer 400 - 499: Non-focused top most FloatWindows
                 Layer 500: Top Mot FloatWindow drag drop layer
@@ -922,7 +1025,7 @@
     </script>
 </head>
 
-<body style="background-color:black;">
+<body class="whiteTheme" style="background-color:black;">
     <!-- Background frames-->
     <div id="bgwrapper" class="background-wrapper" allowdrop="true" ondrop="drop(event)" ondragstart="return false;" onclick="event.preventDefault(); hideAllContextMenus();" ondblclick="event.preventDefault();event.stopImmediatePropagation();" ondragover="allowDrop(event);"
         align="center" draggable="false">
@@ -935,9 +1038,12 @@
         <div class="clock statusbarpadding" onclick="toggleNotification();" ontouchstart="toggleNotification();">
             ArozOS Desktop
         </div>
-        <div class="quicktools statusbarpadding" onclick="showToolPanel();" ontouchend="showToolPanel();">
-            <div class="qtwrapper">
-                <i class="content icon" style="transform: translateY(-3px);"></i>
+        <div class="quicktools statusbarpadding">
+            <div id="backgroundtaskBtn" class="qtwrapper backgroundtask" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
+                <i class="clone icon"></i>
+            </div>
+            <div class="qtwrapper content" onclick="showToolPanel();" ontouchend="showToolPanel();" style="margin-right: 0.4em;">
+                <i class="content icon"></i>
             </div>
         </div>
     </div>
@@ -1046,6 +1152,34 @@
         </div>
     </div>
 
+    <!-- Background Task Panel -->
+    <div id="backgroundTaskPanel" class="" style="display:none;">
+        <!--
+        <div class="backgroundtaskObject">
+            <small>src > dest (test.mp4)</small>
+            <div class="ui grid">
+                <div class="twelve wide column" style="padding-right: 0.4em;">
+                    <div class="ui mini active progress">
+                        <div class="bar" style="width: 50%;">
+                            <div class="progress">50%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="four wide column"  style="padding-top: 0.4em; padding-left: 0;" align="right">
+                    <button class="circular ui mini basic icon button">
+                        <i class="pause icon"></i>
+                    </button>
+                    <button class="circular ui mini basic red icon button">
+                        <i class="remove icon" style="color: red !important;"></i>
+                    </button>
+                </div>
+              </div>
+              <div class="ui divider" style="margin-top: 0;"></div>
+        </div>
+        -->
+    </div>
+
+    <!-- Content / Quick Access Panel-->
     <div id="quickAccessPanel" class="" style="display:none;">
         <div class="ui small items" style="margin-bottom: 0;">
             <div class="item">
@@ -1085,11 +1219,14 @@
             <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
         </div>
         <div class="ui divider" style="margin: 0.4em;"></div>
-        <div class="item hardware" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
+        <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
             <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
         </div>
-        <div class="item hardware" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
+        <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
             <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
+        </div>
+        <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
+            <small id="sysinfo"></small>
         </div>
     </div>
     <div>
@@ -1161,13 +1298,15 @@
 
         //Upload related
         let uploadFileChunkSize = 1024 * 512; //512KB per chunk in low memory upload
+        let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
+        let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
 
         //Others
         var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
         var hostInfo = {};
         var userInfo = {};
-        var hardwareman = false;
+        var powerman = false;
         var downloadMode = false;
         var lowMemoryMode = true;
 
@@ -1176,7 +1315,7 @@
         var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
         var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
         var isMacOS = (navigator.appVersion.indexOf("Mac")!=-1);
-        var isTouchScreen = (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
+        var isTouchScreen = window.matchMedia("(any-pointer: coarse)").matches;
 
         //Check and prepare localization
         if (applocale){
@@ -1210,11 +1349,37 @@
             hookLaunchMenuEvents();
             initTheme();
             initStartupSounds();
+            initUploadCuttoffValues();
 
             //Login cookie expire check
             setInterval(function() {
                 checkConnection();
             }, 15000);
+        }
+
+        function initUploadCuttoffValues(){
+             //Get the avaible space on tmp disk and decide the cutoff file size that need to directly write to disk
+            $.ajax({
+                url: "system/disk/space/tmp",
+                method: "POST",
+                data: {},
+                success: function(data){
+                    if (data.error !== undefined){
+                        console.log("%c[Desktop] Unable to auto-detect huge file cutoff size: " + data.error, 'color: #e64747');
+                    }else{
+                        if (!isNaN(data.Available) && data.Available > 0){
+                            largeFileCutoffSize = data.Available/16 - 4096;
+                            console.log("%c[Desktop] Setting huge file cutoff size at: " + ao_module_utils.formatBytes(data.Available/16), 'color: #036ffc');
+                        }else if (isNaN(data.Available)){
+                            console.log("%c[Desktop] Unable to read available tmp disk size. Using default huge file cutoff size.", 'color: #e64747');
+                        }
+                        
+                    }
+                },
+                error: function(){
+                    //Hardware mode disabled. Use default value.
+                }
+            });
         }
 
         function handleManualCheckReconnect(button){
@@ -1233,6 +1398,144 @@
             });
         }
 
+        function centerTruncat(fullStr, strLen, separator) {
+            if (fullStr.length <= strLen) return fullStr;
+
+            separator = separator || '...';
+
+            var sepLen = separator.length,
+                charsToShow = strLen - sepLen,
+                frontChars = Math.ceil(charsToShow/2),
+                backChars = Math.floor(charsToShow/2);
+
+            return fullStr.substr(0, frontChars) + 
+                separator + 
+                fullStr.substr(fullStr.length - backChars);
+        };
+
+        function handleBackgroundTaskPauseToggle(oprid, btn=undefined, currentlyPaused=false){
+            console.log(oprid, currentlyPaused);
+            if (btn != undefined){
+                $(btn).addClass("disabled");
+                $(btn).html(`<i class="ui spinner loading icon"></i>`);
+            }
+            if (currentlyPaused){
+                //Resume
+                $.ajax({
+                    url: "system/file_system/ongoing",
+                    method: "POST",
+                    data: {"oprid": oprid, "flag": "continue"},
+                    success: function(data){
+                        if (data.error != undefined){
+                            console.log(data.error);
+                        }
+                        updateBackgroundgTaskList();
+                    }
+                });
+            }else{
+                //Pause
+                $.ajax({
+                    url: "system/file_system/ongoing",
+                    method: "POST",
+                    data: {"oprid": oprid, "flag": "pause"},
+                    success: function(data){
+                        if (data.error != undefined){
+                            console.log(data.error);
+                        }
+                        updateBackgroundgTaskList();
+                    }
+                });
+            }
+        }
+
+        function handleBackgroundTaskCancel(oprid, btn=undefined){
+            $.ajax({
+                url: "system/file_system/ongoing",
+                method: "POST",
+                data: {"oprid": oprid, "flag": "cancel"},
+                success: function(data){
+                    if (data.error != undefined){
+                        console.log(data.error);
+                    }else{
+                        //Disable further operation untill task cancelled
+                        if (btn != undefined){
+                            $(btn).addClass("disabled");
+                            $(btn).html(`<i class="ui spinner loading icon"></i>`);
+                        }
+                      
+                    }
+                    updateBackgroundgTaskList();
+                }
+            });
+        }
+
+        //The background task checking function will ping server side at a more 
+        //frequent interval if there is a background task running
+        var rapidIntervalTaskListing = undefined;
+        function updateBackgroundgTaskList(){
+            //Update background tasks
+            $.get("system/file_system/ongoing", function(tasks){
+
+                tasks.sort(function(a, b) { 
+                    return a.ID > b.ID;
+                });
+
+                //console.log(tasks);
+                $("#backgroundTaskPanel").html("");
+                tasks.forEach(function(task){
+                    console.log(task);
+                    var pausedClass = "";
+                    var pauseIcon = "pause";
+                    var cancelBtnDisabled = "";
+                    if (task.FileOperationSignal == 1){
+                        pausedClass = "paused";
+                        pauseIcon = "play";
+                    }else if (task.FileOperationSignal == 2){
+                        pausedClass = "stopping";
+                        cancelBtnDisabled = "disabled";
+                    }
+                    $("#backgroundTaskPanel").append(`<div class="backgroundtaskObject ${pausedClass}">
+                        <small>${centerTruncat(task.Src, 22, "...")} <i class="angle right icon"></i> ${centerTruncat(task.Dest, 22, "...")} (${centerTruncat(task.LatestFile, 30, "...")})</small>
+                        <div class="ui grid">
+                            <div class="twelve wide column" style="padding-right: 0.4em; padding-bottom: 0.4em;">
+                                <div class="ui mini active progress">
+                                    <div class="bar" style="width: ${task.Progress}%;">
+                                        <div class="progress">${task.Progress}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="four wide column"  style="padding-top: 0.4em; padding-left: 0;  padding-bottom: 0.4em;" align="right">
+                                <button class="circular ui mini basic icon ${cancelBtnDisabled} button" oprid="${task.ID}" onclick="handleBackgroundTaskPauseToggle('${task.ID}', this, ${task.FileOperationSignal==1});">
+                                    <i class="${pauseIcon} icon"></i>
+                                </button>
+                                <button class="circular ui mini basic red icon ${cancelBtnDisabled} button" oprid="${task.ID}" onclick="handleBackgroundTaskCancel('${task.ID}', this);">
+                                    <i class="remove icon" style="color: red !important;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>`);
+                });
+
+                if (tasks.length > 0){
+                    if (rapidIntervalTaskListing != undefined){
+                        clearTimeout(rapidIntervalTaskListing);
+                        rapidIntervalTaskListing = undefined;
+                    }
+                    rapidIntervalTaskListing = setTimeout(function(){
+                        updateBackgroundgTaskList();
+                    }, 1000);
+                    $("#backgroundtaskBtn").find("i").attr("class", "loading circle notch icon");
+                }else{
+                    $("#backgroundTaskPanel").append(`<div class="ui basic segment" style="width: 100%;">
+                        <i class="ui checkmark icon"></i> ${applocale.getString("backgroundTasks/noTasks", "No running background tasks")}
+                        <a style="cursor: pointer; float: right; margin-top: 0.2em;" onclick="updateBackgroundgTaskList();">${applocale.getString("backgroundTasks/refresh", "Refresh")}</a>
+                    </div>`);
+                    $("#backgroundtaskBtn").find("i").attr("class", "circle notch icon");
+                }
+                
+            });
+        }
+        updateBackgroundgTaskList();
       
         function checkConnection(timeout=15000, callback=undefined){
             $.ajax({
@@ -1240,6 +1543,8 @@
                 success: function(data) {
                     if (data == true) {
                         //Continue session
+                        updateBackgroundgTaskList();
+                      
                     } else {
                         //Session timeout. Redirect to system index
                         loggingOut = true;
@@ -1286,6 +1591,10 @@
             z = z || '0';
             n = n + '';
             return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+        }
+
+        function showBackgroundTaskPanel(){
+            $("#backgroundTaskPanel").slideToggle("fast");
         }
 
         function showToolPanel(){
@@ -1353,7 +1662,7 @@
                 //Update the ui element as well
                 $(".hostname").text(hostInfo.Hostname);
                 document.title = hostInfo.Hostname;
-
+                $("#sysinfo").text(hostInfo.DeviceModel + " firmware:" + hostInfo.BuildVersion + " " + hostInfo.InternalVersion);
             });
 
             //Setup volume bar
@@ -1380,13 +1689,14 @@
             $.get("system/power/accessCheck",function(data){
                 if (data == true){
                     //Hardware management mode is on
-                    hardwareman = true;
+                    powerman = true;
                 }else{
                     //Hardware management mode is off
-                    $(".item.hardware").hide();
-                    hardwareman = false;
+                    $(".item.powerman").remove();
+                    powerman = false;
                 }   
             });
+
 
         }
 
@@ -1394,6 +1704,8 @@
             var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
             if (typeof action == "undefined"){
                 $(".notificationbar").stop().finish().fadeToggle("fast", function(){
+                    /*
+                    //Firefox 103 now support backdrop-filter
                     if ($(this).is(":visible")){
                         if (isFirefox){
                             $("#bgwrapper").addClass("blured");
@@ -1411,10 +1723,13 @@
                             $("#listMenu").removeClass("blured");
                         }
                     }
+                    */
                 });
             }else{
                 if (action == "hide"){
                     $(".notificationbar").stop().finish().fadeOut("fast");
+                     /*
+                    //Firefox 103 now support backdrop-filter
                     if (isFirefox){
                         $("#bgwrapper").removeClass("blured");
                         $("#iconwrapper").removeClass("blured");
@@ -1422,9 +1737,12 @@
                         $(".floatWindow").removeClass("blured");
                         $("#listMenu").removeClass("blured");
                     }
+                    */
                   
                 }else if (action == "show"){
                     $(".notificationbar").stop().finish().fadeIn("fast");
+                    /*
+                    //Firefox 103 now support backdrop-filter
                     if (isFirefox){
                         $("#bgwrapper").addClass("blured");
                         $("#iconwrapper").addClass("blured");
@@ -1432,6 +1750,7 @@
                         $(".floatWindow").addClass("blured");
                         $("#listMenu").addClass("blured");
                     }
+                    */
                 }
             }
         }
@@ -2007,10 +2326,13 @@
         let minxWidth = 120;
         let minHeight = 100;
         function resizeDown(object, event) {
-            if ($(this).hasClass("fixedsize")) {
+            if (object.length > 1){
+                object = object[0];
+            }
+            if ($(object).hasClass("fixedsize")) {
                 return false;
             }
-            
+
             //Mouse down, start resizing
             resizingWindow = true;
             resizingWindowTarget = object;
@@ -2626,10 +2948,16 @@
                 backgroundStyle = `background-color: ${bgcolor};`;
             }
 
-            //Check if the theme color is applied. If yes, generate the floatWindow with overwritten theem color
+            //Check if the theme color is applied. If yes, generate the floatWindow with overwritten theme color
             var overWriteThemeColor = "";
+            var overWriteIframeWrapperBorderStyle = "";
             if (desktopThemeColor != ""){
-                overWriteThemeColor = `background-color: ${hexToRgbA(desktopThemeColor, 0.85)}`;
+                var overWriteBackgroundColor = hexToRgbA(desktopThemeColor, 0.25);
+                overWriteThemeColor = `background-color: ${overWriteBackgroundColor}`;
+                overWriteIframeWrapperBorderStyle = `border-left: 3px solid ${overWriteBackgroundColor};
+                    border-right: 3px solid ${overWriteBackgroundColor};
+                    border-bottom: 3px solid ${overWriteBackgroundColor};
+                    backdrop-filter: blur(5px);`
             }
 
             //Updates 2022-06-24: Added touch screen docking buttons
@@ -2660,7 +2988,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="iframewrapper">
+                <div class="iframewrapper" style="${overWriteIframeWrapperBorderStyle}">
                     <iframe src="${url}" allowfullscreen="true"></iframe>
                     <div class="iframecover"></div>
                 </div>
@@ -2989,6 +3317,13 @@
         //================== DESKTOP FILE LOCATION FUNCTIONS ====================
         function initDesktopFiles(optionObject = {}, callback = undefined) {
             $.get("system/desktop/listDesktop", function(data) {
+                if (data.error !== undefined){
+                    console.log("[Desktop] Unable to list desktop files: ", data.error);
+                    if (callback !== undefined) {
+                        callback(false);
+                    }
+                    return;
+                }
                 //Prase optionObject
                 var noflash = false;
                 if (typeof optionObject.noflash !== "undefined"){
@@ -3149,7 +3484,7 @@
 
                 if (callback !== undefined) {
                     //console.log(callback);
-                    callback();
+                    callback(true);
                 }
             });
         }
@@ -3522,6 +3857,10 @@
                 }
             }
             
+            var iconTextReadjustment = "";
+            if (isChrome){
+                iconTextReadjustment = "font-size: 92%;"
+            }
            
             var thisIcon = $(`<${htmlType} href="javascript:void(0);" class="launchIcon" 
                     type="${properties.type}" 
@@ -3538,7 +3877,7 @@
                     style="width:${properties.iwidth}px; height:${properties.iheight}px;left:${properties.screenX}px; top:${properties.screenY}px;">
                     <span class="launchIconWrapper">
                         <img class="launchIconImage ${properties.size}" src="${properties.imagePath}" style="${imageStyleOverride}" draggable="false"></img>
-                        <p class="launchIconText ${properties.size}">${properties.shortenedName}</p>
+                        <p class="launchIconText ${properties.size}" style="${iconTextReadjustment}">${properties.shortenedName}</p>
                     </span>
                     </${htmlType}>`);
 
@@ -3749,9 +4088,16 @@
             var sourceFilepath = ev.dataTransfer.getData("filepath");
             //To handle multiple file transfer from file explorer
             var sourceFilelist = ev.dataTransfer.getData("filedata"); 
+
+            //To handle drag dropping URLs onto desktop
+            var linkObject = ev.dataTransfer.getData('text/html');
+            var remoteLink = ($(linkObject).find("a").length>0 || $(linkObject).is("a"))? ($(linkObject).find("a").attr("href")|| $(linkObject).attr("href")):($(linkObject).find("img").length>0?$(linkObject).find('img').attr("src"):($(linkObject).attr('src')!=""?$(linkObject).attr('src'):undefined));
+            //var remoteSrc = $(linkObject).find("img").length>0?$(linkObject).find('img').attr("src"):undefined; //If dragging in media (e.g. img / audio)
             console.log(target)
             console.log(sourceFilename);
             console.log(sourceFilepath);
+            console.log(remoteLink);
+            
             if (sourceFilelist !== ""){
                 sourceFilelist = JSON.parse(sourceFilelist);
             }
@@ -4658,11 +5004,10 @@
                                             if (data.error !== undefined){
                                                 console.log(data.error);
                                             }
-                                           
+                                            refresh(undefined, true);
                                         }
                                     });
                                 });
-                                refresh(undefined, true);
                             }
                         }
                     });
@@ -4682,6 +5027,7 @@
                     
                 }else if (renameMode){
                     event.preventDefault();
+                    event.stopImmediatePropagation();
                     exitRenameMode();
                 }
             
@@ -6151,10 +6497,11 @@
             $("#subcontextmenu").hide();
             $("#contextmenu").hide()
             $("#quickAccessPanel").slideUp("fast");
+            $("#backgroundTaskPanel").slideUp("fast");
         }
 
         function restart(){
-            if (!hardwareman){
+            if (!powerman){
                 return
             }
             var apiObject = {
@@ -6179,7 +6526,7 @@
         }
 
         function shutdown(){
-            if (!hardwareman){
+            if (!powerman){
                 return
             }
 
@@ -6215,10 +6562,10 @@
                         //Permission denied or other reasons that cannot access harwdare info. Use default mode
                         lowMemoryMode = true;
                     }else{
-                        //Check if ramsize > 1.8 GB (2GB). If yes, switch to large memory upload mode
+                        //Check if ramsize > 3.8 GB (4GB). If yes, switch to large memory upload mode
                         var memsize = JSON.parse(data);
                         if (parseFloat(memsize)/ 1024 / 1024 / 1024 >= 3.8){
-                            console.log("%c[Desktop] Setting upload mode to large memory mode", 'color: #2ba16e');
+                            console.log("%c[Desktop] Setting upload mode to large memory mode", 'color: #036ffc');
                             lowMemoryMode = false;
                         }
                     }
@@ -6265,7 +6612,7 @@
         }
 
         function uploadFile(file, callback=undefined, uploadingIconUUID = undefined) {
-            if (lowMemoryMode){
+            if (file.size > postUploadModeCutoff && lowMemoryMode){
                 /*
                     Low Memory Upload Mode
                 */
@@ -6299,7 +6646,14 @@
                     uploadDir = uploadDir + subpath;
                 }
 
-                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir);
+                let hugeFileMode = "";
+                if (file.size > largeFileCutoffSize){
+                    //Filesize over cutoff line. Use huge file mode
+                    hugeFileMode = "&hugefile=true";
+                }
+                
+
+                let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir + hugeFileMode);
                 let currentSendingIndex = 0;
                 let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
                 
@@ -6517,23 +6871,13 @@
         }
 
         function setDarkTheme(){
-            $("#listMenu").addClass("darkTheme");
+            $("body").removeClass("whiteTheme").addClass("darkTheme");
             $("#powerIcon").attr("src","img/system/power-white.svg");
-            $("#quickAccessPanel").addClass("darkTheme");
-            $("#quickAccessPanel").find(".button").addClass("inverted");
-            $("#searchBar").addClass("darkTheme");
-            $("#searchBar").parent().find("i").addClass("darkTheme");
-            $("#usergroups").css("color", "white");
         }
 
         function setWhiteTheme(){
-            $("#listMenu").removeClass("darkTheme");
+            $("body").removeClass("darkTheme").addClass("whiteTheme");
             $("#powerIcon").attr("src","img/system/power.svg");
-            $("#quickAccessPanel").removeClass("darkTheme");
-            $("#quickAccessPanel").find(".button").removeClass("inverted");
-            $("#searchBar").removeClass("darkTheme");
-            $("#searchBar").parent().find("i").removeClass("darkTheme");
-            $("#usergroups").css("color", "");
         }
 
         function hexToRgbA(hex, transparent=1){
@@ -6554,10 +6898,16 @@
             desktopThemeColor = newThemeColor;
 
             //Update the related elements
-            $("#statusbar").css("background-color",newThemeColor);
+            $("#statusbar").css("background-color",hexToRgbA(newThemeColor, 0.8));
             $("#navimenu").css("background-color",hexToRgbA(newThemeColor, 0.5));
-            $(".floatWindow .controls").css("background-color",hexToRgbA(newThemeColor, 0.85));
 
+            var themeColorForBoarders = hexToRgbA(newThemeColor, 0.25);
+            $(".floatWindow .controls").css("background-color",themeColorForBoarders);
+            $(".floatWindow .iframewrapper").css({
+                "border-left":"3px solid " + themeColorForBoarders,
+                "border-right":"3px solid " + themeColorForBoarders,
+                "border-bottom":"3px solid " + themeColorForBoarders,
+            })
             //List menu theme color bar
             $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
             $("#volumebar").css("background-color", newThemeColor);
@@ -6571,8 +6921,9 @@
         //Load the user define theme color to overwrite the default color if exists
         function initUserDefinedThemeColor(){
             $.ajax({
-                url: "system/file_system/preference",
-                data: {key: "themecolor"},
+                url: "system/desktop/preference",
+                data: {preference: "themecolor"},
+                method: "POST",
                 success: function(data){
                     if (data.error == undefined && data != ""){
                         setThemeColor(data);

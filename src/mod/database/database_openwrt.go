@@ -6,7 +6,6 @@ package database
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -110,7 +109,7 @@ func (d *Database) write(tableName string, key string, value interface{}) error 
 
 	key = strings.ReplaceAll(key, "/", "-SLASH_SIGN-")
 
-	return ioutil.WriteFile(filepath.Join(tablePath, key+".entry"), js, 0755)
+	return os.WriteFile(filepath.Join(tablePath, key+".entry"), js, 0755)
 }
 
 func (d *Database) read(tableName string, key string, assignee interface{}) error {
@@ -122,7 +121,7 @@ func (d *Database) read(tableName string, key string, assignee interface{}) erro
 
 	tablePath := filepath.Join(d.Db.(string), filepath.Base(tableName))
 	entryPath := filepath.Join(tablePath, key+".entry")
-	content, err := ioutil.ReadFile(entryPath)
+	content, err := os.ReadFile(entryPath)
 	if err != nil {
 		return err
 	}
@@ -172,7 +171,7 @@ func (d *Database) listTable(tableName string) ([][][]byte, error) {
 
 			bkey := []byte(key)
 			bval := []byte("")
-			c, err := ioutil.ReadFile(entry)
+			c, err := os.ReadFile(entry)
 			if err != nil {
 				break
 			}

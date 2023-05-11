@@ -1,6 +1,0 @@
-{
-	"MP4 to GIF": "-y -i \"{filepath}\" -f gif \"{filename}.gif\"",
-	"GIF to MP4": "-y -i \"{filepath}\" -f mp4 -pix_fmt yuv420p \"{filename}.mp4\"",
-	"SRT to ASS": "-y -i \"{filepath}\" \"{filename}.ass\"",
-	"ASS to SRT": "-y -i \"{filepath}\" -c:s srt \"{filename}.srt\""
-}

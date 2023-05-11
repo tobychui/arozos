@@ -25,7 +25,7 @@
         min-width:calc(100% - 500px);
         min-height:100%;
         background-color:#faf7eb;
-        background-image:url("img/public/auth_bg.jpg");
+        background-image:url("./system/info/wallpaper.jpg");
         -webkit-background-size: cover;
         -moz-background-size: cover;
         -o-background-size: cover;
@@ -72,21 +72,21 @@
     }
 
     .themecolor{
-        background-color: #5fa0d9 !important;
+        background-color: #485b73 !important;
         transition: background-color 0.1s;
     }
 
     .themecolor:hover{
-        background-color: #99d0f2 !important;
+        background-color: #677c96 !important;
     }
 
     .subthemecolor{
-        background-color: #405673 !important;
+        background-color: #3e4f64 !important;
         transition: background-color 0.1s;
     }
 
     .subthemecolor:hover{
-        background-color: #5d7aa0 !important;
+        background-color: rgb(74, 88, 105) !important;
     }
 
     .loginbtn{

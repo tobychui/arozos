@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 //LOGIN related function
@@ -14,19 +14,19 @@ import (
 func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
-		common.SendTextResponse(w, "LDAP not enabled.")
+		utils.SendTextResponse(w, "LDAP not enabled.")
 		return
 	}
 	//load the template from file and inject necessary variables
-	red, _ := common.Mv(r, "redirect", false)
+	red, _ := utils.GetPara(r, "redirect")
 
 	//Append the redirection addr into the template
 	imgsrc := "./web/" + ldap.iconSystem
-	if !common.FileExists(imgsrc) {
+	if !utils.FileExists(imgsrc) {
 		imgsrc = "./web/img/public/auth_icon.png"
 	}
-	imageBase64, _ := common.LoadImageAsBase64(imgsrc)
-	parsedPage, err := common.Templateload("web/login.system", map[string]interface{}{
+	imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
+	parsedPage, err := utils.Templateload("web/login.system", map[string]interface{}{
 		"redirection_addr": red,
 		"usercount":        strconv.Itoa(ldap.ag.GetUserCounts()),
 		"service_logo":     imageBase64,
@@ -42,32 +42,32 @@ func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request)
 func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Request) {
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
-		common.SendTextResponse(w, "LDAP not enabled.")
+		utils.SendTextResponse(w, "LDAP not enabled.")
 		return
 	}
 	//get the parameter from the request
-	acc, err := common.Mv(r, "username", false)
+	acc, err := utils.GetPara(r, "username")
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	displayname, err := common.Mv(r, "displayname", false)
+	displayname, err := utils.GetPara(r, "displayname")
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	key, err := common.Mv(r, "authkey", false)
+	key, err := utils.GetPara(r, "authkey")
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 	//init the web interface
 	imgsrc := "./web/" + ldap.iconSystem
-	if !common.FileExists(imgsrc) {
+	if !utils.FileExists(imgsrc) {
 		imgsrc = "./web/img/public/auth_icon.png"
 	}
-	imageBase64, _ := common.LoadImageAsBase64(imgsrc)
-	template, err := common.Templateload("system/ldap/newPasswordTemplate.html", map[string]interface{}{
+	imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
+	template, err := utils.Templateload("system/ldap/newPasswordTemplate.html", map[string]interface{}{
 		"vendor_logo":  imageBase64,
 		"username":     acc,
 		"display_name": displayname,
@@ -83,32 +83,32 @@ func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Re
 func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
-		common.SendTextResponse(w, "LDAP not enabled.")
+		utils.SendTextResponse(w, "LDAP not enabled.")
 		return
 	}
 	//Get username from request using POST mode
-	username, err := common.Mv(r, "username", true)
+	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		//Username not defined
 		log.Println("[System Auth] Someone trying to login with username: " + username)
 		//Write to log
 		ldap.ag.Logger.LogAuth(r, false)
-		common.SendErrorResponse(w, "Username not defined or empty.")
+		utils.SendErrorResponse(w, "Username not defined or empty.")
 		return
 	}
 
 	//Get password from request using POST mode
-	password, err := common.Mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
 		//Password not defined
 		ldap.ag.Logger.LogAuth(r, false)
-		common.SendErrorResponse(w, "Password not defined or empty.")
+		utils.SendErrorResponse(w, "Password not defined or empty.")
 		return
 	}
 
 	//Get rememberme settings
 	rememberme := false
-	rmbme, _ := common.Mv(r, "rmbme", true)
+	rmbme, _ := utils.PostPara(r, "rmbme")
 	if rmbme == "true" {
 		rememberme = true
 	}
@@ -117,7 +117,7 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	passwordCorrect, err := ldap.ldapreader.Authenticate(username, password)
 	if err != nil {
 		ldap.ag.Logger.LogAuth(r, false)
-		common.SendErrorResponse(w, "Unable to connect to LDAP server")
+		utils.SendErrorResponse(w, "Unable to connect to LDAP server")
 		log.Println("LDAP Authentication error, " + err.Error())
 		return
 	}
@@ -127,19 +127,19 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		//if user not exist then redirect to create pwd screen
 		if !ldap.ag.UserExists(username) {
 			authkey := ldap.syncdb.Store(username)
-			common.SendJSONResponse(w, "{\"redirect\":\"system/auth/ldap/newPassword?username="+username+"&displayname="+username+"&authkey="+authkey+"\"}")
+			utils.SendJSONResponse(w, "{\"redirect\":\"system/auth/ldap/newPassword?username="+username+"&displayname="+username+"&authkey="+authkey+"\"}")
 		} else {
 			// Set user as authenticated
 			ldap.ag.LoginUserByRequest(w, r, username, rememberme)
 			//Print the login message to console
 			log.Println(username + " logged in.")
 			ldap.ag.Logger.LogAuth(r, true)
-			common.SendOK(w)
+			utils.SendOK(w)
 		}
 	} else {
 		//Password incorrect
 		log.Println(username + " has entered an invalid username or password")
-		common.SendErrorResponse(w, "Invalid username or password")
+		utils.SendErrorResponse(w, "Invalid username or password")
 		ldap.ag.Logger.LogAuth(r, false)
 		return
 	}
@@ -148,23 +148,23 @@ func (ldap *ldapHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) {
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
-		common.SendTextResponse(w, "LDAP not enabled.")
+		utils.SendTextResponse(w, "LDAP not enabled.")
 		return
 	}
 	//get paramters from request
-	username, err := common.Mv(r, "username", true)
+	username, err := utils.PostPara(r, "username")
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	password, err := common.Mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	authkey, err := common.Mv(r, "authkey", true)
+	authkey, err := utils.PostPara(r, "authkey")
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
@@ -178,7 +178,7 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 			//get the user from ldap server
 			ldapUser, err := ldap.ldapreader.GetUser(username)
 			if err != nil {
-				common.SendErrorResponse(w, err.Error())
+				utils.SendErrorResponse(w, err.Error())
 				return
 			}
 			//convert the ldap usergroup to arozos usergroup
@@ -187,15 +187,15 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 			ldap.ag.CreateUserAccount(username, password, convertedInfo.EquivGroup)
 			ldap.ag.Logger.LogAuth(r, true)
 			ldap.ag.LoginUserByRequest(w, r, username, false)
-			common.SendOK(w)
+			utils.SendOK(w)
 			return
 		} else {
 			//if exist then return error
-			common.SendErrorResponse(w, "User exists, please contact the system administrator if you believe this is an error.")
+			utils.SendErrorResponse(w, "User exists, please contact the system administrator if you believe this is an error.")
 			return
 		}
 	} else {
-		common.SendErrorResponse(w, "Improper key detected")
+		utils.SendErrorResponse(w, "Improper key detected")
 		log.Println(r.RemoteAddr + " attempted to use invaild key to create new user but failed")
 		return
 	}
@@ -214,7 +214,7 @@ func (ldap *ldapHandler) HandleCheckLDAP(w http.ResponseWriter, r *http.Request)
 	}
 	json, err := json.Marshal(returnFormat{Enabled: enabledB})
 	if err != nil {
-		common.SendErrorResponse(w, "Error occurred while marshalling JSON response")
+		utils.SendErrorResponse(w, "Error occurred while marshalling JSON response")
 	}
-	common.SendJSONResponse(w, string(json))
+	utils.SendJSONResponse(w, string(json))
 }

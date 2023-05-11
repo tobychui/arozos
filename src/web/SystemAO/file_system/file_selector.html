@@ -11,34 +11,31 @@
         <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
             body{
-                background-color:white;
+                background-color:#f5f5f5 !important;
             }
             .navi{
                 padding:8px;
                 background-color:#fcfcfc;
                 border-bottom:2px solid #34b7eb;
-                position:fixed;
                 left:0px;
                 top:0px;
+                margin-top: -0.6em;
                 width:100%;
                 z-index:99;
+                position: fixed;
             }
 
             .fileSelectorContainer{
                 width: 100%;
-                min-height: 100%;
                 vertical-align:top;
-                background-color:#f5f5f5 !important;
             }
 
             #sidebar{
-                padding-top: 2em;
+                padding-top: 1em;
                 background-color:#f5f5f5 !important;
                 display: inline-block; 
                 z-index:90 !important; 
-                width:200px; 
-                vertical-align:top;
-                position: sticky;
+                width:200px;
                 top: 0;
             }
 
@@ -51,6 +48,7 @@
                 background-color: white;
                 border-radius: 12px;
                 margin-bottom: 20px;
+                margin-top: 1em;
             }
             .navi .button{
                 box-shadow: 0 1px 1px 0px rgb(190, 190, 190) !important;
@@ -93,7 +91,12 @@
                 border: 1px solid #dedede;
             }
 
-            @media all and (max-width: 560px) {
+            #fileListWrapper{
+                width: calc(100% - 220px);
+                min-height: 90vh;
+            }
+
+            @media only screen and (max-width: 560px) {
                 #sidebar{
                     padding-top: 2em;
                     background-color:#f5f5f5 !important;
@@ -107,33 +110,67 @@
                     box-shadow: 9px 0px 23px -14px rgba(135,135,135,0.4);
                 }
 
+                .navi{
+                    margin-top: -1em;
+                }
+
+                #fileListWrapper{
+                    width: 100%;
+                }
+
             }
+
+            .flexContainer{
+                display: flex;
+                flex-wrap:wrap;
+                align-items:flex-start;
+                margin-top:5px;
+            }
+            .flexleft {
+                padding-right: 1em;
+                min-width: 200px;
+            }
+            .flexright{
+                flex-grow:1;
+                margin-bottom: 0.4em;
+                min-width: 300px;
+            }
+
         </style>
     </head>
     <body>
         <div class="navi">
-            <button id="sidebarToggleBtn" class="ui icon small button" onclick="$('#sidebar').toggle();"><i class="content icon"></i></button>
-            <button title="Back" class="ui icon small button" onclick="backDir();"><i class="arrow left icon"></i></button>
-            <button title="Parent" class="ui icon small button" onclick="parentDir();"><i class="arrow up icon"></i></button>
-            <button title="Refresh" class="ui icon small button" onclick="refresh();"><i class="refresh icon"></i></button>
-            <button title="New Folder" class="ui icon small button" onclick="newFolder();"><i class="folder icon"></i></button>
-            <div  class="ui action fluid tiny input" style="width: calc(100% - 180px); float: right;">
-                <input id="addressbar" type="text" placeholder="" onchange="updatePath();">
-                <button class="ui positive icon button" onclick="confirmSelection();"><i class="checkmark icon"></i></button>
+            <div class="flexContainer">
+                <div class="flexleft">
+                    <button id="sidebarToggleBtn" class="ui icon small button" onclick="$('#sidebar').toggle();"><i class="content icon"></i></button>
+                    <button title="Back" class="ui icon small button" onclick="backDir();"><i class="arrow left icon"></i></button>
+                    <button title="Parent" class="ui icon small button" onclick="parentDir();"><i class="arrow up icon"></i></button>
+                    <button title="Refresh" class="ui icon small button" onclick="refresh();"><i class="refresh icon"></i></button>
+                    <button title="New Folder" class="ui icon small button" onclick="newFolder();"><i class="folder icon"></i></button>
+                </div>
+                <div class="flexright">
+                    <div class="ui action fluid tiny input" style="height: 34px; margin-top: 0.4em;">
+                        <input id="addressbar" type="text" placeholder="" onchange="updatePath();">
+                        <button class="ui positive icon button" onclick="confirmSelection();"><i class="checkmark icon"></i></button>
+                    </div>
+                    
+                    <div id="newfilenameInput" style="height: 34px; margin-top: 0.4em;">
+                        <div class="ui fluid tiny input">
+                            <input id="filename" type="text" placeholder="New Filename">
+                        </div>
+                    </div>
+        
+                    <div id="newFolderInput" style="height: 34px; margin-top: 0.6em; display:none;">
+                        <div class="ui fluid action tiny input">
+                            <input id="foldername" type="text" placeholder="New Folder" value="">
+                            <button class="ui icon button" onclick="createFolder()" title="Create Folder"><i class="add icon"></i></button>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <div id="newfilenameInput" style="width:100%; margin-top:12px;" align="right">
-                <div class="ui fluid tiny input" style="width: calc(100% - 180px); float: right;">
-                    <input id="filename" type="text" placeholder="New Filename">
-                </div>
-            </div>
-
-            <div id="newFolderInput" style="width:100%; margin-top:4px; display:none;" align="right">
-                <div class="ui fluid action tiny input" style="width: calc(100% - 180px); float: right;">
-                    <input id="foldername" type="text" placeholder="New Folder" value="">
-                    <button class="ui icon button" onclick="createFolder()" title="Create Folder"><i class="add icon"></i></button>
-                </div>
-            </div>
+          
+          
         </div>
         <div class="fileSelectorContainer">
             <!-- Sidebar -->
@@ -192,7 +229,7 @@
             var listenerUUID = "";
             var fileOptions = {};
 
-            $('.ui.accordion').accordion();
+            //$('.ui.accordion').accordion();
 
             if (applocale){
                 //Applocale found. Do localization
@@ -347,8 +384,8 @@
             }
 
             function updateUIElements(){
-                updateFileListTopLocation();
-                updateSidebarTopLocation();
+                $("#sidebar").css("padding-top", $(".navi").height() + 8);
+                $("#fileListWrapper").css("padding-top", $(".navi").height() + 8)
             }
 
             function hideFolderNameInput(){
@@ -617,7 +654,6 @@
                     //Mobile mode
                     $("#sidebarToggleBtn").show();
                     $("#sidebar").hide();
-                    $("#fileListWrapper").css("width","100%");
                     $("#addressbar").parent().css({
                         "width": "100%",
                         "margin-top": "4px"
@@ -635,36 +671,9 @@
                 }else{
                     $("#sidebarToggleBtn").hide();
                     $("#sidebar").show();
-                    $("#fileListWrapper").css("width","calc(100% - 220px)");
                     $("#sidebar").css("margin-top", "0px");
-
-                    $("#addressbar").parent().css({
-                        "width": "calc(100% - 180px)",
-                        "margin-top": "0px"
-                    });
-
-                    $("#newfilenameInput").find(".input").css({
-                        "width": "calc(100% - 180px)",
-                        "margin-top": "0px"
-                    });
-
-                    $("#newFolderInput").find(".input").css({
-                        "width": "calc(100% - 180px)",
-                        "margin-top": "8px"
-                    });
                 }
-
-                //Always do
-                updateSidebarTopLocation();
-                updateFileListTopLocation();
-            }
-
-            function updateSidebarTopLocation(){
-                $("#sidebar").css("top", $(".navi").height() + "px");
-            }
-
-            function updateFileListTopLocation(){
-                $(".fileListWrapper").css("margin-top", $(".navi").height() + 30  + "px");
+                updateUIElements();
             }
 
             function initAddressBarWidth(){

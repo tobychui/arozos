@@ -14,8 +14,8 @@ var moduleLaunchInfo = {
 	LaunchFWDir: "Video/index.html",
 	SupportEmb: true,
 	LaunchEmb: "Video/embedded.html",
-	InitFWSize: [585, 820],
-	InitEmbSize: [700, 470],
+	InitFWSize: [585, 840],
+	InitEmbSize: [700, 424],
 	SupportedExt: [".webm",".mp4",".ogg"]
 }
 

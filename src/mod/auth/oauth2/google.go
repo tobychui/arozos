@@ -2,7 +2,7 @@ package oauth2
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"golang.org/x/oauth2"
@@ -35,7 +35,7 @@ func googleUserInfo(accessToken string) (string, error) {
 		return "", err
 	}
 	defer response.Body.Close()
-	contents, err := ioutil.ReadAll(response.Body)
+	contents, err := io.ReadAll(response.Body)
 	var data GoogleField
 	json.Unmarshal([]byte(contents), &data)
 

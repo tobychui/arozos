@@ -31,13 +31,13 @@ func getHandlerFromID(storages []*fs.FileSystemHandler, vid string) (*fs.FileSys
 		}
 	}
 
-	return &fs.FileSystemHandler{}, errors.New("Handler Not Found")
+	return &fs.FileSystemHandler{}, errors.New("handler Not Found")
 }
 
 //Get the ID part of a virtual path, return ID, subpath and error
 func getIDFromVirtualPath(vpath string) (string, string, error) {
-	if strings.Contains(vpath, ":") == false {
-		return "", "", errors.New("Path missing Virtual Device ID. Given: " + vpath)
+	if !strings.Contains(vpath, ":") {
+		return "", "", errors.New("path missing Virtual Device ID. Given: " + vpath)
 	}
 
 	//Clean up the virutal path

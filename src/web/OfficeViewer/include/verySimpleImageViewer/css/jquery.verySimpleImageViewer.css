@@ -1,0 +1,11 @@
+.jqvsiv_toolbar {
+	display: inline-block;
+	position: absolute;
+	right: 3px;
+	top: 3px;
+	z-index: 5;
+}
+.jqvsiv_toolbarButton {
+	margin: 0 2px;
+	cursor: pointer;
+}

@@ -1,17 +1,16 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	"os/exec"
 	"runtime"
 
-	"imuslab.com/arozos/mod/common"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func HardwarePowerInit() {
-	if *allow_hardware_management {
+	if *allow_power_management {
 		//Only register these paths when hardware management is enabled
 		http.HandleFunc("/system/power/shutdown", hardware_power_poweroff)
 		http.HandleFunc("/system/power/restart", hardware_power_restart)
@@ -31,10 +30,10 @@ func HardwarePowerInit() {
 }
 
 func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
-	if *allow_hardware_management {
-		common.SendJSONResponse(w, "true")
+	if *allow_power_management {
+		utils.SendJSONResponse(w, "true")
 	} else {
-		common.SendJSONResponse(w, "false")
+		utils.SendJSONResponse(w, "false")
 	}
 }
 
@@ -47,25 +46,25 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userinfo.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	if !sudo_mode {
-		common.SendErrorResponse(w, "Sudo mode required")
+		utils.SendErrorResponse(w, "Sudo mode required")
 		return
 	}
 
 	//Double check password for this user
-	password, err := common.Mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
-		common.SendErrorResponse(w, "Password Incorrect")
+		utils.SendErrorResponse(w, "Password Incorrect")
 		return
 	}
 
 	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		common.SendErrorResponse(w, rejectionReason)
+		utils.SendErrorResponse(w, rejectionReason)
 		return
 	}
 
@@ -74,10 +73,10 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("shutdown", "-s", "-t", "20")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println(string(out))
-			common.SendErrorResponse(w, string(out))
+			systemWideLogger.PrintAndLog("Power", string(out), err)
+			utils.SendErrorResponse(w, string(out))
 		}
-		log.Println(string(out))
+		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
 
 	if runtime.GOOS == "linux" {
@@ -85,10 +84,10 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("/sbin/shutdown")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println(string(out))
-			common.SendErrorResponse(w, string(out))
+			systemWideLogger.PrintAndLog("Power", string(out), err)
+			utils.SendErrorResponse(w, string(out))
 		}
-		log.Println(string(out))
+		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
 
 	if runtime.GOOS == "darwin" {
@@ -96,13 +95,13 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("sudo", "shutdown", "-h", "+1")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println(string(out))
-			common.SendErrorResponse(w, string(out))
+			systemWideLogger.PrintAndLog("Power", string(out), err)
+			utils.SendErrorResponse(w, string(out))
 		}
-		log.Println(string(out))
+		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
 
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
@@ -114,25 +113,25 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userinfo.IsAdmin() {
-		common.SendErrorResponse(w, "Permission Denied")
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	if !sudo_mode {
-		common.SendErrorResponse(w, "Sudo mode required")
+		utils.SendErrorResponse(w, "Sudo mode required")
 		return
 	}
 
 	//Double check password for this user
-	password, err := common.Mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if err != nil {
-		common.SendErrorResponse(w, "Password Incorrect")
+		utils.SendErrorResponse(w, "Password Incorrect")
 		return
 	}
 
 	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
 	if !passwordCorrect {
-		common.SendErrorResponse(w, rejectionReason)
+		utils.SendErrorResponse(w, rejectionReason)
 		return
 	}
 
@@ -141,10 +140,10 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("shutdown", "-r", "-t", "20")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println(string(out))
-			common.SendErrorResponse(w, string(out))
+			systemWideLogger.PrintAndLog("Power", string(out), err)
+			utils.SendErrorResponse(w, string(out))
 		}
-		log.Println(string(out))
+		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
 
 	if runtime.GOOS == "linux" {
@@ -152,10 +151,10 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("systemctl", "reboot")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println(string(out))
-			common.SendErrorResponse(w, string(out))
+			systemWideLogger.PrintAndLog("Power", string(out), err)
+			utils.SendErrorResponse(w, string(out))
 		}
-		log.Println(string(out))
+		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
 
 	if runtime.GOOS == "darwin" {
@@ -163,10 +162,10 @@ func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("shutdown", "-r", "+1")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println(string(out))
-			common.SendErrorResponse(w, string(out))
+			systemWideLogger.PrintAndLog("Power", string(out), err)
+			utils.SendErrorResponse(w, string(out))
 		}
-		log.Println(string(out))
+		systemWideLogger.PrintAndLog("Power", string(out), nil)
 	}
-	common.SendOK(w)
+	utils.SendOK(w)
 }

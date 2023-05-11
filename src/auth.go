@@ -2,12 +2,11 @@ package main
 
 import (
 	"crypto/rand"
-	"log"
 	"net/http"
 
 	auth "imuslab.com/arozos/mod/auth"
-	"imuslab.com/arozos/mod/common"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func AuthInit() {
@@ -20,9 +19,9 @@ func AuthInit() {
 			rand.Read(key)
 			newSessionKey := string(key)
 			sysdb.Write("auth", "sessionkey", newSessionKey)
-			log.Println("New authentication session key generated")
+			systemWideLogger.PrintAndLog("Auth", "New authentication session key generated", nil)
 		} else {
-			log.Println("Authentication session key loaded from database")
+			systemWideLogger.PrintAndLog("Auth", "Authentication session key loaded from database", nil)
 
 		}
 		skeyString := ""
@@ -34,10 +33,10 @@ func AuthInit() {
 	authAgent = auth.NewAuthenticationAgent("ao_auth", []byte(*session_key), sysdb, *allow_public_registry, func(w http.ResponseWriter, r *http.Request) {
 		//Login Redirection Handler, redirect it login.system
 		w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-		http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, 307)
+		http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, http.StatusTemporaryRedirect)
 	})
 
-	if *allow_autologin == true {
+	if *allow_autologin {
 		authAgent.AllowAutoLogin = true
 	} else {
 		//Default is false. But just in case
@@ -61,7 +60,7 @@ func AuthSettingsInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 

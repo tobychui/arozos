@@ -15,27 +15,32 @@ import (
 	"image/color"
 	"image/draw"
 	"image/jpeg"
-	"io/ioutil"
+	"io"
+	"io/fs"
 	"log"
 	"math"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang/freetype"
 	"github.com/nfnt/resize"
+	uuid "github.com/satori/go.uuid"
 	"github.com/valyala/fasttemplate"
 
 	"imuslab.com/arozos/mod/auth"
-	"imuslab.com/arozos/mod/common"
 	filesystem "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type Options struct {
@@ -50,7 +55,7 @@ type Manager struct {
 	options Options
 }
 
-//Create a new Share Manager
+// Create a new Share Manager
 func NewShareManager(options Options) *Manager {
 	//Return a new manager object
 	return &Manager{
@@ -88,7 +93,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 	draw.Draw(resultopg, base.Bounds(), base, image.Point{0, 0}, draw.Src)
 
 	//Append filename to the image
-	fontBytes, err := ioutil.ReadFile("./system/share/fonts/TaipeiSansTCBeta-Light.ttf")
+	fontBytes, err := os.ReadFile("./system/share/fonts/TaipeiSansTCBeta-Light.ttf")
 	if err != nil {
 		fmt.Println("[share/opg] " + err.Error())
 		http.NotFound(w, r)
@@ -112,14 +117,53 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 	ctx.SetSrc(image.NewUniform(color.RGBA{255, 255, 255, 255}))
 
 	//Check if we need to split the filename into two lines
-	filename := filepath.Base(shareEntry.FileRealPath)
+	filename := arozfs.Base(shareEntry.FileRealPath)
 	filenameOnly := strings.TrimSuffix(filename, filepath.Ext(filename))
 
-	fs := filesystem.GetFileSize(shareEntry.FileRealPath)
+	//Get the file information from target fsh
+	ownerinfo, err := s.options.UserHandler.GetUserInfoFromUsername(shareEntry.Owner)
+	if err != nil {
+		fmt.Println("[share/opg] " + err.Error())
+		http.NotFound(w, r)
+		return
+	}
+
+	fsh, err := ownerinfo.GetFileSystemHandlerFromVirtualPath(shareEntry.FileVirtualPath)
+	if err != nil {
+		fmt.Println("[share/opg] " + err.Error())
+		http.NotFound(w, r)
+		return
+	}
+
+	fs := fsh.FileSystemAbstraction.GetFileSize(shareEntry.FileRealPath)
 	shareMeta := filepath.Ext(shareEntry.FileRealPath) + " / " + filesystem.GetFileDisplaySize(fs, 2)
-	if isDir(shareEntry.FileRealPath) {
-		fs, fc := filesystem.GetDirctorySize(shareEntry.FileRealPath, false)
-		shareMeta = strconv.Itoa(fc) + " items / " + filesystem.GetFileDisplaySize(fs, 2)
+	if fsh.FileSystemAbstraction.IsDir(shareEntry.FileRealPath) {
+		if fsh.IsNetworkDrive() {
+			fileCount := 0
+			folderCount := 0
+			dirEntries, _ := fsh.FileSystemAbstraction.ReadDir(shareEntry.FileRealPath)
+			for _, di := range dirEntries {
+				if di.IsDir() {
+					folderCount++
+				} else {
+					fileCount++
+				}
+			}
+			shareMeta = strconv.Itoa(fileCount) + " File"
+			if (fileCount) > 1 {
+				shareMeta += "s"
+			}
+			if folderCount > 0 {
+				shareMeta += " / " + strconv.Itoa(folderCount) + " Subfolder"
+				if folderCount > 1 {
+					shareMeta += "s"
+				}
+			}
+		} else {
+			fs, fc := filesystem.GetDirctorySize(shareEntry.FileRealPath, false)
+			shareMeta = strconv.Itoa(fc) + " items / " + filesystem.GetFileDisplaySize(fs, 2)
+		}
+
 	}
 
 	if len([]rune(filename)) > 20 {
@@ -171,10 +215,11 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 	}
 
 	//Get thumbnail
-	cacheFileImagePath, err := metadata.GetCacheFilePath(shareEntry.FileRealPath)
+	rpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(shareEntry.FileVirtualPath, shareEntry.Owner)
+	cacheFileImagePath, err := metadata.GetCacheFilePath(fsh, rpath)
 	if err == nil {
 		//We got a thumbnail for this file. Render it as well
-		thumbnailFile, err := os.Open(cacheFileImagePath)
+		thumbnailFile, err := fsh.FileSystemAbstraction.ReadStream(cacheFileImagePath)
 		if err != nil {
 			fmt.Println("[share/opg] " + err.Error())
 			http.NotFound(w, r)
@@ -190,7 +235,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 		resizedThumb := resize.Resize(250, 0, thumb, resize.Lanczos3)
 		draw.Draw(resultopg, resultopg.Bounds(), resizedThumb, image.Point{-(resultopg.Bounds().Dx() - resizedThumb.Bounds().Dx() - 90), -60}, draw.Over)
-	} else if isDir(shareEntry.FileRealPath) {
+	} else if utils.IsDir(shareEntry.FileRealPath) {
 		//Is directory but no thumbnail. Use default foldr share thumbnail
 		thumbnailFile, err := os.Open("./system/share/folder.png")
 		if err != nil {
@@ -215,7 +260,7 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 }
 
-//Main function for handle share. Must be called with http.HandleFunc (No auth)
+// Main function for handle share. Must be called with http.HandleFunc (No auth)
 func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	//New download method variables
 	subpathElements := []string{}
@@ -223,7 +268,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	directServe := false
 	relpath := ""
 
-	id, err := mv(r, "id", false)
+	id, err := utils.GetPara(r, "id")
 	if err != nil {
 		//ID is not defined in the URL paramter. New ID defination is based on the subpath content
 		requestURI := filepath.ToSlash(filepath.Clean(r.URL.Path))
@@ -279,7 +324,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 		} else if len(subpathElements) == 1 {
 			//ID is missing. Serve the id input page
-			content, err := ioutil.ReadFile("system/share/index.html")
+			content, err := os.ReadFile("system/share/index.html")
 			if err != nil {
 				//Handling index not found. Is server updated correctly?
 				w.WriteHeader(http.StatusInternalServerError)
@@ -301,17 +346,17 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	} else {
 
 		//Parse and redirect to new share path
-		download, _ := mv(r, "download", false)
+		download, _ := utils.GetPara(r, "download")
 		if download == "true" {
 			directDownload = true
 		}
 
-		serve, _ := mv(r, "serve", false)
+		serve, _ := utils.GetPara(r, "serve")
 		if serve == "true" {
 			directServe = true
 		}
 
-		relpath, _ = mv(r, "rel", false)
+		relpath, _ = utils.GetPara(r, "rel")
 
 		redirectURL := "./" + id + "/"
 		if directDownload == true {
@@ -337,7 +382,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/preview/?id="+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			} else {
@@ -350,7 +395,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/preview/?id="+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -363,7 +408,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, allowedpg := range shareOption.Accessibles {
-				if inArray(thisUsersGroupByName, allowedpg) {
+				if utils.StringInArray(thisUsersGroupByName, allowedpg) {
 					//This required group is inside this user's group. OK
 				} else {
 					//This required group is not inside user's group. Reject
@@ -390,13 +435,13 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
 
 			//Check if username in the allowed user list
-			if !inArray(shareOption.Accessibles, thisuserinfo.Username) && shareOption.Owner != thisuserinfo.Username {
+			if !utils.StringInArray(shareOption.Accessibles, thisuserinfo.Username) && shareOption.Owner != thisuserinfo.Username {
 				//Serve permission denied page
 				if directDownload || directServe {
 					w.WriteHeader(http.StatusForbidden)
@@ -415,7 +460,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, common.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -428,7 +473,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, thisUserPg := range thisUsersGroupByName {
-				if inArray(shareOption.Accessibles, thisUserPg) {
+				if utils.StringInArray(shareOption.Accessibles, thisUserPg) {
 					allowAccess = true
 				}
 			}
@@ -450,8 +495,30 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		//Resolve the fsh from the entry
+		owner, err := s.options.UserHandler.GetUserInfoFromUsername(shareOption.Owner)
+		if err != nil {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("401 - Share account not exists"))
+			return
+		}
+
+		targetFsh, err := owner.GetFileSystemHandlerFromVirtualPath(shareOption.FileVirtualPath)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("500 - Unable to load Shared File"))
+			return
+		}
+		targetFshAbs := targetFsh.FileSystemAbstraction
+		fileRuntimeAbsPath, _ := targetFshAbs.VirtualPathToRealPath(shareOption.FileVirtualPath, owner.Username)
+		if !targetFshAbs.FileExists(fileRuntimeAbsPath) {
+			http.NotFound(w, r)
+			return
+		}
+
 		//Serve the download page
-		if isDir(shareOption.FileRealPath) {
+		if targetFshAbs.IsDir(fileRuntimeAbsPath) {
+			//This share is a folder
 			type File struct {
 				Filename string
 				RelPath  string
@@ -461,19 +528,18 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			if directDownload {
 				if relpath != "" {
 					//User specified a specific file within the directory. Escape the relpath
-					targetFilepath := filepath.Join(shareOption.FileRealPath, relpath)
+					targetFilepath := filepath.Join(fileRuntimeAbsPath, relpath)
 
 					//Check if file exists
-					if !fileExists(targetFilepath) {
+					if !targetFshAbs.FileExists(targetFilepath) {
 						http.NotFound(w, r)
 						return
 					}
 
 					//Validate the absolute path to prevent path escape
-					absroot, _ := filepath.Abs(shareOption.FileRealPath)
-					abstarget, _ := filepath.Abs(targetFilepath)
-
-					if len(abstarget) <= len(absroot) || abstarget[:len(absroot)] != absroot {
+					reqPath := filepath.ToSlash(filepath.Clean(targetFilepath))
+					rootPath, _ := targetFshAbs.VirtualPathToRealPath(shareOption.FileVirtualPath, shareOption.Owner)
+					if !strings.HasPrefix(arozfs.ToSlash(reqPath), arozfs.ToSlash(rootPath)) {
 						//Directory escape detected
 						w.WriteHeader(http.StatusBadRequest)
 						w.Write([]byte("400 - Bad Request: Invalid relative path"))
@@ -481,23 +547,80 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					}
 
 					//Serve the target file
-					w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(targetFilepath)), "+", "%20"))
+					w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(arozfs.Base(targetFilepath)), "+", "%20"))
 					w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-					http.ServeFile(w, r, targetFilepath)
+					//http.ServeFile(w, r, targetFilepath)
 
-					sendOK(w)
+					if targetFsh.RequireBuffer {
+						f, err := targetFshAbs.ReadStream(targetFilepath)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
+							return
+						}
+						defer f.Close()
+						io.Copy(w, f)
+					} else {
+						f, err := targetFshAbs.Open(targetFilepath)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
+							return
+						}
+						defer f.Close()
+						fi, _ := f.Stat()
+						http.ServeContent(w, r, arozfs.Base(targetFilepath), fi.ModTime(), f)
+					}
+
 				} else {
 					//Download this folder as zip
-					//Build the filelist to download
-
 					//Create a zip using ArOZ Zipper, tmp zip files are located under tmp/share-cache/*.zip
 					tmpFolder := s.options.TmpFolder
 					tmpFolder = filepath.Join(tmpFolder, "share-cache")
 					os.MkdirAll(tmpFolder, 0755)
-					targetZipFilename := filepath.Join(tmpFolder, filepath.Base(shareOption.FileRealPath)) + ".zip"
+					targetZipFilename := filepath.Join(tmpFolder, arozfs.Base(fileRuntimeAbsPath)) + ".zip"
+
+					//Check if the target fs require buffer
+					zippingSource := shareOption.FileRealPath
+					localBuff := ""
+					zippingSourceFsh := targetFsh
+					if targetFsh.RequireBuffer {
+						//Buffer all the required files for zipping
+						localBuff = filepath.Join(tmpFolder, uuid.NewV4().String(), arozfs.Base(fileRuntimeAbsPath))
+						os.MkdirAll(localBuff, 0755)
+
+						//Buffer all files into tmp folder
+						targetFshAbs.Walk(fileRuntimeAbsPath, func(path string, info fs.FileInfo, err error) error {
+							relPath := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(fileRuntimeAbsPath))
+							localPath := filepath.Join(localBuff, relPath)
+							if info.IsDir() {
+								os.MkdirAll(localPath, 0755)
+							} else {
+								f, err := targetFshAbs.ReadStream(path)
+								if err != nil {
+									log.Println("[Share] Buffer and zip download operation failed: ", err)
+								}
+								defer f.Close()
+								dest, err := os.OpenFile(localPath, os.O_CREATE|os.O_WRONLY, 0775)
+								if err != nil {
+									log.Println("[Share] Buffer and zip download operation failed: ", err)
+								}
+								defer dest.Close()
+								_, err = io.Copy(dest, f)
+								if err != nil {
+									log.Println("[Share] Buffer and zip download operation failed: ", err)
+								}
+
+							}
+							return nil
+						})
+
+						zippingSource = localBuff
+						zippingSourceFsh = nil
+					}
 
 					//Build a filelist
-					err := filesystem.ArozZipFile([]string{shareOption.FileRealPath}, targetZipFilename, false)
+					err := filesystem.ArozZipFile([]*filesystem.FileSystemHandler{zippingSourceFsh}, []string{zippingSource}, nil, targetZipFilename, false)
 					if err != nil {
 						//Failed to create zip file
 						w.WriteHeader(http.StatusInternalServerError)
@@ -507,9 +630,14 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					}
 
 					//Serve thje zip file
-					w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(shareOption.FileRealPath)), "+", "%20")+".zip")
+					w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(arozfs.Base(shareOption.FileRealPath)), "+", "%20")+".zip")
 					w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 					http.ServeFile(w, r, targetZipFilename)
+
+					//Remove the buffer file if exists
+					if targetFsh.RequireBuffer {
+						os.RemoveAll(filepath.Dir(localBuff))
+					}
 				}
 
 			} else if directServe {
@@ -519,46 +647,44 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				return
 			} else {
 				//Show download page. Do not allow serving
-				content, err := ioutil.ReadFile("./system/share/downloadPageFolder.html")
+				content, err := os.ReadFile("./system/share/downloadPageFolder.html")
 				if err != nil {
 					http.NotFound(w, r)
 					return
 				}
 
 				//Get file size
-				fsize, fcount := filesystem.GetDirctorySize(shareOption.FileRealPath, false)
+				fsize, fcount := targetFsh.GetDirctorySizeFromRealPath(fileRuntimeAbsPath, false)
 
 				//Build the tree list of the folder
 				treeList := map[string][]File{}
-				err = filepath.Walk(filepath.Clean(shareOption.FileRealPath), func(file string, info os.FileInfo, err error) error {
+				err = targetFshAbs.Walk(filepath.Clean(fileRuntimeAbsPath), func(file string, info os.FileInfo, err error) error {
 					if err != nil {
 						//If error skip this
 						return nil
 					}
-					if filepath.Base(file)[:1] != "." {
-						fileSize := filesystem.GetFileSize(file)
-						if filesystem.IsDir(file) {
-							fileSize, _ = filesystem.GetDirctorySize(file, false)
+					if arozfs.Base(file)[:1] != "." {
+						fileSize := targetFshAbs.GetFileSize(file)
+						if targetFshAbs.IsDir(file) {
+							fileSize, _ = targetFsh.GetDirctorySizeFromRealPath(file, false)
 						}
 
-						relPath, err := filepath.Rel(shareOption.FileRealPath, file)
-						if err != nil {
-							relPath = ""
-						}
-
-						relPath = filepath.ToSlash(filepath.Clean(relPath))
-						relDir := filepath.ToSlash(filepath.Dir(relPath))
-
-						if relPath == "." {
+						relPath := strings.TrimPrefix(filepath.ToSlash(file), filepath.ToSlash(fileRuntimeAbsPath))
+						relDir := strings.TrimPrefix(filepath.ToSlash(filepath.Dir(file)), filepath.ToSlash(fileRuntimeAbsPath))
+						if relPath == "." || relPath == "" {
 							//The root file object. Skip this
 							return nil
 						}
 
+						if relDir == "" {
+							relDir = "."
+						}
+
 						treeList[relDir] = append(treeList[relDir], File{
-							Filename: filepath.Base(file),
+							Filename: arozfs.Base(file),
 							RelPath:  filepath.ToSlash(relPath),
 							Filesize: filesystem.GetFileDisplaySize(fileSize, 2),
-							IsDir:    filesystem.IsDir(file),
+							IsDir:    targetFshAbs.IsDir(file),
 						})
 					}
 					return nil
@@ -573,7 +699,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				tl, _ := json.Marshal(treeList)
 
 				//Get modification time
-				fmodtime, _ := filesystem.GetModTime(shareOption.FileRealPath)
+				fmodtime, _ := targetFshAbs.GetModTime(fileRuntimeAbsPath)
 				timeString := time.Unix(fmodtime, 0).Format("02-01-2006 15:04:05")
 
 				t := fasttemplate.New(string(content), "{{", "}}")
@@ -586,7 +712,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"filecount":    strconv.Itoa(fcount),
 					"modtime":      timeString,
 					"downloadurl":  "../../share/download/" + id,
-					"filename":     filepath.Base(shareOption.FileRealPath),
+					"filename":     arozfs.Base(fileRuntimeAbsPath),
 					"reqtime":      strconv.Itoa(int(time.Now().Unix())),
 					"requri":       "//" + r.Host + r.URL.Path,
 					"opg_image":    "/share/opg/" + strconv.Itoa(int(time.Now().Unix())) + "/" + id,
@@ -600,26 +726,72 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			//This share is a file
+			contentType := mime.TypeByExtension(filepath.Ext(fileRuntimeAbsPath))
 			if directDownload {
 				//Serve the file directly
-				w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filepath.Base(shareOption.FileRealPath)), "+", "%20"))
-				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-				http.ServeFile(w, r, shareOption.FileRealPath)
+				w.Header().Set("Content-Disposition", "attachment; filename=\""+arozfs.Base(shareOption.FileVirtualPath)+"\"")
+				w.Header().Set("Content-Type", contentType)
+				w.Header().Set("Content-Length", strconv.Itoa(int(targetFshAbs.GetFileSize(fileRuntimeAbsPath))))
+
+				if filesystem.FileExists(fileRuntimeAbsPath) {
+					//This file exists in local file system. Serve it directly
+					http.ServeFile(w, r, fileRuntimeAbsPath)
+				} else {
+					if targetFsh.RequireBuffer {
+						f, err := targetFshAbs.ReadStream(fileRuntimeAbsPath)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
+							return
+						}
+						defer f.Close()
+						io.Copy(w, f)
+					} else {
+						f, err := targetFshAbs.Open(fileRuntimeAbsPath)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							w.Write([]byte("500 - Internal Server Error: " + err.Error()))
+							return
+						}
+						defer f.Close()
+						fi, _ := f.Stat()
+						http.ServeContent(w, r, arozfs.Base(fileRuntimeAbsPath), fi.ModTime(), f)
+					}
+				}
 			} else if directServe {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
-				http.ServeFile(w, r, shareOption.FileRealPath)
+				w.Header().Set("Content-Type", contentType)
+				if targetFsh.RequireBuffer {
+					f, err := targetFshAbs.ReadStream(fileRuntimeAbsPath)
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("500 - Internal Server Error: " + err.Error()))
+						return
+					}
+					defer f.Close()
+					io.Copy(w, f)
+				} else {
+					f, err := targetFshAbs.Open(fileRuntimeAbsPath)
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("500 - Internal Server Error: " + err.Error()))
+						return
+					}
+					defer f.Close()
+					fi, _ := f.Stat()
+					http.ServeContent(w, r, arozfs.Base(fileRuntimeAbsPath), fi.ModTime(), f)
+				}
 			} else {
 				//Serve the download page
-				content, err := ioutil.ReadFile("./system/share/downloadPage.html")
+				content, err := os.ReadFile("./system/share/downloadPage.html")
 				if err != nil {
 					http.NotFound(w, r)
 					return
 				}
 
 				//Get file mime type
-				mime, ext, err := filesystem.GetMime(shareOption.FileRealPath)
+				mime, ext, err := filesystem.GetMime(fileRuntimeAbsPath)
 				if err != nil {
 					mime = "Unknown"
 				}
@@ -640,7 +812,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					previewTemplate = filepath.Join(templateRoot, "default.html")
 				}
 
-				tp, err := ioutil.ReadFile(previewTemplate)
+				tp, err := os.ReadFile(previewTemplate)
 				if err != nil {
 					tp = []byte("")
 				}
@@ -649,16 +821,16 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				content = []byte(strings.ReplaceAll(string(content), "{{previewer}}", string(tp)))
 
 				//Get file size
-				fsize := filesystem.GetFileSize(shareOption.FileRealPath)
+				fsize := targetFshAbs.GetFileSize(fileRuntimeAbsPath)
 
 				//Get modification time
-				fmodtime, _ := filesystem.GetModTime(shareOption.FileRealPath)
+				fmodtime, _ := targetFshAbs.GetModTime(fileRuntimeAbsPath)
 				timeString := time.Unix(fmodtime, 0).Format("02-01-2006 15:04:05")
 
 				//Check if ext match with filepath ext
 				displayExt := ext
-				if ext != filepath.Ext(shareOption.FileRealPath) {
-					displayExt = filepath.Ext(shareOption.FileRealPath) + " (" + ext + ")"
+				if ext != filepath.Ext(fileRuntimeAbsPath) {
+					displayExt = filepath.Ext(fileRuntimeAbsPath) + " (" + ext + ")"
 				}
 				t := fasttemplate.New(string(content), "{{", "}}")
 				s := t.ExecuteString(map[string]interface{}{
@@ -670,9 +842,9 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"ext":         displayExt,
 					"size":        filesystem.GetFileDisplaySize(fsize, 2),
 					"modtime":     timeString,
-					"downloadurl": "../../share/download/" + id + "/" + filepath.Base(shareOption.FileRealPath),
+					"downloadurl": "/share/download/" + id + "/" + arozfs.Base(fileRuntimeAbsPath),
 					"preview_url": "/share/preview/" + id + "/",
-					"filename":    filepath.Base(shareOption.FileRealPath),
+					"filename":    arozfs.Base(fileRuntimeAbsPath),
 					"opg_image":   "/share/opg/" + strconv.Itoa(int(time.Now().Unix())) + "/" + id,
 					"reqtime":     strconv.Itoa(int(time.Now().Unix())),
 				})
@@ -690,7 +862,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			//Send not found page
-			content, err := ioutil.ReadFile("./system/share/notfound.html")
+			content, err := os.ReadFile("./system/share/notfound.html")
 			if err != nil {
 				http.NotFound(w, r)
 				return
@@ -710,100 +882,86 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//Check if a file is shared
+// Check if a file is shared
 func (s *Manager) HandleShareCheck(w http.ResponseWriter, r *http.Request) {
 	//Get the vpath from paramters
-	vpath, err := mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		sendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
-	//Get realpath from userinfo
-	rpath, err := userinfo.VirtualPathToRealPath(vpath)
+	fsh, _ := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
+	pathHash, err := shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
 	if err != nil {
-		sendErrorResponse(w, "Unable to resolve realpath")
+		utils.SendErrorResponse(w, "Unable to get share from given path")
 		return
 	}
-
 	type Result struct {
 		IsShared  bool
 		ShareUUID *shareEntry.ShareOption
 	}
 
 	//Check if share exists
-	shareExists := s.options.ShareEntryTable.FileIsShared(rpath)
+	shareExists := s.options.ShareEntryTable.FileIsShared(pathHash)
 	if !shareExists {
 		//Share not exists
 		js, _ := json.Marshal(Result{
 			IsShared:  false,
 			ShareUUID: &shareEntry.ShareOption{},
 		})
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 
 	} else {
 		//Share exists
-		thisSharedInfo := s.options.ShareEntryTable.GetShareObjectFromRealPath(rpath)
+		thisSharedInfo := s.options.ShareEntryTable.GetShareObjectFromPathHash(pathHash)
 		js, _ := json.Marshal(Result{
 			IsShared:  true,
 			ShareUUID: thisSharedInfo,
 		})
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	}
 
 }
 
-//Create new share from the given path
+// Create new share from the given path
 func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 	//Get the vpath from paramters
-	vpath, err := mv(r, "path", true)
+	vpath, err := utils.PostPara(r, "path")
 	if err != nil {
-		sendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
-	//Check if this is in the share folder
-	vrootID, subpath, err := filesystem.GetIDFromVirtualPath(vpath)
-	if err != nil {
-		sendErrorResponse(w, "Unable to resolve virtual path")
+	//Get the target fsh that this vpath come from
+	vpathSourceFsh := userinfo.GetRootFSHFromVpathInUserScope(vpath)
+	if vpathSourceFsh == nil {
+		utils.SendErrorResponse(w, "Invalid vpath given")
 		return
 	}
-	if vrootID == "share" {
-		shareObject, err := s.options.ShareEntryTable.ResolveShareOptionFromShareSubpath(subpath)
-		if err != nil {
-			sendErrorResponse(w, err.Error())
-			return
-		}
 
-		//Check if this share is own by or accessible by the current user. Reject share modification if not
-		if !shareObject.IsOwnedBy(userinfo.Username) && !userinfo.CanWrite(vpath) {
-			sendErrorResponse(w, "Permission Denied: You are not the file owner nor can write to this file")
-			return
-		}
-	}
-
-	share, err := s.CreateNewShare(userinfo, vpath)
+	share, err := s.CreateNewShare(userinfo, vpathSourceFsh, vpath)
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	js, _ := json.Marshal(share)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 // Handle Share Edit.
@@ -818,17 +976,17 @@ func (s *Manager) HandleCreateNewShare(w http.ResponseWriter, r *http.Request) {
 func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
-	uuid, err := mv(r, "uuid", true)
+	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
-		sendErrorResponse(w, "Invalid path given")
+		utils.SendErrorResponse(w, "Invalid path given")
 		return
 	}
 
-	shareMode, _ := mv(r, "mode", true)
+	shareMode, _ := utils.PostPara(r, "mode")
 	if shareMode == "" {
 		shareMode = "signedin"
 	}
@@ -837,21 +995,20 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 	so := s.options.ShareEntryTable.GetShareObjectFromUUID(uuid)
 	if so == nil {
 		//This share url not exists
-		sendErrorResponse(w, "Share UUID not exists")
+		utils.SendErrorResponse(w, "Share UUID not exists")
 		return
 	}
 
 	//Check if the user has permission to edit this share
-	if so.Owner != userinfo.Username && !userinfo.IsAdmin() {
-		//This file is not shared by this user and this user is not admin. Block this request
-		sendErrorResponse(w, "Permission denied")
+	if !s.CanModifyShareEntry(userinfo, so.FileVirtualPath) {
+		utils.SendErrorResponse(w, "Permission Denied")
 		return
 	}
 
 	//Validate and extract the storage mode
 	ok, sharetype, settings := validateShareModes(shareMode)
 	if !ok {
-		sendErrorResponse(w, "Invalid share setting")
+		utils.SendErrorResponse(w, "Invalid share setting")
 		return
 	}
 
@@ -881,52 +1038,157 @@ func (s *Manager) HandleEditShare(w http.ResponseWriter, r *http.Request) {
 		s.options.ShareEntryTable.Database.Write("share", uuid, so)
 	}
 
-	sendOK(w)
+	utils.SendOK(w)
 
 }
 
 func (s *Manager) HandleDeleteShare(w http.ResponseWriter, r *http.Request) {
-	//Get the vpath from paramters
-	vpath, err := mv(r, "path", true)
-	if err != nil {
-		sendErrorResponse(w, "Invalid path given")
-		return
-	}
-
 	//Get userinfo
 	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		sendErrorResponse(w, "User not logged in")
+		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
 
+	//Get the vpath from paramters
+	uuid, err := utils.PostPara(r, "uuid")
+	if err != nil {
+		//Try to get it from vpath
+		vpath, err := utils.PostPara(r, "vpath")
+		if err != nil {
+			utils.SendErrorResponse(w, "Invalid uuid or vpath given")
+			return
+		}
+
+		targetSa := s.GetShareObjectFromUserAndVpath(userinfo, vpath)
+		if targetSa == nil {
+			utils.SendErrorResponse(w, "Invalid uuid or vpath given")
+			return
+		}
+		uuid = targetSa.UUID
+	}
+
 	//Delete the share setting
-	err = s.DeleteShare(userinfo, vpath)
+	err = s.DeleteShareByUUID(userinfo, uuid)
 
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 	} else {
-		sendOK(w)
+		utils.SendOK(w)
 	}
 }
 
-//Craete a new file or folder share
-func (s *Manager) CreateNewShare(userinfo *user.User, vpath string) (*shareEntry.ShareOption, error) {
-	//Translate the vpath to realpath
-	rpath, err := userinfo.VirtualPathToRealPath(vpath)
+func (s *Manager) HandleListAllShares(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
-		return nil, errors.New("Unable to find the file on disk")
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+	fshId, _ := utils.GetPara(r, "fsh")
+	results := []*shareEntry.ShareOption{}
+	if fshId == "" {
+		//List all
+		allFsh := userinfo.GetAllFileSystemHandler()
+		for _, thisFsh := range allFsh {
+			allShares := s.ListAllShareByFshId(thisFsh.UUID, userinfo)
+			for _, thisShare := range allShares {
+				if s.ShareIsValid(thisShare) {
+					results = append(results, thisShare)
+				}
+			}
+
+		}
+	} else {
+		//List fsh only
+		targetFsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(fshId)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+		sharesInThisFsh := s.ListAllShareByFshId(targetFsh.UUID, userinfo)
+		for _, thisShare := range sharesInThisFsh {
+			if s.ShareIsValid(thisShare) {
+				results = append(results, thisShare)
+			}
+		}
 	}
 
-	return s.options.ShareEntryTable.CreateNewShare(rpath, userinfo.Username, userinfo.GetUserPermissionGroupNames())
+	//Reduce the data
+	type Share struct {
+		UUID                 string
+		FileVirtualPath      string
+		Owner                string
+		Permission           string
+		IsFolder             bool
+		IsOwnerOfShare       bool
+		CanAccess            bool
+		CanOpenInFileManager bool
+		CanDelete            bool
+	}
+
+	reducedResult := []*Share{}
+	for _, result := range results {
+		permissionText := result.Permission
+		if result.Permission == "groups" || result.Permission == "users" {
+			permissionText = permissionText + " (" + strings.Join(result.Accessibles, ", ") + ")"
+		}
+		thisShareInfo := Share{
+			UUID:                 result.UUID,
+			FileVirtualPath:      result.FileVirtualPath,
+			Owner:                result.Owner,
+			Permission:           permissionText,
+			IsFolder:             result.IsFolder,
+			IsOwnerOfShare:       userinfo.Username == result.Owner,
+			CanAccess:            result.IsAccessibleBy(userinfo.Username, userinfo.GetUserPermissionGroupNames()),
+			CanOpenInFileManager: s.UserCanOpenShareInFileManager(result, userinfo),
+			CanDelete:            s.CanModifyShareEntry(userinfo, result.FileVirtualPath),
+		}
+
+		reducedResult = append(reducedResult, &thisShareInfo)
+	}
+
+	js, _ := json.Marshal(reducedResult)
+	utils.SendJSONResponse(w, string(js))
+}
+
+/*
+Check if the user can open the share in File Manager
+
+There are two conditions where the user can open the file in file manager
+1. If the user is the owner of the file
+2. If the user is NOT the owner of the file but the target fsh is public accessible and in user's fsh list
+*/
+func (s *Manager) UserCanOpenShareInFileManager(share *shareEntry.ShareOption, userinfo *user.User) bool {
+	if share.Owner == userinfo.Username {
+		return true
+	}
+
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(share.FileVirtualPath)
+	if err != nil {
+		//User do not have permission to access this fsh
+		return false
+	}
+
+	rpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(share.FileVirtualPath, userinfo.Username)
+	if fsh.Hierarchy == "public" && fsh.FileSystemAbstraction.FileExists(rpath) {
+		return true
+	}
+
+	return false
+}
+
+// Craete a new file or folder share
+func (s *Manager) CreateNewShare(userinfo *user.User, srcFsh *filesystem.FileSystemHandler, vpath string) (*shareEntry.ShareOption, error) {
+	//Translate the vpath to realpath
+	return s.options.ShareEntryTable.CreateNewShare(srcFsh, vpath, userinfo.Username, userinfo.GetUserPermissionGroupNames())
 
 }
 
 func ServePermissionDeniedPage(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusForbidden)
 	pageContent := []byte("Permissioned Denied")
-	if fileExists("system/share/permissionDenied.html") {
-		content, err := ioutil.ReadFile("system/share/permissionDenied.html")
+	if utils.FileExists("system/share/permissionDenied.html") {
+		content, err := os.ReadFile("system/share/permissionDenied.html")
 		if err == nil {
 			pageContent = content
 		}
@@ -935,17 +1197,16 @@ func ServePermissionDeniedPage(w http.ResponseWriter) {
 }
 
 /*
-	Validate Share Mode string
-	will return
-	1. bool => Is valid
-	2. permission type: {basic / groups / users}
-	3. mode string
-
+Validate Share Mode string
+will return
+1. bool => Is valid
+2. permission type: {basic / groups / users}
+3. mode string
 */
 func validateShareModes(mode string) (bool, string, []string) {
 	// user:a,b,c,d
 	validModes := []string{"anyone", "signedin", "samegroup"}
-	if inArray(validModes, mode) {
+	if utils.StringInArray(validModes, mode) {
 		//Standard modes
 		return true, mode, []string{}
 	} else if len(mode) > 7 && mode[:7] == "groups:" {
@@ -973,51 +1234,175 @@ func validateShareModes(mode string) (bool, string, []string) {
 	return false, "", []string{}
 }
 
-//Check and clear shares that its pointinf files no longe exists
+func (s *Manager) ListAllShareByFshId(fshId string, userinfo *user.User) []*shareEntry.ShareOption {
+	results := []*shareEntry.ShareOption{}
+	s.options.ShareEntryTable.FileToUrlMap.Range(func(k, v interface{}) bool {
+		thisShareOption := v.(*shareEntry.ShareOption)
+		if (!userinfo.IsAdmin() && thisShareOption.IsAccessibleBy(userinfo.Username, userinfo.GetUserPermissionGroupNames())) || userinfo.IsAdmin() {
+			id, _, _ := filesystem.GetIDFromVirtualPath(thisShareOption.FileVirtualPath)
+			if id == fshId {
+				results = append(results, thisShareOption)
+			}
+
+		}
+		return true
+	})
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].UUID < results[j].UUID
+	})
+
+	return results
+}
+
+func (s *Manager) ShareIsValid(thisShareOption *shareEntry.ShareOption) bool {
+	vpath := thisShareOption.FileVirtualPath
+	userinfo, _ := s.options.UserHandler.GetUserInfoFromUsername(thisShareOption.Owner)
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
+	if err != nil {
+		return false
+	}
+
+	fshAbs := fsh.FileSystemAbstraction
+	rpath, _ := fshAbs.VirtualPathToRealPath(vpath, userinfo.Username)
+
+	if !fshAbs.FileExists(rpath) {
+		return false
+	}
+
+	return true
+}
+
+func (s *Manager) GetPathHashFromShare(thisShareOption *shareEntry.ShareOption) (string, error) {
+	vpath := thisShareOption.FileVirtualPath
+	userinfo, _ := s.options.UserHandler.GetUserInfoFromUsername(thisShareOption.Owner)
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
+	if err != nil {
+		return "", err
+	}
+	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
+}
+
+// Check and clear shares that its pointinf files no longe exists
 func (s *Manager) ValidateAndClearShares() {
 	//Iterate through all shares within the system
 	s.options.ShareEntryTable.FileToUrlMap.Range(func(k, v interface{}) bool {
-		thisRealPath := k.(string)
-		if !fileExists(thisRealPath) {
+		thisShareOption := v.(*shareEntry.ShareOption)
+		pathHash, err := s.GetPathHashFromShare(thisShareOption)
+		if err != nil {
+			//Unable to resolve path hash. Filesystem handler is gone?
+			//s.options.ShareEntryTable.RemoveShareByUUID(thisShareOption.UUID)
+			return true
+		}
+		if !s.ShareIsValid(thisShareOption) {
 			//This share source file don't exists anymore. Remove it
-			s.options.ShareEntryTable.RemoveShareByRealpath(thisRealPath)
-			log.Println("*Share* Removing share to file: " + thisRealPath + " as it no longer exists")
+			err = s.options.ShareEntryTable.RemoveShareByPathHash(pathHash)
+			if err != nil {
+				log.Println("[Share] Failed to remove share", err)
+			}
+			log.Println("[Share] Removing share to file: " + thisShareOption.FileRealPath + " as it no longer exists")
 		}
 		return true
 	})
 
 }
 
-func (s *Manager) DeleteShare(userinfo *user.User, vpath string) error {
-	//Translate the vpath to realpath
-	rpath, err := userinfo.VirtualPathToRealPath(vpath)
-	if err != nil {
-		return errors.New("Unable to find the file on disk")
+// Check if the user has the permission to modify this share entry
+func (s *Manager) CanModifyShareEntry(userinfo *user.User, vpath string) bool {
+	shareEntry := s.GetShareObjectFromUserAndVpath(userinfo, vpath)
+	if shareEntry == nil {
+		//Share entry not found
+		return false
 	}
 
-	return s.options.ShareEntryTable.DeleteShare(rpath)
+	//Check if the user is the share owner or the user is admin
+	if userinfo.IsAdmin() {
+		return true
+	} else if userinfo.Username == shareEntry.Owner {
+		return true
+	}
+
+	//Public fsh where the user and owner both can access
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
+	if err != nil {
+		return false
+	}
+	rpath, _ := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, userinfo.Username)
+	if userinfo.CanWrite(vpath) && fsh.Hierarchy == "public" && fsh.FileSystemAbstraction.FileExists(rpath) {
+		return true
+	}
+
+	return false
 }
 
-func (s *Manager) GetShareUUIDFromPath(rpath string) string {
-	return s.options.ShareEntryTable.GetShareUUIDFromPath(rpath)
+func (s *Manager) DeleteShareByVpath(userinfo *user.User, vpath string) error {
+	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
+	if err != nil {
+		return err
+	}
+	if !s.CanModifyShareEntry(userinfo, vpath) {
+		return errors.New("Permission denied")
+	}
+	return s.options.ShareEntryTable.DeleteShareByPathHash(ps)
 }
 
-func (s *Manager) GetShareObjectFromRealPath(rpath string) *shareEntry.ShareOption {
-	return s.options.ShareEntryTable.GetShareObjectFromRealPath(rpath)
+func (s *Manager) DeleteShareByUUID(userinfo *user.User, uuid string) error {
+	so := s.GetShareObjectFromUUID(uuid)
+	if so == nil {
+		return errors.New("Invalid share uuid")
+	}
+
+	if !s.CanModifyShareEntry(userinfo, so.FileVirtualPath) {
+		return errors.New("Permission denied")
+	}
+
+	return s.options.ShareEntryTable.DeleteShareByUUID(uuid)
+}
+
+func (s *Manager) GetShareUUIDFromUserAndVpath(userinfo *user.User, vpath string) string {
+	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
+	if err != nil {
+		return ""
+	}
+	return s.options.ShareEntryTable.GetShareUUIDFromPathHash(ps)
+}
+
+func (s *Manager) GetShareObjectFromUserAndVpath(userinfo *user.User, vpath string) *shareEntry.ShareOption {
+	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
+	if err != nil {
+		return nil
+	}
+	return s.options.ShareEntryTable.GetShareObjectFromPathHash(ps)
 }
 
 func (s *Manager) GetShareObjectFromUUID(uuid string) *shareEntry.ShareOption {
 	return s.options.ShareEntryTable.GetShareObjectFromUUID(uuid)
 }
 
-func (s *Manager) FileIsShared(rpath string) bool {
-	return s.options.ShareEntryTable.FileIsShared(rpath)
+func (s *Manager) FileIsShared(userinfo *user.User, vpath string) bool {
+	ps, err := getPathHashFromUsernameAndVpath(userinfo, vpath)
+	if err != nil {
+		return false
+	}
+
+	return s.options.ShareEntryTable.FileIsShared(ps)
 }
 
-func (s *Manager) RemoveShareByRealpath(rpath string) error {
-	return s.RemoveShareByRealpath(rpath)
-}
-
-func (s *Manager) RemoveShareByUUID(uuid string) error {
+func (s *Manager) RemoveShareByUUID(userinfo *user.User, uuid string) error {
+	shareObject := s.GetShareObjectFromUUID(uuid)
+	if shareObject == nil {
+		return errors.New("Share entry not found")
+	}
+	if !s.CanModifyShareEntry(userinfo, shareObject.FileVirtualPath) {
+		return errors.New("Permission denied")
+	}
 	return s.options.ShareEntryTable.RemoveShareByUUID(uuid)
+}
+
+func getPathHashFromUsernameAndVpath(userinfo *user.User, vpath string) (string, error) {
+	fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vpath)
+	if err != nil {
+		return "", err
+	}
+	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
 }

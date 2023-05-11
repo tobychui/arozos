@@ -1,0 +1,18 @@
+/*
+	Arozos External AGI Services
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Serverless",
+	Group: "System Tools",
+	IconPath: "Serverless/img/small_icon.png",
+	Version: "0.1",
+	StartDir: "Serverless/index.html",
+	SupportFW: true,
+	InitFWSize: [410, 540],
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

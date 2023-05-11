@@ -2,27 +2,54 @@ package metadata
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/jpeg"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
+	"imuslab.com/arozos/mod/filesystem"
 )
 
-func generateThumbnailForImage(cacheFolder string, file string, generateOnly bool) (string, error) {
-	imageBytes, err := ioutil.ReadFile(file)
-	if err != nil {
-		return "", err
+// Generate thumbnail for image. Require real filepath
+func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
+	if fsh.RequireBuffer {
+		return "", nil
 	}
-	//Resize to desiered width
-	img, _, err := image.Decode(bytes.NewReader(imageBytes))
-	if err != nil {
-		return "", err
+	fshAbs := fsh.FileSystemAbstraction
+	var img image.Image
+	var err error
+
+	if fshAbs.GetFileSize(file) > (25 << 20) {
+		//Maxmium image size to be converted is 25MB, on 500MB (~250MB usable) Linux System
+		//This file is too large to convert
+		return "", errors.New("image file too large")
+	}
+	if fsh.RequireBuffer {
+		//This fsh is remote. Buffer to RAM
+		imageBytes, err := fshAbs.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		img, _, err = image.Decode(bytes.NewReader(imageBytes))
+		if err != nil {
+			return "", err
+		}
+	} else {
+		srcImage, err := fshAbs.OpenFile(file, os.O_RDONLY, 0775)
+		if err != nil {
+			return "", err
+		}
+		defer srcImage.Close()
+		img, _, err = image.Decode(srcImage)
+		if err != nil {
+			return "", err
+		}
 	}
 
+	//Resize to desiered width
 	//Check boundary to decide resize mode
 	b := img.Bounds()
 	imgWidth := b.Max.X
@@ -43,7 +70,7 @@ func generateThumbnailForImage(cacheFolder string, file string, generateOnly boo
 	})
 
 	//Create the thumbnail
-	out, err := os.Create(cacheFolder + filepath.Base(file) + ".jpg")
+	out, err := fshAbs.Create(cacheFolder + filepath.Base(file) + ".jpg")
 	if err != nil {
 		return "", err
 	}
@@ -54,7 +81,7 @@ func generateThumbnailForImage(cacheFolder string, file string, generateOnly boo
 
 	if !generateOnly {
 		//return the image as well
-		ctx, err := getImageAsBase64(cacheFolder + filepath.Base(file) + ".jpg")
+		ctx, err := getImageAsBase64(fsh, cacheFolder+filepath.Base(file)+".jpg")
 		return ctx, err
 	} else {
 		return "", nil

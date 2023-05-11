@@ -2,10 +2,10 @@ package ssdp
 
 import (
 	"errors"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -85,7 +85,10 @@ func (a *SSDPHost) Start() {
 		for {
 			select {
 			case <-aliveTick:
-				ad.Alive()
+				if ad != nil {
+					ad.Alive()
+				}
+
 			case <-quit:
 				ad.Bye()
 				ad.Close()
@@ -104,10 +107,10 @@ func (a *SSDPHost) Close() {
 
 }
 
-//Serve the xml file with the given properties
+// Serve the xml file with the given properties
 func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
 	//Load the ssdp xml from file
-	template, err := ioutil.ReadFile(a.SSDPTemplateFile)
+	template, err := os.ReadFile(a.SSDPTemplateFile)
 	if err != nil {
 		w.Write([]byte("SSDP.XML NOT FOUND"))
 		return
@@ -128,7 +131,7 @@ func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(s))
 }
 
-//Helper functions
+// Helper functions
 func getFirstNetworkInterfaceName() (string, error) {
 	if runtime.GOOS == "linux" {
 		if pkg_exists("ip") {

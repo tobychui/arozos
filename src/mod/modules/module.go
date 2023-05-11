@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type ModuleInfo struct {
@@ -110,9 +111,9 @@ func (m *ModuleHandler) GetModuleNameList() []string {
 //Handle Default Launcher
 func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Request) {
 	username, _ := m.userHandler.GetAuthAgent().GetUserName(w, r)
-	opr, _ := mv(r, "opr", false) //Operation, accept {get, set, launch}
-	ext, _ := mv(r, "ext", false)
-	moduleName, _ := mv(r, "module", false)
+	opr, _ := utils.GetPara(r, "opr") //Operation, accept {get, set, launch}
+	ext, _ := utils.GetPara(r, "ext")
+	moduleName, _ := utils.GetPara(r, "module")
 
 	ext = strings.ToLower(ext)
 
@@ -122,18 +123,18 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 		value := ""
 		err := m.userHandler.GetDatabase().Read("module", "default/"+username+"/"+ext, &value)
 		if err != nil {
-			sendErrorResponse(w, "No default opener")
+			utils.SendErrorResponse(w, "No default opener")
 			return
 		}
 		js, _ := json.Marshal(value)
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 		return
 	} else if opr == "launch" {
 		//Get launch paramter for this extension
 		value := ""
 		err := m.userHandler.GetDatabase().Read("module", "default/"+username+"/"+ext, &value)
 		if err != nil {
-			sendErrorResponse(w, "No default opener")
+			utils.SendErrorResponse(w, "No default opener")
 			return
 		}
 		//Get the launch paramter of this module
@@ -148,18 +149,18 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 
 		if !modExists {
 			//This module has been removed or not exists anymore
-			sendErrorResponse(w, "Default opener no longer exists.")
+			utils.SendErrorResponse(w, "Default opener no longer exists.")
 			return
 		} else {
 			//Return launch inforamtion
 			jsonString, _ := json.Marshal(modInfo)
-			sendJSONResponse(w, string(jsonString))
+			utils.SendJSONResponse(w, string(jsonString))
 		}
 
 	} else if opr == "set" {
 		//Set the opener for this filetype
 		if moduleName == "" {
-			sendErrorResponse(w, "Missing paratmer 'module'")
+			utils.SendErrorResponse(w, "Missing paratmer 'module'")
 			return
 		}
 
@@ -172,9 +173,9 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 		}
 		if moduleValid {
 			m.userHandler.GetDatabase().Write("module", "default/"+username+"/"+ext, moduleName)
-			sendJSONResponse(w, "\"OK\"")
+			utils.SendJSONResponse(w, "\"OK\"")
 		} else {
-			sendErrorResponse(w, "Given module not exists.")
+			utils.SendErrorResponse(w, "Given module not exists.")
 		}
 
 	} else if opr == "list" {
@@ -194,7 +195,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 		}
 
 		jsonString, _ := json.Marshal(results)
-		sendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 		return
 	}
 }
@@ -212,7 +213,7 @@ func (m *ModuleHandler) ListLoadedModules(w http.ResponseWriter, r *http.Request
 	}
 	//Return the loaded modules as a list of JSON string
 	jsonString, _ := json.Marshal(userAccessableModules)
-	sendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 func (m *ModuleHandler) GetModuleInfoByID(moduleid string) *ModuleInfo {
@@ -225,9 +226,9 @@ func (m *ModuleHandler) GetModuleInfoByID(moduleid string) *ModuleInfo {
 }
 
 func (m *ModuleHandler) GetLaunchParameter(w http.ResponseWriter, r *http.Request) {
-	moduleName, _ := mv(r, "module", false)
+	moduleName, _ := utils.GetPara(r, "module")
 	if moduleName == "" {
-		sendErrorResponse(w, "Missing paramter 'module'.")
+		utils.SendErrorResponse(w, "Missing paramter 'module'.")
 		return
 	}
 
@@ -244,10 +245,10 @@ func (m *ModuleHandler) GetLaunchParameter(w http.ResponseWriter, r *http.Reques
 
 	if found {
 		jsonString, _ := json.Marshal(targetLaunchInfo)
-		sendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 		return
 	} else {
-		sendErrorResponse(w, "Given module not exists.")
+		utils.SendErrorResponse(w, "Given module not exists.")
 		return
 	}
 

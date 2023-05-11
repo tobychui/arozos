@@ -7,16 +7,15 @@ package main
 */
 
 import (
-	"log"
 	"net/http"
 
-	"imuslab.com/arozos/mod/common"
 	"imuslab.com/arozos/mod/disk/diskcapacity"
 	"imuslab.com/arozos/mod/disk/diskmg"
 	diskspace "imuslab.com/arozos/mod/disk/diskspace"
 	smart "imuslab.com/arozos/mod/disk/smart"
 	sortfile "imuslab.com/arozos/mod/disk/sortfile"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 func DiskServiceInit() {
@@ -27,7 +26,16 @@ func DiskServiceInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	//Anyone logged in can load router
+	authRouter := prout.NewModuleRouter(prout.RouterOption{
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -37,6 +45,7 @@ func DiskServiceInit() {
 	//Handle Virtual Disk Properties display endpoints
 	dc := diskcapacity.NewCapacityResolver(userHandler)
 	router.HandleFunc("/system/disk/space/resolve", dc.HandleCapacityResolving)
+	authRouter.HandleFunc("/system/disk/space/tmp", dc.HandleTmpCapacityResolving)
 
 	//New Large File Scanner
 	lfs := sortfile.NewLargeFileScanner(userHandler)
@@ -72,7 +81,7 @@ func DiskServiceInit() {
 			AdminOnly:   true,
 			UserHandler: userHandler,
 			DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-				common.SendErrorResponse(w, "Permission Denied")
+				utils.SendErrorResponse(w, "Permission Denied")
 			},
 		})
 
@@ -86,7 +95,7 @@ func DiskServiceInit() {
 			smartListener, err := smart.NewSmartListener()
 			if err != nil {
 				//Listener creation failed
-				log.Println("Failed to create SMART listener: " + err.Error())
+				systemWideLogger.PrintAndLog("Disk", "Failed to create SMART listener: "+err.Error(), err)
 			} else {
 				//Listener created. Register endpoints
 
@@ -127,7 +136,8 @@ func DiskServiceInit() {
 			adminRouter.HandleFunc("/system/disk/diskmg/platform", diskmg.HandlePlatform)
 			adminRouter.HandleFunc("/system/disk/diskmg/mount", func(w http.ResponseWriter, r *http.Request) {
 				//Mount option require passing in all filesystem handlers
-				diskmg.HandleMount(w, r, fsHandlers)
+				allFsh := GetAllLoadedFsh()
+				diskmg.HandleMount(w, r, allFsh)
 			})
 			adminRouter.HandleFunc("/system/disk/diskmg/format", func(w http.ResponseWriter, r *http.Request) {
 				//Check if request are made in POST mode
@@ -145,7 +155,8 @@ func DiskServiceInit() {
 				}
 
 				//Format option require passing in all filesystem handlers
-				diskmg.HandleFormat(w, r, fsHandlers)
+				allFsh := GetAllLoadedFsh()
+				diskmg.HandleFormat(w, r, allFsh)
 			})
 			adminRouter.HandleFunc("/system/disk/diskmg/mpt", diskmg.HandleListMountPoints)
 		}

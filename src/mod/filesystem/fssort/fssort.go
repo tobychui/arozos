@@ -1,7 +1,7 @@
 package fssort
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -14,26 +14,28 @@ type sortBufferedStructure struct {
 	ModTime  int64
 }
 
+var ValidSortModes = []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart", "fileTypeAsce", "fileTypeDesc"}
+
 /*
-	Quick utilties to sort file list according to different modes
+Quick utilties to sort file list according to different modes
 */
-func SortFileList(filelistRealpath []string, sortMode string) []string {
+func SortFileList(filelistRealpath []string, fileInfos []fs.FileInfo, sortMode string) []string {
 	//Build a filelist with information based on the given filelist
 	parsedFilelist := []*sortBufferedStructure{}
-	for _, file := range filelistRealpath {
+	if len(filelistRealpath) != len(fileInfos) {
+		//Invalid usage
+		return filelistRealpath
+	}
+	for i, file := range filelistRealpath {
 		thisFileInfo := sortBufferedStructure{
 			Filename: filepath.Base(file),
 			Filepath: file,
 		}
 
 		//Get Filesize
-		fi, err := os.Stat(file)
-		if err != nil {
-			thisFileInfo.Filesize = 0
-		} else {
-			thisFileInfo.Filesize = fi.Size()
-			thisFileInfo.ModTime = fi.ModTime().Unix()
-		}
+		fi := fileInfos[i]
+		thisFileInfo.Filesize = fi.Size()
+		thisFileInfo.ModTime = fi.ModTime().Unix()
 
 		parsedFilelist = append(parsedFilelist, &thisFileInfo)
 
@@ -55,11 +57,44 @@ func SortFileList(filelistRealpath []string, sortMode string) []string {
 	} else if sortMode == "largeToSmall" {
 		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].Filesize > parsedFilelist[j].Filesize })
 	} else if sortMode == "mostRecent" {
-		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime > parsedFilelist[j].ModTime })
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			if parsedFilelist[i].ModTime == parsedFilelist[j].ModTime {
+				return strings.ToLower(parsedFilelist[i].Filename) < strings.ToLower(parsedFilelist[j].Filename)
+			}
+			return parsedFilelist[i].ModTime > parsedFilelist[j].ModTime
+
+		})
 	} else if sortMode == "leastRecent" {
-		sort.Slice(parsedFilelist, func(i, j int) bool { return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime })
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			if parsedFilelist[i].ModTime == parsedFilelist[j].ModTime {
+				return strings.ToLower(parsedFilelist[i].Filename) > strings.ToLower(parsedFilelist[j].Filename)
+			}
+			return parsedFilelist[i].ModTime < parsedFilelist[j].ModTime
+		})
 	} else if sortMode == "smart" {
 		parsedFilelist = SortNaturalFilelist(parsedFilelist)
+	} else if sortMode == "fileTypeAsce" {
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			exti := filepath.Ext(parsedFilelist[i].Filename)
+			extj := filepath.Ext(parsedFilelist[j].Filename)
+
+			exti = strings.TrimPrefix(exti, ".")
+			extj = strings.TrimPrefix(extj, ".")
+
+			return exti < extj
+
+		})
+	} else if sortMode == "fileTypeDesc" {
+		sort.Slice(parsedFilelist, func(i, j int) bool {
+			exti := filepath.Ext(parsedFilelist[i].Filename)
+			extj := filepath.Ext(parsedFilelist[j].Filename)
+
+			exti = strings.TrimPrefix(exti, ".")
+			extj = strings.TrimPrefix(extj, ".")
+
+			return exti > extj
+
+		})
 	}
 
 	results := []string{}
@@ -70,11 +105,33 @@ func SortFileList(filelistRealpath []string, sortMode string) []string {
 	return results
 }
 
-func SortModeIsSupported(sortMode string) bool {
-	if !contains(sortMode, []string{"default", "reverse", "smallToLarge", "largeToSmall", "mostRecent", "leastRecent", "smart"}) {
-		return false
+func SortDirEntryList(dirEntries []fs.DirEntry, sortMode string) []fs.DirEntry {
+	entries := map[string]fs.DirEntry{}
+	fnames := []string{}
+	fis := []fs.FileInfo{}
+
+	for _, de := range dirEntries {
+		fnames = append(fnames, de.Name())
+		fstat, _ := de.Info()
+		fis = append(fis, fstat)
+		thisFsDirEntry := de
+		entries[de.Name()] = thisFsDirEntry
 	}
-	return true
+
+	//Sort it
+	sortedNameList := SortFileList(fnames, fis, sortMode)
+
+	//Update dirEntry sequence
+	newDirEntry := []fs.DirEntry{}
+	for _, key := range sortedNameList {
+		newDirEntry = append(newDirEntry, entries[key])
+	}
+
+	return newDirEntry
+}
+
+func SortModeIsSupported(sortMode string) bool {
+	return contains(sortMode, ValidSortModes)
 }
 
 func contains(item string, slice []string) bool {

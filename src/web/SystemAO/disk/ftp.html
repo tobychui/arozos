@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <!-- 
 	<meta name="mobile-web-app-capable" content="yes">
 	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
 	<meta charset="UTF-8">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script src="../../script/jquery.min.js"></script>
 	<script src="../../script/semantic/semantic.min.js"></script>
+    -->
     <style>
         .hidden{
             display:none;
@@ -19,100 +21,70 @@
     </style>
 </head>
 <body>
-    <br>
-   <div class="ui container">
-        <div class="ui header">
-            FTP Server
-            <div class="sub header">Access your arozos virtual file system with File Transfer Protocol.</div>
+    <div class="ui form">
+        <!-- 
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="enabled" type="checkbox" name="enable" onchange="toggleFTPServer(this.checked);">
+                <label>Enable FTP Server</label>
+            </div>
         </div>
+        -->
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="useUPNP" type="checkbox" name="upnp" onchange="toggleUPNP(this.checked);">
+                <label>Enable UPnP on FTP Server Port</label>
+                <small>Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
+            </div>
+        </div>
+        <div class="field">
+            <label>Listening Port</label>
+            <div class="ui labeled input">
+                <input id="listeningPort" type="number" placeholder="21" min="21" onchange="updateFTPPort(this.value)">
+            </div>
+        </div>
+        
+        <div class="field">
+            <label>Enable FTP access to the following user groups: </label>
+            <select id="grouplist" name="groups" multiple="" class="ui fluid dropdown">
+                <option value="">User Groups</option>
+                
+            </select>
+            <small><a href="../vendor/public/ftpForAdmin.html" target="_blank">Why enable FTP on administrator account is not a good idea?</a></small>
+        </div>
+        <div class="field">
+            <button onclick="updateGroupAccess();" class="ui secondary right floated button">Update Access Policy</button>
+        </div>
+        <br><br>
         <div id="ok" class="ui secondary inverted green segment" style="display:none;">
             <i class="checkmark icon"></i> Setting Applied
         </div>
         <div id="error" class="ui secondary inverted red segment" style="display:none;">
             <i class="remove icon"></i> <span class="msg">Something went wrong</span>
         </div>
-        <div class="ui blue message windowsonly" style="display:none;">
-            <h4 class="ui header">
-                <i class="windows icon"></i>
-                <div class="content">
-                    FTP Server Endpoint
-                    <div class="sub header">ftp://<span class="hostname"></span>:<span class="port"></span></div>
-                </div>
-            </h4>
-            <p>To connect your File Explorer to the ArozOS FTP server, enter the link above into the address bar of your file explorer window.</p>
-            <p>If you <b><a href="https://superuser.com/questions/1309756/not-able-to-access-ftp-server-from-other-machines-in-same-lan-when-windows-firew">cannot access the FTP without turning off the Windows Firewall</a></b>, execute this command in cmd as administrator<br>
-            <code>netsh advfirewall set global StatefulFTP disable</code></p>
-        </div>
-        <div class="ui basic message maconly" style="display:none;">
-            <h4 class="ui header">
-                <i class="apple icon"></i>
-                <div class="content">
-                    FTP Server Endpoint
-                    <div class="sub header">ftp://<span class="hostname"></span>:<span class="port"></span></div>
-                </div>
-            </h4>
-            <p>To connect your Finder to the ArozOS FTP server, select <code>Go</code> <i class="arrow right icon"></i> <code>Connect to Server</code> and enter the link above into the address bar</p>
-        </div>
-        <div class="ui form">
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input id="enabled" type="checkbox" name="enable" onchange="toggleFTPServer(this.checked);">
-                    <label>Enable FTP Server</label>
-                </div>
-            </div>
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input id="useUPNP" type="checkbox" name="upnp" onchange="toggleUPNP(this.checked);">
-                    <label>Enable UPnP on FTP Server Port</label>
-                    <small>Aka Auto Port Forwarding. Disable this option if you are connecting within Local Area Network</small>
-                </div>
-            </div>
-            <div class="field">
-                <label>Listening Port</label>
-                <div class="ui labeled input">
-                    <input id="listeningPort" type="number" placeholder="21" min="21" onchange="updateFTPPort(this.value)">
-                </div>
-            </div>
-           
-            <div class="field">
-                <label>Enable FTP access to the following user groups: </label>
-                <select id="grouplist" name="groups" multiple="" class="ui fluid dropdown">
-                    <option value="">User Groups</option>
-                 
-                </select>
-                <small><a href="../vendor/public/ftpForAdmin.html" target="_blank">Why enable FTP on administrator account is not a good idea?</a></small>
-            </div>
-            <div class="field">
-                <button onclick="updateGroupAccess();" class="ui secondary right floated button">Update Access Policy</button>
-            </div>
-            <br><br>
-            <div class="ui divider"></div>
-            <h4>Advance Options</h4>
-            <div class="ui message">
-                <h4><i class="info circle icon"></i>FTP Usage under UPnP Mode</h4>
-                <p>When UPnP Mode is enabled, the FTP Server must be run under force passive mode and it is only accessible outside of your NAT network (aka access from the internet).</p>
-            </div>
-            <br>
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input id="passiveMode" type="checkbox" name="passivemode" onchange="handlePassiveModeChange(this.checked);">
-                    <label>Force Passive Mode</label>
-                    <small>Enable this option if your server is hosted behind a NAT router, require manual port forwarding in router.</small>
-                </div>
-            </div>
-            <div class="field">
-                <label>Passive Mode Public IP Address</label>
-                <div class="ui labeled input">
-                    <input id="publicip" type="text">
-                </div>
-                <small>The public IP address of your NAT router. Currently only support IP address.</small>
-            </div>
-            <div class="field">
-                <button onclick="updatePublicIPSetting();" class="ui secondary right floated button">Update Public IP Setting</button>
+        <div class="ui divider"></div>
+        <h4>Advance Options</h4>
+        <br>
+        <div class="field">
+            <div class="ui toggle checkbox">
+                <input id="passiveMode" type="checkbox" name="passivemode" onchange="handlePassiveModeChange(this.checked);">
+                <label>Force Passive Mode</label>
+                <small>Required under UPnP mode. Optional in default mode with manual port forwarding in gateway router</small>
             </div>
         </div>
-        <br><br>
+        <div class="field">
+            <label>Passive Mode Public IP Address</label>
+            <div class="ui labeled input">
+                <input id="publicip" type="text">
+            </div>
+            <small>The public IP address of your NAT router. Currently only support IP address.</small>
+        </div>
+        <div class="field">
+            <button onclick="updatePublicIPSetting();" class="ui secondary right floated button">Update Public IP Setting</button>
+        </div>
+       
     </div>
+    <br><br>
     <script>
         var serverAllowUPNP = false;
         var isMac = navigator.platform.indexOf('Mac') > -1;
@@ -137,6 +109,7 @@
                 $(".ui.dropdown").dropdown();
 
                 //Init server status
+                //Update done by service.html
                 initFTPServerStatus();
             });
 
@@ -150,7 +123,7 @@
                     console.log(data.error);
                 }else{
                     if (data.Enabled == true){
-                        $("#enabled")[0].checked = true;
+                        //$("#enabled")[0].checked = true;
                         $("#useUPNP").parent().removeClass("disabled");
                     }else{
                         $("#listeningPort").parent().addClass("disabled");
@@ -350,10 +323,6 @@
             $("#error").find(".msg").text(msg);
             $("#error").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
         }
-
-        //Update examples
-        $(".thisAddr").text(window.location.hostname.replace('www.',''));
-
        
     </script>
 </body>

@@ -31,7 +31,7 @@ function scanPathForVideo(thisDir, thisStorageName){
     if (filelib.fileExists(thisDir + "Video/")){
         var walkPath = thisDir + "Video/";
         var folderList = filelib.walk(walkPath, "folder")
-
+        
         //Build the folder list base on the discovered video files
         var foldersThatContainsVideoFile = [];
         for (var i = 0; i < folderList.length; i++){
@@ -45,6 +45,7 @@ function scanPathForVideo(thisDir, thisStorageName){
             if (validFilesInThisPath > 0){
                 //This folder contain video file
                 foldersThatContainsVideoFile.push(thisFolderPath);
+                
             }
         }
 
@@ -114,12 +115,11 @@ function main(){
     filelib.mkdir("user:/Video");
 
     //Scan each of the storage devices for video files
-    for (var i =0; i < storages.length; i++){
-        if (storages[i].Filesystem == "virtual" || storages[i].Hierarchy == "backup"){
-            continue;
-        }
-        var thisDir = storages[i].UUID + ":/";
-        var thisStorageName = storages[i].Name;
+    var vroots = filelib.glob("/");
+    for (var i =0; i < vroots.length; i++){
+        var thisRoot = vroots[i];
+        var thisDir = thisRoot;
+        var thisStorageName = filelib.rootName(thisRoot);
         scanPathForVideo(thisDir, thisStorageName)
     }
 

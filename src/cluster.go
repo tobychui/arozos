@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	"imuslab.com/arozos/mod/network/neighbour"
@@ -28,11 +27,11 @@ func ClusterInit() {
 		thisDiscoverer := neighbour.NewDiscoverer(MDNS, sysdb)
 		//Start a scan immediately (in go routine for non blocking)
 		go func() {
-			thisDiscoverer.UpdateScan(3)
+			thisDiscoverer.UpdateScan(10)
 		}()
 
 		//Setup the scanning timer
-		thisDiscoverer.StartScanning(300, 5)
+		thisDiscoverer.StartScanning(300, 15)
 		NeighbourDiscoverer = &thisDiscoverer
 
 		//Register the settings
@@ -63,7 +62,7 @@ func ClusterInit() {
 		*/
 		//WIP
 	} else {
-		log.Println("MDNS not enabled or startup failed. Skipping Cluster Scanner initiation.")
+		systemWideLogger.PrintAndLog("Cluster", "MDNS not enabled or startup failed. Skipping Cluster Scanner initiation.", nil)
 	}
 
 }

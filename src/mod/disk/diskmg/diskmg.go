@@ -14,6 +14,7 @@ import (
 
 	db "imuslab.com/arozos/mod/database"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type Lsblk struct {
@@ -71,17 +72,17 @@ var (
 	code and rewriting the whole thing will save you a lot more time.
 */
 func HandleView(w http.ResponseWriter, r *http.Request) {
-	partition, _ := mv(r, "partition", false)
+	partition, _ := utils.GetPara(r, "partition")
 	detailMode := (partition != "")
 	if runtime.GOOS == "windows" {
 		//Windows. Use DiskmgWin binary
-		if fileExists("./system/disk/diskmg/DiskmgWin.exe") {
+		if utils.FileExists("./system/disk/diskmg/DiskmgWin.exe") {
 			out := ""
 			if detailMode {
 				cmd := exec.Command("./system/disk/diskmg/DiskmgWin.exe", "-d")
 				o, err := cmd.CombinedOutput()
 				if err != nil {
-					sendErrorResponse(w, "Permission Denied")
+					utils.SendErrorResponse(w, "Permission Denied")
 					return
 				}
 				out = string(o)
@@ -89,7 +90,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 				cmd := exec.Command("./system/disk/diskmg/DiskmgWin.exe")
 				o, err := cmd.CombinedOutput()
 				if err != nil {
-					sendErrorResponse(w, "Permission Denied")
+					utils.SendErrorResponse(w, "Permission Denied")
 					return
 				}
 				out = string(o)
@@ -108,11 +109,11 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 			}
 
 			js, _ := json.Marshal(results)
-			sendJSONResponse(w, string(js))
+			utils.SendJSONResponse(w, string(js))
 
 		} else {
 			log.Println("system/disk/diskmg/DiskmgWin.exe NOT FOUND. Unable to load Window's disk information")
-			sendErrorResponse(w, "DiskmgWin.exe not found")
+			utils.SendErrorResponse(w, "DiskmgWin.exe not found")
 			return
 		}
 
@@ -126,12 +127,12 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 		cmd := exec.Command("lsblk", "-b", "--json")
 		o, err := cmd.CombinedOutput()
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		err = json.Unmarshal(o, &partition)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -139,12 +140,12 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 		cmd = exec.Command("lsblk", "-f", "-b", "--json")
 		o, err = cmd.CombinedOutput()
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 		err = json.Unmarshal(o, &format)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -152,7 +153,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 		cmd = exec.Command("df")
 		o, err = cmd.CombinedOutput()
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -179,7 +180,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 			parsedDf,
 		})
 
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 	}
 }
 
@@ -191,22 +192,22 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 */
 func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
 	if runtime.GOOS == "linux" {
-		targetDev, _ := mv(r, "dev", false)
-		format, err := mv(r, "format", false)
+		targetDev, _ := utils.GetPara(r, "dev")
+		format, err := utils.GetPara(r, "format")
 		if err != nil {
-			sendErrorResponse(w, "format not defined")
+			utils.SendErrorResponse(w, "format not defined")
 			return
 		}
-		mountPt, err := mv(r, "mnt", false)
+		mountPt, err := utils.GetPara(r, "mnt")
 		if err != nil {
-			sendErrorResponse(w, "Mount Point not defined")
+			utils.SendErrorResponse(w, "Mount Point not defined")
 			return
 		}
 
 		//Check if device is valid
 		ok, devID := checkDeviceValid(targetDev)
 		if !ok {
-			sendErrorResponse(w, "Device name is not valid")
+			utils.SendErrorResponse(w, "Device name is not valid")
 			return
 		}
 
@@ -221,39 +222,39 @@ func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSy
 		} else if format == "brtfs" {
 			mountingTool = "brtfs"
 		} else {
-			sendErrorResponse(w, "Format not supported")
+			utils.SendErrorResponse(w, "Format not supported")
 			return
 		}
 
 		//Check if mount point exists, only support /medoa/*
 		safeMountPoint := filepath.Clean(strings.ReplaceAll(mountPt, "../", ""))
-		if !fileExists(safeMountPoint) {
-			sendErrorResponse(w, "Mount point not exists, given: "+safeMountPoint)
+		if !utils.FileExists(safeMountPoint) {
+			utils.SendErrorResponse(w, "Mount point not exists, given: "+safeMountPoint)
 			return
 		}
 
 		//Check if action is mount or umount
-		umount, _ := mv(r, "umount", false)
+		umount, _ := utils.GetPara(r, "umount")
 		if umount == "true" {
 			//Unmount the given mountpoint
 			output, err := Unmount(safeMountPoint, fsHandlers)
 			if err != nil {
-				sendErrorResponse(w, output)
+				utils.SendErrorResponse(w, output)
 				return
 			}
-			sendTextResponse(w, output)
+			utils.SendTextResponse(w, output)
 
 		} else {
 			o, err := Mount(devID, safeMountPoint, mountingTool, fsHandlers)
 			if err != nil {
-				sendErrorResponse(w, o)
+				utils.SendErrorResponse(w, o)
 				return
 			}
-			sendTextResponse(w, o)
+			utils.SendTextResponse(w, o)
 		}
 
 	} else {
-		sendErrorResponse(w, "Platform not supported: "+runtime.GOOS)
+		utils.SendErrorResponse(w, "Platform not supported: "+runtime.GOOS)
 		return
 	}
 }
@@ -264,33 +265,33 @@ func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSy
 
 */
 func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
-	dev, err := mv(r, "dev", true)
+	dev, err := utils.PostPara(r, "dev")
 	if err != nil {
-		sendErrorResponse(w, "dev not defined")
+		utils.SendErrorResponse(w, "dev not defined")
 		return
 	}
 
-	format, err := mv(r, "format", true)
+	format, err := utils.PostPara(r, "format")
 	if err != nil {
-		sendErrorResponse(w, "format not defined")
+		utils.SendErrorResponse(w, "format not defined")
 		return
 	}
 
 	if runtime.GOOS == "windows" {
-		sendErrorResponse(w, "This function is Linux Only")
+		utils.SendErrorResponse(w, "This function is Linux Only")
 		return
 	}
 
 	//Check if format is supported
-	if !inArray(supportedFormats, format) {
-		sendErrorResponse(w, "Format not supported")
+	if !utils.StringInArray(supportedFormats, format) {
+		utils.SendErrorResponse(w, "Format not supported")
 		return
 	}
 
 	//Check if device is valid
 	ok, devID := checkDeviceValid(dev)
 	if !ok {
-		sendErrorResponse(w, "Device name is not valid")
+		utils.SendErrorResponse(w, "Device name is not valid")
 		return
 	}
 
@@ -299,7 +300,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	if err != nil {
 		//Fail to check if disk mounted
 		log.Println(err.Error())
-		sendErrorResponse(w, "Failed to check disk mount status")
+		utils.SendErrorResponse(w, "Failed to check disk mount status")
 		return
 	}
 
@@ -308,7 +309,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 		//Close all the fsHandler related to this disk
 		mountpt, err := getDeviceMountPoint(devID)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
@@ -316,7 +317,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 		//Unmount the devices
 		out, err := Unmount(mountpt, fsHandlers)
 		if err != nil {
-			sendErrorResponse(w, out)
+			utils.SendErrorResponse(w, out)
 			return
 		}
 	}
@@ -330,11 +331,11 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	} else if format == "ext4" {
 		cmd = exec.Command("mkfs.ext4", "-F", "/dev/"+devID)
 	} else if format == "ext3" {
-		sendErrorResponse(w, "Format to ext3 is Work In Progress")
+		utils.SendErrorResponse(w, "Format to ext3 is Work In Progress")
 	} else if format == "btrfs" {
-		sendErrorResponse(w, "Format to btrfs is Work In Progress")
+		utils.SendErrorResponse(w, "Format to btrfs is Work In Progress")
 	} else {
-		sendErrorResponse(w, "Format tyoe not supported")
+		utils.SendErrorResponse(w, "Format tyoe not supported")
 	}
 
 	//Execute format comamnd
@@ -342,7 +343,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Println("Format failed: " + string(output))
-		sendErrorResponse(w, string(output))
+		utils.SendErrorResponse(w, string(output))
 		return
 	}
 
@@ -351,7 +352,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 
 	//Let the system to reload the disk
 	time.Sleep(2 * time.Second)
-	sendOK(w)
+	utils.SendOK(w)
 
 }
 
@@ -399,7 +400,7 @@ func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error)
 func HandleListMountPoints(w http.ResponseWriter, r *http.Request) {
 	mp, _ := filepath.Glob("/media/*")
 	js, _ := json.Marshal(mp)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
 //Check if the device is mounted
@@ -457,7 +458,7 @@ func checkDeviceValid(devname string) (bool, string) {
 	//Extract the device name from string
 	re := regexp.MustCompile(`sd[a-z][1-9]`)
 	devID := re.FindString(devname)
-	if !fileExists("/dev/" + devID) {
+	if !utils.FileExists("/dev/" + devID) {
 		return false, ""
 	}
 
@@ -466,5 +467,5 @@ func checkDeviceValid(devname string) (bool, string) {
 
 func HandlePlatform(w http.ResponseWriter, r *http.Request) {
 	js, _ := json.Marshal(runtime.GOOS)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }

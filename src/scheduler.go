@@ -1,14 +1,13 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
-	"imuslab.com/arozos/mod/common"
 	module "imuslab.com/arozos/mod/modules"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/time/nightly"
 	"imuslab.com/arozos/mod/time/scheduler"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -43,12 +42,13 @@ func SchedulerInit() {
 		The internal scheudler for arozos
 	*/
 	//Create an user router and its module
+
 	router := prout.NewModuleRouter(prout.RouterOption{
 		ModuleName:  "Tasks Scheduler",
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -66,9 +66,14 @@ func SchedulerInit() {
 	})
 
 	//Startup the ArOZ Emulated Crontab Service
-	newScheduler, err := scheduler.NewScheduler(userHandler, AGIGateway, "system/cron.json")
+	newScheduler, err := scheduler.NewScheduler(&scheduler.ScheudlerOption{
+		UserHandler: userHandler,
+		Gateway:     AGIGateway,
+		Logger:      systemWideLogger,
+		CronFile:    "system/cron.json",
+	})
 	if err != nil {
-		log.Println("ArOZ Emulated Cron Startup Failed. Stopping all scheduled tasks.")
+		systemWideLogger.PrintAndLog("Cron", "ArOZ Emulated Cron Startup Failed. Stopping all scheduled tasks.", err)
 	}
 
 	systemScheduler = newScheduler
@@ -85,7 +90,7 @@ func SchedulerInit() {
 	})
 	router.HandleFunc("/system/arsm/aecron/add", systemScheduler.HandleAddJob)
 	router.HandleFunc("/system/arsm/aecron/remove", systemScheduler.HandleJobRemoval)
-	router.HandleFunc("/system/arsm/aecron/listlog", systemScheduler.HandleShowLog)
+	//router.HandleFunc("/system/arsm/aecron/listlog", systemScheduler.HandleShowLog)
 
 	//Register settings
 	registerSetting(settingModule{
@@ -96,4 +101,5 @@ func SchedulerInit() {
 		StartDir:     "SystemAO/arsm/aecron.html",
 		RequireAdmin: false,
 	})
+
 }

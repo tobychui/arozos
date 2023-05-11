@@ -6,14 +6,16 @@
 */
 
 body{
-    background-color: #474747;
+    background: rgb(20,22,25);
+    background: linear-gradient(90deg, rgba(20,22,25,1) 43%, rgba(35,39,46,1) 100%);
 }
 p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     font-family: "Microsoft JhengHei","SimHei", "Apple LiGothic Medium", "STHeiti";
+    font-weight: 300;
 }
 
 .AMmenu{
-    background-color: #303030 !important;
+    background-color: #16171a !important;
     color: white !important;
     box-shadow: 0px 0px 0px 0px transparent !important;
 }
@@ -27,14 +29,14 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     background-color: #3f3f3f !important;
 }
 .bottomBlue{
-    border-bottom: 3px solid #4b75ff !important;
+    border-bottom: 3px solid #2d4771 !important;
 }
 .leftsb{
     position:fixed;
     top:0px;
     left:0px;
     width:60%;
-    background-color:#404040;
+    background-color:#141519;
 }
 .leftsbObject{
     padding: 5px;
@@ -236,7 +238,7 @@ p,span,h1,h2,h3,h4,h5,h6,div,a,button{
     overflow-x:hidden;
     display:none;
     z-index:120;
-    border-radius: 20px;
+    border-radius: 0.4em;
 }
 
 #fadeReturnScreen{
@@ -325,7 +327,8 @@ button{
     border: 1px solid #969696;
 }
 .dropdownMusicList{
-    background-color:rgb(66, 66, 66);
+    background: rgb(20,22,25);
+    background: linear-gradient(90deg, rgba(20,22,25,1) 43%, rgba(35,39,46,1) 100%);
     position:fixed;
     left:0px;
     top:0px;
@@ -336,7 +339,7 @@ button{
 .dropdownMusicListMiniMenu{
     width:100%;
     height:25px;
-    background-color:rgb(55, 55, 55);
+    background-color:#141519;
     padding-left:12px;
     padding-right:12px;
     padding-top:3px;
@@ -348,7 +351,7 @@ button{
     bottom:0px;
     width:100%;
     height:25px;
-    background-color:rgb(55, 55, 55);
+    background-color:#141519;
     padding-left:12px;
     padding-right:12px;
     padding-top:3px;

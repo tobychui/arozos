@@ -3,13 +3,14 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/filesystem"
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -31,7 +32,7 @@ func (g *Gateway) AppdataLibRegister() {
 	}
 }
 
-func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User) {
+func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
 	vm.Set("_appdata_readfile", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {
@@ -40,7 +41,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		//Check if this is path escape
-		escaped, err := g.checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
+		escaped, err := checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
@@ -53,8 +54,8 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User) {
 
 		//Check if file exists
 		targetFile := filepath.Join(webRoot, relpath)
-		if fileExists(targetFile) && !filesystem.IsDir(targetFile) {
-			content, err := ioutil.ReadFile(targetFile)
+		if utils.FileExists(targetFile) && !filesystem.IsDir(targetFile) {
+			content, err := os.ReadFile(targetFile)
 			if err != nil {
 				g.raiseError(err)
 				return otto.FalseValue()
@@ -81,7 +82,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User) {
 		}
 
 		//Check if this is path escape
-		escaped, err := g.checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
+		escaped, err := checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
 			g.raiseError(err)
 			return otto.FalseValue()
@@ -94,7 +95,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User) {
 
 		//Check if file exists
 		targetFolder := filepath.Join(webRoot, relpath)
-		if fileExists(targetFolder) && filesystem.IsDir(targetFolder) {
+		if utils.FileExists(targetFolder) && filesystem.IsDir(targetFolder) {
 			//Glob the directory for filelist
 			files, err := filepath.Glob(filepath.ToSlash(filepath.Clean(targetFolder)) + "/*")
 			if err != nil {

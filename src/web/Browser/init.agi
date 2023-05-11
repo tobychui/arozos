@@ -1,0 +1,21 @@
+/*
+	Browser Bookmarking Module Register Script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Browser",
+	Desc: "A simple web browser like bookmarking app",
+	Group: "Office",
+	IconPath: "Browser/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "Browser/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Browser/index.html",
+	InitFWSize: [720, 480],
+	SupportedExt: []
+}
+
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

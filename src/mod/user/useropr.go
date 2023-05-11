@@ -27,5 +27,4 @@ func (u *User) GetUserIcon() string {
 //Set the current user icon
 func (u *User) SetUserIcon(base64data string) {
 	u.parent.database.Write("auth", "profilepic/"+u.Username, []byte(base64data))
-	return
 }

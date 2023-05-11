@@ -3,6 +3,8 @@ package iot
 import (
 	"encoding/json"
 	"net/http"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -15,15 +17,15 @@ import (
 
 //Handle the set and get nickname of a particular IoT device
 func (m *Manager) HandleNickName(w http.ResponseWriter, r *http.Request) {
-	opr, err := mv(r, "opr", true)
+	opr, err := utils.PostPara(r, "opr")
 	if err != nil {
-		sendErrorResponse(w, "Invalid operation mode")
+		utils.SendErrorResponse(w, "Invalid operation mode")
 		return
 	}
 
-	uuid, err := mv(r, "uuid", true)
+	uuid, err := utils.PostPara(r, "uuid")
 	if err != nil {
-		sendErrorResponse(w, "Invalid uuid given")
+		utils.SendErrorResponse(w, "Invalid uuid given")
 		return
 	}
 
@@ -38,7 +40,7 @@ func (m *Manager) HandleNickName(w http.ResponseWriter, r *http.Request) {
 
 	//Reject operation if device not exists
 	if deviceExist == false {
-		sendErrorResponse(w, "Target device UUID not exists")
+		utils.SendErrorResponse(w, "Target device UUID not exists")
 		return
 	}
 
@@ -48,32 +50,32 @@ func (m *Manager) HandleNickName(w http.ResponseWriter, r *http.Request) {
 			deviceNickname := ""
 			err := m.db.Read("iot", uuid, &deviceNickname)
 			if err != nil {
-				sendErrorResponse(w, "Unable to read nickname from database")
+				utils.SendErrorResponse(w, "Unable to read nickname from database")
 				return
 			}
 			js, _ := json.Marshal(deviceNickname)
-			sendJSONResponse(w, string(js))
+			utils.SendJSONResponse(w, string(js))
 		} else {
-			sendErrorResponse(w, "Nickname not exists")
+			utils.SendErrorResponse(w, "Nickname not exists")
 		}
 	} else if opr == "set" {
 		//Get name from paramter
-		name, err := mv(r, "name", true)
+		name, err := utils.PostPara(r, "name")
 		if err != nil {
-			sendErrorResponse(w, "No nickname was given to the device")
+			utils.SendErrorResponse(w, "No nickname was given to the device")
 			return
 		}
 
 		//Set the name in database
 		err = m.db.Write("iot", uuid, name)
 		if err != nil {
-			sendErrorResponse(w, err.Error())
+			utils.SendErrorResponse(w, err.Error())
 			return
 		}
 
-		sendOK(w)
+		utils.SendOK(w)
 	} else {
-		sendErrorResponse(w, "Unknown operation mode")
+		utils.SendErrorResponse(w, "Unknown operation mode")
 		return
 	}
 }

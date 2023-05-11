@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <title>Storage Pool Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+        body{
+            background-color:white;
+        }
+        .themebackground{
+            background-color:#242424 !important;
+            color:white !important;
+            background-image: url("img/slate.png") !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
+            height:100px;
+            border: 0px solid transparent !important;
+            padding:24px !important;
+        }
+        .fshList{
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .controls{
+            position: absolute;
+            top: 12px;
+            right: 12px;
+        }
+
+        a{
+            cursor: pointer;
+        }
+
+        .backuponly{
+            display:none;
+        }
+        .backgroundIcon{
+            position: fixed;
+            bottom: 0px;
+            right: 0px;
+            opacity: 0.3;
+            margin-right: -3em;
+            margin-bottom: -5em;
+            z-index: -99;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="backgroundIcon">
+        <img class="ui medium image" src="../../img/system/drive-bridge.svg">
+    </div>
+    <br>
+    <div class="ui container">
+        <h3 class="ui header">
+            <img src="../../img/system/drive-bridge.svg">
+            <div class="content">
+                <span>Bridge File System Handler </span><span id="poolid"></span>
+                <div class="sub header">Share Storage across Storage Pools</div>
+            </div>
+        </h3>
+        <div class="ui divider"></div>
+        <div class="ui text segment">
+            <p><i class="ui info blue circle icon"></i> Bridge a File System Handler (FSH) from other Storage Pool to this pool.
+            The bridged FSH will implements the same permission and hierarchy as its source pool</p>
+            <p><b>Notes: All users that has access to this storage pool will be able to access the newly bridged File System Handler</b></p>
+        </div>
+        <div id="errdialog" class="ui red message" style="display:none;">
+            <i class="ui red remove icon"></i> <span id="errMsg">Unknown Error Occured</span>
+        </div>
+        <div class="ui form">
+            <p>Source File System Handler</p>
+            <div class="field">
+                <label>Storage Pool from Permission Group</label>
+                <div class="ui selection dropdown">
+                    <input id="bridgeTargetPool" type="hidden" name="sourcePool" value="" onchange="loadFSHForPool(this.value);">
+                    <i class="dropdown icon"></i>
+                    <div class="default text"></div>
+                    <div id="otherPools" class="menu">
+                    
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Target File System Handler</label>
+                <div class="ui selection dropdown">
+                <input id="souceFSH" type="hidden" name="souceFSH" value="">
+                <i class="dropdown icon"></i>
+                <div class="default text"></div>
+                <div id="sourceFSH" class="menu">
+
+                </div>
+                </div>
+            </div>
+        </div>
+        <br>
+        <div class="ui right floated buttons">
+            <button class="ui green button" onclick="bridgeFSH();">Bridge Handler to Pool</button>
+            <button class="ui button" onclick="handleCancel();"></i>Close</button>
+        </div>
+        
+        <div id="done" class="ui basic modal">
+            <div class="ui icon header">
+                <i class="green checkmark icon"></i>
+                File System Handler Bridged
+            </div>
+            <div class="content">
+              <p>Click OK to exit the handler bridging utility.</p>
+            </div>
+            <div class="actions">
+              <div class="ui green ok inverted button" onclick="done();">
+                <i class="checkmark icon"></i>
+                OK
+              </div>
+            </div>
+          </div>
+
+
+    <script>
+        //Get target fsh uuid and group from hash
+        var editingStoragePool = "";
+        var otherPoolConfigMap = {};
+        $(".ui.dropdown").dropdown();
+        $(".ui.checkbox").checkbox();
+
+        if (window.location.hash.length > 0){
+            var input = JSON.parse(decodeURIComponent(window.location.hash.substr(1)));
+            editingStoragePool = input.group;
+            $("#poolid").text("(" + editingStoragePool + ")");
+        }
+
+        initBridgingOptions();
+        function initBridgingOptions(){
+            $.get("../../system/storage/pool/list", function(data){
+                $("#otherPools").html('');
+                var firstPool = "";
+                console.log(data);
+                for (var i = 0; i < data.length; i++){
+                    let thisPool = data[i];
+                    if (thisPool.Owner == "system"){
+                        //Do not allow bridging
+                        continue;
+                    }
+                    if (thisPool.Owner != editingStoragePool){
+                        if (firstPool == ""){
+                            firstPool = JSON.parse(JSON.stringify(thisPool.Owner));
+                        }
+                        if (thisPool.Storages == null || thisPool.Storages.length == 0){
+                            otherPoolConfigMap[thisPool.Owner] = [];
+                        }else{
+                            otherPoolConfigMap[thisPool.Owner] = thisPool.Storages
+                        }
+                        $("#otherPools").append(`<div class="item" data-value="${thisPool.Owner}">${thisPool.Owner}</div>`);
+                    }
+                }
+                $("#otherPools").parent().dropdown();
+                $("#otherPools").parent().dropdown("set selected", firstPool);
+
+                loadFSHForPool(firstPool);
+            });
+        }
+
+        function loadFSHForPool(poolName){
+            if (otherPoolConfigMap[poolName]){
+                $("#sourceFSH").html("");
+                $("#sourceFSH").parent().removeClass('disabled');
+                var storages = otherPoolConfigMap[poolName];
+                if (storages.length > 0){
+                    storages.forEach(fsh => {
+                        $("#sourceFSH").append(`<div class="item" data-value="${fsh.UUID}"><i class="grey hdd icon"></i> ${fsh.Name} (${fsh.UUID}:/)</div>`);
+                    });
+                    $("#sourceFSH").parent().dropdown();
+                    $("#sourceFSH").parent().dropdown("set selected", storages[0].UUID);
+                }else{
+                    //No storage inside
+                    $("#sourceFSH").parent().addClass('disabled');
+                    $("#sourceFSH").append(`<div class="item" data-value="nodisk"><i class="remove icon"></i> No File System Handler in this Storage Pool</div>`);
+                    $("#sourceFSH").parent().dropdown();
+                    $("#sourceFSH").parent().dropdown("set selected", "nodisk");
+                }
+               
+            }else{
+                //Pool not exists
+                $("#sourceFSH").parent().addClass('disabled');
+            }
+        }
+
+
+        function bridgeFSH(){
+            var currentStoragePool = editingStoragePool;
+            var selectedSourceFSH = $("#souceFSH").val();
+            $.ajax({
+                url: "../../system/storage/pool/bridge",
+                data: {base: currentStoragePool, fsh: selectedSourceFSH},
+                success: function(data){
+                    if (data.error !== undefined){
+                        $("#errMsg").text(data.error);
+                        $("#errdialog").stop().finish().slideDown("fast").delay(10000).slideUp("fast");
+                    }else{
+                        //Success
+                        $("#done").modal("show");
+                        $(window).scrollTop(0);
+                    }
+                }
+            })
+        }
+
+
+        function done(){
+            ao_module_parentCallback(true);
+            ao_module_close();
+        }
+
+        function handleCancel(){
+            ao_module_close();
+        }
+    </script>
+</body>
+</html>

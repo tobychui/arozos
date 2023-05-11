@@ -3,7 +3,7 @@ package hdsv2
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -27,7 +27,7 @@ type Handler struct {
 	lastScanTime int64
 }
 
-//Create a new HDSv2 Protocol Handler
+// Create a new HDSv2 Protocol Handler
 func NewProtocolHandler(scanner *mdns.MDNSHost) *Handler {
 	//Create a new MDNS Host
 	return &Handler{
@@ -41,7 +41,7 @@ func (h *Handler) Start() error {
 	return nil
 }
 
-//Scan the devices within the LAN
+// Scan the devices within the LAN
 func (h *Handler) Scan() ([]*iot.Device, error) {
 	foundDevices := []*iot.Device{}
 	hosts := h.scanner.Scan(3, "hds.arozos.com")
@@ -95,22 +95,22 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 	return foundDevices, nil
 }
 
-//Home Dynamic system's devices no need to established conenction before executing anything
+// Home Dynamic system's devices no need to established conenction before executing anything
 func (h *Handler) Connect(device *iot.Device, authInfo *iot.AuthInfo) error {
 	return nil
 }
 
-//Same rules also apply to disconnect
+// Same rules also apply to disconnect
 func (h *Handler) Disconnect(device *iot.Device) error {
 	return nil
 }
 
-//Get the status of the device
+// Get the status of the device
 func (h *Handler) Status(device *iot.Device) (map[string]interface{}, error) {
 	return getStatusForDevice(device)
 }
 
-//Get the icon filename of the device
+// Get the icon filename of the device
 func (h *Handler) Icon(device *iot.Device) string {
 	devModel := device.Model
 	if devModel == "Switch" {
@@ -124,7 +124,7 @@ func (h *Handler) Icon(device *iot.Device) string {
 	}
 }
 
-//Get the status of the device
+// Get the status of the device
 func (h *Handler) Execute(device *iot.Device, endpoint *iot.Endpoint, payload interface{}) (interface{}, error) {
 	var result interface{}
 
@@ -160,7 +160,7 @@ func (h *Handler) Stats() iot.Stats {
 	}
 }
 
-//Get endpoint of the given device object
+// Get endpoint of the given device object
 func getEndpoints(device *iot.Device) ([]*iot.Endpoint, error) {
 	//Parse the URL of the endpoint apis location (eps)
 	requestURL := "http://" + device.IPAddr + ":" + strconv.Itoa(device.Port) + "/eps"
@@ -170,7 +170,7 @@ func getEndpoints(device *iot.Device) ([]*iot.Endpoint, error) {
 	}
 
 	//Get the body content
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func getEndpoints(device *iot.Device) ([]*iot.Endpoint, error) {
 
 }
 
-//Get status given the device object.
+// Get status given the device object.
 func getStatusForDevice(device *iot.Device) (map[string]interface{}, error) {
 	//Parse the URL for its status api endpoint
 	requestURL := "http://" + device.IPAddr + ":" + strconv.Itoa(device.Port) + "/status"
@@ -203,7 +203,7 @@ func getStatusForDevice(device *iot.Device) (map[string]interface{}, error) {
 	}
 
 	//Get the body content
-	content, err := ioutil.ReadAll(resp.Body)
+	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return map[string]interface{}{}, err
 	}

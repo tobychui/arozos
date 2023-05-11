@@ -2,12 +2,14 @@ package timezone
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -22,13 +24,13 @@ import (
 	TODO: timezone problems.
 */
 
-//returnFormat shoulbn't be exported
+// returnFormat shoulbn't be exported
 type returnFormat struct {
 	Time     string `json:"time"`
 	Timezone string `json:"timezone"`
 }
 
-//WindowsTimeZoneStruct shouldn't be exported.
+// WindowsTimeZoneStruct shouldn't be exported.
 type WindowsTimeZoneStruct struct {
 	SupplementalData struct {
 		Version struct {
@@ -75,11 +77,11 @@ func ShowTime(w http.ResponseWriter, r *http.Request) {
 		Timezone: Timezone,
 	}
 	returnString, _ := json.Marshal(returnStruct)
-	sendJSONResponse(w, string(returnString))
+	utils.SendJSONResponse(w, string(returnString))
 }
 
 func ConvertWinTZtoLinuxTZ(WinTZ string) string {
-	file, _ := ioutil.ReadFile("./system/time/wintz.json")
+	file, _ := os.ReadFile("./system/time/wintz.json")
 	WinTZLinuxTz := WindowsTimeZoneStruct{}
 	json.Unmarshal([]byte(file), &WinTZLinuxTz)
 	for _, data := range WinTZLinuxTz.SupplementalData.WindowsZones.MapTimezones.MapZone {

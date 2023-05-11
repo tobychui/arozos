@@ -121,15 +121,15 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			realRoot, err := userinfo.VirtualPathToRealPath(vroot + ":/")
+			fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vroot + ":/")
 			if err != nil {
-				log.Println(err.Error())
+				log.Println("[WebDAV] Failed to load File System Handler from request root: ", err.Error())
 				http.Error(w, "Invalid ", http.StatusUnauthorized)
 				return
 			}
 
 			//Get and serve the file content
-			fs := s.getFsFromRealRoot(realRoot, filepath.ToSlash(filepath.Join(s.prefix, vroot)))
+			fs := s.getFsFromRealRoot(fsh, userinfo.Username, filepath.ToSlash(filepath.Join(s.prefix, vroot)))
 			fs.ServeHTTP(w, r)
 		}
 	}

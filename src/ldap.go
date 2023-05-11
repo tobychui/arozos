@@ -2,14 +2,20 @@ package main
 
 import (
 	"net/http"
+	"path/filepath"
 
 	ldap "imuslab.com/arozos/mod/auth/ldap"
+	fs "imuslab.com/arozos/mod/filesystem"
 	prout "imuslab.com/arozos/mod/prouter"
 )
 
 func ldapInit() {
 	//ldap
-	ldapHandler := ldap.NewLdapHandler(authAgent, registerHandler, sysdb, permissionHandler, userHandler, nightlyManager, iconSystem)
+	authIcon := filepath.Join(vendorResRoot, "auth_icon.png")
+	if !fs.FileExists(authIcon) {
+		authIcon = "./web/img/public/auth_icon.png"
+	}
+	ldapHandler := ldap.NewLdapHandler(authAgent, registerHandler, sysdb, permissionHandler, userHandler, nightlyManager, authIcon)
 
 	//add a entry to the system settings
 	adminRouter := prout.NewModuleRouter(prout.RouterOption{

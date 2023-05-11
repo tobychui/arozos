@@ -3,13 +3,14 @@ package network
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"strings"
 
 	"gitlab.com/NebulousLabs/go-upnp"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type NICS struct {
@@ -27,7 +28,7 @@ type NICS struct {
 func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		sendJSONResponse(w, err.Error())
+		utils.SendJSONResponse(w, err.Error())
 	}
 	var NICList []NICS
 	for _, i := range interfaces {
@@ -111,10 +112,10 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendJSONResponse(w, string(jsonData))
+	utils.SendJSONResponse(w, string(jsonData))
 }
 
-//Get the IP address of the NIC that can conncet to the internet
+// Get the IP address of the NIC that can conncet to the internet
 func GetOutboundIP() (net.IP, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
@@ -127,7 +128,7 @@ func GetOutboundIP() (net.IP, error) {
 	return localAddr.IP, nil
 }
 
-//Get External IP address, will require 3rd party services
+// Get External IP address, will require 3rd party services
 func GetExternalIPAddr() (string, error) {
 	u, err := upnp.Discover()
 	if err != nil {
@@ -149,7 +150,7 @@ func GetExternalIPAddrVia3rdPartyServices() (string, error) {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -192,7 +193,7 @@ func IsIPv6Addr(ip string) (bool, error) {
 }
 
 func GetPing(w http.ResponseWriter, r *http.Request) {
-	sendJSONResponse(w, "pong")
+	utils.SendJSONResponse(w, "pong")
 }
 
 func GetIpFromRequest(r *http.Request) (string, error) {

@@ -786,7 +786,7 @@
                         saveHash: filecontent.hashCode()
                     });
 
-                        //Update title if nonVDI or update floatWindow title if under fdi
+                    //Update title if nonVDI or update floatWindow title if under fdi
                     if (ao_module_virtualDesktop){
                         ao_module_setWindowTitle("Code Studio - " + filename);
                     }else{
@@ -797,10 +797,15 @@
                     //Check if model is loaded before
                     var model;
                     if (loadedModels[filepath] === undefined){
-                            //Set the editor value and do model auto lanuage detection
+                        let ext = filepath.split(".").pop();
+                        let language = undefined; //Auto detect
+                        if (ext == "agi"){
+                            language = "javascript"
+                        }   
+                        //Set the editor value and do model auto lanuage detection
                         model = monaco.editor.createModel(
                             filecontent,
-                            undefined,
+                            language,
                             monaco.Uri.file("../media?file=" + encodeURIComponent(filepath))
                         )
                         loadedModels[filepath] = model;
@@ -809,6 +814,7 @@
                         model = loadedModels[filepath];
                     }
                     editor.setModel(model)
+                    
 
                     //Bind tab events
                     bindTabItemEvents();
@@ -820,7 +826,8 @@
                     //Hide the editorCover
                     var ca = getCodeAreaFromEditorUUID(editorUUID);
                     $(ca).find(".editorcover").hide();
-
+                    //monaco.editor.colorize(filecontent, "javascript").then(html => ca[0].innerHTML = html);
+                    
                     //Write the opened filelist to window hash
                     if (updateHashStatus){
                         var currentState = getHashObject();

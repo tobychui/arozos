@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/mail"
@@ -23,6 +23,7 @@ import (
 	auth "imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
 	permission "imuslab.com/arozos/mod/permission"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type RegisterOptions struct {
@@ -76,7 +77,7 @@ func NewRegisterHandler(database *db.Database, authAgent *auth.AuthAgent, ph *pe
 	}
 }
 
-//Create the default usergroup used by new users
+// Create the default usergroup used by new users
 func createDefaultGroup(ph *permission.PermissionHandler) {
 	//Default storage space: 15GB
 	ph.NewPermissionGroup("default", false, 15<<30, []string{}, "Desktop")
@@ -84,17 +85,17 @@ func createDefaultGroup(ph *permission.PermissionHandler) {
 
 func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Request) {
 	if h.AllowRegistry {
-		sendJSONResponse(w, "true")
+		utils.SendJSONResponse(w, "true")
 	} else {
-		sendJSONResponse(w, "false")
+		utils.SendJSONResponse(w, "false")
 	}
 }
 
-//Handle and serve the register itnerface
+// Handle and serve the register itnerface
 func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http.Request) {
 	//Serve the register interface
 	if h.AllowRegistry {
-		template, err := ioutil.ReadFile("system/auth/register.system")
+		template, err := os.ReadFile("system/auth/register.system")
 		if err != nil {
 			log.Println("Template not found: system/auth/register.system")
 			http.NotFound(w, r)
@@ -125,7 +126,7 @@ func readImageFileAsBase64(src string) (string, error) {
 	}
 
 	reader := bufio.NewReader(f)
-	content, err := ioutil.ReadAll(reader)
+	content, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
 	}
@@ -133,12 +134,12 @@ func readImageFileAsBase64(src string) (string, error) {
 	return encoded, nil
 }
 
-//Get the default usergroup for this register handler
+// Get the default usergroup for this register handler
 func (h *RegisterHandler) GetDefaultUserGroup() string {
 	return h.DefaultUserGroup
 }
 
-//Set the default usergroup for this register handler
+// Set the default usergroup for this register handler
 func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
 	if !h.permissionHandler.GroupExists(groupname) {
 		return errors.New("Group not exists")
@@ -153,12 +154,12 @@ func (h *RegisterHandler) SetDefaultUserGroup(groupname string) error {
 	return nil
 }
 
-//Toggle registry on the fly
+// Toggle registry on the fly
 func (h *RegisterHandler) SetAllowRegistry(allow bool) {
 	h.AllowRegistry = allow
 }
 
-//Clearn Register information by removing all users info whose account is no longer registered
+// Clearn Register information by removing all users info whose account is no longer registered
 func (h *RegisterHandler) CleanRegisters() {
 	entries, _ := h.database.ListTable("register")
 	for _, keypairs := range entries {
@@ -175,7 +176,7 @@ func (h *RegisterHandler) CleanRegisters() {
 	}
 }
 
-//List all User Emails, return [username(string), email(string), stillResitered(bool)]
+// List all User Emails, return [username(string), email(string), stillResitered(bool)]
 func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 	results := [][]interface{}{}
 	entries, _ := h.database.ListTable("register")
@@ -197,52 +198,52 @@ func (h *RegisterHandler) ListAllUserEmails() [][]interface{} {
 	return results
 }
 
-//Handle the request for creating a new user
+// Handle the request for creating a new user
 func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.Request) {
 	if h.AllowRegistry == false {
-		sendErrorResponse(w, "Public account registry is currently closed")
+		utils.SendErrorResponse(w, "Public account registry is currently closed")
 		return
 	}
 	//Get input paramter
-	email, err := mv(r, "email", true)
+	email, err := utils.PostPara(r, "email")
 	if err != nil {
-		sendErrorResponse(w, "Invalid Email")
+		utils.SendErrorResponse(w, "Invalid Email")
 		return
 	}
 
 	//Validate the email is a email
 	if !isValidEmail(email) {
-		sendErrorResponse(w, "Invalid or malformed email")
+		utils.SendErrorResponse(w, "Invalid or malformed email")
 		return
 	}
 
-	username, err := mv(r, "username", true)
+	username, err := utils.PostPara(r, "username")
 	if username == "" || strings.TrimSpace(username) == "" || err != nil {
-		sendErrorResponse(w, "Invalid Username")
+		utils.SendErrorResponse(w, "Invalid Username")
 		return
 	}
 
-	password, err := mv(r, "password", true)
+	password, err := utils.PostPara(r, "password")
 	if password == "" || err != nil {
-		sendErrorResponse(w, "Invalid Password")
+		utils.SendErrorResponse(w, "Invalid Password")
 		return
 	}
 
 	//Check if password too short
 	if len(password) < 8 {
-		sendErrorResponse(w, "Password too short. Must be at least 8 characters.")
+		utils.SendErrorResponse(w, "Password too short. Must be at least 8 characters.")
 		return
 	}
 
 	//Check if the username is too short
 	if len(username) < 2 {
-		sendErrorResponse(w, "Username too short. Must be at least 2 characters.")
+		utils.SendErrorResponse(w, "Username too short. Must be at least 2 characters.")
 		return
 	}
 
 	//Check if the user already exists
 	if h.authAgent.UserExists(username) {
-		sendErrorResponse(w, "This username has already been used")
+		utils.SendErrorResponse(w, "This username has already been used")
 		return
 	}
 
@@ -251,46 +252,46 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	if h.permissionHandler.GroupExists(defaultGroup) == false {
 		//Public registry user group not exists. Raise 500 Error
 		log.Println("[CRITICAL] PUBLIC REGISTRY USER GROUP NOT FOUND! PLEASE RESTART YOUR SYSTEM!")
-		sendErrorResponse(w, "Internal Server Error")
+		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
 
 	//OK. Record this user to the system
 	err = h.authAgent.CreateUserAccount(username, password, []string{defaultGroup})
 	if err != nil {
-		sendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	//Write email to database as well
 	h.database.Write("register", "user/email/"+username, email)
 
-	sendOK(w)
+	utils.SendOK(w)
 	log.Println("New User Registered: ", email, username, strings.Repeat("*", len(password)))
 
 }
 
-//Change Email for the registered user
+// Change Email for the registered user
 func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Request) {
 	//Get username from request
 	username, err := h.authAgent.GetUserName(w, r)
 	if err != nil {
-		sendErrorResponse(w, "Unable to get username from request")
+		utils.SendErrorResponse(w, "Unable to get username from request")
 		return
 	}
 
-	email, err := mv(r, "email", true)
+	email, err := utils.PostPara(r, "email")
 	if err != nil {
 		//Return the user current email
 		currentEmail, _ := h.GetUserEmail(username)
 		js, _ := json.Marshal(currentEmail)
-		sendJSONResponse(w, string(js))
+		utils.SendJSONResponse(w, string(js))
 		return
 	}
 
 	//Validate the email is a email
 	if !isValidEmail(email) {
-		sendErrorResponse(w, "Invalid or malformed email")
+		utils.SendErrorResponse(w, "Invalid or malformed email")
 		return
 	}
 
@@ -298,7 +299,7 @@ func (h *RegisterHandler) HandleEmailChange(w http.ResponseWriter, r *http.Reque
 	h.database.Write("register", "user/email/"+username, email)
 }
 
-//Get user email by name
+// Get user email by name
 func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
 	userEmail := ""
 	err := h.database.Read("register", "user/email/"+username, &userEmail)
@@ -308,7 +309,7 @@ func (h *RegisterHandler) GetUserEmail(username string) (string, error) {
 	return userEmail, nil
 }
 
-//Helper functions
+// Helper functions
 func isValidEmail(email string) bool {
 	_, err := mail.ParseAddress(email)
 	return err == nil

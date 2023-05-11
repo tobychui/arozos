@@ -1,9 +1,11 @@
+//go:build linux
 // +build linux
 
 package hardwareinfo
 
 import (
 	"encoding/json"
+	"imuslab.com/arozos/mod/utils"
 	"log"
 	"net/http"
 	"os/exec"
@@ -32,7 +34,7 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetDriveStat(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +49,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	drives := strings.Split(string(dev), "\n")
 
 	if len(drives) == 0 {
-		sendErrorResponse(w, "Invalid disk information")
+		utils.SendErrorResponse(w, "Invalid disk information")
 		return
 	}
 
@@ -76,7 +78,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 
 }
 
@@ -100,7 +102,7 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +179,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }
 
 func GetRamInfo(w http.ResponseWriter, r *http.Request) {
@@ -196,5 +198,5 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	sendTextResponse(w, string(jsonData))
+	utils.SendTextResponse(w, string(jsonData))
 }

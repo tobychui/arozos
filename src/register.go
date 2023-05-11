@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 
 	reg "imuslab.com/arozos/mod/auth/register"
-	"imuslab.com/arozos/mod/common"
+	fs "imuslab.com/arozos/mod/filesystem"
 	prout "imuslab.com/arozos/mod/prouter"
+	"imuslab.com/arozos/mod/utils"
 )
 
 var (
@@ -16,9 +18,14 @@ var (
 
 func RegisterSystemInit() {
 	//Register the endpoints for public registration
+	imgsrc := filepath.Join(vendorResRoot, "vendor_icon.png")
+	if !fs.FileExists(imgsrc) {
+		imgsrc = "./web/img/public/vendor_icon.png"
+	}
+
 	rh := reg.NewRegisterHandler(sysdb, authAgent, permissionHandler, reg.RegisterOptions{
 		Hostname:   *host_name,
-		VendorIcon: "web/" + iconVendor,
+		VendorIcon: imgsrc,
 	})
 
 	registerHandler = rh
@@ -39,7 +46,7 @@ func RegisterSystemInit() {
 		AdminOnly:   false,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -62,7 +69,7 @@ func RegisterSystemInit() {
 		AdminOnly:   true,
 		UserHandler: userHandler,
 		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
-			common.SendErrorResponse(w, "Permission Denied")
+			utils.SendErrorResponse(w, "Permission Denied")
 		},
 	})
 
@@ -85,14 +92,14 @@ func RegisterSystemInit() {
 func register_handleRegisterCleaning(w http.ResponseWriter, r *http.Request) {
 	//Get all user emails from the registerHandler
 	registerHandler.CleanRegisters()
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func register_handleEmailListing(w http.ResponseWriter, r *http.Request) {
 	//Get all user emails from the registerHandler
 	userRegisterInfos := registerHandler.ListAllUserEmails()
 
-	useCSV, _ := common.Mv(r, "csv", false)
+	useCSV, _ := utils.GetPara(r, "csv")
 	if useCSV == "true" {
 		//Prase as csv
 		csvString := "Username,Email,Still Registered\n"
@@ -111,41 +118,41 @@ func register_handleEmailListing(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//Prase as json
 		jsonString, _ := json.Marshal(userRegisterInfos)
-		common.SendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 	}
 
 }
 
 func register_handleSetDefaultGroup(w http.ResponseWriter, r *http.Request) {
-	getDefaultGroup, _ := common.Mv(r, "get", true)
+	getDefaultGroup, _ := utils.PostPara(r, "get")
 	if getDefaultGroup == "true" {
 		jsonString, _ := json.Marshal(registerHandler.DefaultUserGroup)
-		common.SendJSONResponse(w, string(jsonString))
+		utils.SendJSONResponse(w, string(jsonString))
 		return
 	}
-	newDefaultGroup, err := common.Mv(r, "defaultGroup", true)
+	newDefaultGroup, err := utils.PostPara(r, "defaultGroup")
 	if err != nil {
-		common.SendErrorResponse(w, "defaultGroup not defined")
+		utils.SendErrorResponse(w, "defaultGroup not defined")
 		return
 	}
 	err = registerHandler.SetDefaultUserGroup(newDefaultGroup)
 	if err != nil {
-		common.SendErrorResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	common.SendOK(w)
+	utils.SendOK(w)
 }
 
 func register_handleGetAllowRegistry(w http.ResponseWriter, r *http.Request) {
 	jsonString, _ := json.Marshal(registerHandler.AllowRegistry)
-	common.SendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 func register_handleToggleRegistry(w http.ResponseWriter, r *http.Request) {
-	allowReg, err := common.Mv(r, "allow", true)
+	allowReg, err := utils.PostPara(r, "allow")
 	if err != nil {
 		allowReg = "false"
 	}
 	registerHandler.SetAllowRegistry(allowReg == "true")
-	common.SendOK(w)
+	utils.SendOK(w)
 }

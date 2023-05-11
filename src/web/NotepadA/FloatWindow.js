@@ -4,7 +4,7 @@
 //[Variables Meaning]
 //src: The path in which the new window points to
 //title: The title text that displace on the window top bar
-//iconTag: The icon used for the window label and buttons. Reference Tocas UI for the iconTag information
+//iconTag: The icon used for the window label and buttons. Reference Semantic UI for the iconTag information
 //uid: The uid is the unique id for this window. If duplicated uid is found, the old window will be replaced.
 //ww, wh: Window Width, Window Height
 //posx, posy: Window Position x, Window Position y

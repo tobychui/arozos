@@ -1,76 +1,77 @@
 package autologin
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
 
 	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/utils"
 )
 
-type AutoLoginHandler struct{
+type AutoLoginHandler struct {
 	userHandler *user.UserHandler
 }
 
-func NewAutoLoginHandler(uh *user.UserHandler) *AutoLoginHandler{
+func NewAutoLoginHandler(uh *user.UserHandler) *AutoLoginHandler {
 	return &AutoLoginHandler{
 		userHandler: uh,
 	}
 }
 
 //List the token given the username
-func (a *AutoLoginHandler)HandleUserTokensListing(w http.ResponseWriter, r *http.Request){
-	username, err := mv(r, "username", false)
-	if err != nil{
-		sendErrorResponse(w, "Invalid username");
+func (a *AutoLoginHandler) HandleUserTokensListing(w http.ResponseWriter, r *http.Request) {
+	username, err := utils.GetPara(r, "username")
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid username")
 		return
 	}
 
-	if !a.userHandler.GetAuthAgent().UserExists(username){
-		sendErrorResponse(w, "User not exists!")
+	if !a.userHandler.GetAuthAgent().UserExists(username) {
+		utils.SendErrorResponse(w, "User not exists!")
 		return
 	}
 
 	tokens := a.userHandler.GetAuthAgent().GetTokensFromUsername(username)
 	tokensOnly := []string{}
-	for _, token := range tokens{
+	for _, token := range tokens {
 		tokensOnly = append(tokensOnly, token.Token)
 	}
 	jsonString, _ := json.Marshal(tokensOnly)
-	sendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 //Handle User Token Creation, require username. Please use adminrouter to handle this function
-func (a *AutoLoginHandler)HandleUserTokenCreation(w http.ResponseWriter, r *http.Request){
-	username, err := mv(r, "username", false)
-	if err != nil{
-		sendErrorResponse(w, "Invalid username");
+func (a *AutoLoginHandler) HandleUserTokenCreation(w http.ResponseWriter, r *http.Request) {
+	username, err := utils.GetPara(r, "username")
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid username")
 		return
 	}
 
 	//Check if user exists
-	authAgent := a.userHandler.GetAuthAgent();
-	if !authAgent.UserExists(username){
-		sendErrorResponse(w, "User not exists!")
+	authAgent := a.userHandler.GetAuthAgent()
+	if !authAgent.UserExists(username) {
+		utils.SendErrorResponse(w, "User not exists!")
 		return
 	}
 
 	//Generate and send the token to client
-	token:= authAgent.NewAutologinToken(username)
+	token := authAgent.NewAutologinToken(username)
 	jsonString, _ := json.Marshal(token)
-	sendJSONResponse(w, string(jsonString))
+	utils.SendJSONResponse(w, string(jsonString))
 }
 
 //Remove the user token given the token
-func (a *AutoLoginHandler)HandleUserTokenRemoval(w http.ResponseWriter, r *http.Request){
-	token, err := mv(r, "token", false)
-	if err != nil{
-		sendErrorResponse(w, "Invalid username");
+func (a *AutoLoginHandler) HandleUserTokenRemoval(w http.ResponseWriter, r *http.Request) {
+	token, err := utils.GetPara(r, "token")
+	if err != nil {
+		utils.SendErrorResponse(w, "Invalid username")
 		return
 	}
 
-	authAgent := a.userHandler.GetAuthAgent();
+	authAgent := a.userHandler.GetAuthAgent()
 	authAgent.RemoveAutologinToken(token)
 
-	sendOK(w)
+	utils.SendOK(w)
 
-}	
+}

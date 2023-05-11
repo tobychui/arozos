@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/filesystem"
 	user "imuslab.com/arozos/mod/user"
 )
 
@@ -24,6 +25,6 @@ func (g *Gateway) AudioLibRegister() {
 	}
 }
 
-func (g *Gateway) injectAudioFunctions(vm *otto.Otto, u *user.User) {
+func (g *Gateway) injectAudioFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
 
 }

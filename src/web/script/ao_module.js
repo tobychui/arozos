@@ -126,6 +126,10 @@ function ao_module_loadInputFiles(){
         }
         var inputFileInfo = window.location.hash.substring(1,window.location.hash.length);
         inputFileInfo = JSON.parse(decodeURIComponent(inputFileInfo));
+
+        if (inputFileInfo.length == 0){
+            return null;
+        }
         return inputFileInfo
     }catch{
         return null;
@@ -220,6 +224,11 @@ function ao_module_getInstanceByPath(matchingPath){
 
 //Close the current window
 function ao_module_close(){
+    ao_module_closeHandler();
+}
+
+//Close handler for WebApp special handling of ao_module_close()
+function ao_module_closeHandler(){
     if (!ao_module_virtualDesktop){
         window.close('','_parent','');
         window.location.href = ao_root + "SystemAO/closeTabInsturction.html";
@@ -762,16 +771,21 @@ class ao_module_codec{
 
 
 /**
-ArOZ Online Module Utils for quick deploy of ArOZ Online WebApps
+    ArOZ Online Module Utils for quick deploy of ArOZ Online WebApps
 
-ao_module_utils.objectToAttr(object); //object to DOM attr
-ao_module_utils.attrToObject(attr); //DOM attr to Object
-ao_module_utils.getRandomUID(); //Get random UUID from timestamp
-ao_module_utils.getIconFromExt(ext); //Get icon tag from file extension
-
-ao_module_utils.getDropFileInfo(dropEvent); //Get the filepath and filename list from file explorer drag drop
-ao_module_utils.formatBytes(byte, decimals); //Format file byte size to human readable size
-ao_module_utils.timeConverter(unix_timestamp); //Get human readable timestamp 
+    ao_module_utils.objectToAttr(object); //object to DOM attr
+    ao_module_utils.attrToObject(attr); //DOM attr to Object
+    ao_module_utils.getRandomUID(); //Get random UUID from timestamp
+    ao_module_utils.getIconFromExt(ext); //Get icon tag from file extension
+    ao_module_utils.stringToBlob(text, mimetype="text/plain") //Convert string to blob
+    ao_module_utils.blobToFile(blob, filename, mimetype="text/plain") //Convert blob to file
+    ao_module_utils.getDropFileInfo(dropEvent); //Get the filepath and filename list from file explorer drag drop
+    ao_module_utils.readFileFromFileObject(fileObject, successCallback, failedCallback=undefined) //Read file object as text
+    ao_module_utils.durationConverter(seconds) //Convert duration in seconds to Days / Hours / Minutes / Seconds
+    ao_module_utils.formatBytes(byte, decimals); //Format file byte size to human readable size
+    ao_module_utils.timeConverter(unix_timestamp); //Get human readable timestamp 
+    ao_module_utils.getWebSocketEndpoint() //Build server websocket endpoint root, e.g. wss://192.168.1.100:8080/
+    ao_module_utils.formatBytes(bytes, decimalPlace=2) //Convert and rounds bytes into KB, MB, GB or TB
 **/
 class ao_module_utils{
     
@@ -929,7 +943,7 @@ class ao_module_utils{
         }
 
         if (seconds > 0){
-            resultDuration += seconds + " Secound"
+            resultDuration += seconds + " Second"
             if (seconds > 1){
                 resultDuration += "s"
             }

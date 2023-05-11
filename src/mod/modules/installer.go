@@ -3,7 +3,6 @@ package modules
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	agi "imuslab.com/arozos/mod/agi"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -25,10 +25,10 @@ import (
 
 */
 
-//Install a module via selecting a zip file
+// Install a module via selecting a zip file
 func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) error {
 	//Check if file exists
-	if !fileExists(realpath) {
+	if !utils.FileExists(realpath) {
 		return errors.New("*Module Installer* Installer file not found. Given: " + realpath)
 	}
 
@@ -43,24 +43,29 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 	files, _ := filepath.Glob(unzipTmpFolder + "/*")
 	folders := []string{}
 	for _, file := range files {
-		if IsDir(file) && fileExists(filepath.Join(file, "init.agi")) {
+		if utils.IsDir(file) && utils.FileExists(filepath.Join(file, "init.agi")) {
 			//This looks like a module folder
 			folders = append(folders, file)
 		}
 	}
+	/*
+		for _, folder := range folders {
+			//Copy the module
+			//WIP
 
-	for _, folder := range folders {
-		//Copy the module
-		err = fs.CopyDir(folder, "./web/"+filepath.Base(folder))
-		if err != nil {
-			log.Println(err)
-			continue
+					err = fs.CopyDir(folder, "./web/"+filepath.Base(folder))
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+
+
+				//Activate the module
+				m.ActivateModuleByRoot("./web/"+filepath.Base(folder), gateway)
+				m.ModuleSortList()
+
 		}
-
-		//Activate the module
-		m.ActivateModuleByRoot("./web/"+filepath.Base(folder), gateway)
-		m.ModuleSortList()
-	}
+	*/
 
 	//Remove the tmp folder
 	os.RemoveAll(unzipTmpFolder)
@@ -69,7 +74,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 	return nil
 }
 
-//Reload all modules from agi file again
+// Reload all modules from agi file again
 func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 	//Clear the current registered module list
 	newModuleList := []*ModuleInfo{}
@@ -86,7 +91,7 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 	return nil
 }
 
-//Install a module via git clone
+// Install a module via git clone
 func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
 	//Download the module from the gitURL
 	log.Println("Starting module installation by Git cloning ", gitURL)
@@ -106,7 +111,7 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	downloadedFiles, _ := filepath.Glob(downloadFolder + "/*")
 	copyPendingList := []string{}
 	for _, file := range downloadedFiles {
-		if IsDir(file) {
+		if utils.IsDir(file) {
 			//Exclude two special folder: github and images
 			if filepath.Base(file) == ".github" || filepath.Base(file) == "images" || filepath.Base(file)[:1] == "." {
 				//Reserved folder for putting Github readme screenshots or other things
@@ -118,12 +123,14 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	}
 
 	//Do the copying
-	for _, src := range copyPendingList {
-		log.Println(src)
-		fs.FileCopy(src, "./web/", "skip", func(progress int, filename string) {
-			log.Println("Copying ", filename)
-		})
-	}
+	//WIP
+	/*
+		for _, src := range copyPendingList {
+			fs.FileCopy(src, "./web/", "skip", func(progress int, filename string) {
+				log.Println("Copying ", filename)
+			})
+		}
+	*/
 
 	//Clean up the download folder
 	os.RemoveAll(downloadFolder)
@@ -143,10 +150,10 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.Gateway) error {
 	//Check if there is init.agi. If yes, load it as an module
 	thisModuleEstimataedRoot := filepath.Join("./web/", filepath.Base(moduleFolder))
-	if fileExists(thisModuleEstimataedRoot) {
-		if fileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
+	if utils.FileExists(thisModuleEstimataedRoot) {
+		if utils.FileExists(filepath.Join(thisModuleEstimataedRoot, "init.agi")) {
 			//Load this as an module
-			startDef, err := ioutil.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
+			startDef, err := os.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
 			if err != nil {
 				log.Println("*Module Activator* Failed to read init.agi from " + filepath.Base(moduleFolder))
 				return errors.New("Failed to read init.agi from " + filepath.Base(moduleFolder))
@@ -167,7 +174,7 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 	return nil
 }
 
-//Handle and return the information of the current installed modules
+// Handle and return the information of the current installed modules
 func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r *http.Request) {
 	type ModuleInstallInfo struct {
 		Name          string //Name of the module
@@ -187,7 +194,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 			//Only allow uninstalling of modules with start dir (aka installable)
 
 			//Check if WebApp or subservice
-			if fileExists(filepath.Join("./web", mod.StartDir)) {
+			if utils.FileExists(filepath.Join("./web", mod.StartDir)) {
 				//This is a WebApp module
 				totalsize, _ := fs.GetDirctorySize(filepath.Join("./web", filepath.Dir(mod.StartDir)), false)
 
@@ -223,10 +230,10 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 	}
 
 	js, _ := json.Marshal(results)
-	sendJSONResponse(w, string(js))
+	utils.SendJSONResponse(w, string(js))
 }
 
-//Uninstall the given module
+// Uninstall the given module
 func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	//Check if this module is allowed to be removed
 	var targetModuleInfo *ModuleInfo = nil
@@ -243,7 +250,7 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	}
 
 	//Check if the module exists
-	if fileExists(filepath.Join("./web", moduleName)) {
+	if utils.FileExists(filepath.Join("./web", moduleName)) {
 		//Remove the module
 		log.Println("Removing Module: ", moduleName)
 		os.RemoveAll(filepath.Join("./web", moduleName))

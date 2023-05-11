@@ -312,7 +312,6 @@ func (p *ReverseProxy) ProxyHTTP(rw http.ResponseWriter, req *http.Request) erro
 	// close now, instead of defer, to populate res.Trailer
 	res.Body.Close()
 	copyHeader(rw.Header(), res.Trailer)
-
 	return nil
 }
 

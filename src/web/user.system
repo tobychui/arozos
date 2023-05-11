@@ -97,7 +97,7 @@
             $.get("system/permission/listgroup",function(data){
                 $("#usergroups").html("");
                 for(var i = 0; i < data.length; i++){
-                    $("#usergroups").append(`<option>${data[i]}</option>`);
+                    $("#usergroups").append(`<option value="${data[i]}">${data[i]}</option>`);
                 }
             });
 

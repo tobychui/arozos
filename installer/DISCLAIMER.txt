@@ -1,0 +1,15 @@
+This automated installer bash script is provided "AS IS" without warranty of any kind, 
+either expressed or implied, including, but not limited to, the implied warranties of 
+merchantability and fitness for a particular purpose. The entire risk as to the quality 
+and performance of the automated installer bash script is with you. Should the automated 
+installer bash script prove defective, you assume the cost of all necessary servicing, 
+repair, or correction.
+
+Please note that the automated installer bash script may make changes to your system 
+configuration, install new software packages or updates, and modify existing settings. 
+The user is responsible for ensuring that their system is backed up and that all important
+ data is saved prior to running the script. The user is solely responsible for any 
+consequences resulting from the use of this script.
+
+By using this automated installer bash script, you acknowledge that you have read this 
+disclaimer and agree to be bound by its terms and conditions.
