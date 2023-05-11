@@ -61,7 +61,7 @@ func DownloadUpdatesFromURL(binaryURL string, webpackURL string, checksumURL str
 		return err
 	}
 	binaryDownloadComplete = 1
-
+	time.Sleep(300 * time.Millisecond)
 	//Downlaod webpack
 	go func() {
 		for webpackDownloadComplete == 0 {

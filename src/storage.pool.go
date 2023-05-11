@@ -15,7 +15,6 @@ import (
 	"imuslab.com/arozos/mod/storage/bridge"
 	"imuslab.com/arozos/mod/utils"
 
-	"github.com/tidwall/pretty"
 	fs "imuslab.com/arozos/mod/filesystem"
 	prout "imuslab.com/arozos/mod/prouter"
 	storage "imuslab.com/arozos/mod/storage"
@@ -535,9 +534,9 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 
 		//Parse and put it into file
 		if len(newConfigs) > 0 {
-			js, _ := json.Marshal(newConfigs)
-			resultingJson := pretty.Pretty(js)
-			os.WriteFile(targetConfigFile, resultingJson, 0777)
+			js, _ := json.MarshalIndent(newConfigs, "", " ")
+
+			os.WriteFile(targetConfigFile, js, 0777)
 		} else {
 			os.Remove(targetConfigFile)
 		}

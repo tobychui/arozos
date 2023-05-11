@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -17,7 +17,7 @@ type endpointFormat struct {
 	Path     string `json:"path"`
 }
 
-//Handle request from EXTERNAL RESTFUL API
+// Handle request from EXTERNAL RESTFUL API
 func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	// get db
 	sysdb := g.Option.UserHandler.GetDatabase()
@@ -98,7 +98,7 @@ func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// put the data in then marshal
-	id := uuid.New().String()
+	id := uuid.NewV4().String()
 
 	dat.Path = path
 	dat.Username = userInfo.Username
