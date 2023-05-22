@@ -106,12 +106,22 @@ After installation, depending on the processing power and disk speed of your hos
 http://{ip_address_of_your_host}:8080/
 ```
 
+Note: If you are using some browsers that hides your user agents, you can manually switch between mobile and desktop interface with the following links.
+- Mobile: http://localhost:8080/mobile.system
+- Desktop: http://localhost:8080/desktop.system
+    
 To uninstall your ArozOS in case you screw something up, use the uninstall script in the installer folder.
 
 ### Windows (amd64)
 
 If you are deploying on Windows, you need to add ffmpeg to %PATH% environment variable and following the steps below.
 
+#### Adding FFMPEG to %PATH%
+Visit https://www.ffmpeg.org/ to download the precompiled binary to C:\ffmpeg\. After unzipping, you should be able to find the binary ffmpeg.exe at C:\ffmpeg\bin\.
+
+Go to "System Properties" > "Environment Variables" > "System Variables" > "Edit" and add "C:\ffmpeg\bin\" into the environment variable list. Save and Exit the tool windows and restart your PC to apply the new settings.
+
+#### Installing ArozOS
 1. Create a folder a name that has no space and ASCII only
 2. Download the arozos_windows_amd64.exe from the [Release Page](https://github.com/tobychui/arozos/releases) 
 3. Download the web.tar.gz from the Release Page
