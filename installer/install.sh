@@ -20,13 +20,13 @@ if [[ $agree != "y" ]]; then
 fi
 
 # Create the required folder structure to hold the installation
-cd ~/ || exit
+cd /home/$(logname)/ || exit
 mkdir arozos
 cd arozos || exit
 
 # Run apt-updates
-sudo apt-get update
-sudo apt-get install ffmpeg net-tools -y
+apt update
+apt install ffmpeg net-tools wget -y
 
 # Determine the CPU architecture of the host
 if [[ $(uname -m) == "x86_64" ]]; then
@@ -108,11 +108,11 @@ arozport=${arozport:-8080}
 if [[ -f "./launcher" ]]; then
   # Create start.sh with launcher command
   echo "#!/bin/bash" > start.sh
-  echo "sudo ./launcher -port=$arozport -hostname=\"$arozosname\"" >> start.sh
+  echo "./launcher -port=$arozport -hostname=\"$arozosname\"" >> start.sh
 else
   # Create start.sh with arozos command
   echo "#!/bin/bash" > start.sh
-  echo "sudo arozos -port=$arozport -hostname=\"$arozosname\"" >> start.sh
+  echo "arozos -port=$arozport -hostname=\"$arozosname\"" >> start.sh
 fi
 
 # Make start.sh executable
@@ -130,8 +130,8 @@ if [[ $(uname) == "Linux" ]]; then
         # Get current user
         CURRENT_USER=$(whoami)
 		
-		sudo touch /etc/systemd/system/arozos.service
-		sudo chmod 777 /etc/systemd/system/arozos.service
+		touch /etc/systemd/system/arozos.service
+		chmod 777 /etc/systemd/system/arozos.service
         # Create systemd service file
         cat <<EOF > /etc/systemd/system/arozos.service
 [Unit]
@@ -142,8 +142,10 @@ Wants=systemd-networkd-wait-online.service
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 10
-WorkingDirectory=/home/${CURRENT_USER}/arozos/
-ExecStart=/bin/bash /home/${CURRENT_USER}/arozos/start.sh
+WorkingDirectory=/home/$(logname)/arozos
+ExecStart=/bin/bash /home/$(logname)/arozos/start.sh
+User=root   
+Group=root
 
 Restart=always
 RestartSec=10
@@ -151,12 +153,12 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
-		sudo chmod 644 /etc/systemd/system/arozos.service
+		chmod 644 /etc/systemd/system/arozos.service
 		
         # Reload systemd daemon and enable service
-        sudo systemctl daemon-reload
-        sudo systemctl enable arozos.service
-		sudo systemctl start arozos.service
+        systemctl daemon-reload
+        systemctl enable arozos.service
+		systemctl start arozos.service
         echo "ArozOS installation completed!"
 		ip_address=$(hostname -I | awk '{print $1}')
 		echo "Please continue the system setup at http://$ip_address:$arozport/"
@@ -164,5 +166,3 @@ EOF
 else
 	echo "ArozOS installation completed! Execute start.sh to startup your ArozOS system."
 fi
-
-
