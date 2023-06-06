@@ -80,7 +80,7 @@ go build
 Install the latest version of Raspberry Pi OS / Armbian / Debian on an SD card / boot drive and boot it up. After setup and initialization is done, connect to it via SSH or use the Terminal App on your desktop to enter the following command
 
 ```bash
-wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
+wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && sudo bash install.sh
 ```
 
 and follow the on-screen instruction to setup your arozos system. 
