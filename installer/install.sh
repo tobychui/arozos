@@ -158,6 +158,7 @@ EOF
         # Reload systemd daemon and enable service
         systemctl daemon-reload
         systemctl enable arozos.service
+	chmod +x /home/$(logname)/arozos/system/disk/smart/linux/smartctl_i386
 		systemctl start arozos.service
         echo "ArozOS installation completed!"
 		ip_address=$(hostname -I | awk '{print $1}')
