@@ -88,7 +88,7 @@ func UserSystemInit() {
 	adminRouter.HandleFunc("/system/users/removeUser", user_handleUserRemove)
 }
 
-//Remove a user from the system
+// Remove a user from the system
 func user_handleUserRemove(w http.ResponseWriter, r *http.Request) {
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
@@ -279,7 +279,7 @@ func user_handleUserEdit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Get the user interface info for the user to launch into
+// Get the user interface info for the user to launch into
 func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -349,6 +349,10 @@ func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 			utils.SendErrorResponse(w, "Invalid old password.")
 			return
 		}
+
+		//Logout users from all switchable accounts
+		authAgent.SwitchableAccountManager.ExpireUserFromAllSwitchableAccountPool(username)
+
 		//OK! Change user password
 		newHashedPassword := auth.Hash(newpw)
 		sysdb.Write("auth", "passhash/"+username, newHashedPassword)

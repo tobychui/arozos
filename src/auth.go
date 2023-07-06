@@ -105,4 +105,24 @@ func AuthSettingsInit() {
 
 	//Register nightly task for clearup all user retry counter
 	nightlyManager.RegisterNightlyTask(authAgent.ExpDelayHandler.ResetAllUserRetryCounter)
+
+	//Register nightly task for clearup all expired switchable account pools
+	nightlyManager.RegisterNightlyTask(authAgent.SwitchableAccountManager.RunNightlyCleanup)
+
+	/*
+		Account switching functions
+	*/
+
+	//Register the APIs for account switching functions
+	userRouter := prout.NewModuleRouter(prout.RouterOption{
+		AdminOnly:   false,
+		UserHandler: userHandler,
+		DeniedHandler: func(w http.ResponseWriter, r *http.Request) {
+			utils.SendErrorResponse(w, "Permission Denied")
+		},
+	})
+
+	userRouter.HandleFunc("/system/auth/u/list", authAgent.SwitchableAccountManager.HandleSwitchableAccountListing)
+	userRouter.HandleFunc("/system/auth/u/switch", authAgent.SwitchableAccountManager.HandleAccountSwitch)
+	userRouter.HandleFunc("/system/auth/u/logoutAll", authAgent.SwitchableAccountManager.HandleLogoutAllAccounts)
 }

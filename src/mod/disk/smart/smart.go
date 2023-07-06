@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -44,6 +45,12 @@ func NewSmartListener() (*SMARTListener, error) {
 		return &SMARTListener{}, errors.New("smartctl not found")
 	}
 
+	//Updated 5 June 2023: Try to chmod it if it is on linux so that
+	//broken permissions still works in sudo mode
+	if runtime.GOOS == "linux" {
+		os.Chmod(smartExec, 0777)
+	}
+
 	driveList := scanAvailableDevices(smartExec)
 	readSMARTDevices(smartExec, &driveList)
 	fillHealthyStatus(&driveList)
@@ -54,7 +61,7 @@ func NewSmartListener() (*SMARTListener, error) {
 	}, nil
 }
 
-//this function used for fetch available devices by using smartctl
+// this function used for fetch available devices by using smartctl
 func scanAvailableDevices(smartExec string) DevicesList {
 	rawInfo := execCommand(smartExec, "--scan", "--json=c")
 	devicesList := new(DevicesList)
@@ -70,7 +77,7 @@ func scanAvailableDevices(smartExec string) DevicesList {
 	return *devicesList
 }
 
-//this function used for merge SMART Information into devicesList
+// this function used for merge SMART Information into devicesList
 func readSMARTDevices(smartExec string, devicesList *DevicesList) {
 	for i, device := range devicesList.Devices {
 		rawInfo := execCommand(smartExec, device.Name, "--info", "--all", "--json=c")
@@ -80,7 +87,7 @@ func readSMARTDevices(smartExec string, devicesList *DevicesList) {
 	}
 }
 
-//used for fill the healthy status to the array
+// used for fill the healthy status to the array
 func fillHealthyStatus(devicesList *DevicesList) {
 	devicesList.Healthy = "Normal"
 	for i, device := range devicesList.Devices {
@@ -103,7 +110,7 @@ func fillHealthyStatus(devicesList *DevicesList) {
 	}
 }
 
-//fill the capacity if windows
+// fill the capacity if windows
 func fillCapacity(devicesList *DevicesList) {
 	if runtime.GOOS == "windows" {
 		DiskNames := wmicGetinfo("diskdrive", "Model")

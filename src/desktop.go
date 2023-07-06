@@ -374,13 +374,37 @@ func desktop_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 	nic, _ := utils.PostPara(r, "noicon")
 	noicon := (nic == "true")
 
-	type returnStruct struct {
+	type PublicUserInfo struct {
 		Username          string
 		UserIcon          string
 		UserGroups        []string
 		IsAdmin           bool
 		StorageQuotaTotal int64
 		StorageQuotaLeft  int64
+	}
+
+	//Check if the user is requesting another user's public info
+	targetUser, err := utils.GetPara(r, "target")
+	if err == nil {
+		//User asking for another user's desktop icon
+		userIcon := ""
+		searchingUser, err := userHandler.GetUserInfoFromUsername(targetUser)
+		if err != nil {
+			utils.SendErrorResponse(w, "User not found")
+			return
+		}
+
+		//Load the profile image
+		userIcon = searchingUser.GetUserIcon()
+
+		js, _ := json.Marshal(PublicUserInfo{
+			Username: searchingUser.Username,
+			UserIcon: userIcon,
+			IsAdmin:  searchingUser.IsAdmin(),
+		})
+
+		utils.SendJSONResponse(w, string(js))
+		return
 	}
 
 	//Calculate the storage quota left
@@ -395,7 +419,7 @@ func desktop_handleUserInfo(w http.ResponseWriter, r *http.Request) {
 		pgs = append(pgs, pg.Name)
 	}
 
-	rs := returnStruct{
+	rs := PublicUserInfo{
 		Username:          userinfo.Username,
 		UserIcon:          userinfo.GetUserIcon(),
 		IsAdmin:           userinfo.IsAdmin(),

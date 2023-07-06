@@ -1,0 +1,372 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Add Account</title>
+    <link rel="stylesheet" href="../../script/semantic/semantic.css">
+    <link rel="stylesheet" href="../../script/ao.css">
+    <script type="application/javascript" src="../../script/jquery.min.js"></script>
+    <script type="application/javascript" src="../../script/ao_module.js"></script>
+    <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+    <style>
+        
+        body{
+            background-color: var(--body_background);
+        }
+        
+
+        .alternativeAccount{
+            cursor: pointer;
+            padding: 0.6em;
+            border: 1px solid rgb(236, 236, 236);
+            border-radius: 0.4em;
+            margin-top: 0.4em;
+        }
+
+        .alternativeAccount.expired{
+            opacity: 0.6;
+        }
+
+        .alternativeAccount:hover{
+            opacity: 0.6;
+        }
+
+        /*
+            Darktheme overwrite
+        */
+
+        body.darkTheme .ui.segment{
+            background-color: var(--body_background_active);
+            color: var(--text_color);
+        }
+
+        body.darkTheme div, body.darkTheme button, body.darkTheme span,  body.darkTheme i{
+            color: var(--text_color);
+        }
+
+        body.darkTheme .ui.header .sub.header{
+            color: var(--text_color_secondary);
+        }
+
+        body.darkTheme .ui.basic.buttons .button,body.darkTheme  .ui.basic.button{
+            color: var(--text_color_secondary);
+            border: 1px solid var(--text_color_secondary);
+        }
+
+        body.darkTheme .ui.basic.buttons .button,body.darkTheme  .ui.basic.button:hover{
+            background-color: var(--body_background_active) !important;
+            opacity: 0.8;
+        }
+
+        body.darkTheme .ui.form .field > label{
+            color: var(--text_color_secondary) !important;
+        }
+
+        body.darkTheme .ui.divider{
+            border-bottom: 1px solid var(--divider) !important;
+        }
+
+        body.darkTheme .ui.form input:not([type]),body.darkTheme .ui.form input[type="date"],body.darkTheme  .ui.form input[type="datetime-local"],body.darkTheme .ui.form input[type="email"],body.darkTheme .ui.form input[type="number"],body.darkTheme .ui.form input[type="password"],body.darkTheme .ui.form input[type="search"], .ui.form input[type="tel"],body.darkTheme .ui.form input[type="time"],body.darkTheme .ui.form input[type="text"],body.darkTheme .ui.form input[type="file"],body.darkTheme .ui.form input[type="url"]{
+            background: var(--body_background_secondary);
+            border: 1px solid var(--text_color_invert);
+            color: var(--text_color);
+        }
+
+        body.darkTheme .ui.message{
+            background-color: #1B1C1D;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        body.darkTheme #isAdminLogo{
+            color: var(--text_color) !important;
+        }
+
+        body.darkTheme .alternativeAccount .content i.isAdminIcon{
+            color: var(--text_color) !important;
+        }
+    </style>
+    </head>
+    <body> 
+    <br>
+    <div class="ui container" align="center">
+        <div class="ui segment" style="max-width:400px;" align="left">
+            <!-- Current In Use Account -->
+            <p locale="desc/currentAccount">Current account</p>
+            <div class="ui small basic right floated button" onclick="logout();">
+                <i class="log out icon"></i> <span locale="button/logout">Logout</span>
+            </div>
+            <div class="ui header">
+                <img id="currentUserIcon" src="/images/icons/plugin.png">
+                <div class="content">
+                    <span id="currentUsername"><i class="ui loading spinner icon"></i></span> <i id="isAdminLogo" style="margin-left: 0.4em; color: rgb(38, 50, 56);" title="Admin" class="small shield alternate icon themed text"></i>
+                    <div id="currentUserGroups" class="sub header"></div>
+                </div>
+            </div>
+           
+            <div class="ui divider"></div>
+            <p locale="desc/savedAccount">Saved accounts on this browser</p>
+            <div id="alternativeAccountList">
+
+            </div>
+            
+            
+            <div style="margin-top: 1em !important;">
+                <div id="signoutAllButton" class="ui fluid small black basic button" onclick="logoutAllAccounts();"><i class="log out icon icon"></i> <span locale="desc/signoutAll">Sign-out all accounts</span></div>
+            </div>
+            <div class="ui divider"></div>
+                <p locale="desc/sign-in-new">Sign-in to new account</p>
+            <form class="ui form" onsubmit="handleFormSubmit(event, this);">
+                <div class="field">
+                    <label locale="desc/username">Username</label>
+                    <input id="username" type="text" name="username" value="">
+                </div>
+                <div class="field">
+                    <label locale="desc/password">Password</label>
+                    <input id="magic" type="password" name="magic">
+                </div>
+                <button id="submitbtn" class="ui basic button"><i class="ui green sign in icon"></i> <span locale="desc/addAccount">Add Local Account</span></button>
+            </form>
+            <div id="restoreSessionMessage" class="ui blue inverted segment" style="display:none;">
+                <span locale="desc/enterPassword">Enter password to resume session</span>
+            </div>
+            <div id="errmsg" class="ui red inverted segment" style="display:none;">
+                <i class="remove icon"></i> <span id="errtext">Internal Server Error</span>
+            </div>
+            <br>
+        </div>
+    </div>
+        
+    <script>
+        //Username is just for display purpose. Even if anyone hacked this
+        //and change to another user account, it is still based on the session value
+        //matched by cookie ao_auth on server side
+        let currentUserInfo = {};
+        
+        //Initalized localization
+        if (typeof(applocale) != "undefined"){
+            applocale.init("../../SystemAO/locale/switchAccount.json", function(){
+                applocale.translate();
+                initCurrentAccountInfo(function(){
+                    listAllStoredAccounts();
+                });
+            });
+        }else{
+            //Applocale not found
+            var applocale = {};
+            applocale.getString = function(key, defaultString){
+                return defaultString;
+            }
+
+            initCurrentAccountInfo(function(){
+                listAllStoredAccounts();
+            });
+        }
+
+        //Initialize theme
+        $.get("../../system/file_system/preference?key=file_explorer/theme", function(data){
+            if (data == "darkTheme"){
+                $("body").addClass("darkTheme");
+            }else{
+                $("body").addClass("whiteTheme");
+            }
+        });
+
+        function handleFormSubmit(event, form){
+            event.preventDefault();
+
+            let username = $("#username").val();
+            let password = $("#magic").val();
+
+            //Login to the new account
+            $.ajax({
+                url: "../../system/auth/u/switch",
+                method: "POST",
+                data: {
+                    username: username,
+                    password: password,
+                },
+                success: function(data){
+                    if (data.error != undefined){
+                        $("#errtext").text(data.error);
+                        $("#errmsg").show();
+                    }else{
+                        //Refresh the page
+                        $("#errmsg").hide();
+                        initCurrentAccountInfo(function(){
+                            listAllStoredAccounts();
+                            if(ao_module_virtualDesktop){
+                                parent.initDesktop();
+                            }
+                        });
+                    }
+                    $("#restoreSessionMessage").hide();
+                },
+            });
+        }
+        
+        function switchAccount(object){
+            let targetUsername = $(object).attr("acname");
+            if (targetUsername == undefined || targetUsername == ""){
+                console.log("Unable to load username from element")
+                return;
+            }
+
+            //Check if it is expired
+            if ($(object).hasClass("expired")){
+                $("#username").val(targetUsername);
+                $("#restoreSessionMessage").show();
+                return;
+            }
+
+            $.ajax({
+                url: "../../system/auth/u/switch",
+                data: {
+                    "username": targetUsername,
+                },
+                success: function(data){
+                    if (data.error != undefined){
+                        showError(data.error);
+                    }else{
+                        hideError();
+                        initCurrentAccountInfo(function(){
+                            listAllStoredAccounts();
+                            if(ao_module_virtualDesktop){
+                                parent.initDesktop();
+                            }
+                        });
+                    }
+                }
+            })
+
+        }
+
+        function logoutAllAccounts(){
+            if (confirm(applocale.getString("msg/logout/confirm", "This will logout all other accounts from this browser. Confirm?"))){
+                $.ajax({
+                    url: "/system/auth/u/logoutAll",
+                    success: function(data){
+                        if (data.error != undefined){
+                            showError(data.error);
+                        }else{
+                            //Reset the browser pool id
+                            hideError();
+                            listAllStoredAccounts();
+                            if(ao_module_virtualDesktop){
+                                parent.initDesktop();
+                            }
+                        }
+                    }
+                })
+            }
+        }
+
+        function showError(message){
+            function capitalizeFirstLetter(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
+            $("#errtext").text(capitalizeFirstLetter(message));
+            $("#errmsg").show();
+        }
+
+        function hideError(){
+            $("#errmsg").hide();
+        }
+
+        function listAllStoredAccounts(){
+            $("#alternativeAccountList").empty();
+        
+            //Request server side for the account pool
+            $.get("../../system/auth/u/list", function(data){
+                if (data.error != undefined){
+                    $("#signoutAllButton").addClass('disabled');
+                    $("#alternativeAccountList").append(`<div class="ui message">
+                        <i class="ui green check circle icon"></i> ${applocale.getString("desc/noAlternative", "No other account stored on this browser")}
+                    </div>`);
+                    return;
+                }else{
+                    if (data.length > 0){
+                        data.forEach(function(account){
+                            if (account.Username == currentUserInfo.username){
+                                //Skip
+                                return;
+                            }
+                            
+                            $.get("../../system/desktop/user?target=" + account.Username, function(data){
+                                let userIcon = data.UserIcon;
+                                if (userIcon == ""){
+                                    userIcon = "../../img/desktop/system_icon/user.svg"
+                                }
+                                $("#alternativeAccountList").append(`
+                                    <div class="alternativeAccount ${account.IsExpired?"expired":""}" acname="${account.Username}" onclick="switchAccount(this);">
+                                        <div class="ui header">
+                                            <img class="usericon" src="${userIcon}">
+                                            <div class="content" style="font-size: 95% !important;">
+                                                <span class="username">${account.Username}</span> ${(data.IsAdmin)?'<i style="margin-left: 0.4em; color: rgb(38, 50, 56);" class="small shield alternate icon themed text isAdminIcon"></i>':""}
+                                                <div class="sub header usergroup">${!account.IsExpired?"<i class='ui green check circle icon' style='margin-right: 0px;'></i> " + applocale.getString("desc/sessionValid", "Session Valid"):"<i class='ui red times circle icon' style='margin-right: 0px;'></i> " + applocale.getString("desc/sessionExpired", "Session Expired")}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `);
+                            });
+                        });
+                        $("#signoutAllButton").removeClass('disabled');
+                    }else{
+                        $("#signoutAllButton").addClass('disabled');
+                        $("#alternativeAccountList").append(`<div class="ui message">
+                            <i class="ui green check circle icon"></i> ${applocale.getString("desc/noAlternative", "No other account stored on this browser")}
+                        </div>`);
+                        return;
+                    }
+                }
+            })
+        }
+        
+
+        function initCurrentAccountInfo(callback=undefined){
+            $.get("../../system/desktop/user", function(data){
+                if (data.error != undefined){
+                    alert(data.error);
+                    return
+                }
+
+                let userIcon = data.UserIcon;
+                if (userIcon == ""){
+                    userIcon = "../../img/desktop/system_icon/user.svg"
+                }
+                $("#currentUserIcon").attr("src", userIcon);
+                $("#currentUsername").text(data.Username);
+                $("#currentUserGroups").text("@" + data.UserGroups.join(", "));
+
+                if (data.IsAdmin){
+                    $("#isAdminLogo").show();
+                }else{
+                    $("#isAdminLogo").hide();
+                }
+
+                currentUserInfo = {
+                    "username": data.Username,
+                    "admin": data.IsAdmin,
+                    "groups": data.UserGroups,
+                }
+
+                if (callback != undefined){
+                    callback();
+                }
+                
+            });
+        }
+
+        function logout() {
+            loggingOut = true;
+            if (confirm(applocale.getString("msg/logout/thisAcConfirm", "Exiting Session. Confirm?"))){
+                $.get("../../system/auth/logout", function() {
+                    window.top.location.href = "../../";
+                });
+            }
+            hideAllContextMenus();
+        }
+    </script>
+    </body>
+</html>

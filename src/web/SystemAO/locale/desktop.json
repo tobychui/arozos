@@ -96,7 +96,16 @@
                 "power/restart/text":"重啟伺服器主機",
                 "power/restart/instruction":"請輸入你的管理員密碼以確認重啟伺服器",
 
+                "account/switch/logout/confirm":"確認登出所有其他儲存在本瀏覽器的帳戶？",
+                "account/switch/noAlternative":"此瀏覽器上沒有儲存其他帳戶",
+                "account/switch/sessionValid":"登錄狀態可用",
+                "account/switch/sessionExpired":"登錄狀態已過期",
+                "account/switch/addAccount":"新增本機帳戶",
+                "account/switch/signoutAll":"登出其他已儲存的帳戶",
+
                 "upload/message/uploading": "上載中…",
+                "upload/message/failed": "上載失敗",
+
                 "":""
             },
             "placeholder":{
@@ -194,6 +203,13 @@
                 "power/restart/title":"重新啟動 - 輸入密碼以作確認",
                 "power/restart/text":"重啟伺服器主機",
                 "power/restart/instruction":"請輸入你的管理員密碼以確認重啟伺服器",
+                
+                "account/switch/logout/confirm":"確認登出所有其他儲存在本瀏覽器的帳戶？",
+                "account/switch/noAlternative":"此瀏覽器上沒有儲存其他帳戶",
+                "account/switch/sessionValid":"登錄狀態可用",
+                "account/switch/sessionExpired":"登錄狀態已過期",
+                "account/switch/addAccount":"新增本機帳戶",
+                "account/switch/signoutAll":"登出其他已儲存的帳戶",
 
                 "upload/message/uploading": "上載中…",
                 "upload/message/failed": "上載失敗",
@@ -295,6 +311,13 @@
                 "power/restart/text":"服务器重启",
                 "power/restart/instruction":"请输入你的管理员密码以确认重启服务器",
 
+                "account/switch/logout/confirm": "确认登出所有其他储存在本浏览器的帐户？",
+                "account/switch/noAlternative": "此浏览器上没有储存其他帐户",
+                "account/switch/sessionValid": "登录状态可用",
+                "account/switch/sessionExpired": "登录状态已过期",
+                "account/switch/addAccount": "新增本机帐户",
+                "account/switch/signoutAll": "登出其他已储存的帐户",
+
                 "upload/message/uploading": "上传中…",
                 "upload/message/failed": "上传失败",
                 "":""
@@ -391,11 +414,18 @@
                 
                 "power/shutdown/title": "Shut Down - Enter Password to Confirm",
                 "power/shutdown/text": "Turn off server",
-                "power/shutdown/instruction": "Please enter your admin password to initiate the shut down process.",
+                "power/shutdown/instruction": "Enter your admin password to continue shut down process.",
                 "power/restart/title": "Restart - Enter Password to Confirm",
                 "power/restart/text": "Restart server",
-                "power/restart/instruction": "Please enter your admin password to confirm the server restart.",
-    
+                "power/restart/instruction": "Enter your admin password to continue server restart.",
+                
+                "account/switch/logout/confirm": "Confirm Logout from All Other Accounts Stored in this Browser?",
+                "account/switch/noAlternative": "No Other Logged-in Accounts Found on this Browser",
+                "account/switch/sessionValid": "Session Valid",
+                "account/switch/sessionExpired": "Session Expired",
+                "account/switch/addAccount": "Add another account",
+                "account/switch/signoutAll": "Sign-out all accounts",
+
                 "upload/message/uploading": "Uploading...",
                 "":""
             },
@@ -496,6 +526,13 @@
                 "power/restart/title": "再起動 - パスワードを入力して確認してください",
                 "power/restart/text": "サーバーを再起動します",
                 "power/restart/instruction": "サーバーの再起動を確認するには、管理者パスワードを入力してください。",
+                
+                "account/switch/logout/confirm": "このブラウザに保存されている他のすべてのアカウントからログアウトしますか？",
+                "account/switch/noAlternative": "このブラウザで他のログイン中のアカウントは見つかりません",
+                "account/switch/sessionValid": "セッションが有効です",
+                "account/switch/sessionExpired": "セッションが期限切れです",
+                "account/switch/addAccount": "別のアカウントを追加",
+                "account/switch/signoutAll": "すべてのアカウントからサインアウト",
 
                 "upload/message/uploading": "アップロード中...",
                 "":""

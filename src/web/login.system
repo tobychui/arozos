@@ -72,21 +72,21 @@
     }
 
     .themecolor{
-        background-color: #485b73 !important;
+        background-color: #6eacfc !important;
         transition: background-color 0.1s;
     }
 
     .themecolor:hover{
-        background-color: #677c96 !important;
+        background-color: #63a7ff !important;
     }
 
     .subthemecolor{
-        background-color: #3e4f64 !important;
+        background-color: #6eacfc !important;
         transition: background-color 0.1s;
     }
 
     .subthemecolor:hover{
-        background-color: rgb(74, 88, 105) !important;
+        background-color: #61a6ff !important;
     }
 
     .loginbtn{

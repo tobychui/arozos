@@ -46,7 +46,7 @@ func mediaServer_init() {
 	http.HandleFunc("/media/download/", serverMedia)
 }
 
-//This function validate the incoming media request and return fsh, vpath, rpath and err if any
+// This function validate the incoming media request and return fsh, vpath, rpath and err if any
 func media_server_validateSourceFile(w http.ResponseWriter, r *http.Request) (*filesystem.FileSystemHandler, string, string, error) {
 	username, err := authAgent.GetUserName(w, r)
 	if err != nil {
@@ -174,18 +174,6 @@ func serverMedia(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		filename := filepath.Base(escapedRealFilepath)
-
-		/*
-			//12 Jul 2022 Update: Deprecated the browser detection logic
-			userAgent := r.Header.Get("User-Agent")
-			if strings.Contains(userAgent, "Safari/")) {
-				//This is Safari. Use speial header
-				w.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(realFilepath))
-			} else {
-				//Fixing the header issue on Golang url encode lib problems
-				w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+filename)
-			}
-		*/
 
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 		w.Header().Set("Content-Type", compatibility.BrowserCompatibilityOverrideContentType(r.UserAgent(), filename, r.Header.Get("Content-Type")))

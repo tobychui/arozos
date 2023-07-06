@@ -161,7 +161,7 @@ func (e WebDAVFileSystem) IsDir(filename string) bool {
 	return s.IsDir()
 }
 
-//Notes: This is not actual Glob function. This just emulate Glob using ReadDir with max depth 1 layer
+// Notes: This is not actual Glob function. This just emulate Glob using ReadDir with max depth 1 layer
 func (e WebDAVFileSystem) Glob(wildcard string) ([]string, error) {
 	wildcard = filepath.ToSlash(filepath.Clean(wildcard))
 
@@ -172,8 +172,8 @@ func (e WebDAVFileSystem) Glob(wildcard string) ([]string, error) {
 	chunks := strings.Split(strings.TrimPrefix(wildcard, "/"), "/")
 	results, err := e.globpath("/", chunks, 0)
 	return results, err
-
 }
+
 func (e WebDAVFileSystem) GetFileSize(filename string) int64 {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	s, err := e.Stat(filename)
@@ -184,6 +184,7 @@ func (e WebDAVFileSystem) GetFileSize(filename string) int64 {
 
 	return s.Size()
 }
+
 func (e WebDAVFileSystem) GetModTime(filename string) (int64, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	s, err := e.Stat(filename)
@@ -193,10 +194,12 @@ func (e WebDAVFileSystem) GetModTime(filename string) (int64, error) {
 
 	return s.ModTime().Unix(), nil
 }
+
 func (e WebDAVFileSystem) WriteFile(filename string, content []byte, mode os.FileMode) error {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	return e.c.Write(filename, content, mode)
 }
+
 func (e WebDAVFileSystem) ReadFile(filename string) ([]byte, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	bytes, err := e.c.Read(filename)
@@ -205,6 +208,7 @@ func (e WebDAVFileSystem) ReadFile(filename string) ([]byte, error) {
 	}
 	return bytes, nil
 }
+
 func (e WebDAVFileSystem) ReadDir(filename string) ([]fs.DirEntry, error) {
 	filename = filterFilepath(filepath.ToSlash(filepath.Clean(filename)))
 	fis, err := e.c.ReadDir(filename)

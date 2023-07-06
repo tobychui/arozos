@@ -17,7 +17,7 @@ func (u *User) RemoveUser() {
 	u.parent.authAgent.UnregisterUser(u.Username)
 }
 
-//Get the current user icon
+//Get the target user icon
 func (u *User) GetUserIcon() string {
 	var userIconpath []byte
 	u.parent.database.Read("auth", "profilepic/"+u.Username, &userIconpath)

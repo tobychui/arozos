@@ -1,0 +1,148 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "fwtitle" : "帳戶切換管理員",
+            "strings":{
+                "desc/currentAccount":"使用中的帳戶",
+                "desc/savedAccount":"已在此瀏覽器登入之帳戶",
+                "desc/sign-in-new":"切換至其他帳戶",
+                "desc/username":"用戶名稱",
+                "desc/password":"密碼",
+                "desc/enterPassword":"輸入密碼以恢復階段",
+                "desc/switchAccount": "切換帳戶",
+                "desc/noAlternative":"此瀏覽器上沒有儲存其他帳戶",
+                "desc/sessionValid":"登錄狀態可用",
+                "desc/sessionExpired":"登錄狀態已過期",
+                "desc/addAccount":"新增本機帳戶",
+                "desc/signoutAll":"登出其他已儲存的帳戶",
+                
+                "msg/logout/confirm":"確認登出所有其他儲存在本瀏覽器的帳戶？",
+                "msg/logout/thisAcConfirm": "確認登出本帳戶？",
+                "button/login":"登入",
+                "button/logout":"登出",
+
+
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "fwtitle" : "帳戶切換管理員",
+            "strings":{
+                "desc/currentAccount":"使用中的帳戶",
+                "desc/savedAccount":"已在此瀏覽器登入之帳戶",
+                "desc/sign-in-new":"切換至其他帳戶",
+                "desc/username":"用戶名稱",
+                "desc/password":"密碼",
+                "desc/enterPassword":"輸入密碼以恢復階段",
+                "desc/switchAccount": "切換帳戶",
+                "desc/noAlternative":"此瀏覽器上沒有儲存其他帳戶",
+                "desc/sessionValid":"登錄狀態可用",
+                "desc/sessionExpired":"登錄狀態已過期",
+                "desc/addAccount":"新增本機帳戶",
+                "desc/signoutAll":"登出其他已儲存的帳戶",
+
+                "msg/logout/confirm":"確認登出所有其他儲存在本瀏覽器的帳戶？",
+                "msg/logout/thisAcConfirm": "確認登出本帳戶？",
+                "button/login":"登入",
+                "button/logout":"登出",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "fwtitle" : "帐户切换管理员",
+            "strings":{
+                "desc/currentAccount":"使用中的帐户",
+                "desc/savedAccount":"已在此浏览器登入之帐户",
+                "desc/sign-in-new":"切换至其他帐户",
+                "desc/username":"用户名称",
+                "desc/password":"密码",
+                "desc/enterPassword":"输入密码以恢复阶段",
+                "desc/switchAccount": "切换帐户",
+                "desc/noAlternative":"此浏览器上没有储存其他帐户",
+                "desc/sessionValid":"登录状态可用",
+                "desc/sessionExpired":"登录状态已过期",
+                "desc/addAccount":"新增本机帐户",
+                "desc/signoutAll":"登出其他已储存的帐户",
+
+                "msg/logout/confirm":"确认登出所有其他储存在本浏览器的帐户？",
+                "msg/logout/thisAcConfirm": "确认登出本帐户？",
+                "button/login":"登入",
+                "button/logout":"登出",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "en-us": {
+            "fwtitle" : "Account Manager",
+            "strings":{
+                "desc/currentAccount": "Current Account",
+                "desc/savedAccount": "Saved accounts on this browser",
+                "desc/sign-in-new":"Sign-in to new account",
+                "desc/username": "Username",
+                "desc/password": "Password",
+                "desc/enterPassword": "Enter password to resume session",
+                "desc/switchAccount": "Add Local Account",
+                "desc/noAlternative":"No other account stored on this browser",
+                "desc/sessionValid": "Session Valid",
+                "desc/sessionExpired": "Session Expired",
+                "desc/addAccount": "Add local account",
+                "desc/signoutAll":"Sign out other saved accounts",
+
+                "msg/logout/confirm": "This will logout all other accounts from this browser. Confirm?",
+                "msg/logout/thisAcConfirm": "Exiting Session. Confirm?",
+                "button/login": "login",
+                "button/logout": "Logout",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "ja-jp":{
+            "name":"日本語",
+            "fwtitle" : "アカウントマネージャー",
+            "fontFamily":"\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings":{
+                "desc/currentAccount": "現在のアカウント",
+                "desc/savedAccount": "このブラウザに保存されたアカウント",
+                "desc/sign-in-new":"新しいアカウントにサインイン",
+                "desc/username": "ユーザー名",
+                "desc/password": "パスワード",
+                "desc/enterPassword": "セッションを再開するためにパスワードを入力してください",
+                "desc/switchAccount": "ローカルアカウントを追加",
+                "desc/noAlternative":"このブラウザに他のアカウントは保存されていません",
+                "desc/sessionValid": "セッション有効",
+                "desc/sessionExpired": "セッションの有効期限が切れました",
+                "desc/addAccount": "ローカルアカウントを追加",
+                "desc/signoutAll":"他の保存されたアカウントからログアウト",
+
+                "msg/logout/confirm": "これにより、このブラウザから他のすべてのアカウントがログアウトされます。確認しますか？",
+                "msg/logout/thisAcConfirm": "セッションを終了します。確認しますか？",
+                "button/login": "ログイン",
+                "button/logout": "ログアウト"
+            }   
+        }
+    }
+}

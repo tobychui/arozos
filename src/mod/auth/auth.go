@@ -66,6 +66,9 @@ type AuthAgent struct {
 	WhitelistManager *whitelist.WhiteList
 	BlacklistManager *blacklist.BlackList
 
+	//Account Switcher
+	SwitchableAccountManager *SwitchableAccountPoolManager
+
 	//Logger
 	Logger *authlogger.Logger
 }
@@ -78,7 +81,7 @@ type AuthEndpoints struct {
 	Autologin     string
 }
 
-//Constructor
+// Constructor
 func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, allowReg bool, loginRedirectionHandler func(http.ResponseWriter, *http.Request)) *AuthAgent {
 	store := sessions.NewCookieStore(key)
 	err := sysdb.NewTable("auth")
@@ -125,8 +128,13 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 		WhitelistManager: thisWhitelistManager,
 		BlacklistManager: thisBlacklistManager,
 		ExpDelayHandler:  expLoginHandler,
-		Logger:           newLogger,
+
+		//Switchable Account Pool Manager
+		Logger: newLogger,
 	}
+
+	poolManager := NewSwitchableAccountPoolManager(sysdb, &newAuthAgent, key)
+	newAuthAgent.SwitchableAccountManager = poolManager
 
 	//Create a timer to listen to its token storage
 	go func(listeningAuthAgent *AuthAgent) {
@@ -144,7 +152,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 	return &newAuthAgent
 }
 
-//Close the authAgent listener
+// Close the authAgent listener
 func (a *AuthAgent) Close() {
 	//Stop the token listening
 	a.terminateTokenListener <- true
@@ -153,7 +161,7 @@ func (a *AuthAgent) Close() {
 	a.Logger.Close()
 }
 
-//This function will handle an http request and redirect to the given login address if not logged in
+// This function will handle an http request and redirect to the given login address if not logged in
 func (a *AuthAgent) HandleCheckAuth(w http.ResponseWriter, r *http.Request, handler func(http.ResponseWriter, *http.Request)) {
 	if a.CheckAuth(r) {
 		//User already logged in
@@ -164,7 +172,7 @@ func (a *AuthAgent) HandleCheckAuth(w http.ResponseWriter, r *http.Request, hand
 	}
 }
 
-//Handle login request, require POST username and password
+// Handle login request, require POST username and password
 func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	//Get username from request using POST mode
@@ -242,7 +250,7 @@ func (a *AuthAgent) ValidateUsernameAndPassword(username string, password string
 	return succ
 }
 
-//validate the username and password, return reasons if the auth failed
+// validate the username and password, return reasons if the auth failed
 func (a *AuthAgent) ValidateUsernameAndPasswordWithReason(username string, password string) (bool, string) {
 	hashedPassword := Hash(password)
 	var passwordInDB string
@@ -260,7 +268,7 @@ func (a *AuthAgent) ValidateUsernameAndPasswordWithReason(username string, passw
 	}
 }
 
-//Validate the user request for login
+// Validate the user request for login, return true if the target request original is not blocked
 func (a *AuthAgent) ValidateLoginRequest(w http.ResponseWriter, r *http.Request) (bool, error) {
 	//Get the ip address of the request
 	clientIP, err := network.GetIpFromRequest(r)
@@ -287,7 +295,7 @@ func (a *AuthAgent) ValidateLoginIpAccess(ipv4 string) (bool, error) {
 	return true, nil
 }
 
-//Login the user by creating a valid session for this user
+// Login the user by creating a valid session for this user
 func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, username string, rememberme bool) {
 	session, _ := a.SessionStore.Get(r, a.SessionName)
 
@@ -296,7 +304,7 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 	session.Values["rememberMe"] = rememberme
 
 	//Check if remember me is clicked. If yes, set the maxage to 1 week.
-	if rememberme == true {
+	if rememberme {
 		session.Options = &sessions.Options{
 			MaxAge: 3600 * 24 * 7, //One week
 			Path:   "/",
@@ -310,17 +318,26 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 	session.Save(r, w)
 }
 
-//Handle logout, reply OK after logged out. WILL NOT DO REDIRECTION
+// Handle logout, reply OK after logged out. WILL NOT DO REDIRECTION
 func (a *AuthAgent) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	username, _ := a.GetUserName(w, r)
 	if username != "" {
 		log.Println(username + " logged out.")
 	}
+
+	//Clear user switchable account pools
+	fallbackAccount, _ := a.SwitchableAccountManager.HandleLogoutforUser(w, r)
+
 	// Revoke users authentication
 	err := a.Logout(w, r)
 	if err != nil {
 		sendErrorResponse(w, "Logout failed")
 		return
+	}
+
+	if fallbackAccount != "" {
+		//Switch to fallback account
+		a.LoginUserByRequest(w, r, fallbackAccount, true)
 	}
 
 	w.Write([]byte("OK"))
@@ -334,10 +351,11 @@ func (a *AuthAgent) Logout(w http.ResponseWriter, r *http.Request) error {
 	session.Values["authenticated"] = false
 	session.Values["username"] = nil
 	session.Save(r, w)
+
 	return nil
 }
 
-//Get the current session username from request
+// Get the current session username from request
 func (a *AuthAgent) GetUserName(w http.ResponseWriter, r *http.Request) (string, error) {
 	if a.CheckAuth(r) {
 		//This user has logged in.
@@ -349,16 +367,16 @@ func (a *AuthAgent) GetUserName(w http.ResponseWriter, r *http.Request) (string,
 	}
 }
 
-//Check if the user has logged in, return true / false in JSON
+// Check if the user has logged in, return true / false in JSON
 func (a *AuthAgent) CheckLogin(w http.ResponseWriter, r *http.Request) {
-	if a.CheckAuth(r) != false {
+	if a.CheckAuth(r) {
 		sendJSONResponse(w, "true")
 	} else {
 		sendJSONResponse(w, "false")
 	}
 }
 
-//Handle new user register. Require POST username, password, group.
+// Handle new user register. Require POST username, password, group.
 func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	userCount := a.GetUserCounts()
 
@@ -407,7 +425,7 @@ func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-//Check authentication from request header's session value
+// Check authentication from request header's session value
 func (a *AuthAgent) CheckAuth(r *http.Request) bool {
 	session, _ := a.SessionStore.Get(r, a.SessionName)
 	// Check if user is authenticated
@@ -417,11 +435,11 @@ func (a *AuthAgent) CheckAuth(r *http.Request) bool {
 	return true
 }
 
-//Handle de-register of users. Require POST username.
-//THIS FUNCTION WILL NOT CHECK FOR PERMISSION. PLEASE USE WITH PERMISSION HANDLER
+// Handle de-register of users. Require POST username.
+// THIS FUNCTION WILL NOT CHECK FOR PERMISSION. PLEASE USE WITH PERMISSION HANDLER
 func (a *AuthAgent) HandleUnregister(w http.ResponseWriter, r *http.Request) {
 	//Check if the user is logged in
-	if a.CheckAuth(r) == false {
+	if !a.CheckAuth(r) {
 		//This user has not logged in
 		sendErrorResponse(w, "Login required to remove user from the system.")
 		return
@@ -469,10 +487,13 @@ func (a *AuthAgent) UnregisterUser(username string) error {
 
 	//Remove the user's autologin tokens
 	a.RemoveAutologinTokenByUsername(username)
+
+	//Remove user from switchable accounts
+	a.SwitchableAccountManager.RemoveUserFromAllSwitchableAccountPool(username)
 	return nil
 }
 
-//Get the number of users in the system
+// Get the number of users in the system
 func (a *AuthAgent) GetUserCounts() int {
 	entries, _ := a.Database.ListTable("auth")
 	usercount := 0
@@ -489,7 +510,7 @@ func (a *AuthAgent) GetUserCounts() int {
 	return usercount
 }
 
-//List all username within the system
+// List all username within the system
 func (a *AuthAgent) ListUsers() []string {
 	entries, _ := a.Database.ListTable("auth")
 	results := []string{}
@@ -502,7 +523,7 @@ func (a *AuthAgent) ListUsers() []string {
 	return results
 }
 
-//Check if the given username exists
+// Check if the given username exists
 func (a *AuthAgent) UserExists(username string) bool {
 	userpasswordhash := ""
 	err := a.Database.Read("auth", "passhash/"+username, &userpasswordhash)
@@ -512,14 +533,14 @@ func (a *AuthAgent) UserExists(username string) bool {
 	return true
 }
 
-//Update the session expire time given the request header.
+// Update the session expire time given the request header.
 func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Request) bool {
 	session, _ := a.SessionStore.Get(r, a.SessionName)
-	if session.Values["authenticated"].(bool) == true {
+	if session.Values["authenticated"].(bool) {
 		//User authenticated. Extend its expire time
 		rememberme := session.Values["rememberMe"].(bool)
 		//Extend the session expire time
-		if rememberme == true {
+		if rememberme {
 			session.Options = &sessions.Options{
 				MaxAge: 3600 * 24 * 7, //One week
 				Path:   "/",
@@ -537,14 +558,16 @@ func (a *AuthAgent) UpdateSessionExpireTime(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-//Create user account
+// Create user account
 func (a *AuthAgent) CreateUserAccount(newusername string, password string, group []string) error {
 	key := newusername
+
 	hashedPassword := Hash(password)
 	err := a.Database.Write("auth", "passhash/"+key, hashedPassword)
 	if err != nil {
 		return err
 	}
+
 	//Store this user's usergroup settings
 	err = a.Database.Write("auth", "group/"+newusername, group)
 	if err != nil {
@@ -553,7 +576,7 @@ func (a *AuthAgent) CreateUserAccount(newusername string, password string, group
 	return nil
 }
 
-//Hash the given raw string into sha512 hash
+// Hash the given raw string into sha512 hash
 func Hash(raw string) string {
 	h := sha512.New()
 	h.Write([]byte(raw))
