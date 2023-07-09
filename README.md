@@ -358,9 +358,12 @@ If you are looking for tutorials or need help on debugging some minor issues, fe
 
 - [ArozOS+树莓派打造随身NAS（避坑专用）](https://blog.csdn.net/m0_37728676/article/details/113876815)
 - [ArozOS+树莓派小型NAS](http://www.huajia.online/2021/10/23/ArozOS-%E6%A0%91%E8%8E%93%E6%B4%BE%E5%B0%8F%E5%9E%8BNAS/)
-- [树莓派 Arozos 指北](https://blog.pi-dal.com/%E9%80%82%E7%94%A8%E4%BA%8E%E6%A0%91%E8%8E%93%E6%B4%BE%E7%9A%84%E9%80%9A%E7%94%A8Web%E6%A1%8C%E9%9D%A2%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F)
+- [树莓派 Arozos 指北](https://xlog.pi-dal.com/ArozOS-RPI-Tutorial)
 - [Linux:ArozOS 安裝與建立開機自啟動服務](https://pvecli.xuan2host.com/linux-arozos-install-service/)
 
+#### Japanese
+- [ラズパイで動く、高機能WebGUI付きNAS「ArozOS」で遊ぶ](https://www.my-hacks.info/2023/02/08/post-2165/)
+  
 #### Portuguese
 
 - [DESKTOP WEB construído e desenvolvido na LINGUAGEM GO](https://www.youtube.com/watch?v=C42UdgOySY)
