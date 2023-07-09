@@ -99,6 +99,20 @@
         margin-top:1em;
     }
 
+    .alternativeAccount:not(.disabled){
+        cursor: pointer;
+    }
+
+    .alternativeAccount:not(.disabled):hover{
+        background-color: rgb(245, 245, 245);
+    }
+
+    .alternativeAccount:disabled{
+        opacity: 0.6;
+        pointer-events: none !important;
+        user-select: none;
+        cursor: not-allowed;
+    }
     </style>
     </head>
     <body>
@@ -134,6 +148,23 @@
                 <div class="ldaponly" style="display:inline-block;">
                     <a class="ui button oauthbtn subthemecolor" href="ldapLogin.system">Sign In via LDAP</a><br>
                 </div>
+                <div class="resumableOnly" style="display:none;">
+                    <br>
+                    <div class="ui clickable segment alternativeAccount" style="margin-bottom: 0px; padding-bottom: 8px; width: 100%; padding-top: 0px;">
+                        <div style="margin-top: 0.6em;">
+                            <div class="ui header">
+                                <img class="usericon ui circular image" src="img/public/user.svg">
+                                <div class="content" style="font-size: 95% !important;">
+                                    <span class="username"><i class="ui loading spinner icon"></i></span> 
+                                    <div class="sub header usergroup"><i class="ui green check circle icon" style="margin-right: 0px;"></i> Resumable Session</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <br>
+                    <button class="ui subthemecolor newResumableSession button" style="color: white; display:none;"><i class="ui add icon"></i> Create New Session</button>
+                </div>
+
                 <br>
                 <div class="ui breadcrumb" style="margin-top:12px;">
                     <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
@@ -251,6 +282,34 @@
                     $(".ldaponly").show();
                 }else{
                     $(".ldaponly").hide();
+                }
+            });
+
+            //Switchable accounts related code, check if the user has a session to continue
+            $.getJSON("system/auth/u/p/list",function(data){
+                if (data.Username != ""){
+                    //There is a session to resume
+                    let resumeableAccountUsername = data.Username;
+                    $(".resumableOnly").show();
+                    $(".resumableOnly").find(".username").text(data.Username);
+                    console.log(data.ProfileImage, $('.resumableOnly').find(".usericon"));
+                    if (data.ProfileImage != ""){
+                        $('.resumableOnly').find(".usericon").attr("src", data.ProfileImage);
+                    }
+
+                    $(".alternativeAccount").on("click", function(event){
+                        $("#username").val(resumeableAccountUsername);
+                        $("#username").parent().addClass("disabled");
+                        $(".alternativeAccount").addClass("disabled");
+                        $(".newResumableSession").show();
+                    });
+
+                    $(".newResumableSession").on("click", function(event){
+                        $("#username").val("");
+                        $("#username").parent().removeClass("disabled");
+                        $(".alternativeAccount").removeClass("disabled");
+                        $(".newResumableSession").hide();
+                    })
                 }
             });
 

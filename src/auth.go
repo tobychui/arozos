@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"net/http"
 
 	auth "imuslab.com/arozos/mod/auth"
@@ -125,4 +126,24 @@ func AuthSettingsInit() {
 	userRouter.HandleFunc("/system/auth/u/list", authAgent.SwitchableAccountManager.HandleSwitchableAccountListing)
 	userRouter.HandleFunc("/system/auth/u/switch", authAgent.SwitchableAccountManager.HandleAccountSwitch)
 	userRouter.HandleFunc("/system/auth/u/logoutAll", authAgent.SwitchableAccountManager.HandleLogoutAllAccounts)
+
+	//API for not logged in pool check
+	http.HandleFunc("/system/auth/u/p/list", func(w http.ResponseWriter, r *http.Request) {
+		type ResumableSessionAccount struct {
+			Username     string
+			ProfileImage string
+		}
+		resp := ResumableSessionAccount{}
+		sessionOwnerName := authAgent.SwitchableAccountManager.GetUnauthedSwitchableAccountCreatorList(w, r)
+		resp.Username = sessionOwnerName
+		if sessionOwnerName != "" {
+			u, err := userHandler.GetUserInfoFromUsername(sessionOwnerName)
+			if err == nil {
+				resp.ProfileImage = u.GetUserIcon()
+			}
+		}
+
+		js, _ := json.Marshal(resp)
+		utils.SendJSONResponse(w, string(js))
+	})
 }

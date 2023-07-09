@@ -105,8 +105,7 @@ func (m *SwitchableAccountPoolManager) HandleSwitchableAccountListing(w http.Res
 	targetPool, err := m.GetPoolByID(poolid)
 	if err != nil {
 		//Pool expired. Unset the session
-		session.Values["poolid"] = nil
-		session.Save(r, w)
+		unsetPoolidFromSession(session, w, r)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -114,8 +113,7 @@ func (m *SwitchableAccountPoolManager) HandleSwitchableAccountListing(w http.Res
 	//Check if the user can access this pool
 	if !targetPool.IsAccessibleBy(currentUsername) {
 		//Unset the session
-		session.Values["poolid"] = nil
-		session.Save(r, w)
+		unsetPoolidFromSession(session, w, r)
 		utils.SendErrorResponse(w, "access denied")
 		return
 	}
@@ -138,6 +136,28 @@ func (m *SwitchableAccountPoolManager) HandleSwitchableAccountListing(w http.Res
 	}
 	js, _ := json.Marshal(results)
 	utils.SendJSONResponse(w, string(js))
+}
+
+// Handle unauth account listing by cookie. You can use this without authRouter.
+func (m *SwitchableAccountPoolManager) GetUnauthedSwitchableAccountCreatorList(w http.ResponseWriter, r *http.Request) string {
+	resumeSessionOwnerName := ""
+	session, _ := m.SessionStore.Get(r, m.SessionName)
+	poolid, ok := session.Values["poolid"].(string)
+	if !ok {
+		//poolid not found. Return empty string
+		return ""
+	}
+
+	targetPool, err := m.GetPoolByID(poolid)
+	if err != nil {
+		//Target pool not found or all user expired
+		unsetPoolidFromSession(session, w, r)
+		return ""
+	}
+
+	//Get the creator name of the pool
+	resumeSessionOwnerName = targetPool.Creator
+	return resumeSessionOwnerName
 }
 
 // Handle logout of the current user, return the fallback user if any
@@ -167,8 +187,7 @@ func (m *SwitchableAccountPoolManager) HandleLogoutforUser(w http.ResponseWriter
 		targetpool.Delete()
 
 		//Unset the session
-		session.Values["poolid"] = nil
-		session.Save(r, w)
+		unsetPoolidFromSession(session, w, r)
 
 		return "", nil
 	}
@@ -208,8 +227,7 @@ func (m *SwitchableAccountPoolManager) HandleLogoutAllAccounts(w http.ResponseWr
 	targetpool.Delete()
 
 	//Unset the session
-	session.Values["poolid"] = nil
-	session.Save(r, w)
+	unsetPoolidFromSession(session, w, r)
 
 	utils.SendOK(w)
 }
@@ -328,6 +346,37 @@ func (m *SwitchableAccountPoolManager) GetAllPools() ([]*SwitchableAccountsPool,
 	}
 
 	return results, nil
+}
+
+// This function shall be called when user logged in after login session expired.
+// This will see if the user is logging in as the pool creator.
+// If yes, they can continue to access the switchable account pools.
+// if the user is logging in as a sub-account (i.e. not the creator of the switchable account pool),
+// the account pool id will be reset to prevent hacking from sub-account to master account
+func (m *SwitchableAccountPoolManager) MatchPoolCreatorOrResetPoolID(username string, w http.ResponseWriter, r *http.Request) {
+	session, _ := m.SessionStore.Get(r, m.SessionName)
+	poolid, ok := session.Values["poolid"].(string)
+	if !ok {
+		//No pool. Continue
+		return
+	}
+
+	//Get switchable pool from manager
+	targetPool, err := m.GetPoolByID(poolid)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	if targetPool.Creator != username {
+		//Reset the pool id for this user
+		unsetPoolidFromSession(session, w, r)
+
+	} else {
+		//User logging in with master account after login session expired.
+		//Allow user to continue access sub-accounts in the pool
+		return
+	}
 }
 
 // Get a switchable account pool by its id
@@ -485,4 +534,10 @@ func (p *SwitchableAccountsPool) Delete() error {
 // Check if an account is expired
 func (p *SwitchableAccountsPool) IsAccountExpired(acc *SwitchableAccount) bool {
 	return time.Now().Unix() > acc.LastSwitch+p.parent.ExpireTime
+}
+
+func unsetPoolidFromSession(session *sessions.Session, w http.ResponseWriter, r *http.Request) {
+	//Unset the session
+	session.Values["poolid"] = nil
+	session.Save(r, w)
 }

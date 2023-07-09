@@ -229,6 +229,9 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		//Reset user retry count if any
 		a.ExpDelayHandler.ResetUserRetryCount(username, r)
 
+		//Check if the current switchable account pool owner is this user.
+		a.SwitchableAccountManager.MatchPoolCreatorOrResetPoolID(username, w, r)
+
 		//Print the login message to console
 		log.Println(username + " logged in.")
 		a.Logger.LogAuth(r, true)
