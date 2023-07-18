@@ -190,23 +190,23 @@
             }
         },
         "zh-cn": {
-            "fwtitle" : "个人化",
+            "fwtitle" : "个性化",
             "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings":{
                 "menu/wallpaper":"壁纸",
                 "menu/sound":"音效",
                 "menu/theme":"主题",
-                "menu/advance":"进阶",
+                "menu/advance":"高级",
 
                 "wallpaper/title":"桌面壁纸图包",
                 "wallpaper/desc":"使用内置桌面壁纸图包",
                 "wallpaper/option/title": "桌面壁纸背景",
-                "wallpaper/option/desc": "如果您已在进阶页面选择从自定文件夹加载壁纸图包，此项将会自动禁用。",
+                "wallpaper/option/desc": "如果您已在高级页面选择从自定文件夹加载壁纸图包，此项将会自动禁用。",
                 "wallpaper/option/apply": "<i class=\"checkmark icon\"></i> 更新壁纸",
                 "wallpaper/option/updated": "桌面壁纸已更新",
                 "wallpaper/option/updateddesc": "您应该很快便能在桌面看到你的新背景",
-                "wallpaper/option/interval": "桌面壁纸替换间隔",
-                "wallpaper/option/intervaldesc": "设定多久之后自动替换为下一张壁纸",
+                "wallpaper/option/interval": "桌面壁纸更换间隔",
+                "wallpaper/option/intervaldesc": "设定多久之后自动更换为下一张壁纸",
 
                 "wallpaper/interval/10s":"10 秒",
                 "wallpaper/interval/30s":"30 秒",
@@ -217,7 +217,7 @@
                 "wallpaper/interval/30min":"30 分钟",
                 "wallpaper/interval/1h":"1 小时",
 
-                "wallpaper/interval/succ":"壁纸替换间隔设定已更新",
+                "wallpaper/interval/succ":"壁纸更换间隔设定已更新",
                 "wallpaper/interval/succdesc":"注意：此设定只适用于此浏览器。",
 
                 "sound/title":"系统音效",
@@ -226,7 +226,7 @@
                 "sound/custom/desc":"设定使用者进入网页桌面时的启动音效",
                 "sound/custom/disable":"停用",
                 "sound/custom/clear":"清除所选",
-                "sound/custom/select":"选择档案",
+                "sound/custom/select":"选择文件",
                 "sound/disabled": "已停用",
 
                 "themecolor/title":"主题颜色",
@@ -253,25 +253,25 @@
                 "themecolor/color/Default":"还原预设主题配色",
 
 
-                "advance/title":"进阶个人化选项",
+                "advance/title":"高级个性化选项",
                 "advance/desc":"管理您的桌面选项",
                 "advance/wallpaper/title":"自定桌面图包",
                 "advance/wallpaper/desc":"使用自定义文件夹作为桌面图包的存取路径",
                 "advance/wallpaper/disabled":"已停用",
-                "advance/wallpaper/reminder":"如果您选择从个人资料夹加载照片作桌面壁纸图包，系统将会自动停用 <code>壁纸 > 桌面壁纸图包 </code> 内的选项。",
+                "advance/wallpaper/reminder":"如果您选择从个人文件夹加载照片作桌面壁纸图包，系统将会自动停用 <code>壁纸 > 桌面壁纸图包 </code> 内的选项。",
                 "advance/wallpaper/clear":"清除选项",
                 "advance/wallpaper/select":"选择文件夹",
 
-                "advance/mobile/shorcut/title":"手机桌面捷径",
-                "advance/mobile/shorcut/subtitle":"更改手机桌面下方四个捷径之设定",
-                "advance/mobile/shorcut/instruction":"请由 *左至右* 选择你想要的捷径",
-                "advance/mobile/shorcut/shortcut/1":"捷径 1",
-                "advance/mobile/shorcut/shortcut/2":"捷径 2",
-                "advance/mobile/shorcut/shortcut/3":"捷径 3",
-                "advance/mobile/shorcut/shortcut/4":"捷径 4",
-                "advance/mobile/shorcut/save": "<i class='checkmark icon'></i> 储存捷径设定",
-                "advance/mobile/shorcut/updated":"捷径设定已更新",
-                "advance/mobile/shorcut/updateddesc": "开启手柳机桌面界面以浏览变更。",
+                "advance/mobile/shorcut/title":"手机桌面快捷方式",
+                "advance/mobile/shorcut/subtitle":"更改手机桌面下方四个快捷方式的设定",
+                "advance/mobile/shorcut/instruction":"请由 *左至右* 选择你想要的快捷方式",
+                "advance/mobile/shorcut/shortcut/1":"快捷方式 1",
+                "advance/mobile/shorcut/shortcut/2":"快捷方式 2",
+                "advance/mobile/shorcut/shortcut/3":"快捷方式 3",
+                "advance/mobile/shorcut/shortcut/4":"快捷方式 4",
+                "advance/mobile/shorcut/save": "<i class='checkmark icon'></i> 存储快捷方式设定",
+                "advance/mobile/shorcut/updated":"快捷方式设定已更新",
+                "advance/mobile/shorcut/updateddesc": "开启手机桌面界面以浏览变更。",
                 
                 "":""
             },

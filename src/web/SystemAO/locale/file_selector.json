@@ -80,7 +80,7 @@
             "strings":{
                 "title":"选择文件",
                 "roots/user":"使用者",
-                "roots/storage":"虚拟储存装置",
+                "roots/storage":"虚拟存储设备",
                 "message/loading":"载入中…",
                 "message/waitingResp":"正在确认选择…",
                 "message/nofile":"沒有文件",
@@ -90,7 +90,7 @@
                 "sidebar/vroot/music": "音乐",
                 "sidebar/vroot/photo": "图片",
                 "sidebar/vroot/video": "影片",
-                "sidebar/vroot/trash": "回收箱",
+                "sidebar/vroot/trash": "垃圾箱",
                 "sidebar/vroot/download": "下载",
                 "sidebar/vroot/web": "网页",
                 "sidebar/vroot/model": "模型",
@@ -101,13 +101,13 @@
             "titles":{
                 "Back":"上一页",
                 "Parent":"返回上层目录",
-                "Refresh":"重新整理",
-                "Create Folder":"建立资料夹",
-                "New Folder":"新增资料夹"
+                "Refresh":"刷新",
+                "Create Folder":"创建文件夹",
+                "New Folder":"新增文件夹"
             },
             "placeholder":{
-                "New Filename":"新增档案",
-                "New Folder":"新增资料夹"
+                "New Filename":"新增文件",
+                "New Folder":"新增文件夹"
             } 
         }
     }

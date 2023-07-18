@@ -31,8 +31,8 @@
         "zh-cn": {
             "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings":{
-                "page/title" : "管理员身份验证 ",
-                "button/confirm":"确认",
+                "page/title" : "管理员身份认证 ",
+                "button/confirm":"确定",
                 "button/cancel":"取消",
                 "":""
             },
