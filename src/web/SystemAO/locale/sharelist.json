@@ -53,13 +53,13 @@
             }
         },
         "zh-cn": {
-            "fwtitle" : "分享管理员",
+            "fwtitle" : "分享管理器",
             "strings":{
-                "title/title": "分享管理员",
-                "title/desc":"在此虚拟磁碟内的分享连结",
-                "message/noshare/title":"没有分享连结",
-                "message/noshare/desc":"此虚拟磁碟内并没有已分享之连结。试试从档案管理员选择一个档案并点击「分享」？ ",
-                "message/delwarning": "所有协作者将无法通过档案共享界面访问此文件。确认？",
+                "title/title": "分享管理器",
+                "title/desc":"在此虚拟磁盘内的分享链接",
+                "message/noshare/title":"没有分享链接",
+                "message/noshare/desc":"此虚拟磁盘内并没有已分享的链接。试试从文件管理器选择一个文件并点击「分享」？ ",
+                "message/delwarning": "所有协作者将无法通过文件共享界面访问此文件。确认？",
                 "message/removed": "已移除分享",
                 "item/creator":"创建者：",
                 "item/perm":"存取权限：",
@@ -67,9 +67,9 @@
                 "":""
             },
             "titles":{
-                "Copy Link": "拷贝連結",
+                "Copy Link": "复制链接",
                 "Open Share":"打开分享页",
-                "Open in File Manager": "在档案管理员打开",
+                "Open in File Manager": "在文件管理器打开",
                 "Delete Share": "删除此分享"
             },
             "placeholder":{

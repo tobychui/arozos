@@ -67,27 +67,27 @@
             }
         },
         "zh-cn": {
-            "fwtitle" : "硬盘概览",
+            "fwtitle" : "磁盘概览",
             "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
             "strings":{
-                "title/title":"硬盘概览",
-                "title/desc":"关于此虚拟储存装置对应的硬盘挂载点",
+                "title/title":"磁盘概览",
+                "title/desc":"关于此虚拟储存设备对应的磁盘挂载点",
 
-                "diskinfo/physical":"物理硬盘",
-                "diskinfo/hierarchy":"储存装置结构（格式）",
+                "diskinfo/physical":"物理磁盘",
+                "diskinfo/hierarchy":"储存设备结构（格式）",
 
                 "hierarchy/User":"使用者分隔",
-                "hierarchy/Public":"共用硬盘",
-                "hierarchy/Backup":"備份硬盘",
+                "hierarchy/Public":"共享磁盘",
+                "hierarchy/Backup":"备份磁盘",
 
-                "spaceinfo/totalUsed":"已使用硬盘空間",
-                "spaceinfo/userUsed":"使用者硬盘空間",
-                "spaceinfo/Usable":"可用硬盘空間",
-                "spaceinfo/Capacity":"硬盘容量",
+                "spaceinfo/totalUsed":"已使用磁盘空间",
+                "spaceinfo/userUsed":"使用者磁盘空间",
+                "spaceinfo/Usable":"可用磁盘空间",
+                "spaceinfo/Capacity":"磁盘容量",
 
-                "unit/bytes":" 个位元组",
+                "unit/bytes":" 字节",
 
-                "button/close":"确认",
+                "button/close":"确定",
 
                 "":""
             },

@@ -35,9 +35,16 @@
             }
         },
         "zh-cn": {
-            "fwtitle" : "",
+            "fwtitle" : "选择预设网页应用程序",
             "strings":{
+                "message/select":"请选择用于打开 ",
+                "message/files":" 文件的预设网页应用程序",
 
+                "button/showAll":"显示全部应用程序",
+                "button/showRelevent":"显示相关应用程序",
+                "button/cancel":"取消",
+                "button/confirm":"确定",
+                "":""
             },
             "titles":{
 

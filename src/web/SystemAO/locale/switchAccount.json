@@ -63,16 +63,16 @@
             }
         },
         "zh-cn": {
-            "fwtitle" : "帐户切换管理员",
+            "fwtitle" : "帐户切换管理器",
             "strings":{
                 "desc/currentAccount":"使用中的帐户",
-                "desc/savedAccount":"已在此浏览器登入之帐户",
+                "desc/savedAccount":"已在此浏览器登录之帐户",
                 "desc/sign-in-new":"切换至其他帐户",
                 "desc/username":"用户名称",
                 "desc/password":"密码",
-                "desc/enterPassword":"输入密码以恢复阶段",
+                "desc/enterPassword":"输入密码以恢复状态",
                 "desc/switchAccount": "切换帐户",
-                "desc/noAlternative":"此浏览器上没有储存其他帐户",
+                "desc/noAlternative":"此浏览器上没有存储其他帐户",
                 "desc/sessionValid":"登录状态可用",
                 "desc/sessionExpired":"登录状态已过期",
                 "desc/addAccount":"新增本机帐户",
@@ -80,7 +80,7 @@
 
                 "msg/logout/confirm":"确认登出所有其他储存在本浏览器的帐户？",
                 "msg/logout/thisAcConfirm": "确认登出本帐户？",
-                "button/login":"登入",
+                "button/login":"登录",
                 "button/logout":"登出",
                 "":""
             },
