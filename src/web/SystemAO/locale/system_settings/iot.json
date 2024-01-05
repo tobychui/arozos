@@ -1,0 +1,54 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "locale/iot-control-panel-title": "IoT 控制面板",
+                "locale/iot-hub-title": "IoT 中心",
+                "locale/iot-hub-description": "支援的 IoT 協議掃描器清單",
+                "locale/protocol-name": "協議名稱",
+                "locale/description": "描述",
+                "locale/version-protocol": "版本（協議）",
+                "locale/author": "作者",
+                "locale/release-date": "發布日期"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "locale/iot-control-panel-title": "IoT 控制面板",
+                "locale/iot-hub-title": "IoT 中心",
+                "locale/iot-hub-description": "支援的 IoT 協議掃描器清單",
+                "locale/protocol-name": "協議名稱",
+                "locale/description": "描述",
+                "locale/version-protocol": "版本（協議）",
+                "locale/author": "作者",
+                "locale/release-date": "發布日期"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "fwtitle": "",
+            "strings": {
+                "locale/iot-control-panel-title": "IoT 控制面板",
+                "locale/iot-hub-title": "IoT 中心",
+                "locale/iot-hub-description": "支持的 IoT 协议扫描器清单",
+                "locale/protocol-name": "协议名称",
+                "locale/description": "描述",
+                "locale/version-protocol": "版本（协议）",
+                "locale/author": "作者",
+                "locale/release-date": "发布日期"
+            },
+            "titles": {},
+            "placeholder": {}
+        }
+    }
+}

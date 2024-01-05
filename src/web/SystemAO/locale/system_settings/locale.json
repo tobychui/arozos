@@ -1,0 +1,51 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "locale/language-setting-title": "語言設定",
+                "locale/language-setting-description": "您可以在這裡更改顯示語言。<br> 語言設定只會影響當前的電腦。",
+                "locale/setting-updated-title": "設定已更新。請登出以應用這些更改。",
+                "locale/display-language-label": "顯示語言",
+                "locale/language-default-text": "語言",
+                "locale/browser-default": "瀏覽器預設",
+                "locale/update-button": "更新"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "locale/language-setting-title": "語言設定",
+                "locale/language-setting-description": "您可以在這裡更改顯示語言。<br> 語言設定只會影響當前的電腦。",
+                "locale/setting-updated-title": "設定已更新。請登出以應用這些更改。",
+                "locale/display-language-label": "顯示語言",
+                "locale/language-default-text": "語言",
+                "locale/browser-default": "瀏覽器預設",
+                "locale/update-button": "更新"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "fwtitle": "",
+            "strings": {
+                "locale/language-setting-title": "语言设置",
+                "locale/language-setting-description": "您可以在这里更改显示语言。<br> 语言设置只会影响当前计算机。",
+                "locale/setting-updated-title": "设置已更新。请注销以应用这些更改。",
+                "locale/display-language-label": "显示语言",
+                "locale/language-default-text": "语言",
+                "locale/browser-default": "浏览器默认",
+                "locale/update-button": "更新"
+            },
+            "titles": {},
+            "placeholder": {}
+        }
+    }
+}

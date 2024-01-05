@@ -1,0 +1,48 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "displaytest/display-test-title": "ArozOS 顯示測試",
+                "displaytest/display-testing-title": "顯示測試",
+                "displaytest/display-testing-subheader": "簡單的顯示測試工具",
+                "displaytest/dead-pixel-test-title": "死點測試",
+                "displaytest/dead-pixel-test-description": "此測試將彈出具有全螢幕功能的新視窗。要退出測試，按鍵盤上的 ESC 鍵或在觸摸屏設備上向下滑動並按“關閉”按鈕。",
+                "displaytest/start-test-button": "開始測試"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "displaytest/display-test-title": "ArozOS 顯示測試",
+                "displaytest/display-testing-title": "顯示測試",
+                "displaytest/display-testing-subheader": "簡單的顯示測試工具",
+                "displaytest/dead-pixel-test-title": "死點測試",
+                "displaytest/dead-pixel-test-description": "此測試將彈出具有全螢幕功能的新視窗。要退出測試，按鍵盤上的 ESC 鍵或在觸摸屏設備上向下滑動並按“關閉”按鈕。",
+                "displaytest/start-test-button": "開始測試"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "fwtitle": "",
+            "strings": {
+                "displaytest/display-test-title": "ArozOS 显示测试",
+                "displaytest/display-testing-title": "显示测试",
+                "displaytest/display-testing-subheader": "简单的显示测试工具",
+                "displaytest/dead-pixel-test-title": "坏点测试",
+                "displaytest/dead-pixel-test-description": "此测试将弹出具有全屏功能的新窗口。要退出测试，请按键盘上的 ESC 键或在触摸屏设备上向下滑动并按“关闭”按钮。",
+                "displaytest/start-test-button": "开始测试"
+            },
+            "titles": {},
+            "placeholder": {}
+        }
+    }
+}

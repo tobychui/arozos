@@ -1,0 +1,68 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "clientinfo/client-information-title": "客戶端資訊",
+                "clientinfo/client-device-information": "客戶端設備資訊",
+                "clientinfo/client-device-information-subheader": "這些是您的瀏覽器提供給 ArozOS 的資訊。",
+                "clientinfo/browser-information": "瀏覽器資訊",
+                "clientinfo/cookie-enabled": "Cookie 已啟用",
+                "clientinfo/operation-system": "作業系統",
+                "clientinfo/application-name": "應用程式名稱",
+                "clientinfo/browser-engine": "瀏覽器引擎",
+                "clientinfo/user-agent": "使用者代理"
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "clientinfo/client-information-title": "客戶端資訊",
+                "clientinfo/client-device-information": "客戶端設備資訊",
+                "clientinfo/client-device-information-subheader": "這些是您的瀏覽器提供給 ArozOS 的資訊。",
+                "clientinfo/browser-information": "瀏覽器資訊",
+                "clientinfo/cookie-enabled": "Cookie 已啟用",
+                "clientinfo/operation-system": "操作系統",
+                "clientinfo/application-name": "應用程式名稱",
+                "clientinfo/browser-engine": "瀏覽器引擎",
+                "clientinfo/user-agent": "使用者代理"
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "strings":{
+                "clientinfo/client-information-title": "客户端信息",
+                "clientinfo/client-device-information": "客户端设备信息",
+                "clientinfo/client-device-information-subheader": "这些是您的浏览器提供给 ArozOS 的信息。",
+                "clientinfo/browser-information": "浏览器信息",
+                "clientinfo/cookie-enabled": "Cookie 已启用",
+                "clientinfo/operation-system": "操作系统",
+                "clientinfo/application-name": "应用程序名称",
+                "clientinfo/browser-engine": "浏览器引擎",
+                "clientinfo/user-agent": "用户代理"
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

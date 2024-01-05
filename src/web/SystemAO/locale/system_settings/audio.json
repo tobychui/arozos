@@ -1,0 +1,69 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "arozaudio/arozaudio-title": "ArozOS 音訊測試",
+                "arozaudio/system-audio": "系統音訊",
+                "arozaudio/system-audio-subheader": "測試和調整您的全局音訊/音量設置",
+                "arozaudio/left-speaker": "左喇叭",
+                "arozaudio/speaker-test": "音訊測試",
+                "arozaudio/right-speaker": "右喇叭",
+                "arozaudio/master-volume": "主音量",
+                "arozaudio/this-device-global-volume": "此設備全局音量：",
+                "arozaudio/some-modules-volume": "某些模組使用獨立的音量管理系統。主音量可能無法控制所有模組的音量。"
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "arozaudio/arozaudio-title": "ArozOS 音訊測試",
+                "arozaudio/system-audio": "系統音訊",
+                "arozaudio/system-audio-subheader": "測試和調整您的全局音訊/音量設置",
+                "arozaudio/left-speaker": "左喇叭",
+                "arozaudio/speaker-test": "音訊測試",
+                "arozaudio/right-speaker": "右喇叭",
+                "arozaudio/master-volume": "主音量",
+                "arozaudio/this-device-global-volume": "此設備全局音量：",
+                "arozaudio/some-modules-volume": "某些模組使用獨立的音量管理系統。主音量可能無法控制所有模組的音量。"
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "fwtitle" : "",
+            "strings":{
+                "arozaudio/arozaudio-title": "ArozOS 音频测试",
+                "arozaudio/system-audio": "系统音频",
+                "arozaudio/system-audio-subheader": "测试和调整全局音频/音量设置",
+                "arozaudio/left-speaker": "左扬声器",
+                "arozaudio/speaker-test": "扬声器测试",
+                "arozaudio/right-speaker": "右扬声器",
+                "arozaudio/master-volume": "主音量",
+                "arozaudio/this-device-global-volume": "设备全局音量：",
+                "arozaudio/some-modules-volume": "某些模块使用独立的音量管理系统。主音量可能无法控制所有模块的音量。"
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}

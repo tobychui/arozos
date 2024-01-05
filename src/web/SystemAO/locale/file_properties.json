@@ -38,6 +38,9 @@
                 "counter/files": " 個檔案",
                 "counter/folders": " 個資料夾",
 
+                "properties/error/Not available for network folders":"不適用於網絡資料夾",
+                "properties/error/No record":"沒有記錄",
+
                 "":""
             }
         },
@@ -77,6 +80,9 @@
                 "counter/files": " 個檔案",
                 "counter/folders": " 個資料夾",
 
+                "properties/error/Not available for network folders":"不適用於網絡資料夾",
+                "properties/error/No record":"沒有記錄",
+
                 "":""
             }
         },
@@ -115,6 +121,9 @@
 
                 "counter/files": " 个文件",
                 "counter/folders": " 个文件夹",
+
+                "properties/error/Not available for network folders":"不适用于网络资料夹",
+                "properties/error/No record":"没有记录",
 
                 "":""
             }

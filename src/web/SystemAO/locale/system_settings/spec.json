@@ -1,0 +1,140 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "hwinfo/specifications": "規格",
+                "hwinfo/model": "處理器型號",
+                "hwinfo/frequency": "處理器頻率",
+                "hwinfo/instruction": "指令集",
+                "hwinfo/hardware": "硬件",
+                "hwinfo/revision": "版本",
+                "hwinfo/memory": "記憶體",
+                "hwinfo/nic": "網卡",
+                "hwinfo/drive": "硬碟",
+                "hwinfo/usb": "USB",
+                "hwinfo/operation_time": "運行時間",
+                "hwinfo/boot_time": "啟動時間",
+                "hwinfo/up_time": "運行時間",
+
+                "taskManager/cpu": "處理器",
+                "taskManager/cpu_description": "過去 60 秒內的 CPU 使用率 (%)",
+                "taskManager/cpu_info": "通用處理器",
+                "taskManager/cpu_usage_description": "使用率",
+                "taskManager/cpu_frequency_description": "時脈頻率",
+                "taskManager/memory": "記憶體",
+                "taskManager/memory_description": "RAM 使用率",
+                "taskManager/memory_info": "載入中...",
+                "taskManager/ram_used_description": "已使用",
+                "taskManager/ram_used_percentage_description": "已使用 (%)",
+                "taskManager/ram_total_description": "總計",
+                "taskManager/network": "網絡",
+                "taskManager/network_description": "過去 60 秒內的網絡使用情況",
+                "taskManager/network_scale": "100 kbps",
+                "taskManager/network_received_description": "接收",
+                "taskManager/network_transmitted_description": "傳輸",
+            
+
+                
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "hwinfo/specifications": "規格",
+                "hwinfo/model": "處理器型號",
+                "hwinfo/frequency": "處理器頻率",
+                "hwinfo/instruction": "指令集",
+                "hwinfo/hardware": "硬件",
+                "hwinfo/revision": "版本",
+                "hwinfo/memory": "內存",
+                "hwinfo/nic": "網卡",
+                "hwinfo/drive": "硬碟",
+                "hwinfo/usb": "USB",
+                "hwinfo/operation_time": "運行時間",
+                "hwinfo/boot_time": "啟動時間",
+                "hwinfo/up_time": "運行時間",
+
+                "taskManager/cpu": "處理器",
+                "taskManager/cpu_description": "過去 60 秒內的 CPU 使用率 (%)",
+                "taskManager/cpu_info": "通用處理器",
+                "taskManager/cpu_usage_description": "使用率",
+                "taskManager/cpu_frequency_description": "時脈頻率",
+                "taskManager/memory": "記憶體",
+                "taskManager/memory_description": "RAM 使用率",
+                "taskManager/memory_info": "載入中...",
+                "taskManager/ram_used_description": "已使用",
+                "taskManager/ram_used_percentage_description": "已使用 (%)",
+                "taskManager/ram_total_description": "總計",
+                "taskManager/network": "網絡",
+                "taskManager/network_description": "過去 60 秒內的網絡使用情況",
+                "taskManager/network_scale": "100 kbps",
+                "taskManager/network_received_description": "接收",
+                "taskManager/network_transmitted_description": "傳輸",
+
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "fwtitle" : "",
+            "strings":{
+                "hwinfo/specifications": "规格",
+                "hwinfo/model": "处理器型号",
+                "hwinfo/frequency": "处理器频率",
+                "hwinfo/instruction": "指令集",
+                "hwinfo/hardware": "硬件",
+                "hwinfo/revision": "版本",
+                "hwinfo/memory": "内存",
+                "hwinfo/nic": "网卡",
+                "hwinfo/drive": "硬碟",
+                "hwinfo/usb": "USB",
+                "hwinfo/operation_time": "运行时间",
+                "hwinfo/boot_time": "启动时间",
+                "hwinfo/up_time": "运行时间",
+
+                "taskManager/cpu": "处理器",
+                "taskManager/cpu_description": "过去 60 秒内的 CPU 使用率 (%)",
+                "taskManager/cpu_info": "通用处理器",
+                "taskManager/cpu_usage_description": "使用率",
+                "taskManager/cpu_frequency_description": "时脉频率",
+                "taskManager/memory": "记忆体",
+                "taskManager/memory_description": "RAM 使用率",
+                "taskManager/memory_info": "载入中...",
+                "taskManager/ram_used_description": "已使用",
+                "taskManager/ram_used_percentage_description": "已使用 (%)",
+                "taskManager/ram_total_description": "总计",
+                "taskManager/network": "网络",
+                "taskManager/network_description": "过去 60 秒内的网络使用情况",
+                "taskManager/network_scale": "100 kbps",
+                "taskManager/network_received_description": "接收",
+                "taskManager/network_transmitted_description": "传输",
+                
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+
+            }
+        }
+    }
+}
