@@ -10,6 +10,7 @@
 	<script src="../../script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="../../script/ao_module.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
+    <link rel="stylesheet" href="../../script/ao.css">
     <style>
         .hidden{
             display:none;
@@ -52,6 +53,30 @@
 
         .smallerFont{
             font-size: 98%;
+        }
+
+        /* Theme overwrite */
+        body{
+            background-color: var(--body_background);
+            color: var(--text_color);
+        }
+
+        input{
+            background-color: var(--body_background_secondary) !important;
+            color: var(--text_color_secondary) !important;
+            border: 1px solid var(--body_background_active) !important;
+        }
+
+        button{
+            background-color: var(--body_background_active) !important;
+            color: var(--text_color) !important;
+        }
+        button:hover{
+            opacity: 0.8;
+        }
+
+        td,.header,p,div,span{
+            color: var(--text_color) !important;
         }
     </style>
 </head>
@@ -272,9 +297,9 @@
                     loadPreference("file_explorer/theme",function(data){
                         if (data.error === undefined){
                             if (data == "darkTheme"){
-                                toggleDarkTheme();
+                                $("body").addClass("darkTheme");
                             }else{
-                                //White theme. Do nothing
+                                $("body").addClass("whiteTheme");
                             }
                         }
                     });
@@ -284,41 +309,9 @@
         }
 
         function loadPreference(key, callback){
-                $.get("../../system/file_system/preference?key=" + key,function(data){
-                    callback(data);
-                });
-            }
-
-        function toggleDarkTheme(){
-            $("body").css({
-                "background-color":"#242330",
-                "color":"white",
+            $.get("../../system/file_system/preference?key=" + key,function(data){
+                callback(data);
             });
-
-            $("input").css({
-                "background":"#242330",
-                "color":"white",
-                "border": "1px solid #e9e9e9"
-            });
-
-            $("input.focus").css({
-                "background":"#242330",
-                "color":"white"
-            })
-
-            $("td,.header,p,div,span").css({
-                "color":"white",
-            });
-
-            $("button").css({
-                "background-color":"#312f42",
-                'border':"1px solid #262533",
-                "color":"white"
-            })
-
-            $("button:hover").css({
-                "background-color": "#424054"
-            })
         }
 
     </script>

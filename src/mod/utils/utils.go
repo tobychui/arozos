@@ -173,3 +173,18 @@ func StringInArrayIgnoreCase(arr []string, str string) bool {
 
 	return StringInArray(smallArray, strings.ToLower(str))
 }
+
+// Load template and replace keys within
+func Templateload(templateFile string, data map[string]string) (string, error) {
+	content, err := os.ReadFile(templateFile)
+	if err != nil {
+		return "", err
+	}
+
+	for key, value := range data {
+		key = "{{" + key + "}}"
+		content = []byte(strings.ReplaceAll(string(content), key, value))
+	}
+
+	return string(content), nil
+}

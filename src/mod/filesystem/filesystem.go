@@ -49,9 +49,9 @@ type FileSystemOpeningOptions struct{
 */
 
 /*
-	An interface for storing data related to a specific hierarchy settings.
-	Example like the account information of network drive,
-	backup mode of backup drive etc
+An interface for storing data related to a specific hierarchy settings.
+Example like the account information of network drive,
+backup mode of backup drive etc
 */
 type HierarchySpecificConfig interface{}
 
@@ -89,7 +89,7 @@ type FileSystemAbstraction interface {
 	Heartbeat() error
 }
 
-//System Handler for returing
+// System Handler for returing
 type FileSystemHandler struct {
 	Name                  string
 	UUID                  string
@@ -107,7 +107,7 @@ type FileSystemHandler struct {
 	Closed                bool
 }
 
-//Create a list of file system handler from the given json content
+// Create a list of file system handler from the given json content
 func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, error) {
 	//Generate a list of handler option from json file
 	options, err := loadConfigFromJSON(jsonContent)
@@ -129,7 +129,7 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, er
 	return resultingHandlers, nil
 }
 
-//Create a new file system handler with the given config
+// Create a new file system handler with the given config
 func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 	fstype := strings.ToLower(option.Filesystem)
 	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
@@ -208,11 +208,14 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 	} else if fstype == "smb" {
 		//SMB. Create an object and mount it
 		pathChunks := strings.Split(strings.ReplaceAll(option.Path, "\\", "/"), "/")
-		if len(pathChunks) != 2 {
-			return nil, errors.New("Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share]")
+
+		if len(pathChunks) < 2 {
+			log.Println("[File System] Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]")
+			return nil, errors.New("Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]")
 		}
+
 		ipAddr := pathChunks[0]
-		rootShare := pathChunks[1]
+		rootShare := strings.Join(pathChunks[1:], "/")
 		user := option.Username
 		password := option.Password
 		smbfs, err := smbfs.NewServerMessageBlockFileSystemAbstraction(
@@ -405,7 +408,7 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username st
 	fsh database that keep track of which files is owned by whom
 */
 
-//Create a file ownership record
+// Create a file ownership record
 func (fsh *FileSystemHandler) CreateFileRecord(rpath string, owner string) error {
 	if fsh.FilesystemDatabase == nil {
 		//Not supported file system type
@@ -416,7 +419,7 @@ func (fsh *FileSystemHandler) CreateFileRecord(rpath string, owner string) error
 	return nil
 }
 
-//Read the owner of a file
+// Read the owner of a file
 func (fsh *FileSystemHandler) GetFileRecord(rpath string) (string, error) {
 	if fsh.FilesystemDatabase == nil {
 		//Not supported file system type
@@ -433,7 +436,7 @@ func (fsh *FileSystemHandler) GetFileRecord(rpath string) (string, error) {
 	}
 }
 
-//Delete a file ownership record
+// Delete a file ownership record
 func (fsh *FileSystemHandler) DeleteFileRecord(rpath string) error {
 	if fsh.FilesystemDatabase == nil {
 		//Not supported file system type
@@ -448,7 +451,7 @@ func (fsh *FileSystemHandler) DeleteFileRecord(rpath string) error {
 	return nil
 }
 
-//Reload the target file system abstraction
+// Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	log.Println("[File System] Reloading File System Abstraction for " + fsh.Name)
 	//Load the start option for this fsh
@@ -473,7 +476,7 @@ func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	return nil
 }
 
-//Close an openeded File System
+// Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
 	//Set the close flag to true so others function wont access it
 	fsh.Closed = true
@@ -490,7 +493,7 @@ func (fsh *FileSystemHandler) Close() {
 	}
 }
 
-//Helper function
+// Helper function
 func inSlice(slice []string, val string) bool {
 	for _, item := range slice {
 		if item == val {

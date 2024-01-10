@@ -193,8 +193,8 @@
                 </table>
                 <div style="height: 34px;">
                     <div class="ui right floated buttons">
-                        <button title="Share File" class="ui basic icon button shareBtn" onclick="shareFile();"><i class="share alternate icon"></i></button>
-                        <button title="Expand Properties Sidebar" class="ui basic icon button sizeToggle" onclick="togglePreviewWindowSize();"><i class="expand icon"></i></button>
+                        <button style="min-width: 2.5em;" title="Share File" class="ui basic icon button shareBtn" onclick="shareFile();"><i class="share alternate icon"></i></button>
+                        <button style="min-width: 2.5em;" title="Expand Properties Sidebar" class="ui basic icon button sizeToggle" onclick="togglePreviewWindowSize();"><i class="expand icon"></i></button>
                     </div>
                 </div>
             </div>
@@ -566,6 +566,7 @@
             //Keypress listeners
             let ctrlHold = false;
             let shiftHold = false;
+            let lastClickedElement = undefined;
 
             //Upload related
             let uploadingFileCount = 0;
@@ -585,7 +586,6 @@
             let systemIP = "";
 
             //Browser detection
-            //TODO: REMOVE DEBUG
             let isMobile = window.mobilecheck();
             let isChromium = window.chrome;
             let isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
@@ -1871,6 +1871,8 @@
 
                $(document).on("click",function(evt){
                    $(".contextmenu").removeClass("visible");
+                   //Record what has been clicked
+                    lastClickedElement = evt.target;
                     //Enable scroll on folderView
                     //$("#folderView").removeClass("fixscroll");
                });
@@ -2363,11 +2365,11 @@
             function confirmRename(oldName=undefined, newName=undefined){
                 renameMode = false;
                 if (oldName == undefined){
-                    oldName = $("#renameBox").find(".orgfn").val();
+                    oldName = $("#renameBox").find(".orgfn").val().trim();
                 }
 
                 if (newName == undefined){
-                    newName = $("#renameBox").find(".newfn").val();
+                    newName = $("#renameBox").find(".newfn").val().trim();
                 }
 
                 if (newName == oldName){
@@ -2460,6 +2462,7 @@
                 if ($(".fileObject.selected").length == 0){
                     return;
                 }
+
                 $(".fileObject.selected").each(function(){
                     var thisFilepath = $(this).attr("filepath");
                     clipboard.push(thisFilepath);
@@ -3194,7 +3197,7 @@
                     $("#newFolder").transition("slide left in");
                 }else{
                     //Create new folder
-                    var newFoldername = $("#createNewFolder").val();
+                    var newFoldername = $("#createNewFolder").val().trim();
                     if (newFoldername == ""){
                         $("#createNewFolder").parent().addClass("error");
                         return;
@@ -3922,6 +3925,8 @@
                 });
             }
 
+            
+
             //Keyboard hotkey events
             $(document).keydown(function(event){
                 if ($(':focus').is("input")){
@@ -3947,17 +3952,29 @@
                 }else if (event.which == 67 && ctrlHold == true){
                     //Ctrl + C
                     if (!$(".popup").is(":visible")){
+                        if ($(lastClickedElement).closest("#propertiesView").length > 0){
+                            //Inside the file properties View
+                            return;
+                        }
                         event.preventDefault();
                         copy();
                     } 
                 }else if (event.which == 88 && ctrlHold == true){
                     //Ctrl + X
                     if (!$(".popup").is(":visible")){
+                        if ($(lastClickedElement).closest("#propertiesView").length > 0){
+                            //Inside the file properties View
+                            return;
+                        }
                         event.preventDefault();
                         cut();
                     }
                 }else if (event.which == 65 && ctrlHold == true){
                     //Ctrl + A
+                    if ($(lastClickedElement).closest("#propertiesView").length > 0){
+                        //Inside the file properties View
+                        return;
+                    }
                     event.preventDefault();
                     $(".fileObject").addClass("selected");
                     updateSelectedObjectsCount();
@@ -3968,6 +3985,10 @@
 
                 }else if (event.which == 86 && ctrlHold == true){
                     if (!$(".popup").is(":visible")){
+                        if ($(lastClickedElement).closest("#propertiesView").length > 0){
+                            //Inside the file properties View
+                            return;
+                        }
                         paste();
                     } 
                 }else if (event.which == 46 && shiftHold == true){
@@ -5393,51 +5414,52 @@
                         $("#propertiesView").find(".vpath").text(data.VirtualPath);
 
                         let propTable = $("#propertiesView").find(".propertiesTable");
+                        let styleOverwrite = `min-width: 4em;`;
                         $(propTable).html("");
                         $(propTable).append(`<tr>
-                            <td>
+                            <td style="${styleOverwrite}">
                                 ${applocale.getString("sidebar/properties/filesize", "File Size")}
                             </td>
                             <td>
                                 ${bytesToSize(data.Filesize)}
                             </td>
                         </tr><tr>
-                            <td>
+                            <td style="${styleOverwrite}">
                                 ${applocale.getString("sidebar/properties/modtime", "Last Modification")}
                             </td>
                             <td>
                                 ${data.LastModTime}
                             </td>
                         </tr><tr>
-                            <td>
+                            <td style="${styleOverwrite}">
                                 ${applocale.getString("sidebar/properties/mimetype", "MIME Type")}
                             </td>
                             <td>
                                 ${data.MimeType}
                             </td>
                         </tr><tr>
-                            <td>
+                            <td style="${styleOverwrite}">
                                 ${applocale.getString("sidebar/properties/owner", "Owner")}
                             </td>
                             <td>
                                 ${data.Owner}
                             </td>
                         </tr><tr>
-                            <td>
+                            <td style="${styleOverwrite}">
                                 ${applocale.getString("sidebar/properties/permission", "Permission")}
                             </td>
                             <td>
                                 ${data.Permission}
                             </td>
                         </tr><tr>
-                            <td>
+                            <td style="${styleOverwrite}">
                                 ${applocale.getString("sidebar/properties/storepath", "Storage Path")}
                             </td>
                             <td style="word-break: break-all;">
                                 ${data.StoragePath}
                             </td>
                         </tr><tr>
-                            <td>
+                            <td style="${styleOverwrite}">
                                 ${applocale.getString("sidebar/properties/vpath", "Virtualized Path")}
                             </td>
                             <td style="word-break: break-all;">

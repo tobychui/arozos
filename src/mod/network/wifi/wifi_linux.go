@@ -13,8 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/valyala/fasttemplate"
 )
 
 // Toggle WiFi On Off. Only allow on sudo mode
@@ -652,12 +650,6 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return true
-}
-
-func template_apply(templateString string, replacement map[string]interface{}) string {
-	t := fasttemplate.New(templateString, "{{", "}}")
-	s := t.ExecuteString(replacement)
-	return string(s)
 }
 
 func pkg_exists(pkgname string) bool {

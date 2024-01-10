@@ -35,6 +35,7 @@ type WebDAVFileSystem struct {
 func NewWebDAVMount(UUID string, Hierarchy string, root string, user string, password string) (*WebDAVFileSystem, error) {
 	//Connect to webdav server
 	c := gowebdav.NewClient(root, user, password)
+	c.SetTimeout(5 * time.Second)
 	err := c.Connect()
 	if err != nil {
 		log.Println("[WebDAV FS] Unable to connect to remote: ", err.Error())

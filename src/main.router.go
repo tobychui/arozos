@@ -38,7 +38,7 @@ func mrouter(h http.Handler) http.Handler {
 				imgsrc = "./web/img/public/auth_icon.png"
 			}
 			imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
-			parsedPage, err := utils.Templateload("web/login.system", map[string]interface{}{
+			parsedPage, err := utils.Templateload("web/login.system", map[string]string{
 				"redirection_addr": red,
 				"usercount":        strconv.Itoa(authAgent.GetUserCounts()),
 				"service_logo":     imageBase64,
@@ -123,7 +123,7 @@ func mrouter(h http.Handler) http.Handler {
 					http.Redirect(w, r, "./desktop.system", http.StatusTemporaryRedirect)
 				}
 			}
-		} else if ((len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/") || r.URL.Path == "/www") && *allow_homepage == true {
+		} else if ((len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/") || r.URL.Path == "/www") && *allow_homepage {
 			//Serve the custom homepage of the user defined. Hand over to the www router
 			userWwwHandler.RouteRequest(w, r)
 		} else if authAgent.CheckAuth(r) {
@@ -131,7 +131,8 @@ func mrouter(h http.Handler) http.Handler {
 			authAgent.UpdateSessionExpireTime(w, r)
 			if build_version == "development" {
 				//Do something if development build
-
+				w.Header().Add("Cross-Origin-Opener-Policy", "same-origin")
+				w.Header().Add("Cross-Origin-Embedder-Policy", "require-corp")
 			}
 			if filepath.Ext("web"+fs.DecodeURI(r.RequestURI)) == ".js" {
 				//Fixed serve js meme type invalid bug on Firefox

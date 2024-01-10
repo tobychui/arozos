@@ -32,7 +32,6 @@ import (
 	"github.com/golang/freetype"
 	"github.com/nfnt/resize"
 	uuid "github.com/satori/go.uuid"
-	"github.com/valyala/fasttemplate"
 
 	"imuslab.com/arozos/mod/auth"
 	filesystem "imuslab.com/arozos/mod/filesystem"
@@ -332,12 +331,8 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			t := fasttemplate.New(string(content), "{{", "}}")
-			s := t.ExecuteString(map[string]interface{}{
-				"hostname": s.options.HostName,
-			})
-
-			w.Write([]byte(s))
+			content = []byte(strings.ReplaceAll(string(content), "{{hostname}}", s.options.HostName))
+			w.Write([]byte(content))
 			return
 		} else {
 			http.NotFound(w, r)
@@ -647,11 +642,6 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				return
 			} else {
 				//Show download page. Do not allow serving
-				content, err := os.ReadFile("./system/share/downloadPageFolder.html")
-				if err != nil {
-					http.NotFound(w, r)
-					return
-				}
 
 				//Get file size
 				fsize, fcount := targetFsh.GetDirctorySizeFromRealPath(fileRuntimeAbsPath, false)
@@ -702,8 +692,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				fmodtime, _ := targetFshAbs.GetModTime(fileRuntimeAbsPath)
 				timeString := time.Unix(fmodtime, 0).Format("02-01-2006 15:04:05")
 
-				t := fasttemplate.New(string(content), "{{", "}}")
-				s := t.ExecuteString(map[string]interface{}{
+				content, err := utils.Templateload("./system/share/downloadPageFolder.html", map[string]string{
 					"hostname":     s.options.HostName,
 					"host":         r.Host,
 					"reqid":        id,
@@ -716,11 +705,16 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"reqtime":      strconv.Itoa(int(time.Now().Unix())),
 					"requri":       "//" + r.Host + r.URL.Path,
 					"opg_image":    "/share/opg/" + strconv.Itoa(int(time.Now().Unix())) + "/" + id,
-					"treelist":     tl,
+					"treelist":     string(tl),
 					"downloaduuid": id,
 				})
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("500 - Internal Server Error"))
+					return
+				}
 
-				w.Write([]byte(s))
+				w.Write([]byte(content))
 				return
 
 			}
@@ -832,8 +826,8 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				if ext != filepath.Ext(fileRuntimeAbsPath) {
 					displayExt = filepath.Ext(fileRuntimeAbsPath) + " (" + ext + ")"
 				}
-				t := fasttemplate.New(string(content), "{{", "}}")
-				s := t.ExecuteString(map[string]interface{}{
+
+				data := map[string]string{
 					"hostname":    s.options.HostName,
 					"host":        r.Host,
 					"reqid":       id,
@@ -847,9 +841,14 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					"filename":    arozfs.Base(fileRuntimeAbsPath),
 					"opg_image":   "/share/opg/" + strconv.Itoa(int(time.Now().Unix())) + "/" + id,
 					"reqtime":     strconv.Itoa(int(time.Now().Unix())),
-				})
+				}
 
-				w.Write([]byte(s))
+				for key, value := range data {
+					key = "{{" + key + "}}"
+					content = []byte(strings.ReplaceAll(string(content), key, value))
+				}
+
+				w.Write([]byte(content))
 				return
 			}
 		}
@@ -862,19 +861,18 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			//Send not found page
-			content, err := os.ReadFile("./system/share/notfound.html")
-			if err != nil {
-				http.NotFound(w, r)
-				return
-			}
-			t := fasttemplate.New(string(content), "{{", "}}")
-			s := t.ExecuteString(map[string]interface{}{
+			content, err := utils.Templateload("./system/share/notfound.html", map[string]string{
 				"hostname": s.options.HostName,
 				"reqid":    id,
 				"reqtime":  strconv.Itoa(int(time.Now().Unix())),
 			})
 
-			w.Write([]byte(s))
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(content))
 			return
 		}
 

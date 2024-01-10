@@ -10,6 +10,7 @@ import (
 	"image/png"
 	_ "image/png"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,7 +40,7 @@ func (g *Gateway) ImageLibRegister() {
 	}
 }
 
-func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectImageLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
 	//Get image dimension, requires filepath (virtual)
 	vm.Set("_imagelib_getImageDimension", func(call otto.FunctionCall) otto.Value {
 		imageFileVpath, err := call.Argument(0).ToString()

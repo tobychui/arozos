@@ -32,7 +32,7 @@ func (g *Gateway) HTTPLibRegister() {
 	}
 }
 
-func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
 	vm.Set("_http_get", func(call otto.FunctionCall) otto.Value {
 		//Get URL from function variable
 		url, err := call.Argument(0).ToString()
@@ -250,6 +250,24 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 		return r
 	})
 
+	vm.Set("_http_redirect", func(call otto.FunctionCall) otto.Value {
+		//Redirect the current request to another url
+		targetUrl, err := call.Argument(0).ToString()
+		if err != nil {
+			return otto.NullValue()
+		}
+
+		statusCode, err := call.Argument(1).ToInteger()
+		if err != nil {
+			//Default: Temporary redirect
+			statusCode = 307
+		}
+
+		w.Header().Set("Location", targetUrl)
+		w.WriteHeader(int(statusCode))
+		return otto.TrueValue()
+	})
+
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`
 		var http = {};
@@ -259,6 +277,12 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 		http.download = _http_download;
 		http.getb64 = _http_getb64;
 		http.getCode = _http_code;
+		http.redirect = function(t, c){
+			if (typeof(c) == "undefined"){
+				c = 307;
+			}
+			_http_redirect(t,c);
+		};
 	`)
 
 }

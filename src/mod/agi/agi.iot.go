@@ -3,6 +3,7 @@ package agi
 import (
 	"encoding/json"
 	"log"
+	"net/http"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/filesystem"
@@ -26,7 +27,7 @@ func (g *Gateway) IoTLibRegister() {
 	}
 }
 
-func (g *Gateway) injectIoTFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectIoTFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
 	//Scan and return the latest iot device list
 	vm.Set("_iot_scan", func(call otto.FunctionCall) otto.Value {
 		scannedDevices := g.Option.IotManager.ScanDevices()

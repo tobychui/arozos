@@ -103,13 +103,16 @@ func GetIDFromVirtualPath(vpath string) (string, string, error) {
 	}
 
 	//Clean up the virutal path
-	vpath = filepath.ToSlash(filepath.Clean(vpath))
+	vpath = arozfs.ToSlash(filepath.Clean(vpath))
 
 	tmp := strings.Split(vpath, ":")
 	vdID := tmp[0]
+	if strings.HasPrefix(vdID, "./") {
+		//For newer go version where Clean return with ./ prefix
+		vdID = strings.TrimPrefix(vdID, "./")
+	}
 	pathSlice := tmp[1:]
 	path := strings.Join(pathSlice, ":")
-
 	return vdID, path, nil
 }
 

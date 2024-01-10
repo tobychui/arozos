@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -13,7 +12,7 @@ import (
 	"time"
 
 	ssdp "github.com/koron/go-ssdp"
-	"github.com/valyala/fasttemplate"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type SSDPOption struct {
@@ -110,14 +109,7 @@ func (a *SSDPHost) Close() {
 // Serve the xml file with the given properties
 func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
 	//Load the ssdp xml from file
-	template, err := os.ReadFile(a.SSDPTemplateFile)
-	if err != nil {
-		w.Write([]byte("SSDP.XML NOT FOUND"))
-		return
-	}
-
-	t := fasttemplate.New(string(template), "{{", "}}")
-	s := t.ExecuteString(map[string]interface{}{
+	template, err := utils.Templateload(a.SSDPTemplateFile, map[string]string{
 		"urlbase":   a.Option.URLBase,
 		"hostname":  a.Option.Hostname,
 		"vendor":    a.Option.Vendor,
@@ -127,8 +119,12 @@ func (a *SSDPHost) handleSSDP(w http.ResponseWriter, r *http.Request) {
 		"uuid":      a.Option.UUID,
 		"serial":    a.Option.Serial,
 	})
+	if err != nil {
+		w.Write([]byte("SSDP.XML NOT FOUND"))
+		return
+	}
 
-	w.Write([]byte(s))
+	w.Write([]byte(template))
 }
 
 // Helper functions

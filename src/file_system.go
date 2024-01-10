@@ -2454,17 +2454,21 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 	filesize := fileStat.Size()
 	//Get file overall size if this is folder
 	if fileStat.IsDir() {
-		var size int64
-		fshAbs.Walk(rpath, func(_ string, info os.FileInfo, err error) error {
-			if err != nil {
+		if fsh.IsNetworkDrive() {
+			filesize = -1
+		} else {
+			var size int64 = 0
+			fshAbs.Walk(rpath, func(_ string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if !info.IsDir() {
+					size += info.Size()
+				}
 				return err
-			}
-			if !info.IsDir() {
-				size += info.Size()
-			}
-			return err
-		})
-		filesize = size
+			})
+			filesize = size
+		}
 	}
 
 	//Get file owner

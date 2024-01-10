@@ -33,7 +33,7 @@ import (
 */
 
 var (
-	AgiVersion string = "2.2" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "2.3" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
@@ -41,7 +41,7 @@ var (
 )
 
 // Lib interface, require vm, user, target system file handler and the vpath of the running script
-type AgiLibIntergface func(*otto.Otto, *user.User, *filesystem.FileSystemHandler, string) //Define the lib loader interface for AGI Libraries
+type AgiLibIntergface func(*otto.Otto, *user.User, *filesystem.FileSystemHandler, string, http.ResponseWriter, *http.Request) //Define the lib loader interface for AGI Libraries
 type AgiPackage struct {
 	InitRoot string //The initialization of the root for the module that request this package
 }
@@ -338,16 +338,16 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 }
 
 /*
-	Execute AGI script with given user information
-	scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
-	Pass in http.Request pointer to enable serverless GET / POST request
+Execute AGI script with given user information
+scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
+Pass in http.Request pointer to enable serverless GET / POST request
 */
 func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, error) {
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, nil, nil)
+	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
 
 	if r != nil {
 		//Inject serverless script to enable access to GET / POST paramters
@@ -367,7 +367,10 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 
 				return
 			} else {
-				panic(caught)
+				//Something screwed. Return Internal Server Error
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - ECMA VM crashed due to unknown reason"))
+				//panic(caught)
 			}
 		}
 	}()

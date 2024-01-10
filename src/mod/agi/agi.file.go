@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -34,7 +35,7 @@ func (g *Gateway) FileLibRegister() {
 	}
 }
 
-func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
 	//writeFile(virtualFilepath, content) => return true/false when succeed / failed
 	vm.Set("_filelib_writeFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
@@ -169,46 +170,6 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		reply, _ := vm.ToValue(string(content))
 		return reply
 	})
-
-	//Listdir
-	//readdir("user:/Desktop") => return filelist in array
-	/*
-		vm.Set("_filelib_readdir", func(call otto.FunctionCall) otto.Value {
-			vpath, err := call.Argument(0).ToString()
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-
-			//Translate the virtual path to realpath
-			fsh, rpath, err := virtualPathToRealPath(vpath, u)
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-			fshAbs := fsh.FileSystemAbstraction
-
-			rpath = filepath.ToSlash(filepath.Clean(rpath)) + "/*"
-			fileList, err := fshAbs.Glob(rpath)
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-
-			//Translate all paths to virtual paths
-			results := []string{}
-			for _, file := range fileList {
-				isHidden, _ := hidden.IsHidden(file, true)
-				if !isHidden {
-					thisRpath, _ := fshAbs.RealPathToVirtualPath(file, u.Username)
-					results = append(results, thisRpath)
-				}
-			}
-
-			reply, _ := vm.ToValue(results)
-			return reply
-		})
-	*/
 
 	//Usage
 	//filelib.walk("user:/") => list everything recursively

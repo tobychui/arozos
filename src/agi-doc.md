@@ -678,6 +678,9 @@ http.download("http://example.com/music.mp3", "user:/Desktop", "(Optional) My Mu
 //Since agi v2.0
 http.getb64("http://example.com/photo.png"); //Get target resources as base64 bytes, return null if error
 http.getCode("http://redirect.example.com"); //Get response code for the target endpoint,if the code is redirection related (e.g. 302), a new varaible "_location" will be created to store the redirection address in String.
+
+//Since agi 2.3
+http.redirect("https://example.com", 307); //Redirect to target with status code
 ```
 
 ### websocket

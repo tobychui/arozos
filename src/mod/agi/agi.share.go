@@ -2,6 +2,7 @@ package agi
 
 import (
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -16,7 +17,7 @@ func (g *Gateway) ShareLibRegister() {
 	}
 }
 
-func (g *Gateway) injectShareFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectShareFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
 	vm.Set("_share_file", func(call otto.FunctionCall) otto.Value {
 		//Get the vpath of file to share
 		vpath, err := call.Argument(0).ToString()

@@ -2,6 +2,7 @@ package agi
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/filesystem"
@@ -25,6 +26,6 @@ func (g *Gateway) AudioLibRegister() {
 	}
 }
 
-func (g *Gateway) injectAudioFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectAudioFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
 
 }

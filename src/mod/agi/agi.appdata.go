@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -32,7 +33,7 @@ func (g *Gateway) AppdataLibRegister() {
 	}
 }
 
-func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
 	vm.Set("_appdata_readfile", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {

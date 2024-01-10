@@ -8,9 +8,34 @@
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <link rel="stylesheet" href="../../script/ao.css">
         <style>
             body{
                 overflow:hidden;
+            }
+
+            #filePropertiesWindow{
+                background-color: var(--body_background);
+                color: var(--body_text);
+            }
+
+            #filePropertiesWindow td,.header,p,div{
+                color: var(--body_text) !important;
+            }
+
+            #filePropertiesWindow input{
+                background-color: var(--body_background_secondary) !important;
+                color: var(--text_color) !important;
+                font-size: 1.2em;
+            }
+
+            .small.basic.white.fluid.button{
+                border: 1px solid var(--text_color_secondary);
+                color: var(--text_color_secondary) !important;
+            }
+
+            .small.basic.white.fluid.button:hover{
+                background-color: var(--body_background_active) !important;
             }
 
         </style>
@@ -27,9 +52,9 @@
 
             </div>
             <br>
-            <button style="display:none;" class="ui small blue fluid button singleFileOnly" onclick="changeDefaultWebApp();" locale="button/changeDefault">Change Default WebApp</button>
-            <button style="display:none; margin-top: 4px;" class="ui small fluid button singleFileOnly" onclick="viewVersionHistory();" locale="button/versionHistory">View Version History</button>
-            <button style="margin-top: 4px;" class="ui small fluid button linuxonly" onclick="openFilePermissionPanel();" locale="button/changeFilePermission">Change File Permissions</button>
+            <button style="display:none;" class="ui small white basic fluid button singleFileOnly" onclick="changeDefaultWebApp();"><i class="ui external square alternate icon blue"></i><span locale="button/changeDefault">Change Default WebApp</span></button>
+            <button style="display:none; margin-top: 4px;" class="ui small basic white fluid button singleFileOnly" onclick="viewVersionHistory();"><i class="ui undo green icon"></i><span locale="button/versionHistory">View Version History</span></button>
+            <button style="margin-top: 4px;" class="ui small basic white fluid button linuxonly" onclick="openFilePermissionPanel();" locale="button/changeFilePermission">Change File Permissions</button>
             <br>
         </div>
         <div id="filesizeLoader" class="ui active dimmer">
@@ -97,9 +122,9 @@
                         fpw_loadPreference("file_explorer/theme",function(data){
                             if (data.error === undefined){
                                 if (data == "darkTheme"){
-                                    fpw_toggleDarkTheme();
+                                    $("body").addClass("darkTheme");
                                 }else{
-                                    //White theme. Do nothing
+                                    $("body").addClass("whiteTheme");
                                 }
                             }
                         });
@@ -135,6 +160,12 @@
                 $("#properties").append(ui_getText(applocale.getString("selection/multi", "Multiple selections")));
                 $("#properties").append(ui_getText(filecount + applocale.getString("counter/files", " Files")));
                 $("#properties").append(ui_getText(foldercount + applocale.getString("counter/folders", " Folders")));
+                
+                let totalSizeText = bytesToSize(filesizeSum) + ` (${filesizeSum} bytes)`
+                if (filesizeSum < 0){
+                    //Network folder. Do not render size
+                    totalSizeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/Not available for network folders", "Not available for network folders")}`;
+                }
 
                 //Append other properties as table
                 $("#properties").append(ui_getTable(
@@ -142,7 +173,7 @@
                         [
                             ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
                             ["Storage Directory", fileProperties[0].StorageDirname + "/"],
-                            ["Total Size", bytesToSize(filesizeSum) + ` (${filesizeSum} bytes)`],
+                            ["Total Size", totalSizeText],
                         ]
                     ));
 
@@ -187,8 +218,6 @@
                     
                     //Get the default opener
                     if (!data.IsDirectory){
-                      
-
                         //Check if this file is shortcut
                         if ( data.Basename.split(".").pop() == "shortcut"){
                             //This is shortcut file
@@ -242,14 +271,23 @@
                         }
                         
                     }else{
+                        let folderSizeText = bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`;
+                        if (data.Filesize < 0){
+                            //Network folder. Do not render size
+                            folderSizeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/Not available for network folders", "Not available for network folders")}`;
+                        }
+                        let lastModTimeText = generateDisplayLastModTime(data.LastModTime);
+                        if (data.LastModUnix == 0){
+                            lastModTimeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/No record", "No record")}`;
+                        }
                         $("#properties").append(ui_getTable(
                             [],
                             [
                                 ["Virtual Path", data.VirtualPath],
                                 ["Storage Path", data.StoragePath],
-                                [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
+                                [filesizeText, folderSizeText ],
                                 ["Permission", data.Permission],
-                                ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
+                                ["Last Modified", lastModTimeText],
                                 ["File Type", "Folder"],
                                 ["Owner",data.Owner],
 

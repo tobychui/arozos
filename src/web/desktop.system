@@ -955,6 +955,10 @@
                 word-wrap: break-word;
             }
 
+            body.darkTheme .fileDescription{
+                background-color: var(--body_background, #242330);
+            }
+
             /*
                 Background Task UI
             */
@@ -1104,7 +1108,7 @@
         <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" >
             <img style="height:36px;" src="img/desktop/system_icon/list.png"></img>
         </div>
-        <div class="item padding system"></div>
+        <!-- <div class="item padding system"></div> -->
     </div>
 
     <!-- floatWindow dragging panel-->

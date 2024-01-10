@@ -7,6 +7,7 @@
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
             html{
                 overflow:hidden;
@@ -34,6 +35,12 @@
                 overflow-y:auto;
                 height: calc(100% - 60px);
             }
+            #mainFunctionTabMenu{
+                background-color: #f8f8f8;
+                margin-top: 0;
+                padding-top: 1em;
+                border-radius: 0 0 0 0 !important;
+            }
         </style>
     </head>
     <body>
@@ -44,7 +51,7 @@
             
         </div>
         <div id="mainSideMenuDimmer" onclick="hideToolBar();"></div>
-        <div class="ui top attached tabular menu" style="overflow-x:auto;overflow-y:hidden;">
+        <div id="mainFunctionTabMenu" class="ui top attached tabular menu" style="overflow-x:auto;overflow-y:hidden;">
             <a id="toolbarBtn" class="item" onclick="showToolBar();">
                 <i class="content icon"></i>
             </a>
@@ -78,10 +85,12 @@
                 }
               }
 
+            applocale.init("../locale/system_settings.json", function(){
+                applocale.translate();
                 //Initiation Functions
                 initMainSideMenu();
                 hideToolBar();
-                
+
                 if (loadToPage == undefined){
                     initSettingGroup("Info");
                 }else{
@@ -97,34 +106,37 @@
                            
                     });
                 }
-                
-                function initMainSideMenu(){
-                    $.get("../../system/setting/list",function(data){
-                        for (var i =0; i < data.length; i++){
-                            var settingGroupName = data[i].Name;
-                            var groupUUID = data[i].Group;
-                            var iconPath = "../../" + data[i].IconPath;
-                            var toolTip = data[i].Desc;
-                            $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}" style="padding: 2px;"></img> ${settingGroupName}</a>`);
-                        }
+            });
+ 
+            
+            function initMainSideMenu(){
+                $.get("../../system/setting/list",function(data){
+                    for (var i =0; i < data.length; i++){
+                        var settingGroupName = data[i].Name;
+                        var groupUUID = data[i].Group;
+                        var iconPath = "../../" + data[i].IconPath;
+                        var toolTip = data[i].Desc;
+                        settingGroupName = applocale.getString("menu/group/" + settingGroupName, settingGroupName);
+                        $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}" style="padding: 2px;"></img> ${settingGroupName}</a>`);
+                    }
+                    applocale.translate();
+                });
+            }
 
-                    });
-                }
-
-                function initSettingGroup(group, callback=undefined){
-                    $.get("../../system/setting/list?listGroup=" + group,function(data){
-                        if (data.error !== undefined){
-                            console.log(data.error);
-                        }else{
-                            currentSettingModuleList = data;
-                            initSettingModuleTabs();
-                            initSettingModules(0);
-                            if (callback != undefined){
-                                callback(data);
-                            }
+            function initSettingGroup(group, callback=undefined){
+                $.get("../../system/setting/list?listGroup=" + group,function(data){
+                    if (data.error !== undefined){
+                        console.log(data.error);
+                    }else{
+                        currentSettingModuleList = data;
+                        initSettingModuleTabs(group);
+                        initSettingModules(0);
+                        if (callback != undefined){
+                            callback(data);
                         }
-                    });
-                }
+                    }
+                });
+            }
 
               function menuClicked(object){
                 var group=$(object).attr("group");
@@ -133,14 +145,20 @@
               }
 
               //Initiate the setting modules tabs
-              function initSettingModuleTabs(){
+              function initSettingModuleTabs(groupName){
                 $(".settingTab").remove();
                 var moduleListInReverse = currentSettingModuleList.reverse();
                 for (var i =0; i < moduleListInReverse.length; i ++){
                     var thisModuleInfo = moduleListInReverse[i];
                     var stringifyModuleInfo = encodeURIComponent(JSON.stringify(thisModuleInfo));
-                    $("#toolbarBtn").after(`<a class="item settingTab" moduleInfo="${stringifyModuleInfo}" title="${thisModuleInfo.Desc}" onclick="loadSettingModuleFromTab(this);">${thisModuleInfo.Name}</a>`);
+                    let localeGroupKey = "tab/" + groupName.toLowerCase() + "/" + thisModuleInfo.Name;
+                    let displayTabName = applocale.getString(localeGroupKey, thisModuleInfo.Name)
+                    console.log(thisModuleInfo.Desc);
+                    $("#toolbarBtn").after(`<a class="item settingTab" moduleInfo="${stringifyModuleInfo}" title="${thisModuleInfo.Desc}" onclick="loadSettingModuleFromTab(this);">${displayTabName}</a>`);
                 }
+
+                applocale.translate();
+            
               }
 
               function initSettingModules(index){

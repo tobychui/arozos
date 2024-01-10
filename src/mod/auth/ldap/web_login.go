@@ -9,8 +9,8 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-//LOGIN related function
-//functions basically same as arozos's original function
+// LOGIN related function
+// functions basically same as arozos's original function
 func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 	checkLDAPenabled := ldap.readSingleConfig("enabled")
 	if checkLDAPenabled == "false" {
@@ -26,7 +26,7 @@ func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request)
 		imgsrc = "./web/img/public/auth_icon.png"
 	}
 	imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
-	parsedPage, err := utils.Templateload("web/login.system", map[string]interface{}{
+	parsedPage, err := utils.Templateload("web/login.system", map[string]string{
 		"redirection_addr": red,
 		"usercount":        strconv.Itoa(ldap.ag.GetUserCounts()),
 		"service_logo":     imageBase64,
@@ -67,7 +67,7 @@ func (ldap *ldapHandler) HandleNewPasswordPage(w http.ResponseWriter, r *http.Re
 		imgsrc = "./web/img/public/auth_icon.png"
 	}
 	imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
-	template, err := utils.Templateload("system/ldap/newPasswordTemplate.html", map[string]interface{}{
+	template, err := utils.Templateload("system/ldap/newPasswordTemplate.html", map[string]string{
 		"vendor_logo":  imageBase64,
 		"username":     acc,
 		"display_name": displayname,
@@ -201,7 +201,7 @@ func (ldap *ldapHandler) HandleSetPassword(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-//HandleCheckLDAP check if ldap is enabled
+// HandleCheckLDAP check if ldap is enabled
 func (ldap *ldapHandler) HandleCheckLDAP(w http.ResponseWriter, r *http.Request) {
 	enabledB := false
 	enabled := ldap.readSingleConfig("enabled")

@@ -61,7 +61,7 @@ func NetworkServiceInit() {
 		//Register as a system setting
 		registerSetting(settingModule{
 			Name:     "Network Info",
-			Desc:     "System Information",
+			Desc:     "Network Information",
 			IconPath: "SystemAO/network/img/ethernet.png",
 			Group:    "Network",
 			StartDir: "SystemAO/network/hardware.html",

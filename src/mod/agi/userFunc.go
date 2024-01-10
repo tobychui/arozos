@@ -246,7 +246,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		} else {
 			//Check if the library name exists. If yes, run the initiation script on the vm
 			if entryPoint, ok := g.LoadedAGILibrary[libname]; ok {
-				entryPoint(vm, u, fsh, scriptPath)
+				entryPoint(vm, u, fsh, scriptPath, w, r)
 				return otto.TrueValue()
 			} else {
 				//Lib not exists

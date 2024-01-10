@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M19 15v4H5v-4h14m1-2H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 18.5c-.82 0-1.5-.67-1.5-1.5s.68-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM19 5v4H5V5h14m1-2H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 8.5c-.82 0-1.5-.67-1.5-1.5S6.18 5.5 7 5.5s1.5.68 1.5 1.5S7.83 8.5 7 8.5z"/></svg>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="圖層_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 width="24px" height="24px" viewBox="0 0 24 24" enable-background="new 0 0 24 24" xml:space="preserve">
+<path fill="none" d="M0,0h24v24H0V0z"/>
+<rect x="1.446" y="13.231" fill="#727171" width="21.107" height="5.986"/>
+<polygon fill="#DCDDDD" points="18.67,4.782 5.089,4.782 1.464,13.231 22.57,13.231 "/>
+<path fill="#3E3A39" d="M22.108,18.256c0,0.354-0.278,0.642-0.622,0.642H2.488c-0.344,0-0.623-0.287-0.623-0.642V14.19
+	c0-0.355,0.279-0.643,0.623-0.643h18.998c0.344,0,0.622,0.287,0.622,0.643V18.256z"/>
+<circle fill="#00A0E9" cx="19.491" cy="16.225" r="0.762"/>
+</svg>
