@@ -9,27 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	user "imuslab.com/arozos/mod/user"
 )
-
-// Define path translation function
-func virtualPathToRealPath(vpath string, u *user.User) (*filesystem.FileSystemHandler, string, error) {
-	fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
-	if err != nil {
-		return nil, "", err
-	}
-	rpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
-	if err != nil {
-		return nil, "", err
-	}
-	return fsh, rpath, nil
-}
-
-func realpathToVirtualpath(fsh *filesystem.FileSystemHandler, path string, u *user.User) (string, error) {
-	return fsh.FileSystemAbstraction.RealPathToVirtualPath(path, u.Username)
-}
 
 // Inject user based functions into the virtual machine
 // Note that the fsh might be nil and scriptPath must be real path of script being executed
@@ -91,7 +75,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//Get username from function paramter
 			username, err := call.Argument(0).ToString()
 			if err != nil || username == "undefined" {
-				g.raiseError(errors.New("username is undefined"))
+				g.RaiseError(errors.New("username is undefined"))
 				reply, _ := vm.ToValue(nil)
 				return reply
 			}
@@ -105,7 +89,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			}
 
 		} else {
-			g.raiseError(errors.New("Permission Denied: userExists require admin permission"))
+			g.RaiseError(errors.New("Permission Denied: userExists require admin permission"))
 			return otto.FalseValue()
 		}
 
@@ -119,21 +103,21 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//Ok. Create user base on given information
 			username, err := call.Argument(0).ToString()
 			if err != nil || username == "undefined" {
-				g.raiseError(errors.New("username is undefined"))
+				g.RaiseError(errors.New("username is undefined"))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
 
 			password, err := call.Argument(1).ToString()
 			if err != nil || password == "undefined" {
-				g.raiseError(errors.New("password is undefined"))
+				g.RaiseError(errors.New("password is undefined"))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
 
 			defaultGroup, err := call.Argument(2).ToString()
 			if err != nil || defaultGroup == "undefined" {
-				g.raiseError(errors.New("defaultGroup is undefined"))
+				g.RaiseError(errors.New("defaultGroup is undefined"))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
@@ -141,7 +125,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//Check if username already used
 			userExists := u.Parent().GetAuthAgent().UserExists(username)
 			if userExists {
-				g.raiseError(errors.New("Username already exists"))
+				g.RaiseError(errors.New("Username already exists"))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
@@ -149,7 +133,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//Check if the given permission group exists
 			groupExists := u.Parent().GetPermissionHandler().GroupExists(defaultGroup)
 			if !groupExists {
-				g.raiseError(errors.New(defaultGroup + " user-group not exists"))
+				g.RaiseError(errors.New(defaultGroup + " user-group not exists"))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
@@ -158,14 +142,14 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			err = u.Parent().GetAuthAgent().CreateUserAccount(username, password, []string{defaultGroup})
 
 			if err != nil {
-				g.raiseError(errors.New("User creation failed: " + err.Error()))
+				g.RaiseError(errors.New("User creation failed: " + err.Error()))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
 
 			return otto.TrueValue()
 		} else {
-			g.raiseError(errors.New("Permission Denied: createUser require admin permission"))
+			g.RaiseError(errors.New("Permission Denied: createUser require admin permission"))
 			return otto.FalseValue()
 		}
 
@@ -175,7 +159,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		if u.IsAdmin() {
 
 		} else {
-			g.raiseError(errors.New("Permission Denied: editUser require admin permission"))
+			g.RaiseError(errors.New("Permission Denied: editUser require admin permission"))
 			return otto.FalseValue()
 		}
 		//libname, err := call.Argument(0).ToString()
@@ -190,7 +174,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//Get username from function paramters
 			username, err := call.Argument(0).ToString()
 			if err != nil || username == "undefined" {
-				g.raiseError(errors.New("username is undefined"))
+				g.RaiseError(errors.New("username is undefined"))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
@@ -198,7 +182,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//Check if the user exists
 			userExists := u.Parent().GetAuthAgent().UserExists(username)
 			if !userExists {
-				g.raiseError(errors.New(username + " not exists"))
+				g.RaiseError(errors.New(username + " not exists"))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
@@ -206,14 +190,14 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			//User exists. Remove it from the system
 			err = u.Parent().GetAuthAgent().UnregisterUser(username)
 			if err != nil {
-				g.raiseError(errors.New("User removal failed: " + err.Error()))
+				g.RaiseError(errors.New("User removal failed: " + err.Error()))
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
 
 			return otto.TrueValue()
 		} else {
-			g.raiseError(errors.New("Permission Denied: removeUser require admin permission"))
+			g.RaiseError(errors.New("Permission Denied: removeUser require admin permission"))
 			return otto.FalseValue()
 		}
 	})
@@ -224,7 +208,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 
 		} else {
 
-			g.raiseError(errors.New("Permission Denied: getUserInfoByName require admin permission"))
+			g.RaiseError(errors.New("Permission Denied: getUserInfoByName require admin permission"))
 			return otto.FalseValue()
 		}
 		return otto.TrueValue()
@@ -234,7 +218,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 	vm.Set("requirelib", func(call otto.FunctionCall) otto.Value {
 		libname, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			reply, _ := vm.ToValue(nil)
 			return reply
 		}
@@ -246,7 +230,14 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		} else {
 			//Check if the library name exists. If yes, run the initiation script on the vm
 			if entryPoint, ok := g.LoadedAGILibrary[libname]; ok {
-				entryPoint(vm, u, fsh, scriptPath, w, r)
+				entryPoint(&static.AgiLibInjectionPayload{
+					VM:         vm,
+					User:       u,
+					ScriptFsh:  fsh,
+					ScriptPath: scriptPath,
+					Writer:     w,
+					Request:    r,
+				})
 				return otto.TrueValue()
 			} else {
 				//Lib not exists
@@ -261,7 +252,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		//Check if the pkg is already registered
 		scriptName, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -272,12 +263,12 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		targetScriptPath := arozfs.ToSlash(filepath.Join(filepath.Dir(scriptPath), scriptName))
 		if fsh != nil {
 			if !fsh.FileSystemAbstraction.FileExists(targetScriptPath) {
-				g.raiseError(errors.New("[AGI] Target path not exists!"))
+				g.RaiseError(errors.New("[AGI] Target path not exists!"))
 				return otto.FalseValue()
 			}
 		} else {
 			if !filesystem.FileExists(targetScriptPath) {
-				g.raiseError(errors.New("[AGI] Target path not exists!"))
+				g.RaiseError(errors.New("[AGI] Target path not exists!"))
 				return otto.FalseValue()
 			}
 		}
@@ -297,7 +288,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			if err != nil {
 				//Script execution failed
 				log.Println("Script Execution Failed: ", err.Error())
-				g.raiseError(err)
+				g.RaiseError(err)
 			}
 		}()
 

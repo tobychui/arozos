@@ -75,6 +75,7 @@ gopkg.in/sourcemap.v1,https://github.com/go-sourcemap/sourcemap/blob/v1.0.5/LICE
 gopkg.in/warnings.v0,https://github.com/go-warnings/warnings/blob/v0.1.2/LICENSE,BSD-2-Clause
 imuslab.com/arozos,Unknown,Unknown
 imuslab.com/arozos/mod/agi,Unknown,Unknown
+imuslab.com/arozos/mod/agi/static,Unknown,Unknown
 imuslab.com/arozos/mod/apt,Unknown,Unknown
 imuslab.com/arozos/mod/auth,Unknown,Unknown
 imuslab.com/arozos/mod/auth/accesscontrol,Unknown,Unknown

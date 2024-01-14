@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem"
-	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -33,23 +32,29 @@ func (g *Gateway) AppdataLibRegister() {
 	}
 }
 
-func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
+func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPayload) {
+	vm := payload.VM
+	//u := payload.User
+	//scriptFsh := payload.ScriptFsh
+	//scriptPath := payload.ScriptPath
+	//w := payload.Writer
+	//r := payload.Request
 	vm.Set("_appdata_readfile", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Check if this is path escape
-		escaped, err := checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
+		escaped, err := static.CheckRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		if escaped {
-			g.raiseError(errors.New("Path escape detected"))
+			g.RaiseError(errors.New("Path escape detected"))
 			return otto.FalseValue()
 		}
 
@@ -58,7 +63,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 		if utils.FileExists(targetFile) && !filesystem.IsDir(targetFile) {
 			content, err := os.ReadFile(targetFile)
 			if err != nil {
-				g.raiseError(err)
+				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
@@ -66,11 +71,11 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 			result, _ := vm.ToValue(string(content))
 			return result
 		} else if filesystem.IsDir(targetFile) {
-			g.raiseError(errors.New("Cannot read from directory"))
+			g.RaiseError(errors.New("Cannot read from directory"))
 			return otto.FalseValue()
 
 		} else {
-			g.raiseError(errors.New("File not exists"))
+			g.RaiseError(errors.New("File not exists"))
 			return otto.FalseValue()
 		}
 	})
@@ -78,19 +83,19 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 	vm.Set("_appdata_listdir", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Check if this is path escape
-		escaped, err := checkRootEscape(webRoot, filepath.Join(webRoot, relpath))
+		escaped, err := static.CheckRootEscape(webRoot, filepath.Join(webRoot, relpath))
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		if escaped {
-			g.raiseError(errors.New("Path escape detected"))
+			g.RaiseError(errors.New("Path escape detected"))
 			return otto.FalseValue()
 		}
 
@@ -100,7 +105,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 			//Glob the directory for filelist
 			files, err := filepath.Glob(filepath.ToSlash(filepath.Clean(targetFolder)) + "/*")
 			if err != nil {
-				g.raiseError(err)
+				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
@@ -118,7 +123,7 @@ func (g *Gateway) injectAppdataLibFunctions(vm *otto.Otto, u *user.User, scriptF
 			return result
 
 		} else {
-			g.raiseError(errors.New("Directory not exists"))
+			g.RaiseError(errors.New("Directory not exists"))
 			return otto.FalseValue()
 		}
 	})

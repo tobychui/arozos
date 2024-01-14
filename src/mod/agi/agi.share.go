@@ -2,12 +2,10 @@ package agi
 
 import (
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/robertkrimen/otto"
-	"imuslab.com/arozos/mod/filesystem"
-	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/agi/static"
 )
 
 func (g *Gateway) ShareLibRegister() {
@@ -17,7 +15,13 @@ func (g *Gateway) ShareLibRegister() {
 	}
 }
 
-func (g *Gateway) injectShareFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
+func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
+	vm := payload.VM
+	u := payload.User
+	//scriptFsh := payload.ScriptFsh
+	//scriptPath := payload.ScriptPath
+	//w := payload.Writer
+	//r := payload.Request
 	vm.Set("_share_file", func(call otto.FunctionCall) otto.Value {
 		//Get the vpath of file to share
 		vpath, err := call.Argument(0).ToString()

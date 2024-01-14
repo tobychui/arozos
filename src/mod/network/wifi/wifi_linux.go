@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 // Toggle WiFi On Off. Only allow on sudo mode
@@ -428,12 +430,12 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 
 		if strings.TrimSuffix(filepath.Base(configFile), filepath.Ext(configFile)) == ssid {
 			//The new SSID. Set this to higher priority
-			networks = append(networks, template_apply(string(thisNetworkConfig), map[string]interface{}{
+			networks = append(networks, utils.TemplateApply(string(thisNetworkConfig), map[string]string{
 				"priority": strconv.Itoa(1),
 			}))
 		} else {
 			//Old SSID. Use default priority
-			networks = append(networks, template_apply(string(thisNetworkConfig), map[string]interface{}{
+			networks = append(networks, utils.TemplateApply(string(thisNetworkConfig), map[string]string{
 				"priority": strconv.Itoa(0),
 			}))
 		}
@@ -442,7 +444,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 
 	//Subsitute the results into the template
 	networksConfigString := strings.Join(networks, "\n")
-	newconfig := template_apply(string(configHeader), map[string]interface{}{
+	newconfig := utils.TemplateApply(string(configHeader), map[string]string{
 		"networks": networksConfigString,
 	})
 

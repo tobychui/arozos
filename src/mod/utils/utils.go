@@ -40,46 +40,6 @@ func SendOK(w http.ResponseWriter) {
 	w.Write([]byte("\"OK\""))
 }
 
-/*
-	The paramter move function (mv)
-
-	You can find similar things in the PHP version of ArOZ Online Beta. You need to pass in
-	r (HTTP Request Object)
-	getParamter (string, aka $_GET['This string])
-
-	Will return
-	Paramter string (if any)
-	Error (if error)
-
-*/
-/*
-func Mv(r *http.Request, getParamter string, postMode bool) (string, error) {
-	if postMode == false {
-		//Access the paramter via GET
-		keys, ok := r.URL.Query()[getParamter]
-
-		if !ok || len(keys[0]) < 1 {
-			//log.Println("Url Param " + getParamter +" is missing")
-			return "", errors.New("GET paramter " + getParamter + " not found or it is empty")
-		}
-
-		// Query()["key"] will return an array of items,
-		// we only want the single item.
-		key := keys[0]
-		return string(key), nil
-	} else {
-		//Access the parameter via POST
-		r.ParseForm()
-		x := r.Form.Get(getParamter)
-		if len(x) == 0 || x == "" {
-			return "", errors.New("POST paramter " + getParamter + " not found or it is empty")
-		}
-		return string(x), nil
-	}
-
-}
-*/
-
 // Get GET parameter
 func GetPara(r *http.Request, key string) (string, error) {
 	keys, ok := r.URL.Query()[key]
@@ -187,4 +147,15 @@ func Templateload(templateFile string, data map[string]string) (string, error) {
 	}
 
 	return string(content), nil
+}
+
+// Apply template from a pre-loaded string
+func TemplateApply(templateString string, data map[string]string) string {
+	content := []byte(templateString)
+	for key, value := range data {
+		key = "{{" + key + "}}"
+		content = []byte(strings.ReplaceAll(string(content), key, value))
+	}
+
+	return string(content)
 }

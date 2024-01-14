@@ -12,8 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
-	"imuslab.com/arozos/mod/filesystem"
-	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/agi/static"
 )
 
 /*
@@ -32,7 +31,13 @@ func (g *Gateway) HTTPLibRegister() {
 	}
 }
 
-func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string, w http.ResponseWriter, r *http.Request) {
+func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
+	vm := payload.VM
+	u := payload.User
+	//scriptFsh := payload.ScriptFsh
+	//scriptPath := payload.ScriptPath
+	w := payload.Writer
+	//r := payload.Request
 	vm.Set("_http_get", func(call otto.FunctionCall) otto.Value {
 		//Get URL from function variable
 		url, err := call.Argument(0).ToString()
@@ -143,7 +148,7 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -190,18 +195,18 @@ func (g *Gateway) injectHTTPFunctions(vm *otto.Otto, u *user.User, scriptFsh *fi
 
 		//Check user acess permission
 		if !u.CanWrite(vpath) {
-			g.raiseError(errors.New("Permission Denied"))
+			g.RaiseError(errors.New("Permission Denied"))
 			return otto.FalseValue()
 		}
 
 		//Convert the vpath to realpath. Check if it exists
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
 			return otto.FalseValue()
 		}
 
 		if !fsh.FileSystemAbstraction.FileExists(rpath) || !fsh.FileSystemAbstraction.IsDir(rpath) {
-			g.raiseError(errors.New(vpath + " is a file not a directory."))
+			g.RaiseError(errors.New(vpath + " is a file not a directory."))
 			return otto.FalseValue()
 		}
 
