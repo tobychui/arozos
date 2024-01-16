@@ -68,9 +68,9 @@ type AgiSysInfo struct {
 }
 
 type Gateway struct {
-	ReservedTables   []string
-	NightlyScripts   []string
-	AllowAccessPkgs  map[string][]AgiPackage
+	ReservedTables []string
+	NightlyScripts []string
+	//AllowAccessPkgs  map[string][]AgiPackage
 	LoadedAGILibrary map[string]AgiLibInjectionIntergface
 	Option           *AgiSysInfo
 }
@@ -78,9 +78,9 @@ type Gateway struct {
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Handle startup registration of ajgi modules
 	gatewayObject := Gateway{
-		ReservedTables:   option.ReservedTables,
-		NightlyScripts:   []string{},
-		AllowAccessPkgs:  map[string][]AgiPackage{},
+		ReservedTables: option.ReservedTables,
+		NightlyScripts: []string{},
+		//AllowAccessPkgs:  map[string][]AgiPackage{},
 		LoadedAGILibrary: map[string]AgiLibInjectionIntergface{},
 		Option:           &option,
 	}

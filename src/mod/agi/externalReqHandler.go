@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
-	"time"
 
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/agi/static"
@@ -62,19 +61,20 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute!
-	start := time.Now()
+	//start := time.Now()
 	//g.ExecuteAGIScript(scriptContent, "", "", w, r, userInfo)
 	result, err := g.ExecuteAGIScriptAsUser(fsh, realPath, userInfo, w, r)
-	duration := time.Since(start)
+	//duration := time.Since(start)
 
 	if err != nil {
+		log.Println("[Remote AGI] ", pathFromDb, " failed to execute", err.Error())
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
 	w.Write([]byte(result))
 
-	log.Println("[Remote AGI] IP:", r.RemoteAddr, " executed the script ", pathFromDb, "(", realPath, ")", " on behalf of", userInfo.Username, "with total duration: ", duration)
+	//log.Println("[Remote AGI] IP:", r.RemoteAddr, "executed the script ", pathFromDb, "on behalf of", userInfo.Username, "with total duration:", duration)
 
 }
 

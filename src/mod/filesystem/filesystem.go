@@ -339,13 +339,8 @@ func (fsh *FileSystemHandler) IsNetworkDrive() bool {
 	return arozfs.IsNetworkDrive(fsh.Filesystem)
 }
 
-// Buffer a remote file to local tmp folder and return the tmp location for further processing
+// Buffer a file to local tmp folder and return the tmp location for further processing
 func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) {
-	//Check if the target fsh is actually a network drive
-	if !fsh.IsNetworkDrive() {
-		return "", errors.New("target file system handler is not a network drive")
-	}
-
 	//Check if the remote file exists
 	fsa := fsh.FileSystemAbstraction
 	if !fsa.FileExists(rpath) {
@@ -367,18 +362,20 @@ func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) 
 
 	//Generate a filename for the buffer file
 	tmpFilename := uuid.NewV4().String()
-	tmpFilepath := arozfs.ToSlash(filepath.Join(tmpdir, tmpFilename))
+	tmpFilepath := arozfs.ToSlash(filepath.Join(tmpdir, tmpFilename+filepath.Ext(rpath)))
 
 	//Copy the file from remote location to local
 	src, err := fsh.FileSystemAbstraction.ReadStream(rpath)
 	if err != nil {
 		return "", err
 	}
+	defer src.Close()
 
-	dest, err := os.OpenFile(tmpFilepath, os.O_WRONLY, 0777)
+	dest, err := os.OpenFile(tmpFilepath, os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		return "", errors.New("unable to write to buffer location: " + err.Error())
 	}
+	defer dest.Close()
 
 	_, err = io.Copy(dest, src)
 	if err != nil {

@@ -192,7 +192,7 @@
             position: fixed;
             z-index: 1000;
             right: 1em;
-            top: calc(30px + 1em);
+            top: 1em;
             display: none;
         }
 
@@ -267,6 +267,24 @@
         
         .navimenu .item.floatWindowButton.hideText .floatWindowAppIcon {
             margin-right: 0px;
+        }
+        .navimenu .clock{
+            float: right;
+            text-align: center;
+            color: white;
+            font-size: 0.9em;
+            line-height: 1.3em;
+            padding-top: 1px;
+            padding-right: 0.5em;
+            padding-left: 0.5em;
+        }
+        .navimenu .backgroundtasks{
+            float: right;
+            border-right: 1px solid rgb(206, 206, 206, 0.4);
+            color: white;
+            padding-top: 0.5em;
+            padding-right: 0.5em;
+            padding-left: 0.7em;
         }
         
         #fwdragpanel {
@@ -343,13 +361,15 @@
         
         #listMenu {
             position: fixed;
-            bottom: 36px;
-            left: 0px;
+            bottom: calc(36px + 1em);
+            left: 0.4em;
             height: 500px;
             width: 400px;
             background-color: #ffffff;
             box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
             z-index: 1113;
+            border-radius: 6px;
+            overflow: hidden;
         }
 
         body.darkTheme #listMenu{
@@ -382,6 +402,7 @@
         #listMenu .listItemWrapper {
             overflow: hidden;
             height: 462px;
+            border-bottom-left-radius: 1em;
         }
         
         .listItemWrapper .groups{
@@ -474,7 +495,7 @@
             width: 100%;
             cursor: pointer;
         }
-        
+
         #listMenu .poweroption:hover {
             background-color: #dedede;
         }
@@ -562,12 +583,6 @@
             justify-content: space-between;
         }
 
-        .clock{
-            text-align: center;
-            cursor:pointer; 
-            user-select: none;
-        }
-
         .statusbarpadding{
             padding-top: 0.2em;
         }
@@ -626,12 +641,12 @@
         }
 
         .notificationbar .content{
-            position: relative;
+            position: fixed;
             background-color:white;
             margin-top:6px;
-            margin-left: auto;
-            margin-right: auto;
             width:30%;
+            right: 1em;
+            bottom: calc(36px + 1em);
             min-width:650px;
             height:400px;
             padding: 3px;
@@ -651,10 +666,11 @@
         }
 
         .notificationbar .cover{
-            backdrop-filter: blur(2px);
-            -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(0.5px);
+            -webkit-backdrop-filter: blur(0.5px);
+            background-color: rgba(0,0,0,0.15);
             position:fixed;
-            top:28px;
+            top:0;
             left:0;
             width:100%;
             height: calc(100%);
@@ -740,16 +756,14 @@
         #quickAccessPanel{
             background-color:var(--body_background);
             position:absolute;
-            top:28px;
-            right:4px;
+            bottom:calc(36px + 1em);
+            left:55px;
             z-index:114;
             width:300px;
+            border-radius: 6px;
             max-height: calc(100% - 100px);
             overflow-y: auto;
             scrollbar-width: thin;
-            border-radius: 10px;
-            border-top-right-radius: 0px;
-            border-top-left-radius: 0px;
             border: 1px solid #ebebeb;
             padding-top:8px;
             padding-bottom:8px;
@@ -965,23 +979,16 @@
             #backgroundTaskPanel{
                 background-color:white;
                 position:absolute;
-                top:28px;
-                right:50px;
+                bottom:36px;
+                right:0;
                 z-index:115;
                 width:400px;
-                border-radius: 10px;
-                border-top-right-radius: 0px;
-                border-top-left-radius: 0px;
                 border: 1px solid #ebebeb;
                 padding-top:8px;
                 padding-bottom:8px;
-                max-height: 50vh;
+                max-height: 70vh;
                 overflow-y: auto;
                 overflow-x: hidden;
-
-                box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
-                -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
-                -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
             }
 
             .backgroundtaskObject{
@@ -1055,23 +1062,7 @@
     <div id="bgwrapper" class="background-wrapper" allowdrop="true" ondrop="drop(event)" ondragstart="return false;" onclick="event.preventDefault(); hideAllContextMenus();" ondblclick="event.preventDefault();event.stopImmediatePropagation();" ondragover="allowDrop(event);"
         align="center" draggable="false">
     </div>
-    <!-- Top Status Bar -->
-    <div id="statusbar">
-        <div class="hostname statusbarpadding">
-            Welcome
-        </div>
-        <div class="clock statusbarpadding" onclick="toggleNotification();" ontouchstart="toggleNotification();">
-            ArozOS Desktop
-        </div>
-        <div class="quicktools statusbarpadding">
-            <div id="backgroundtaskBtn" class="qtwrapper backgroundtask" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
-                <i class="clone icon"></i>
-            </div>
-            <div class="qtwrapper content" onclick="showToolPanel();" ontouchend="showToolPanel();" style="margin-right: 0.4em;">
-                <i class="content icon"></i>
-            </div>
-        </div>
-    </div>
+
     <!-- Calendar and Notification -->
     <div class="notificationbar" style="display:none;">        
         <div class="cover" onclick='toggleNotification("hide");' ontouchstart='toggleNotification("hide");'></div>
@@ -1105,10 +1096,25 @@
 
     <!-- Navigation Menu-->
     <div id="navimenu" class="navimenu themeColor">
-        <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" >
+        <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" style="margin-right: 0.5em;">
             <img style="height:36px;" src="img/desktop/system_icon/list.png"></img>
         </div>
-        <!-- <div class="item padding system"></div> -->
+        <div class="item clickable system" onclick="showToolPanel();" ontouchend="showToolPanel();" style="border-left: 1px solid rgba(207, 207, 207, 0.37)">
+            <img style="height:36px;" src="img/desktop/system_icon/navi.png"></img>
+        </div>
+        <div class="item system" style="padding-top: 0.5em; padding-right: 1.3em; color: white; pointer-events: none;">
+            <span class="hostname">Welcome</span>
+        </div>
+     
+
+        <!-- Right fixed buttons-->
+        <div id="backgroundtaskBtn" class="item backgroundtasks clickable system" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
+            <i class="clone icon"></i>
+        </div>
+        <div class="item clock clickable system"  onclick="toggleNotification();" ontouchstart="toggleNotification();">
+
+        </div>
+        
     </div>
 
     <!-- floatWindow dragging panel-->
@@ -1125,7 +1131,7 @@
     <div id="listMenu" class="" style="display:none;">
         <div class="searchBar" onkeydown="searchModule(event);">
             <div class="ui icon fluid input" style="border-radius: 0px !important;">
-                <input id="searchBar" type="text" placeholder="Search" style="border-radius: 0px !important; border: 0px solid transparent;">
+                <input id="searchBar" type="text" placeholder="Search" style="border: 0px solid transparent;">
                 <i class="search icon"></i>
             </div>
         </div>
@@ -1298,7 +1304,7 @@
         var iconSize = []; //Defined the icon size for the desktop icons
         var desktopFileList = []; //Temperature storage of desktop filenames
         var startDragRelatuve = []; //Relative location of where the icon being start dragging
-        var iconOffsetXY = [0,20];  //Pixel to offset for the icon location
+        var iconOffsetXY = [-10,-10];  //Pixel to offset for the icon location
 
         //Float window related
         var focusedWindow;
@@ -1615,7 +1621,14 @@
         updateClockTime();
         function updateClockTime(){
             var d = new Date();
-            var display = monthNames[d.getMonth()] + " " + d.getDate() + " " + zeropad(d.getHours(),2) + ":" + zeropad(d.getMinutes(),2);
+            var ampm = "AM";
+            var currentHour = d.getHours()
+            if (currentHour > 12){
+                ampm = "PM";
+                currentHour -= 12;
+            }
+            var display = `${zeropad(currentHour,2)}:${zeropad(d.getMinutes(),2)} ${ampm}<br>
+            ${d.getDate()} ${monthNames[d.getMonth()].substr(0, 3)} ${d.getFullYear()}`;
             
             if ($(".notification.object").length > 0){
                 display += `<span style="color: #f54242; margin-left: 8px; float: center;"><i class="notice circle icon"></i></span>`;
@@ -1638,10 +1651,13 @@
         }
 
         function showToolPanel(){
-            $("#quickAccessPanel").slideToggle("fast");
+            if (listMenuShown = true){
+                hideListMenu();
+            }
+            $("#quickAccessPanel").fadeIn("fast");
         }
         function hideToolPanel(){
-            $("#quickAccessPanel").slideUp("fast");
+            $("#quickAccessPanel").fadeOut("fast");
         }
 
         function initStartupSounds(){
@@ -1747,56 +1763,15 @@
         }
 
         function toggleNotification(action=undefined){
-            var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
             if (typeof action == "undefined"){
                 $(".notificationbar").stop().finish().fadeToggle("fast", function(){
-                    /*
-                    //Firefox 103 now support backdrop-filter
-                    if ($(this).is(":visible")){
-                        if (isFirefox){
-                            $("#bgwrapper").addClass("blured");
-                            $("#iconwrapper").addClass("blured");
-                            $("#navimenu").addClass("blured");
-                            $(".floatWindow").addClass("blured");
-                            $("#listMenu").addClass("blured");
-                        }
-                    }else{
-                        if (isFirefox){
-                            $("#bgwrapper").removeClass("blured");
-                            $("#iconwrapper").removeClass("blured");
-                            $("#navimenu").removeClass("blured");
-                            $(".floatWindow").removeClass("blured");
-                            $("#listMenu").removeClass("blured");
-                        }
-                    }
-                    */
+                  
                 });
             }else{
                 if (action == "hide"){
                     $(".notificationbar").stop().finish().fadeOut("fast");
-                     /*
-                    //Firefox 103 now support backdrop-filter
-                    if (isFirefox){
-                        $("#bgwrapper").removeClass("blured");
-                        $("#iconwrapper").removeClass("blured");
-                        $("#navimenu").removeClass("blured");
-                        $(".floatWindow").removeClass("blured");
-                        $("#listMenu").removeClass("blured");
-                    }
-                    */
-                  
                 }else if (action == "show"){
                     $(".notificationbar").stop().finish().fadeIn("fast");
-                    /*
-                    //Firefox 103 now support backdrop-filter
-                    if (isFirefox){
-                        $("#bgwrapper").addClass("blured");
-                        $("#iconwrapper").addClass("blured");
-                        $("#navimenu").addClass("blured");
-                        $(".floatWindow").addClass("blured");
-                        $("#listMenu").addClass("blured");
-                    }
-                    */
                 }
             }
         }
@@ -1804,13 +1779,12 @@
         // ===================== LIST MENU EVENTS FUNCTIONS ===============
 
         function toggleListMenu() {
-            $("#listMenu").stop().finish().animate({
-                height: "toggle"
-            }, 300, function() {
-                if ($("#listMenu").offset().top == 0) {
-                    listMenuShown = false;
-                } else {
+            hideToolPanel()
+            $("#listMenu").fadeToggle("fast", function(){
+                if ($("#listMenu").is(":visible")) {
                     listMenuShown = true;
+                } else {
+                    listMenuShown = false;
                 }
             });
         }
@@ -1827,9 +1801,7 @@
 
         function hideListMenu() {
             if (listMenuShown) {
-                $("#listMenu").animate({
-                    height: "hide"
-                }, 300);
+                $("#listMenu").fadeOut("fast");
                 listMenuShown = false;
             }
         }
@@ -6555,7 +6527,7 @@
         function hideAllContextMenus() {
             $("#subcontextmenu").hide();
             $("#contextmenu").hide()
-            $("#quickAccessPanel").slideUp("fast");
+            $("#quickAccessPanel").fadeOut("fast");
             $("#backgroundTaskPanel").slideUp("fast");
         }
 
@@ -7321,6 +7293,12 @@
                 openSwitchAccountPanel();
                 return;
             }
+
+            //Close all floatWindows
+            $(".floatWindow").each(function(){
+                let thisFloatWindowID = $(this).attr("windowid");
+                closeFloatWindowViaID(thisFloatWindowID);
+            })
 
             $.ajax({
                 url: "system/auth/u/switch",

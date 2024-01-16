@@ -4,6 +4,8 @@ import (
 	//"path/filepath"
 	//"log"
 
+	"fmt"
+
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
@@ -15,7 +17,7 @@ import (
 
 */
 
-//Return the user quota information, returning used / total
+// Return the user quota information, returning used / total
 func (u *User) HaveSpaceFor(fsh *fs.FileSystemHandler, vpath string) bool {
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
@@ -73,6 +75,11 @@ func (u *User) IsOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) bool {
 func (u *User) GetFileOwner(fsh *fs.FileSystemHandler, vpath string) string {
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
+		return ""
+	}
+
+	if fsh.Hierarchy == "user" {
+		fmt.Println(realpath, vpath)
 		return ""
 	}
 

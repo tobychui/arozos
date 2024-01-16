@@ -131,8 +131,8 @@ func mrouter(h http.Handler) http.Handler {
 			authAgent.UpdateSessionExpireTime(w, r)
 			if build_version == "development" {
 				//Do something if development build
-				w.Header().Add("Cross-Origin-Opener-Policy", "same-origin")
-				w.Header().Add("Cross-Origin-Embedder-Policy", "require-corp")
+				//w.Header().Add("Cross-Origin-Opener-Policy", "same-origin")
+				//w.Header().Add("Cross-Origin-Embedder-Policy", "require-corp")
 			}
 			if filepath.Ext("web"+fs.DecodeURI(r.RequestURI)) == ".js" {
 				//Fixed serve js meme type invalid bug on Firefox

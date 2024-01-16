@@ -1,14 +1,11 @@
 package agi
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -253,98 +250,106 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	if scriptFile != "" && scriptScope != "" {
 		//Package request --> Install linux package if not exists
 		vm.Set("requirepkg", func(call otto.FunctionCall) otto.Value {
-			packageName, err := call.Argument(0).ToString()
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-			requireComply, err := call.Argument(1).ToBoolean()
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			scriptRoot := static.GetScriptRoot(scriptFile, scriptScope)
-
-			//Check if this module already get registered.
-			alreadyRegistered := false
-			for _, pkgRequest := range g.AllowAccessPkgs[strings.ToLower(packageName)] {
-				if pkgRequest.InitRoot == scriptRoot {
-					alreadyRegistered = true
-					break
+			g.RaiseError(errors.New("requirepkg has been deprecated in agi v3.0"))
+			return otto.FalseValue()
+			/*
+				packageName, err := call.Argument(0).ToString()
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
 				}
-			}
+				requireComply, err := call.Argument(1).ToBoolean()
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
 
-			if !alreadyRegistered {
-				//Register this packge to this script and allow the module to call this package
-				g.AllowAccessPkgs[strings.ToLower(packageName)] = append(g.AllowAccessPkgs[strings.ToLower(packageName)], AgiPackage{
-					InitRoot: scriptRoot,
-				})
-			}
+				scriptRoot := static.GetScriptRoot(scriptFile, scriptScope)
 
-			//Try to install the package via apt
-			err = g.Option.PackageManager.InstallIfNotExists(packageName, requireComply)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
+				//Check if this module already get registered.
+				alreadyRegistered := false
+				for _, pkgRequest := range g.AllowAccessPkgs[strings.ToLower(packageName)] {
+					if pkgRequest.InitRoot == scriptRoot {
+						alreadyRegistered = true
+						break
+					}
+				}
 
-			return otto.TrueValue()
+				if !alreadyRegistered {
+					//Register this packge to this script and allow the module to call this package
+					g.AllowAccessPkgs[strings.ToLower(packageName)] = append(g.AllowAccessPkgs[strings.ToLower(packageName)], AgiPackage{
+						InitRoot: scriptRoot,
+					})
+				}
+
+				//Try to install the package via apt
+				err = g.Option.PackageManager.InstallIfNotExists(packageName, requireComply)
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
+
+				return otto.TrueValue()
+			*/
 		})
 
 		//Exec required pkg with permission control
 		vm.Set("execpkg", func(call otto.FunctionCall) otto.Value {
-			//Check if the pkg is already registered
-			scriptRoot := static.GetScriptRoot(scriptFile, scriptScope)
-			packageName, err := call.Argument(0).ToString()
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			if val, ok := g.AllowAccessPkgs[packageName]; ok {
-				//Package already registered by at least one module. Check if this script root registered
-				thisModuleRegistered := false
-				for _, registeredPkgInterface := range val {
-					if registeredPkgInterface.InitRoot == scriptRoot {
-						//This package registered this command. Allow access
-						thisModuleRegistered = true
-					}
+			g.RaiseError(errors.New("execpkg has been deprecated in agi v3.0"))
+			return otto.FalseValue()
+			/*
+				//Check if the pkg is already registered
+				scriptRoot := static.GetScriptRoot(scriptFile, scriptScope)
+				packageName, err := call.Argument(0).ToString()
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
 				}
 
-				if !thisModuleRegistered {
+				if val, ok := g.AllowAccessPkgs[packageName]; ok {
+					//Package already registered by at least one module. Check if this script root registered
+					thisModuleRegistered := false
+					for _, registeredPkgInterface := range val {
+						if registeredPkgInterface.InitRoot == scriptRoot {
+							//This package registered this command. Allow access
+							thisModuleRegistered = true
+						}
+					}
+
+					if !thisModuleRegistered {
+						g.RaiseError(errors.New("Package request not registered: " + packageName))
+						return otto.FalseValue()
+					}
+
+				} else {
 					g.RaiseError(errors.New("Package request not registered: " + packageName))
 					return otto.FalseValue()
 				}
 
-			} else {
-				g.RaiseError(errors.New("Package request not registered: " + packageName))
-				return otto.FalseValue()
-			}
+				//Ok. Allow paramter to be loaded
+				execParamters, _ := call.Argument(1).ToString()
 
-			//Ok. Allow paramter to be loaded
-			execParamters, _ := call.Argument(1).ToString()
+				// Split input paramters into []string
+				r := csv.NewReader(strings.NewReader(execParamters))
+				r.Comma = ' ' // space
+				fields, err := r.Read()
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
 
-			// Split input paramters into []string
-			r := csv.NewReader(strings.NewReader(execParamters))
-			r.Comma = ' ' // space
-			fields, err := r.Read()
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
+				//Run os.Exec on the given commands
+				cmd := exec.Command(packageName, fields...)
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					log.Println(string(out))
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
 
-			//Run os.Exec on the given commands
-			cmd := exec.Command(packageName, fields...)
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				log.Println(string(out))
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			reply, _ := vm.ToValue(string(out))
-			return reply
+				reply, _ := vm.ToValue(string(out))
+				return reply
+			*/
 		})
 
 		//Include another js in runtime

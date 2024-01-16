@@ -27,7 +27,7 @@ func NewPackageManager(autoInstall bool) *AptPackageManager {
 	}
 }
 
-//Install the given package if not exists. Set mustComply to true for "panic on failed to install"
+// Install the given package if not exists. Set mustComply to true for "panic on failed to install"
 func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) error {
 	//Clear the pkgname
 	pkgname = strings.ReplaceAll(pkgname, "&", "")
@@ -71,7 +71,7 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 func PackageExists(pkgname string) (bool, error) {
 	if runtime.GOOS == "windows" {
 		//Check if the command already exists in windows path paramters.
-		cmd := exec.Command("where", pkgname, "2>", "nul")
+		cmd := exec.Command("where.exe", pkgname, "2>", "nul")
 		_, err := cmd.CombinedOutput()
 		if err != nil {
 			return false, errors.New("Package " + pkgname + " not found in Windows %PATH%.")
@@ -99,7 +99,6 @@ func PackageExists(pkgname string) (bool, error) {
 		} else {
 			return false, errors.New("Package " + pkgname + " not installed on this Mac")
 		}
-
 
 	} else if runtime.GOOS == "linux" {
 		cmd := exec.Command("which", pkgname)

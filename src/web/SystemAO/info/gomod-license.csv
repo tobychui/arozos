@@ -76,6 +76,7 @@ gopkg.in/warnings.v0,https://github.com/go-warnings/warnings/blob/v0.1.2/LICENSE
 imuslab.com/arozos,Unknown,Unknown
 imuslab.com/arozos/mod/agi,Unknown,Unknown
 imuslab.com/arozos/mod/agi/static,Unknown,Unknown
+imuslab.com/arozos/mod/agi/static/ffmpegutil,Unknown,Unknown
 imuslab.com/arozos/mod/apt,Unknown,Unknown
 imuslab.com/arozos/mod/auth,Unknown,Unknown
 imuslab.com/arozos/mod/auth/accesscontrol,Unknown,Unknown

@@ -1,14 +1,15 @@
 package agi
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
+	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/agi/static/ffmpegutil"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -26,76 +27,6 @@ func (g *Gateway) FFmpegLibRegister() {
 	err := g.RegisterLib("ffmpeg", g.injectFFmpegFunctions)
 	if err != nil {
 		log.Fatal(err)
-	}
-}
-
-/*
-	FFmepg functions
-*/
-
-func ffmpeg_conv(input string, output string, compression int) error {
-	var cmd *exec.Cmd
-
-	switch {
-	case isVideo(input) && isVideo(output):
-		// Video to video with resolution compression
-		cmd = exec.Command("ffmpeg", "-i", input, "-vf", fmt.Sprintf("scale=-1:%d", compression), output)
-
-	case (isAudio(input) || isVideo(input)) && isAudio(output):
-		// Audio or video to audio with bitrate compression
-		cmd = exec.Command("ffmpeg", "-i", input, "-b:a", fmt.Sprintf("%dk", compression), output)
-
-	case isImage(output):
-		// Resize image with width compression
-		cmd = exec.Command("ffmpeg", "-i", input, "-vf", fmt.Sprintf("scale=%d:-1", compression), output)
-
-	default:
-		// Handle other cases or leave it for the user to implement
-		return fmt.Errorf("unsupported conversion: %s to %s", input, output)
-	}
-
-	// Set the output of the command to os.Stdout so you can see it in your console
-	cmd.Stdout = os.Stdout
-
-	// Set the output of the command to os.Stderr so you can see any errors
-	cmd.Stderr = os.Stderr
-
-	// Run the command
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error running ffmpeg command: %v", err)
-	}
-
-	return nil
-}
-
-// Helper functions to check file types
-func isVideo(filename string) bool {
-	videoFormats := []string{
-		".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm",
-	}
-	return utils.StringInArray(videoFormats, filepath.Ext(filename))
-}
-
-func isAudio(filename string) bool {
-	audioFormats := []string{
-		".mp3", ".wav", ".aac", ".ogg", ".flac",
-	}
-	return utils.StringInArray(audioFormats, filepath.Ext(filename))
-}
-
-func isImage(filename string) bool {
-	imageFormats := []string{
-		".jpg", ".png", ".gif", ".bmp", ".tiff", ".webp",
-	}
-	return utils.StringInArray(imageFormats, filepath.Ext(filename))
-}
-
-func main() {
-	// Example usage
-	err := ffmpeg_conv("input.mp4", "output.mp4", 720)
-	if err != nil {
-		fmt.Println("Error:", err)
 	}
 }
 
@@ -126,6 +57,12 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 			return otto.FalseValue()
 		}
 
+		compression, err := call.Argument(2).ToInteger()
+		if err != nil {
+			//Do not use compression
+			compression = 0
+		}
+
 		//Rewrite the vpath if it is relative
 		vinput = static.RelativeVpathRewrite(scriptFsh, vinput, vm, u)
 		voutput = static.RelativeVpathRewrite(scriptFsh, voutput, vm, u)
@@ -153,8 +90,59 @@ func (g *Gateway) injectFFmpegFunctions(payload *static.AgiLibInjectionPayload) 
 			return otto.FalseValue()
 		}
 
-		fmt.Println(rinput, routput, bufferedFilepath)
+		//fmt.Println(rinput, routput, bufferedFilepath)
 
+		//Convert it to target format using ffmpeg
+		outputTmpFilename := uuid.NewV4().String() + filepath.Ext(routput)
+		outputBufferPath := filepath.Join(filepath.Dir(bufferedFilepath), outputTmpFilename)
+		err = ffmpegutil.FFmpeg_conv(bufferedFilepath, outputBufferPath, int(compression))
+		if err != nil {
+			//FFmpeg conversion failed
+			g.RaiseError(err)
+
+			//Delete the buffered file
+			os.Remove(bufferedFilepath)
+			return otto.FalseValue()
+		}
+
+		if !utils.FileExists(outputBufferPath) {
+			//Fallback check, to see if the output file actually exists
+			g.RaiseError(errors.New("output file not found. Assume ffmpeg conversion failed"))
+			//Delete the buffered file
+			os.Remove(bufferedFilepath)
+			return otto.FalseValue()
+		}
+
+		//Conversion completed
+
+		//Delete the buffered file
+		os.Remove(bufferedFilepath)
+
+		//Upload the converted file to target disk
+		src, err := os.OpenFile(outputBufferPath, os.O_RDONLY, 0755)
+		if err != nil {
+			g.RaiseError(err)
+			//Delete the output buffer if failed
+			os.Remove(outputBufferPath)
+			return otto.FalseValue()
+		}
+		defer src.Close()
+
+		err = fsh.FileSystemAbstraction.WriteStream(routput, src, 0775)
+		if err != nil {
+			g.RaiseError(err)
+			//Delete the output buffer if failed
+			os.Remove(outputBufferPath)
+			return otto.FalseValue()
+		}
+
+		//Upload completed. Remove the remaining buffer file
+		os.Remove(outputBufferPath)
 		return otto.TrueValue()
 	})
+
+	vm.Run(`
+		var ffmpeg = {};
+		ffmpeg.convert = _ffmpeg_conv;
+	`)
 }
