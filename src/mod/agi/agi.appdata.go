@@ -20,7 +20,7 @@ import (
 	This library allow agi script to access files located in the web root
 	*This library provide READ ONLY function*
 	You cannot write to web folder due to security reasons. If you need to read write
-	web root (which is not recommended), ask the user to mount it top web:/ manually
+	web root (which is not recommended), ask the user to mount it to web:/ manually
 */
 
 var webRoot string = "./web" //The web folder root
@@ -34,11 +34,7 @@ func (g *Gateway) AppdataLibRegister() {
 
 func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm := payload.VM
-	//u := payload.User
-	//scriptFsh := payload.ScriptFsh
-	//scriptPath := payload.ScriptPath
-	//w := payload.Writer
-	//r := payload.Request
+
 	vm.Set("_appdata_readfile", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
 		if err != nil {

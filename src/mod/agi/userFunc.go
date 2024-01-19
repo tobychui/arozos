@@ -202,18 +202,6 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 		}
 	})
 
-	vm.Set("getUserInfoByName", func(call otto.FunctionCall) otto.Value {
-		//libname, err := call.Argument(0).ToString()
-		if u.IsAdmin() {
-
-		} else {
-
-			g.RaiseError(errors.New("Permission Denied: getUserInfoByName require admin permission"))
-			return otto.FalseValue()
-		}
-		return otto.TrueValue()
-	})
-
 	//Allow real time library includsion into the virtual machine
 	vm.Set("requirelib", func(call otto.FunctionCall) otto.Value {
 		libname, err := call.Argument(0).ToString()

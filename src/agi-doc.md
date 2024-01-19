@@ -340,8 +340,8 @@ deleteDBItem("tablename", "key");
 
 ```
 registerModule(JSON.stringify(moduleLaunchInfo)); //See moduleLaunchInfo in the sections above
-requirepkg("ffmpeg");
-execpkg("ffmpeg",'-i "files/users/TC/Desktop/群青.mp3" "files/users/TC/Desktop/群青.flac'); //ffmpeg must be required() before use
+[deprecated] requirepkg("ffmpeg");
+[deprecated] execpkg("ffmpeg",'-i "files/users/TC/Desktop/群青.mp3" "files/users/TC/Desktop/群青.flac'); //ffmpeg must be required() before use
 ```
 
 #### Structure & OOP
@@ -370,9 +370,9 @@ USER_MODULES //Might return ["*"] for admin permission
 #### Filepath Virtualization
 
 ```
-decodeVirtualPath("user:/Desktop"); //Convert virtual path (e.g. user:/Desktop) to real path (e.g. ./files/user/username/Desktop)
-decodeAbsoluteVirtualPath("user:/Desktop"); //Same as decodeVirtualPath but return in absolute path instead of relative path from the arozos binary root
-encodeRealPath("files/users/User/Desktop"); //Convert realpath into virtual path
+[deprecated] decodeVirtualPath("user:/Desktop"); //Convert virtual path (e.g. user:/Desktop) to real path (e.g. ./files/user/username/Desktop)
+[deprecated] decodeAbsoluteVirtualPath("user:/Desktop"); //Same as decodeVirtualPath but return in absolute path instead of relative path from the arozos binary root
+[deprecated] encodeRealPath("files/users/User/Desktop"); //Convert realpath into virtual path
 ```
 
 #### Permission Related

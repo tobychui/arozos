@@ -32,7 +32,7 @@
             <button class="fileOprBtn tabletAndDesktopOnly" title="Copy" onclick="copy();"><img class="opricon" src="img/opr/copy.svg"><p class="oprtxt" locale="fileopr/Copy">Copy</p></button>
             <button class="fileOprBtn tabletAndDesktopOnly" title="Paste" onclick="paste();"><img class="opricon" src="img/opr/paste.svg"><p class="oprtxt" locale="fileopr/Paste">Paste</p></button>
             <div class="fileoprGroupDivider tabletAndDesktopOnly" style="display: inline-block; vertical-align: top;">
-                <button class="fileoprSmallBtn" title="Open with" onclick="openWith();"><i class="external icon"></i> <span locale="fileopr/Open with">Open With</span></button><br>
+                <button class="fileoprSmallBtn" title="Open with" onclick="openWith();"><i class="external icon"></i> <span locale="fileopr/Open with" style="font-size: 0.9em !important;">Open With</span></button><br>
                 <button class="fileoprSmallBtn" title="Cut" onclick="cut();"><i class="blue cut icon"></i> <span locale="fileopr/Cut">Cut</span></button><br>
                 <button class="fileoprSmallBtn" title="Rename" onclick="rename();"><i class="teal i cursor icon"></i> <span locale="fileopr/Rename">Rename</span></button>
             </div>
@@ -57,7 +57,7 @@
                 <i class="ui large bars icon"></i>
             </button>
             <div style="display: inline-block; vertical-align: top;">
-                <select id="sortingMethodSelector" title="Sorting Method" class="ui basic borderless mini dropdown" onchange="updateSortingMethods();" autocomplete="off" style="min-width: 10em;">
+                <select id="sortingMethodSelector" title="Sorting Method" class="ui basic borderless mini dropdown" onchange="updateSortingMethods();" autocomplete="off" style="min-width: 10em !important;">
                     <option value="default" locale="menu/sort/asc">Ascending</option>
                     <option value="reverse" locale="menu/sort/desc">Descending</option>
                     <option value="smallToLarge" locale="menu/sort/small">Smallest</option>

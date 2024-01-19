@@ -4,8 +4,6 @@ import (
 	//"path/filepath"
 	//"log"
 
-	"fmt"
-
 	fs "imuslab.com/arozos/mod/filesystem"
 )
 
@@ -75,11 +73,6 @@ func (u *User) IsOwnerOfFile(fsh *fs.FileSystemHandler, vpath string) bool {
 func (u *User) GetFileOwner(fsh *fs.FileSystemHandler, vpath string) string {
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {
-		return ""
-	}
-
-	if fsh.Hierarchy == "user" {
-		fmt.Println(realpath, vpath)
 		return ""
 	}
 

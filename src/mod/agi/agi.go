@@ -132,7 +132,9 @@ func (g *Gateway) InitiateAllWebAppModules() {
 
 		//Only allow non user based operations
 		g.injectStandardLibs(vm, script, "./web/")
-
+		g.injectAppdataLibFunctions(&static.AgiLibInjectionPayload{
+			VM: vm,
+		})
 		_, err := vm.Run(scriptContent)
 		if err != nil {
 			log.Println("[AGI] Load Failed: " + script + ". Skipping.")
