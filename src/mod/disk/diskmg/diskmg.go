@@ -64,12 +64,12 @@ var (
 )
 
 /*
-	Diskmg View Generator
-	This section of the code is a direct translation of the original
-	AOB's diskmg.php and diskmgWin.php.
+Diskmg View Generator
+This section of the code is a direct translation of the original
+AOB's diskmg.php and diskmgWin.php.
 
-	If you find any bugs in these code, just remember they are legacy
-	code and rewriting the whole thing will save you a lot more time.
+If you find any bugs in these code, just remember they are legacy
+code and rewriting the whole thing will save you a lot more time.
 */
 func HandleView(w http.ResponseWriter, r *http.Request) {
 	partition, _ := utils.GetPara(r, "partition")
@@ -185,10 +185,10 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-	Mounting a given partition or devices
-	Manual translated from mountTool.php
+Mounting a given partition or devices
+Manual translated from mountTool.php
 
-	Require GET parameter: dev / format / mnt
+Require GET parameter: dev / format / mnt
 */
 func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
 	if runtime.GOOS == "linux" {
@@ -260,9 +260,8 @@ func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSy
 }
 
 /*
-	Format Tool
-	Manual translation from AOB's formatTool.php
-
+Format Tool
+Manual translation from AOB's formatTool.php
 */
 func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
 	dev, err := utils.PostPara(r, "dev")
@@ -380,7 +379,7 @@ func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.F
 	return string(o), err
 }
 
-//Unmount a given mountpoint
+// Unmount a given mountpoint
 func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error) {
 	//Unmount the fsHandlers that related to this mountpt
 	for _, fsh := range fsHandlers {
@@ -396,14 +395,14 @@ func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error)
 	return string(o), err
 }
 
-//Return a list of mountable directory
+// Return a list of mountable directory
 func HandleListMountPoints(w http.ResponseWriter, r *http.Request) {
 	mp, _ := filepath.Glob("/media/*")
 	js, _ := json.Marshal(mp)
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Check if the device is mounted
+// Check if the device is mounted
 func checkDeviceMounted(devname string) (bool, error) {
 	cmd := exec.Command("bash", "-c", "lsblk -f -b --json | grep "+devname)
 	output, err := cmd.CombinedOutput()
@@ -447,7 +446,7 @@ func getDeviceMountPoint(devname string) (string, error) {
 	}
 }
 
-//Check device valid, only usable in linux
+// Check device valid, only usable in linux
 func checkDeviceValid(devname string) (bool, string) {
 	//Check if the device name is valid
 	match, _ := regexp.MatchString("sd[a-z][1-9]", devname)

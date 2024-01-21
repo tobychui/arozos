@@ -1,0 +1,142 @@
+<div class="sysoverview">
+    <style>
+        #sysoverviewRender{
+            
+            padding-top: 1em;
+            /* border: 1px solid blue; */
+        }
+
+        #sysoverviewRender .title{
+            color: #32b218;
+        }
+
+        #sysoverviewRender .sysoverviewtable{
+            margin-left: 1em;
+            margin-right: 1em;
+            margin-top: 1.5em;
+        }
+
+        #sysoverviewRender .sysoverviewtable td{
+            color: var(--text_color_secondary);
+        }
+
+        #sysoverviewRender .sysoverviewtable .ui.dropdown .menu{
+            background: var(--body_background_secondary) !important;
+            border: 1px solid var(--body_background_active);
+        }
+
+        #sysoverviewRender .hoststatus{
+            display: flex;
+            justify-content: center;
+            margin-right: 2em;
+        }
+    </style>
+    <div id="sysoverviewRender">
+        <div class="hoststatus">
+            <h2 class="ui header">
+                <img class="statusicon" src="img/desktop/system_icon/checkmark.svg">
+                <div class="content">
+                    <span class="title">Healthy</span>
+                    <div class="sub header statusDesc">Your server seems working well! </div>
+                </div>
+            </h2>
+        </div>
+        <div class="sysoverviewtable">
+            <table class="ui very basic compact table">
+                <tbody>
+                    <tr>
+                        <td locale="quickAccess/overview/hostname">Host Name</td>
+                        <td class="hostname"></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="ui dropdown iface">
+                            <div class="text">loopback</div>
+                            <i class="dropdown icon"></i>
+                            <div class="menu">
+                              <div class="item">loopback</div>
+                            </div>
+                        </td>
+                        <td class="ifaceip">127.0.0.1</td>
+                    </tr>
+                    <tr>
+                        <td locale="quickAccess/overview/uuid">Dev. UUID</td>
+                        <td class="sysuuid" style="font-size: 0.8em;"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        
+
+        //Fill in the system overview information
+        if (typeof(hostInfo) != "undefined"){
+            $(".sysoverviewtable .hostname").text(hostInfo.Hostname);
+            $(".sysoverviewtable .sysuuid").text(hostInfo.DeviceUUID);
+        }
+        
+        applocale.translate();
+
+        //Fill nic info
+        $.get(ao_root + "system/network/getNICinfo", function(data){
+            console.log(data);
+            if (data.error == undefined){
+                let menuElement = $("#sysoverviewRender .dropdown.iface .menu");
+                menuElement.html("");
+                data.forEach(nic => {
+                    let targetIP = nic.IPv4Addr;
+                    if (targetIP == "N/A"){
+                        targetIP = nic.IPv6Addr;
+                    }
+                    menuElement.append(`<div class="item" value="${targetIP}">${nic.Name}</div>`);
+                });
+            }
+
+            //Select the first nic
+            $("#sysoverviewRender .dropdown.iface").dropdown({
+                onChange: function(){
+                    let newIface = $("#sysoverviewRender .dropdown.iface").dropdown("get item");
+                    let newIp = $(newIface).attr("value");
+                    $("#sysoverviewRender .ifaceip").text(newIp);
+                }
+            })
+
+            let nicIndex = 0;
+            if (data[nicIndex].Name == "lo" && data.length > 1){
+                nicIndex += 1;
+            }
+            $("#sysoverviewRender .dropdown.iface").dropdown("set selected",data[nicIndex].Name);
+            
+        });
+
+
+        //Update system status warning, 0 = good, 1 = warning, 2 = error
+        function updateSystemOverviewStatusText(warningStatus=0){
+            let titleText = $("#sysoverviewRender .hoststatus .title");
+            let titleDesc = $("#sysoverviewRender .hoststatus .statusDesc");
+            let statusIconEle = $("#sysoverviewRender .statusicon");
+            if (warningStatus == 0){
+                //Normal, looks good
+                titleText.text(applocale.getString("quickAccess/overview/status/healthy", "Good"));
+                titleDesc.text(applocale.getString("quickAccess/overview/status/healthy/desc", "Your server seems working well! "));
+                titleText.css("color", "#32b218");
+                statusIconEle.attr('src', 'img/desktop/system_icon/checkmark.svg');
+            }else if (warningStatus == 1){
+                //Warning
+                titleText.text(applocale.getString("quickAccess/overview/status/warning", "Good"));
+                titleText.css("color", "#f09600");
+                titleDesc.text(applocale.getString("quickAccess/overview/status/warning/desc", "Your server seems working well! "));
+                statusIconEle.attr('src', 'img/desktop/system_icon/warning.svg');
+            }else{
+                //Screwed
+                titleText.text(applocale.getString("quickAccess/overview/status/screwed", "Good"));
+                titleDesc.text(applocale.getString("quickAccess/overview/status/screwed/desc", "Your server seems working well! "));
+                titleText.css("color", "#c10d23");
+                statusIconEle.attr('src', 'img/desktop/system_icon/error.svg');
+            }
+        }
+        updateSystemOverviewStatusText(0);
+
+    </script>
+</div>

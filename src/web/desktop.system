@@ -784,10 +784,11 @@
             bottom:calc(36px + 0.4em);
             left:55px;
             z-index:114;
-            width:300px;
+            width:720px;
             border-radius: 6px;
-            max-height: calc(100% - 100px);
-            overflow-y: auto;
+            overflow: hidden;
+            max-height: calc(100% - 136px);
+            
             scrollbar-width: thin;
             border: 1px solid #ebebeb;
             padding-top:8px;
@@ -798,6 +799,15 @@
             -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
         }
 
+        #quickAccessPanel .mxmenu{
+            border-right: 1px solid var(--divider);
+            padding-right: 0;
+        }
+
+        #quickAccessPanel .viewutils{
+            padding-right: 2em !important;
+        }
+
         #quickAccessPanel .item{
             padding-left:12px;
             padding-right:12px;
@@ -805,11 +815,14 @@
             padding-bottom:4px;
             cursor:pointer;
             border-left: 3px solid transparent;
-            
         }
 
         #quickAccessPanel .item{
             color: var(--text_color);
+        }
+
+        #quickAccessPanel #quickseach{
+            padding-top: 0.4em;
         }
 
         #quickAccessPanel .item:hover{
@@ -844,7 +857,7 @@
            background-color: var(--body_background_active);
         }
 
-        #quickAccessPanel .progress .bar{
+        #quickAccessPanel .progress .bar :not(#diskrender, #diskrender .bar .progress){
             background-color: var(--theme_color) !important;
         }
 
@@ -1240,64 +1253,77 @@
 
     <!-- Content / Quick Access Panel-->
     <div id="quickAccessPanel" class="" style="display:none;">
-        <div class="ui small items" style="margin-bottom: 0;">
-            <div class="item">
-                <div class="ui mini image">
-                    <img class="usericon" src="img/desktop/system_icon/user.svg">
-                </div>
-                <div class="content" style="padding-left: 1em;">
-                    <div id="username" class="header" style="font-weight: 600; font-size: 1.22em;">User</div>
-                    <div class="meta" style="margin-top: 0.15em;">
-                        <div id="usergroups">@Users</div>
+        <div class="ui grid">
+            <div class="seven wide column mxmenu">
+                <div class="ui small items" style="margin-bottom: 0;">
+                    <div class="item">
+                        <div class="ui mini image">
+                            <img class="usericon" src="img/desktop/system_icon/user.svg">
+                        </div>
+                        <div class="content" style="padding-left: 1em;">
+                            <div id="username" class="header" style="font-weight: 600; font-size: 1.22em;">User</div>
+                            <div class="meta" style="margin-top: 0.15em;">
+                                <div id="usergroups">@Users</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <div class="ui small button" onclick="logout(); hideToolPanel();">
+                                <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ui divider"  style="margin-left: 0.4em; margin-right: 0.4em;"></div>
+                    <div id="alternativeAccountList">
+                    
+                    </div>
+                    <div class="ui divider" style="margin-left: 3em; margin-right: 3em;"></div>
+                    <div class="item" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" onclick="openSwitchAccountPanel(); hideToolPanel();">
+                        <i class="ui user plus icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/addAccount">Add another account</span>
+                    </div>
+                    <div id="signoutAllButton" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" class="item" onclick="logoutAllAccounts();">
+                        <i class="log out icon icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/signoutAll">Sign-out all accounts</span>
                     </div>
                 </div>
-                <div class="actions">
-                    <div class="ui small button" onclick="logout(); hideToolPanel();">
-                        <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
+                <div class="ui divider" style="margin-left: 0.4em; margin-right: 0.4em;"></div>
+                <div class="item" style="padding-bottom:12px;">
+                    <i class="volume up icon"></i> <span locale="quickAccess/sysvol">System Global Volume</span>
+                    <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
+                        <div id="volumebar" class="bar" style="width: 0%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
                     </div>
                 </div>
+                <div class="item" style="padding-bottom:12px;">
+                    <i class="lightbulb icon"></i> <span locale="quickAccess/brightness">Brightness</span>
+                    <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
+                        <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
+                    </div>
+                </div>
+                <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
+                    <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
+                    <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
+                </div>
+                <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
+                    <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
+                </div>
+                <div class="ui divider" style="margin: 0.4em;"></div>
+                <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
+                    <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
+                </div>
+                <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
+                    <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
+                </div>
+                <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
+                    <small id="sysinfo"></small>
+                </div>
             </div>
-            <div class="ui divider"></div>
-            <div id="alternativeAccountList">
-               
+            <div class="nine wide column viewutils">
+                <div id="sysoverview">
+                    
+                </div>
+                <div class="ui divider"></div>
+                <div id="diskoverview">
+
+                </div>
             </div>
-            <div class="ui divider" style="margin-left: 3em; margin-right: 3em;"></div>
-            <div class="item" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" onclick="openSwitchAccountPanel(); hideToolPanel();">
-                <i class="ui user plus icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/addAccount">Add another account</span>
-            </div>
-            <div id="signoutAllButton" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" class="item" onclick="logoutAllAccounts();">
-                <i class="log out icon icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/signoutAll">Sign-out all accounts</span>
-            </div>
-            <div class="ui divider"></div>
-        </div>
-        <div class="item" style="padding-bottom:12px;">
-            <i class="volume up icon"></i> <span locale="quickAccess/sysvol">System Global Volume</span>
-            <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
-                <div id="volumebar" class="bar" style="width: 0%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
-            </div>
-        </div>
-        <div class="item" style="padding-bottom:12px;">
-            <i class="lightbulb icon"></i> <span locale="quickAccess/brightness">Brightness</span>
-            <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
-                <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
-            </div>
-        </div>
-        <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
-            <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
-            <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
-        </div>
-        <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
-            <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
-        </div>
-        <div class="ui divider" style="margin: 0.4em;"></div>
-        <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
-            <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
-        </div>
-        <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
-            <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
-        </div>
-        <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
-            <small id="sysinfo"></small>
         </div>
     </div>
     <div>
@@ -1405,6 +1431,7 @@
             initDesktop();
         }
 
+
         function initDesktop(){
             //Initiation functions
             initDesktopTheme();
@@ -1421,6 +1448,7 @@
             initTheme();
             initStartupSounds();
             initUploadCuttoffValues();
+            initFrameLoading();
 
             //Login cookie expire check
             setInterval(function() {
@@ -1429,6 +1457,12 @@
 
             //Activate all dropdowns
             $(".dropdown").dropdown();
+        }
+
+        function initFrameLoading(){
+            //Load desktop utilities into suitable positions
+            $("#diskoverview").load("SystemAO/desktop/utils/diskoverview.html");
+            $("#sysoverview").load("SystemAO/desktop/utils/sysoverview.html");
         }
 
         function initUploadCuttoffValues(){
@@ -6960,13 +6994,14 @@
                 "border-left":"3px solid " + themeColorForBoarders,
                 "border-right":"3px solid " + themeColorForBoarders,
                 "border-bottom":"3px solid " + themeColorForBoarders,
-            })
+            });
+
             //List menu theme color bar
             $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
             $("#volumebar").css("background-color", newThemeColor);
             $("#brightnessbar").css("background-color", newThemeColor);
             $(".themed.text").css("color", newThemeColor);
-
+            
             //Connection lost notification css
             $("#connectionLost").find(".ui.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
         }

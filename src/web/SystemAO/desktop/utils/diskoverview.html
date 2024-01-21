@@ -1,0 +1,159 @@
+<div class="diskoverview">
+    <style>
+        #diskrender{
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        #diskrender .ui.avatar.image{
+            border-radius: 0 !important;
+            margin-top: 1em;
+        }
+
+        #diskrender .content{
+            width: calc(100% - 40px);
+        }
+        
+        #diskrender .driveinfo:hover{
+           border-radius: 6px;
+        }
+
+        #diskrender .diskspace{
+            margin-top: 0.6em;
+        }
+
+        #diskrender .progress .bar{
+            /* background-color: var(--theme_color) !important; */
+        }
+
+        #diskrender .progress .bar.lowspace{
+            background-color: #b51d1d !important;
+        }
+
+        #diskrender .progress .bar .progress{
+            background-color: transparent !important;
+        }
+    </style>
+    <div id="diskrender">
+        <div class="ui list" id="diskspaceList">
+            
+        </div>
+    </div>
+
+    <script>
+        // This is intented to be loaded on the desktop.system interface
+        // use paths from web root instead of relative path from this script
+
+        updateDiskSpaceOverview();
+        function updateDiskSpaceOverview(){
+            $("#diskspaceList").html(`<div style="text-align: center; margin-top: 2em;"><i class="ui loading spinner icon"></i></div>`);
+            $.get("./system/disk/diskmg/view", function(data){
+                if (data.error != undefined){
+                    //Unable to load API, hide the util
+                    $("#diskrender").hide();
+                    return;
+                }
+                if (data[0] && typeof(data[0]["blockdevices"]) != "undefined"){
+                    //This is a linux host
+                    $("#diskspaceList").html("");
+                    for (var i = 0; i < data[0]["blockdevices"].length; i++){
+                        let thisDiskInfo = data[0]["blockdevices"][i];
+                        let driveId = thisDiskInfo.name;
+                        let diskName = "";
+                        if (thisDiskInfo.children.length > 0){
+                            //Try to extract mountpoint as name
+                            let mountpoint = thisDiskInfo.children[0].mountpoint;
+                            if (mountpoint == null || mountpoint == undefined){
+                                mountpoint = "";
+                            }
+
+                            diskName = mountpoint;
+                        }
+
+                        let remainingSpace = 0;
+                        let totalSpace = thisDiskInfo.size;
+                        //Try to get the remaining space from mounted partitions
+                        if (data[2].length > 0){
+                            let accumulateTotalSpace = 0;
+                            let accumulateRemainingSpace = 0;
+                            for (var j = 0; j < data[2].length; j++){
+                                //For each mounted partitions
+                                let thisPartInfo = data[2][j];
+                                let thisPartName = thisPartInfo[0]; //e.g. /dev/sdc1
+                                if (thisPartName.includes("/" + driveId)){
+                                    //Check if part name include drive id, e.g. /sdc
+                                    //If yes, add the parition remaining space to acc
+                                    accumulateRemainingSpace += thisPartInfo[3];
+                                    accumulateTotalSpace += thisPartInfo[1];
+                                }
+                            }
+
+                            remainingSpace = accumulateRemainingSpace;
+                            totalSpace = accumulateTotalSpace;
+                        }
+                        
+                        let usedSpace = totalSpace - remainingSpace;
+                        let usedPercentage = (usedSpace / totalSpace) * 100;
+                        let colorClass = "";
+                        if (usedPercentage > 90){
+                            colorClass = "lowspace";
+                        }
+
+                        $("#diskspaceList").append(`<div class="item driveinfo">
+                            <img class="ui avatar image" src="img/system/drive.svg">
+                            <div class="content">
+                                <div class="header">${diskName} (${driveId})</div>
+                                <div class="description">
+                                    <div class="ui active small fluid progress diskspace">
+                                        <div class="bar ${colorClass}" style="width: ${usedPercentage}%">
+                                        <div class="progress">${usedPercentage.toFixed(1)}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>`);
+                    }
+                }else if (data[0].length == 7){
+                    //This is a Window hosts
+                    $("#diskspaceList").html("");
+                    for (var i = 0; i < data.length; i++){
+                        let thisDiskInfo = data[i];
+                        let driveId = thisDiskInfo[0].replace("\\\\", "\\");
+                        let diskName = thisDiskInfo[2];
+                        let remainingSpace = thisDiskInfo[5];
+                        let totalSpace = thisDiskInfo[6];
+                        let usedSpace = totalSpace - remainingSpace;
+                        let usedPercentage = (usedSpace / totalSpace) * 100;
+                        let colorClass = "";
+                        if (usedPercentage > 90){
+                            colorClass = "lowspace";
+                        }
+
+                        $("#diskspaceList").append(`<div class="item driveinfo">
+                            <img class="ui avatar image" src="img/system/drive.svg">
+                            <div class="content">
+                                <div class="header">${diskName} (${driveId})</div>
+                                <div class="description">
+                                    <div class="ui active small fluid progress diskspace">
+                                        <div class="bar ${colorClass}" style="width: ${usedPercentage}%">
+                                        <div class="progress">${usedPercentage.toFixed(1)}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>`);
+                    }
+                }else{
+                    //Something else
+                    $("#diskrender").text("Platform not supported");
+                }
+
+                //Update themecolor, see desktop.system setThemeColor();
+                $("#diskrender .progress .bar").css({
+                    "background-color": desktopThemeColor
+                });
+            });
+        }
+    </script>
+</div>
