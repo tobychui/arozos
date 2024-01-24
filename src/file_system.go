@@ -2457,17 +2457,33 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 		if fsh.IsNetworkDrive() {
 			filesize = -1
 		} else {
-			var size int64 = 0
-			fshAbs.Walk(rpath, func(_ string, info os.FileInfo, err error) error {
-				if err != nil {
+			//Check if du exists
+			usefallback := true //Use fallback
+
+			if fsh.IsLocalDrive() {
+				//Try using native syscall to grab directory size
+				nativeSize, err := filesystem.GetDirectorySizeNative(fsh.Path)
+				if err == nil {
+					usefallback = false
+					filesize = nativeSize
+				}
+			}
+
+			if usefallback {
+				// invalid platform. walk the whole file system
+				var size int64 = 0
+				fshAbs.Walk(rpath, func(_ string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if !info.IsDir() {
+						size += info.Size()
+					}
 					return err
-				}
-				if !info.IsDir() {
-					size += info.Size()
-				}
-				return err
-			})
-			filesize = size
+				})
+				filesize = size
+			}
+
 		}
 	}
 

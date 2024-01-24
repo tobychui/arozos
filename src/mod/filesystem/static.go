@@ -19,6 +19,7 @@ import (
 	"net/url"
 
 	mimetype "github.com/gabriel-vasile/mimetype"
+	"imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
 )
@@ -265,6 +266,54 @@ func WGlob(path string) ([]string, error) {
 		files[i] = filepath.ToSlash(files[i])
 	}
 	return files, nil
+}
+
+/*
+Get Directory Size with native syscall (local drive only)
+faster than GetDirectorySize if system support du
+*/
+func GetDirectorySizeNative(filename string) (int64, error) {
+	d, err := apt.PackageExists("du")
+	if err != nil || !d {
+		return 0, err
+	}
+
+	//Convert the filename to absolute path
+	abspath, err := filepath.Abs(filename)
+	if err != nil {
+		return 0, err
+	}
+
+	//du command exists
+	//use native syscall to get disk size
+	cmd := exec.Command("du", "-sb", abspath)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0, err
+	}
+
+	//Return value is something like 481491222874    /media/storage2
+	//We need to trim off the spaces
+	tmp := string(out)
+	tmp = strings.TrimSpace(tmp)
+	tmp = strings.ReplaceAll(tmp, "\t", " ")
+	for strings.Contains(tmp, "  ") {
+		tmp = strings.ReplaceAll(tmp, "  ", " ")
+	}
+
+	chunks := strings.Split(tmp, " ")
+	if len(chunks) <= 1 {
+		return 0, errors.New("malformed output")
+	}
+
+	//The first chunk should be the size in bytes
+	size, err := strconv.Atoi(chunks[0])
+	if err != nil {
+		return 0, errors.New("malformed output")
+	}
+
+	return int64(size), nil
+
 }
 
 /*

@@ -5561,7 +5561,13 @@
 
                         var sameGroupClass = "";
                         if (data.ShareUUID.Permission == "samegroup"){
-                            samegroup = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
+                            sameGroupClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
+                        }
+
+                        var advanceShareClass = "";
+                        if (data.IsShared && anyoneClass == "" && signedinClass == "" && sameGroupClass == ""){
+                            //None of the simple class this share is using. Assume advance share
+                            advanceShareClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
                         }
 
                         addContextMenuItem($("#subcontextmenu"), `<i class="globe icon"></i> ${applocale.getString("contextmenu/share/link","Anyone with Link")}`, anyoneClass, "shareWithThisPermission", false, {
@@ -5574,12 +5580,17 @@
                                 type: "signedin"
                             }
                         });
-                        addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> ${applocale.getString("contextmenu/share/samegroup","Same Group Users")}`, sameGroupClass, "shareWithThisPermission", false,{
+                        addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> ${applocale.getString("contextmenu/share/samegroup","Same user group")}`, sameGroupClass, "shareWithThisPermission", false,{
                             payload: {
                                 type: "samegroup"
                             }
                         });
-                        if (data.IsShared == true){
+                        addContextMenuItem($("#subcontextmenu"), `<i class="setting icon"></i> ${applocale.getString("contextmenu/share/openshare","Advance Share Settings")}`, advanceShareClass, "shareWithThisPermission", false,{
+                            payload: {
+                                action: "openshare"
+                            }
+                        });
+                        if (data.IsShared){
                             //This file is shared.
                             addContextMenuSeperator($("#subcontextmenu"));
                             addContextMenuItem($("#subcontextmenu"), lcontex("Remove Share"), `<i style="color: #d97762;" class="trash icon"></i>`, "shareWithThisPermission", false,{
@@ -5653,6 +5664,7 @@
                 return;
             }
 
+
             //Get the selected file
             var selectedFileObjects = $(".launchIconWrapper.selected");
             if (selectedFileObjects.length == 0){
@@ -5673,6 +5685,27 @@
                 "filepath": fileData.Filepath,
                 "shareMode": payload.type
             };
+
+            if (payload.action != undefined && payload.action == "openshare"){
+                //Advance setting. Open share interface
+                delete afd.shareMode;
+                afd.ActionButtons = false;
+
+                //Open share manager in another floatWindow
+                let targetURL = "SystemAO/file_system/file_share.html#" + encodeURIComponent(JSON.stringify([afd]));
+                newFloatWindow({
+                    url: targetURL,
+                    width: 330,
+                    height: 480,
+                    left: left,
+                    top: top,
+                    appicon: "SystemAO/file_system/img/share.svg",
+                    title: "Share File"
+                });
+
+                hideAllContextMenus();
+                return;
+            }
 
             //Create a new share for this
             var targetURL = "SystemAO/file_system/file_share.html#" + encodeURIComponent(JSON.stringify([afd]));

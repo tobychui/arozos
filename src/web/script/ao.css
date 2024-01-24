@@ -32,9 +32,17 @@ body.darkTheme{
 }
 
 /* darktheme overwrite */
-body.darkTheme .ui.basic.button{
+body.darkTheme .ui.basic.button:not(.blue):not(.yellow):not(.teal):not(.green){
     color: var(--text_color) !important;
     border: 1px solid var(--text_color_secondary);
+}
+
+body.darkTheme .ui.basic.blue.button{
+    border: 1px solid var(--theme_color) !important;
+}
+
+body.darkTheme .ui.horizontal.label{
+    color: var(--text_color_invert) !important;
 }
 
 body.darkTheme .ui.basic.button:hover{
@@ -49,7 +57,7 @@ body.darkTheme i:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *){
 }
 
 body.darkTheme .ui.header .sub.header{
-    color: var(--text_color_secondary);
+    color: var(--text_color_secondary) !important;
 }
 
 /* floatWindow CSS */

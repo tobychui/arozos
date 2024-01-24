@@ -23,9 +23,17 @@
             }
         },
         "zh-hk": {
-            "fwtitle" : "",
+            "fwtitle" : "選擇預設網頁應用程式",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings":{
+                "message/select":"請選擇用作開啟 ",
+                "message/files":" 檔案的預設網頁應用程式",
 
+                "button/showAll":"顯示全部應用程式",
+                "button/showRelevent":"顯示相關應用程式",
+                "button/cancel":"取消",
+                "button/confirm":"確認",
+                "":""
             },
             "titles":{
 
@@ -52,6 +60,38 @@
             "placeholder":{
 
             }
+        },
+        "en-us": {
+            "fwtitle": "Default Opening WebApp",
+            "fontFamily": "",
+            "strings": {
+                "message/select": "Please select the default WebApp to use for opening ",
+                "message/files": " files.",
+                "button/showAll": "Show All Applications",
+                "button/showRelevent": "Show Relevant Applications",
+                "button/cancel": "Cancel",
+                "button/confirm": "Confirm",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "fwtitle": "デフォルトのウェブアプリケーションを選択",
+            "fontFamily": "\"Yu Gothic\", Meiryo, sans-serif",
+            "strings": {
+                "message/select": "開くためのデフォルトのウェブアプリケーションを選択してください ",
+                "message/files": " ファイル。",
+                "button/showAll": "すべてのアプリケーションを表示",
+                "button/showRelevent": "関連するアプリケーションを表示",
+                "button/cancel": "キャンセル",
+                "button/confirm": "確認",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
         }
+        
+        
     }
 }

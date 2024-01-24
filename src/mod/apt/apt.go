@@ -45,26 +45,24 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	//log.Println(packageInfo)
 	if installed {
 		return nil
-	} else {
-		//Package not installed. Install if now if running in sudo mode
-		log.Println("Installing package " + pkgname + "...")
-		cmd := exec.Command("apt-get", "install", "-y", pkgname)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
-		if err != nil {
-			if mustComply {
-				//Panic and terminate server process
-				log.Println("Installation failed on package: " + pkgname)
-				os.Exit(1)
-			} else {
-				log.Println("Installation failed on package: " + pkgname)
-			}
-			return err
-		}
-		return nil
 	}
 
+	//Package not installed. Install if now if running in sudo mode
+	log.Println("Installing package " + pkgname + "...")
+	cmd := exec.Command("apt-get", "install", "-y", pkgname)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		if mustComply {
+			//Panic and terminate server process
+			log.Println("Installation failed on package: " + pkgname)
+			os.Exit(1)
+		} else {
+			log.Println("Installation failed on package: " + pkgname)
+		}
+		return err
+	}
 	return nil
 }
 

@@ -469,7 +469,7 @@
                 <i class="trash icon"></i> <span locale="contextmenu/delete">Delete</span>
             </div>
             <div class="item folderonly singleObjectOnlyHide" onclick="createDesktopShortcut();">
-                <i class="external square icon"></i> <span locale="opr/shorcut/title">Create Shortcut on Desktop</span>
+                <i class="external square icon"></i> <span locale="opr/shortcut/title">Create Shortcut on Desktop</span>
             </div>
             <div class="divider vroothide"></div>
             <div class="item noSelectionOnly" onclick="refreshList();">
@@ -2803,9 +2803,12 @@
                     success: function(data){
                         if (data.error !== undefined){
                             console.log("[File Manager] Shortcut creation failed: ", data.error)
-                            msgbox("red remove",applocale.getString("opr/shorcut/error", "Shortcut creation failed. See console for more information.") , 3000);
+                            msgbox("red remove",applocale.getString("opr/shortcut/error", "Shortcut creation failed. See console for more information.") , 3000);
                         }else{
-                            msgbox("checkmark", applocale.getString("opr/shorcut/ok", "Shortcut created successfully"),  3000);
+                            msgbox("checkmark", applocale.getString("opr/shortcut/ok", "Shortcut created successfully"),  3000);
+                            if (ao_module_virtualDesktop){
+                                parent.refresh();
+                            }
                         }
                     }
                 })

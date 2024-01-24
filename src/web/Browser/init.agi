@@ -6,7 +6,7 @@
 var moduleLaunchInfo = {
     Name: "Browser",
 	Desc: "A simple web browser like bookmarking app",
-	Group: "Office",
+	Group: "Internet",
 	IconPath: "Browser/img/module_icon.png",
 	Version: "1.0",
 	StartDir: "Browser/index.html",

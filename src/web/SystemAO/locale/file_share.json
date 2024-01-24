@@ -121,6 +121,80 @@
             "placeholder":{
 
             }
+        },
+        "en-us": {
+            "fontFamily": "",
+            "fwtitle": "File Sharing",
+            "strings": {
+                "title/title": "File Sharing",
+                "button/copy": "Copy to Clipboard",
+                "button/remove": "Remove Sharing",
+                "button/copied": "Copied!",
+        
+                "share/setting/title": "Sharing Settings",
+                "share/setting/subtitle": "Specify who can access this file",
+                "share/setting/options": "Access Settings:",
+                "share/setting/anyoneWithLink": "Anyone with the link",
+                "share/setting/anyoneWithLink/desc": "Anyone with the shared link can download this file",
+                "share/setting/anyoneSignedIn": "Anyone signed in",
+                "share/setting/anyoneSignedIn/desc": "Anyone signed in and with the shared link can download this file",
+                "share/setting/sameGroup": "Users in the same permission group",
+                "share/setting/sameGroup/desc": "Anyone with the same user permission can download this file",
+                "share/setting/updated": "Access permission updated",
+        
+                "share/setting/advance/title": "Advanced Sharing Options",
+                "share/setting/advance/users": "Specified Users",
+                "share/setting/advance/usersDesc": "Specify logged-in user account names",
+                "share/setting/advance/usersInstruct": "Select specific users from the list below",
+                "share/setting/advance/addUserToSave": "Add at least one user to save changes",
+                "share/setting/advance/groups": "Specified Permission Groups",
+                "share/setting/advance/groupsDesc": "Users with any of the specified group permissions can access",
+                "share/setting/advance/groupsInstruct": "Select specified groups for sharing from the list below",
+                "share/setting/advance/addGroupToSave": "Add at least one permission group to save changes",
+        
+                "message/removed": "Sharing has been removed",
+                "qr/loading": "Loading"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "fwtitle": "ファイル共有",
+            "strings": {
+                "title/title": "ファイル共有",
+                "button/copy": "クリップボードにコピー",
+                "button/remove": "共有を解除",
+                "button/copied": "コピー済み！",
+        
+                "share/setting/title": "共有設定",
+                "share/setting/subtitle": "誰がこのファイルにアクセスできるかを指定",
+                "share/setting/options": "アクセス設定:",
+                "share/setting/anyoneWithLink": "リンクを持つ全員",
+                "share/setting/anyoneWithLink/desc": "リンクを持つ全員がこのファイルをダウンロードできます",
+                "share/setting/anyoneSignedIn": "サインインしている全員",
+                "share/setting/anyoneSignedIn/desc": "サインインしていてリンクを持つ全員がこのファイルをダウンロードできます",
+                "share/setting/sameGroup": "同じ権限グループのユーザー",
+                "share/setting/sameGroup/desc": "同じユーザー権限を持つユーザーがこのファイルをダウンロードできます",
+                "share/setting/updated": "アクセス権限が更新されました",
+        
+                "share/setting/advance/title": "高度な共有オプション",
+                "share/setting/advance/users": "指定ユーザー",
+                "share/setting/advance/usersDesc": "ログインしているユーザーアカウント名を指定",
+                "share/setting/advance/usersInstruct": "以下のリストから特定のユーザーを選択",
+                "share/setting/advance/addUserToSave": "変更を保存するには少なくとも1人のユーザーを追加",
+                "share/setting/advance/groups": "指定権限グループ",
+                "share/setting/advance/groupsDesc": "指定されたグループ権限を持つユーザーはすべてアクセスできます",
+                "share/setting/advance/groupsInstruct": "以下のリストから共有するための特定のグループを選択",
+                "share/setting/advance/addGroupToSave": "変更を保存するには少なくとも1つの権限グループを追加",
+        
+                "message/removed": "共有が解除されました",
+                "qr/loading": "読み込み中"
+            },
+            "titles": {},
+            "placeholder": {}
         }
+        
+        
     }
 }

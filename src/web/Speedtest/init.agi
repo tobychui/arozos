@@ -1,13 +1,8 @@
-/*
-	Unit Testing Module for AGI 
-
-*/
-
 
 //Define the launchInfo for the module
 var moduleLaunchInfo = {
     Name: "Speedtest",
-	Group: "Development",
+	Group: "Internet",
 	IconPath: "Speedtest/img/small_icon.png",
 	Version: "1.0",
 	StartDir: "Speedtest/index.html"

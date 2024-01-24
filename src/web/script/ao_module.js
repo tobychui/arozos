@@ -891,6 +891,7 @@ class ao_module_utils{
 			filelist = JSON.parse(filelist);
 			return filelist;
 		}
+        return null;
     }
 
     static readFileFromFileObject(fileObject, successCallback, failedCallback=undefined){

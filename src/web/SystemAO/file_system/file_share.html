@@ -16,7 +16,7 @@
             }
 
             .sub.header.darkTheme{
-                color: rgba(255, 255, 255, 0.623) !important;
+                color: rgba(39, 19, 19, 0.623) !important;
             }
 
             .darkTheme:not(a){
@@ -209,7 +209,6 @@
             var relpath = "../../";
             
             function applyDarkThemeMode(){
-                $("body").addClass("darkTheme");
                 $(".ui.message").addClass("inverted");
                 darkTheme = true;
             }
@@ -301,7 +300,10 @@
                 //Load theme style
                 $.get(relpath + "../system/file_system/preference?key=file_explorer/theme",function(data){
                     if (data == "darkTheme"){
+                        $("body").addClass("darkTheme");
                         applyDarkThemeMode();
+                    }else{
+                        $("body").addClass("whiteTheme");
                     }
                 });
 

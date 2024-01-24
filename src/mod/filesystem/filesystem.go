@@ -339,6 +339,21 @@ func (fsh *FileSystemHandler) IsNetworkDrive() bool {
 	return arozfs.IsNetworkDrive(fsh.Filesystem)
 }
 
+// Check if a fsh is a local disk drive
+func (fsh *FileSystemHandler) IsLocalDrive() bool {
+	//Check if network drive
+	if arozfs.IsNetworkDrive(fsh.Filesystem) {
+		return false
+	}
+
+	//Check if mounted locally
+	if _, err := os.Stat(fsh.Path); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
+}
+
 // Buffer a file to local tmp folder and return the tmp location for further processing
 func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) {
 	//Check if the remote file exists
