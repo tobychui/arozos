@@ -869,6 +869,7 @@ class ao_module_utils{
             gcode:"cube",
             shortcut:"external square",
             opus:"file audio outline",
+            agi: "file code outline",
             apscene:"cubes"
         };
         var icon = "";

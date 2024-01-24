@@ -11,6 +11,7 @@ body.whiteTheme {
     --text_color: rgb(29, 29, 29);
     --text_color_secondary: rgb(139, 139, 139);
     --text_color_invert: rgb(182, 182, 182);
+    --box_shadow_color: rgba(54, 54, 54, 0.35);
 }
 
 body.darkTheme{
@@ -23,12 +24,33 @@ body.darkTheme{
     --text_color: rgb(241, 241, 241);
     --text_color_secondary: rgb(214, 214, 214);
     --text_color_invert: rgb(63, 63, 63);
+    --box_shadow_color: rgba(54, 54, 54, 0.15);
 }
 
 :root{
     --default_fw_theme: rgba(26, 26, 26, 0.3);
 }
 
+/* darktheme overwrite */
+body.darkTheme .ui.basic.button{
+    color: var(--text_color) !important;
+    border: 1px solid var(--text_color_secondary);
+}
+
+body.darkTheme .ui.basic.button:hover{
+    background-color: var(--body_background_active) !important;
+}
+
+body.darkTheme span:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *), 
+body.darkTheme div:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *), 
+body.darkTheme p:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *), 
+body.darkTheme i:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *){
+   color: var(--text_color);
+}
+
+body.darkTheme .ui.header .sub.header{
+    color: var(--text_color_secondary);
+}
 
 /* floatWindow CSS */
 .floatWindow{

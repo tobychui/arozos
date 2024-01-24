@@ -5544,7 +5544,7 @@
                                 }
                             });
                             addContextMenuSeperator($("#subcontextmenu"));
-                            addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Change Share Settings", "Change Share Settings")}]`));
+                            addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Change Share Settings", "Change Share Settings")}`));
                         }else{
                             addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Share this File", "Share this File")}`));
                         }

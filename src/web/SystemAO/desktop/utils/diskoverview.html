@@ -23,10 +23,6 @@
             margin-top: 0.6em;
         }
 
-        #diskrender .progress .bar{
-            /* background-color: var(--theme_color) !important; */
-        }
-
         #diskrender .progress .bar.lowspace{
             background-color: #b51d1d !important;
         }
@@ -100,14 +96,21 @@
                             colorClass = "lowspace";
                         }
 
+                        if (usedPercentage >= 100){
+                            //Prevent overflow
+                            usedPercentage = 100;
+                        }
+
                         $("#diskspaceList").append(`<div class="item driveinfo">
                             <img class="ui avatar image" src="img/system/drive.svg">
                             <div class="content">
-                                <div class="header">${diskName} (${driveId})</div>
+                                <div class="header">${diskName} (${driveId})
+                                    <span style="float: right;font-size: 0.85em;">${usedPercentage.toFixed(1)}% | ${ao_module_utils.formatBytes(thisDiskInfo.size, 1)}</span>    
+                                </div>
                                 <div class="description">
                                     <div class="ui active small fluid progress diskspace">
                                         <div class="bar ${colorClass}" style="width: ${usedPercentage}%">
-                                        <div class="progress">${usedPercentage.toFixed(1)}%</div>
+                                        <div class="progress"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -130,14 +133,22 @@
                             colorClass = "lowspace";
                         }
 
+                        if (usedPercentage >= 100){
+                            //Prevent overflow
+                            usedPercentage = 100;
+                        }
+
                         $("#diskspaceList").append(`<div class="item driveinfo">
                             <img class="ui avatar image" src="img/system/drive.svg">
                             <div class="content">
-                                <div class="header">${diskName} (${driveId})</div>
+                                <div class="header">
+                                    ${diskName} (${driveId})
+                                    <span style="float: right;font-size: 0.85em;">${usedPercentage.toFixed(1)}% | ${ao_module_utils.formatBytes(totalSpace, 1)}</span>
+                                </div>
                                 <div class="description">
                                     <div class="ui active small fluid progress diskspace">
                                         <div class="bar ${colorClass}" style="width: ${usedPercentage}%">
-                                        <div class="progress">${usedPercentage.toFixed(1)}%</div>
+                                        <div class="progress"></div>
                                         </div>
                                     </div>
                                 </div>
