@@ -325,7 +325,7 @@ If you want to share files from ArozOS, there are many ways you can do it.
 
 ## WebApp Development
 
-See [documentation](//docs.arozos.com) folder for more details.
+See [documentation](https://arozos.com/docs/) for more details.
 
 ## Other Resources
 
