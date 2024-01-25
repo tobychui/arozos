@@ -6,7 +6,7 @@
 
 ### User Interface
 
-- Web Desktop Interface (Better than Synology DSM)
+- Web Desktop Interface (Better than Synology DSM?)
 - Ubuntu remix Windows style startup menu and task bars
 - Clean and easy to use File Manager (Support drag drop, upload etc)
 - Simplistic System Setting Menu
@@ -274,8 +274,6 @@ Example
 ./arozos -max_upload_size 25
 ```
 
-See documentation for more examples.
-
 ### ArozOS Launcher
 
 Launcher is required for performing OTA updates in arozos so you don't need to ssh into your host every time you need to update ArozOS. You can install it via the installation script or install it manually. See more in the following repository. 
@@ -327,11 +325,11 @@ If you want to share files from ArozOS, there are many ways you can do it.
 
 ## WebApp Development
 
-See [examples](examples/) folder for more details.
+See [documentation](//docs.arozos.com) folder for more details.
 
 ## Other Resources
 
-If you are looking for other WebApps (Installed via System Setting) or subservices (Require SSH login to install, for OEM only), please take a look at our collections over here:
+If you are looking for other WebApps (Installed via System Setting) or subservices (for OEM), please take a look at our collections over here:
 https://github.com/aroz-online/WebApp-and-Subservice-Index
 
 ## Community / Q&A
@@ -351,7 +349,7 @@ https://github.com/tobychui/arozos/issues/50
 If you are looking for tutorials or need help on debugging some minor issues, feel free to take a look at these articles written by our users. (Thank you so much for sharing this project :D )
 
 #### English
-
+- [The web desktop tool you need to know about](https://www.studytonight.com/post/the-web-desktop-tool-you-need-to-know-about)
 - [I write my own web desktop OS for 3 years and this is what it looks like now ](https://dev.to/tobychui/i-write-my-own-web-desktop-os-for-3-years-and-this-is-what-it-looks-like-now-2903)
 
 #### Chinese
