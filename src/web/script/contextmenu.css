@@ -49,19 +49,13 @@
     </div>
 */
 
-.aroz.contextmenu{
-    position: fixed;
-    box-sizing: border-box;
-    letter-spacing: -.02em;
-    z-index: 3000;
-}
 
 .aroz.contextmenu .item{
     padding: 0.6em 1em !important;
 }
 
 .aroz.contextmenu .item:hover{
-    background: rgb(247, 247, 247);
+    background: var(--body_background_active);
 }
 
 .aroz.contextmenu.visible, .ui.contextmenu.hidden.animating {
@@ -74,21 +68,25 @@
 }
 
 .aroz.contextmenu{
+    position: fixed;
+    box-sizing: border-box;
+    letter-spacing: -.02em;
     cursor: auto;
     outline: none;
     min-width: 150px;
     transform: translateZ(0px);
     margin: 0em;
     padding: 0em 0em;
-    background: #fff;
+    background: var(--body_background);
     font-size: 1em;
     text-align: left;
-    box-shadow: 0px 2px 3px 0px rgba(160,160,160,0.65);
-    border: 1px solid #d9d9d9;
+    box-shadow: 0px 2px 3px 0px var(--box_shadow_color);
+    border: 1px solid var(--divider);
     border-radius: .28571rem;
     z-index: 9;
     will-change: transform, opacity;
 }
+
 
 .aroz.contextmenu > .item.item.item.item.item.item {
     position: relative;
@@ -101,7 +99,7 @@
     border-top: none;
     line-height: 1em;
     font-size: 1rem;
-    color: #5a5a5a;
+    color: var(--text_color_secondary);
     padding: .78571rem 1.14286rem !important;
     text-transform: none;
     font-weight: normal;

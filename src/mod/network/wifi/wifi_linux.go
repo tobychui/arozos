@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/valyala/fasttemplate"
+	"imuslab.com/arozos/mod/utils"
 )
 
 // Toggle WiFi On Off. Only allow on sudo mode
@@ -430,12 +430,12 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 
 		if strings.TrimSuffix(filepath.Base(configFile), filepath.Ext(configFile)) == ssid {
 			//The new SSID. Set this to higher priority
-			networks = append(networks, template_apply(string(thisNetworkConfig), map[string]interface{}{
+			networks = append(networks, utils.TemplateApply(string(thisNetworkConfig), map[string]string{
 				"priority": strconv.Itoa(1),
 			}))
 		} else {
 			//Old SSID. Use default priority
-			networks = append(networks, template_apply(string(thisNetworkConfig), map[string]interface{}{
+			networks = append(networks, utils.TemplateApply(string(thisNetworkConfig), map[string]string{
 				"priority": strconv.Itoa(0),
 			}))
 		}
@@ -444,7 +444,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 
 	//Subsitute the results into the template
 	networksConfigString := strings.Join(networks, "\n")
-	newconfig := template_apply(string(configHeader), map[string]interface{}{
+	newconfig := utils.TemplateApply(string(configHeader), map[string]string{
 		"networks": networksConfigString,
 	})
 
@@ -652,12 +652,6 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return true
-}
-
-func template_apply(templateString string, replacement map[string]interface{}) string {
-	t := fasttemplate.New(templateString, "{{", "}}")
-	s := t.ExecuteString(replacement)
-	return string(s)
 }
 
 func pkg_exists(pkgname string) bool {

@@ -61,6 +61,8 @@ func LoadBaseStoragePool() error {
 		Hierarchy:  "user",
 		Automount:  false,
 		Filesystem: localFileSystem,
+	}, fs.RuntimePersistenceConfig{
+		LocalBufferPath: *tmp_directory,
 	})
 
 	if err != nil {
@@ -77,6 +79,8 @@ func LoadBaseStoragePool() error {
 		Hierarchy:  "user",
 		Automount:  false,
 		Filesystem: localFileSystem,
+	}, fs.RuntimePersistenceConfig{
+		LocalBufferPath: *tmp_directory,
 	})
 
 	if err != nil {
@@ -92,7 +96,9 @@ func LoadBaseStoragePool() error {
 		systemWideLogger.PrintAndLog("Storage", "Storage configuration file not found. Using internal storage only.", err)
 	} else {
 		//Configuration loaded. Initializing handler
-		externalHandlers, err := fs.NewFileSystemHandlersFromJSON(rawConfig)
+		externalHandlers, err := fs.NewFileSystemHandlersFromJSON(rawConfig, fs.RuntimePersistenceConfig{
+			LocalBufferPath: *tmp_directory,
+		})
 		if err != nil {
 			systemWideLogger.PrintAndLog("Storage", "Failed to load storage configuration: "+err.Error()+" -- Skipping", err)
 		} else {
@@ -149,7 +155,9 @@ func StoragePerformFileSystemAbstractionConnectionHeartbeat() {
 			json.Unmarshal(js, &originalStartOption)
 
 			//Create a new fsh from original start options
-			newfsh, err := filesystem.NewFileSystemHandler(originalStartOption)
+			newfsh, err := filesystem.NewFileSystemHandler(originalStartOption, fs.RuntimePersistenceConfig{
+				LocalBufferPath: *tmp_directory,
+			})
 			if err != nil {
 				log.Println("[Storage] Unable to reconnect " + thisFsh.Name + ": " + err.Error())
 				continue
@@ -207,7 +215,10 @@ func LoadStoragePoolForGroup(pg *permission.PermissionGroup) error {
 		}
 
 		//Generate fsHandler form json
-		thisGroupFsHandlers, err := fs.NewFileSystemHandlersFromJSON(pgStorageConfig)
+		thisGroupFsHandlers, err := fs.NewFileSystemHandlersFromJSON(pgStorageConfig, fs.RuntimePersistenceConfig{
+			LocalBufferPath: *tmp_directory,
+		})
+
 		if err != nil {
 			systemWideLogger.PrintAndLog("Storage", "Failed to load storage configuration: "+err.Error(), err)
 			return errors.New("Failed to load storage configuration: " + err.Error())

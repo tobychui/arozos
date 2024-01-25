@@ -96,24 +96,22 @@ func GetSupportedFileSystemTypes() []string {
 
 // Generic virtual path to real path translator
 func GenericVirtualPathToRealPathTranslator(uuid string, hierarchy string, subpath string, username string) (string, error) {
-	subpath = ToSlash(filepath.Clean(subpath))
 	subpath = ToSlash(filepath.Clean(strings.TrimSpace(subpath)))
-	if strings.HasPrefix(subpath, "./") {
-		subpath = subpath[1:]
-	}
+	subpath = strings.TrimPrefix(subpath, "./")
 
 	if subpath == "." || subpath == "" {
 		subpath = "/"
 	}
+
 	if strings.HasPrefix(subpath, uuid+":") {
 		//This is full virtual path. Trim the uuid and correct the subpath
 		subpath = strings.TrimPrefix(subpath, uuid+":")
 	}
 
 	if hierarchy == "user" {
-		return filepath.ToSlash(filepath.Clean(filepath.Join("users", username, subpath))), nil
+		return ToSlash(filepath.Clean(filepath.Join("users", username, subpath))), nil
 	} else if hierarchy == "public" {
-		return filepath.ToSlash(filepath.Clean(subpath)), nil
+		return ToSlash(filepath.Clean(subpath)), nil
 	}
 	return "", errors.New("unsupported filesystem hierarchy")
 }

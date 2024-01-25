@@ -19,7 +19,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/valyala/fasttemplate"
 	auth "imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
 	permission "imuslab.com/arozos/mod/permission"
@@ -95,23 +94,18 @@ func (h *RegisterHandler) HandleRegisterCheck(w http.ResponseWriter, r *http.Req
 func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http.Request) {
 	//Serve the register interface
 	if h.AllowRegistry {
-		template, err := os.ReadFile("system/auth/register.system")
+		//Load the vendor icon as base64
+		imagecontent, _ := readImageFileAsBase64(h.options.VendorIcon)
+
+		s, err := utils.Templateload("./system/auth/register.system", map[string]string{
+			"host_name":   h.options.Hostname,
+			"vendor_logo": imagecontent,
+		})
 		if err != nil {
 			log.Println("Template not found: system/auth/register.system")
 			http.NotFound(w, r)
 			return
 		}
-
-		//Load the vendor icon as base64
-		imagecontent, _ := readImageFileAsBase64(h.options.VendorIcon)
-
-		//Apply templates
-		t := fasttemplate.New(string(template), "{{", "}}")
-		s := t.ExecuteString(map[string]interface{}{
-			"host_name":   h.options.Hostname,
-			"vendor_logo": imagecontent,
-		})
-
 		w.Write([]byte(s))
 	} else {
 		//Registry is closed

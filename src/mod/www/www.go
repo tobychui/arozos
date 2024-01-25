@@ -129,8 +129,10 @@ func (h *Handler) RouteRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if filepath.Ext(targetFilePath) == "" {
-		//Reading a folder. Check if index.htm or index.html exists.
-		if fsh.FileSystemAbstraction.FileExists(filepath.Join(targetFilePath, "index.html")) {
+		//Reading a folder. Check if index.agi, index.htm or index.html exists.
+		if fsh.FileSystemAbstraction.FileExists(filepath.Join(targetFilePath, "index.agi")) {
+			targetFilePath = filepath.ToSlash(filepath.Join(targetFilePath, "index.agi"))
+		} else if fsh.FileSystemAbstraction.FileExists(filepath.Join(targetFilePath, "index.html")) {
 			targetFilePath = filepath.ToSlash(filepath.Join(targetFilePath, "index.html"))
 		} else if fsh.FileSystemAbstraction.FileExists(filepath.Join(targetFilePath, "index.htm")) {
 			targetFilePath = filepath.ToSlash(filepath.Join(targetFilePath, "index.htm"))

@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
-	"imuslab.com/arozos/mod/filesystem"
+
+	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem/fssort"
 	"imuslab.com/arozos/mod/filesystem/hidden"
-	user "imuslab.com/arozos/mod/user"
 )
 
 /*
@@ -34,17 +34,24 @@ func (g *Gateway) FileLibRegister() {
 	}
 }
 
-func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload) {
+	vm := payload.VM
+	u := payload.User
+	scriptFsh := payload.ScriptFsh
+	//scriptPath := payload.ScriptPath
+	//w := payload.Writer
+	//r := payload.Request
+
 	//writeFile(virtualFilepath, content) => return true/false when succeed / failed
 	vm.Set("_filelib_writeFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanWrite(vpath) {
@@ -53,21 +60,21 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 
 		content, err := call.Argument(1).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Check if there is quota for the given length
 		if !u.StorageQuota.HaveSpace(int64(len(content))) {
 			//User have no remaining storage quota
-			g.raiseError(errors.New("Storage Quota Fulled"))
+			g.RaiseError(errors.New("Storage Quota Fulled"))
 			return otto.FalseValue()
 		}
 
 		//Translate the virtual path to realpath
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -84,7 +91,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		//Create and write to file using ioutil
 		err = fsh.FileSystemAbstraction.WriteFile(rpath, []byte(content), 0755)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -98,12 +105,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_deleteFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanWrite(vpath) {
@@ -111,9 +118,9 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		}
 
 		//Translate the virtual path to realpath
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -126,7 +133,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 				u.RemoveOwnershipFromFile(fsh, vpath)
 			}
 		} else {
-			g.raiseError(errors.New("File not exists"))
+			g.RaiseError(errors.New("File not exists"))
 			return otto.FalseValue()
 		}
 
@@ -141,12 +148,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_readFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -154,61 +161,21 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		}
 
 		//Translate the virtual path to realpath
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Create and write to file using ioUtil
 		content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		reply, _ := vm.ToValue(string(content))
 		return reply
 	})
-
-	//Listdir
-	//readdir("user:/Desktop") => return filelist in array
-	/*
-		vm.Set("_filelib_readdir", func(call otto.FunctionCall) otto.Value {
-			vpath, err := call.Argument(0).ToString()
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-
-			//Translate the virtual path to realpath
-			fsh, rpath, err := virtualPathToRealPath(vpath, u)
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-			fshAbs := fsh.FileSystemAbstraction
-
-			rpath = filepath.ToSlash(filepath.Clean(rpath)) + "/*"
-			fileList, err := fshAbs.Glob(rpath)
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-
-			//Translate all paths to virtual paths
-			results := []string{}
-			for _, file := range fileList {
-				isHidden, _ := hidden.IsHidden(file, true)
-				if !isHidden {
-					thisRpath, _ := fshAbs.RealPathToVirtualPath(file, u.Username)
-					results = append(results, thisRpath)
-				}
-			}
-
-			reply, _ := vm.ToValue(results)
-			return reply
-		})
-	*/
 
 	//Usage
 	//filelib.walk("user:/") => list everything recursively
@@ -217,7 +184,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_walk", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		mode, err := call.Argument(1).ToString()
@@ -226,11 +193,11 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		results := []string{}
@@ -239,7 +206,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 				//Ignore this error file and continue
 				return nil
 			}
-			thisVpath, err := realpathToVirtualpath(fsh, path, u)
+			thisVpath, err := static.RealpathToVirtualpath(fsh, path, u)
 			if err != nil {
 				return nil
 			}
@@ -270,7 +237,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_glob", func(call otto.FunctionCall) otto.Value {
 		regex, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -319,15 +286,15 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 			}
 
 			//Translate the virtual path to realpath
-			fsh, rrootPath, err := virtualPathToRealPath(vrootPath, u)
+			fsh, rrootPath, err := static.VirtualPathToRealPath(vrootPath, u)
 			if err != nil {
-				g.raiseError(err)
+				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
 			suitableFiles, err := fsh.FileSystemAbstraction.Glob(filepath.Join(rrootPath, regexFilename))
 			if err != nil {
-				g.raiseError(err)
+				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
@@ -352,7 +319,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 					//Hidden file. Skip this
 					continue
 				}
-				thisVpath, _ := realpathToVirtualpath(fsh, file, u)
+				thisVpath, _ := static.RealpathToVirtualpath(fsh, file, u)
 				results = append(results, thisVpath)
 			}
 			reply, _ := vm.ToValue(results)
@@ -364,7 +331,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_aglob", func(call otto.FunctionCall) otto.Value {
 		regex, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -399,14 +366,14 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		//Translate the virtual path to realpath
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vrootPath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rrootPath, _ := fshAbs.VirtualPathToRealPath(vrootPath, u.Username)
 		suitableFiles, err := fshAbs.Glob(filepath.Join(rrootPath, regexFilename))
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -431,7 +398,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 				//Hidden file. Skip this
 				continue
 			}
-			thisVpath, _ := realpathToVirtualpath(fsh, filename, u)
+			thisVpath, _ := static.RealpathToVirtualpath(fsh, filename, u)
 			results = append(results, thisVpath)
 		}
 		reply, _ := vm.ToValue(results)
@@ -441,12 +408,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_readdir", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -475,19 +442,19 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		dirEntry, err := fshAbs.ReadDir(rpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -514,7 +481,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 				continue
 			}
 			fstat, _ := de.Info()
-			vpath, _ := realpathToVirtualpath(fsh, filepath.ToSlash(filepath.Join(rpath, de.Name())), u)
+			vpath, _ := static.RealpathToVirtualpath(fsh, filepath.ToSlash(filepath.Join(rpath, de.Name())), u)
 
 			thisInfo := fileInfo{
 				Filename: de.Name(),
@@ -537,12 +504,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_filesize", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -551,20 +518,20 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Get filesize of file
 		rawsize := fshAbs.GetFileSize(rpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -576,12 +543,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_fileExists", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -590,13 +557,13 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -611,12 +578,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_isDir", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -624,9 +591,9 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		}
 
 		//Translate the virtual path to realpath
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -655,7 +622,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		}
 
 		//Translate the path to realpath
-		fsh, rdir, err := virtualPathToRealPath(vdir, u)
+		fsh, rdir, err := static.VirtualPathToRealPath(vdir, u)
 		if err != nil {
 			log.Println(err.Error())
 			return otto.FalseValue()
@@ -675,12 +642,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_md5", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -689,26 +656,26 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 
 		fsh, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		fshAbs := fsh.FileSystemAbstraction
 		rpath, err := fshAbs.VirtualPathToRealPath(vpath, u.Username)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		f, err := fshAbs.ReadStream(rpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		defer f.Close()
 		h := md5.New()
 		if _, err := io.Copy(h, f); err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -722,17 +689,17 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		//Get virtual path from the function input
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Get fs handler from the vpath
 		fsHandler, err := u.GetFileSystemHandlerFromVirtualPath(vpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -745,12 +712,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_mtime", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -762,7 +729,7 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 			parseToUnix = false
 		}
 
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
 			log.Println(err.Error())
 			return otto.FalseValue()
@@ -791,12 +758,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_writeBinaryFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanWrite(vpath) {
@@ -805,12 +772,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 
 		hexContent, err := call.Argument(1).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Get the target vpath
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
 			log.Println(err.Error())
 			return otto.FalseValue()
@@ -819,14 +786,14 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		//Decode the hex content to bytes
 		hexContentInByte, err := hex.DecodeString(hexContent)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
 		//Write the file to target file
 		err = fsh.FileSystemAbstraction.WriteFile(rpath, hexContentInByte, 0775)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
@@ -838,12 +805,12 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 	vm.Set("_filelib_readBinaryFile", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		//Rewrite the vpath if it is relative
-		vpath = relativeVpathRewrite(scriptFsh, vpath, vm, u)
+		vpath = static.RelativeVpathRewrite(scriptFsh, vpath, vm, u)
 
 		//Check for permission
 		if !u.CanRead(vpath) {
@@ -851,21 +818,21 @@ func (g *Gateway) injectFileLibFunctions(vm *otto.Otto, u *user.User, scriptFsh 
 		}
 
 		//Get the target vpath
-		fsh, rpath, err := virtualPathToRealPath(vpath, u)
+		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		if !fsh.FileSystemAbstraction.FileExists(rpath) {
 			//Check if the target file exists
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.NullValue()
 		}
 
 		content, err := fsh.FileSystemAbstraction.ReadFile(rpath)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.NullValue()
 		}
 

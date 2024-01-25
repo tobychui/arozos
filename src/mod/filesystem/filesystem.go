@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem/abstractions/ftpfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
@@ -31,6 +32,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/abstractions/smbfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/webdavfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/utils"
 )
 
 //Options for creating new file system handler
@@ -49,9 +51,9 @@ type FileSystemOpeningOptions struct{
 */
 
 /*
-	An interface for storing data related to a specific hierarchy settings.
-	Example like the account information of network drive,
-	backup mode of backup drive etc
+An interface for storing data related to a specific hierarchy settings.
+Example like the account information of network drive,
+backup mode of backup drive etc
 */
 type HierarchySpecificConfig interface{}
 
@@ -89,26 +91,32 @@ type FileSystemAbstraction interface {
 	Heartbeat() error
 }
 
-//System Handler for returing
-type FileSystemHandler struct {
-	Name                  string
-	UUID                  string
-	Path                  string
-	Hierarchy             string
-	HierarchyConfig       HierarchySpecificConfig
-	ReadOnly              bool
-	RequireBuffer         bool //Set this to true if the fsh do not provide file header functions like Open() or Create(), require WriteStream() and ReadStream()
-	Parentuid             string
-	InitiationTime        int64
-	FilesystemDatabase    *db.Database
-	FileSystemAbstraction FileSystemAbstraction
-	Filesystem            string
-	StartOptions          FileSystemOption
-	Closed                bool
+// Runtime persistence config, use to pass through startup paramters related to file system handlers
+type RuntimePersistenceConfig struct {
+	LocalBufferPath string
 }
 
-//Create a list of file system handler from the given json content
-func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, error) {
+// System Handler for returing
+type FileSystemHandler struct {
+	Name                     string
+	UUID                     string
+	Path                     string
+	Hierarchy                string
+	HierarchyConfig          HierarchySpecificConfig
+	ReadOnly                 bool
+	RequireBuffer            bool //Set this to true if the fsh do not provide file header functions like Open() or Create(), require WriteStream() and ReadStream()
+	Parentuid                string
+	InitiationTime           int64
+	FilesystemDatabase       *db.Database
+	FileSystemAbstraction    FileSystemAbstraction
+	Filesystem               string
+	StartOptions             FileSystemOption
+	RuntimePersistenceConfig RuntimePersistenceConfig
+	Closed                   bool
+}
+
+// Create a list of file system handler from the given json content
+func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig RuntimePersistenceConfig) ([]*FileSystemHandler, error) {
 	//Generate a list of handler option from json file
 	options, err := loadConfigFromJSON(jsonContent)
 	if err != nil {
@@ -117,7 +125,7 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, er
 
 	resultingHandlers := []*FileSystemHandler{}
 	for _, option := range options {
-		thisHandler, err := NewFileSystemHandler(option)
+		thisHandler, err := NewFileSystemHandler(option, runtimePersistenceConfig)
 		if err != nil {
 			log.Println("[File System] Failed to create system handler for " + option.Name)
 			//log.Println(err.Error())
@@ -129,8 +137,8 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte) ([]*FileSystemHandler, er
 	return resultingHandlers, nil
 }
 
-//Create a new file system handler with the given config
-func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
+// Create a new file system handler with the given config
+func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig RuntimePersistenceConfig) (*FileSystemHandler, error) {
 	fstype := strings.ToLower(option.Filesystem)
 	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
 		//Check if the target fs require mounting
@@ -165,19 +173,20 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 		}
 		rootpath := filepath.ToSlash(filepath.Clean(option.Path)) + "/"
 		return &FileSystemHandler{
-			Name:                  option.Name,
-			UUID:                  option.Uuid,
-			Path:                  filepath.ToSlash(filepath.Clean(option.Path)) + "/",
-			ReadOnly:              option.Access == arozfs.FsReadOnly,
-			RequireBuffer:         false,
-			Hierarchy:             option.Hierarchy,
-			HierarchyConfig:       DefaultEmptyHierarchySpecificConfig,
-			InitiationTime:        time.Now().Unix(),
-			FilesystemDatabase:    fsdb,
-			FileSystemAbstraction: localfs.NewLocalFileSystemAbstraction(option.Uuid, rootpath, option.Hierarchy, option.Access == arozfs.FsReadOnly),
-			Filesystem:            fstype,
-			StartOptions:          option,
-			Closed:                false,
+			Name:                     option.Name,
+			UUID:                     option.Uuid,
+			Path:                     filepath.ToSlash(filepath.Clean(option.Path)) + "/",
+			ReadOnly:                 option.Access == arozfs.FsReadOnly,
+			RequireBuffer:            false,
+			Hierarchy:                option.Hierarchy,
+			HierarchyConfig:          DefaultEmptyHierarchySpecificConfig,
+			InitiationTime:           time.Now().Unix(),
+			FilesystemDatabase:       fsdb,
+			FileSystemAbstraction:    localfs.NewLocalFileSystemAbstraction(option.Uuid, rootpath, option.Hierarchy, option.Access == arozfs.FsReadOnly),
+			Filesystem:               fstype,
+			StartOptions:             option,
+			RuntimePersistenceConfig: RuntimePersistenceConfig,
+			Closed:                   false,
 		}, nil
 
 	} else if fstype == "webdav" {
@@ -208,11 +217,14 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 	} else if fstype == "smb" {
 		//SMB. Create an object and mount it
 		pathChunks := strings.Split(strings.ReplaceAll(option.Path, "\\", "/"), "/")
-		if len(pathChunks) != 2 {
-			return nil, errors.New("Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share]")
+
+		if len(pathChunks) < 2 {
+			log.Println("[File System] Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]")
+			return nil, errors.New("Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]")
 		}
+
 		ipAddr := pathChunks[0]
-		rootShare := pathChunks[1]
+		rootShare := strings.Join(pathChunks[1:], "/")
 		user := option.Username
 		password := option.Password
 		smbfs, err := smbfs.NewServerMessageBlockFileSystemAbstraction(
@@ -322,27 +334,72 @@ func NewFileSystemHandler(option FileSystemOption) (*FileSystemHandler, error) {
 	return nil, errors.New("Not supported file system: " + fstype)
 }
 
+// Check if a fsh is a network drive
 func (fsh *FileSystemHandler) IsNetworkDrive() bool {
 	return arozfs.IsNetworkDrive(fsh.Filesystem)
 }
 
-//Check if a fsh is virtual (e.g. Network or fs Abstractions that cannot be listed with normal fs API)
-/*
-func (fsh *FileSystemHandler) IsVirtual() bool {
-	if fsh.Hierarchy == "virtual" || fsh.Filesystem == "webdav" {
-		//Check if the config return placeholder
-		c, ok := fsh.HierarchyConfig.(EmptyHierarchySpecificConfig)
-		if ok && c.HierarchyType == "placeholder" {
-			//Real file system.
-			return false
-		}
-
-		//Do more checking here if needed
-		return true
+// Check if a fsh is a local disk drive
+func (fsh *FileSystemHandler) IsLocalDrive() bool {
+	//Check if network drive
+	if arozfs.IsNetworkDrive(fsh.Filesystem) {
+		return false
 	}
-	return false
+
+	//Check if mounted locally
+	if _, err := os.Stat(fsh.Path); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
 }
-*/
+
+// Buffer a file to local tmp folder and return the tmp location for further processing
+func (fsh *FileSystemHandler) BufferRemoteToLocal(rpath string) (string, error) {
+	//Check if the remote file exists
+	fsa := fsh.FileSystemAbstraction
+	if !fsa.FileExists(rpath) {
+		//Target file not exists
+		return "", errors.New("target file not exists on remote")
+	}
+
+	//Check if the remote is a file (not support dir)
+	if fsa.IsDir(rpath) {
+		return "", errors.New("directory cannot be buffered to local")
+	}
+
+	//Get the tmp folder directory
+	tmpdir := fsh.RuntimePersistenceConfig.LocalBufferPath
+	if !utils.FileExists(tmpdir) {
+		//Create the tmp dir if not exists
+		os.MkdirAll(tmpdir, 0775)
+	}
+
+	//Generate a filename for the buffer file
+	tmpFilename := uuid.NewV4().String()
+	tmpFilepath := arozfs.ToSlash(filepath.Join(tmpdir, tmpFilename+filepath.Ext(rpath)))
+
+	//Copy the file from remote location to local
+	src, err := fsh.FileSystemAbstraction.ReadStream(rpath)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	dest, err := os.OpenFile(tmpFilepath, os.O_CREATE|os.O_WRONLY, 0777)
+	if err != nil {
+		return "", errors.New("unable to write to buffer location: " + err.Error())
+	}
+	defer dest.Close()
+
+	_, err = io.Copy(dest, src)
+	if err != nil {
+		return "", errors.New("file buffer failed: " + err.Error())
+	}
+
+	//Return the buffered filepath on local disk
+	return tmpFilepath, nil
+}
 
 func (fsh *FileSystemHandler) IsRootOf(vpath string) bool {
 	return strings.HasPrefix(vpath, fsh.UUID+":")
@@ -405,7 +462,7 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username st
 	fsh database that keep track of which files is owned by whom
 */
 
-//Create a file ownership record
+// Create a file ownership record
 func (fsh *FileSystemHandler) CreateFileRecord(rpath string, owner string) error {
 	if fsh.FilesystemDatabase == nil {
 		//Not supported file system type
@@ -416,7 +473,7 @@ func (fsh *FileSystemHandler) CreateFileRecord(rpath string, owner string) error
 	return nil
 }
 
-//Read the owner of a file
+// Read the owner of a file
 func (fsh *FileSystemHandler) GetFileRecord(rpath string) (string, error) {
 	if fsh.FilesystemDatabase == nil {
 		//Not supported file system type
@@ -433,7 +490,7 @@ func (fsh *FileSystemHandler) GetFileRecord(rpath string) (string, error) {
 	}
 }
 
-//Delete a file ownership record
+// Delete a file ownership record
 func (fsh *FileSystemHandler) DeleteFileRecord(rpath string) error {
 	if fsh.FilesystemDatabase == nil {
 		//Not supported file system type
@@ -448,12 +505,12 @@ func (fsh *FileSystemHandler) DeleteFileRecord(rpath string) error {
 	return nil
 }
 
-//Reload the target file system abstraction
+// Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	log.Println("[File System] Reloading File System Abstraction for " + fsh.Name)
 	//Load the start option for this fsh
 	originalStartOption := fsh.StartOptions
-
+	runtimePersistenceConfig := fsh.RuntimePersistenceConfig
 	//Close the file system handler
 	fsh.Close()
 
@@ -461,7 +518,7 @@ func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	time.Sleep(800 * time.Millisecond)
 
 	//Generate a new fsh from original start option
-	reloadedFsh, err := NewFileSystemHandler(originalStartOption)
+	reloadedFsh, err := NewFileSystemHandler(originalStartOption, runtimePersistenceConfig)
 	if err != nil {
 		return err
 	}
@@ -473,7 +530,7 @@ func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	return nil
 }
 
-//Close an openeded File System
+// Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
 	//Set the close flag to true so others function wont access it
 	fsh.Closed = true
@@ -490,7 +547,7 @@ func (fsh *FileSystemHandler) Close() {
 	}
 }
 
-//Helper function
+// Helper function
 func inSlice(slice []string, val string) bool {
 	for _, item := range slice {
 		if item == val {

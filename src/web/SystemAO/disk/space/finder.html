@@ -8,22 +8,12 @@
         <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../../script/ao_module.js"></script>
         <style>
-           .owner.header{
-               color: #346eeb !important;
-           }
 
-           .owner.section{
-               color: #1d51c2 !important;
-           }
-
-           i.owner{
-            color: #346eeb !important;
-           }
         </style>
     </head>
     <body>
         <div class="ui container">
-            <p>Reclaim storage space by removing large files (Files owned by you will be in blue)</p>
+            <p>Reclaim storage space by removing large files</p>
             <div class="ui small buttons">
                 <button class="ui primary basic button" onclick="initFileList(20);">20 Results (Fast)</button>
                 <button class="ui secondary basic button" onclick="initFileList(50);">50 Results</button>
@@ -66,18 +56,13 @@
                         var filepath = file.Filepath.split("/");
                         filepath.pop();
                         filepath = filepath.join("/");
-
-                        var colorClass = "";
-                        if (file.IsOwner == true){
-                            colorClass = "owner"
-                        }
                         $("#filelist").append(`<div class="item">
-                            <i class="file icon ${colorClass}"></i>
+                            <i class="file icon"></i>
                             <div class="content">
-                                <div class="header ${colorClass}">${file.Filename} (${bytesToSize(file.Size)})</div>
+                                <div class="header">${file.Filename} (${bytesToSize(file.Size)})</div>
                                 <div class="description">
                                     <div class="ui breadcrumb">
-                                        <div class="active section ${colorClass}">${filepath}/</div>
+                                        <div class="active section" style="color: #202020 !important;">${filepath}/</div>
                                         <div class="divider"> ( </div>
                                         <a class="section" filepath="${filepath}" onclick="openFileLocation(this);">Open File Location</a>
                                         <div class="divider"> / </div>

@@ -120,7 +120,7 @@ func DiskServiceInit() {
 					})
 				*/
 
-				adminRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
+				authRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
 			}
 		}
 
@@ -132,7 +132,7 @@ func DiskServiceInit() {
 		*/
 
 		if *allow_hardware_management {
-			adminRouter.HandleFunc("/system/disk/diskmg/view", diskmg.HandleView)
+			authRouter.HandleFunc("/system/disk/diskmg/view", diskmg.HandleView)
 			adminRouter.HandleFunc("/system/disk/diskmg/platform", diskmg.HandlePlatform)
 			adminRouter.HandleFunc("/system/disk/diskmg/mount", func(w http.ResponseWriter, r *http.Request) {
 				//Mount option require passing in all filesystem handlers

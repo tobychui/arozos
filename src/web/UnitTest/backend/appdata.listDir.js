@@ -1,8 +1,7 @@
 /*
-    appdata.readFile.js
+    appdata.listDir.js
 
-    This script test the appdata read file function.
-    This should be able to read file 
+    This script test the appdata list dir function.
 */
 
 //Require the appdata library

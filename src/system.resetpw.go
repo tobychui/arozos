@@ -129,7 +129,7 @@ func system_resetpw_handlePasswordReset(w http.ResponseWriter, r *http.Request) 
 		vendorIconSrc = "./web/img/public/vendor_icon.png"
 	}
 	imageBase64, _ := utils.LoadImageAsBase64(vendorIconSrc)
-	template, err := utils.Templateload("system/reset/resetPasswordTemplate.html", map[string]interface{}{
+	template, err := utils.Templateload("system/reset/resetPasswordTemplate.html", map[string]string{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,
 		"username":    acc,
@@ -149,7 +149,7 @@ func system_resetpw_serveIdEnterInterface(w http.ResponseWriter, r *http.Request
 		imgsrc = "./web/img/public/vendor_icon.png"
 	}
 	imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
-	template, err := utils.Templateload("system/reset/resetCodeTemplate.html", map[string]interface{}{
+	template, err := utils.Templateload("system/reset/resetCodeTemplate.html", map[string]string{
 		"vendor_logo": imageBase64,
 		"host_name":   *host_name,
 	})

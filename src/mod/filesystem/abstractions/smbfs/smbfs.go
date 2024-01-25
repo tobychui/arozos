@@ -26,7 +26,9 @@ import (
 type ServerMessageBlockFileSystemAbstraction struct {
 	UUID       string
 	Hierarchy  string
-	root       string
+	root       string //Full smb root
+	smbRoot    string //SMB Actual root, if the root is a path with multiple seperator, this will be the first item in the subpath
+	fsaRoot    string //File System Abstraction root, can be a subfolder inside the SMB root
 	ipaddr     string
 	user       string
 	pass       string
@@ -63,18 +65,29 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 		return ServerMessageBlockFileSystemAbstraction{}, err
 	}
 
+	thisSmbRoot := rootShare
+	thisFsaRoot := ""
+	if strings.Contains(rootShare, "/") {
+		pathChunks := strings.Split(rootShare, "/")
+		thisSmbRoot = pathChunks[0]
+		thisFsaRoot = strings.Join(pathChunks[1:], "/")
+	}
+
 	//Mound remote storage
-	fs, err := s.Mount(rootShare)
+	fs, err := s.Mount(thisSmbRoot)
 	if err != nil {
 		log.Println("[SMB-FS] Unable to connect to remote: ", err.Error())
 		return ServerMessageBlockFileSystemAbstraction{}, err
 	}
+	log.Println("[SMB-FS] Mounted SMB Root Share: " + thisSmbRoot)
 
 	done := make(chan bool)
 	fsAbstraction := ServerMessageBlockFileSystemAbstraction{
 		UUID:       uuid,
 		Hierarchy:  hierarchy,
 		root:       rootShare,
+		smbRoot:    thisSmbRoot,
+		fsaRoot:    thisFsaRoot,
 		ipaddr:     ipaddr,
 		user:       username,
 		pass:       password,
@@ -88,7 +101,7 @@ func NewServerMessageBlockFileSystemAbstraction(uuid string, hierarchy string, i
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) Chmod(filename string, mode os.FileMode) error {
-	filename = filterFilepath(filename)
+	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Chmod(filename, mode)
 }
@@ -96,12 +109,12 @@ func (a ServerMessageBlockFileSystemAbstraction) Chown(filename string, uid int,
 	return arozfs.ErrOperationNotSupported
 }
 func (a ServerMessageBlockFileSystemAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) error {
-	filename = filterFilepath(filename)
+	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Chtimes(filename, atime, mtime)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Create(filename string) (arozfs.File, error) {
-	filename = filterFilepath(filename)
+	filename = a.filterFilepath(filename)
 	f, err := a.share.Create(filename)
 	if err != nil {
 		return nil, err
@@ -110,12 +123,12 @@ func (a ServerMessageBlockFileSystemAbstraction) Create(filename string) (arozfs
 	return af, nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) Mkdir(filename string, mode os.FileMode) error {
-	filename = filterFilepath(filename)
+	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Mkdir(filename, mode)
 }
 func (a ServerMessageBlockFileSystemAbstraction) MkdirAll(filename string, mode os.FileMode) error {
-	filename = filterFilepath(filename)
+	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.MkdirAll(filename, mode)
 }
@@ -123,7 +136,7 @@ func (a ServerMessageBlockFileSystemAbstraction) Name() string {
 	return ""
 }
 func (a ServerMessageBlockFileSystemAbstraction) Open(filename string) (arozfs.File, error) {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.Open(filename)
 	if err != nil {
 		return nil, err
@@ -132,7 +145,7 @@ func (a ServerMessageBlockFileSystemAbstraction) Open(filename string) (arozfs.F
 	return af, nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.OpenFile(filename, flag, perm)
 	if err != nil {
 		return nil, err
@@ -141,22 +154,22 @@ func (a ServerMessageBlockFileSystemAbstraction) OpenFile(filename string, flag 
 	return af, nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) Remove(filename string) error {
-	filename = filterFilepath(filename)
+	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.Remove(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) RemoveAll(filename string) error {
-	filename = filterFilepath(filename)
+	filename = a.filterFilepath(filename)
 	filename = toWinPath(filename)
 	return a.share.RemoveAll(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Rename(oldname, newname string) error {
-	oldname = toWinPath(filterFilepath(oldname))
-	newname = toWinPath(filterFilepath(newname))
+	oldname = toWinPath(a.filterFilepath(oldname))
+	newname = toWinPath(a.filterFilepath(newname))
 	return a.share.Rename(oldname, newname)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Stat(filename string) (os.FileInfo, error) {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	return a.share.Stat(filename)
 }
 func (a ServerMessageBlockFileSystemAbstraction) Close() error {
@@ -186,26 +199,31 @@ func (a ServerMessageBlockFileSystemAbstraction) VirtualPathToRealPath(subpath s
 		//This is full virtual path. Trim the uuid and correct the subpath
 		subpath = strings.TrimPrefix(subpath, a.UUID+":")
 	}
-	subpath = filterFilepath(subpath)
+	subpath = a.filterFilepath(subpath)
 
 	if a.Hierarchy == "user" {
-		return toWinPath(filepath.ToSlash(filepath.Clean(filepath.Join("users", username, subpath)))), nil
+		return toWinPath(filepath.ToSlash(filepath.Clean(filepath.Join(a.fsaRoot, "users", username, subpath)))), nil
 	} else if a.Hierarchy == "public" {
-		return toWinPath(filepath.ToSlash(filepath.Clean(subpath))), nil
+		return toWinPath(filepath.ToSlash(filepath.Clean(filepath.Join(a.fsaRoot, subpath)))), nil
 	}
 
 	return "", arozfs.ErrVpathResolveFailed
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
-	fullpath = filterFilepath(fullpath)
+	fullpath = a.filterFilepath(fullpath)
+	if a.fsaRoot != "" {
+		fullpath = strings.TrimPrefix(fullpath, a.fsaRoot)
+		//if there is an excess / prefix
+		fullpath = strings.TrimPrefix(fullpath, "/")
+	}
 	fullpath = strings.TrimPrefix(fullpath, "\\")
 	vpath := a.UUID + ":/" + strings.ReplaceAll(fullpath, "\\", "/")
 	return vpath, nil
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) FileExists(realpath string) bool {
-	realpath = toWinPath(filterFilepath(realpath))
+	realpath = toWinPath(a.filterFilepath(realpath))
 	f, err := a.share.Open(realpath)
 	if err != nil {
 		return false
@@ -215,7 +233,7 @@ func (a ServerMessageBlockFileSystemAbstraction) FileExists(realpath string) boo
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) IsDir(realpath string) bool {
-	realpath = filterFilepath(realpath)
+	realpath = a.filterFilepath(realpath)
 	realpath = toWinPath(realpath)
 	stx, err := a.share.Stat(realpath)
 	if err != nil {
@@ -235,7 +253,7 @@ func (a ServerMessageBlockFileSystemAbstraction) Glob(realpathWildcard string) (
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) GetFileSize(realpath string) int64 {
-	realpath = toWinPath(filterFilepath(realpath))
+	realpath = toWinPath(a.filterFilepath(realpath))
 	stat, err := a.share.Stat(realpath)
 	if err != nil {
 		return 0
@@ -244,7 +262,7 @@ func (a ServerMessageBlockFileSystemAbstraction) GetFileSize(realpath string) in
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) GetModTime(realpath string) (int64, error) {
-	realpath = toWinPath(filterFilepath(realpath))
+	realpath = toWinPath(a.filterFilepath(realpath))
 	stat, err := a.share.Stat(realpath)
 	if err != nil {
 		return 0, nil
@@ -253,16 +271,16 @@ func (a ServerMessageBlockFileSystemAbstraction) GetModTime(realpath string) (in
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	return a.share.WriteFile(filename, content, mode)
 }
 func (a ServerMessageBlockFileSystemAbstraction) ReadFile(filename string) ([]byte, error) {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	return a.share.ReadFile(filename)
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	fis, err := a.share.ReadDir(filename)
 	if err != nil {
 		return []fs.DirEntry{}, err
@@ -279,7 +297,7 @@ func (a ServerMessageBlockFileSystemAbstraction) ReadDir(filename string) ([]fs.
 }
 
 func (a ServerMessageBlockFileSystemAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.OpenFile(filename, os.O_CREATE|os.O_WRONLY, mode)
 	if err != nil {
 		return err
@@ -304,7 +322,7 @@ func (a ServerMessageBlockFileSystemAbstraction) WriteStream(filename string, st
 	return nil
 }
 func (a ServerMessageBlockFileSystemAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
-	filename = toWinPath(filterFilepath(filename))
+	filename = toWinPath(a.filterFilepath(filename))
 	f, err := a.share.OpenFile(filename, os.O_RDONLY, 0755)
 	if err != nil {
 		return nil, err
@@ -312,9 +330,9 @@ func (a ServerMessageBlockFileSystemAbstraction) ReadStream(filename string) (io
 	return f, nil
 }
 
-//Note that walk on SMB is super slow. Avoid using this if possible.
+// Note that walk on SMB is super slow. Avoid using this if possible.
 func (a ServerMessageBlockFileSystemAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
-	root = toWinPath(filterFilepath(root))
+	root = toWinPath(a.filterFilepath(root))
 	err := fs.WalkDir(a.share.DirFS(root), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -358,10 +376,9 @@ func (a *ServerMessageBlockFileSystemAbstraction) CapacityInfo() {
 func toWinPath(filename string) string {
 	backslashed := strings.ReplaceAll(filename, "/", "\\")
 	return strings.TrimPrefix(backslashed, "\\")
-
 }
 
-func filterFilepath(rawpath string) string {
+func (a ServerMessageBlockFileSystemAbstraction) filterFilepath(rawpath string) string {
 	rawpath = filepath.ToSlash(filepath.Clean(rawpath))
 	rawpath = strings.TrimSpace(rawpath)
 

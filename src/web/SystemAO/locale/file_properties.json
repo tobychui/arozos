@@ -127,6 +127,92 @@
 
                 "":""
             }
+        },
+        "en-us": {
+            "fwtitle": "File Contents",
+            "fontFamily": "",
+            "strings": {
+                "title/title": "File Contents",
+                "title/desc": "Basic content and description of the file",
+        
+                "properties/key/Default WebApp": "Default Opening App",
+                "properties/key/Virtual Path": "Virtual Access Path",
+                "properties/key/Storage Path": "Disk Storage Path",
+                "properties/key/File Size": "File Size",
+                "properties/key/Folder Size": "Folder Size",
+                "properties/key/Permission": "Access Permission",
+                "properties/key/Last Modified": "Last Modified",
+                "properties/key/File Type": "File Type",
+                "properties/key/Owner": "Owner",
+                "properties/key/Total Size": "Total Size",
+                "properties/key/Virtual Directory": "Virtual Directory",
+                "properties/key/Storage Directory": "Disk Storage Directory",
+        
+                "lastmod/time/year": " year",
+                "lastmod/time/month": " month",
+                "lastmod/time/days": " days",
+                "lastmod/time/today": "Today",
+                "lastmod/time/s": "s",
+                "lastmod/time/ago": " ago",
+        
+                "button/changeDefault": "Change Default Opening App",
+                "button/versionHistory": "View File Version History",
+                "button/changeFilePermission": "Change File Access Permission",
+                "loader/loadingFileSize": "Calculating file size",
+                "selection/multi": "Multiple files selected",
+        
+                "counter/files": " files",
+                "counter/folders": " folders",
+        
+                "properties/error/Not available for network folders": "Not available for network folders",
+                "properties/error/No record": "No record",
+        
+                "": ""
+            }
+        },
+        "ja-jp": {
+            "fwtitle": "ファイル内容",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "title/title": "ファイル内容",
+                "title/desc": "ファイルの基本内容と説明",
+        
+                "properties/key/Default WebApp": "デフォルトの開くアプリ",
+                "properties/key/Virtual Path": "仮想アクセスパス",
+                "properties/key/Storage Path": "ディスクストレージパス",
+                "properties/key/File Size": "ファイルサイズ",
+                "properties/key/Folder Size": "フォルダサイズ",
+                "properties/key/Permission": "アクセス権限",
+                "properties/key/Last Modified": "最終変更",
+                "properties/key/File Type": "ファイルタイプ",
+                "properties/key/Owner": "所有者",
+                "properties/key/Total Size": "合計サイズ",
+                "properties/key/Virtual Directory": "仮想ディレクトリ",
+                "properties/key/Storage Directory": "ディスクストレージディレクトリ",
+        
+                "lastmod/time/year": " 年",
+                "lastmod/time/month": " 月",
+                "lastmod/time/days": " 日",
+                "lastmod/time/today": "今日",
+                "lastmod/time/s": "秒",
+                "lastmod/time/ago": "前",
+        
+                "button/changeDefault": "デフォルトの開くアプリを変更",
+                "button/versionHistory": "ファイルバージョン履歴を表示",
+                "button/changeFilePermission": "ファイルアクセス権限を変更",
+                "loader/loadingFileSize": "ファイルサイズを計算中",
+                "selection/multi": "複数のファイルが選択されました",
+        
+                "counter/files": " ファイル",
+                "counter/folders": " フォルダ",
+        
+                "properties/error/Not available for network folders": "ネットワークフォルダには適用されません",
+                "properties/error/No record": "記録なし",
+        
+                "": ""
+            }
         }
+        
+        
     }
 }

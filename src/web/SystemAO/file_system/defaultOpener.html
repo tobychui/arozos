@@ -18,7 +18,7 @@
         </script>
         <style>
             body{
-                background-color: #fcfcfc;
+                background-color: var(--body_background);
             }
             .moduleSelector{
                 border: 1px solid #cccccc;
@@ -36,10 +36,10 @@
                 display:none;
             }
             .item.selected{
-                background-color: #d4e4ff;
+                background-color: var(--theme_color);
             }
             .item:hover{
-                background-color:#f2f2f2;
+                background-color:var(--body_background_active);
             }
             .item img{
                 vertical-align: middle;
@@ -58,23 +58,32 @@
             }
         </style>
     </head>
-    <body>
+    <body class="whiteTheme">
         <div class="ui container" style="padding-top:12px;">
             <p><span locale="message/select">Select a default WebApp to open</span> <span id="fext"></span> <span locale="message/files">files.</span></p>
             <div id="moduleList" class="moduleSelector">
                 
             </div>
-            <button id="showallbtn" class="ui fluid tiny button" onclick="showAllModules();" locale="button/showAll">Show All</button>
+            <button id="showallbtn" class="ui fluid basic tiny button" onclick="showAllModules();" locale="button/showAll">Show All</button>
         </div>
         <div class="bottomControls" align="right">
-            <button class="ui small button" onclick="cancel();" locale="button/cancel">Cancel</button>
-            <button id="confirmBtn" class="ui small primary disabled button" onclick="confirmSelection()" locale="button/confirm">Confirm</button>
+            <button class="ui basic small button" onclick="cancel();" locale="button/cancel">Cancel</button>
+            <button id="confirmBtn" class="ui small basic green disabled button" onclick="confirmSelection()" locale="button/confirm">Confirm</button>
         </div>
         <script>
             var targetFiles = "";
             var targetExt = "";
             var showAll = false;
             var moduleInfo = [];
+
+            //Load theme
+            $.get(ao_root + "/system/file_system/preference?key=file_explorer/theme",function(data){
+                if (data == "darkTheme"){
+                    $("body").addClass("darkTheme");
+                }else{
+                    $("body").addClass("whiteTheme");
+                }
+            });
 
             //Load applocale
             applocale.init("../locale/defaultOpener.json", function(){

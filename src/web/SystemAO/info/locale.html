@@ -1,13 +1,16 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <title>Locale</title>
+    <title locale="locale/language-setting-title">Locale</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
     <link rel="stylesheet" href="../../script/semantic/semantic.css">
     <script type="application/javascript" src="../../script/jquery.min.js"></script>
     <script type="application/javascript" src="../../script/clipboard.min.js"></script>
     <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+
 </head>
 
 <body>
@@ -16,8 +19,8 @@
             <div class="ui header">
                 <i class="translate icon"></i>
                 <div class="content">
-                    Language setting
-                    <div class="sub header">You can change the display language here.<br> The language setting will only affect the current computer.</div>
+                    <span locale="locale/language-setting-title">Language setting</span>
+                    <div class="sub header" locale="locale/language-setting-description">You can change the display language here.<br> The language setting will only affect the current computer.</div>
                 </div>
             </div>
         </div>
@@ -26,26 +29,32 @@
             <h5 class="ui header">
                 <i class="checkmark icon"></i>
                 <div class="content">
-                    Setting Updated. Please sign out to apply these changes.
+                    <span locale="locale/setting-updated-title">Setting Updated. Please sign out to apply these changes.</span>
                 </div>
             </h5>
         </div>
         <div class="ui form">
             <div class="field">
-                <label>Display language</label>
+                <label locale="locale/display-language-label">Display language</label>
                 <div class="ui selection dropdown">
                     <input id="language" type="hidden" name="language">
                     <i class="dropdown icon"></i>
-                    <div class="default text">Language</div>
+                    <div class="default text" locale="locale/language-default-text">Language</div>
                     <div class="menu" id="langlist">
-                        <div class="item" data-value="default">Browser Default</div>
+                        <div class="item" data-value="default" locale="locale/browser-default">Browser Default</div>
                     </div>
                 </div>
             </div>
-            <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
+            <button id="ntb" onclick="update();" class="ui green button" type="submit" locale="locale/update-button">Update</button>
         </div>
     </div>
     <script>
+        var languageLocale = NewAppLocale();
+        languageLocale.init("../locale/system_settings/locale.json", function(){
+            languageLocale.translate();
+        });
+
+
         $("#language").val(localStorage.getItem('global_language'));
         $('.selection.dropdown').dropdown();
 

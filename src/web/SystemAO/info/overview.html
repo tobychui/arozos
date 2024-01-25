@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html ng-app="App">
 <head>
-    <title>System Info</title>
+    <title>System Overview</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
 </head>
 
 <body>
@@ -16,35 +17,35 @@
             <div class="six wide column">
                 <div class="ui fluid card">
                     <div class="image">
-                      <img id="avator" src="../../SystemAO/users/img/user.svg">
+                        <img id="avator" src="../../SystemAO/users/img/user.svg">
                     </div>
                     <div class="content">
-                      <a id="username" class="header">USER</a>
-                      <div class="meta">
-                        <span id="usergroup" class="date">@usergroup</span>
-                      </div>
+                        <a id="username" class="header"><span>USER</span></a>
+                        <div class="meta">
+                            <span id="usergroup" class="date"><span>@usergroup</span></span>
+                        </div>
                     </div>
                     <div class="extra content">
-                      <a href="#" onclick="parent.logout();">
-                        <i class="logout icon"></i>
-                        Logout
-                      </a>
+                        <a href="#" onclick="parent.logout();">
+                            <i class="logout icon"></i>
+                            <span locale="overview/logout">Logout</span>
+                        </a>
                     </div>
-                  </div>
+                </div>
             </div>
             <div class="ten wide column">
                 <div class="ui segment">
-                    <h3 class="ui header"><i class="yellow folder icon"></i> Storage</h3>
+                    <h3 class="ui header"><i style="display: inline;" class="yellow folder icon"></i> <span locale="overview/storage">Storage</span></h3>
                     <div class="ui divider"></div>
                     <div class="ui grid">
                         <div class="six wide column">
-                            Used Space
+                            <span locale="overview/used_space">Used Space</span>
                         </div>
                         <div class="ten wide column" id="usedStorage">
                             Loading...
                         </div>
                         <div class="six wide column">
-                            Total Space
+                            <span locale="overview/total_space">Total Space</span>
                         </div>
                         <div class="ten wide column" id="totalStorage">
                             Loading...
@@ -52,11 +53,11 @@
                     </div>
                 </div>
                 <div class="ui segment">
-                    <h3 class="ui header"><i class="blue globe icon"></i> Personal Homepage</h3>
+                    <h3 class="ui header"><i  style="display: inline;" class="blue globe icon"></i> <span locale="overview/personal_homepage">Personal Homepage</span></h3>
                     <div class="ui divider"></div>
                     <div class="ui grid">
                         <div class="six wide column">
-                            Status:
+                            <span locale="overview/status">Status:</span>
                         </div>
                         <div class="ten wide column" id="homepageStatus">
                             Loading...
@@ -64,17 +65,17 @@
                     </div>
                 </div>
                 <div class="ui segment">
-                    <h3 class="ui header"><i class="teal clock icon"></i>  Operation Time</h3>
+                    <h3 class="ui header"><i  style="display: inline;" class="teal clock icon"></i> <span locale="overview/operation_time">Operation Time</span></h3>
                     <div class="ui divider"></div>
                     <div class="ui grid">
                         <div class="six wide column">
-                            Online Since:
+                            <span locale="overview/online_since">Online Since:</span>
                         </div>
                         <div class="ten wide column" id="startup">
                             Loading...
                         </div>
                         <div class="six wide column">
-                            Up Time :
+                            <span locale="overview/up_time">Up Time :</span>
                         </div>
                         <div class="ten wide column" id="operation">
                             Loading...
@@ -82,9 +83,9 @@
                     </div>
                 </div>
             </div>
-          </div>
-        
+        </div>
     </div>
+    
     <div class="ui divider"></div>
     <div style="float: right; text-align: right; color: #9c9c9c; margin-right: 1.5em;" >
         <p><span id="hostname"></span><br>
@@ -95,18 +96,23 @@
     <br>
 </body>
 <script>
+    var overviewLocale = NewAppLocale();
+    
     $(document).ready(function() {
-        $.getJSON("../../system/info/getRuntimeInfo", function(data){
-            $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
-            $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
-            $("#operation").attr("startunix", data.StartupTime);
-            accumulateOperationTime();
-        });
+        overviewLocale.init("../locale/system_settings/overview.json", function(){
+            overviewLocale.translate();
+            $.getJSON("../../system/info/getRuntimeInfo", function(data){
+                $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
+                $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
+                $("#operation").attr("startunix", data.StartupTime);
+                accumulateOperationTime();
+            });
 
-        initHostInfo();
-        initUserInfo();
-        initStorageInfo();
-        initHomepageState();
+            initHostInfo();
+            initUserInfo();
+            initStorageInfo();
+            initHomepageState();
+        });
     });
 
     function initHostInfo(){
@@ -131,9 +137,9 @@
         $.get("../../system/disk/quota/quotaInfo", function(data){
             let percentageText = "0%";
             if (data.Total == -1){
-                $("#totalStorage").text("Unlimited");
+                $("#totalStorage").text(overviewLocale.getString("overview/info/unlimited", "Unlimited"));
             }else if (data.Total == 0){
-                $("#totalStorage").text("Read Only");
+                $("#totalStorage").text(overviewLocale.getString("overview/info/readonly", "Read Only"));
                 percentageText = "100%";
             }else{
                 $("#totalStorage").text(ao_module_utils.formatBytes(data.Total, 2));
@@ -146,9 +152,9 @@
     function initHomepageState(){
         $.get("../../system/network/www/toggle", function(data){
             if (data == true){
-                $("#homepageStatus").html(`<h5><i class="green circle icon"></i> Online</h5>`);
+                $("#homepageStatus").html(`<h5><i class="green circle icon"></i> ${overviewLocale.getString("overview/status/online", "Online")}</h5>`);
             }else{
-                $("#homepageStatus").html(`<h5><i class="red circle icon"></i> Offline</h5>`);
+                $("#homepageStatus").html(`<h5><i class="red circle icon"></i> ${overviewLocale.getString("overview/status/offline", "Offline")}</h5>`);
             }
            
         });

@@ -1,17 +1,15 @@
 package agi
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/robertkrimen/otto"
+	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -77,7 +75,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 
 	vm.Set("addNightlyTask", func(call otto.FunctionCall) otto.Value {
 		scriptPath, _ := call.Argument(0).ToString() //From web directory
-		if isValidAGIScript(scriptPath) {
+		if static.IsValidAGIScript(scriptPath) {
 			g.NightlyScripts = append(g.NightlyScripts, scriptPath)
 		} else {
 			return otto.FalseValue()
@@ -90,7 +88,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("newDBTableIfNotExists", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
 		}
@@ -108,7 +106,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("DBTableExists", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
 		}
@@ -124,7 +122,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("dropDBTable", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
 		}
@@ -144,7 +142,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("writeDBItem", func(call otto.FunctionCall) otto.Value {
 		tableName, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
 		}
@@ -153,13 +151,13 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 		if g.filterDBTable(tableName, true) {
 			keyString, err := call.Argument(1).ToString()
 			if err != nil {
-				g.raiseError(err)
+				g.RaiseError(err)
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
 			valueString, err := call.Argument(2).ToString()
 			if err != nil {
-				g.raiseError(err)
+				g.RaiseError(err)
 				reply, _ := vm.ToValue(false)
 				return reply
 			}
@@ -234,14 +232,14 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("registerModule", func(call otto.FunctionCall) otto.Value {
 		jsonModuleConfig, err := call.Argument(0).ToString()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
 		}
 		//Try to decode it to a module Info
 		g.Option.ModuleRegisterParser(jsonModuleConfig)
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
 			return reply
 		}
@@ -252,98 +250,106 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	if scriptFile != "" && scriptScope != "" {
 		//Package request --> Install linux package if not exists
 		vm.Set("requirepkg", func(call otto.FunctionCall) otto.Value {
-			packageName, err := call.Argument(0).ToString()
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-			requireComply, err := call.Argument(1).ToBoolean()
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-
-			scriptRoot := getScriptRoot(scriptFile, scriptScope)
-
-			//Check if this module already get registered.
-			alreadyRegistered := false
-			for _, pkgRequest := range g.AllowAccessPkgs[strings.ToLower(packageName)] {
-				if pkgRequest.InitRoot == scriptRoot {
-					alreadyRegistered = true
-					break
+			g.RaiseError(errors.New("requirepkg has been deprecated in agi v3.0"))
+			return otto.FalseValue()
+			/*
+				packageName, err := call.Argument(0).ToString()
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
 				}
-			}
+				requireComply, err := call.Argument(1).ToBoolean()
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
 
-			if !alreadyRegistered {
-				//Register this packge to this script and allow the module to call this package
-				g.AllowAccessPkgs[strings.ToLower(packageName)] = append(g.AllowAccessPkgs[strings.ToLower(packageName)], AgiPackage{
-					InitRoot: scriptRoot,
-				})
-			}
+				scriptRoot := static.GetScriptRoot(scriptFile, scriptScope)
 
-			//Try to install the package via apt
-			err = g.Option.PackageManager.InstallIfNotExists(packageName, requireComply)
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
+				//Check if this module already get registered.
+				alreadyRegistered := false
+				for _, pkgRequest := range g.AllowAccessPkgs[strings.ToLower(packageName)] {
+					if pkgRequest.InitRoot == scriptRoot {
+						alreadyRegistered = true
+						break
+					}
+				}
 
-			return otto.TrueValue()
+				if !alreadyRegistered {
+					//Register this packge to this script and allow the module to call this package
+					g.AllowAccessPkgs[strings.ToLower(packageName)] = append(g.AllowAccessPkgs[strings.ToLower(packageName)], AgiPackage{
+						InitRoot: scriptRoot,
+					})
+				}
+
+				//Try to install the package via apt
+				err = g.Option.PackageManager.InstallIfNotExists(packageName, requireComply)
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
+
+				return otto.TrueValue()
+			*/
 		})
 
 		//Exec required pkg with permission control
 		vm.Set("execpkg", func(call otto.FunctionCall) otto.Value {
-			//Check if the pkg is already registered
-			scriptRoot := getScriptRoot(scriptFile, scriptScope)
-			packageName, err := call.Argument(0).ToString()
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
-
-			if val, ok := g.AllowAccessPkgs[packageName]; ok {
-				//Package already registered by at least one module. Check if this script root registered
-				thisModuleRegistered := false
-				for _, registeredPkgInterface := range val {
-					if registeredPkgInterface.InitRoot == scriptRoot {
-						//This package registered this command. Allow access
-						thisModuleRegistered = true
-					}
-				}
-
-				if !thisModuleRegistered {
-					g.raiseError(errors.New("Package request not registered: " + packageName))
+			g.RaiseError(errors.New("execpkg has been deprecated in agi v3.0"))
+			return otto.FalseValue()
+			/*
+				//Check if the pkg is already registered
+				scriptRoot := static.GetScriptRoot(scriptFile, scriptScope)
+				packageName, err := call.Argument(0).ToString()
+				if err != nil {
+					g.RaiseError(err)
 					return otto.FalseValue()
 				}
 
-			} else {
-				g.raiseError(errors.New("Package request not registered: " + packageName))
-				return otto.FalseValue()
-			}
+				if val, ok := g.AllowAccessPkgs[packageName]; ok {
+					//Package already registered by at least one module. Check if this script root registered
+					thisModuleRegistered := false
+					for _, registeredPkgInterface := range val {
+						if registeredPkgInterface.InitRoot == scriptRoot {
+							//This package registered this command. Allow access
+							thisModuleRegistered = true
+						}
+					}
 
-			//Ok. Allow paramter to be loaded
-			execParamters, _ := call.Argument(1).ToString()
+					if !thisModuleRegistered {
+						g.RaiseError(errors.New("Package request not registered: " + packageName))
+						return otto.FalseValue()
+					}
 
-			// Split input paramters into []string
-			r := csv.NewReader(strings.NewReader(execParamters))
-			r.Comma = ' ' // space
-			fields, err := r.Read()
-			if err != nil {
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
+				} else {
+					g.RaiseError(errors.New("Package request not registered: " + packageName))
+					return otto.FalseValue()
+				}
 
-			//Run os.Exec on the given commands
-			cmd := exec.Command(packageName, fields...)
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				log.Println(string(out))
-				g.raiseError(err)
-				return otto.FalseValue()
-			}
+				//Ok. Allow paramter to be loaded
+				execParamters, _ := call.Argument(1).ToString()
 
-			reply, _ := vm.ToValue(string(out))
-			return reply
+				// Split input paramters into []string
+				r := csv.NewReader(strings.NewReader(execParamters))
+				r.Comma = ' ' // space
+				fields, err := r.Read()
+				if err != nil {
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
+
+				//Run os.Exec on the given commands
+				cmd := exec.Command(packageName, fields...)
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					log.Println(string(out))
+					g.RaiseError(err)
+					return otto.FalseValue()
+				}
+
+				reply, _ := vm.ToValue(string(out))
+				return reply
+			*/
 		})
 
 		//Include another js in runtime
@@ -351,20 +357,20 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			//Check if the pkg is already registered
 			scriptName, err := call.Argument(0).ToString()
 			if err != nil {
-				g.raiseError(err)
+				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
 			//Check if it is calling itself
 			if filepath.Base(scriptFile) == filepath.Base(scriptName) {
-				g.raiseError(errors.New("*AGI* Self calling is not allowed"))
+				g.RaiseError(errors.New("*AGI* Self calling is not allowed"))
 				return otto.FalseValue()
 			}
 
 			//Check if the script file exists
 			targetScriptPath := filepath.ToSlash(filepath.Join(filepath.Dir(scriptFile), scriptName))
 			if !utils.FileExists(targetScriptPath) {
-				g.raiseError(errors.New("*AGI* Target path not exists!"))
+				g.RaiseError(errors.New("*AGI* Target path not exists!"))
 				return otto.FalseValue()
 			}
 
@@ -374,7 +380,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			if err != nil {
 				//Script execution failed
 				log.Println("Script Execution Failed: ", err.Error())
-				g.raiseError(err)
+				g.RaiseError(err)
 				return otto.FalseValue()
 			}
 
@@ -387,7 +393,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	vm.Set("delay", func(call otto.FunctionCall) otto.Value {
 		delayTime, err := call.Argument(0).ToInteger()
 		if err != nil {
-			g.raiseError(err)
+			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 		time.Sleep(time.Duration(delayTime) * time.Millisecond)

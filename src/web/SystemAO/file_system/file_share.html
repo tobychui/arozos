@@ -2,6 +2,7 @@
     <head>
         <title locale="title/title">File Share</title>
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+        <link rel="stylesheet" href="../../script/ao.css">
         <script src="../../script/jquery.min.js"></script>
         <script src="../../script/semantic/semantic.min.js"></script>
         <script src="../../script/ao_module.js"></script>
@@ -10,16 +11,12 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <style>
-            body:not(.darkTheme){
-                background: rgba(255,255,255,01) !important;
-            }
-
-            body.darkTheme{
-                background-color: #242330 !important;
+            body{
+                background: var(--body_background) !important;
             }
 
             .sub.header.darkTheme{
-                color: rgba(255, 255, 255, 0.623) !important;
+                color: rgba(39, 19, 19, 0.623) !important;
             }
 
             .darkTheme:not(a){
@@ -59,28 +56,28 @@
                             <h1><br><i class="ui loading spinner icon"></i><br></h1>
                         </div>
                     </div>
-                    <div style="width: 80%; text-align: center;">
-                    <a id="sharelink" href="" target="_blank" style="margin-top:8px; font-size: 120%; padding-left: 20px; padding-right: 20px; word-break: break-all; overflow-wrap: anywhere;"></a>
+                    <div style="width: 80%; text-align: center; margin-top:0.4em; ">
+                    <a id="sharelink" href="" target="_blank" style="font-size: 120%; padding-left: 20px; padding-right: 20px; word-break: break-all; overflow-wrap: anywhere;"></a>
                     </div>
                     
                 </div>
             </div>
             <div id="shareSettingOptions" class="eight wide column" style="padding-left: 12px; display:none;">
-                <div class="ui header whiteTheme">
+                <div class="ui header">
                     <span locale="share/setting/title">Share Settings</span>
-                    <div class="sub header whiteTheme" locale="share/setting/subtitle">Change who can see this file</div>
+                    <div class="sub header" locale="share/setting/subtitle">Change who can see this file</div>
                 </div>
                 <div id="shareSettingForm" class="ui form">
                     <div class="field">
-                        <label><p class="whiteTheme" locale="share/setting/options">Visable options:</p></label>
+                        <label><p class="" locale="share/setting/options">Visable options:</p></label>
                         <div class="ui checkboxes">
                             <div class="ui radio checkbox">
                                 <input id="anyone" type="radio" class="shareoption" name="shareopt" value="anyone" onchange="updateSharePermission(this);">
                                 <label for="anyone">
                                     <div class="ui header">
-                                        <div class="content whiteTheme">
+                                        <div class="content ">
                                             <i class="globe icon"></i> <span locale="share/setting/anyoneWithLink">Anyone with the link</span>
-                                            <div class="sub header whiteTheme" locale="share/setting/anyoneWithLink/desc">Anyone who has the link can access this file</div>
+                                            <div class="sub header" locale="share/setting/anyoneWithLink/desc">Anyone who has the link can access this file</div>
                                         </div>
                                     </div>
                                 </label>
@@ -90,9 +87,9 @@
                                 <input id="signedin" type="radio" class="shareoption" value="signedin" name="shareopt" onchange="updateSharePermission(this);">
                                 <label for="signedin">
                                     <div class="ui header">
-                                        <div class="content whiteTheme">
+                                        <div class="content">
                                             <i class="user circle outline icon"></i> <span locale="share/setting/anyoneSignedIn">Anyone signed in</span>
-                                            <div class="sub header whiteTheme" locale="share/setting/anyoneSignedIn/desc">Anyone who has signed in can access this file</div>
+                                            <div class="sub header" locale="share/setting/anyoneSignedIn/desc">Anyone who has signed in can access this file</div>
                                         </div>
                                     </div>
                                 </label>
@@ -102,9 +99,9 @@
                                 <input id="samegroup" type="radio" class="shareoption" value="samegroup" name="shareopt" onchange="updateSharePermission(this);">
                                 <label for="samegroup">
                                     <div class="ui header">
-                                        <div class="content whiteTheme">
+                                        <div class="content">
                                             <i class="users icon"></i> <span locale="share/setting/sameGroup">Users in the same group</span>
-                                            <div class="sub header whiteTheme" locale="share/setting/sameGroup/desc">Anyone who is in the same group as you do</div>
+                                            <div class="sub header" locale="share/setting/sameGroup/desc">Anyone who is in the same group as you do</div>
                                         </div>
                                     </div>
                                 </label>
@@ -120,9 +117,9 @@
                                         <input id="users" type="radio" class="shareoption" value="users" name="shareopt" onchange="updateSharePermission(this);">
                                         <label for="users">
                                             <div class="ui header">
-                                                <div class="content whiteTheme">
+                                                <div class="content">
                                                     <i class="clipboard check icon"></i> <span locale="share/setting/advance/users">Selected Users</span>
-                                                    <div class="sub header whiteTheme" locale="share/setting/advance/usersDesc">Selected users with matching user name</div>
+                                                    <div class="sub header" locale="share/setting/advance/usersDesc">Selected users with matching user name</div>
                                                 </div>
                                             </div>
                                         </label>
@@ -140,9 +137,9 @@
                                         <input id="groups" type="radio" class="shareoption" value="groups" name="shareopt" onchange="updateSharePermission(this);">
                                         <label for="groups">
                                             <div class="ui header">
-                                                <div class="content whiteTheme">
+                                                <div class="content">
                                                     <i class="sitemap icon"></i> <span locale="share/setting/advance/groups">Selected Groups</span>
-                                                    <div class="sub header whiteTheme" locale="share/setting/advance/groupsDesc">All the users that has access to any one of the selected group(s)</div>
+                                                    <div class="sub header" locale="share/setting/advance/groupsDesc">All the users that has access to any one of the selected group(s)</div>
                                                 </div>
                                             </div>
                                         </label>
@@ -169,11 +166,11 @@
         </div>
         <div class="ui divider actionButton"></div>
         <div class="actionButton" style="width: 100%; padding-right: 12px;" align="right">
-            <div class="ui button popupbuttons whiteTheme allowHover" onclick="copyLinkToClipboard(this)">
+            <div class="ui basic button popupbuttons allowHover" onclick="copyLinkToClipboard(this)">
                 <i class="copy icon"></i> <span locale="button/copy">Copy</span>
             </div> 
-            <div id="sharingRemoveBtn" class="ui red button popupbuttons negative whiteTheme allowHover" onclick="removeSharing()">
-                <i class="remove icon"></i> <span locale="button/remove">Remove</span>
+            <div id="sharingRemoveBtn" class="ui basic button popupbuttons allowHover" onclick="removeSharing()">
+                <i class="red remove icon"></i> <span locale="button/remove">Remove</span>
             </div> 
         </div>
         <script>
@@ -212,10 +209,7 @@
             var relpath = "../../";
             
             function applyDarkThemeMode(){
-                $(".whiteTheme").removeClass("whiteTheme").addClass("darkTheme");
-                $("*:not(button)").addClass("darkTheme");
-                $("body").addClass("darkTheme");
-                $(".ui.button").addClass("inverted");
+                $(".ui.message").addClass("inverted");
                 darkTheme = true;
             }
 
@@ -306,7 +300,10 @@
                 //Load theme style
                 $.get(relpath + "../system/file_system/preference?key=file_explorer/theme",function(data){
                     if (data == "darkTheme"){
+                        $("body").addClass("darkTheme");
                         applyDarkThemeMode();
+                    }else{
+                        $("body").addClass("whiteTheme");
                     }
                 });
 

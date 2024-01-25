@@ -15,7 +15,7 @@ import (
 
 */
 
-//Return the user quota information, returning used / total
+// Return the user quota information, returning used / total
 func (u *User) HaveSpaceFor(fsh *fs.FileSystemHandler, vpath string) bool {
 	realpath, err := fsh.FileSystemAbstraction.VirtualPathToRealPath(vpath, u.Username)
 	if err != nil {

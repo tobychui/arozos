@@ -7,6 +7,7 @@
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <style>
 
         </style>
@@ -17,80 +18,88 @@
                 <h3 class="ui header">
                     <i class="play icon"></i>
                     <div class="content">
-                        Runtime Adjustment
-                      <div class="sub header">Update system startup parameters in runtime</div>
+                        <span locale="runtime/runtime_adjustment">Runtime Adjustment</span>
+                        <div class="sub header" locale="runtime/update_system_startup_parameters">Update system startup parameters in runtime</div>
                     </div>
                 </h3>
                 <div class="ui divider"></div>
-            <form id="setupform" class="ui form" onsubmit="handleFormSubmit(event, this);">
-                <div class="field">
-                    <label>Host Name</label>
-                    <input class="config" type="text" name="Hostname" placeholder="My ArOZ">
-                </div>
-                <div class="field">
-                    <label>Max Upload Size (MB)</label>
-                    <input class="config" type="number" name="MaxUploadSize" placeholder="8192">
-                </div>
-                <div class="field">
-                    <label>File Upload Buffer (MB)</label>
-                    <input class="config" type="number" name="MaxFileUploadBuff" placeholder="25">
-                </div>
-                <div class="field">
-                    <label>File IO Buffer (Bytes, Defailt 1024)</label>
-                    <input class="config" type="number" name="FileIOBuffer" placeholder="1024">
-                </div>
-                <div class="field">
-                    <div class="ui toggle checkbox">
-                      <input class="config" type="checkbox" name="DisableIPResolver" tabindex="0">
-                      <label>Disable IP Resolver</label>
-                      <small>Not trying to analysis Client IP address, useful when the server is host under NAT or Reverse Proxy</small>
+                <form id="setupform" class="ui form" onsubmit="handleFormSubmit(event, this);">
+                    <div class="field">
+                        <label locale="runtime/host_name">Host Name</label>
+                        <input class="config" type="text" name="Hostname" placeholder="My ArOZ">
                     </div>
-                </div>
-                <div class="field">
-                    <div class="ui toggle checkbox">
-                      <input class="config" type="checkbox" name="EnableHomePage" tabindex="0">
-                      <label>Enable Home Page</label>
-                      <small>Allowing users to host their own static webpages</small>
+                    <div class="field">
+                        <label locale="runtime/max_upload_size">Max Upload Size (MB)</label>
+                        <input class="config" type="number" name="MaxUploadSize" placeholder="8192">
                     </div>
-                </div>
-                <div class="field">
-                    <div class="ui toggle checkbox">
-                      <input class="config" type="checkbox" name="EnableDirListing" tabindex="0">
-                      <label>Enable Directory Listing</label>
-                      <small>Allow listing the contents of a directory if the request URL is a folder</small>
+                    <div class="field">
+                        <label locale="runtime/file_upload_buffer">File Upload Buffer (MB)</label>
+                        <input class="config" type="number" name="MaxFileUploadBuff" placeholder="25">
                     </div>
-                </div>
-                <div class="ui divider"></div>
-                <p>To continue updating your boot configuration, please confirm that: </p>
-                <div class="field">
-                    <div class="ui checkbox">
-                    <input type="checkbox" tabindex="0" onchange="toggleConfirmBtn(this.checked)">
-                    <label>I know exactly what I am doing</label>
-                    <small>These changes are only applied to current runtime session. If something messed up, you can restart your system for restoring to default value. </small>
+                    <div class="field">
+                        <label locale="runtime/file_io_buffer">File IO Buffer (Bytes, Default 1024)</label>
+                        <input class="config" type="number" name="FileIOBuffer" placeholder="1024">
                     </div>
+                    <div class="field">
+                        <div class="ui toggle checkbox">
+                            <input class="config" type="checkbox" name="DisableIPResolver" tabindex="0">
+                            <label locale="runtime/disable_ip_resolver">Disable IP Resolver</label>
+                            <small locale="runtime/disable_ip_resolver_note">Not trying to analyze Client IP address, useful when the server is hosted under NAT or Reverse Proxy</small>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="ui toggle checkbox">
+                            <input class="config" type="checkbox" name="EnableHomePage" tabindex="0">
+                            <label locale="runtime/enable_home_page">Enable Home Page</label>
+                            <small locale="runtime/enable_home_page_note">Allowing users to host their own static web pages</small>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="ui toggle checkbox">
+                            <input class="config" type="checkbox" name="EnableDirListing" tabindex="0">
+                            <label locale="runtime/enable_directory_listing">Enable Directory Listing</label>
+                            <small locale="runtime/enable_directory_listing_note">Allow listing the contents of a directory if the request URL is a folder</small>
+                        </div>
+                    </div>
+                    <div class="ui divider"></div>
+                    <p locale="runtime/confirmation_message">To continue updating your boot configuration, please confirm that: </p>
+                    <div class="field">
+                        <div class="ui checkbox">
+                            <input type="checkbox" tabindex="0" onchange="toggleConfirmBtn(this.checked)">
+                            <label locale="runtime/i_know_what_i_am_doing">I know exactly what I am doing</label>
+                            <small locale="runtime/i_know_what_i_am_doing_note">These changes are only applied to the current runtime session. If something goes wrong, you can restart your system to restore it to the default value.</small>
+                        </div>
+                    </div>
+                    <button id="confirmbtn" class="ui red disabled button" type="submit" locale="runtime/write_to_runtime">Write to Runtime</button>
+                </form>
+                <div class="ui red message" style="display:none;" id="failedmsg" locale="runtime/update_failed">
+                    <div class="header">
+                        <i class="remove icon"></i> Flags Update Failed
+                    </div>
+                    <ul class="list">
+                        <p id="errmsg">Your settings were not applied due to an unknown error.</p>
+                    </ul>
                 </div>
-                <button id="confirmbtn" class="ui red disabled button" type="submit">Write to Runtime</button>
-            </form>
-            <div class="ui red message" style="display:none;" id="failedmsg">
-                <div class="header">
-                    <i class="remove icon"></i> Flags Update Failed
+                <div id="succmsg" class="ui green message transition" style="display:none;" locale="runtime/param_updated">
+                    <div class="header">
+                        <i class="checkmark icon"></i> Startup parameter Updated
+                    </div>
+                    <ul class="list">
+                        <p locale="runtime/param_updated_note">These settings will only be available in the current runtime session. Restart your server to restore the original settings.</p>
+                    </ul>
                 </div>
-                <ul class="list">
-                    <p id="errmsg">Your settings were not applied due to unknown error.</p>
-                </ul>
-            </div>
-            <div id="succmsg" class="ui green message transition" style="display:none;">
-                <div class="header">
-                    <i class="checkmark icon"></i> Startup paramter Updated
-                </div>
-                <ul class="list">
-                    <p>These settings will only be available in current runtime session. Restart your server to restore original settings.</p>
-                </ul>
             </div>
         </div>
+        
             <br><br>
         </div>
         <script>
+
+            var runtimeLocale = NewAppLocale();
+            runtimeLocale.init("../locale/system_settings/runtime.json", function(){
+                runtimeLocale.translate();
+                initCurrentSettingList();
+            });
 
             function handleFormSubmit(event, obj){
                 event.preventDefault();
@@ -126,7 +135,6 @@
                 })
             }
 
-            initCurrentSettingList();
             function initCurrentSettingList(){
                 $.get("../../system/bootflags", function(data){
                     if (data.errpr !== undefined){

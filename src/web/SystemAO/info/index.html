@@ -24,87 +24,49 @@
     </div>
     <div class="ui container">
         <br>
-        <h3 class="ui header">Specifications</h3>
+        <h3 class="ui header" locale="hwinfo/specifications">Specifications</h3>
         <div class="ui grid">
-            <div class="six wide column">
-                Model :
-            </div>
-            <div class="ten wide column" id="model">
-                Loading...
-            </div>
-            <div class="six wide column">
-                Frequency :
-            </div>
-            <div class="ten wide column" id="freq">
-                Loading...
-            </div>
-            <div class="six wide column">
-                Instruction :
-            </div>
-            <div class="ten wide column" id="instruction">
-                Loading...
-            </div>
-            <div class="six wide column">
-                Hardware :
-            </div>
-            <div class="ten wide column" id="hardware">
-                Loading...
-            </div>
-            <div class="six wide column">
-                Revision :
-            </div>
-            <div class="ten wide column" id="revision">
-                Loading...
-            </div>
-            <div class="six wide column">
-                Memory :
-            </div>
-            <div class="ten wide column" id="ram">
-                Loading...
-            </div>
-            <div class="six wide column">
-                NIC :
-            </div>
-            <div class="ten wide column" id="nic">
-                Loading...
-            </div>
-            <div class="six wide column">
-                Drive :
-            </div>
-            <div class="ten wide column" id="drive">
-                Loading...
-            </div>
-            <div class="six wide column">
-                USB :
-            </div>
-            <div class="ten wide column" id="usb">
-                Loading...
-            </div>
+            <div class="six wide column" locale="hwinfo/model">Model :</div>
+            <div class="ten wide column" id="model">Loading...</div>
+            <div class="six wide column" locale="hwinfo/frequency">Frequency :</div>
+            <div class="ten wide column" id="freq">Loading...</div>
+            <div class="six wide column" locale="hwinfo/instruction">Instruction :</div>
+            <div class="ten wide column" id="instruction">Loading...</div>
+            <div class="six wide column" locale="hwinfo/hardware">Hardware :</div>
+            <div class="ten wide column" id="hardware">Loading...</div>
+            <div class="six wide column" locale="hwinfo/revision">Revision :</div>
+            <div class="ten wide column" id="revision">Loading...</div>
+            <div class="six wide column" locale="hwinfo/memory">Memory :</div>
+            <div class="ten wide column" id="ram">Loading...</div>
+            <div class="six wide column" locale="hwinfo/nic">NIC :</div>
+            <div class="ten wide column" id="nic">Loading...</div>
+            <div class="six wide column" locale="hwinfo/drive">Drive :</div>
+            <div class="ten wide column" id="drive">Loading...</div>
+            <div class="six wide column" locale="hwinfo/usb">USB :</div>
+            <div class="ten wide column" id="usb">Loading...</div>
         </div>
         <br>
-        <h3 class="ui header">Operation Time</h3>
+        <h3 class="ui header" locale="hwinfo/operation_time">Operation Time</h3>
         <div class="ui grid">
-            <div class="six wide column">
-                Boot Time:
-            </div>
-            <div class="ten wide column" id="startup">
-                Loading...
-            </div>
-            <div class="six wide column">
-                Up Time :
-            </div>
-            <div class="ten wide column" id="operation">
-                Loading...
-            </div>
+            <div class="six wide column" locale="hwinfo/boot_time">Boot Time:</div>
+            <div class="ten wide column" id="startup">Loading...</div>
+            <div class="six wide column" locale="hwinfo/up_time">Up Time :</div>
+            <div class="ten wide column" id="operation">Loading...</div>
         </div>
     </div>
+    
     <div class="ui divider"></div>
     <img class="ui small image" id="icon"></img>
     <br>
 </body>
 <script>
+    var specLocale = NewAppLocale();
     $(document).ready(function() {
-        initSystemInfo();
+        specLocale.init("../locale/system_settings/spec.json", function(){
+            specLocale.translate();
+            initSystemInfo();
+        });
+        
     });
 
     function initSystemInfo() {

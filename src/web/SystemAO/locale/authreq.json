@@ -40,6 +40,46 @@
                 "Username":"使用者名称",
                 "Password":"密码"
             }
+        },
+        "en-us": {
+            "fontFamily": "",
+            "strings": {
+                "page/title": "Admin Authentication",
+                "button/confirm": "Confirm",
+                "button/cancel": "Cancel",
+                "": ""
+            },
+            "placeholder": {
+                "Username": "Username",
+                "Password": "Password"
+            }
+        },
+        "ja-jp": {
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "page/title": "管理者認証",
+                "button/confirm": "確認",
+                "button/cancel": "キャンセル",
+                "": ""
+            },
+            "placeholder": {
+                "Username": "ユーザー名",
+                "Password": "パスワード"
+            }
+        },
+        "ko_kr": {
+            "fontFamily": "",
+            "strings": {
+                "page/title": "관리자 인증",
+                "button/confirm": "확인",
+                "button/cancel": "취소",
+                "": ""
+            },
+            "placeholder": {
+                "Username": "사용자 이름",
+                "Password": "비밀번호"
+            }
         }
+        
     }
 }

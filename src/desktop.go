@@ -286,7 +286,7 @@ func desktop_listFiles(w http.ResponseWriter, r *http.Request) {
 		thisFileObject.IsShortcut = isShortcut
 
 		//Check if this file is shared
-		thisFileObject.IsShared = shareManager.FileIsShared(userinfo, this)
+		thisFileObject.IsShared = shareManager.FileIsShared(userinfo, thisFileObject.Filepath)
 		//Check the file location
 		username, _ := authAgent.GetUserName(w, r)
 		x, y, _ := getDesktopLocatioFromPath(thisFileObject.Filename, username)

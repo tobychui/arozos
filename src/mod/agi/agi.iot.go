@@ -5,9 +5,8 @@ import (
 	"log"
 
 	"github.com/robertkrimen/otto"
-	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/iot"
-	user "imuslab.com/arozos/mod/user"
 )
 
 /*
@@ -26,7 +25,13 @@ func (g *Gateway) IoTLibRegister() {
 	}
 }
 
-func (g *Gateway) injectIoTFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectIoTFunctions(payload *static.AgiLibInjectionPayload) {
+	vm := payload.VM
+	//u := payload.User
+	//scriptFsh := payload.ScriptFsh
+	//scriptPath := payload.ScriptPath
+	//w := payload.Writer
+	//r := payload.Request
 	//Scan and return the latest iot device list
 	vm.Set("_iot_scan", func(call otto.FunctionCall) otto.Value {
 		scannedDevices := g.Option.IotManager.ScanDevices()

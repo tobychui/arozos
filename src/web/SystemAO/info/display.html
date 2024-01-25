@@ -1,13 +1,15 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <title>ArozOS Display Test</title>
+    <title locale="displaytest/display-test-title">ArozOS Display Test</title>
     <script src="../../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
     <style>
         body {
             background-color: #f9f9f9;
         }
-        
+
         .fs {
             position: fixed;
             left: 0px;
@@ -20,24 +22,27 @@
 </head>
 
 <body>
-    <div class="fs" onClick="nextColor(this);" style="display:none;">
-
-    </div>
+    <div class="fs" onClick="nextColor(this);" style="display:none;"></div>
     <div id="startui" class="ui container">
         <div class="ui basic segment">
             <div class="ui header">
-                Display Testing
-                <div class="sub header">Simple display testing tools</div>
+                <span locale="displaytest/display-testing-title">Display Testing</span>
+                <div class="sub header" locale="displaytest/display-testing-subheader">Simple display testing tools</div>
             </div>
         </div>
-      
-        <h4>Dead Pixel Test </h4>
-        <p>This test will popup a new window with full screen functionality. <br>
-            To exit the test, press ESC on keyboard or swap down & press the "close" button on touch screen devices.</p>
-        <button class="ui blue button" onClick='startTest();'><i class="external icon"></i> Start Test </button>
-      
+
+        <h4 locale="displaytest/dead-pixel-test-title">Dead Pixel Test</h4>
+        <p locale="displaytest/dead-pixel-test-description">This test will popup a new window with full-screen functionality. <br>
+            To exit the test, press ESC on the keyboard or swipe down & press the "close" button on touch screen devices.</p>
+        <button class="ui blue button" onClick='startTest();'><i class="external icon"></i> <span locale="displaytest/start-test-button">Start Test</span></button>
     </div>
     <script>
+
+        var displayTestLocale = NewAppLocale();
+        displayTestLocale.init("../locale/system_settings/display.json", function(){
+            displayTestLocale.translate();
+        });
+
         function startTest() {
             window.open("/SystemAO/info/display.html#test");
         }
@@ -70,7 +75,6 @@
                     }
                 }
             }
-
         }
     </script>
 </body>

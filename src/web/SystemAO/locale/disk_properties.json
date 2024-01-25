@@ -22,6 +22,7 @@
                 "spaceinfo/Capacity":"磁碟容量",
 
                 "unit/bytes":" 個位元組",
+                "error/na": "【沒有資訊】",
 
                 "button/close":"確認",
 
@@ -54,6 +55,7 @@
                 "spaceinfo/Capacity":"磁碟容量",
 
                 "unit/bytes":" 個位元組",
+                "error/na": "【無資料】",
 
                 "button/close":"確認",
 
@@ -86,6 +88,7 @@
                 "spaceinfo/Capacity":"磁盘容量",
 
                 "unit/bytes":" 字节",
+                "error/na": "【无效资料】",
 
                 "button/close":"确定",
 
@@ -113,6 +116,7 @@
             "spaceinfo/Usable": "Available Disk Space",
             "spaceinfo/Capacity": "Disk Capacity",
             "unit/bytes": " Bytes",
+            "error/na": "[Not Available]",
             "button/close": "Confirm",
             "": ""
             },
@@ -136,12 +140,47 @@
                 "spaceinfo/Usable": "利用可能な空間",
                 "spaceinfo/Capacity": "ディスク容量",
                 "unit/bytes": " バイト",
+                "error/na": "[利用不可]",
                 "button/close": "確認",
                 "": ""
             },
             "titles": {},
             "placeholder": {}
+        },
+        "ko_kr": {
+            "fwtitle": "디스크 개요",
+            "fontFamily": "",
+            "strings": {
+                "title/title": "디스크 개요",
+                "title/desc": "가상 저장 장치에 대응하는 디스크 드라이브 마운트 포인트에 관한 정보",
+        
+                "diskinfo/physical": "물리적 디스크 드라이브",
+                "diskinfo/hierarchy": "저장 장치 구조 (포맷)",
+        
+                "hierarchy/User": "사용자 구분",
+                "hierarchy/Public": "공유 디스크 영역",
+                "hierarchy/Backup": "백업 디스크 영역",
+        
+                "spaceinfo/totalUsed": "사용 중인 디스크 공간",
+                "spaceinfo/userUsed": "사용자 디스크 공간",
+                "spaceinfo/Usable": "사용 가능한 디스크 공간",
+                "spaceinfo/Capacity": "디스크 용량",
+        
+                "unit/bytes": " 바이트",
+                "error/na": "【정보 없음】",
+        
+                "button/close": "확인",
+        
+                "": ""
+            },
+            "titles": {
+        
+            },
+            "placeholder": {
+        
             }
+        }
+        
         
     }
 }

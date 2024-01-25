@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -50,7 +51,6 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 		Filename string
 		Filepath string
 		Size     int64
-		IsOwner  bool
 
 		realpath string
 		thisfsh  *filesystem.FileSystemHandler
@@ -58,7 +58,16 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 	//Walk all filesystem handlers and buffer all files and their sizes
 	fileList := []*FileObject{}
 	for _, fsh := range fsHandlers {
-		fsh.FileSystemAbstraction.Walk(fsh.Path, func(path string, info os.FileInfo, err error) error {
+		if fsh.IsNetworkDrive() {
+			//Skip network drive
+			continue
+		}
+
+		walkRoot := fsh.Path
+		if fsh.Hierarchy == "user" {
+			walkRoot = arozfs.ToSlash(filepath.Join(fsh.Path, "users", userinfo.Username))
+		}
+		fsh.FileSystemAbstraction.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 			if info == nil || err != nil {
 				//Disk IO Error
 				return errors.New("Disk IO Error: " + err.Error())
@@ -77,19 +86,11 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 					realpath: path,
 					thisfsh:  fsh,
 					Size:     info.Size(),
-					IsOwner:  false,
 				})
 			}
 
 			return nil
 		})
-
-		/*
-			if err != nil {
-				sendErrorResponse(w, "Failed to scan emulated storage device: "+fsh.Name)
-				return
-			}
-		*/
 	}
 
 	//Sort the fileList
@@ -100,15 +101,6 @@ func (s *LargeFileScanner) HandleLargeFileList(w http.ResponseWriter, r *http.Re
 	//Set the max filecount to prevent slice bounds out of range
 	if len(fileList) < limitInt {
 		limitInt = len(fileList)
-	}
-
-	//Only check ownership of those requested
-	for _, file := range fileList[:limitInt] {
-		if userinfo.IsOwnerOfFile(file.thisfsh, file.Filepath) {
-			file.IsOwner = true
-		} else {
-			file.IsOwner = false
-		}
 	}
 
 	//Format the results and return

@@ -35,7 +35,7 @@ type Config struct {
 	ClientSecret string `json:"client_secret"`
 }
 
-//NewOauthHandler xxx
+// NewOauthHandler xxx
 func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database) *OauthHandler {
 	err := coreDb.NewTable("oauth")
 	if err != nil {
@@ -60,7 +60,7 @@ func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, c
 	return &NewlyCreatedOauthHandler
 }
 
-//HandleOauthLogin xxx
+// HandleOauthLogin xxx
 func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	enabled := oh.readSingleConfig("enabled")
 	if enabled == "" || enabled == "false" {
@@ -83,7 +83,7 @@ func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-//OauthAuthorize xxx
+// OauthAuthorize xxx
 func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	enabled := oh.readSingleConfig("enabled")
 	if enabled == "" || enabled == "false" {
@@ -137,7 +137,8 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 			http.Redirect(w, r, "/public/register/register.system?user="+username, http.StatusFound)
 		} else {
 			oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "web")
-			utils.SendHTMLResponse(w, "You are not allowed to register in this system.&nbsp;<a href=\"/\">Back</a>")
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte("You are not allowed to register in this system.&nbsp;<a href=\"/\">Back</a>"))
 		}
 	} else {
 		log.Println(username + " logged in via OAuth.")
@@ -163,7 +164,7 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-//CheckOAuth check if oauth is enabled
+// CheckOAuth check if oauth is enabled
 func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
 	enabledB := false
 	enabled := oh.readSingleConfig("enabled")
@@ -188,7 +189,7 @@ func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(json))
 }
 
-//https://golangcode.com/add-a-http-cookie/
+// https://golangcode.com/add-a-http-cookie/
 func (oh *OauthHandler) addCookie(w http.ResponseWriter, name, value string, ttl time.Duration) {
 	expire := time.Now().Add(ttl)
 	cookie := http.Cookie{

@@ -17,8 +17,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/valyala/fasttemplate"
 	notification "imuslab.com/arozos/mod/notification"
+	"imuslab.com/arozos/mod/utils"
 )
 
 type Agent struct {
@@ -104,15 +104,16 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 		thisEmail := thisEntry[1]
 
 		//Load email template
-		template, _ := os.ReadFile("system/www/smtpn.html")
-		t := fasttemplate.New(string(template), "{{", "}}")
-		s := t.ExecuteString(map[string]interface{}{
+		s, err := utils.Templateload("./system/www/smtpn.html", map[string]string{
 			"receiver":  "Hello " + thisUser + ",",
 			"message":   incomingNotification.Message,
 			"sender":    incomingNotification.Sender,
 			"hostname":  a.Hostname,
 			"timestamp": time.Now().Format("2006-01-02 3:4:5 PM"),
 		})
+		if err != nil {
+			log.Println("[SMTP] Template load failed: " + err.Error())
+		}
 
 		msg := []byte("To: " + thisEmail + "\n" +
 			"From: " + a.SMTPSenderDisplayName + " <" + a.SMTPSender + ">\n" +
@@ -122,7 +123,7 @@ func (a Agent) ConsumerNotification(incomingNotification *notification.Notificat
 
 		//Login to the SMTP server
 		auth := smtp.PlainAuth("", a.SMTPSender, a.SMTPPassword, a.SMTPDomain)
-		err := smtp.SendMail(a.SMTPDomain+":"+strconv.Itoa(a.SMTPPort), auth, a.SMTPSender, []string{thisEmail}, msg)
+		err = smtp.SendMail(a.SMTPDomain+":"+strconv.Itoa(a.SMTPPort), auth, a.SMTPSender, []string{thisEmail}, msg)
 		if err != nil {
 			log.Println("[SMTPN] Email sent failed: ", err.Error())
 			return err

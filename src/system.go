@@ -26,7 +26,7 @@ func SystemIDInit() {
 	//Register as a system setting
 	registerSetting(settingModule{
 		Name:     "ArozOS",
-		Desc:     "System Information",
+		Desc:     "About this ArozOS",
 		IconPath: "SystemAO/info/img/small_icon.png",
 		Group:    "About",
 		StartDir: "SystemAO/info/about.html",

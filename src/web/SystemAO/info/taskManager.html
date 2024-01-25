@@ -8,6 +8,7 @@
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
     <script type="text/javascript" src="../../script/ao_module.js"></script>
     <script type="text/javascript" src="../info/js/chart/Chart.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
 </head>
 
 <body>
@@ -15,82 +16,80 @@
     <div class="ui container">
         <div id="cpuChartContainer" style="position: relative;">
             <h2 class="ui header">
-                CPU
-                <div class="sub header">CPU Usage (%) in the previous 60 seconds</div>
+                <span locale="taskManager/cpu">CPU</span>
+                <div class="sub header" locale="taskManager/cpu_description">CPU Usage (%) in the previous 60 seconds</div>
             </h2>
-            <p id="CPUname" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;">Generic Processor</p>
+            <p id="CPUname" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/cpu_info">Generic Processor</p>
             <canvas id="cpuChart" width="1200" height="300"></canvas>
             <div class="ui stackable grid">
                 <div class="four wide column">
-                    <div class="ui header" >
+                    <div class="ui header">
                         <span id="cpuUsage">0%</span>
-                         <div class="sub header">Usage</div>
-                     </div>
+                        <div class="sub header" locale="taskManager/cpu_usage_description">Usage</div>
+                    </div>
                 </div>
                 <div class="four wide column">
-                    <div class="ui header" >
+                    <div class="ui header">
                         <span id="cpufreq">Loading</span>
-                        <div class="sub header">Frequency</div>
-                     </div>
+                        <div class="sub header" locale="taskManager/cpu_frequency_description">Frequency</div>
+                    </div>
                 </div>
             </div>
-           
         </div>
         <br>
         <div id="ramChartContainer" style="position: relative;">
             <h2 class="ui header">
-                Memory
-                <div class="sub header">RAM Usage</div>
+                <span locale="taskManager/memory">Memory</span>
+                <div class="sub header" locale="taskManager/memory_description">RAM Usage</div>
             </h2>
-            <p id="RAMInfo" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;"></p>
+            <p id="RAMInfo" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/memory_info"></p>
             <canvas id="ramChart" width="1200" height="300"></canvas>
             <br>
             <div class="ui stackable grid">
                 <div class="four wide column">
-                    <div class="ui header" >
+                    <div class="ui header">
                         <span id="ramUsed">Loading</span>
-                        <div class="sub header">Used</div>
+                        <div class="sub header" locale="taskManager/ram_used_description">Used</div>
                     </div>
                 </div>
                 <div class="four wide column">
-                    <div class="ui header" >
+                    <div class="ui header">
                         <span id="ramUsedPercentage">Loading</span>
-                        <div class="sub header">Used (%)</div>
+                        <div class="sub header" locale="taskManager/ram_used_percentage_description">Used (%)</div>
                     </div>
                 </div>
                 <div class="four wide column">
                     <div class="ui header">
                         <span id="ramTotal">Loading</span>
-                        <div class="sub header">Total</div>
+                        <div class="sub header" locale="taskManager/ram_total_description">Total</div>
                     </div>
                 </div>
             </div>
-           
-           
         </div>
         <div id="netChartContainer" style="position: relative; margin-top: 1.2em;">
             <h2 class="ui header">
-                Network
-                <div class="sub header">Network usage in the previous 60 seconds</div>
+                <span locale="taskManager/network">Network</span>
+                <div class="sub header" locale="taskManager/network_description">Network usage in the previous 60 seconds</div>
             </h2>
-            <p id="netGraphScale" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;">100 kbps</p>
+            <p id="netGraphScale" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/network_scale">100 kbps</p>
             <canvas id="netChart" width="1200" height="300"></canvas>
             <div class="ui stackable grid">
                 <div class="four wide column">
                     <div class="ui header" style="border-left: 2px solid #bc793f; padding-left: 1em;">
                         <span id="rx">Loading</span>
-                         <div class="sub header">Received</div>
-                     </div>
+                        <div class="sub header" locale="taskManager/network_received_description">Received</div>
+                    </div>
                 </div>
                 <div class="four wide column">
-                    <div class="ui header"  style="border-left: 2px dotted #bc793f; padding-left: 1em;">
+                    <div class="ui header" style="border-left: 2px dotted #bc793f; padding-left: 1em;">
                         <span id="tx">Loading</span>
-                        <div class="sub header">Transmitted</div>
-                     </div>
+                        <div class="sub header" locale="taskManager/network_transmitted_description">Transmitted</div>
+                    </div>
                 </div>
             </div>
-           
         </div>
+    </div>
+    
 
         <br><br>
     </div>
@@ -99,6 +98,13 @@
         var ramChart;
         var netChart;
         var previousNetData = [0, 0];
+
+        var performanceLocale = NewAppLocale();
+        performanceLocale.init("../locale/system_settings/spec.json", function(){
+            performanceLocale.translate();
+            initInfo();
+        });
+
 
         //Override Chart.js v3 poor API designs
         Chart.defaults.plugins.tooltip.enabled = false;
@@ -233,7 +239,6 @@
             }
         };
         
-        initInfo();
         chartInit();
 
         //Special code to handle embedding into the System Setting embedded windows

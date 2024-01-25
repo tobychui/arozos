@@ -3,9 +3,7 @@ package agi
 import (
 	"log"
 
-	"github.com/robertkrimen/otto"
-	"imuslab.com/arozos/mod/filesystem"
-	user "imuslab.com/arozos/mod/user"
+	"imuslab.com/arozos/mod/agi/static"
 )
 
 /*
@@ -25,6 +23,12 @@ func (g *Gateway) AudioLibRegister() {
 	}
 }
 
-func (g *Gateway) injectAudioFunctions(vm *otto.Otto, u *user.User, scriptFsh *filesystem.FileSystemHandler, scriptPath string) {
+func (g *Gateway) injectAudioFunctions(payload *static.AgiLibInjectionPayload) {
+	//vm := payload.VM
+	//u := payload.User
+	//scriptFsh := payload.ScriptFsh
+	//scriptPath := payload.ScriptPath
+	//w := payload.Writer
+	//r := payload.Request
 
 }

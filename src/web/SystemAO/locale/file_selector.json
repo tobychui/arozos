@@ -109,6 +109,80 @@
                 "New Filename":"新增文件",
                 "New Folder":"新增文件夹"
             } 
+        },
+        "en-us": {
+            "fwtitle": "Choose Files",
+            "fontFamily": "",
+            "strings": {
+                "title": "Choose Files",
+                "roots/user": "User",
+                "roots/storage": "Storage",
+                "message/loading": "Loading...",
+                "message/waitingResp": "Checking selection...",
+                "message/nofile": "No files",
+        
+                "sidebar/vroot/desktop": "Desktop",
+                "sidebar/vroot/document": "Documents",
+                "sidebar/vroot/music": "Music",
+                "sidebar/vroot/photo": "Photos",
+                "sidebar/vroot/video": "Videos",
+                "sidebar/vroot/trash": "Trash",
+                "sidebar/vroot/download": "Downloads",
+                "sidebar/vroot/web": "Web",
+                "sidebar/vroot/model": "Models",
+                "sidebar/vroot/appdata": "App Data",
+        
+                "": ""
+            },
+            "titles": {
+                "Back": "Back",
+                "Parent": "Parent Directory",
+                "Refresh": "Refresh",
+                "Create Folder": "Create Folder",
+                "New Folder": "New Folder"
+            },
+            "placeholder": {
+                "New Filename": "New File",
+                "New Folder": "New Folder"
+            }
+        },
+        "ja-jp": {
+            "fwtitle": "ファイル選択",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "title": "ファイル選択",
+                "roots/user": "ユーザー",
+                "roots/storage": "ストレージデバイス",
+                "message/loading": "読み込み中...",
+                "message/waitingResp": "選択の確認中...",
+                "message/nofile": "ファイルがありません",
+        
+                "sidebar/vroot/desktop": "デスクトップ",
+                "sidebar/vroot/document": "ドキュメント",
+                "sidebar/vroot/music": "音楽",
+                "sidebar/vroot/photo": "写真",
+                "sidebar/vroot/video": "動画",
+                "sidebar/vroot/trash": "ゴミ箱",
+                "sidebar/vroot/download": "ダウンロード",
+                "sidebar/vroot/web": "ウェブ",
+                "sidebar/vroot/model": "モデル",
+                "sidebar/vroot/appdata": "アプリデータ",
+        
+                "": ""
+            },
+            "titles": {
+                "Back": "戻る",
+                "Parent": "親ディレクトリに移動",
+                "Refresh": "更新",
+                "Create Folder": "フォルダ作成",
+                "New Folder": "新しいフォルダ"
+            },
+            "placeholder": {
+                "New Filename": "新しいファイル名",
+                "New Folder": "新しいフォルダ"
+            }
         }
+        
+        
     }
 }

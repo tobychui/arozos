@@ -124,6 +124,86 @@
             "placeholder":{
 
             } 
+        },
+        "en-us": {
+            "fwtitle": "File Operations",
+            "fontFamily": "",
+            "strings": {
+                "title": "File Operations",
+                "banner/title": "Calculating required time",
+                "info/from": "src:",
+                "info/to": "dest:",
+                "info/progress": "Progress:",
+                "info/calculating": "Calculating",
+                "dup/question": "There is at least one file with a duplicate name in the destination. <b>Which action should be taken for this file?</b>",
+                "dup/overwrite": "Overwrite",
+                "dup/skip": "Skip",
+                "dup/renameAndKeep": "Rename and Keep",
+                "title/moving": "Moving ",
+                "title/copying": "Copying",
+                "title/zipping": "Zipping ",
+                "title/downloading": "Downloading ",
+                "title/unzipping": "Unzipping ",
+                "title/file": " file",
+                "title/files": " files",
+                "button/pause": "Pause",
+                "button/resume": "Resume",
+                "button/cancel": "Cancel",
+                "error/Access Denied": "Access Denied",
+                "error/Source file not exists": "Source file does not exist",
+                "error/Source and destination paths are identical.": "Source and destination paths are identical",
+                "error/Storage Quota Full": "Storage Quota Full",
+                "error/Dest folder not found": "Destination folder not found",
+                "error/Undefined dest location": "Undefined destination location",
+                "error/This source file is Read Only": "This source file is Read-Only",
+                "error/File already exists": "File already exists",
+                "error/This directory is Read Only": "This directory is Read-Only",
+                "error/Operation cancelled by user": "Operation cancelled by user",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "fwtitle": "ファイル操作",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "title": "ファイル操作",
+                "banner/title": "ファイル操作にかかる時間を計算中",
+                "info/from": "ソース：",
+                "info/to": "宛先：",
+                "info/progress": "進捗：",
+                "info/calculating": "計算中",
+                "dup/question": "宛先には少なくとも1つの重複した名前のファイルが存在します。<b>このファイルに対してどのアクションを実行しますか？</b>",
+                "dup/overwrite": "上書き",
+                "dup/skip": "スキップ",
+                "dup/renameAndKeep": "名前を変更して保持",
+                "title/moving": "移動中 ",
+                "title/copying": "コピー中",
+                "title/zipping": "圧縮中 ",
+                "title/downloading": "ダウンロード中 ",
+                "title/unzipping": "解凍中 ",
+                "title/file": " ファイル",
+                "title/files": " ファイル",
+                "button/pause": "一時停止",
+                "button/resume": "再開",
+                "button/cancel": "キャンセル",
+                "error/Access Denied": "アクセスが拒否されました",
+                "error/Source file not exists": "ソースファイルが存在しません",
+                "error/Source and destination paths are identical.": "ソースと宛先のパスが同一です",
+                "error/Storage Quota Full": "ストレージクォータがいっぱいです",
+                "error/Dest folder not found": "宛先フォルダが見つかりません",
+                "error/Undefined dest location": "未定義の宛先ロケーション",
+                "error/This source file is Read Only": "このソースファイルは読み取り専用です",
+                "error/File already exists": "ファイルは既に存在しています",
+                "error/This directory is Read Only": "このディレクトリは読み取り専用です",
+                "error/Operation cancelled by user": "ユーザーによって操作がキャンセルされました",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
         }
+        
+        
     }
 }

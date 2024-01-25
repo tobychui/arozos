@@ -14,6 +14,7 @@ import (
 	"github.com/robertkrimen/otto"
 	uuid "github.com/satori/go.uuid"
 
+	"imuslab.com/arozos/mod/agi/static"
 	apt "imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
@@ -33,15 +34,13 @@ import (
 */
 
 var (
-	AgiVersion string = "2.2" //Defination of the agi runtime version. Update this when new function is added
+	AgiVersion string = "3.0" //Defination of the agi runtime version. Update this when new function is added
 
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
 	errTimeout  = errors.New("errTimeout")
 )
 
-// Lib interface, require vm, user, target system file handler and the vpath of the running script
-type AgiLibIntergface func(*otto.Otto, *user.User, *filesystem.FileSystemHandler, string) //Define the lib loader interface for AGI Libraries
 type AgiPackage struct {
 	InitRoot string //The initialization of the root for the module that request this package
 }
@@ -69,20 +68,20 @@ type AgiSysInfo struct {
 }
 
 type Gateway struct {
-	ReservedTables   []string
-	NightlyScripts   []string
-	AllowAccessPkgs  map[string][]AgiPackage
-	LoadedAGILibrary map[string]AgiLibIntergface
+	ReservedTables []string
+	NightlyScripts []string
+	//AllowAccessPkgs  map[string][]AgiPackage
+	LoadedAGILibrary map[string]AgiLibInjectionIntergface
 	Option           *AgiSysInfo
 }
 
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Handle startup registration of ajgi modules
 	gatewayObject := Gateway{
-		ReservedTables:   option.ReservedTables,
-		NightlyScripts:   []string{},
-		AllowAccessPkgs:  map[string][]AgiPackage{},
-		LoadedAGILibrary: map[string]AgiLibIntergface{},
+		ReservedTables: option.ReservedTables,
+		NightlyScripts: []string{},
+		//AllowAccessPkgs:  map[string][]AgiPackage{},
+		LoadedAGILibrary: map[string]AgiLibInjectionIntergface{},
 		Option:           &option,
 	}
 
@@ -91,12 +90,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	gatewayObject.RegisterNightlyOperations()
 
 	//Load all the other libs entry points into the memoary
-	gatewayObject.ImageLibRegister()
-	gatewayObject.FileLibRegister()
-	gatewayObject.HTTPLibRegister()
-	gatewayObject.ShareLibRegister()
-	gatewayObject.IoTLibRegister()
-	gatewayObject.AppdataLibRegister()
+	gatewayObject.LoadAllFunctionalModules()
 
 	return &gatewayObject, nil
 }
@@ -105,7 +99,7 @@ func (g *Gateway) RegisterNightlyOperations() {
 	g.Option.NightlyManager.RegisterNightlyTask(func() {
 		//This function will execute nightly
 		for _, scriptFile := range g.NightlyScripts {
-			if isValidAGIScript(scriptFile) {
+			if static.IsValidAGIScript(scriptFile) {
 				//Valid script file. Execute it with system
 				for _, username := range g.Option.UserHandler.GetAuthAgent().ListUsers() {
 					userinfo, err := g.Option.UserHandler.GetUserInfoFromUsername(username)
@@ -113,7 +107,7 @@ func (g *Gateway) RegisterNightlyOperations() {
 						continue
 					}
 
-					if checkUserAccessToScript(userinfo, scriptFile, "") {
+					if static.CheckUserAccessToScript(userinfo, scriptFile, "") {
 						//This user can access the module that provide this script.
 						//Execute this script on his account.
 						log.Println("[AGI_Nightly] WIP (" + scriptFile + ")")
@@ -138,7 +132,9 @@ func (g *Gateway) InitiateAllWebAppModules() {
 
 		//Only allow non user based operations
 		g.injectStandardLibs(vm, script, "./web/")
-
+		g.injectAppdataLibFunctions(&static.AgiLibInjectionPayload{
+			VM: vm,
+		})
 		_, err := vm.Run(scriptContent)
 		if err != nil {
 			log.Println("[AGI] Load Failed: " + script + ". Skipping.")
@@ -164,18 +160,7 @@ func (g *Gateway) RunScript(script string) error {
 	return nil
 }
 
-func (g *Gateway) RegisterLib(libname string, entryPoint AgiLibIntergface) error {
-	_, ok := g.LoadedAGILibrary[libname]
-	if ok {
-		//This lib already registered. Return error
-		return errors.New("This library name already registered")
-	} else {
-		g.LoadedAGILibrary[libname] = entryPoint
-	}
-	return nil
-}
-
-func (g *Gateway) raiseError(err error) {
+func (g *Gateway) RaiseError(err error) {
 	log.Println("[AGI] Runtime Error " + err.Error())
 
 	//To be implemented
@@ -221,7 +206,7 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 		utils.SendErrorResponse(w, "Invalid script path")
 		return
 	}
-	scriptFile = specialURIDecode(scriptFile)
+	scriptFile = static.SpecialURIDecode(scriptFile)
 
 	//Check if the script path exists
 	scriptExists := false
@@ -241,7 +226,7 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	}
 
 	//Check for user permission on this module
-	moduleName := getScriptRoot(scriptFile, scriptScope)
+	moduleName := static.GetScriptRoot(scriptFile, scriptScope)
 	if !thisuser.GetModuleAccessPermission(moduleName) {
 		w.WriteHeader(http.StatusForbidden)
 		if g.Option.BuildVersion == "development" {
@@ -338,16 +323,16 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 }
 
 /*
-	Execute AGI script with given user information
-	scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
-	Pass in http.Request pointer to enable serverless GET / POST request
+Execute AGI script with given user information
+scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
+Pass in http.Request pointer to enable serverless GET / POST request
 */
 func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, error) {
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
 	g.injectStandardLibs(vm, scriptFile, "")
-	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, nil, nil)
+	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
 
 	if r != nil {
 		//Inject serverless script to enable access to GET / POST paramters
@@ -367,7 +352,10 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 
 				return
 			} else {
-				panic(caught)
+				//Something screwed. Return Internal Server Error
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - ECMA VM crashed due to unknown reason"))
+				//panic(caught)
 			}
 		}
 	}()

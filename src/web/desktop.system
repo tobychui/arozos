@@ -192,7 +192,7 @@
             position: fixed;
             z-index: 1000;
             right: 1em;
-            top: calc(30px + 1em);
+            top: 1em;
             display: none;
         }
 
@@ -268,8 +268,51 @@
         .navimenu .item.floatWindowButton.hideText .floatWindowAppIcon {
             margin-right: 0px;
         }
-        
-        #fwdragpanel {
+        .navimenu .clock{
+            float: right;
+            text-align: center;
+            color: white;
+            font-size: 0.9em;
+            line-height: 1.3em;
+            padding-top: 1px;
+            padding-right: 0.5em;
+            padding-left: 0.5em;
+        }
+        .navimenu .backgroundtasks{
+            float: right;
+            border-right: 1px solid rgb(206, 206, 206, 0.4);
+            color: white;
+            padding-top: 0.5em;
+            padding-right: 0.5em;
+            padding-left: 0.7em;
+        }
+
+        /* Float window docking indicator */
+        .dockIndicator{
+            position: fixed;
+            width: calc(50% - 0.4em);
+            height: calc(100vh - 0.8em - 36px);
+            border-radius: 6px;
+            pointer-events: none;
+            user-select: none;
+            z-index: 100;
+            background-color: rgba(255,255,255,0.1);
+            border: 1px solid rgba(182, 182, 182, 0.37);
+            backdrop-filter: blur(0.5px);
+            display:none;
+        }
+        #fwdockLeftIndicator{
+            left: 0.4em;
+            top:  0.4em;
+        }
+
+        #fwdockRightIndicator{
+            right: 0.4em;
+            top: 0.4em;
+        }
+
+        /* Float window dragging plane */
+        #fwdragpanel{
             position: fixed;
             width: 100%;
             height: 100%;
@@ -343,13 +386,15 @@
         
         #listMenu {
             position: fixed;
-            bottom: 36px;
-            left: 0px;
+            bottom: calc(36px + 0.4em);
+            left: 0.4em;
             height: 500px;
             width: 400px;
             background-color: #ffffff;
-            box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
+            box-shadow: 3px 3px 5px 0px rgba(182, 182, 182, 0.37);
             z-index: 1113;
+            border-radius: 6px;
+            overflow: hidden;
         }
 
         body.darkTheme #listMenu{
@@ -382,6 +427,7 @@
         #listMenu .listItemWrapper {
             overflow: hidden;
             height: 462px;
+            border-bottom-left-radius: 1em;
         }
         
         .listItemWrapper .groups{
@@ -474,7 +520,7 @@
             width: 100%;
             cursor: pointer;
         }
-        
+
         #listMenu .poweroption:hover {
             background-color: #dedede;
         }
@@ -562,12 +608,6 @@
             justify-content: space-between;
         }
 
-        .clock{
-            text-align: center;
-            cursor:pointer; 
-            user-select: none;
-        }
-
         .statusbarpadding{
             padding-top: 0.2em;
         }
@@ -626,12 +666,12 @@
         }
 
         .notificationbar .content{
-            position: relative;
-            background-color:white;
+            position: fixed;
+            background-color:var(--body_background_secondary);
             margin-top:6px;
-            margin-left: auto;
-            margin-right: auto;
             width:30%;
+            right: 1em;
+            bottom: calc(36px + 1em);
             min-width:650px;
             height:400px;
             padding: 3px;
@@ -650,11 +690,16 @@
             height: calc(100% - 12px);
         }
 
+        body.darkTheme .notificationbar .jsCalendar div:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *){
+            color:#242424 !important;
+        }
+
         .notificationbar .cover{
-            backdrop-filter: blur(2px);
-            -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(0.5px);
+            -webkit-backdrop-filter: blur(0.5px);
+            background-color: rgba(0,0,0,0.15);
             position:fixed;
-            top:28px;
+            top:0;
             left:0;
             width:100%;
             height: calc(100%);
@@ -740,16 +785,15 @@
         #quickAccessPanel{
             background-color:var(--body_background);
             position:absolute;
-            top:28px;
-            right:4px;
+            bottom:calc(36px + 0.4em);
+            left:55px;
             z-index:114;
-            width:300px;
-            max-height: calc(100% - 100px);
-            overflow-y: auto;
+            width:720px;
+            border-radius: 6px;
+            overflow: hidden;
+            max-height: calc(100% - 136px);
+            
             scrollbar-width: thin;
-            border-radius: 10px;
-            border-top-right-radius: 0px;
-            border-top-left-radius: 0px;
             border: 1px solid #ebebeb;
             padding-top:8px;
             padding-bottom:8px;
@@ -759,6 +803,15 @@
             -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
         }
 
+        #quickAccessPanel .mxmenu{
+            border-right: 1px solid var(--divider);
+            padding-right: 0;
+        }
+
+        #quickAccessPanel .viewutils{
+            padding-right: 2em !important;
+        }
+
         #quickAccessPanel .item{
             padding-left:12px;
             padding-right:12px;
@@ -766,11 +819,14 @@
             padding-bottom:4px;
             cursor:pointer;
             border-left: 3px solid transparent;
-            
         }
 
         #quickAccessPanel .item{
             color: var(--text_color);
+        }
+
+        #quickAccessPanel #quickseach{
+            padding-top: 0.4em;
         }
 
         #quickAccessPanel .item:hover{
@@ -805,7 +861,7 @@
            background-color: var(--body_background_active);
         }
 
-        #quickAccessPanel .progress .bar{
+        #quickAccessPanel .progress .bar :not(#diskrender, #diskrender .bar .progress){
             background-color: var(--theme_color) !important;
         }
 
@@ -955,29 +1011,26 @@
                 word-wrap: break-word;
             }
 
+            body.darkTheme .fileDescription{
+                background-color: var(--body_background, #242330);
+            }
+
             /*
                 Background Task UI
             */
             #backgroundTaskPanel{
                 background-color:white;
                 position:absolute;
-                top:28px;
-                right:50px;
+                bottom:36px;
+                right:0;
                 z-index:115;
                 width:400px;
-                border-radius: 10px;
-                border-top-right-radius: 0px;
-                border-top-left-radius: 0px;
                 border: 1px solid #ebebeb;
                 padding-top:8px;
                 padding-bottom:8px;
-                max-height: 50vh;
+                max-height: 70vh;
                 overflow-y: auto;
                 overflow-x: hidden;
-
-                box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
-                -webkit-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
-                -moz-box-shadow: 6px 8px 13px 2px rgba(191,191,191,0.13);
             }
 
             .backgroundtaskObject{
@@ -1051,23 +1104,7 @@
     <div id="bgwrapper" class="background-wrapper" allowdrop="true" ondrop="drop(event)" ondragstart="return false;" onclick="event.preventDefault(); hideAllContextMenus();" ondblclick="event.preventDefault();event.stopImmediatePropagation();" ondragover="allowDrop(event);"
         align="center" draggable="false">
     </div>
-    <!-- Top Status Bar -->
-    <div id="statusbar">
-        <div class="hostname statusbarpadding">
-            Welcome
-        </div>
-        <div class="clock statusbarpadding" onclick="toggleNotification();" ontouchstart="toggleNotification();">
-            ArozOS Desktop
-        </div>
-        <div class="quicktools statusbarpadding">
-            <div id="backgroundtaskBtn" class="qtwrapper backgroundtask" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
-                <i class="clone icon"></i>
-            </div>
-            <div class="qtwrapper content" onclick="showToolPanel();" ontouchend="showToolPanel();" style="margin-right: 0.4em;">
-                <i class="content icon"></i>
-            </div>
-        </div>
-    </div>
+
     <!-- Calendar and Notification -->
     <div class="notificationbar" style="display:none;">        
         <div class="cover" onclick='toggleNotification("hide");' ontouchstart='toggleNotification("hide");'></div>
@@ -1101,12 +1138,30 @@
 
     <!-- Navigation Menu-->
     <div id="navimenu" class="navimenu themeColor">
-        <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" >
+        <div class="item clickable system" onclick="toggleListMenu();" ontouchstart="toggleListMenu();" style="margin-right: 0.5em;">
             <img style="height:36px;" src="img/desktop/system_icon/list.png"></img>
         </div>
-        <div class="item padding system"></div>
+        <div class="item clickable system" onclick="showToolPanel();" ontouchend="showToolPanel();" style="border-left: 1px solid rgba(207, 207, 207, 0.37)">
+            <img style="height:36px;" src="img/desktop/system_icon/navi.png"></img>
+        </div>
+        <div class="item system" style="padding-top: 0.5em; padding-right: 1.3em; color: white; pointer-events: none;">
+            <span class="hostname">Welcome</span>
+        </div>
+     
+
+        <!-- Right fixed buttons-->
+        <div id="backgroundtaskBtn" class="item backgroundtasks clickable system" onclick="showBackgroundTaskPanel()" ontouchstart="showBackgroundTaskPanel();">
+            <i class="clone icon"></i>
+        </div>
+        <div class="item clock clickable system"  onclick="toggleNotification();" ontouchstart="toggleNotification();">
+
+        </div>
+        
     </div>
 
+    <!--- floatWindow dock left/right indicator -->
+    <div id="fwdockLeftIndicator" class="dockIndicator"></div>
+    <div id="fwdockRightIndicator"  class="dockIndicator"></div>
     <!-- floatWindow dragging panel-->
     <div id="fwdragpanel"></div>
     <div id="tfwdragpanel"></div>
@@ -1121,7 +1176,7 @@
     <div id="listMenu" class="" style="display:none;">
         <div class="searchBar" onkeydown="searchModule(event);">
             <div class="ui icon fluid input" style="border-radius: 0px !important;">
-                <input id="searchBar" type="text" placeholder="Search" style="border-radius: 0px !important; border: 0px solid transparent;">
+                <input id="searchBar" type="text" placeholder="Search" style="border: 0px solid transparent;">
                 <i class="search icon"></i>
             </div>
         </div>
@@ -1202,64 +1257,77 @@
 
     <!-- Content / Quick Access Panel-->
     <div id="quickAccessPanel" class="" style="display:none;">
-        <div class="ui small items" style="margin-bottom: 0;">
-            <div class="item">
-                <div class="ui mini image">
-                    <img class="usericon" src="img/desktop/system_icon/user.svg">
-                </div>
-                <div class="content" style="padding-left: 1em;">
-                    <div id="username" class="header" style="font-weight: 600; font-size: 1.22em;">User</div>
-                    <div class="meta" style="margin-top: 0.15em;">
-                        <div id="usergroups">@Users</div>
+        <div class="ui grid">
+            <div class="seven wide column mxmenu">
+                <div class="ui small items" style="margin-bottom: 0;">
+                    <div class="item">
+                        <div class="ui mini image">
+                            <img class="usericon" src="img/desktop/system_icon/user.svg">
+                        </div>
+                        <div class="content" style="padding-left: 1em;">
+                            <div id="username" class="header" style="font-weight: 600; font-size: 1.22em;">User</div>
+                            <div class="meta" style="margin-top: 0.15em;">
+                                <div id="usergroups">@Users</div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <div class="ui small button" onclick="logout(); hideToolPanel();">
+                                <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ui divider"  style="margin-left: 0.4em; margin-right: 0.4em;"></div>
+                    <div id="alternativeAccountList">
+                    
+                    </div>
+                    <div class="ui divider" style="margin-left: 3em; margin-right: 3em;"></div>
+                    <div class="item" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" onclick="openSwitchAccountPanel(); hideToolPanel();">
+                        <i class="ui user plus icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/addAccount">Add another account</span>
+                    </div>
+                    <div id="signoutAllButton" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" class="item" onclick="logoutAllAccounts();">
+                        <i class="log out icon icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/signoutAll">Sign-out all accounts</span>
                     </div>
                 </div>
-                <div class="actions">
-                    <div class="ui small button" onclick="logout(); hideToolPanel();">
-                        <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
+                <div class="ui divider" style="margin-left: 0.4em; margin-right: 0.4em;"></div>
+                <div class="item" style="padding-bottom:12px;">
+                    <i class="volume up icon"></i> <span locale="quickAccess/sysvol">System Global Volume</span>
+                    <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
+                        <div id="volumebar" class="bar" style="width: 0%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
                     </div>
                 </div>
+                <div class="item" style="padding-bottom:12px;">
+                    <i class="lightbulb icon"></i> <span locale="quickAccess/brightness">Brightness</span>
+                    <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
+                        <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
+                    </div>
+                </div>
+                <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
+                    <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
+                    <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
+                </div>
+                <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
+                    <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
+                </div>
+                <div class="ui divider" style="margin: 0.4em;"></div>
+                <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
+                    <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
+                </div>
+                <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
+                    <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
+                </div>
+                <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
+                    <small id="sysinfo"></small>
+                </div>
             </div>
-            <div class="ui divider"></div>
-            <div id="alternativeAccountList">
-               
+            <div class="nine wide column viewutils">
+                <div id="sysoverview">
+                    
+                </div>
+                <div class="ui divider"></div>
+                <div id="diskoverview">
+
+                </div>
             </div>
-            <div class="ui divider" style="margin-left: 3em; margin-right: 3em;"></div>
-            <div class="item" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" onclick="openSwitchAccountPanel(); hideToolPanel();">
-                <i class="ui user plus icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/addAccount">Add another account</span>
-            </div>
-            <div id="signoutAllButton" style="padding-top: 6px; padding-bottom:6px; margin: 0px !important;" class="item" onclick="logoutAllAccounts();">
-                <i class="log out icon icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/signoutAll">Sign-out all accounts</span>
-            </div>
-            <div class="ui divider"></div>
-        </div>
-        <div class="item" style="padding-bottom:12px;">
-            <i class="volume up icon"></i> <span locale="quickAccess/sysvol">System Global Volume</span>
-            <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateVolume(this,event);" >
-                <div id="volumebar" class="bar" style="width: 0%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
-            </div>
-        </div>
-        <div class="item" style="padding-bottom:12px;">
-            <i class="lightbulb icon"></i> <span locale="quickAccess/brightness">Brightness</span>
-            <div class="ui fluid small progress" style="margin-top:8px; margin-bottom:8px; cursor:pointer;" onclick="updateBrightness(this,event);" >
-                <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
-            </div>
-        </div>
-        <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
-            <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
-            <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
-        </div>
-        <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
-            <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
-        </div>
-        <div class="ui divider" style="margin: 0.4em;"></div>
-        <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
-            <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
-        </div>
-        <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
-            <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
-        </div>
-        <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
-            <small id="sysinfo"></small>
         </div>
     </div>
     <div>
@@ -1294,7 +1362,7 @@
         var iconSize = []; //Defined the icon size for the desktop icons
         var desktopFileList = []; //Temperature storage of desktop filenames
         var startDragRelatuve = []; //Relative location of where the icon being start dragging
-        var iconOffsetXY = [0,20];  //Pixel to offset for the icon location
+        var iconOffsetXY = [-10,-10];  //Pixel to offset for the icon location
 
         //Float window related
         var focusedWindow;
@@ -1367,6 +1435,7 @@
             initDesktop();
         }
 
+
         function initDesktop(){
             //Initiation functions
             initDesktopTheme();
@@ -1383,6 +1452,7 @@
             initTheme();
             initStartupSounds();
             initUploadCuttoffValues();
+            initFrameLoading();
 
             //Login cookie expire check
             setInterval(function() {
@@ -1391,6 +1461,12 @@
 
             //Activate all dropdowns
             $(".dropdown").dropdown();
+        }
+
+        function initFrameLoading(){
+            //Load desktop utilities into suitable positions
+            $("#diskoverview").load("SystemAO/desktop/utils/diskoverview.html");
+            $("#sysoverview").load("SystemAO/desktop/utils/sysoverview.html");
         }
 
         function initUploadCuttoffValues(){
@@ -1611,7 +1687,14 @@
         updateClockTime();
         function updateClockTime(){
             var d = new Date();
-            var display = monthNames[d.getMonth()] + " " + d.getDate() + " " + zeropad(d.getHours(),2) + ":" + zeropad(d.getMinutes(),2);
+            var ampm = "AM";
+            var currentHour = d.getHours()
+            if (currentHour > 12){
+                ampm = "PM";
+                currentHour -= 12;
+            }
+            var display = `${zeropad(currentHour,2)}:${zeropad(d.getMinutes(),2)} ${ampm}<br>
+            ${d.getDate()} ${monthNames[d.getMonth()].substr(0, 3)} ${d.getFullYear()}`;
             
             if ($(".notification.object").length > 0){
                 display += `<span style="color: #f54242; margin-left: 8px; float: center;"><i class="notice circle icon"></i></span>`;
@@ -1634,10 +1717,13 @@
         }
 
         function showToolPanel(){
-            $("#quickAccessPanel").slideToggle("fast");
+            if (listMenuShown = true){
+                hideListMenu();
+            }
+            $("#quickAccessPanel").fadeIn("fast");
         }
         function hideToolPanel(){
-            $("#quickAccessPanel").slideUp("fast");
+            $("#quickAccessPanel").fadeOut("fast");
         }
 
         function initStartupSounds(){
@@ -1743,56 +1829,15 @@
         }
 
         function toggleNotification(action=undefined){
-            var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
             if (typeof action == "undefined"){
                 $(".notificationbar").stop().finish().fadeToggle("fast", function(){
-                    /*
-                    //Firefox 103 now support backdrop-filter
-                    if ($(this).is(":visible")){
-                        if (isFirefox){
-                            $("#bgwrapper").addClass("blured");
-                            $("#iconwrapper").addClass("blured");
-                            $("#navimenu").addClass("blured");
-                            $(".floatWindow").addClass("blured");
-                            $("#listMenu").addClass("blured");
-                        }
-                    }else{
-                        if (isFirefox){
-                            $("#bgwrapper").removeClass("blured");
-                            $("#iconwrapper").removeClass("blured");
-                            $("#navimenu").removeClass("blured");
-                            $(".floatWindow").removeClass("blured");
-                            $("#listMenu").removeClass("blured");
-                        }
-                    }
-                    */
+                  
                 });
             }else{
                 if (action == "hide"){
                     $(".notificationbar").stop().finish().fadeOut("fast");
-                     /*
-                    //Firefox 103 now support backdrop-filter
-                    if (isFirefox){
-                        $("#bgwrapper").removeClass("blured");
-                        $("#iconwrapper").removeClass("blured");
-                        $("#navimenu").removeClass("blured");
-                        $(".floatWindow").removeClass("blured");
-                        $("#listMenu").removeClass("blured");
-                    }
-                    */
-                  
                 }else if (action == "show"){
                     $(".notificationbar").stop().finish().fadeIn("fast");
-                    /*
-                    //Firefox 103 now support backdrop-filter
-                    if (isFirefox){
-                        $("#bgwrapper").addClass("blured");
-                        $("#iconwrapper").addClass("blured");
-                        $("#navimenu").addClass("blured");
-                        $(".floatWindow").addClass("blured");
-                        $("#listMenu").addClass("blured");
-                    }
-                    */
                 }
             }
         }
@@ -1800,13 +1845,12 @@
         // ===================== LIST MENU EVENTS FUNCTIONS ===============
 
         function toggleListMenu() {
-            $("#listMenu").stop().finish().animate({
-                height: "toggle"
-            }, 300, function() {
-                if ($("#listMenu").offset().top == 0) {
-                    listMenuShown = false;
-                } else {
+            hideToolPanel()
+            $("#listMenu").fadeToggle("fast", function(){
+                if ($("#listMenu").is(":visible")) {
                     listMenuShown = true;
+                } else {
+                    listMenuShown = false;
                 }
             });
         }
@@ -1823,9 +1867,7 @@
 
         function hideListMenu() {
             if (listMenuShown) {
-                $("#listMenu").animate({
-                    height: "hide"
-                }, 300);
+                $("#listMenu").fadeOut("fast");
                 listMenuShown = false;
             }
         }
@@ -2615,6 +2657,21 @@
                     $(object).find(".dockleft").removeClass("disabled");
                 }
 
+                let fwNoResize = $(object).hasClass("fixedsize");
+                if (event.pageX < 20 && !fwNoResize) {
+                    //Show dock to left indicator
+                    $("#fwdockLeftIndicator").show();
+                    $("#fwdockRightIndicator").hide();
+                } else if (event.pageX > window.innerWidth - 20 && !fwNoResize) {
+                    //Show dock to right indicator
+                    $("#fwdockLeftIndicator").hide();
+                    $("#fwdockRightIndicator").show();
+                }else{
+                    //hide both indicator
+                    $("#fwdockRightIndicator").hide();
+                    $("#fwdockLeftIndicator").hide();
+                }
+
                 $(object).css("left", event.pageX - clickDownOffset[0]);
                 $(object).css("top", event.pageY - clickDownOffset[1]);
             } else if (resizingWindow && resizingEdgeID == 6){
@@ -2624,6 +2681,10 @@
 
         //Dock the window object to left
         function dockWindowToLeft(object){
+            if ($(object).hasClass("fixedsize")){
+                //This windows do now allow resizing
+                return;
+            }
             var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
             $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
             $(object).css({
@@ -2641,6 +2702,10 @@
 
         //Dock the window object to right
         function dockWindowToRight(object){
+            if ($(object).hasClass("fixedsize")){
+                //This windows do now allow resizing
+                return;
+            }
             var originalSize = [$(object).width(), $(object).height(), $(object).offset().left, $(object).offset().top];
             $(object).attr("orgsize", encodeURIComponent(JSON.stringify(originalSize)));
             $(object).css({
@@ -2671,13 +2736,16 @@
                 //Check if the window location is drag to the edge of the screen. If yes, toggle half screen fullscreen
                 //Not need to check for if max because it must be minimized during drag move
                 var dockMode = false;
-                if (event.pageX < 10) {
+                if (event.pageX < 20) {
                     //Dock to left
                     dockWindowToLeft(object);
-                } else if (event.pageX > window.innerWidth - 10) {
+                } else if (event.pageX > window.innerWidth - 20) {
                     //Dock to right
                     dockWindowToRight(object);
                 }
+
+                $("#fwdockRightIndicator").hide();
+                $("#fwdockLeftIndicator").hide();
             }else if (resizingWindow && resizingEdgeID == 6){
                 resizeUp($(object), event);
             }
@@ -4193,40 +4261,6 @@
                         locations.push(JSON.parse(JSON.stringify(nextLocation)));
                     }
 
-                    /*
-                    for (var k =0; k < files.length; k++){
-                        var thisLocation = JSON.parse(JSON.stringify(targetGridLocation));
-                        //Add k to y axis of the list.
-                        thisLocation[1] += k;
-                        if (thisLocation[1] >= gridMaxY){
-                                thisLocation[0]++;
-                                thisLocation[1] = thisLocation[1] % gridMaxY;
-                        }
-                        if (thisLocation[1] >= gridMaxY && thisLocation[0] >= gridMaxX){
-                            //Desktop full. Force put to 0 0 
-                            thisLocation[0] = 0;
-                            thisLocation[1] = 0;
-                            break;
-                        }
-                        while (getObjectFromGridLocation(thisLocation[0], thisLocation[1]) !== undefined){
-                            thisLocation[1] += 1;
-                            if (thisLocation[1] >= gridMaxY){
-                                //Over the screen. Shift to the row on the right
-                                thisLocation[0]++;
-                                thisLocation[1] = 0;
-                            }
-
-                            if (thisLocation[1] >= gridMaxY && thisLocation[0] >= gridMaxX){
-                                //Desktop full. Force put to 0 0 
-                                thisLocation[0] = 0;
-                                thisLocation[1] = 0;
-                                break;
-                            }
-                        }
-                        locations.push(thisLocation)
-                    }
-                    */
-
                     console.log(locations, ev.dataTransfer.files);
 
                     //Register file locations
@@ -5514,7 +5548,7 @@
                                 }
                             });
                             addContextMenuSeperator($("#subcontextmenu"));
-                            addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Change Share Settings", "Change Share Settings")}]`));
+                            addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Change Share Settings", "Change Share Settings")}`));
                         }else{
                             addContextMenuTitle($("#subcontextmenu"), lcontex(`<i class="share alternate icon"></i> ${applocale.getString("contextmenu/Share this File", "Share this File")}`));
                         }
@@ -5531,7 +5565,13 @@
 
                         var sameGroupClass = "";
                         if (data.ShareUUID.Permission == "samegroup"){
-                            samegroup = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
+                            sameGroupClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
+                        }
+
+                        var advanceShareClass = "";
+                        if (data.IsShared && anyoneClass == "" && signedinClass == "" && sameGroupClass == ""){
+                            //None of the simple class this share is using. Assume advance share
+                            advanceShareClass = `<i ${checkmarkStyle} class="checkmark icon"></i>`;
                         }
 
                         addContextMenuItem($("#subcontextmenu"), `<i class="globe icon"></i> ${applocale.getString("contextmenu/share/link","Anyone with Link")}`, anyoneClass, "shareWithThisPermission", false, {
@@ -5544,12 +5584,17 @@
                                 type: "signedin"
                             }
                         });
-                        addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> ${applocale.getString("contextmenu/share/samegroup","Same Group Users")}`, sameGroupClass, "shareWithThisPermission", false,{
+                        addContextMenuItem($("#subcontextmenu"), `<i class="users icon"></i> ${applocale.getString("contextmenu/share/samegroup","Same user group")}`, sameGroupClass, "shareWithThisPermission", false,{
                             payload: {
                                 type: "samegroup"
                             }
                         });
-                        if (data.IsShared == true){
+                        addContextMenuItem($("#subcontextmenu"), `<i class="setting icon"></i> ${applocale.getString("contextmenu/share/openshare","Advance Share Settings")}`, advanceShareClass, "shareWithThisPermission", false,{
+                            payload: {
+                                action: "openshare"
+                            }
+                        });
+                        if (data.IsShared){
                             //This file is shared.
                             addContextMenuSeperator($("#subcontextmenu"));
                             addContextMenuItem($("#subcontextmenu"), lcontex("Remove Share"), `<i style="color: #d97762;" class="trash icon"></i>`, "shareWithThisPermission", false,{
@@ -5623,6 +5668,7 @@
                 return;
             }
 
+
             //Get the selected file
             var selectedFileObjects = $(".launchIconWrapper.selected");
             if (selectedFileObjects.length == 0){
@@ -5643,6 +5689,27 @@
                 "filepath": fileData.Filepath,
                 "shareMode": payload.type
             };
+
+            if (payload.action != undefined && payload.action == "openshare"){
+                //Advance setting. Open share interface
+                delete afd.shareMode;
+                afd.ActionButtons = false;
+
+                //Open share manager in another floatWindow
+                let targetURL = "SystemAO/file_system/file_share.html#" + encodeURIComponent(JSON.stringify([afd]));
+                newFloatWindow({
+                    url: targetURL,
+                    width: 330,
+                    height: 480,
+                    left: left,
+                    top: top,
+                    appicon: "SystemAO/file_system/img/share.svg",
+                    title: "Share File"
+                });
+
+                hideAllContextMenus();
+                return;
+            }
 
             //Create a new share for this
             var targetURL = "SystemAO/file_system/file_share.html#" + encodeURIComponent(JSON.stringify([afd]));
@@ -6551,7 +6618,7 @@
         function hideAllContextMenus() {
             $("#subcontextmenu").hide();
             $("#contextmenu").hide()
-            $("#quickAccessPanel").slideUp("fast");
+            $("#quickAccessPanel").fadeOut("fast");
             $("#backgroundTaskPanel").slideUp("fast");
         }
 
@@ -6964,13 +7031,14 @@
                 "border-left":"3px solid " + themeColorForBoarders,
                 "border-right":"3px solid " + themeColorForBoarders,
                 "border-bottom":"3px solid " + themeColorForBoarders,
-            })
+            });
+
             //List menu theme color bar
             $("#listMenu").find(".searchBar").css("border-bottom", "2px solid " + newThemeColor);
             $("#volumebar").css("background-color", newThemeColor);
             $("#brightnessbar").css("background-color", newThemeColor);
             $(".themed.text").css("color", newThemeColor);
-
+            
             //Connection lost notification css
             $("#connectionLost").find(".ui.card").css("background-color", hexToRgbA(newThemeColor, 0.5));
         }
@@ -7317,6 +7385,12 @@
                 openSwitchAccountPanel();
                 return;
             }
+
+            //Close all floatWindows
+            $(".floatWindow").each(function(){
+                let thisFloatWindowID = $(this).attr("windowid");
+                closeFloatWindowViaID(thisFloatWindowID);
+            })
 
             $.ajax({
                 url: "system/auth/u/switch",

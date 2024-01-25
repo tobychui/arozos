@@ -27,6 +27,7 @@ func errorHandleNotFound(w http.ResponseWriter, r *http.Request) {
 			rel := getRootEscapeFromCurrentPath(r.RequestURI)
 			notFoundTemplate = strings.ReplaceAll(notFoundTemplate, "{{root_escape}}", rel)
 			w.WriteHeader(http.StatusNotFound)
+			w.Header().Set("Content-Type", "text/html")
 			w.Write([]byte(notFoundTemplate))
 		}
 	} else {

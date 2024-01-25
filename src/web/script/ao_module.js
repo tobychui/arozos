@@ -392,8 +392,8 @@ function ao_module_newfw(launchConfig){
         filter: ["mp3","aac","ogg","flac","wav"] //File extension filter
     }
 */
-let ao_module_fileSelectionListener;
-let ao_module_fileSelectorWindow;
+var ao_module_fileSelectionListener;
+var ao_module_fileSelectorWindow;
 function ao_module_openFileSelector(callback,root="user:/", type="file",allowMultiple=false, options=undefined){
     var initInfo = {
         root: root,
@@ -869,6 +869,7 @@ class ao_module_utils{
             gcode:"cube",
             shortcut:"external square",
             opus:"file audio outline",
+            agi: "file code outline",
             apscene:"cubes"
         };
         var icon = "";
@@ -890,6 +891,7 @@ class ao_module_utils{
 			filelist = JSON.parse(filelist);
 			return filelist;
 		}
+        return null;
     }
 
     static readFileFromFileObject(fileObject, successCallback, failedCallback=undefined){

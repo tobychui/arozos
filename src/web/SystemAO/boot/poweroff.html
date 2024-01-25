@@ -2,7 +2,15 @@
     <head>
         <title>Host Power Options</title>
         <style>
-
+            .warningStripe {
+                background: repeating-linear-gradient(
+                45deg,
+                #f1e869,
+                #dddb67 10px,
+                #979846 10px,
+                #979846 20px
+                );
+            }
         </style>
     </head>
     <body>
@@ -11,8 +19,8 @@
                 <h3 class="ui header">
                     <i class="power icon"></i>
                     <div class="content">
-                        Host Power
-                        <div class="sub header">Change power state of your device</div>
+                        <span locale="hostPower/host_power_title">Host Power</span>
+                        <div class="sub header" locale="hostPower/change_power_state">Change power state of your device</div>
                     </div>
                 </h3>
             </div>
@@ -21,16 +29,16 @@
                 <h3 class="ui header">
                     <i id="sysConnStateIcon" class="green check circle icon"></i>
                     <div class="content">
-                        <span id="sysConnState">System Online</span>
-                        <div class="sub header">Last update: <span id="lastupdateTime"></span></div>
+                        <span id="sysConnState" locale="hostPower/system_online">System Online</span>
+                        <div class="sub header"><span locale="hostPower/last_update">Last update: </span><span id="lastupdateTime"></span></div>
                     </div>
                 </h3>
             </div>
            
             <div class="ui divider"></div>
-            <p>Power Options</p>
-            <button class="ui red button" onclick="shutdown();"><i class="power off icon"></i> Power Off</button>
-            <button class="ui yellow button" onclick="restart();"><i class="refresh icon"></i> Restart</button>
+            <p locale="hostPower/power_options">Power Options</p>
+            <button class="ui red button" onclick="shutdown();"><i class="power off icon"></i> <span locale="hostPower/power_off">Power Off</span></button>
+            <button class="ui yellow button" onclick="restart();"><i class="refresh icon"></i> <span locale="hostPower/restart">Restart</span></button>
             <div id="msgbox" class="ui green message" style="display:none;">
                 <p><i class="checkmark icon"></i> <span id="succmsg"></span></p>
             </div>
@@ -38,18 +46,22 @@
             <div class="ui icon message">
                 <i class="yellow exclamation circle icon"></i>
                 <div class="content">
-                    <div class="header">
-                        Restart / Shutdown is risky
-                    </div>
-                    <p>If you decided to shutdown your host server, ArozOS will pass the shutdown sequence to the host operating system and there is no way to know from the web interface if the shutdown / restart process has completed. <br>
-                        <b>Please make sure you are shutting it down in a location where you can physcically power on the host again.</b></p>
+                    <div class="header" locale="hostPower/restart_shutdown_risk">Restart / Shutdown is risky</div>
+                    <p locale="hostPower/shutdown_warning">If you decide to shutdown your host server, ArozOS will pass the shutdown sequence to the host operating system and there is no way to know from the web interface if the shutdown / restart process has completed. <br>
+                        <b locale="hostPower/ensure_safety">Please make sure you are shutting it down in a location where you can physically power on the host again.</b></p>
                 </div>
             </div>
-            
         </div>
+        
         <script>
             $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now()/1000));
 
+            var powerLocale = NewAppLocale();
+            powerLocale.init("../locale/system_settings/power.json", function(){
+                powerLocale.translate();
+                handleConnectionStateCheck();
+            });
+            
             function shutdown(){
                 var apiObject = {
                     api: "system/power/shutdown",
@@ -113,7 +125,7 @@
                 }
             }
 
-            handleConnectionStateCheck();
+            
             setTimeout(function(){
                 handleConnectionStateCheck();
             }, 3000)
@@ -125,7 +137,7 @@
                         data: {},
                         success: function(){
                             //Online
-                            $("#sysConnState").text("System Online");
+                            $("#sysConnState").text(powerLocale.getString("hostPower/status/online","System Online"));
                             $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now()/1000));
                             $("#sysConnStateIcon").attr("class","green check circle icon");
 
@@ -135,7 +147,7 @@
                         },
                         error: function(){
                             //Timeout
-                            $("#sysConnState").text("Disconnected");
+                            $("#sysConnState").text(powerLocale.getString("hostPower/status/disconnected", "Disconnected"));
                             $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now()/1000));
                             $("#sysConnStateIcon").attr("class","yellow exclamation circle icon");
                             setTimeout(function(){
