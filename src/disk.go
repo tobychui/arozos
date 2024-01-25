@@ -120,7 +120,7 @@ func DiskServiceInit() {
 					})
 				*/
 
-				adminRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
+				authRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
 			}
 		}
 

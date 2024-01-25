@@ -667,7 +667,7 @@
 
         .notificationbar .content{
             position: fixed;
-            background-color:white;
+            background-color:var(--body_background_secondary);
             margin-top:6px;
             width:30%;
             right: 1em;
@@ -688,6 +688,10 @@
             overflow-y:auto; 
             overflow-x:hidden; 
             height: calc(100% - 12px);
+        }
+
+        body.darkTheme .notificationbar .jsCalendar div:not(.ui.message *):not(.ui.label *):not(.ui.dropdown *){
+            color:#242424 !important;
         }
 
         .notificationbar .cover{
