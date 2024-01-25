@@ -2462,7 +2462,7 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 
 			if fsh.IsLocalDrive() {
 				//Try using native syscall to grab directory size
-				nativeSize, err := filesystem.GetDirectorySizeNative(fsh.Path)
+				nativeSize, err := filesystem.GetDirectorySizeNative(rpath)
 				if err == nil {
 					usefallback = false
 					filesize = nativeSize

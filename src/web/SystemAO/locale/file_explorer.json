@@ -152,9 +152,9 @@
                 "opr/openwith/floatWindow":"浮動視窗",
                 "opr/openwith/embedded":"檔案輸入",
 
-                "opr/shorcut/title": "在桌面建立捷徑",
-                "opr/shorcut/ok": "捷徑建立成功",
-                "opr/shorcut/error": "桌面建立捷徑失敗",
+                "opr/shortcut/title": "在桌面建立捷徑",
+                "opr/shortcut/ok": "捷徑建立成功",
+                "opr/shortcut/error": "桌面建立捷徑失敗",
 
                 "opr/zip/zipping": "正在壓縮 ",
                 "opr/zip/unzipping": "正在解壓縮 ",
@@ -439,9 +439,9 @@
                 "opr/openwith/floatWindow":"浮動視窗",
                 "opr/openwith/embedded":"檔案輸入",
 
-                "opr/shorcut/title": "在桌面建立捷徑",
-                "opr/shorcut/ok": "捷徑建立成功",
-                "opr/shorcut/error": "桌面建立捷徑失敗",
+                "opr/shortcut/title": "在桌面建立捷徑",
+                "opr/shortcut/ok": "捷徑建立成功",
+                "opr/shortcut/error": "桌面建立捷徑失敗",
 
                 "opr/zip/zipping": "正在壓縮 ",
                 "opr/zip/unzipping": "正在解壓縮 ",
@@ -720,6 +720,8 @@
                 "opr/openwith/openWithWebAppInNewWindow": "使用所选的 WebApp 在新窗口中打开",
                 "opr/openwith/openInNewWindow": "直接在新窗口中打开文件",
                 "opr/openwith/cancel": "取消",
+                "opr/openwith/floatWindow":"浮动视窗",
+                "opr/openwith/embedded":"档案输入",
 
                 "opr/shortcut/title": "在桌面创建快捷方式", 
                 "opr/shortcut/ok": "快捷方式创建成功", 
@@ -1001,6 +1003,8 @@
                 "opr/openwith/openWithWebAppInNewWindow": "Open the file with the selected web app in a new window",
                 "opr/openwith/openInNewWindow": "Open the file directly in a new window",
                 "opr/openwith/cancel": "Cancel",
+                "opr/openwith/floatWindow":"Float Window",
+                "opr/openwith/embedded":"File Input",
 
                 "opr/shortcut/title": "Create shortcut on desktop",
                 "opr/shortcut/ok": "Shortcut created successfully",
@@ -1282,6 +1286,8 @@
                 "opr/openwith/openWithWebAppInNewWindow": "選択したWebアプリでファイルを新しいウィンドウで開く",
                 "opr/openwith/openInNewWindow": "ファイルを直接新しいウィンドウで開く",
                 "opr/openwith/cancel": "キャンセル",
+                "opr/openwith/floatWindow":"フロートウィンドウ",
+                "opr/openwith/embedded":"ファイル入力",
 
                 "opr/shortcut/title": "ショートカットを作成",
                 "opr/shortcut/ok": "ショートカットが正常に作成されました",
