@@ -11,12 +11,20 @@ EOF
 
 # Ask user to confirm uninstall
 read -p "Are you sure you want to uninstall Arozos? This will delete all data in the arozos directory. (y/n) " choice
+
+if [ $USER = root ] ; then
+  echo "You are root";
+  sudo=""
+else
+  sudo="sudo "
+fi
+
 case "$choice" in
   y|Y )
 	# Stop the ArozOS service if it is running
 	if [[ $(uname) == "Linux" ]]; then
 		if systemctl status arozos >/dev/null 2>&1; then
-			sudo systemctl stop arozos
+			${sudo}systemctl stop arozos
 			echo "Stopped ArozOS service."
 		fi
 	fi
@@ -24,18 +32,18 @@ case "$choice" in
 	# Remove the ArozOS folder
 	cd ~/ || exit
 	if [[ -d "arozos" ]]; then
-		sudo rm -rf arozos
+		${sudo}rm -rf arozos
 		echo "Removed ArozOS folder."
 	fi
 
 	# Remove the ArozOS service file
 	if [[ $(uname) == "Linux" ]]; then
 		if [[ -f "/etc/systemd/system/arozos.service" ]]; then
-			sudo rm /etc/systemd/system/arozos.service
+			${sudo}rm /etc/systemd/system/arozos.service
 			echo "Removed ArozOS systemd service file."
 		fi
 	fi
-	sudo systemctl daemon-reload
+	${sudo}systemctl daemon-reload
 	echo "ArozOS has been uninstalled successfully!"
 	;;
   n|N ) 
