@@ -19,14 +19,22 @@ if [[ $agree != "y" ]]; then
   exit 1
 fi
 
+if [ $USER = root ] ; then
+  echo "You are root";
+  sudo=""
+else
+  sudo="sudo "
+fi
+
+
 # Create the required folder structure to hold the installation
 cd ~/ || exit
 mkdir arozos
 cd arozos || exit
 
 # Run apt-updates
-sudo apt-get update
-sudo apt-get install ffmpeg net-tools -y
+${sudo}apt-get update
+${sudo}apt-get install ffmpeg net-tools -y
 
 # Determine the CPU architecture of the host
 if [[ $(uname -m) == "x86_64" ]]; then
@@ -108,11 +116,11 @@ arozport=${arozport:-8080}
 if [[ -f "./launcher" ]]; then
   # Create start.sh with launcher command
   echo "#!/bin/bash" > start.sh
-  echo "sudo ./launcher -port=$arozport -hostname=\"$arozosname\"" >> start.sh
+  echo "${sudo}./launcher -port=$arozport -hostname=\"$arozosname\"" >> start.sh
 else
   # Create start.sh with arozos command
   echo "#!/bin/bash" > start.sh
-  echo "sudo arozos -port=$arozport -hostname=\"$arozosname\"" >> start.sh
+  echo "${sudo}arozos -port=$arozport -hostname=\"$arozosname\"" >> start.sh
 fi
 
 # Make start.sh executable
@@ -130,8 +138,8 @@ if [[ $(uname) == "Linux" ]]; then
         # Get current user
         CURRENT_USER=$(whoami)
 		
-		sudo touch /etc/systemd/system/arozos.service
-		sudo chmod 777 /etc/systemd/system/arozos.service
+		${sudo}touch /etc/systemd/system/arozos.service
+		${sudo}chmod 777 /etc/systemd/system/arozos.service
         # Create systemd service file
         cat <<EOF > /etc/systemd/system/arozos.service
 [Unit]
@@ -151,12 +159,12 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
-		sudo chmod 644 /etc/systemd/system/arozos.service
+		${sudo}chmod 644 /etc/systemd/system/arozos.service
 		
         # Reload systemd daemon and enable service
-        sudo systemctl daemon-reload
-        sudo systemctl enable arozos.service
-		sudo systemctl start arozos.service
+        ${sudo}systemctl daemon-reload
+        ${sudo}systemctl enable arozos.service
+		${sudo}systemctl start arozos.service
         echo "ArozOS installation completed!"
 		ip_address=$(hostname -I | awk '{print $1}')
 		echo "Please continue the system setup at http://$ip_address:$arozport/"
