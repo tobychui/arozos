@@ -19,6 +19,8 @@ if [[ $agree != "y" ]]; then
   exit 1
 fi
 
+HOMEDIR=$( getent passwd "$USER" | cut -d: -f6 )
+
 if [ $USER = root ] ; then
   echo "You are root";
   sudo=""
@@ -150,8 +152,8 @@ Wants=systemd-networkd-wait-online.service
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 10
-WorkingDirectory=/home/${CURRENT_USER}/arozos/
-ExecStart=/bin/bash /home/${CURRENT_USER}/arozos/start.sh
+WorkingDirectory=/${HOMEDIR}/${CURRENT_USER}/arozos/
+ExecStart=/bin/bash /${HOMEDIR}/${CURRENT_USER}/arozos/start.sh
 
 Restart=always
 RestartSec=10
