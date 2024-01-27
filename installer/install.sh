@@ -152,8 +152,8 @@ Wants=systemd-networkd-wait-online.service
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 10
-WorkingDirectory=/${HOMEDIR}/${CURRENT_USER}/arozos/
-ExecStart=/bin/bash /${HOMEDIR}/${CURRENT_USER}/arozos/start.sh
+WorkingDirectory=${HOMEDIR}/${CURRENT_USER}/arozos/
+ExecStart=/bin/bash ${HOMEDIR}/${CURRENT_USER}/arozos/start.sh
 
 Restart=always
 RestartSec=10
