@@ -48,7 +48,7 @@
 
 ### Others
 
-- Require as little as 512MB system memory and 16GB system storage
+- Require as little as 512MB system memory and 1.5GB system storage
 - Base on one of the most stable Linux distro - Debian
 - Support for Responsive Web Design (RWD) for different screen size
 - Support use as Progress WebApp (PWA) on mobile devices
