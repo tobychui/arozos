@@ -147,7 +147,7 @@ sudo ./arozos
 
 ### Docker
 
-Not exists yet
+Thanks SysAdmin74 for contributing a dockerfile for ArozOS. You can check out his dockerfile [here (WIP)](https://github.com/SysAdmin74/ArozOS-Docker).
 
 ## Screenshots
 
