@@ -360,6 +360,7 @@ If you are looking for tutorials or need help on debugging some minor issues, fe
 - [Linux:ArozOS 安裝與建立開機自啟動服務](https://pvecli.xuan2host.com/linux-arozos-install-service/)
 
 #### Japanese
+- [WebデスクトップOSのArozOSをインストール](https://minokamo.tokyo/2024/02/06/6901/)
 - [ラズパイで動く、高機能WebGUI付きNAS「ArozOS」で遊ぶ](https://www.my-hacks.info/2023/02/08/post-2165/)
   
 #### Portuguese
