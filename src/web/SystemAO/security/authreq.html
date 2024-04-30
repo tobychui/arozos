@@ -126,11 +126,12 @@
                 method: method,
                 success: function(data){
                     if (data.error != undefined){
-                        $("#password").parent().addClass("error");
-                        if ($("#username").parent().hasClass("disabled") == false){
-                            $("#username").parent().addClass("error");
+                        //callback to parent with error code
+                        if (ao_module_hasParentCallback()){
+                            ao_module_parentCallback(data);
                         }
 
+                        ao_module_close();
                     }else{
                         if (ao_module_hasParentCallback()){
                             ao_module_parentCallback(data);
@@ -143,6 +144,11 @@
                         ao_module_close();
                     }
                     
+                }, error: function(){
+                    $("#password").parent().addClass("error");
+                    if ($("#username").parent().hasClass("disabled") == false){
+                        $("#username").parent().addClass("error");
+                    }
                 }
             })
        }

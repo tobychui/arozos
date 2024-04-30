@@ -360,10 +360,7 @@ func RegisterStorageSettings() {
 
 // CloseAllStorages Close all storage database
 func CloseAllStorages() {
-	allFsh := GetAllLoadedFsh()
-	for _, fsh := range allFsh {
-		fsh.FilesystemDatabase.Close()
-	}
+
 }
 
 func closeAllStoragePools() {

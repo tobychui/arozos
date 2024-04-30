@@ -1,5 +1,5 @@
+<!DOCTYPE html>
 <html>
-
 <head>
     <title>ArozOS Desktop</title>
     <meta charset="UTF-8">
@@ -1720,7 +1720,7 @@
             if (listMenuShown = true){
                 hideListMenu();
             }
-            $("#quickAccessPanel").fadeIn("fast");
+            $("#quickAccessPanel").fadeToggle("fast");
         }
         function hideToolPanel(){
             $("#quickAccessPanel").fadeOut("fast");

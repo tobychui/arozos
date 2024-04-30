@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <title>Disk Space</title>
@@ -37,7 +38,6 @@
                             }
                             if (thisDev.Used == 0 && thisDev.Volume == 0){
                                 color = "black";
-                                console.log("Oops");
                                 usedPercentage = 100;
                             }
                             var tmpfs = "";
@@ -46,9 +46,18 @@
                                 tmpfs = "tmpfs";
                                 style = "display:none;";
                             }
+
+                            //Check if it is RAID partitions
+                            let deviceName = thisDev.Device.split("/").pop();
+                            let diskIcon = "disk.svg";
+                            if (deviceName.substr(0, 2) == "md"){
+                                //It is RAID device
+                                color = "teal";
+                                diskIcon = "raid.svg";
+                            }
                             $("#diskInfo").append(`<div class="event ${tmpfs}" style="${style}">
                                 <div class="label">
-                                    <img src="../disk/space/img/disk.svg">
+                                    <img src="../disk/space/img/${diskIcon}">
                                 </div>
                                 <div class="content">
                                     <div class="summary">

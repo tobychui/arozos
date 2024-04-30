@@ -16,7 +16,6 @@ import (
 	"imuslab.com/arozos/mod/compatibility"
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
-	"imuslab.com/arozos/mod/network/gzipmiddleware"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -34,15 +33,8 @@ PLEASE ALWAYS USE URLENCODE IN THE LINK PASSED INTO THE /media ENDPOINT
 */
 
 func mediaServer_init() {
-	if *enable_gzip {
-		http.HandleFunc("/media/", gzipmiddleware.CompressFunc(serverMedia))
-		http.HandleFunc("/media/getMime/", gzipmiddleware.CompressFunc(serveMediaMime))
-	} else {
-		http.HandleFunc("/media/", serverMedia)
-		http.HandleFunc("/media/getMime/", serveMediaMime)
-	}
-
-	//Download API always bypass gzip no matter if gzip mode is enabled
+	http.HandleFunc("/media/", serverMedia)
+	http.HandleFunc("/media/getMime/", serveMediaMime)
 	http.HandleFunc("/media/download/", serverMedia)
 }
 

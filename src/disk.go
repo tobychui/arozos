@@ -12,11 +12,41 @@ import (
 	"imuslab.com/arozos/mod/disk/diskcapacity"
 	"imuslab.com/arozos/mod/disk/diskmg"
 	diskspace "imuslab.com/arozos/mod/disk/diskspace"
+	"imuslab.com/arozos/mod/disk/raid"
 	smart "imuslab.com/arozos/mod/disk/smart"
 	sortfile "imuslab.com/arozos/mod/disk/sortfile"
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
+
+func RAIDServiceInit() {
+	/*
+		RAID Management
+
+		Handle physical disk RAID for more NAS OS like experience
+	*/
+
+	if *allow_hardware_management {
+		rm, err := raid.NewRaidManager(raid.Options{})
+		if err == nil {
+			raidManager = rm
+
+		} else {
+			//Unable to start RAID manager. Skip it.
+			systemWideLogger.PrintAndLog("RAID", "Unable to start RAID manager", err)
+		}
+
+		/* Flush mdadm RAID */
+		if raidManager != nil {
+			if !*skip_mdadm_reload {
+				err := raidManager.FlushReload()
+				if err != nil {
+					systemWideLogger.PrintAndLog("RAID", "mdadm reload failed: "+err.Error(), err)
+				}
+			}
+		}
+	}
+}
 
 func DiskServiceInit() {
 	//Register Disk Utilities under System Setting
@@ -98,8 +128,6 @@ func DiskServiceInit() {
 				systemWideLogger.PrintAndLog("Disk", "Failed to create SMART listener: "+err.Error(), err)
 			} else {
 				//Listener created. Register endpoints
-
-				//Register as a system setting
 				registerSetting(settingModule{
 					Name:         "Disk SMART",
 					Desc:         "HardDisk Health Checking",
@@ -109,18 +137,55 @@ func DiskServiceInit() {
 					RequireAdmin: true,
 				})
 
-				/*
-					registerSetting(settingModule{
-						Name:         "SMART Log",
-						Desc:         "HardDisk Health Log",
-						IconPath:     "SystemAO/disk/smart/img/small_icon.png",
-						Group:        "Disk",
-						StartDir:     "SystemAO/disk/smart/log.html",
-						RequireAdmin: true,
-					})
-				*/
-
 				authRouter.HandleFunc("/system/disk/smart/getSMART", smartListener.GetSMART)
+			}
+
+			/*
+				RAID Manager endpoints
+			*/
+			if raidManager != nil {
+				//Register endpoints and settings for this host
+				registerSetting(settingModule{
+					Name:         "RAID",
+					Desc:         "Providing basic mdadm features",
+					IconPath:     "SystemAO/disk/raid/img/small_icon.png",
+					Group:        "Disk",
+					StartDir:     "SystemAO/disk/raid/index.html",
+					RequireAdmin: true,
+				})
+
+				/* RAID storage pool function */
+				adminRouter.HandleFunc("/system/disk/raid/list", raidManager.HandleListRaidDevices)
+				adminRouter.HandleFunc("/system/disk/raid/new", raidManager.HandleCreateRAIDDevice)
+				adminRouter.HandleFunc("/system/disk/raid/remove", func(w http.ResponseWriter, r *http.Request) {
+					if !AuthValidateSecureRequest(w, r) {
+						return
+					}
+					raidManager.HandleRemoveRaideDevice(w, r)
+				})
+				adminRouter.HandleFunc("/system/disk/raid/format", raidManager.HandleFormatRaidDevice)
+				adminRouter.HandleFunc("/system/disk/raid/detail", raidManager.HandleLoadArrayDetail)
+				adminRouter.HandleFunc("/system/disk/raid/devinfo", raidManager.HandlListChildrenDeviceInfo)
+				adminRouter.HandleFunc("/system/disk/raid/addMemeber", func(w http.ResponseWriter, r *http.Request) {
+					//if !AuthValidateSecureRequest(w, r) {
+					//	return
+					//}
+					raidManager.HandleAddDiskToRAIDVol(w, r)
+				})
+				adminRouter.HandleFunc("/system/disk/raid/removeMemeber", func(w http.ResponseWriter, r *http.Request) {
+					//if !AuthValidateSecureRequest(w, r) {
+					//	return
+					//}
+					raidManager.HandleRemoveDiskFromRAIDVol(w, r)
+				})
+
+				/* Device Management functions */
+				adminRouter.HandleFunc("/system/disk/devices/list", raidManager.HandleListUsableDevices)
+				adminRouter.HandleFunc("/system/disk/devices/model", raidManager.HandleResolveDiskModelLabel)
+
+				/* Advance functions*/
+				adminRouter.HandleFunc("/system/disk/raid/assemble", raidManager.HandleRaidDevicesAssemble)
+				adminRouter.HandleFunc("/system/disk/raid/reload", raidManager.HandleMdadmFlushReload)
 			}
 		}
 

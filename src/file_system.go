@@ -753,12 +753,6 @@ func system_fs_handleUpload(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, max_upload_size)
 	}
 
-	//Check if this is running under demo mode. If yes, reject upload
-	if *demo_mode {
-		utils.SendErrorResponse(w, "You cannot upload in demo mode")
-		return
-	}
-
 	err = r.ParseMultipartForm(int64(*upload_buf) << 20)
 	if err != nil {
 		//Filesize too big

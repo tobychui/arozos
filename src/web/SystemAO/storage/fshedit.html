@@ -237,10 +237,9 @@
                         alert(data.error);
                     }else{
                         //Done
-                        window.location.href = "updateComplete.html";
+                        window.location.href = "updateComplete.html#" + targetFSH;
                     }
                 }
-
             });
         }
 
@@ -248,7 +247,7 @@
             //Request server side to provide info on this FSH
             var input = JSON.parse(decodeURIComponent(window.location.hash.substr(1)));
             $("#groupfield").val(input.group);
-
+            targetFSH = input.group;
             if (input.uuid == undefined){
                  //New fsh
                 $("#pagetitle").text("New File System Handler");

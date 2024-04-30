@@ -23,8 +23,16 @@
             margin-top: 0.6em;
         }
 
+        #diskrender .progress .bar{
+            background-color: rgb(82, 201, 255);
+        }
+
         #diskrender .progress .bar.lowspace{
             background-color: #b51d1d !important;
+        }
+
+        #diskrender .progress .bar.raiddev{
+            background-color: #f5ef42 !important;
         }
 
         #diskrender .progress .bar .progress{
@@ -59,6 +67,20 @@
                             let thisDiskInfo = data[0]["blockdevices"][i];
                             let driveId = thisDiskInfo.name;
                             let diskName = "";
+                            let isRaid = false;
+
+                            if (thisDiskInfo.children == null){
+                                //This is a disk that is not formated or damaged
+                                continue;
+                            }
+
+                            console.log(data[1]["blockdevices"][i]);
+                            if (data[1]["blockdevices"][i].fstype == "linux_raid_member"){
+                                //RAID source partition / drive
+                                continue; //Remove this line to also render RAID disk
+                                isRaid = true;
+                            }
+
                             if (thisDiskInfo.children.length > 0){
                                 //Try to extract mountpoint as name
                                 let mountpoint = thisDiskInfo.children[0].mountpoint;
@@ -103,6 +125,13 @@
                                 usedPercentage = 100;
                             }
 
+                            //Check if raid. As raid is controlled by mdadm, we don't know how much storage it has
+                            if (isRaid){
+                                usedPercentage = 100;
+                                colorClass = "raiddev";
+                                diskName = "[RAID Disk]"
+                            }
+
                             $("#diskspaceList").append(`<div class="item driveinfo">
                                 <img class="ui avatar image" src="img/system/drive.svg">
                                 <div class="content">
@@ -124,6 +153,10 @@
                         $("#diskspaceList").html("");
                         for (var i = 0; i < data.length; i++){
                             let thisDiskInfo = data[i];
+                            if (thisDiskInfo.length < 6){
+                                //Not a HDD
+                                continue;
+                            }
                             let driveId = thisDiskInfo[0].replace("\\\\", "\\");
                             let diskName = thisDiskInfo[2];
                             let remainingSpace = thisDiskInfo[5];

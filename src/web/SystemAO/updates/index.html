@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
     <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
 </head>
 
@@ -17,8 +18,8 @@
             <h3 class="ui header">
                 <i class="sync icon"></i>
                 <div class="content">
-                    System Update
-                    <div class="sub header">Update the ArozOS System to the latest version</div>
+                    <span locale="header/title/systemUpdate">System Update</span>
+                    <div class="sub header" locale="header/title/subHeader">Update the ArozOS System to the latest version</div>
                 </div>
             </h3>
             <div class="ui divider"></div>
@@ -27,42 +28,42 @@
                 <i class="red exclamation circle icon"></i>
                 <div class="content">
                     <div class="header">
-                        WARNING
+                        <span locale="warning/title">WARNING</span>
                     </div>
-                    <p>Backup all the important files before performing system update</p>
+                    <p locale="warning/desc">Backup all the important files before performing system update</p>
                 </div>
             </div>
             <div id="checking" class="ui icon blue message" style="display:none;">
                 <i class="notched circle loading icon"></i>
                 <div class="content">
                     <div class="header">
-                        Connecting to Download Server
+                        <span locale="checking/title">Connecting to Download Server</span>
                     </div>
-                    <p>We're fetching that content for you.</p>
+                    <p locale="checking/desc">We're fetching that content for you.</p>
                 </div>
             </div>
             <div id="confirmDownload" class="ui icon yellow message" style="display:none;">
                 <i class="yellow exclamation icon"></i>
                 <div class="content">
                     <div class="header">
-                        Confirm Update?
+                        <span locale="confirm/title">Confirm Update?</span>
                     </div>
-                    <p><span>This updates will take up </span><span id="spaceEst" style="font-weight: bold;"></span> <span>of space.</span></p>
-                    <p><b>Please make sure you have back up all important files and config files before you proceeds.</b></p>
+                    <p><span locale="confirm/update/willUse">This updates will take up </span><span id="spaceEst" style="font-weight: bold;"></span> <span locale="confirm/update/ofSpace">of space.</span></p>
+                    <p><b locale="confirm/update/reminder">Please make sure you have back up all important files and config files before you proceeds.</b></p>
                     <div class="ui buttons">
-                        <button class="ui yellow button" onclick="confirmURLUpdate();">Confirm Update</button>
-                        <button class="ui button" onclick="cancelUpdateStatus();"><i class="ui remove icon"></i> Cancel Update</button>
+                        <button locale="confirm/update/confirm" class="ui yellow button" onclick="confirmURLUpdate();">Confirm Update</button>
+                        <button locale="confirm/update/cancel" class="ui button" onclick="cancelUpdateStatus();"><i class="ui remove icon"></i> Cancel Update</button>
                     </div>
                 </div>
             </div>
             <div id="downloading" class="ui icon blue message" style="display:none;">
                 <i class="notched circle loading icon"></i>
                 <div class="content">
-                    <div class="header" id="downloadStatusText">
+                    <div class="header" id="downloadStatusText" locale="download/title">
                         Starting Download Session
                     </div>
                     <br>
-                    <p id="fallbackmodeExp" style="display:none;">You are seeing this message is because the websocket connection to your host failed to establish. No worry, updates can still be done using AJAX fallback mode, just without the real time progress updates. <br>Please wait until the
+                    <p id="fallbackmodeExp" style="display:none;" locale="download/wsFallback">You are seeing this message is because the websocket connection to your host failed to establish. No worry, updates can still be done using AJAX fallback mode, just without the real time progress updates. <br>Please wait until the
                         download complete before closing this page.</br>
                     </p>
                     <div class="ui blue active progress">
@@ -75,64 +76,64 @@
             <div id="success" class="ui icon green message" style="display:none;">
                 <i class="green checkmark icon"></i>
                 <div class="content">
-                    <div class="header" id="downloadStatusText">
+                    <div class="header" id="downloadStatusText" locale="succ/update">
                         Update Download Succeed
                     </div>
-                    <p>Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
+                    <p locale="succ/restartDesc">Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
                 </div>
             </div>
             <div id="pending" class="ui icon green message" style="display:none;">
                 <i class="green clock icon"></i>
                 <div class="content">
-                    <div class="header" id="downloadStatusText">
+                    <div class="header" id="downloadStatusText" locale="pending/title">
                         Update Pending
                     </div>
-                    <p>Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
+                    <p locale="pending/desc">Restart ArozOS using the launcher or apply manual update files overwrite to finish the update process.</p>
                 </div>
             </div>
             <div id="failed" class="ui icon red message" style="display:none;">
                 <i class="red remove icon"></i>
                 <div class="content">
-                    <div class="header" id="downloadStatusText">
+                    <div class="header" id="downloadStatusText" locale="failed/title">
                         Update Download Failed
                     </div>
-                    <p id="failedErrorMessage">Unknown Error Occured</p>
+                    <p id="failedErrorMessage" locale="failed/error">Unknown Error Occured</p>
                 </div>
             </div>
             <div id="restartPanel" class="ui message" style="display:none;">
                 <div class="header">
-                    Launcher Detected: <span id="launcherName">N/A</span>
+                    <span locale="launcher/detected/title">Launcher Detected:</span> <span id="launcherName">N/A</span>
                 </div>
-                <p>You will need to restart ArozOS in order to apply the updates.</p>
-                <p>Warning! Make sure you have physical access to this ArozOS Host before pressing the restart button.<br> Update failure might require a manual restart of the ArozOS system host and its launcher.</p>
-                <button class="ui red button" onclick="restartArozOS();">RESTART NOW</button>
-                <button class="ui button" onclick="restartLater();">Restart Later</button>
+                <p locale="launcher/desc">You will need to restart ArozOS in order to apply the updates.</p>
+                <p locale="launcher/warning">Warning! Make sure you have physical access to this ArozOS Host before pressing the restart button.<br> Update failure might require a manual restart of the ArozOS system host and its launcher.</p>
+                <button class="ui red button" locale="launcher/restartnow" onclick="restartArozOS();">RESTART NOW</button>
+                <button class="ui button" locale="launcher/restartlater" onclick="restartLater();">Restart Later</button>
             </div>
             <!-- End of Status Messages -->
             <div class="vendorupdate">
-                <h4>Update from <span class="vendorName">Vendor</span> (<i class="yellow star icon"></i> Recommended)</h4>
-                <p>Update from <span class="vendorName">your vendor</span> based on the system update configuration that ship with this machine</p>
-                <button class="ui blue button updateBtn" onclick="updateViaVendor();"><i class="cloud upload icon"></i>  Update from Vendor</button>
+                <h4><span locale="update/vendor/from">Update from</span> <span class="vendorName">Vendor</span> (<i class="yellow star icon"></i> <span locale="update/vendor/recommend">Recommended</span>)</h4>
+                <p><span locale="update/vendor/from">Update from</span> <span class="vendorName">your vendor</span> <span locale="update/vendor/desc">based on the system update configuration that ship with this machine</span></p>
+                <button class="ui green button updateBtn" onclick="updateViaVendor();"><i class="cloud upload icon"></i> <span locale="update/useVendorUpdate">Update from Vendor</span></button>
                 <div class="ui divider"></div>
             </div>
-            <h4>Update via Download</h4>
-            <p>Binary Executable Download URL</p>
+            <h4 locale="update/download/title">Update via Download</h4>
+            <p locale="update/download/binary">Binary Executable Download URL</p>
             <div class="ui fluid input">
                 <input id="burl" type="text" placeholder="Binary Download URL">
             </div>
-            <small>Usually with pattern like: arozos_{platform}_{cpu_arch}</small>
+            <small locale="update/download/binaryInstr">Usually with pattern like: arozos_{platform}_{cpu_arch}</small>
             <br><br>
-            <p>Webpack Download URL</p>
+            <p locale="update/download/webpack">Webpack Download URL</p>
             <div class="ui fluid input">
                 <input id="wurl" type="text" placeholder="Webpack Download URL">
             </div>
-            <small>Usually with named as: webpack.tar.gz</small>
+            <small locale="update/download/webpackInst">Usually with named as: webpack.tar.gz</small>
             <br><br>
-            <button class="ui red button updateBtn" onclick="updateViaURL();"><i class="cloud upload icon"></i> Execute Update</button>
-
+            <button class="ui red button updateBtn" onclick="updateViaURL();"><i class="cloud upload icon"></i> <span locale="update/download/execu">Execute Update</span></button>
+  <!-- 
             <div class="ui divider"></div>
 
-
+          
             <div class="ui message">
                 <h4><i class="info circle icon"></i>Update Instruction</h4>
                 <p>To update your ArozOS system, you will need two files: A compiled binary of the newer version of ArozOS and the webpack compress file in .tar.gz format. You can get the two files on Github, private distribution servers or from cluster
@@ -172,6 +173,7 @@
                     </div>
                 </div>
             </div>
+            -->
         </div>
     </div>
     <script>
@@ -180,10 +182,13 @@
         var vendorUpdateWebpackURL = "";
         var vendorUpdateCheckSumURL = "";
 
-        $(".accordion").accordion();
-        initVendorUpdateInfo();
-        checkPendingUpdates();
-
+        applocale.init("../locale/system_settings/updates.json", function(){
+            $(".accordion").accordion();
+            initVendorUpdateInfo();
+            checkPendingUpdates();
+            applocale.translate();
+        });
+      
         function checkPendingUpdates() {
             $.get("../../system/update/checkpending", function(data) {
                 if (data == true) {

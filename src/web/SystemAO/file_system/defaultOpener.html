@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <title>Select Default Opening WebApp</title>
@@ -24,24 +25,26 @@
                 border: 1px solid #cccccc;
                 height:330px;
                 overflow-y:auto;
+                margin-left: -1px;
+                margin-right: -1px;
             }
-            .item{
+            .moduleSelector .item{
                 padding:12px;
                 cursor: pointer;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .item.hidden{
+            .moduleSelector .item.hidden{
                 display:none;
             }
-            .item.selected{
+            .moduleSelector .item.selected{
                 background-color: var(--theme_color);
             }
-            .item:hover{
-                background-color:var(--body_background_active);
+            .moduleSelector .item:hover{
+                background-color:var(--body_background_active) !important;
             }
-            .item img{
+            .moduleSelector .item img{
                 vertical-align: middle;
                 height:26px;
                 margin-right:12px;
@@ -64,7 +67,7 @@
             <div id="moduleList" class="moduleSelector">
                 
             </div>
-            <button id="showallbtn" class="ui fluid basic tiny button" onclick="showAllModules();" locale="button/showAll">Show All</button>
+            <button id="showallbtn" class="ui bottom attached fluid basic tiny button" onclick="showAllModules();" locale="button/showAll">Show All</button>
         </div>
         <div class="bottomControls" align="right">
             <button class="ui basic small button" onclick="cancel();" locale="button/cancel">Cancel</button>

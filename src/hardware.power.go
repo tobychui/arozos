@@ -38,33 +38,8 @@ func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
 }
 
 func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("401 Unauthorized"))
-		return
-	}
-
-	if !userinfo.IsAdmin() {
-		utils.SendErrorResponse(w, "Permission Denied")
-		return
-	}
-
-	if !sudo_mode {
-		utils.SendErrorResponse(w, "Sudo mode required")
-		return
-	}
-
-	//Double check password for this user
-	password, err := utils.PostPara(r, "password")
-	if err != nil {
-		utils.SendErrorResponse(w, "Password Incorrect")
-		return
-	}
-
-	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
-	if !passwordCorrect {
-		utils.SendErrorResponse(w, rejectionReason)
+	//validate password using authreq.html
+	if !AuthValidateSecureRequest(w, r) {
 		return
 	}
 
@@ -105,33 +80,8 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 }
 
 func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("401 Unauthorized"))
-		return
-	}
-
-	if !userinfo.IsAdmin() {
-		utils.SendErrorResponse(w, "Permission Denied")
-		return
-	}
-
-	if !sudo_mode {
-		utils.SendErrorResponse(w, "Sudo mode required")
-		return
-	}
-
-	//Double check password for this user
-	password, err := utils.PostPara(r, "password")
-	if err != nil {
-		utils.SendErrorResponse(w, "Password Incorrect")
-		return
-	}
-
-	passwordCorrect, rejectionReason := authAgent.ValidateUsernameAndPasswordWithReason(userinfo.Username, password)
-	if !passwordCorrect {
-		utils.SendErrorResponse(w, rejectionReason)
+	//Validate password using authreq.html
+	if !AuthValidateSecureRequest(w, r) {
 		return
 	}
 

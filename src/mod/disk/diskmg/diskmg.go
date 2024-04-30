@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	db "imuslab.com/arozos/mod/database"
 	fs "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -359,13 +358,7 @@ func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.F
 	//Loop each fsHandler. If exists one that fits and Closed, reopen it
 	for _, fsh := range fsHandlers {
 		if strings.Contains(filepath.ToSlash(fsh.Path), filepath.ToSlash(mountpt)) {
-			//Re-open the file system database and set its flag to Open
-			fsdbPath := filepath.ToSlash(filepath.Clean(fsh.Path)) + "/aofs.db"
-			dbObject, err := db.NewDatabase(fsdbPath, false)
-			if err != nil {
-				continue
-			}
-			fsh.FilesystemDatabase = dbObject
+			//Re-open the file system and set its flag to Open
 			fsh.Closed = false
 		}
 	}
@@ -385,7 +378,6 @@ func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error)
 	for _, fsh := range fsHandlers {
 		if strings.Contains(filepath.ToSlash(fsh.Path), filepath.ToSlash(mountpt)) {
 			//Close this file system handler
-			fsh.FilesystemDatabase.Close()
 			fsh.Closed = true
 		}
 	}

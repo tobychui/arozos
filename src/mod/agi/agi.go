@@ -17,6 +17,7 @@ import (
 	"imuslab.com/arozos/mod/agi/static"
 	apt "imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/arozfs"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/share"
@@ -197,13 +198,14 @@ func (g *Gateway) APIHandler(w http.ResponseWriter, r *http.Request, thisuser *u
 // Handle user requests
 func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisuser *user.User) {
 	//Get user object from the request
-	startupRoot := g.Option.StartupRoot
-	startupRoot = filepath.ToSlash(filepath.Clean(startupRoot))
+	//startupRoot := g.Option.StartupRoot
+	//startupRoot = filepath.ToSlash(filepath.Clean(startupRoot))
 
 	//Get the script files for the plugin
 	scriptFile, err := utils.GetPara(r, "script")
 	if err != nil {
-		utils.SendErrorResponse(w, "Invalid script path")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Internal Server Error: Invalid script path"))
 		return
 	}
 	scriptFile = static.SpecialURIDecode(scriptFile)
@@ -212,16 +214,18 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	scriptExists := false
 	scriptScope := "./web/"
 	for _, thisScope := range g.Option.ActivateScope {
-		thisScope = filepath.ToSlash(filepath.Clean(thisScope))
-		if utils.FileExists(thisScope + "/" + scriptFile) {
+		thisScope = arozfs.ToSlash(filepath.Clean(thisScope))
+		if utils.FileExists(arozfs.ToSlash(filepath.Join(thisScope, scriptFile))) {
 			scriptExists = true
-			scriptFile = thisScope + "/" + scriptFile
+			scriptFile = arozfs.ToSlash(filepath.Join(thisScope, scriptFile))
 			scriptScope = thisScope
+			break
 		}
 	}
 
 	if !scriptExists {
-		utils.SendErrorResponse(w, "Script not found")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Internal Server Error: Script not exists"))
 		return
 	}
 
@@ -230,7 +234,7 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	if !thisuser.GetModuleAccessPermission(moduleName) {
 		w.WriteHeader(http.StatusForbidden)
 		if g.Option.BuildVersion == "development" {
-			w.Write([]byte("Permission denied: User do not have permission to access " + moduleName))
+			w.Write([]byte("403 Forbidden: User do not have permission to access " + moduleName))
 		} else {
 			w.Write([]byte("403 Forbidden"))
 		}
@@ -252,7 +256,12 @@ func (g *Gateway) InterfaceHandler(w http.ResponseWriter, r *http.Request, thisu
 	}
 
 	//Get the content of the script
-	scriptContentByte, _ := os.ReadFile(scriptFile)
+	scriptContentByte, err := os.ReadFile(scriptFile)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Internal Server Error: Script load error =>" + err.Error()))
+		return
+	}
 	scriptContent := string(scriptContentByte)
 
 	g.ExecuteAGIScript(scriptContent, nil, scriptFile, scriptScope, w, r, thisuser)

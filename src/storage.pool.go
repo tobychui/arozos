@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/storage/bridge"
 	"imuslab.com/arozos/mod/utils"
@@ -322,24 +321,7 @@ func HandleFSHToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if targetFSH.Closed {
-		//Reopen the fsh database and set this to false
-		aofsPath := filepath.ToSlash(filepath.Clean(targetFSH.Path)) + "/aofs.db"
-		conn, err := database.NewDatabase(aofsPath, false)
-		if err == nil {
-			targetFSH.FilesystemDatabase = conn
-		}
-		targetFSH.Closed = false
-	} else {
-		//Close the fsh database and set this to true
-		if targetFSH.FilesystemDatabase != nil {
-			targetFSH.FilesystemDatabase.Close()
-		}
-		targetFSH.Closed = true
-	}
-
-	//Give it some time to finish unloading
-	time.Sleep(1 * time.Second)
+	targetFSH.Closed = !targetFSH.Closed
 
 	//Return ok
 	utils.SendOK(w)
@@ -549,81 +531,17 @@ func HandleStoragePoolRemove(w http.ResponseWriter, r *http.Request) {
 func buildOptionFromRequestForm(payload string) (fs.FileSystemOption, error) {
 	newFsOption := fs.FileSystemOption{}
 	err := json.Unmarshal([]byte(payload), &newFsOption)
+
+	//Do data cleaning
+	newFsOption.Name = strings.TrimSpace(newFsOption.Name)
+	newFsOption.Uuid = strings.TrimSpace(newFsOption.Uuid)
+	newFsOption.Path = strings.TrimSpace(newFsOption.Path)
+
 	if err != nil {
 		return fs.FileSystemOption{}, err
 	}
 	return newFsOption, nil
 }
-
-/*
-func HandleStorageNewFsHandler(w http.ResponseWriter, r *http.Request) {
-	newFsOption, _ := buildOptionFromRequestForm(r)
-
-	type errorObject struct {
-		Message string
-		Source  string
-	}
-
-	//Get group from form data
-	groupName := r.FormValue("group")
-
-	//Check if group exists
-	if !permissionHandler.GroupExists(groupName) && groupName != "system" {
-		js, _ := json.Marshal(errorObject{
-			Message: "Group not exists: " + groupName,
-			Source:  "",
-		})
-		http.Redirect(w, r, "../../../SystemAO/storage/error.html#"+string(js), 307)
-	}
-
-	//Validate the config
-	err := fs.ValidateOption(&newFsOption)
-	if err != nil {
-		//Serve an error page
-		js, _ := json.Marshal(errorObject{
-			Message: err.Error(),
-			Source:  groupName,
-		})
-		http.Redirect(w, r, "../../../SystemAO/storage/error.html#"+string(js), 307)
-		return
-	}
-
-	//Ok. Append to the record
-	configFile := "./system/storage.json"
-	if groupName != "system" {
-		configFile = "./system/storage/" + groupName + ".json"
-	}
-
-	//If file exists, merge it to
-	oldConfigs := []fs.FileSystemOption{}
-	if fs.FileExists(configFile) {
-		originalConfigFile, _ := os.ReadFile(configFile)
-		err := json.Unmarshal(originalConfigFile, &oldConfigs)
-		if err != nil {
-			systemWideLogger.PrintAndLog(err,nil)
-		}
-	}
-
-	oldConfigs = append(oldConfigs, newFsOption)
-
-	//Prepare the content to be written
-	js, _ := json.Marshal(oldConfigs)
-	resultingJson := pretty.Pretty(js)
-
-	err = os.WriteFile(configFile, resultingJson, 0775)
-	if err != nil {
-		//Write Error. This could sometime happens on Windows host for unknown reason
-		js, _ := json.Marshal(errorObject{
-			Message: err.Error(),
-			Source:  groupName,
-		})
-		http.Redirect(w, r, "../../../SystemAO/storage/error.html#"+string(js), 307)
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, post-check=0, pre-check=0")
-	http.Redirect(w, r, "../../../SystemAO/storage/poolEditor.html#"+groupName, 307)
-}
-*/
 
 func HandleListStoragePoolsConfig(w http.ResponseWriter, r *http.Request) {
 	target, _ := utils.GetPara(r, "target")

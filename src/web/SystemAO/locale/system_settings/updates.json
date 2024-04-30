@@ -1,0 +1,61 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings":{
+                "header/title/systemUpdate": "系統更新",
+                "header/title/subHeader": "更新本機的 ArozOS 至最新版本",
+                "warning/title": "警告！",
+                "warning/desc": "更新前請先備份所有重要檔案",
+                "checking/title": "正在連接到下載伺服器",
+                "checking/desc": "系統正在載入更新資源",
+                "confirm/title": "確認更新到最新版本？",
+                "confirm/update/willUse": "本更新將會使用 ",
+                "confirm/update/ofSpace": " 的儲存空間",
+                "confirm/update/confirm": "確認更新",
+                "confirm/update/cancel": "取消更新",
+                "confirm/update/reminder": "請確保您在開始前已備份所有重要的檔案及設定",
+                "download/title": "正在準備更新",
+                "download/wsFallback": "無法與伺服器建立 WebSocket 連接。正在使用 AJAX 下載模式（無進度顯示屬正常狀態） <br>請等待下載完成並不要關閉本視窗。</br>",
+                "succ/update":"更新下載完成",
+                "succ/restartDesc": "使用 ArozOS 啟動器進行重新啟動或手動移動下載之更新檔以完成更新過程。",
+                "pending/title":"已準備更新",
+                "pending/desc": "使用 ArozOS 啟動器進行重新啟動或手動移動下載之更新檔以完成更新過程。",
+                "failed/title": "更新下載失敗",
+                "failed/error": "已發生不知名錯誤",
+                "launcher/detected/title": "啟動器檢測：",
+                "launcher/desc":"您將會需要手動重新啟動 ArozOS 以完成更新",
+                "launcher/warning": "注意！由於更新失敗時主機將會需要手動重啟，請確保您在重啟的時候有遠端或物理重啟伺服器的方法。",
+                "launcher/restartnow": "立即重啟",
+                "launcher/restartlater": "稍後重啟",
+                "update/vendor/from": "更新自 ",
+                "update/vendor/recommend": "建議",
+                "update/vendor/desc": " 並使用系統內置之預設更新設定",
+                "update/useVendorUpdate": "更新",
+                "update/download/title":"HTTP 下載更新",
+                "update/download/binary": "arozos 執行檔下載連結",
+                "update/download/binaryInstr": "檔案名稱一般擁有這樣的格式：arozos_{OS 平台}_{CPU 架構}",
+                "update/download/webpack": "webpack 壓縮檔下載連結",
+                "update/download/webpackInst": "檔案名稱一般為 webpack.tar.gz",
+                "update/download/execu": "執行自定義更新",
+                "":""
+            },
+            "titles":{
+
+            },
+            "placeholder":{
+                "Binary Download URL": "執行檔下載連結",
+                "Webpack Download URL": "webpack 下載連結"
+            }
+        },
+        "zh-hk": {
+            
+        },
+        "zh-cn": {
+            
+        }
+    }
+}

@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <title>ArozOS Mobile</title>
@@ -331,9 +332,11 @@
                 padding-top: 1.2em;
                 display:none;
 
+                
                 box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
                 -webkit-box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
                 -moz-box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
+                
             }
 
             .clock{
@@ -346,8 +349,6 @@
                 color: white; 
                 text-align: center; 
                 pointer-events: none;
-                background: rgb(255,255,255);
-                background: linear-gradient(0deg, rgba(255,255,255,0) 2%, rgba(6,6,6,0.4479635060791801) 44%, rgba(29,29,29,1) 100%); 
             }
 
             #shortcuts{
@@ -358,10 +359,40 @@
                 padding: 1em;
             }
 
+            body.horizontal #shortcuts{
+                position: absolute;
+                top: 0px;
+                right: 0px;
+                width: 5em;
+                height: 100%;
+                padding: 1em;
+                border-left: 1px solid rgba(168, 168, 168, 0.2);
+                backdrop-filter: blur(3px);
+            }
+
+            body.horizontal #shortcuts .ui.four.column.grid{
+                display: -webkit-flex;
+                display: flex;
+
+                -webkit-flex-direction: column;
+                flex-direction: column;
+
+                -webkit-align-content: space-between;
+                align-content: space-between;
+
+                -webkit-flex-flow: row wrap;
+                flex-flow: row wrap;
+            }
+
             #shortcuts .clickable.image{
                 cursor: pointer;
                 border-radius: 10px;
                 padding: 0.1em;
+            }
+
+            body.horizontal #shortcuts .shortcutObject{
+                width: 5em;
+                margin-top: 1em;
             }
 
             .disabled{
@@ -472,23 +503,24 @@
             <div class="clock">
                 ArozOS Desktop
             </div>
+           
             <div id="windowWrapper">
                 
             </div>
             <div id="shortcuts">
                 <!-- System Shortcuts -->
-                <div class="ui divider"></div>
+                <div class="ui divider verticalDisplayOnly"></div>
                 <div class="ui four column grid">
-                    <div class="column">
+                    <div class="column shortcutObject">
                         <img id="shortcut1" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
                     </div>
-                    <div class="column">
+                    <div class="column shortcutObject">
                         <img id="shortcut2" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
                     </div>
-                    <div class="column">
+                    <div class="column shortcutObject">
                         <img id="shortcut3" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
                     </div>
-                    <div class="column">
+                    <div class="column shortcutObject">
                         <img id="shortcut4" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
                     </div>
                 </div>
@@ -1109,17 +1141,40 @@
                     width: window.innerWidth,
                     height: window.innerHeight
                 });
-                if (!listMenuShown){
-                    $("#listMenu").css("left", window.innerWidth * -1);
-                }
                 
+                //Check if the device is used horizontally or vertically
+                if (window.innerWidth > window.innerHeight){
+                    //Holding horizontally
+                    $("body").addClass("horizontal");
+                    $("#shortcuts").find(".shortcutObject").removeClass("column");
+                    $(".verticalDisplayOnly").hide();
+                }else{
+                    //Holding vertically
+                    $("body").removeClass("horizontal");
+                    $("#shortcuts").find(".shortcutObject").addClass("column");
+                    if (!listMenuShown){
+                        $("#listMenu").css("left", window.innerWidth * -1);
+                    }
+                    $(".horizontalDisplayOnly").hide();
+                }
             }
 
 
             updateWindowDimensions();
             $(window).on("resize", function(data){
                 updateWindowDimensions();
-            })
+
+                //Handle resize and reposition of the list menu
+                if (listMenuShown){
+                    $("#listMenu").css({
+                        left: 0
+                    });
+                }else{
+                    $("#listMenu").css({
+                        left: window.innerWidth * -1
+                    });
+                }
+            });
 
             //Float Window APIs
             function setFloatWindowTitle(id, title){
@@ -1373,6 +1428,7 @@
             //Theme color placeholder functions
             function setThemeColor(color){
                 $(".themeColor").css("background-color", color);
+
             }
 
             //Startup sound
@@ -1484,11 +1540,25 @@
             }
 
             function showShortcuts(){
-                $("#shortcuts").slideDown("fast");
+                if (window.innerWidth > window.innerHeight){
+                    //Horizontal
+                    $("#shortcuts").fadeIn("fast");
+                }else{
+                    //Vertical
+                    $("#shortcuts").slideDown("fast");
+                }
+                
             }
 
             function hideShortcuts(){
-                $("#shortcuts").slideUp("fast");
+                if (window.innerWidth > window.innerHeight){
+                    //Horizontal
+                    $("#shortcuts").fadeOut("fast");
+                }else{
+                    //Vertical
+                    $("#shortcuts").slideUp("fast");
+                }
+                
             }
 
             function launchThisModule(object){

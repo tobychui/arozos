@@ -61,7 +61,8 @@ func RunStartup() {
 	permissionNewHandler() //See permission.go
 
 	//4. Mount and create the storage system base
-	StorageInit() //See storage.go
+	RAIDServiceInit() //See disk.go, this must run before Storage Init
+	StorageInit()     //See storage.go
 
 	//5. Startup user and permission sytem
 	UserSystemInit()        //See user.go
