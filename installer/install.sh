@@ -122,7 +122,7 @@ if [[ -f "./launcher" ]]; then
 else
   # Create start.sh with arozos command
   echo "#!/bin/bash" > start.sh
-  echo "${sudo}arozos -port=$arozport -hostname=\"$arozosname\"" >> start.sh
+  echo "${sudo}./arozos -port=$arozport -hostname=\"$arozosname\"" >> start.sh
 fi
 
 # Make start.sh executable
@@ -146,8 +146,8 @@ if [[ $(uname) == "Linux" ]]; then
         cat <<EOF > /etc/systemd/system/arozos.service
 [Unit]
 Description=ArozOS Cloud Service
-After=systemd-networkd-wait-online.service
-Wants=systemd-networkd-wait-online.service
+After=systemd-networkd-wait-online.service network-online.target
+Wants=systemd-networkd-wait-online.service network-online.target
 
 [Service]
 Type=simple
