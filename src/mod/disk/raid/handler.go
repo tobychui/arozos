@@ -2,7 +2,6 @@ package raid
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -332,8 +331,7 @@ func (m *Manager) HandleListRaidDevices(w http.ResponseWriter, r *http.Request) 
 
 // Create a RAID storage pool
 func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request) {
-	//TODO: Change GetPara to Post
-	devName, err := utils.GetPara(r, "devName")
+	devName, err := utils.PostPara(r, "devName")
 	if err != nil || devName == "" {
 		//Use auto generated one
 		devName, err = GetNextAvailableMDDevice()
@@ -342,27 +340,33 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-	raidName, err := utils.GetPara(r, "raidName")
+	raidName, err := utils.PostPara(r, "raidName")
 	if err != nil {
 		utils.SendErrorResponse(w, "invalid raid storage name given")
 		return
 	}
-	raidLevelStr, err := utils.GetPara(r, "level")
+	raidLevelStr, err := utils.PostPara(r, "level")
 	if err != nil {
 		utils.SendErrorResponse(w, "invalid raid level given")
 		return
 	}
 
-	raidDevicesJSON, err := utils.GetPara(r, "raidDev")
+	raidDevicesJSON, err := utils.PostPara(r, "raidDev")
 	if err != nil {
 		utils.SendErrorResponse(w, "invalid raid device array given")
 		return
 	}
 
-	spareDevicesJSON, err := utils.GetPara(r, "spareDev")
+	spareDevicesJSON, err := utils.PostPara(r, "spareDev")
 	if err != nil {
 		utils.SendErrorResponse(w, "invalid spare device array given")
 		return
+	}
+
+	//Get if superblock require all zeroed (will also do formating after raid constructed)
+	zerosuperblock, err := utils.PostBool(r, "zerosuperblock")
+	if err != nil {
+		zerosuperblock = false
 	}
 
 	//Convert raidDevices and spareDevices ID into string slice
@@ -388,10 +392,58 @@ func (m *Manager) HandleCreateRAIDDevice(w http.ResponseWriter, r *http.Request)
 	}
 
 	//Convert raidLevel to int
+	raidLevelStr = strings.TrimPrefix(raidLevelStr, "raid")
 	raidLevel, err := strconv.Atoi(raidLevelStr)
 	if err != nil {
 		utils.SendErrorResponse(w, "invalid raid level given")
 		return
+	}
+
+	if zerosuperblock {
+		//Format each drives
+		drivesToZeroblocks := []string{}
+		for _, raidDev := range raidDevices {
+			if !strings.HasPrefix(raidDev, "/dev/") {
+				//Prepend /dev/ to it if not set
+				raidDev = filepath.Join("/dev/", raidDev)
+			}
+
+			if !utils.FileExists(raidDev) {
+				//This disk not found
+				utils.SendErrorResponse(w, raidDev+" not found")
+				return
+			}
+
+			thisDisk := raidDev
+			drivesToZeroblocks = append(drivesToZeroblocks, thisDisk)
+		}
+
+		for _, spareDev := range spareDevices {
+			if !strings.HasPrefix(spareDev, "/dev/") {
+				//Prepend /dev/ to it if not set
+				spareDev = filepath.Join("/dev/", spareDev)
+			}
+
+			if !utils.FileExists(spareDev) {
+				//This disk not found
+				utils.SendErrorResponse(w, spareDev+" not found")
+				return
+			}
+
+			thisDisk := spareDev
+			drivesToZeroblocks = append(drivesToZeroblocks, thisDisk)
+		}
+
+		for _, clearPendingDisk := range drivesToZeroblocks {
+			//Format all drives
+			m.Options.Logger.PrintAndLog("RAID", "Clearning superblock for disk "+clearPendingDisk, nil)
+			err = m.ClearSuperblock(clearPendingDisk)
+			if err != nil {
+				m.Options.Logger.PrintAndLog("RAID", "Unable to format "+clearPendingDisk+": "+err.Error(), err)
+				utils.SendErrorResponse(w, err.Error())
+				return
+			}
+		}
 	}
 
 	//Create the RAID device
@@ -451,15 +503,13 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 
 	mounted, err := diskfs.DeviceIsMounted(targetDevice)
 	if err != nil {
-		log.Println("[RAID] Unmount failed: " + err.Error())
+		m.Options.Logger.PrintAndLog("RAID", "Unmount failed: "+err.Error(), err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
-	fmt.Println(mounted)
-
 	if mounted {
-		log.Println("[RAID] " + targetDevice + " is mounted. Trying to unmount...")
+		m.Options.Logger.PrintAndLog("RAID", targetDevice+" is mounted. Trying to unmount...", nil)
 		err = diskfs.UnmountDevice(targetDevice)
 		if err != nil {
 			log.Println("[RAID] Unmount failed: " + err.Error())
@@ -473,7 +523,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 			mounted, _ := diskfs.DeviceIsMounted(targetDevice)
 			if mounted {
 				//Still not unmounted. Wait for it
-				log.Println("[RAID] Device still mounted. Retrying in 1 second")
+				m.Options.Logger.PrintAndLog("RAID", "Device still mounted. Retrying in 1 second", nil)
 				counter++
 				time.Sleep(1 * time.Second)
 			} else {
@@ -495,7 +545,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 	//Stop & Remove RAID service on the target device
 	err = m.StopRAIDDevice(targetDevice)
 	if err != nil {
-		log.Println("[RAID] Stop RAID partition failed: " + err.Error())
+		m.Options.Logger.PrintAndLog("RAID", "Stop RAID partition failed: "+err.Error(), err)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -510,7 +560,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 
 		err = m.ClearSuperblock(name)
 		if err != nil {
-			log.Println("[RAID] Unable to clear superblock on device " + name)
+			m.Options.Logger.PrintAndLog("RAID", "Unable to clear superblock on device "+name, err)
 			continue
 		}
 	}
@@ -523,5 +573,17 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 	}
 
 	//Done
+	utils.SendOK(w)
+}
+
+// Force reload all RAID config from file
+func (m *Manager) HandleForceAssembleReload(w http.ResponseWriter, r *http.Request) {
+	err := m.FlushReload()
+	if err != nil {
+		m.Options.Logger.PrintAndLog("RAID", "mdadm reload failed: "+err.Error(), err)
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
 	utils.SendOK(w)
 }

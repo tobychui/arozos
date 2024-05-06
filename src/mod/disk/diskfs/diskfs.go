@@ -2,6 +2,7 @@ package diskfs
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -143,6 +144,19 @@ func GetBlockDeviceMeta(devicePath string) (*BlockDeviceMeta, error) {
 	}
 
 	return nil, errors.New("target block device not found")
+}
+
+// Get the disk UUID by current device path (e.g. /dev/sda)
+func GetDiskUUID(devicePath string) (string, error) {
+	cmd := exec.Command("sudo", "blkid", "-s", "UUID", "-o", "value", devicePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+	uuid := strings.TrimSpace(out.String())
+	return uuid, nil
 }
 
 // Get partition information (e.g. /dev/sdX1)

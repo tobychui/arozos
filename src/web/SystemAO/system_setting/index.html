@@ -42,6 +42,13 @@
                 padding-top: 1em;
                 border-radius: 0 0 0 0 !important;
             }
+
+            #msgbox{
+                position: fixed;
+                bottom: 0.2em;
+                right: 2em;
+                display:none;
+            }
         </style>
     </head>
     <body>
@@ -70,6 +77,9 @@
           </div>
           <div id="settingContentLoader" class="ui bottom attached segment">
 
+          </div>
+          <div id="msgbox" class="ui compact small message">
+            Hello World
           </div>
           </div>
          
@@ -236,6 +246,11 @@
               function search(){
                 var keyword = $("#searchInput").val();
                 alert(keyword);
+              }
+
+              function msgbox(message, succ=true, delay=3000){
+                $("#msgbox").html(`<i class="ui ${succ?"green circle check":"red circle times"} icon"></i> ${message}`);
+                $("#msgbox").stop().finish().fadeIn("fast").delay(delay).fadeOut("fast");
               }
 
           </script>

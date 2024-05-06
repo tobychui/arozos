@@ -27,7 +27,9 @@ func RAIDServiceInit() {
 	*/
 
 	if *allow_hardware_management {
-		rm, err := raid.NewRaidManager(raid.Options{})
+		rm, err := raid.NewRaidManager(raid.Options{
+			Logger: systemWideLogger,
+		})
 		if err == nil {
 			raidManager = rm
 
@@ -163,21 +165,17 @@ func DiskServiceInit() {
 					}
 					raidManager.HandleRemoveRaideDevice(w, r)
 				})
+				adminRouter.HandleFunc("/system/disk/raid/assemble", func(w http.ResponseWriter, r *http.Request) {
+					if !AuthValidateSecureRequest(w, r) {
+						return
+					}
+					raidManager.HandleForceAssembleReload(w, r)
+				})
 				adminRouter.HandleFunc("/system/disk/raid/format", raidManager.HandleFormatRaidDevice)
 				adminRouter.HandleFunc("/system/disk/raid/detail", raidManager.HandleLoadArrayDetail)
 				adminRouter.HandleFunc("/system/disk/raid/devinfo", raidManager.HandlListChildrenDeviceInfo)
-				adminRouter.HandleFunc("/system/disk/raid/addMemeber", func(w http.ResponseWriter, r *http.Request) {
-					//if !AuthValidateSecureRequest(w, r) {
-					//	return
-					//}
-					raidManager.HandleAddDiskToRAIDVol(w, r)
-				})
-				adminRouter.HandleFunc("/system/disk/raid/removeMemeber", func(w http.ResponseWriter, r *http.Request) {
-					//if !AuthValidateSecureRequest(w, r) {
-					//	return
-					//}
-					raidManager.HandleRemoveDiskFromRAIDVol(w, r)
-				})
+				adminRouter.HandleFunc("/system/disk/raid/addMemeber", raidManager.HandleAddDiskToRAIDVol)
+				adminRouter.HandleFunc("/system/disk/raid/removeMemeber", raidManager.HandleRemoveDiskFromRAIDVol)
 
 				/* Device Management functions */
 				adminRouter.HandleFunc("/system/disk/devices/list", raidManager.HandleListUsableDevices)

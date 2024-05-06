@@ -62,6 +62,26 @@ func (m *Manager) FlushReload() error {
 	return nil
 }
 
+// removeDevicesEntry remove device hardcode from mdadm config file
+func removeDevicesEntry(configLine string) string {
+	// Split the config line by space character
+	tokens := strings.Fields(configLine)
+
+	// Iterate through the tokens to find and remove the devices=* part
+	for i, token := range tokens {
+		if strings.HasPrefix(token, "devices=") {
+			// Remove the devices=* part from the slice
+			tokens = append(tokens[:i], tokens[i+1:]...)
+			break
+		}
+	}
+
+	// Join the tokens back into a single string
+	updatedConfigLine := strings.Join(tokens, " ")
+
+	return updatedConfigLine
+}
+
 // Updates the mdadm configuration file with the details of RAID arrays
 // so the RAID drive will still be seen after a reboot (hopefully)
 // this will automatically add / remove config base on current runtime setup
@@ -105,8 +125,11 @@ func (m *Manager) UpdateMDADMConfig() error {
 		}
 
 		//This config not exists in the settings. Add it to append lines
-		log.Println("[RAID] Adding " + fields[0] + " (UUID=" + poolUUID + ") into mdadm config")
+		m.Options.Logger.PrintAndLog("RAID", "Adding "+fields[0]+" (UUID="+poolUUID+") into mdadm config", nil)
 		settingLine := "ARRAY " + strings.Join(fields, " ")
+
+		//Remove the device specific names
+		settingLine = removeDevicesEntry(settingLine)
 		newConfigLines = append(newConfigLines, settingLine)
 	}
 

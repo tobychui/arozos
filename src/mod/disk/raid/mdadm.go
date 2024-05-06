@@ -88,12 +88,28 @@ func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel in
 		return errors.New(devName + " already been used")
 	}
 
+	//Append /dev to the name of the raid device ids and spare device ids if missing
+	for i, raidDev := range raidDeviceIds {
+		if !strings.HasPrefix(raidDev, "/dev/") {
+			raidDeviceIds[i] = filepath.Join("/dev/", raidDev)
+		}
+	}
+	for i, spareDev := range spareDeviceIds {
+		if !strings.HasPrefix(spareDev, "/dev/") {
+			spareDeviceIds[i] = filepath.Join("/dev/", spareDev)
+		}
+	}
+
 	// Concatenate RAID and spare device arrays
 	allDeviceIds := append(raidDeviceIds, spareDeviceIds...)
 
 	// Build the mdadm command
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("yes | sudo mdadm --create %s --name %s --level=%d --raid-devices=%d --spare-devices=%d %s",
-		devName, raidName, raidLevel, raidDev, spareDevice, strings.Join(allDeviceIds, " ")))
+	mdadmCommand := fmt.Sprintf("yes | sudo mdadm --create %s --name %s --level=%d --raid-devices=%d --spare-devices=%d %s", devName, raidName, raidLevel, raidDev, spareDevice, strings.Join(allDeviceIds, " "))
+	if raidLevel == 0 {
+		//raid0 cannot use --spare-device command as there is no failover
+		mdadmCommand = fmt.Sprintf("yes | sudo mdadm --create %s --name %s --level=%d --raid-devices=%d %s", devName, raidName, raidLevel, raidDev, strings.Join(allDeviceIds, " "))
+	}
+	cmd := exec.Command("bash", "-c", mdadmCommand)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

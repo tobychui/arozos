@@ -12,7 +12,7 @@
             .installedDisk .checkboxWrapper{
                 position: absolute;
                 right: 1em;
-                top: 1.8em;
+                top: 0.8em;
             }
 
             .installedDisk:not(.disabled){
@@ -21,6 +21,10 @@
             .installedDisk:not(.disabled):hover{
                 background-color: rgb(243, 243, 243);
             }
+            .installedDisk.active:not(.disabled):hover{
+                background-color: rgb(207, 239, 255);
+            }
+
 
             .backicon {
                 position: fixed;
@@ -33,11 +37,11 @@
                 background-repeat: no-repeat; 
                 margin-left: -3%;
                 margin-bottom: -5%;
-                opacity: 0.2; 
+                opacity: 0.1; 
             }
 
             .installedDisk.active{
-                background-color: rgb(232, 246, 253);
+                background-color: rgb(214, 241, 255);
             }
 
             .advanceinfo{
@@ -45,6 +49,51 @@
                 border-radius: 0.4em !important;
                 padding: 0.6em;
             }
+
+            /* RAID Type space visualizer */
+            .raidTypeSpaceVisualizer{
+                padding: 0.4em;
+                width: 100%;
+                display: flex;
+            }
+            
+            .raidTypeSpaceVisualizer .title{
+                flex: 0 0 auto;
+                padding-left: 1em;
+                padding-right: 1em;
+                margin-top: 0.6em;
+            }
+
+            .raidTypeSpaceVisualizer .bars {
+                flex: 1; /* Occupy the remaining space */
+                display: flex; /* Nested flex container */
+                min-height: 2.6em;
+                border-radius: 0.4em;
+                overflow: hidden;
+                background-color: #c1c1c1;
+            }
+
+            .raidTypeSpaceVisualizer .bar{
+                text-align: center;
+                float: left;
+                color: white;
+                padding-top: 0.6em;
+
+            }
+
+            .raidTypeSpaceVisualizer .bar.protected{
+                background-color: #0067e6;
+                width: 50%;
+            }
+            .raidTypeSpaceVisualizer .bar.usable{
+                background-color: #26d4ac;
+                width: 50%;
+            }
+            .raidTypeSpaceVisualizer .bar.wasted{
+                background-color: #b5b5b5;
+                width: 0%;
+            }
+           
         </style>
     </head>
     <body>
@@ -55,25 +104,9 @@
                 <h4 class="ui dividing header">1. RAID Volume Settings</h4>
                 <div class="field">
                 <label>Volume Name</label>
-                <div class="two fields">
-                    <div class="field">
-                        <input type="text" id="volumeName" placeholder="Volume Name">
-                    </div>
-                    <div class="field">
-                        <div class="ui selection fluid dropdown">
-                            <input type="hidden" id="raidtype" value="raid1">
-                            <i class="dropdown icon"></i>
-                            <div class="default text"></div>
-                            <div class="menu">
-                            <div class="item" data-value="raid1">RAID 1 (Mirror, Recommend)</div>
-                            <div class="item" data-value="raid5">RAID 5 (Lose 1 Disk Max.)</div>
-                            <div class="item" data-value="raid6">RAID 6 (Lose 2 Disk Max.)</div>
-                            <div class="item" data-value="raid6">RAID 10</div>
-                            <div class="item" data-value="raid0">RAID 0 (Striped, Not Recommend)</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="field">
+                    <input type="text" id="volumeName" placeholder="Volume Name" required>
+                    <small>Only alphabet, digits, _ (underscore) and - (hyphen) are allowed</small>
                 <h4 class="ui dividing header">2. RAID Disks Settings</h4>
                 <div class="ui container">
                     <div style="float:right;">
@@ -91,12 +124,51 @@
         
                     </div>
                 </div>
-                <div class="ui basic button" onclick="createRAID(event);">
+                <h4 class="ui dividing header">3. Confirm RAID Level</h4>
+                <div class="ui container">
+                    <div class="field">
+                        <div class="ui selection fluid dropdown">
+                            <input type="hidden" id="raidtype" value="raid1" onchange="updateUsableSpaceEstimation();">
+                            <i class="dropdown icon"></i>
+                            <div class="default text"></div>
+                            <div class="menu">
+                            <div class="item" data-value="raid1">RAID 1 (Mirror, Recommend)</div>
+                            <div class="item" data-value="raid5">RAID 5 (Lose 1 Disk Max.)</div>
+                            <!-- <div class="item" data-value="raid6">RAID 6 (Lose 2 Disk Max.)</div> -->
+                            <!-- <div class="item" data-value="raid6">RAID 10</div> -->
+                            <div class="item" data-value="raid0">RAID 0 (Striped, Not Recommend)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="capacityVisualizer" class="ui grey message" style="display: none;">
+                        <div class="raidTypeSpaceVisualizer">
+                            <div class="title" id="totalDiskSumSize"></div>
+                            <div class="bars">
+                                <div class="bar usable" id="estimatedUsableSpace"></div>
+                                <div class="bar protected" id="estimatedProtectionSpace"></div>
+                                <div class="bar wasted" id="estimatedWastedSpace"></div>
+                            </div>
+                        
+                        </div>
+                        <div style="float: right;">
+                            <div class="ui horizontal label" style="background-color: #26d4ac; color: white;">Available Space</div>
+                            <div class="ui horizontal label" style="background-color: #0067e6; color: white;">Redundancy</div>
+                            <div class="ui horizontal label" style="background-color: #b5b5b5; color: white;">Unused</div>
+                        </div>
+                        <br>
+                    </div>
+                    <p>Match data redundancy requirement disk count: <span id="matchRedundancy">n/a</span></p>
+                </div>
+                <div id="notEnoughDiskErrorMessage" class="ui red message" style="display:none;">
+                    <i class="ui red circle times icon"></i> Not enough disk selected for <span id="errorRaidType"></span>
+                </div>
+                <br>
+                <div class="ui basic right floated button" onclick="createRAID(event);">
                     <i class="ui icons">
                         <i class="grey server icon"></i>
                         <i class="small green add icon" style="margin-top: 8px; margin-left: 8px;"></i>
                     </i>
-                       Create RAID
+                    Create RAID
                 </div>
             </form>
         </div>
@@ -115,7 +187,7 @@
               <div class="description">
                 <h3 id="oprconfirm"></h3>
                 <p><b>Selecting these disk will erase all data current on the disk.</b> Confirm?</p>
-                
+                <p id="erasePendingDisk"></p>
                 <div class="advanceinfo">
                     <small >
                         <b>Notes on "Continue Without Format"</b><br>
@@ -130,8 +202,8 @@
                 <i class="check icon"></i>
                 Confirm
               </div>
-              <div class="ui orange button" onclick="confirmAddDiskWithoutFormat();">
-                Continue without Format
+              <div class="ui yellow button" onclick="confirmAddDiskWithoutFormat();">
+                <i class="ui exclamation triangle icon"></i> Continue without Format
               </div>
               <div class="ui basic deny button">
                 Cancel
@@ -141,6 +213,8 @@
 
         <br><br>
         <script>
+            let diskInfo = {};
+            let erasePendingDisks = []; //List of disk prepare to be formatted and create an RAID array
             $(".dropdown").dropdown();
 
             function bytesToSize(bytes) {
@@ -190,6 +264,7 @@
                     }else{
                         $("#disableddiskSelectionList").html(``);
                         let usableDiskCount = 0;
+                        diskInfo = data;
                         data.forEach(function(driveInfo){
                             //Generate the children table
                             let childrenTable = "";
@@ -218,7 +293,7 @@
                             }
                             
                             var domUID = uuidv4();
-                            let diskDOM = (`<div onclick="handleSelect(this);" class="ui segment installedDisk ${domUID} ${notUsable?"disabled":""}">
+                            let diskDOM = (`<div onclick="handleSelect(this);" dname="${driveInfo.name}" dsize="${driveInfo.size}" class="ui segment installedDisk ${domUID} ${notUsable?"disabled":""}">
                                 <h4 class="ui header">
                                     <img src="./img/drive.svg">
                                     <div class="content">
@@ -237,12 +312,6 @@
                                         </tr></thead>
                                         <tbody>${childrenTable}</tbody>
                                     </table>
-                                </div>
-                                <div class="checkboxWrapper">
-                                    <div class="ui radio checkbox">
-                                        <input type="radio" name="disk" value="/dev/${driveInfo.name}">
-                                        <label></label>
-                                    </div>
                                 </div>
                             </div>`);
                             
@@ -283,17 +352,258 @@
             }
             initDiskList();
 
+            //When a disk is selected
+            function handleSelect(diskObj){
+                if ($(diskObj).hasClass("disabled")){
+                    return;
+                }
+                if ($(diskObj).hasClass("active")){
+                    $(diskObj).removeClass('active');
+                }else{
+                    $(diskObj).addClass('active');
+                }
+                updateUsableSpaceEstimation();
+            }
+
+            /* Space Estimation Function */
+            function estimateUsableSpace(diskSizes, raidType) {
+                // Calculate total disk space
+                const totalSpace = diskSizes.reduce((acc, size) => acc + size, 0);
+                
+                // Define usable space estimation based on RAID types
+                const usableSpaceEstimation = {
+                    "raid0": totalSpace,
+                    "raid1": Math.min(...diskSizes),
+                    "raid5": totalSpace - Math.min(...diskSizes),
+                    "raid6": totalSpace - 2 * Math.min(...diskSizes),
+                    "raid10": totalSpace / 2
+                };
+
+                // Check if RAID type is valid
+                if (usableSpaceEstimation.hasOwnProperty(raidType)) {
+                    return usableSpaceEstimation[raidType];
+                } else {
+                    return "Invalid RAID type";
+                }
+            }
+
+            function estimateProtectionDataSpace(diskSizes, raidType) {
+                // Define the disk redundancy factor for each RAID type
+                const redundancyFactors = {
+                    "raid0": 0,
+                    "raid1": 1,
+                    "raid5": 1,
+                    "raid6": 2,
+                    "raid10": 1
+                };
+
+                // Check if RAID type is valid
+                if (!redundancyFactors.hasOwnProperty(raidType)) {
+                    return "Invalid RAID type";
+                }
+
+                const redundancyFactor = redundancyFactors[raidType];
+                const totalDiskSpace = diskSizes.reduce((acc, size) => acc + size, 0);
+
+                // Calculate the redundancy/protection reserved space
+                const protectionSpace = redundancyFactor * Math.min(...diskSizes);
+
+                return protectionSpace;
+            }
+
+            function updateUsableSpaceEstimation(){
+                //Get the list of disk selected and their size
+                let diskSizes = [];
+                $(".installedDisk.active").each(function(){
+                    let diskSize = $(this).attr("dsize");
+                    diskSize = parseInt(diskSize);
+                    diskSizes.push(diskSize);
+                });
+
+                if (diskSizes.length == 0){
+                    //No disk selected
+                    $("#estimatedUsableSpace").text("No selected disk");
+                    return;
+                }
+
+                let totalDiskSize = 0;
+                for(var i = 0; i < diskSizes.length; i++){
+                    totalDiskSize += diskSizes[i];
+                }
+
+                //Generate estimated array size
+                let selectedRAIDType = $("#raidtype").val();
+                let usableSpace = estimateUsableSpace(diskSizes, selectedRAIDType);
+                let redundancySpace = estimateProtectionDataSpace(diskSizes, selectedRAIDType);
+                if (usableSpace <= 0){
+                    $("#estimatedUsableSpace").text("Not enough disks");
+                    
+                }else{
+                    //Update the vol text
+                    $("#totalDiskSumSize").text(bytesToSize(totalDiskSize));
+                    $("#estimatedUsableSpace").text(bytesToSize(usableSpace));
+                    $("#estimatedProtectionSpace").text(bytesToSize(redundancySpace));
+
+                    //Update the bar size
+                    $("#estimatedUsableSpace").css("width", ((usableSpace/totalDiskSize) * 100) + "%");
+                    $("#estimatedProtectionSpace").css("width", ((redundancySpace/totalDiskSize) * 100) + "%");
+
+                    let estimatedWastedSpace = (totalDiskSize - usableSpace - redundancySpace);
+                    if (estimatedWastedSpace == 0){
+                        $("#estimatedWastedSpace").hide();
+                    }else{
+                        $("#estimatedWastedSpace").show();
+                        $("#estimatedWastedSpace").text(bytesToSize(estimatedWastedSpace));
+                        $("#estimatedWastedSpace").css("width", ((estimatedWastedSpace/totalDiskSize) * 100) + "%");
+                    }
+
+
+                    if (usableSpace == totalDiskSize){
+                        //RAID0
+                        $("#estimatedProtectionSpace").hide();
+                    }else{
+                        $("#estimatedProtectionSpace").show();
+                    }
+                }
+
+                //Check if disk is enough
+                let enoughDisk = checkDiskNumber(diskSizes.length, selectedRAIDType);
+                $("#matchRedundancy").html(enoughDisk?`<i class="ui green circle check icon"></i>`:`<i class="ui red circle times icon"></i>`);
+                if (enoughDisk){
+                    $("#capacityVisualizer").show();
+                }else{
+                    $("#capacityVisualizer").hide();
+                }
+            }
+
+
+            //Check the number of disk is correct for given raidType
+            function checkDiskNumber(selectedDisks, raidType) {
+                // Define minimum required disk numbers for each RAID type
+                const minDiskNumbers = {
+                    "raid0": 2,
+                    "raid1": 2,
+                    "raid5": 3,
+                    "raid6": 4,
+                    "raid10": 4
+                };
+
+                // Check if RAID type is valid
+                if (minDiskNumbers.hasOwnProperty(raidType)) {
+                    const minDiskNumber = minDiskNumbers[raidType];
+                    return selectedDisks >= minDiskNumber;
+                } else {
+                    return false;
+                }
+            }
+
 
             /* Create RAID functions */
             function createRAID(event){
                 event.preventDefault();
+                let volumeName = $("#volumeName").val().trim();
+                if (volumeName == ""){
+                    $('html, body').animate({ scrollTop: 0 }, 'slow');
+                    $("#volumeName").parent().addClass("error");
+                    return
+                }
+
+                //Test if the volume name is valid
+                var pattern = /^[A-Za-z0-9\-_]+$/;
+                if(!pattern.test(volumeName)){
+                    $('html, body').animate({ scrollTop: 0 }, 'slow');
+                    $("#volumeName").parent().addClass("error");
+                    return
+                }
+
+                //Check if the raid selection is valid
+                let selectedDiskCount = $(".installedDisk.active").length;
+                let raidLevel = $("#raidtype")[0].value;
+                if (!(checkDiskNumber(selectedDiskCount, raidLevel))){
+                    $("#errorRaidType").text(raidLevel);
+                    $("#notEnoughDiskErrorMessage").slideDown();
+                    return
+                }else{
+                    $("#notEnoughDiskErrorMessage").slideUp();
+                }
+
+                //Generate a list of disk to erase
+                erasePendingDisks = [];
+                $(".installedDisk.active").each(function(){
+                    let diskName = $(this).find(".diskname").text();
+                    let diskID = $(this).attr("dname");
+                    let diskSize = $(this).attr("dsize");
+                    erasePendingDisks.push([diskID, diskName, parseInt(diskSize)]);
+                });
+
+                let earseDiskList = [];
+                erasePendingDisks.forEach(diskToBeErased => {
+                    earseDiskList.push(`/dev/${diskToBeErased[0]} (${diskToBeErased[1]} - ${bytesToSize(diskToBeErased[2])})`);
+                });
+                $("#erasePendingDisk").html(earseDiskList.join("<br>"));
+               
+
+                $("#volumeName").parent().removeClass("error");
                 $("#confirmDiskChoice").modal("show");
             }
 
+            //Confirm create an arary. 
             function confirmAddDisk(){
+                createRAIDArray(true);
+            }
+
+            function confirmAddDiskWithoutFormat(){
+                createRAIDArray(false);
+            }
+
+            function createRAIDArray(preformat=true){
                 let volumeName = $("#volumeName").val().trim();
                 let raidLevel = $("#raidtype")[0].value;
-                
+
+                //Generate the correct struct required by API endpoint to create raid
+                let raidDev = [];
+                erasePendingDisks.forEach(function(diskInfo){
+                    raidDev.push(diskInfo[0]); //device path, e.g. /dev/sdb
+                });
+
+                //Reserved for future if needed
+                let spareDev = [];
+
+                $.ajax({
+                    url: "../../../system/disk/raid/new",
+                    method: "POST",
+                    data: {
+                        "raidName": volumeName,
+                        "level": raidLevel,
+                        "raidDev": JSON.stringify(raidDev),
+                        "spareDev": JSON.stringify(spareDev),
+                        "zerosuperblock": preformat
+                    },
+                    success: function(data){
+                        if (data.error != undefined){
+                            alert(data.error);
+                        }else{
+                            //Done
+                            exitToParentWindow(data);
+                        }
+
+                    },
+                    error: function(){
+                        alert("Error occured when requesting create RAID endpoint");
+                    }
+                })
+            }
+
+            function exitToParentWindow(callbackdata){
+                //Disk added. Handle callback to parent 
+                if (ao_module_hasParentCallback()){
+                    ao_module_parentCallback(callbackdata);
+                }
+
+                //Operation completed. 
+                setTimeout(function(){
+                    ao_module_close();
+                }, 300);
             }
         </script>
     </body>

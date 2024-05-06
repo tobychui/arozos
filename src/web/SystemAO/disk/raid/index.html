@@ -166,8 +166,8 @@
                         <button title="Add new RAID volume" onclick="addNewRaidVolume()" class="circular basic green large ui icon button">
                             <i class="green add icon"></i>
                         </button>
-                        <button title="Assemble RAID Pools" onclick="assembleRaidVolumes()" class="circular basic orange large ui icon button">
-                            <i class="orange refresh icon"></i>
+                        <button title="Assemble RAID Pools" onclick="assembleRaidVolumes()" class="circular basic orange large ui button">
+                            <i class="orange refresh icon"></i> Assemble
                         </button>
                     </div>
                 </div>
@@ -243,17 +243,14 @@
                         <div id="raidDiskList">
                             
                         </div>
-                        <div class="ui yellow message" style="display:none;" id="raidDataLossWarning">
-                            <i class="yellow exclamation triangle icon"></i> Not enough redundant disks. Further removal / failure of disk will result in data loss.<br>
+                        <div class="ui message" style="display:none;" id="raidDataLossWarning">
+                            <i class="yellow exclamation triangle icon"></i> Minimum disk number reached. "Remove Disk" function is disabled to prevent data loss.<br>
                         </div>
                         <div class="ui divider"></div>
                         <div style="width: 100%; text-align:  center; margin-bottom: 1em;">
                             <p><i class="yellow exclamation triangle icon"></i> Danger Zone <i class="yellow exclamation triangle icon"></i></p>
                         </div>
                         <div style="width: 100%;" align="center">
-                            <button onclick="" class="circular basic red ui button">
-                                <i class="red stop icon"></i> Stop RAID
-                            </button>
                             <button onclick="RAIDRemove();" class="circular red ui button">
                                 <i class="trash icon"></i> Remove RAID
                             </button>
@@ -333,10 +330,67 @@
         <script>
 
             var raidManager = {
+                raidDetails: {}, //The raid array details from last server req
                 editingArray: "",
                 removePendingDisk: "",
                 removePendingSourceVol: ""
             };
+
+            /* Information Update Ticker */
+            function RAIDInfoUpdateTicker(){
+                function compareRAIDstate(oldState, newState) {
+                    const fieldsToCompare = [
+                        "Consistency",
+                        "FailedDevices",
+                        "RebuildStatus",
+                        "SpareDevices",
+                        "State",
+                        "TotalDevices",
+                        "WorkingDevices"
+                    ];
+
+                    for (const field of fieldsToCompare) {
+                        if (oldState[field] !== newState[field]) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+
+
+
+                if ($("#raidDiskOverview").length > 0){
+                    //Still on the RAID manager page
+                   if (raidManager.editingArray == undefined || raidManager.editingArray == ""){
+                        //Nothing selected or loaded. Skip this round
+                        setTimeout(RAIDInfoUpdateTicker, 10000);
+                        return;
+                    }
+                    $.get("../../system/disk/raid/detail?devName=" + raidManager.editingArray, function(data){
+                        if (data.error != undefined){
+                            //Something went wrong loading this array (removed by another admin?)
+                        }else{
+                            //Validate if both details are identical
+                            if (compareRAIDstate(data,raidManager.raidDetails)){
+                                //No information updated
+
+                            }else{
+                                //Something updated. Reload the RAID volume info
+                                loadRAIDVolDetail(raidManager.editingArray);
+                            }
+                        }
+
+                        //Update again in 3s
+                        setTimeout(RAIDInfoUpdateTicker, 5000);
+                    });
+                    
+                }
+                
+            }
+
+            //Set the ticker
+            setTimeout(RAIDInfoUpdateTicker, 1000);
 
             /* RAID Create Functions */
             function addNewRaidVolume(){
@@ -353,7 +407,16 @@
             }
 
             window.handleRAIDCreateCallback = function(data){
-
+                //Done adding raid vol
+                setTimeout(function(){
+                    reloadRAIDVolDetail();
+                    if (data.error != undefined){
+                        msgbox(data.error, false, 5000);
+                    }else{
+                        msgbox("New RAID volume created");
+                    }
+                    
+                }, 300);
             }
 
             /* RAID Remove Function */
@@ -395,7 +458,7 @@
             window.handleRAIDRemoveCallback = function(data){
                 if (data.error != undefined){
                     //Something went wrong
-                    alert(data.error);
+                    msgbox(data.error, false, 5000);
                 }else{
                     setTimeout(function(){
                         //RAID volume not exist anymore. Reset everything
@@ -426,6 +489,7 @@
             window.handleAddDiskCallback = function(data){
                 //Done adding disk
                 setTimeout(function(){
+                    msgbox("New disk added");
                     reloadRAIDVolDetail();
                 }, 300);
             }
@@ -442,34 +506,6 @@
             
 
             function confirmRemoveDisk(){
-                /*
-                let raidName = raidManager.removePendingSourceVol.split("/").pop();
-                var apiObject = {
-                    api: "../system/disk/raid/removeMemeber",
-                    data: {
-                        raidDev:  raidManager.removePendingSourceVol,
-                        memDev: raidManager.removePendingDisk
-                    },
-                    title: `<i class='yellow exclamation triangle icon'></i> Remove Disk From Volume <i class='yellow exclamation triangle icon'></i>`,
-                    desc: `Confirm remove ${raidManager.removePendingDisk} from ${raidManager.removePendingSourceVol}`,
-                    thisuser: true, //This username as default, set to false for entering other user
-                    method: "POST",
-                    success: undefined
-                }
-                apiObject = encodeURIComponent(JSON.stringify(apiObject));
-                
-               
-                parent.newFloatWindow({
-                    url: "SystemAO/security/authreq.html#" + apiObject,
-                    width: 480,
-                    height: 300,
-                    appicon: "SystemAO/security/img/lock.svg",
-                    title: `Confirm Disk Remove`,
-                    parent: ao_module_windowID,
-                    callback: "handleRemoveDiskCallback"
-                });
-                */
-
                 $.ajax({
                     url: "../../system/disk/raid/removeMemeber",
                     data: {
@@ -489,6 +525,7 @@
                 raidManager.removePendingDisk = "";
                 raidManager.removePendingSourceVol = "";
                 setTimeout(function(){
+                    msgbox("Target disk removed");
                     reloadRAIDVolDetail();
                 }, 300);
             }
@@ -586,6 +623,7 @@
                             </h3>`);
                             return;
                         }
+                        raidManager.raidDetails = data
 
                         //Update the active disks info
                         $("#RAIDOverviewDiskpath").html(data.DevicePath + ` <span class="mdevice">(${data.RaidLevel.toUpperCase()})</span>`);
@@ -596,6 +634,14 @@
                         $("#RAIDFailedDevices").text(data.FailedDevices);
                         $("#RAIDSpareDevices").text(data.SpareDevices);
                         $("#RAIDOverviewStateIcon").attr("class", getStateIconFromStateText(data.State));
+                        
+                        //Update the RAIDVol Button on the left menu as well
+                        $(".raidVol").each(function(){
+                            if ($(this).attr("devpath") == data.DevicePath){
+                                //this is the one we are updating
+                                $(this).find(".healthIcon i").attr("class", getStateIconFromStateText(data.State))
+                            }
+                        });
 
                         //Render the disk list
                         $("#raidDiskList").html("");
@@ -692,6 +738,8 @@
                         if (!allowRemoveDisk){
                             $(".removeDiskBtn.normal").addClass("disabled");
                             $("#raidDataLossWarning").show();
+                        }else{
+                            $("#raidDataLossWarning").hide();
                         }
 
                     });
@@ -770,6 +818,45 @@
             }
             initRAIDVolList();
             
+            /* Force unload all RAID volume and remount them from config files */
+            function assembleRaidVolumes(){
+                var apiObject = {
+                    api: "../system/disk/raid/assemble",
+                    data: {},
+                    title: `<i class='yellow exclamation triangle icon'></i> Force Assemble`,
+                    desc: `Confirm force stop & reload RAID from mdadm.conf?`,
+                    thisuser: true, //This username as default, set to false for entering other user
+                    method: "POST",
+                    success: undefined
+                }
+                apiObject = encodeURIComponent(JSON.stringify(apiObject));
+                
+               
+                parent.newFloatWindow({
+                    url: "SystemAO/security/authreq.html#" + apiObject,
+                    width: 480,
+                    height: 300,
+                    appicon: "SystemAO/security/img/lock.svg",
+                    title: `Confirm Force Assemble`,
+                    parent: ao_module_windowID,
+                    callback: "handleForceAssembleCallback"
+                });
+            }
+
+            window.handleForceAssembleCallback = function(data){
+                if (data.error != undefined){
+                    //Something went wrong
+                    msgbox(data.error, false, 5000);
+                }else{
+                    setTimeout(function(){
+                        //Reload all RAID volumes
+                        raidManager = {};
+                        initRAIDVolList();
+                        msgbox("Force RAID Assemble Completed");
+                    }, 300);
+                }
+                
+            }
         </script>
     </body>
 </html>

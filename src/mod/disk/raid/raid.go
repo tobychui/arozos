@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"imuslab.com/arozos/mod/apt"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -18,6 +19,7 @@ import (
 */
 
 type Options struct {
+	Logger *logger.Logger
 }
 
 type Manager struct {
