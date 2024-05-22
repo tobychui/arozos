@@ -160,13 +160,13 @@ func DiskServiceInit() {
 				adminRouter.HandleFunc("/system/disk/raid/list", raidManager.HandleListRaidDevices)
 				adminRouter.HandleFunc("/system/disk/raid/new", raidManager.HandleCreateRAIDDevice)
 				adminRouter.HandleFunc("/system/disk/raid/remove", func(w http.ResponseWriter, r *http.Request) {
-					if !AuthValidateSecureRequest(w, r) {
+					if !AuthValidateSecureRequest(w, r, true) {
 						return
 					}
 					raidManager.HandleRemoveRaideDevice(w, r)
 				})
 				adminRouter.HandleFunc("/system/disk/raid/assemble", func(w http.ResponseWriter, r *http.Request) {
-					if !AuthValidateSecureRequest(w, r) {
+					if !AuthValidateSecureRequest(w, r, true) {
 						return
 					}
 					raidManager.HandleForceAssembleReload(w, r)

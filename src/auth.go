@@ -151,7 +151,7 @@ func AuthSettingsInit() {
 // Validate secure request that use authreq.html
 // Require POST: password and admin permission
 // return true if authentication passed
-func AuthValidateSecureRequest(w http.ResponseWriter, r *http.Request) bool {
+func AuthValidateSecureRequest(w http.ResponseWriter, r *http.Request, requireAdmin bool) bool {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -159,10 +159,12 @@ func AuthValidateSecureRequest(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	if !userinfo.IsAdmin() {
-		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("403 Forbidden"))
-		return false
+	if requireAdmin {
+		if !userinfo.IsAdmin() {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("403 Forbidden"))
+			return false
+		}
 	}
 
 	//Double check password for this user

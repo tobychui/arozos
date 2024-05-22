@@ -463,6 +463,11 @@ func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	return nil
 }
 
+// Check if this file system require user isolation (aka Hierarchy == user)
+func (fsh *FileSystemHandler) RequierUserIsolation() bool {
+	return fsh.Hierarchy == "user"
+}
+
 // Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
 	//Set the close flag to true so others function wont access it

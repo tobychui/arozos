@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,8 @@ import (
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/fileservers/servers/dirserv"
 	"imuslab.com/arozos/mod/fileservers/servers/ftpserv"
+	"imuslab.com/arozos/mod/fileservers/servers/nfsserv"
+	"imuslab.com/arozos/mod/fileservers/servers/samba"
 	"imuslab.com/arozos/mod/fileservers/servers/sftpserv"
 	"imuslab.com/arozos/mod/fileservers/servers/webdavserv"
 	network "imuslab.com/arozos/mod/network"
@@ -30,10 +33,12 @@ var (
 	WebSocketRouter *websocket.Router
 
 	//File Server Managers
-	FTPManager     *ftpserv.Manager
-	WebDAVManager  *webdavserv.Manager
-	SFTPManager    *sftpserv.Manager
-	DirListManager *dirserv.Manager
+	FTPManager        *ftpserv.Manager
+	WebDAVManager     *webdavserv.Manager
+	SFTPManager       *sftpserv.Manager
+	NFSManager        *nfsserv.Manager
+	SambaShareManager *samba.ShareManager
+	DirListManager    *dirserv.Manager
 )
 
 func NetworkServiceInit() {
@@ -275,7 +280,8 @@ func FileServerInit() {
 		},
 	})
 
-	//Create File Server Managers
+	/* Create File Server Managers */
+	//WebDAV
 	webdavPort := *listen_port
 	if *use_tls {
 		webdavPort = *tls_listen_port
@@ -289,6 +295,7 @@ func FileServerInit() {
 		UserHandler: userHandler,
 	})
 
+	//FTP
 	FTPManager = ftpserv.NewFTPManager(&ftpserv.ManagerOption{
 		Hostname:    *host_name,
 		TmpFolder:   *tmp_directory,
@@ -300,6 +307,7 @@ func FileServerInit() {
 		AllowUpnp:   *allow_upnp,
 	})
 
+	//SFTP
 	SFTPManager = sftpserv.NewSFTPServer(&sftpserv.ManagerOption{
 		Hostname:    *host_name,
 		Upnp:        UPNP,
@@ -319,6 +327,28 @@ func FileServerInit() {
 		UserManager: userHandler,
 		ServerUUID:  deviceUUID,
 	})
+
+	//NFS
+	/*
+		NFSManager = nfsserv.NewNfsServer(nfsserv.Option{
+			UserManager:      userHandler,
+			ListeningPort:    2049,
+			AllowAccessGroup: []*permission.PermissionGroup{},
+			Logger:           nil,
+		})
+		err := NFSManager.Start()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	*/
+
+	//Samba
+	var err error
+	SambaShareManager, err = samba.NewSambaShareManager(userHandler)
+	if err != nil {
+		//Disable samba if not installed or platform not supported
+		log.Println("[INFO] Samba Share Manager Disabled: " + err.Error())
+	}
 
 	//Register Endpoints
 	//WebDAV
@@ -340,6 +370,31 @@ func FileServerInit() {
 	adminRouter.HandleFunc("/system/storage/ftp/updateGroups", FTPManager.HandleFTPAccessUpdate)
 	adminRouter.HandleFunc("/system/storage/ftp/setPort", FTPManager.HandleFTPSetPort)
 	adminRouter.HandleFunc("/system/storage/ftp/passivemode", FTPManager.HandleFTPPassiveModeSettings)
+
+	//Samba Shares
+	//Activate and Deactivate are functions all users can use if admin enabled smbd service
+	router.HandleFunc("/system/storage/samba/activate", func(w http.ResponseWriter, r *http.Request) {
+		if !AuthValidateSecureRequest(w, r, false) {
+			return
+		}
+
+		if !SambaShareManager.IsEnabled() {
+			utils.SendErrorResponse(w, "smbd is not enabled on this server")
+			return
+		}
+		password, _ := utils.PostPara(r, "password")
+		SambaShareManager.ActivateUserAccount(w, r, password)
+	})
+	adminRouter.HandleFunc("/system/storage/samba/deactivate", SambaShareManager.DeactiveUserAccount)
+	adminRouter.HandleFunc("/system/storage/samba/myshare", SambaShareManager.HandleUserSmbStatusList)
+
+	adminRouter.HandleFunc("/system/storage/samba/status", SambaShareManager.SmbdStates)
+	adminRouter.HandleFunc("/system/storage/samba/list", SambaShareManager.ListSambaShares)
+	adminRouter.HandleFunc("/system/storage/samba/add", SambaShareManager.AddSambaShare)
+	adminRouter.HandleFunc("/system/storage/samba/remove", SambaShareManager.DelSambaShare)
+	adminRouter.HandleFunc("/system/storage/samba/addUser", SambaShareManager.NewSambaUser)
+	adminRouter.HandleFunc("/system/storage/samba/delUser", SambaShareManager.DelSambaUser)
+	adminRouter.HandleFunc("/system/storage/samba/listUsers", SambaShareManager.ListSambaUsers)
 
 	networkFileServerDaemon = append(networkFileServerDaemon, &fileservers.Server{
 		ID:                "webdav",
@@ -400,6 +455,24 @@ func FileServerInit() {
 		ToggleFunc:        DirListManager.Toggle,
 		GetEndpoints:      DirListManager.ListEndpoints,
 	})
+
+	if SambaShareManager != nil {
+		//Samba is external and might not exists on this host
+		networkFileServerDaemon = append(networkFileServerDaemon, &fileservers.Server{
+			ID:                "smbd",
+			Name:              "Samba Shares",
+			Desc:              "Share local files via SMB using Samba",
+			IconPath:          "img/system/network-samba.svg",
+			DefaultPorts:      []int{},
+			Ports:             []int{},
+			ForwardPortIfUpnp: false,
+			ConnInstrPage:     "SystemAO/disk/instr/samba.html",
+			ConfigPage:        "SystemAO/disk/samba.html",
+			EnableCheck:       SambaShareManager.IsEnabled,
+			ToggleFunc:        SambaShareManager.ServerToggle,
+			GetEndpoints:      SambaShareManager.GetEndpoints,
+		})
+	}
 
 	router.HandleFunc("/system/network/server/list", NetworkHandleGetFileServerServiceList)
 	router.HandleFunc("/system/network/server/endpoints", NetworkHandleGetFileServerEndpoints)

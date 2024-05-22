@@ -1,0 +1,135 @@
+<script src="../../script/clipboard.min.js"></script>
+<style>
+    .smbaddr{
+        cursor:pointer;
+        color: #5c94cb;
+    }
+
+    .smbaddr:hover{
+        background-color: rgb(236, 236, 236) !important;
+    }
+</style>
+<div class="ui basic yellow message">
+    <h4 class="ui header">
+        <i class="yellow folder icon"></i>
+        <div class="content">
+            Accessing ArozOS Local Disks using SMB
+        </div>
+    </h4>
+    <p>To access your ArozOS local disk storage using SMB,  you can first enable SMB on your account and open the IP address of this host in your File Explorer or Mac Finder (with smb:// prefix)</p>
+    <small>Samba can only share local disks or partitions. Remote file system mounted into ArozOS cannot be shared by SMB.</small>
+</div>
+<p>Click "Activate" to enable SMB access to your file system</p>
+<button class="ui basic activateSmb button" onclick="activateAccountForThisUser();"><i class="ui green circle check icon"></i> Activate</button>
+<button class="ui basic disableSmb disabled button" onclick="disableAccountForThisUser();"><i class="ui red circle times icon"></i> Disable</button>
+<table class="ui very basic celled table">
+    <thead>
+        <tr>
+            <th>Share Names</th>
+            <th>Path</th>
+            <th>Accessible By</th>
+        </tr>
+    </thead>
+    <tbody id="userShareList">
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+    </tbody>
+</table>
+<script>
+    function initSMBActivationStatusOnThisUser(){
+        $.get("/system/storage/samba/myshare", function(data){
+            if (data.error != undefined || !data.SmbdEnabled){
+                $(".activateSmb").addClass("disabled");
+                $(".disableSmb").addClass("disabled");
+            }else{
+                if (data.UserSmbShareEnabled){
+                    $(".activateSmb").addClass("disabled");
+                    $(".disableSmb").removeClass("disabled");
+                }else{
+                    $(".activateSmb").removeClass("disabled");
+                    $(".disableSmb").addClass("disabled");
+                }
+
+                //Render the user share list
+                $("#userShareList").html(``);
+                data.UserSmbShareList.forEach(smbShare => {
+                    $("#userShareList").append(`<tr>
+                        <td>${smbShare.Name}</td>
+                        <td class="smbaddr" data-clipboard-text="\\\\${window.location.hostname}\\${smbShare.Name}" ><small>\\\\${window.location.hostname}\\${smbShare.Name}</small></td>
+                        <td>${smbShare.ValidUsers.join(", ")}</td>
+                    </tr>`);
+                });
+                if (data.UserSmbShareList.length == 0){
+                    $("#userShareList").append(`<tr><td colspan="3"><i class="ui green circle check icon"></i> This account has no shared folder</td></tr>`);
+                }else{
+                    var clipboard = new ClipboardJS('.smbaddr');
+                    clipboard.on('success', function(e) {
+                       msgbox("Address copied. Paste to File Explorer to open share.")
+                    });
+                }
+            }
+        });
+    }
+    initSMBActivationStatusOnThisUser();
+
+    function disableAccountForThisUser(){
+        $.get("/system/storage/samba/deactivate", function(data){
+            if (data.error != undefined){
+                msgbox(data.error, false, 6000);
+            }else{
+                if (data != false){
+                    msgbox("SMB shares deactivated");
+                }
+                initSMBActivationStatusOnThisUser();
+
+                if (typeof(initShareListTable) != "undefined"){
+                    initShareListTable();
+                }
+            }
+        });
+    }
+    
+
+    //Activate account for user, require password confirmation
+    function activateAccountForThisUser(){
+        var apiObject = {
+                api: "../system/storage/samba/activate",
+                data: {},
+                title: `Activate SMB Access`,
+                desc: `Confirm sharing my account using SMB (Samba)`,
+                thisuser: true, //This username as default, set to false for entering other user
+                method: "POST",
+                success: undefined
+            }
+            apiObject = encodeURIComponent(JSON.stringify(apiObject));
+            
+            
+            parent.newFloatWindow({
+                url: "SystemAO/security/authreq.html#" + apiObject,
+                width: 480,
+                height: 300,
+                appicon: "SystemAO/security/img/lock.svg",
+                title: `Activate SMB Access`,
+                parent: ao_module_windowID,
+                callback: "handleSMBActivateCallback"
+            });
+    }
+
+    window.handleSMBActivateCallback = function(data){
+        if (data.error != undefined){
+            msgbox(data.error, false, 6000);
+        }else{
+            if (data != false){
+                msgbox("SMB Share activated");
+            }
+            initSMBActivationStatusOnThisUser();
+
+            if (typeof(initShareListTable) != "undefined"){
+                initShareListTable();
+            }
+        }
+    }
+</script>

@@ -39,7 +39,7 @@ func hardware_power_checkIfHardware(w http.ResponseWriter, r *http.Request) {
 
 func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 	//validate password using authreq.html
-	if !AuthValidateSecureRequest(w, r) {
+	if !AuthValidateSecureRequest(w, r, true) {
 		return
 	}
 
@@ -81,7 +81,7 @@ func hardware_power_poweroff(w http.ResponseWriter, r *http.Request) {
 
 func hardware_power_restart(w http.ResponseWriter, r *http.Request) {
 	//Validate password using authreq.html
-	if !AuthValidateSecureRequest(w, r) {
+	if !AuthValidateSecureRequest(w, r, true) {
 		return
 	}
 

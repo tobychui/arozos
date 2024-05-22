@@ -852,7 +852,10 @@
                         //Reload all RAID volumes
                         raidManager = {};
                         initRAIDVolList();
-                        msgbox("Force RAID Assemble Completed");
+                        if (data != false){
+                            msgbox("Force RAID Assemble Completed");
+                        }
+                        
                     }, 300);
                 }
                 
