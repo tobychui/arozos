@@ -1,7 +1,6 @@
 package samba
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -16,7 +15,7 @@ import (
 Functions requested by the file server service router
 */
 func (m *ShareManager) ServerToggle(enabled bool) error {
-	return errors.New("not supported")
+	return SetSmbdEnableState(enabled)
 }
 
 func (m *ShareManager) IsEnabled() bool {
@@ -29,13 +28,35 @@ func (m *ShareManager) IsEnabled() bool {
 	return smbdRunning
 }
 
-func (m *ShareManager) GetEndpoints(userinfo *user.User) []*fileservers.Endpoint {
+func (m *ShareManager) GetEndpoints(userInfo *user.User) []*fileservers.Endpoint {
+	//Get a list of connection endpoint for this user
 	eps := []*fileservers.Endpoint{}
-	eps = append(eps, &fileservers.Endpoint{
-		ProtocolName: "//",
-		Port:         0,
-		Subpath:      "/",
-	})
+	for _, fsh := range userInfo.GetAllAccessibleFileSystemHandler() {
+		if fsh.IsNetworkDrive() {
+			continue
+		}
+		fshID := fsh.UUID
+		if fsh.RequierUserIsolation() {
+			//User seperated storage. Only mount the user one
+			fshID = userInfo.Username + "_" + fsh.UUID
+		}
+
+		targetShare, err := m.GetShareByName(fshID)
+		if err != nil {
+			continue
+		}
+		userCanAccess := m.UserCanAccessShare(targetShare, userInfo.Username)
+		if err != nil || !userCanAccess {
+			continue
+		}
+
+		eps = append(eps, &fileservers.Endpoint{
+			ProtocolName: "//",
+			Port:         0,
+			Subpath:      "/" + fshID,
+		})
+	}
+
 	return eps
 }
 

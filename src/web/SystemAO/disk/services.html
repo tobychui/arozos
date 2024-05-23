@@ -104,7 +104,7 @@
         }
         isAdminCheck();
 
-        function initServiceList(){
+        function initServiceList(callback=undefined){
             $("#serviceList").html("");
             $.get("../../system/network/server/list", function(data){
                 console.log(data);
@@ -190,6 +190,10 @@
                             $(".ui.checkbox").addClass("disabled");
                         }
                         updateAllServiceState();
+                    }
+
+                    if (callback != undefined){
+                        callback();
                     }
                 });
             });

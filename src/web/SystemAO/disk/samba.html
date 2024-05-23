@@ -1,9 +1,17 @@
-<h3>Enable Samba Service</h3>
+<style>
+    .editButton{
+        color: #83b3d2; 
+        cursor: pointer; 
+        float: right;
+    }
+</style>
+<!-- <h3>Enable Samba Service</h3>
 <p>Change current systemctl state of smbd (start / stop).</p>
 <div class="ui toggle checkbox">
     <input type="checkbox" id="enablesmbd">
     <label>Enable smbd (Samba Sharing Service)</label>
 </div>
+-->
 
 <div class="ui divider"></div>
 <h3><i class="ui green share alternate icon"></i> Samba Share Lists</h3>
@@ -112,6 +120,12 @@
             if (data.error){
                 msgbox(data.error, false);
             }else{
+                data.sort(function(a, b) {
+                    if (a.Name < b.Name) return -1;
+                    if (a.Name > b.Name) return 1;
+                    return 0;
+                });
+
                 generateTable(data);
             }
         });
@@ -178,15 +192,20 @@
 
             // Populate the table rows
             data.forEach(item => {
+                let userListHex = encodeURIComponent(JSON.stringify([]));
+                if (item.ValidUsers != null){
+                    userListHex = encodeURIComponent(JSON.stringify(item.ValidUsers));
+                }
+               
                 table += `
                     <tr>
                         <td>${item.Name}</td>
-                        <td>${item.Path}</td>
-                        <td>${item.ValidUsers.join(", ")}</td>
+                        <td>${item.Path} <span class="editButton" onclick="editSharePath('${item.Name}', '${item.Path}');"><i class="edit icon"></i></span></td>
+                        <td>${(item.ValidUsers!=null)?item.ValidUsers.join(", "):'[unix user]'} ${(item.ValidUsers!=null)?`<span class="shareuserEditBtn editButton" onclick="editSambaUser(this, '${item.Name}');" users="${userListHex}"><i class="edit icon"></i></span>`:""}</td>
                         <td>${item.ReadOnly?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
                         <td>${item.Browseable?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
                         <td>${item.GuestOk?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
-                        <td><button class="ui basic circular mini red icon button" onclick="deleteSMBShare('${item.Name}');"><i class="ui trash icon"></i> Remove</button></td>
+                        <td><button title="Remove Share" class="ui basic circular tiny red circular icon button" onclick="deleteSMBShare('${item.Name}');"><i class="ui trash icon"></i></button></td>
                     </tr>
                 `;
             });
@@ -371,6 +390,87 @@
 
                         //Update the samba user list in share
                         initSambaUserList();
+                    }
+                });
+            }
+        }
+
+        //Inline edit for samba users
+        function editSambaUser(targetDom, shareName){
+            let originalUserList = JSON.parse(decodeURIComponent($(targetDom).attr("users")));
+            let fieldElement = $(targetDom).parent();
+            $(fieldElement).html(`<i class="loading spinner icon"></i> Loading User List`);
+            //Overwrite the DOM element with multi-selection dropdown and save button
+            $.get("../../system/storage/samba/listUsers", function(data){
+                if (data.error == undefined){
+                    $(".shareuserEditBtn").remove();
+                    //Append user selector with default value selected
+                    $(fieldElement).html(`<select multiple="" class="ui search dropdown" id="editValidUserList"></select>`);
+                    data.forEach(function(userinfo){
+                        $("#editValidUserList").append(`<option value="${userinfo.UnixUsername}">${userinfo.UnixUsername}</option>`);
+                    });
+                    $("#editValidUserList").dropdown();
+                    $("#editValidUserList").dropdown("set selected", originalUserList);
+
+                    //Append save and cancel button
+                    $(fieldElement).append(`
+                        <div style="margin-top: 0.6em;"> 
+                            <button class="ui small basic button" onclick="saveSambaUserEdit('${shareName}');"><i class="ui green save icon"></i> Save</button>
+                            <button class="ui small basic button" onclick="initShareListTable();"><i class="ui grey remove icon"></i> Cancel</button>
+                        </div>
+                    `);
+
+                }else{
+                    msgbox("Failed to connect to smbd service", false)
+                }
+            });
+        }
+
+        function saveSambaUserEdit(shareName){
+            //Read selection from #editValidUserList
+            let allowedUsers = $("#editValidUserList").dropdown("get value");
+            if (allowedUsers.length == 0){
+                msgbox("At least one user is required per share", false);
+                return
+            }
+
+            $.ajax({
+                url: "/system/storage/samba/updateShareUsers",
+                method: "POST",
+                data: {
+                    "name": shareName,
+                    "users": JSON.stringify(allowedUsers)
+                },
+                success: function(data){
+                    if (data.error != undefined){
+                        msgbox(data.error, false);
+                    }else{
+                        msgbox("Accessible users updated");
+                    }
+                    //Clear share table
+                    initShareListTable();
+                }
+            });
+        }
+
+        function editSharePath(shareName, originalSharePath){
+            let newpath = prompt("New Share Path", originalSharePath);
+            if (newpath != null && newpath != "") {
+                $.ajax({
+                    url: "/system/storage/samba/editPath",
+                    method: "POST",
+                    data: {
+                        "name": shareName,
+                        "path": newpath
+                    },
+                    success: function(data){
+                        if (data.error != undefined){
+                            msgbox(data.error, false);
+                        }else{
+                            msgbox("Share path updated");
+                        }
+                        //Clear share table
+                        initShareListTable();
                     }
                 });
             }

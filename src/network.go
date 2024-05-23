@@ -371,30 +371,34 @@ func FileServerInit() {
 	adminRouter.HandleFunc("/system/storage/ftp/setPort", FTPManager.HandleFTPSetPort)
 	adminRouter.HandleFunc("/system/storage/ftp/passivemode", FTPManager.HandleFTPPassiveModeSettings)
 
-	//Samba Shares
-	//Activate and Deactivate are functions all users can use if admin enabled smbd service
-	router.HandleFunc("/system/storage/samba/activate", func(w http.ResponseWriter, r *http.Request) {
-		if !AuthValidateSecureRequest(w, r, false) {
-			return
-		}
+	//Samba Shares (Optional)
+	if SambaShareManager != nil {
+		//Activate and Deactivate are functions all users can use if admin enabled smbd service
+		router.HandleFunc("/system/storage/samba/activate", func(w http.ResponseWriter, r *http.Request) {
+			if !AuthValidateSecureRequest(w, r, false) {
+				return
+			}
 
-		if !SambaShareManager.IsEnabled() {
-			utils.SendErrorResponse(w, "smbd is not enabled on this server")
-			return
-		}
-		password, _ := utils.PostPara(r, "password")
-		SambaShareManager.ActivateUserAccount(w, r, password)
-	})
-	adminRouter.HandleFunc("/system/storage/samba/deactivate", SambaShareManager.DeactiveUserAccount)
-	adminRouter.HandleFunc("/system/storage/samba/myshare", SambaShareManager.HandleUserSmbStatusList)
+			if !SambaShareManager.IsEnabled() {
+				utils.SendErrorResponse(w, "smbd is not enabled on this server")
+				return
+			}
+			password, _ := utils.PostPara(r, "password")
+			SambaShareManager.ActivateUserAccount(w, r, password)
+		})
+		adminRouter.HandleFunc("/system/storage/samba/deactivate", SambaShareManager.DeactiveUserAccount)
+		adminRouter.HandleFunc("/system/storage/samba/myshare", SambaShareManager.HandleUserSmbStatusList)
 
-	adminRouter.HandleFunc("/system/storage/samba/status", SambaShareManager.SmbdStates)
-	adminRouter.HandleFunc("/system/storage/samba/list", SambaShareManager.ListSambaShares)
-	adminRouter.HandleFunc("/system/storage/samba/add", SambaShareManager.AddSambaShare)
-	adminRouter.HandleFunc("/system/storage/samba/remove", SambaShareManager.DelSambaShare)
-	adminRouter.HandleFunc("/system/storage/samba/addUser", SambaShareManager.NewSambaUser)
-	adminRouter.HandleFunc("/system/storage/samba/delUser", SambaShareManager.DelSambaUser)
-	adminRouter.HandleFunc("/system/storage/samba/listUsers", SambaShareManager.ListSambaUsers)
+		adminRouter.HandleFunc("/system/storage/samba/status", SambaShareManager.SmbdStates)
+		adminRouter.HandleFunc("/system/storage/samba/list", SambaShareManager.ListSambaShares)
+		adminRouter.HandleFunc("/system/storage/samba/add", SambaShareManager.AddSambaShare)
+		adminRouter.HandleFunc("/system/storage/samba/editPath", SambaShareManager.HandleSharePathChange)
+		adminRouter.HandleFunc("/system/storage/samba/remove", SambaShareManager.DelSambaShare)
+		adminRouter.HandleFunc("/system/storage/samba/addUser", SambaShareManager.NewSambaUser)
+		adminRouter.HandleFunc("/system/storage/samba/delUser", SambaShareManager.DelSambaUser)
+		adminRouter.HandleFunc("/system/storage/samba/listUsers", SambaShareManager.ListSambaUsers)
+		adminRouter.HandleFunc("/system/storage/samba/updateShareUsers", SambaShareManager.HandleAccessUserUpdate)
+	}
 
 	networkFileServerDaemon = append(networkFileServerDaemon, &fileservers.Server{
 		ID:                "webdav",

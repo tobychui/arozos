@@ -4,12 +4,9 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -26,7 +23,6 @@ import (
 
 type ShareManager struct {
 	SambaConfigPath string //Config file for samba, aka smb.conf
-	BackupDir       string //Backup directory for restoring previous config
 	UserHandler     *user.UserHandler
 }
 
@@ -37,6 +33,7 @@ type ShareConfig struct {
 	ReadOnly   bool
 	Browseable bool
 	GuestOk    bool
+	parent     *ShareManager
 }
 
 func NewSambaShareManager(userHandler *user.UserHandler) (*ShareManager, error) {
@@ -50,7 +47,6 @@ func NewSambaShareManager(userHandler *user.UserHandler) (*ShareManager, error) 
 	}
 	return &ShareManager{
 		SambaConfigPath: "/etc/samba/smb.conf",
-		BackupDir:       "./backup",
 		UserHandler:     userHandler,
 	}, nil
 }
@@ -73,6 +69,7 @@ func (s *ShareManager) ReadSambaShares() ([]ShareConfig, error) {
 		// Check for section headers
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			if currentShare != nil {
+				currentShare.parent = s
 				shares = append(shares, *currentShare)
 			}
 			currentShare = &ShareConfig{
@@ -107,6 +104,7 @@ func (s *ShareManager) ReadSambaShares() ([]ShareConfig, error) {
 
 	// Add the last share if there is one
 	if currentShare != nil {
+		currentShare.parent = s
 		shares = append(shares, *currentShare)
 	}
 
@@ -136,7 +134,7 @@ func (s *ShareManager) ShareNameExists(sharename string) (bool, error) {
 
 // A basic filter to remove system created smb shares entry in the list
 func (s *ShareManager) FilterSystemCreatedShares(shares []ShareConfig) []ShareConfig {
-	namesToRemove := []string{"global", "homes", "printers", "print$"}
+	namesToRemove := []string{"global", "printers", "print$"}
 	filteredShares := []ShareConfig{}
 	for _, share := range shares {
 		if !utils.StringInArray(namesToRemove, share.Name) {
@@ -298,45 +296,6 @@ func (s *ShareManager) ShareExists(shareName string) (bool, error) {
 	}
 
 	return false, nil
-}
-
-// Backup the current smb.conf to the backup folder
-func (s *ShareManager) BackupSmbConf() error {
-	// Define source and backup directory
-	sourceFile := s.SambaConfigPath
-	backupDir := s.BackupDir
-
-	// Ensure the backup directory exists
-	err := os.MkdirAll(backupDir, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create backup directory: %v", err)
-	}
-
-	// Create a timestamped backup filename
-	timestamp := time.Now().Format("20060102_150405")
-	backupFile := filepath.Join(backupDir, fmt.Sprintf("%s.smb.conf", timestamp))
-
-	// Open the source file
-	src, err := os.Open(sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %v", err)
-	}
-	defer src.Close()
-
-	// Create the destination file
-	dst, err := os.Create(backupFile)
-	if err != nil {
-		return fmt.Errorf("failed to create backup file: %v", err)
-	}
-	defer dst.Close()
-
-	// Copy the contents of the source file to the backup file
-	_, err = io.Copy(dst, src)
-	if err != nil {
-		return fmt.Errorf("failed to copy file contents: %v", err)
-	}
-
-	return nil
 }
 
 // Add a new user to smb.conf share by name

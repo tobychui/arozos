@@ -374,7 +374,12 @@ func (s *ShareManager) ActivateUserAccount(w http.ResponseWriter, r *http.Reques
 				return
 			}
 		}
+	}
 
+	err = restartSmbd()
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
 	}
 
 	utils.SendOK(w)
@@ -444,6 +449,127 @@ func (s *ShareManager) DeactiveUserAccount(w http.ResponseWriter, r *http.Reques
 	err = s.RemoveSmbUser(userInfo.Username)
 	if err != nil {
 		utils.SendErrorResponse(w, "Samba user remove failed: "+err.Error())
+		return
+	}
+
+	err = restartSmbd()
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	utils.SendOK(w)
+
+}
+
+// Handle update to accessible users
+func (s *ShareManager) HandleAccessUserUpdate(w http.ResponseWriter, r *http.Request) {
+	shareName, err := utils.PostPara(r, "name")
+	if err != nil {
+		utils.SendErrorResponse(w, "share name not given")
+		return
+	}
+
+	newUserListJSON, err := utils.PostPara(r, "users")
+	if err != nil {
+		utils.SendErrorResponse(w, "list of new users not given")
+		return
+	}
+
+	//Parse the user list from json string to string slice
+	newUserList := []string{}
+	err = json.Unmarshal([]byte(newUserListJSON), &newUserList)
+	if err != nil {
+		log.Println("[Samba] Parse new user list failed: " + err.Error())
+		utils.SendErrorResponse(w, "failed to parse the new user list")
+		return
+	}
+
+	//read the target share from smb.conf
+	targetShare, err := s.GetShareByName(shareName)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	for _, originalUser := range targetShare.ValidUsers {
+		if !utils.StringInArray(newUserList, originalUser) {
+			//This user is not longer allowed to access this share
+			//remove this user from this share
+			s.RemoveUserFromSambaShare(shareName, originalUser)
+		}
+	}
+
+	for _, newUsername := range newUserList {
+		if !s.UserCanAccessShare(targetShare, newUsername) {
+			err = s.AddUserToSambaShare(targetShare.Name, newUsername)
+			if err != nil {
+				utils.SendErrorResponse(w, err.Error())
+				return
+			}
+		}
+	}
+
+	err = restartSmbd()
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	utils.SendOK(w)
+}
+
+// Handle changing path of share
+func (s *ShareManager) HandleSharePathChange(w http.ResponseWriter, r *http.Request) {
+	shareName, err := utils.PostPara(r, "name")
+	if err != nil {
+		utils.SendErrorResponse(w, "share name not given")
+		return
+	}
+
+	newSharePath, err := utils.PostPara(r, "path")
+	if err != nil {
+		utils.SendErrorResponse(w, "list of new users not given")
+		return
+	}
+
+	//Convert path to absolute and check if folder exists
+	newSharePathAbsolute, err := filepath.Abs(newSharePath)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	if !utils.FileExists(newSharePathAbsolute) {
+		utils.SendErrorResponse(w, "target folder not exists")
+		return
+	}
+
+	//Check if path sharing is allowed
+	if isPathInsideImportantFolders(newSharePathAbsolute) {
+		utils.SendErrorResponse(w, "path is or inside protected folders")
+		return
+	}
+
+	//read the target share from smb.conf
+	targetShare, err := s.GetShareByName(shareName)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Update and save share to smb.conf
+	targetShare.Path = newSharePathAbsolute
+	err = targetShare.SaveToConfig()
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Restart smbd
+	err = restartSmbd()
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
 		return
 	}
 
