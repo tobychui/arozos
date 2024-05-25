@@ -1,11 +1,13 @@
 package raid
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"imuslab.com/arozos/mod/disk/diskfs"
@@ -205,4 +207,49 @@ func (m *Manager) GetRAIDDeviceByDevicePath(devicePath string) (*RAIDDevice, err
 func (m *Manager) RAIDDeviceExists(devicePath string) bool {
 	_, err := m.GetRAIDDeviceByDevicePath(devicePath)
 	return err == nil
+}
+
+// Check if a RAID contain disk that failed or degraded given the devicePath, e.g. md0 or /dev/md0
+func (m *Manager) RAIDArrayContainsFailedDisks(devicePath string) (bool, error) {
+	raidDeviceInfo, err := m.GetRAIDInfo(devicePath)
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(raidDeviceInfo.State, "degraded") || strings.Contains(raidDeviceInfo.State, "faulty"), nil
+}
+
+// GetRAIDPartitionSize returns the size of the RAID partition in bytes as an int64
+func GetRAIDPartitionSize(devicePath string) (int64, error) {
+	// Ensure devicePath is formatted correctly
+	if !strings.HasPrefix(devicePath, "/dev/") {
+		devicePath = "/dev/" + devicePath
+	}
+
+	// Execute the df command with the device path
+	cmd := exec.Command("df", "--block-size=1", devicePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("failed to execute df command: %v", err)
+	}
+
+	// Parse the output to find the size
+	lines := strings.Split(out.String(), "\n")
+	if len(lines) < 2 {
+		return 0, fmt.Errorf("unexpected df output: %s", out.String())
+	}
+
+	// The second line should contain the relevant information
+	fields := strings.Fields(lines[1])
+	if len(fields) < 2 {
+		return 0, fmt.Errorf("unexpected df output: %s", lines[1])
+	}
+
+	// The second field should be the size in bytes
+	size, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse size: %v", err)
+	}
+
+	return size, nil
 }

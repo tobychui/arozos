@@ -171,6 +171,7 @@ func DiskServiceInit() {
 					}
 					raidManager.HandleForceAssembleReload(w, r)
 				})
+				adminRouter.HandleFunc("/system/disk/raid/grow", raidManager.HandleGrowRAIDArray)
 				adminRouter.HandleFunc("/system/disk/raid/format", raidManager.HandleFormatRaidDevice)
 				adminRouter.HandleFunc("/system/disk/raid/detail", raidManager.HandleLoadArrayDetail)
 				adminRouter.HandleFunc("/system/disk/raid/devinfo", raidManager.HandlListChildrenDeviceInfo)

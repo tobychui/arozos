@@ -388,7 +388,7 @@ func FileServerInit() {
 		})
 		adminRouter.HandleFunc("/system/storage/samba/deactivate", SambaShareManager.DeactiveUserAccount)
 		adminRouter.HandleFunc("/system/storage/samba/myshare", SambaShareManager.HandleUserSmbStatusList)
-
+		//adminRouter.HandleFunc("/system/storage/samba/myshare/delete", SambaShareManager.DelUserSambaShare)
 		adminRouter.HandleFunc("/system/storage/samba/status", SambaShareManager.SmbdStates)
 		adminRouter.HandleFunc("/system/storage/samba/list", SambaShareManager.ListSambaShares)
 		adminRouter.HandleFunc("/system/storage/samba/add", SambaShareManager.AddSambaShare)

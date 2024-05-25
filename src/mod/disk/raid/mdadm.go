@@ -298,3 +298,21 @@ func (m *Manager) AddDisk(mdDevice, diskPath string) error {
 	}
 	return nil
 }
+
+// GrowRAIDDevice grows the specified RAID device to its maximum size
+func (m *Manager) GrowRAIDDevice(deviceName string) error {
+	//Prevent anyone passing /dev/md0 into the deviceName field
+	deviceName = strings.TrimPrefix(deviceName, "/dev/")
+
+	// Construct the mdadm command
+	cmd := exec.Command("sudo", "mdadm", "--grow", fmt.Sprintf("/dev/%s", deviceName), "--size=max")
+
+	// Execute the command
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to grow RAID device: %v, output: %s", err, string(output))
+	}
+
+	fmt.Printf("[RAID] Successfully grew RAID device %s. Output: %s\n", deviceName, string(output))
+	return nil
+}

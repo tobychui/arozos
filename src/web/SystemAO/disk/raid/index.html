@@ -234,7 +234,7 @@
                                 <button onclick="addDiskToArray();" title="Add new disk to this volume" class="circular small basic ui button">
                                     <i class="green add icon"></i> Add Disk
                                 </button>
-                                <button onclick="" title="Expand volume to fit disks capacity" class="circular small basic ui button">
+                                <button onclick="expandRAIDArray();" title="Expand volume to fit disks capacity" class="circular small basic ui button">
                                     <i class="purple expand icon"></i> Expand Volume
                                 </button>
                             </div>
@@ -335,6 +335,7 @@
                 removePendingDisk: "",
                 removePendingSourceVol: ""
             };
+            var raidInfoTicker = undefined;
 
             /* Information Update Ticker */
             function RAIDInfoUpdateTicker(){
@@ -381,16 +382,23 @@
                             }
                         }
 
-                        //Update again in 3s
-                        setTimeout(RAIDInfoUpdateTicker, 5000);
+                        //Update again later
+                        raidInfoTicker = setTimeout(RAIDInfoUpdateTicker, 5000);
                     });
                     
+                }else{
+                    //Release the ticker
+                    console.log("RAID status ticker released");
+                    raidInfoTicker = undefined;
                 }
                 
             }
 
             //Set the ticker
-            setTimeout(RAIDInfoUpdateTicker, 1000);
+            if (raidInfoTicker == undefined){
+                console.log("RAID status ticker started");
+                raidInfoTicker = setTimeout(RAIDInfoUpdateTicker, 1000);
+            }
 
             /* RAID Create Functions */
             function addNewRaidVolume(){
@@ -411,7 +419,7 @@
                 setTimeout(function(){
                     reloadRAIDVolDetail();
                     if (data.error != undefined){
-                        msgbox(data.error, false, 5000);
+                        msgbox(capitalize(data.error), false, 5000);
                     }else{
                         msgbox("New RAID volume created");
                     }
@@ -458,7 +466,7 @@
             window.handleRAIDRemoveCallback = function(data){
                 if (data.error != undefined){
                     //Something went wrong
-                    msgbox(data.error, false, 5000);
+                    msgbox(capitalize(data.error), false, 5000);
                 }else{
                     setTimeout(function(){
                         //RAID volume not exist anymore. Reset everything
@@ -492,6 +500,26 @@
                     msgbox("New disk added");
                     reloadRAIDVolDetail();
                 }, 300);
+            }
+
+            /* RAID Array Expand */
+            function expandRAIDArray(arrayName=raidManager.editingArray){
+                $.ajax({
+                    url: "../../system/disk/raid/grow",
+                    method: "POST",
+                    data: {
+                        "raidDev": arrayName,
+                    },
+                    success: function(data){
+                        if (data.error != undefined){
+                            msgbox(capitalize(data.error), false);
+                        }else{
+                            msgbox("mdadm grow operation started");
+                            reloadRAIDVolDetail();
+                        }
+
+                    }
+                })
             }
 
             /* Disk Remove Functions */
@@ -576,11 +604,11 @@
                 } 
             }
 
-            function loadRAIDVolDetail(deviceName){
-                function capitalize(string) {
-                    return string.charAt(0).toUpperCase() + string.slice(1);
-                }
+            function capitalize(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
 
+            function loadRAIDVolDetail(deviceName){
                 function bytesToSize(bytes) {
                     var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
                     if (bytes == 0) return 'n/a';
@@ -652,7 +680,8 @@
                             let drivePath = thisDeviceInfo.DevicePath
                             let driveName = drivePath.split("/").pop();
                             let driveIcon = "drive-working.svg";
-                            let driveSize = "Unknown";
+                            let driveSize = "Unknown"; //Overall size of the disk
+                            let partitionSize = data.ArraySize * 1024; //RAID partition size, mdadm report in KiB
                             let driveRWState = "Read Write";
                             if (thisDeviceInfo.DevicePath = ""){
                                 driveIcon = "drive-notfound.svg"
@@ -703,7 +732,7 @@
                                     </div>
                                 </h4>
                                 <div class="capinfo">
-                                    ${driveSize}<br>
+                                    <i class="chart pie icon"></i>${bytesToSize(partitionSize)} | <i class="hdd outline icon"></i> ${driveSize}<br>
                                     <span style="font-size: 0.8em;">${driveRWState}</span>
                                 </div>
                                 <div class="raidDeviceOptions">
@@ -846,7 +875,7 @@
             window.handleForceAssembleCallback = function(data){
                 if (data.error != undefined){
                     //Something went wrong
-                    msgbox(data.error, false, 5000);
+                    msgbox(capitalize(data.error), false, 5000);
                 }else{
                     setTimeout(function(){
                         //Reload all RAID volumes

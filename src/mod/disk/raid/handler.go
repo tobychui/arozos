@@ -587,3 +587,43 @@ func (m *Manager) HandleForceAssembleReload(w http.ResponseWriter, r *http.Reque
 
 	utils.SendOK(w)
 }
+
+// Grow the raid array to maxmium possible size of the current disks
+func (m *Manager) HandleGrowRAIDArray(w http.ResponseWriter, r *http.Request) {
+	deviceName, err := utils.PostPara(r, "raidDev")
+	if err != nil {
+		utils.SendErrorResponse(w, "raid device not given")
+		return
+	}
+
+	if !m.RAIDDeviceExists(deviceName) {
+		utils.SendErrorResponse(w, "target raid device not exists")
+		return
+	}
+
+	//Check the raid is healthy and ok for expansion
+	raidNotHealthy, err := m.RAIDArrayContainsFailedDisks(deviceName)
+	if err != nil {
+		utils.SendErrorResponse(w, "unable to check health state before expansion")
+		return
+	}
+	if raidNotHealthy {
+		utils.SendErrorResponse(w, "expand can only be performed on a healthy array")
+		return
+	}
+
+	//Expand the raid array
+	err = m.GrowRAIDDevice(deviceName)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	err = m.RestartRAIDService()
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	utils.SendOK(w)
+}

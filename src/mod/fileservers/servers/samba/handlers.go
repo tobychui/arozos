@@ -186,7 +186,59 @@ func (s *ShareManager) AddSambaShare(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-// Remove a samba share by name
+// Delete a user samba share, that share must only contains the current user / owner
+func (s *ShareManager) DelUserSambaShare(w http.ResponseWriter, r *http.Request) {
+	//Get the user info
+	userInfo, err := s.UserHandler.GetUserInfoFromRequest(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "permission denied")
+		return
+	}
+
+	shareName, err := utils.PostPara(r, "name")
+	if err != nil {
+		utils.SendErrorResponse(w, "share name not given")
+		return
+	}
+
+	//Check if share exists
+	targetShare, err := s.GetShareByName(shareName)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Check if the user can access this share
+	if !s.UserCanAccessShare(targetShare, userInfo.Username) {
+		utils.SendErrorResponse(w, "share access denied")
+		return
+	}
+
+	//Check if the user is the only user in the share access list
+	if len(targetShare.ValidUsers) == 1 && strings.EqualFold(targetShare.ValidUsers[0], userInfo.Username) {
+		//This share is own by this user and this user is the only one who can access it
+		//remove user access will create trash in the smb.conf folder. Remove the whole folder entirely.
+		err = s.RemoveSambaShareConfig(targetShare.Name)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+		utils.SendOK(w)
+		return
+	}
+
+	//Share also contains other users. Only remove user to that share
+	err = s.RemoveUserFromSambaShare(targetShare.Name, userInfo.Username)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+	utils.SendOK(w)
+
+}
+
+// Remove a samba share by name, can remove any share by name, should be for admin only
+// call to DelUserSambaShare for non-admin uses
 func (s *ShareManager) DelSambaShare(w http.ResponseWriter, r *http.Request) {
 	shareName, err := utils.PostPara(r, "name")
 	if err != nil {
