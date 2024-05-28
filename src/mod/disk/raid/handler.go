@@ -19,11 +19,6 @@ import (
 	This module handle api call to the raid module
 */
 
-// Handle stopping a RAID array for maintaince
-func (m *Manager) HandleStopRAIDArray(w http.ResponseWriter, r *http.Request) {
-
-}
-
 // Handle remove a member disk (sdX) from RAID volume (mdX)
 func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Request) {
 	//mdadm --remove /dev/md0 /dev/sdb1
@@ -626,4 +621,61 @@ func (m *Manager) HandleGrowRAIDArray(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.SendOK(w)
+}
+
+// HandleRenderOverview List the info and health of all loaded RAID array
+func (m *Manager) HandleRenderOverview(w http.ResponseWriter, r *http.Request) {
+	//Get all raid device from procmd
+	rdevs, err := m.GetRAIDDevicesFromProcMDStat()
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	type RaidHealthOverview struct {
+		Name      string
+		Status    string
+		Level     string
+		UsedSize  int64
+		TotalSize int64
+		IsHealthy bool
+	}
+
+	results := []*RaidHealthOverview{}
+
+	//Get RAID Status for each devices
+	for _, raidDev := range rdevs {
+		//Fill in the basic information
+		thisRaidOverview := RaidHealthOverview{
+			Name:      raidDev.Name,
+			Status:    raidDev.Status,
+			Level:     raidDev.Level,
+			UsedSize:  -1,
+			TotalSize: -1,
+			IsHealthy: false,
+		}
+
+		//Get health status of RAID
+		raidPath := filepath.Join("/dev/", strings.TrimPrefix(raidDev.Name, "/dev/"))
+		raidStatus, err := GetRAIDStatus(raidPath)
+		if err == nil {
+			thisRaidOverview.IsHealthy = raidStatus.isHealthy()
+		}
+
+		// Get RAID vol size and info
+		raidPartitionSize, err := GetRAIDPartitionSize(raidPath)
+		if err == nil {
+			thisRaidOverview.TotalSize = raidPartitionSize
+		}
+
+		raidUsedSize, err := GetRAIDUsedSize(raidPath)
+		if err == nil {
+			thisRaidOverview.UsedSize = raidUsedSize
+		}
+
+		results = append(results, &thisRaidOverview)
+	}
+
+	js, _ := json.Marshal(results)
+	utils.SendJSONResponse(w, string(js))
 }

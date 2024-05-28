@@ -157,6 +157,7 @@ func DiskServiceInit() {
 				})
 
 				/* RAID storage pool function */
+				adminRouter.HandleFunc("/system/disk/raid/overview", raidManager.HandleRenderOverview)
 				adminRouter.HandleFunc("/system/disk/raid/list", raidManager.HandleListRaidDevices)
 				adminRouter.HandleFunc("/system/disk/raid/new", raidManager.HandleCreateRAIDDevice)
 				adminRouter.HandleFunc("/system/disk/raid/remove", func(w http.ResponseWriter, r *http.Request) {

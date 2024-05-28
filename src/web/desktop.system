@@ -706,7 +706,7 @@
             pointer-events: auto;
         }
 
-        body.whiteTheme .item:hover{
+        body.whiteTheme .item:not(.clickable):hover{
             background-color: #ececec !important;
         }
 

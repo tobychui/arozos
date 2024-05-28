@@ -253,3 +253,39 @@ func GetRAIDPartitionSize(devicePath string) (int64, error) {
 
 	return size, nil
 }
+
+// GetRAIDUsedSize returns the used size of the RAID array in bytes as an int64
+func GetRAIDUsedSize(devicePath string) (int64, error) {
+	// Ensure devicePath is formatted correctly
+	if !strings.HasPrefix(devicePath, "/dev/") {
+		devicePath = "/dev/" + devicePath
+	}
+
+	// Execute the df command with the device path
+	cmd := exec.Command("df", "--block-size=1", devicePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("failed to execute df command: %v", err)
+	}
+
+	// Parse the output to find the used size
+	lines := strings.Split(out.String(), "\n")
+	if len(lines) < 2 {
+		return 0, fmt.Errorf("unexpected df output: %s", out.String())
+	}
+
+	// The second line should contain the relevant information
+	fields := strings.Fields(lines[1])
+	if len(fields) < 3 {
+		return 0, fmt.Errorf("unexpected df output: %s", lines[1])
+	}
+
+	// The third field should be the used size in bytes
+	usedSize, err := strconv.ParseInt(fields[2], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse used size: %v", err)
+	}
+
+	return usedSize, nil
+}

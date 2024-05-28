@@ -216,6 +216,10 @@
                 </table>
             `;
 
+            if (data.length == 0){
+                table = `<div class="ui basic message"><i class="ui green check circle icon"></i> No Samba share folder found in smb.conf</div>`
+            }
+
             // Insert the table into the div
             $("#sharelist").html(table);
         }

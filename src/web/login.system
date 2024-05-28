@@ -18,6 +18,13 @@
         }
     }
 
+    :root{
+        --main_theme_color: #5baf6d;
+        --secondary_theme_color: #4b7952;
+        --dimmer_theme_color: #125e1b;
+        --inverse_theme_color: #e0f1b3;
+    }
+
     .leftPictureFrame{
         position:fixed;
         top:0px;
@@ -40,10 +47,33 @@
         right:0;
         height:100%;
         width:500px;
-        background-color:white;
+        background:white;
         z-index:100%;
         padding-left: 30px;
         padding-right: 20px;
+    }
+
+    @media (max-width: 600px) {
+        .rightLoginFrame{
+            width: 100%;
+        }
+    }
+    
+    @media (min-width: 600px) {
+        @supports (backdrop-filter: blur(10px)) {
+        /* This browser support backdrop filter */
+            .rightLoginFrame {
+                margin-top: 5em;
+                margin-right: 5em;
+                margin-left: 5em;
+                height:calc(100% - 10em);
+                border-radius: 1em;
+            }
+
+            .leftPictureFrame{
+                min-width:calc(100%);
+            }
+        }
     }
 
     .fullHeightImage{
@@ -72,21 +102,31 @@
     }
 
     .themecolor{
-        background-color: #6eacfc !important;
+        background-color: var(--main_theme_color) !important;
         transition: background-color 0.1s;
     }
 
     .themecolor:hover{
-        background-color: #63a7ff !important;
+        background-color: var(--secondary_theme_color) !important;
     }
 
     .subthemecolor{
-        background-color: #6eacfc !important;
+        background-color: var(--secondary_theme_color) !important;
         transition: background-color 0.1s;
     }
 
     .subthemecolor:hover{
-        background-color: #61a6ff !important;
+        background-color: var(--dimmer_theme_color) !important;
+    }
+
+    .inversehighlight{
+        padding: 0.4em;
+        padding-top: 0.2em;
+        padding-bottom: 0.3em;
+        background-color: var(--dimmer_theme_color);
+        color: white;
+        border-radius: 0.4em;
+        margin-top: 0.4em;
     }
 
     .loginbtn{
@@ -124,7 +164,7 @@
             <img class="ui medium image" src="data:image/png;base64, {{service_logo}}">
 
             <div class="ui borderless basic segment">
-                <p><i class="key icon"></i> Sign in <span class="hostname">ArozOS</span> with your username and password</p>
+                <p>Sign in to <span class="hostname">ArozOS</span> with your username and password</p>
                 
                
                 
@@ -177,7 +217,7 @@
            
             <div class="bottombar">
                 © <a href="https://arozos.com">ArozOS</a> 2017 - <span class="thisyear"></span><br>
-                <small style="font-size: 80%">Request Time: <span id="requestTime"></span></small>
+                <small class="inversehighlight" style="font-size: 80%">Request Timestamp: <span id="requestTime"></span> | <span id="requestHostCommonName"></span></small>
             </div>
         </div>
         
@@ -210,14 +250,19 @@
         $(".oauthonly").hide();
         
         $(document).ready(function(){
+            function zeroPad(num) {
+                return num < 10 ? '0' + num : num;
+            }
+
             var currentdate = new Date(); 
-            var datetime = currentdate.getDate() + "/"
-                + (currentdate.getMonth()+1)  + "/" 
+            var datetime = zeroPad(currentdate.getDate()) + "/"
+                + zeroPad(currentdate.getMonth() + 1) + "/" 
                 + currentdate.getFullYear() + " "  
-                + currentdate.getHours() + ":"  
-                + currentdate.getMinutes() + ":" 
-                + currentdate.getSeconds();
+                + zeroPad(currentdate.getHours()) + ":"  
+                + zeroPad(currentdate.getMinutes()) + ":" 
+                + zeroPad(currentdate.getSeconds());
             $("#requestTime").text(datetime);
+            $("#requestHostCommonName").text(location.hostname);
             $(".ui.checkbox").checkbox();
             //Check if the user already logged in
             $.get("system/auth/checkLogin",function(data){

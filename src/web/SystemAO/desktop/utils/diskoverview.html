@@ -23,7 +23,7 @@
             margin-top: 0.6em;
         }
 
-        #diskrender .progress .bar{
+        #diskrender .progress .bar:not(.raiddev){
             background-color: rgb(82, 201, 255);
         }
 
@@ -31,16 +31,40 @@
             background-color: #b51d1d !important;
         }
 
-        #diskrender .progress .bar.raiddev{
+        #diskrender .progress .bar.raiddev.failing{
             background-color: #f5ef42 !important;
+        }
+
+        #diskrender .progress .bar.raiddev.healthy{
+            background-color: #5cd858 !important;
         }
 
         #diskrender .progress .bar .progress{
             background-color: transparent !important;
         }
+
+        #diskrender .raidVolStateIcon{
+            position: absolute;
+            left: 2.0em;
+            top: 2.5em;
+            background: white;
+            border-radius: 50%;
+            width: 1.2em;
+        }
+        
+        #diskrender .inactive.driveinfo{
+            opacity: 0.5;
+        }
+
+        #refreshDiskRenderBtn{
+            float: right;
+        }
     </style>
     <div id="diskrender">
         <div class="ui list" id="diskspaceList">
+            
+        </div>
+        <div class="ui list" id="raidVolList">
             
         </div>
     </div>
@@ -199,10 +223,80 @@
                     $("#diskrender .progress .bar").css({
                         "background-color": desktopThemeColor
                     });
+
+                    updateRAIDVolumeOverview();
                 }, error: function(){
                     $("#diskspaceList").html(`<div style="text-align: center; margin-top: 1em; height: 2em;"><i class="ui red ban icon"></i><i class="ui grey hdd icon"></i></div>`);
                 }
             });
         }
+
+        function updateRAIDVolumeOverview(){
+            $("#raidVolList").html("");
+            $.ajax({
+                url: "/system/disk/raid/overview",
+                method: "GET",
+                success: function(data){
+                    if (data.error != undefined){
+                        //Hide the section
+                        $("#raidVolList").hide();
+                    }else{
+                        //Render the data
+                        $("#raidVolList").show();
+                        let containUnhealthy = false;
+                        data.forEach(raidinfo => {
+                            let usedPercentage = (raidinfo.UsedSize / raidinfo.TotalSize) * 100;
+                            let colorClass = "raiddev healthy";
+                            if (!raidinfo.IsHealthy){
+                                colorClass = "raiddev failing";
+                                containUnhealthy = true;
+                            }
+
+                            let activeClass = ""
+                            if (!raidinfo.Status.includes("active")){
+                                activeClass = "inactive";
+                            }
+
+                            $("#raidVolList").append(`<div class="item ${activeClass} driveinfo">
+                                <img class="ui avatar image" src="img/system/cluster.svg">
+                                <div class="content">
+                                    <div class="header">${raidinfo.Name} (${raidinfo.Level.toUpperCase()} | ${raidinfo.Status})
+                                        <span style="float: right;font-size: 0.85em;">${usedPercentage.toFixed(1)}% | ${ao_module_utils.formatBytes(raidinfo.TotalSize, 1)}</span>    
+                                    </div>
+                                    <div class="description">
+                                        <div class="ui active small fluid progress diskspace">
+                                            <div class="bar ${colorClass}" style="width: ${usedPercentage}%">
+                                            <div class="progress"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="raidVolStateIcon">${raidinfo.IsHealthy?'<i class="ui green check circle icon"></i>':'<i class="ui red times circle icon"></i>'}</span>
+                                </div>`);
+                        });
+                        
+                        if (data.length == 0){
+                            //No raid devices
+                        }
+
+                        if (containUnhealthy){
+                            //Set require attension
+                            setTimeout(function(){
+                                updateSystemOverviewStatusText(1);
+                            }, 1000);
+                        }
+                    }
+                },
+                error: function(){
+                    //Unknown error, hide raid vol list
+                    $("#raidVolList").hide();
+                }
+            });
+        }
+
+        //Update the overview every 15 minutes
+        setInterval(function(){
+            updateDiskSpaceOverview();
+        }, 900 * 1000);
     </script>
 </div>

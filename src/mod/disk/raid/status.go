@@ -63,3 +63,13 @@ func (status RAIDStatus) toString() string {
 		return "Invalid Status"
 	}
 }
+
+// Report if the RAID array is healthy
+func (status RAIDStatus) isHealthy() bool {
+	switch status {
+	case RAIDStatusNormal:
+		return true
+	default:
+		return false
+	}
+}
