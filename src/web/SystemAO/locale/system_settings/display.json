@@ -43,6 +43,21 @@
             },
             "titles": {},
             "placeholder": {}
+        },
+        "en-US": {
+            "name": "English (US)",
+            "fontFamily" : "Arial, Helvetica, sans-serif",
+            "fwtitle": "",
+            "strings": {
+                "displaytest/display-test-title": "ArozOS Display Testing",
+                "displaytest/display-testing-title": "Display Testing",
+                "displaytest/display-testing-subheader": "Simple display testing tools",
+                "displaytest/dead-pixel-test-title": "Dead Pixel Test",
+                "displaytest/dead-pixel-test-description": "This test will popup a new window with full-screen functionality. <br>To exit the test, press ESC on the keyboard or swipe down & press the \"close\" button on touch screen devices.",
+                "displaytest/start-test-button": "Start Test"
+            },
+            "titles": {},
+            "placeholder": {}
         }
     }
 }

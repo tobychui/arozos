@@ -16,7 +16,7 @@ var moduleLaunchInfo = {
 	LaunchEmb: "Video/embedded.html",
 	InitFWSize: [585, 840],
 	InitEmbSize: [700, 424],
-	SupportedExt: [".webm",".mp4",".ogg"]
+	SupportedExt: [".webm",".mp4",".ogg", ".rmvb", ".mkv", ".avi"]
 }
 
 //Register the module

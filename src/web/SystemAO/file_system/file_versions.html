@@ -9,7 +9,11 @@
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <script type="text/javascript" src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <link rel="stylesheet" href="../../script/ao.css">
         <style>
+            body{
+                background-color: var(--body_background);
+            }
             .backgroundIcon{
                 position: fixed;
                 bottom: 0px;
@@ -35,11 +39,11 @@
                     <div class="sub header" locale="title/desc">Any file versions that is more than 30 days old will be automatically removed from the system.</div>
                 </div>
             </h3>
-            <button onclick="createSnapshot();" class="ui basic green button"><i class="ui add icon"></i> <span locale="button/newver">Create New Version</span></button>
+            <button onclick="createSnapshot();" class="ui basic button"><i class="ui green add icon"></i> <span locale="button/newver">Create New Version</span></button>
             
             <div class="ui divider"></div>
             <div id="succ" style="display:none;" class="ui green message">
-                <i class="ui checkmark icon"></i> <span id="msg">File Restore Succeed</span>
+                <i class="ui green circle check icon"></i> <span id="msg">File Restore Succeed</span>
             </div>
             <div>
                 <table class="ui very basic fluid celled table unstackable">
@@ -70,6 +74,7 @@
                 applocale.init("../../SystemAO/locale/file_versions.json", function(){
                     applocale.translate();
                     loadVersionHistory(targetFile);
+                    initTheme();
                 });
                 
                 setInterval(function(){
@@ -79,12 +84,23 @@
                 //No file selected
                 applocale.init("../../SystemAO/locale/file_versions.json", function(){
                     applocale.translate();
+                    initTheme();
                 });
             }
 
-            
-
-          
+            function initTheme(){
+                //Load system theme
+                $.get("../../system/file_system/preference?key=" + "file_explorer/theme",function(data){
+                    if (data.error === undefined){
+                        if (data == "darkTheme"){
+                            $("body").addClass("darkTheme");
+                            $("#succ").attr("class","ui black message");
+                        }else{
+                            $("body").addClass("whiteTheme");
+                        }
+                    }
+                });
+            }
 
             function checkHistoryListUpdate(vpath){
                 $.ajax({

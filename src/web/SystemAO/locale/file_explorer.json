@@ -859,7 +859,7 @@
         },
         "en-us": {
             "name": "English (US)",
-            "fontFamily":"",
+            "fontFamily":"Arial, Helvetica, sans-serif",
             "strings": {
                 "title/title": "File Manager",
                 "menu/button/download": "Download Selected",
@@ -1454,8 +1454,8 @@
                 "fileopr/New File": "새 파일",
                 "fileopr/New Folder": "새 폴더",
                 "fileopr/Upload": "업로드",
-                "fileopr/Create Zip": "<span style='font-size: 0.9em;'>압축 파일 만들기</span>",
-                "fileopr/Unzip Here": "<span style='font-size: 0.9em;'>여기에 압축 해제</span>",
+                "fileopr/Create Zip": "<span style='font-size: 0.8em;'>압축 파일 만들기</span>",
+                "fileopr/Unzip Here": "<span style='font-size: 0.8em;'>여기에 압축 해제</span>",
                 "fileopr/Rename": "이름 바꾸기",
                 "fileopr/Delete": "삭제",
                 "fileopr/Refresh": "새로고침",
@@ -1503,7 +1503,7 @@
                 "sidebar/vroot/video": "동영상",
                 "sidebar/vroot/trash": "휴지통",
                 "sidebar/vroot/download": "다운로드",
-                "sidebar/vroot/web": "웹",
+                "sidebar/vroot/web": "웹사이트",
                 "sidebar/vroot/model": "모델",
                 "sidebar/vroot/appdata": "앱 데이터",
         

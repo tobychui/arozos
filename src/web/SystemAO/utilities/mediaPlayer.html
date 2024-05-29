@@ -104,7 +104,17 @@
 		}
 
 		function playFile(fileObject){
-			$("#player").attr('src',"../../media?file=" + encodeURIComponent(fileObject.filepath));
+			let fileExt =  fileObject.filepath.split(".").pop();
+			let videoURL = '../../media?file=' + encodeURIComponent(fileObject.filepath);
+			if (fileExt == "webm" || fileExt == "mp4" || fileExt == "ogg"){
+				//transcode
+				videoURL = '../../media?file=' + encodeURIComponent(fileObject.filepath);
+			}else{
+				//transcode
+				videoURL = '../../media/transcode?file=' + encodeURIComponent(fileObject.filepath);
+			}
+
+			$("#player").attr('src',videoURL);
 			vid.volume = parseFloat(targetVol);
 		}
 

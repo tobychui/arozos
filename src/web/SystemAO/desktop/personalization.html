@@ -9,7 +9,36 @@
         <script src="../../script/semantic/semantic.min.js"></script>
         <script src="../../script/ao_module.js"></script>
         <script type="text/javascript" src="../../script/applocale.js"></script>
+        <link rel="stylesheet" href="../../script/ao.css">
         <style>
+
+            body{
+                background-color: var(--body_background);
+            }
+
+            body.darkTheme .ui.tabular.menu .active.item{
+                background: var(--body_background_active) !important;
+                border-color: transparent;
+                border-top-left-radius: 0 !important;
+                border-top-right-radius: 0 !important;
+            }
+
+            body.darkTheme .ui.tabular.menu{
+                border-bottom: 1px solid var(--divider) !important;
+            }
+
+            body.darkTheme .ui.selection.dropdown{
+                background-color: var(--body_background_secondary);
+            }
+
+            .ui.tabular.menu .item:hover{
+                background-color: var(--body_background_secondary);
+            }
+
+            .ui.tabular.menu .item{
+                cursor: pointer;
+            }
+
             .hidden{
                 display:none;
             }
@@ -30,13 +59,13 @@
         </style>
     </head>
     <body>
-        <div class="ui tabular menu" style="position:fixed; top:0px; left:0px; width: 100%;">
+        <div class="ui tabular menu" style="position:fixed; top:0em; left:0px; width: 100%;">
             <div class="active item" data-tab="wallpaper" locale="menu/wallpaper">Wallpaper</div>
             <div class="item" data-tab="sound" locale="menu/sound">Sound</div>
             <div class="item" data-tab="theme" locale="menu/theme">Theme</div>
             <div class="item" data-tab="advance" locale="menu/advance">Advance</div>
         </div>
-        <div style="position:fixed; top: 42px; left:0px; width: 100%; height: calc(100% - 42px); overflow-y:auto;">
+        <div style="position:fixed; top: calc(0em + 42px); left:0px; width: 100%; height: calc(100% - 42px); overflow-y:auto;">
             <div class="ui active tab" data-tab="wallpaper">
                 <!-- Wallpaper Functions -->
                 <br>
@@ -87,9 +116,9 @@
                     <br> <br>
                     <button class="ui small green right floated button allowSelectDefaultThemes" onclick="applyWallpaper();" locale="wallpaper/option/apply"><i class="checkmark icon"></i> Apply Wallpaper</button>
                     <br><br><br>
-                    <div class="ui green segment" style="display:none" id="wallpaperChangeConfirm">
+                    <div class="ui green inverted segment" style="display:none" id="wallpaperChangeConfirm">
                         <h4 class="ui header">
-                            <i class="checkmark green icon"></i>
+                            <i class="check circle icon"></i>
                             <div class="content">
                             <span locale="wallpaper/option/updated">Wallpaper Updated</span>
                             <div class="sub header" locale="wallpaper/option/updateddesc">You should be seeing your desktop wallpaper change in a moment.</div>
@@ -114,9 +143,9 @@
                         <option value="3600" locale="wallpaper/interval/1h">1 hour</option>
                     </select>
 
-                    <div class="ui green segment" style="display:none" id="interfaceChangeConfirm">
+                    <div class="ui green inverted segment" style="display:none" id="interfaceChangeConfirm">
                         <h4 class="ui header">
-                            <i class="checkmark green icon"></i>
+                            <i class="check circle icon"></i>
                             <div class="content">
                             <span locale="wallpaper/interval/succ">Wallpaper Interval Updated</span>
                             <div class="sub header" locale="wallpaper/interval/succdesc">This setting will only apply to this browser</div>
@@ -142,8 +171,8 @@
                         <div class="sub header" locale="sound/custom/desc">User defined startup sound to play when login to the web desktop</div>
                     </h4>
                     <h3 id="userSelectedStartupSound" locale="sound/custom/disable">Disabled</h3>
-                    <button class="ui small right floated button" onclick="clearStartupAudioSelection()"><i class="remove icon"></i> <span locale="sound/custom/clear">Clear Selection</span></button>
-                    <button class="ui small black right floated button" onclick="selectStartupAudio();"><i class="folder open icon"></i> <span locale="sound/custom/select">Select File</span></button>
+                    <button class="ui small basic right floated button" onclick="clearStartupAudioSelection()"><i class="red remove icon"></i> <span locale="sound/custom/clear">Clear Selection</span></button>
+                    <button class="ui small basic right floated button" onclick="selectStartupAudio();"><i class="yellow folder open icon"></i> <span locale="sound/custom/select">Select File</span></button>
                     <br><br>
                     <div class="ui divider"></div>
                 </div>
@@ -191,8 +220,8 @@
                     </h4>
                     <h3 id="userSelectedFolderPath" locale="advance/wallpaper/disabled">Disabled</h3>
                     <p locale="advance/wallpaper/reminder">If you have set a folder for loading desktop wallpapers, the image files from that folder will be used instead of the system build in wallpapers.</p>
-                    <button class="ui small right floated button" onclick="clearUserSelectedFolder();"><i class="remove icon"></i><span locale="advance/wallpaper/clear">Clear Selection</span></button>
-                    <button class="ui small black right floated button" onclick="selectUserFolder();"><i class="folder open icon"></i> <span locale="advance/wallpaper/select">Select Folder</span></button>
+                    <button class="ui small basic right floated button" onclick="clearUserSelectedFolder();"><i class="red remove icon"></i><span locale="advance/wallpaper/clear">Clear Selection</span></button>
+                    <button class="ui small basic black right floated button" onclick="selectUserFolder();"><i class="yellow folder open icon"></i> <span locale="advance/wallpaper/select">Select Folder</span></button>
                     <br><br>
                     
                     <div class="ui divider"></div>
@@ -241,9 +270,9 @@
                     <br>
                     <button class="ui small green right floated button" onclick="saveShortcuts();"  locale="advance/mobile/shorcut/save"><i class="checkmark icon"></i> Save Shortcuts</button>
                     <br><br>
-                    <div class="ui green segment" style="display:none" id="shortcutChangeSaved">
+                    <div class="ui green inverted segment" style="display:none" id="shortcutChangeSaved">
                         <h4 class="ui header">
-                            <i class="checkmark green icon"></i>
+                            <i class="check circle icon"></i>
                             <div class="content">
                             <span locale="advance/mobile/shorcut/updated">Shorcuts Updated</span>
                             <div class="sub header" locale="advance/mobile/shorcut/updateddesc">Open the mobile interface via your phone to view the changes</div>
@@ -252,7 +281,7 @@
                     </div>
                     
                 </div>
-                
+                <br><br>
             </div>
         </div>
         <br><br>
@@ -285,9 +314,23 @@
                 generateColorGrids();
                 getStartupAudio();
                 initModuleList();
+                initTheme();
             }
 
            
+            function initTheme(){
+                //Load system theme
+                $.get("../../system/file_system/preference?key=file_explorer/theme",function(data){
+                    if (data.error === undefined){
+                        if (data == "darkTheme"){
+                            $("body").addClass("darkTheme");
+                        }else{
+                            $("body").addClass("whiteTheme");
+                        }
+                    }
+                });
+            }
+
 
             //Return the data stored in the theme settings
             //Will return either theme pack name or path for user defined folder

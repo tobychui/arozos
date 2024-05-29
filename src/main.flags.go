@@ -10,6 +10,7 @@ import (
 	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/disk/raid"
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/media/mediaserver"
 	permission "imuslab.com/arozos/mod/permission"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/www"
@@ -27,6 +28,7 @@ var userHandler *user.UserHandler         //User Handler
 var packageManager *apt.AptPackageManager //Manager for package auto installation
 var raidManager *raid.Manager             //Software RAID Manager, only activate on Linux hosts
 var userWwwHandler *www.Handler           //User Webroot handler
+var mediaServer *mediaserver.Instance     //Media handling server for streaming and downloading large files
 var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============

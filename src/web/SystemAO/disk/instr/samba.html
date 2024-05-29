@@ -58,10 +58,10 @@
                     let visableLogo = "";
                     if (!smbShare.Browseable){
                         //This share is hidden from the share tree view
-
+                        visableLogo = `<i class="eye slash outline icon"></i>`;
                     }
                     $("#userShareList").append(`<tr>
-                        <td>${smbShare.Name}</td>
+                        <td>${visableLogo} ${smbShare.Name}</td>
                         <td class="smbaddr" data-clipboard-text="\\\\${window.location.hostname}\\${smbShare.Name}" ><small>\\\\${window.location.hostname}\\${smbShare.Name}</small></td>
                         <td>${smbShare.ValidUsers.join(", ")}</td>
                     </tr>`);

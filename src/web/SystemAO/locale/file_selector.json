@@ -181,8 +181,43 @@
                 "New Filename": "新しいファイル名",
                 "New Folder": "新しいフォルダ"
             }
+        },
+        "ko-kr": {
+            "fwtitle": "파일 선택",
+            "fontFamily": "",
+            "strings": {
+                "title": "파일 선택",
+                "roots/user": "사용자",
+                "roots/storage": "스토리지",
+                "message/loading": "로딩 중...",
+                "message/waitingResp": "선택 확인 중...",
+                "message/nofile": "파일 없음",
+                
+                "sidebar/vroot/desktop": "바탕 화면",
+                "sidebar/vroot/document": "문서",
+                "sidebar/vroot/music": "음악",
+                "sidebar/vroot/photo": "사진",
+                "sidebar/vroot/video": "비디오",
+                "sidebar/vroot/trash": "휴지통",
+                "sidebar/vroot/download": "다운로드",
+                "sidebar/vroot/web": "웹",
+                "sidebar/vroot/model": "모델",
+                "sidebar/vroot/appdata": "앱 데이터",
+                
+                "": ""
+            },
+            "titles": {
+                "Back": "뒤로",
+                "Parent": "상위 디렉토리",
+                "Refresh": "새로 고침",
+                "Create Folder": "폴더 만들기",
+                "New Folder": "새 폴더"
+            },
+            "placeholder": {
+                "New Filename": "새 파일",
+                "New Folder": "새 폴더"
+            }
         }
-        
         
     }
 }
