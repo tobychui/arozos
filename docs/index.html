@@ -1,533 +1,493 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta content="width=device-width, initial-scale=1.0" name="viewport">
-  <meta content="Web Desktop, Open Source, Aroz, Go, OS, Raspberry Pi" name="keywords">
-  <meta content="Maybe best Web Desktop Online System in the world" name="description">
-  <meta name="author" content="tobychui">
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="Web Desktop, Open Source, Aroz, Go, OS, NAS, Cloud" name="keywords">
+    <meta content="Probably the best open-source Web Desktop System in the world" name="description">
+    <meta name="author" content="tobychui">
 
-  <!-- HTML Meta Tags -->
-  <title>Web Desktop OS | ArozOS</title>
-  <meta name="description" content="Maybe the best Web Desktop Online System in the world">
+    <!-- HTML Meta Tags -->
+    <title i18n>Web Desktop System | ArozOS // 網頁桌面系統 | ArozOS</title>
+    <meta name="description" content="Probably the best open-source Web Desktop System in the world">
 
-  <!-- Facebook Meta Tags -->
-  <meta property="og:url" content="https://arozos.com/">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Web Desktop OS | ArozOS">
-  <meta property="og:description" content="Maybe the best Web Desktop Online System in the world">
-  <meta property="og:image" content="https://arozos.com/img/og.png">
+    <!-- Facebook Meta Tags -->
+    <meta property="og:url" content="https://arozos.com/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Hello ArozOS">
+    <meta property="og:description" content="Probably the best open-source Web Desktop System in the world">
+    <meta property="og:image" content="https://arozos.com/img/og.png">
 
-  <!-- Twitter Meta Tags -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta property="twitter:domain" content="arozos.com">
-  <meta property="twitter:url" content="https://arozos.com/">
-  <meta name="twitter:title" content="Web Desktop OS | ArozOS">
-  <meta name="twitter:description" content="Maybe the best Web Desktop Online System in the world">
-  <meta name="twitter:image" content="https://arozos.com/img/og.png">
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:domain" content="arozos.com">
+    <meta property="twitter:url" content="https://arozos.com/">
+    <meta name="twitter:title" content="Hello ArozOS">
+    <meta name="twitter:description" content="Probably the best open-source Web Desktop System in the world">
+    <meta name="twitter:image" content="https://arozos.com/img/og.png">
 
-  <!-- Favicons -->
-  <link href="img/favicon.png" rel="icon">
-  <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
+    <!-- JavaScript Libs-->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="dom-i18n.min.js"></script>
+    <link href="main.css" rel="stylesheet">
+    <script src="main.js" defer></script>
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <!-- Css stuffs-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.9.3/semantic.min.js" integrity="sha512-gnoBksrDbaMnlE0rhhkcx3iwzvgBGz6mOEj4/Y5ZY09n55dYddx6+WYc72A55qEesV8VX2iMomteIwobeGK1BQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.9.3/semantic.min.css" integrity="sha512-3quBdRGJyLy79hzhDDcBzANW+mVqPctrGCfIPosHQtMKb3rKsCxfyslzwlz2wj1dT8A7UX+sEvDjaUv+WExQrA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-  <!-- Bootstrap css -->
-  <!-- <link rel="stylesheet" href="css/bootstrap.css"> -->
-  <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Favicons -->
+    <link href="img/favicon.png" rel="icon">
+    <link href="img/apple-touch-icon.png" rel="apple-touch-icon">
 
-  <!-- Libraries CSS Files -->
-  <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
-  <link href="lib/owlcarousel/assets/owl.theme.default.min.css" rel="stylesheet">
-  <link href="lib/font-awesome/css/font-awesome.min.css" rel="stylesheet">
-  <link href="lib/animate/animate.min.css" rel="stylesheet">
-  <link href="lib/modal-video/css/modal-video.min.css" rel="stylesheet">
-  
-  <!-- Main Stylesheet File -->
-  <link href="css/style.css" rel="stylesheet">
-  <style>
-    p,a,div,span,h1,h2,h3,h4,h5,h6{
-      font-family: 'Source Sans Pro', sans-serif !important;
-    }
-    
-  </style>
-  <!-- =======================================================
-    Theme Name: eStartup
-    Theme URL: https://bootstrapmade.com/estartup-bootstrap-landing-page-template/
-    Author: BootstrapMade.com
-    License: https://bootstrapmade.com/license/
-  ======================================================= -->
-</head>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100;300;400&display=swap" rel="stylesheet">
 
-<body>
-
-  <header id="header" class="header header-hide">
-    <div class="container">
-
-      <div id="logo" class="pull-left">
-        <!-- <h1><a href="" class="scrollto">ArozOS</a></h1> -->
-        <!-- Uncomment below if you prefer to use an image logo -->
-        <a href=""><img src="img/logo.png" alt="" style="height: 2em;" title="ArozOS Project" /></a>
-      </div>
-
-      <nav id="nav-menu-container">
-        <ul class="nav-menu">
-          <li class="menu-active"><a href="#hero">Home</a></li>
-          <li><a href="#about-us">About</a></li>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#screenshots">Screenshots</a></li>
-          <li><a href="#docs">Documents</a></li>
-          <li><a href="#contact">Source</a></li>
-          <li><a href="#" onclick="window.location.href='lang.html';">English (US)</a></li>
-        </ul>
-      </nav><!-- #nav-menu-container -->
-    </div>
-  </header><!-- #header -->
-
-  <!--==========================
-    Hero Section
-  ============================-->
-  <section id="hero" class="wow fadeIn">
-    <div class="hero-container">
-      <h1>ArozOS</h1>
-      <h2>A Web Desktop Operating System for your Personal Cloud</h2>
-      <img src="img/banner.png" alt="Hero Imgs">
-      <a href="#get-started" class="btn-get-started scrollto">Get Started</a>
-      <div class="btns">
-        <a href="https://github.com/tobychui/arozos"><i class="fa fa-github fa-3x"></i> Github</a>
-        <a href="https://github.com/tobychui/arozos/releases"><i class="fa fa-download fa-3x"></i> Download</a>
-        <a href="docs/"><i class="fa fa-book fa-3x"></i> Documentation</a>
-      </div>
-    </div>
-  </section><!-- #hero -->
-
-  <!--==========================
-    Get Started Section
-  ============================-->
-  <section id="get-started" class="padd-section text-center wow fadeInUp">
-
-    <div class="container">
-      <div class="section-title text-center">
-
-        <h2></h2>
-        <p class="separator">Why ArozOS?</p>
-
-      </div>
-    </div>
-
-    <div class="container">
-      <div class="row">
-
-        <div class="col-md-6 col-lg-4">
-          <div class="feature-block">
-
-            <img src="img/svg/cloud.svg" alt="img" class="img-fluid">
-            <h4>Cloud Desktop</h4>
-            <p>Simple and elegant web desktop interface for your daily tasks</p>
-
-          </div>
+    <!-- AOS.js-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js" integrity="sha512-A7AYk1fGKX6S2SsHywmPkrnzTZHrgiVT7GcQkLGDe2ev0aWb8zejytzS8wjo7PGEXKqJOrjQ4oORtnimIRZBtw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" integrity="sha512-1cK78a1o+ht2JcaW6g8OXYwqpev9+6GqOkz9xmBN9iUUhIndKtxwILGWYOSibOKjLsEdjyjZvYDq/cZwNeak0w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  </head>
+  <body>
+    <button id="rwdmenubtn" class="ui black big icon button"><i class="ui bars icon"></i></button>
+    <div id="mainmenu" class="ui inverted segment">
+        <div class="ui container">
+            <div class="ui inverted small stackable secondary menu">
+                <div class="item">
+                    <img class="ui tiny image" src="img/logo.png">
+                </div>
+                <a class="item" i18n>
+                    Home // 主頁
+                </a>
+                <a class="item" i18n>
+                    About ArozOS // 關於 ArozOS
+                </a>
+                <a class="item" i18n>
+                    Features // 特色功能
+                </a>
+                <a class="item" i18n>
+                    Tech Specs // 系統規格
+                </a>
+                <a class="item" i18n>
+                    Download // 下載
+                </a>
+                <a class="item" i18n>
+                    Learn More // 了解更多
+                </a>
+                <a class="right floated item">
+                    <div class="ui inverted small selection dropdown">
+                        <input type="hidden" id="language">
+                        <div class="default text" style="color: white;"><i class="language icon"></i> Default</div>
+                        <i class="dropdown icon"></i>
+                        <div class="menu">
+                            <div class="item" data-value="en">English</div>
+                            <div class="item" data-value="zh">中文（正體）</div>
+                            <div class="item" data-value="jp">日本語</div>
+                        </div>
+                    </div>
+                </a>
+            </div>
         </div>
-
-        <div class="col-md-6 col-lg-4">
-          <div class="feature-block">
-
-            <img src="img/rpi.png" alt="img" class="img-fluid">
-            <h4>Cross Platforms</h4>
-            <p>Runs on pretty much anything from ARM SBCs, old Android phones to x86_64 PC</p>
-
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-4">
-          <div class="feature-block">
-
-            <img src="img/os.png" alt="img" class="img-fluid">
-            <h4>Open Source</h4>
-            <p>ArozOS's components is open source on Github</p>
-
-          </div>
-        </div>
-
-      </div>
     </div>
-
-  </section>
-
-  <!--==========================
-    About Us Section
-  ============================-->
-  <section id="about-us" class="about-us padd-section wow fadeInUp">
-    <div class="container">
-      <div class="row justify-content-center">
-
-        <div class="col-md-5 col-lg-3">
-          <img src="img/preview-pc.png" alt="About">
+    <div id="slideshowBanner">
+        <div class="slideshow">
+            <div class="slides">
+                <div class="slide"><img src="img/screen/1.png" alt="Image 1"></div>
+                <div class="slide"><img src="img/screen/2.png" alt="Image 2"></div>
+                <div class="slide"><img src="img/screen/3.png" alt="Image 3"></div>
+                <div class="slide"><img src="img/screen/4.png" alt="Image 4"></div>
+            </div>
+            <div class="dots"></div>
         </div>
-
-        <div class="col-md-7 col-lg-5">
-          <div class="about-content">
-
-            <h2><span>ArozOS</span>PC<br> Web Desktop </h2>
-            <p>Turn any PC with browser into your Web Desktop client. Access all your files anytime, anywhere.
+        <div class="title">
+            <h1 i18n>ArozOS</h1>
+            <p i18n>Web Desktop System for my DIY Network Attached Storage
+                // 用於我家的自組 NAS 之網頁桌面作業系統
             </p>
-            
-            <ul class="list-unstyled">
-              <li><i class="fa fa-angle-right"></i>No Setup and special user permission</li>
-              <li><i class="fa fa-angle-right"></i>Support Chrome, Firefox and Safari</li>
-              <li><i class="fa fa-angle-right"></i>Access via Web UI, FTP or WebDAV</li>
-              <li><i class="fa fa-angle-right"></i>One of the best Web based File Manager</li>
-              <li><i class="fa fa-angle-right"></i>WebApps powered by HTML5</li>
-              
-            </ul>
-
-          </div>
+            <div class="scrolldownTips">
+                <img class="ui tiny image" src="img/scrolldown.webp"><br>
+                <span i18n>Scroll down to learn more // 向下滑以了解更多</span>
+            </div>
         </div>
-
-      </div>
     </div>
-    <br><br>
-    <div class="container">
-      <div class="row justify-content-center">
-
-        <div class="col-md-5 col-lg-3">
-          <img src="img/preview.png" alt="About">
-        </div>
-
-        <div class="col-md-7 col-lg-5">
-          <div class="about-content">
-
-            <h2><span>ArozOS</span>Mobile Web Desktop </h2>
-            <p>Supporting web desktop on mobile using PWA technology, making file access between devices much easier and smooth.
-            </p>
-
-            <ul class="list-unstyled">
-              <li><i class="fa fa-angle-right"></i>No App Installation Required</li>
-              <li><i class="fa fa-angle-right"></i>Support Android and iOS</li>
-              <li><i class="fa fa-angle-right"></i>Works on Chrome and Safari</li>
-              <li><i class="fa fa-angle-right"></i>Window based operations</li>
-              <li><i class="fa fa-angle-right"></i>Synchronize between devices</li>
-            </ul>
-
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!--==========================
-    Features Section
-  ============================-->
-
-  <section id="features" class="padd-section text-center wow fadeInUp">
-
-    <div class="container">
-      <div class="section-title text-center">
-        <h2>Amazing Features</h2>
-        <p class="separator">Full fledged Desktop Experience with diverse range of Web Applications</p>
-      </div>
-    </div>
-
-    <div class="container">
-      <div class="row">
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/icons/work_desk_kirei.png" alt="img" class="img-fluid">
-            <h4>Simple & Beautiful</h4>
-            <p>Glassy and rounded corner Windows with intuitive WebApp naming</p>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/icons/computer_cloud_storage.png" alt="img" class="img-fluid">
-            <h4>Multimedia</h4>
-            <p>Build in Music, Photo and Audio WebApp for multimedia streaming</p>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/icons/envelop_paper.png" alt="img" class="img-fluid">
-            <h4>File Manager</h4>
-            <p>One of the Best File Manager you could find on Web Desktop OS</p>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/svg/design-tool.svg" alt="img" class="img-fluid">
-            <h4>Easy to use</h4>
-            <p>Support drag drop operations with touchpad or touch screen</p>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/svg/cloud-computing.svg" alt="img" class="img-fluid">
-            <h4>Git Install</h4>
-            <p>Modules can be installed via git clone using the build in Module Installer</p>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/icons/computer_tethering.png" alt="img" class="img-fluid">
-            <h4>Easy Connect</h4>
-            <p>Support Web, FTP and WebDAV for easy access on any Operating Systems</p>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/os.png" alt="img" class="img-fluid">
-            <h4>Open Source</h4>
-            <p>Change whatever you want to fit your ever changing needs and use cases</p>
-          </div>
-        </div>
-
-        <div class="col-md-6 col-lg-3">
-          <div class="feature-block">
-            <img src="img/svg/code.svg" alt="img" class="img-fluid">
-            <h4>Written in Go</h4>
-            <p>Allowing great use of system resources while maintaining portability</p>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!--==========================
-    Screenshots Section
-  ============================-->
-  <section id="screenshots" class="padd-section text-center wow fadeInUp">
-
-    <div class="container">
-      <div class="section-title text-center">
-        <h2>Screenshots</h2>
-        <p class="separator">A quick overview of the ArozOS Web Desktop System</p>
-      </div>
-    </div>
-
-    <div class="container">
-      <div class="owl-carousel owl-theme">
-
-       
-
-      </div>
-    </div>
-    <div><img class="fullwidthImg" src="img/screen/1.png" alt="img"></div>
-    <div><img class="fullwidthImg" src="img/screen/2.png" alt="img"></div>
-    <div><img class="fullwidthImg" src="img/screen/3.png" alt="img"></div>
-    <div><img class="fullwidthImg" src="img/screen/4.png" alt="img"></div>
-    <div><img class="fullwidthImg" src="img/screen/5.png" alt="img"></div>
-    <div><img class="fullwidthImg" src="img/screen/6.png" alt="img"></div>
-  </section>
-
-  <!--==========================
-    Video Section
-  ============================-->
-
-  <section id="video" class="text-center wow fadeInUp">
-    <div class="overlay">
-      <div class="container-fluid container-full">
-
-        <div class="row">
-          <a href="#" class="js-modal-btn play-btn" data-video-id="DVzbeWyxmNU"></a>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-
-  <!--==========================
-    Testimonials Section
-  ============================-->
-
-  <section id="testimonials" class="padd-section text-center wow fadeInUp">
-    <div class="container">
-      <div class="row justify-content-center">
-
-        <div class="col-md-8">
-
-          <div class="testimonials-content">
-            <div id="carousel-example-generic" class="carousel slide" data-ride="carousel">
-
-              <div class="carousel-inner" role="listbox">
-
-                <div class="carousel-item  active">
-                  <div class="top-top">
-
-                    <h2>This is very underrated</h2>
-                    <p>To be honest, this is very underrated right now and I wish more people see this work.</p>
-                    <h4>CrazyCoder009</span></h4>
-
-                  </div>
+    <br><br><br><br>
+    <!-- About ArozOS-->
+    <div class="ui text container">
+        <div class="ui stackable grid" data-aos="fade-up">
+            <div class="six wide column" align="right">
+                <img class="ui medium image" src="img/preview-pc.png">
+            </div>
+            <div class="ten wide column">
+                <div class="about-text-wrapper">
+                    <p class="about-title"><b i18n>Full Mode // 完整版</b> <span i18n>Web Desktop // 網頁桌面</span></p>
+                    <p i18n>Turn any PC with browser into your Web Desktop client. Access all your files anytime, anywhere. 
+                        // 把任何有瀏覽器之電腦變成您的網頁桌面客戶端，隨時隨地存取您的資料和檔案
+                    </p>
+                    <div class="ui list">
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                No Setup and special user permission
+                                // 無需設定、安裝本地應用程式或特別使用者權限
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                Support Chrome, Firefox and Safari
+                                // 支援 Chrome，Firefox 及 Safari
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                Access via Web UI, FTP, SFTP, WebDAV or SMB
+                                // 使用網頁界面、FTP、SFTP、WebDAV 及 SMB 存取檔案
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                One of the best Web based File Manager
+                                // 可能是其中一個最好用的網頁檔案管理員
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                Easily embed other WebApps via external URLs
+                                // 輕鬆使用外部 URL 嵌入其他 WebApp
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="carousel-item ">
-                  <div class="top-top">
-
-                    <h2>It's very smooth and wonderful</h2>
-                    <p>Work on RPi 4B. Have used for a while, it's very smooth and wonderful, thanks TC!</p>
-                    <h4>jimting</span></h4>
-
-                  </div>
+            </div>
+        </div>
+        <div class="ui stackable grid" data-aos="fade-up">
+            <div class="six wide column" align="right">
+                <img class="ui medium image" src="img/preview-mobile.png">
+            </div>
+            <div class="ten wide column">
+                <div class="about-text-wrapper">
+                    <p class="about-title"><b i18n>Mobile // 手機版</b> <span i18n>Web Desktop // 網頁桌面</span></p>
+                    <p i18n>Supporting web desktop on mobile using PWA technology, allowing file access between devices much easier.  
+                        // 手機版網頁桌面採用 PWA 技術，讓您可以簡單快速地在裝置之間傳送檔案
+                    </p>
+                    <div class="ui list">
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                No App Installation Required
+                                // 無需安裝任何 App
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                Support Android and iOS
+                                // 支援 Android 及 iOS 裝置
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                Works on Chrome and Firefox
+                                // 支援 Chrome 及 Firefox
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                Layered Window Design
+                                // 多層視窗型作業設計
+                            </div>
+                        </div>
+                        <div class="item">
+                            <i class="chevron right icon"></i>
+                            <div class="content" i18n>
+                                Synchronize between devices
+                                // 即時在多台裝置之間進行同步
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
-
-                <div class="carousel-item ">
-                  <div class="top-top">
-
-                    <h2>Finally I got my own NAS</h2>
-                    <p> NAS are expensive and this is my first time in my life to use a NAS.</p>
-                    <h4>Wei Vi</h4>
-
-                  </div>
-                </div>
-
-
+            </div>
+        </div>
+    </div>
+    <br><br><br><br>
+    <!-- Features -->
+    <div id="features" class="ui container">
+        <div class="ui divider"></div>
+        <div class="centered title">
+            <h1 i18n>Features // 特色功能</h1>
+        </div>
+        <div class="ui centered cards" data-aos="zoom-in">
+            <div class="basic card">
+              <div class="image">
+                <img src="img/features/simple.png">
               </div>
-
-              <div class="btm-btm">
-
-                <ul class="list-unstyled carousel-indicators">
-                  <li data-target="#carousel-example-generic" data-slide-to="0" class="active"></li>
-                  <li data-target="#carousel-example-generic" data-slide-to="1"></li>
-                  <li data-target="#carousel-example-generic" data-slide-to="2"></li>
-                </ul>
-
+              <div class="content">
+                <div class="header" i18n>Well Designed UI // 設計感的界面</div>
+                <div class="description" i18n>
+                    Probably the most straight forward and pretty original web-desktop UI you could find
+                    // 可能是您能找到，最簡單直接的原創網頁桌面界面
+                </div>
               </div>
-
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!--==========================
-    Blog Section
-  ============================-->
-  <section id="blog" class="padd-section wow fadeInUp">
-
-    <div class="container">
-      <div class="section-title text-center">
-
-        <h2>Wanna Get Started?</h2>
-        <p class="separator">Take a look at our <a href="https://github.com/tobychui/arozos/blob/master/README.md">Github README</a> file</p>
-
-      </div>
-    </div>
-
-   
-  </section>
-
-  <!--==========================
-    Newsletter Section
-  ============================-->
-  <section id="docs" class="newsletter text-center wow fadeInUp">
-    <div class="overlay padd-section">
-      <div class="container">
-        <div class="section-title text-center">
-          <h2>Documentation</h2>
-          <p>Want to develop on the ArozOS system? Maybe you are looking for the documentation.</p>
-          <a href="docs/" class="glass btn-get-started scrollto" target="_blank">Take a look</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!--==========================
-    Contact Section
-  ============================-->
-  <section id="contact" class="padd-section wow fadeInUp">
-
-    <div class="container">
-      <div class="section-title text-center">
-        <h2>View the Source</h2>
-        <p class="separator">Take a look at the source code here. <br>If you like this project, please feel free to give us a ⭐ star ⭐.</p>
-      </div>
-    </div>
-
-    <div class="container">
-      <div class="row justify-content-center">
-
-        <div class="col-lg-3 col-md-4">
-
-          <div class="info">
-            <div>
-              <i class="fa fa-github"></i>
-              <p><a href="https://github.com/tobychui/arozos">https://github.com/tobychui/arozos</a></p>
             </div>
 
-            <div class="email">
-              <i class="fa fa-envelope"></i>
-              <p><a href="mailto:imuslab@gmail.com">imuslab@gmail.com</a></p>
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/media.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>Multimedia Playback // 多媒體播放</div>
+                  <div class="description" i18n>
+                    Build in audio and video WebApp for realtime playback and transcoding.
+                      // 內置音樂及影片播放器，並可透過網頁界面進行即時編碼串流。
+                  </div>
+                </div>
             </div>
 
-          </div>
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/filemanager.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>File Manager // 檔案管理器</div>
+                  <div class="description" i18n>
+                    Easy to use and straight forward File Manager. Support drag & drop upload.
+                      // 簡單易用的檔案管理器，可以直接把檔案拖放進去上傳
+                    </div>
+                </div>
+            </div>
 
-          <!-- 
-          <div class="social-links">
-            <a href="#" class="twitter"><i class="fa fa-twitter"></i></a>
-            <a href="#" class="facebook"><i class="fa fa-facebook"></i></a>
-            <a href="#" class="instagram"><i class="fa fa-instagram"></i></a>
-            <a href="#" class="google-plus"><i class="fa fa-google-plus"></i></a>
-            <a href="#" class="linkedin"><i class="fa fa-linkedin"></i></a>
-          </div>
--->
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/auth.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>Multiple Authentication Methods // 支援多種登入方式</div>
+                  <div class="description" i18n>
+                    Support password, oAuth and LDAP login with external account managements.
+                      // 可以使用帳戶 + 密碼、oAuth 及 LDAP 登入
+                    </div>
+                </div>
+            </div>
+
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/raid.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>Support RAID via mdadm // 支援 mdadm RAID</div>
+                  <div class="description" i18n>
+                    Support creating and expanding multiple RAID type using mdadm, including RAID0, 1 and 5
+                      // 支援使用 mdadm 建立和擴充多種 RAID 類型，包括 RAID0、1 和 5
+                    </div>
+                </div>
+            </div>
+
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/storagepool.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>Virtual File System & Storage Pool Architecture // 虛擬檔案層與儲存池架構</div>
+                  <div class="description" i18n>
+                    Virtual File System layer is implemented to support mounting a remote file system into ArozOS without FUSE
+                      // 虛擬檔案系統層支援在無 FUSE 的情況下掛載遠端檔案系統到網頁桌面使用
+                    </div>
+                </div>
+            </div>
+
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/webshare.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>One-Click Web Share // 檔案網絡分享</div>
+                  <div class="description" i18n>
+                    Sharing a file via URL is as simple as right-click a file in File Manager and select "Share". Support multiple access permissions!
+                      // 在檔案管理器對檔案右鍵就能快速分享檔案，並支援多種權限設定。
+                    </div>
+                </div>
+            </div>
+
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/networkshare.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>Create Network Share // 建立網絡分享</div>
+                  <div class="description" i18n>
+                    Setup WebDAV, FTP, SFTP or SMB (using Samba) network shares with one click!
+                      // 按一下就能設定 WebDAV、FTP、SFTP 或 SMB（需安裝 Samba）網路共用！
+                    </div>
+                </div>
+            </div>
+            <div class="basic card">
+                <div class="image">
+                  <img src="img/features/agi.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>Scriptable Plugin System // 可編程插件系統</div>
+                  <div class="description" i18n>
+                    Scriptable plugin system based on ECMA5 (JavaScript like), support both front-end and backend extensions
+                      // 可透過 ECMA5 （類似 JavaScript）對 ArozOS 前後端進行插件編程開發。
+                    </div>
+                </div>
+            </div>
+            <!-- 
+            <div class="basic black card">
+                <div class="image">
+                  <img src="img/features/opensource.png">
+                </div>
+                <div class="content">
+                  <div class="header" i18n>Open Source // 開源系統</div>
+                  <div class="description" i18n>
+                    This software is written in Go(lang), and the source code for ArozOS can be found on my Github repo.
+                      // ArozOS 的原始程式碼可以在我的 Github 儲存庫上找到。
+                    </div>
+                </div>
+            </div>
+            -->
         </div>
-      </div>
     </div>
-  </section><!-- #contact -->
 
-  <!--==========================
-    Footer
-  ============================-->
-  <footer class="footer">
-    <div class="copyrights">
-      <div class="container">
-        <div class="credits">
-          <!--
-            All the links in the footer should remain intact.
-            You can delete the links only if you purchased the pro version.
-            Licensing information: https://bootstrapmade.com/license/
-            Purchase the pro version with working PHP/AJAX contact form: https://bootstrapmade.com/buy/?theme=eStartup
-          -->
-          Designed by <a href="https://bootstrapmade.com/">BootstrapMade</a>
+    <!-- Spec -->
+    <div id="techspec" class="blackbanner">
+        <br><br>
+        <div class="centered title">
+            <h1 i18n>Technical Specifications // 技術規格</h1>
         </div>
-      </div>
+        <div class="ui text container">
+            <table class="ui celled very basic inverted table">
+                <thead>
+                    <tr>
+                        <th i18n>Category // 分類</th>
+                        <th i18n>Specifications // 功能及規格</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td i18n>User Interface // 使用者界面</td>
+                        <td>
+                            <ul>
+                                <li i18n>Web Desktop Interface // 網頁桌面界面</li>
+                                <li i18n>Mobile Desktop Interface // 手機桌面界面</li>
+                                <li i18n>Management Gateway (Enterprise Use) // 管理入口（企業用）</li>
+                                <li i18n>Scriptable Interface Module (Enterprise Use) // 可編程介面模組（企業用）</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Media & Files Processing // 媒體及檔案處理</td>
+                        <td>
+                            <ul>
+                                <li i18n>File Manager // 檔案管理員</li>
+                                <li i18n>Media Playback, Open or Editing WebApps (Audio, Video, Photo, MDEditor etc) // 多媒體檔案播放、開啟或編輯應用程式 (Audio, Video, Photo, MDEditor 等)</li>
+                                <li i18n>File Upload (Form POST / WebSocket Chunked) // 檔案上傳（Form POST 及 WebSocket Chunked 模式）</li>
+                                <li i18n>File Operations Management System with Real-time Progress, Pause and Cancel Options // 具有即時進度，並可暫停及取消之檔案操作系統</li>
+                                <li i18n>File Versioning Tool // 檔案版本記錄工具</li>
+                                <li i18n>Video Transcode (360p, 720p, 1080p, original) // 影片編碼串流（360p, 720p, 1080p 或 原解像度）</li>
+                                <li i18n>Media File Metadata Extraction (e.g. Audio & Video thumbnail) // 媒體檔案詮釋資料（Metadata）提取（如音樂及影片之縮圖）</li>
+                                <li i18n>Serverless and task scheduler. Automation tasks scriptable with ECMA5 / JavaScript // Serverless 及任務調度程序模組，可使用 ECMA5 / JavaScript 編程</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Networking // 網絡與連接</td>
+                        <td>
+                            <ul>
+                                <li i18n>Web Server // 網頁伺服器</li>
+                                <li i18n>mDNS discovery and SSDP broadcast // mDNS 服務發現 及 SSDP廣播</li>
+                                <li i18n>UPnP Port Forwarding // UPnP 連接埠轉送</li>
+                                <li i18n>WiFi Management (Support wpa_supplicant or nmcli) // WiFi 管理（支援 wpa_supplicant 或 nmcli）</li>
+                                <li><span i18n>Network File Share // 網絡檔案分享</span>
+                                    <ul>
+                                        <li i18n>WebDAV</li>
+                                        <li i18n>SFTP</li>
+                                        <li i18n>FTP</li>
+                                        <li i18n>SMB (Samba)</li>
+                                        <li i18n>Directory Server (Compatibility Mode) // 資料夾列表伺服器（相容性模式）</li>
+                                    </ul>
+                                </li>
+                                <li><span i18n>Multi Permisson Web File Sharing // 多權限模式網頁檔案分享</span>
+                                    <ul>
+                                        <li i18n>Public // 公開</li>
+                                        <li i18n>Same user group / organization // 與分享者同一權限群組或機構</li>
+                                        <li i18n>Logged in user // 任何已登入之用戶</li>
+                                        <li i18n>User defined users // 分享者自定義用戶</li>
+                                        <li i18n>User defeined group / organization // 分享者自定義之權限群組或機構</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Disks Management // 磁碟管理</td>
+                        <td>
+                            <ul>
+                                <li><span i18n>Supported Mounting File Systems // 支援掛載檔案系統</span>
+                                    <ul>
+                                        <li i18n>EXT4</li>
+                                        <li i18n>NTFS</li>
+                                        <li i18n>FAT (exFAT, FAT32)</li>
+                                        <li i18n>WebDAV</li>
+                                        <li i18n>FTP</li>
+                                        <li i18n>SFTP</li>
+                                        <li i18n>SMB</li>
+                                    </ul>
+                                </li>
+                                <li i18n>Physical Disk Automount (delay start) // 物理硬碟掛載（延遲啟動）</li>
+                                <li i18n>ArozOS Virtual File System // ArozOS 虛擬檔案系統層</li>
+                                <li i18n>Auto-cleaning tmp Folder // 自動清理之 tmp 資料夾</li>
+                                
+                                
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Security // 安全性</td>
+                        <td>
+                            <ul>
+                                <li i18n>oAuth</li>
+                                <li i18n>LDAP</li>
+                                <li i18n>Conncetion & Login Log // 連接及登入記錄檔</li>
+                                <li i18n>IP White / Blacklist // IP 黑/白名單</li>
+                                <li i18n>Exponential login time (when password incorrect) // 指數登入時間（密碼錯誤時）</li>
+                                <li i18n>Auto Login Token (Kiosk Mode) // 自動登入權杖（Kiosk 模式）</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Extensibility // 擴展性</td>
+                        <td>
+                            <ul>
+                                <li i18n>ECMA5 (JavaScript like) scripting interface // ECMA5（類似 JavaScript）插件編程 API</li>
+                                <li i18n>3rd party Go / Python module development with sub-service reverse proxy // 使用子服務反向代理進行第 3 方 Go/Python 模組開發</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Operation Requirements // 系統需求</td>
+                        <td>
+                            <ul>
+                                <li i18n>512MB system memory and 1.5GB system storage // 512MB 記憶體及 1.5GB 磁碟空間</li>
+                                <li i18n>Debian based Linux Distro or Windows // 基於 Debian 之 Linux 發行版或 Windows</li>
+                                <li i18n>Require FFmpeg, Samba (Linux only), nmcli or wpa_supplicant (Device with WiFi only) // 需裝有 FFmpeg，Samba（在 Linux 上運行時），nmcli or wpa_supplicant（具有 WiFi 功能之裝置）</li>
+                                <li i18n>Recommend using mobile device with Progressive WebApp (PWA) support // 建議使用支援 PWA 的手機</li>
+                            </ul>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-
-  </footer>
-
-
-
-  <a href="#" class="back-to-top"><i class="fa fa-chevron-up"></i></a>
-
-  <!-- JavaScript Libraries -->
-  <script src="lib/jquery/jquery.min.js"></script>
-  <script src="lib/jquery/jquery-migrate.min.js"></script>
-  <script src="lib/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="lib/superfish/hoverIntent.js"></script>
-  <script src="lib/superfish/superfish.min.js"></script>
-  <script src="lib/easing/easing.min.js"></script>
-  <script src="lib/modal-video/js/modal-video.js"></script>
-  <script src="lib/owlcarousel/owl.carousel.min.js"></script>
-  <script src="lib/wow/wow.min.js"></script>
-  <!-- Contact Form JavaScript File -->
-  <script src="contactform/contactform.js"></script>
-
-  <!-- Template Main Javascript File -->
-  <script src="js/main.js"></script>
-
-</body>
+    <script>
+        AOS.init();
+    </script>
+  </body>
 </html>
