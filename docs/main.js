@@ -91,3 +91,20 @@ slideInterval = setInterval(showNextSlide, 5000);
 dots.forEach((dot, index) => {
     dot.addEventListener('click', () => currentSlide(index));
 });
+
+/*
+    Download
+*/
+
+$('.menu .item').tab();
+
+//Download webpack and binary at the same time
+function handleDownload(releasename){
+    let binaryURL = "https://github.com/tobychui/arozos/releases/latest/download/" + releasename;
+    window.open(binaryURL);
+}
+
+function handleGetWebpack(){
+    let webpackURL = "https://github.com/tobychui/arozos/releases/latest/download/web.tar.gz";
+    window.open(webpackURL);
+}
