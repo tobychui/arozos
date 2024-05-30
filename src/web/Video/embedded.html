@@ -59,6 +59,14 @@
                     updatePlayerSize();
                 },500);
 
+                //Check if this is a transcode file
+                let fileExt =  playbackFile.filename.split(".").pop();
+                let videoURL = '../media?file=' + encodeURIComponent(playbackFile.filepath);
+                if (fileExt == "avi" || fileExt == "mkv" || fileExt == "rmvb"){
+                    //transcode
+                    videoURL = '../media/transcode?file=' + encodeURIComponent(playbackFile.filepath);
+                }
+
                  //Set player property
                 const dp = new DPlayer({
                     container: document.getElementById('dplayer'),
@@ -66,7 +74,7 @@
                     autoplay: true,
                     volume: parseFloat(defaultVol),
                     video: {
-                        url: '../media?file=' + encodeURIComponent(playbackFile.filepath)
+                        url: videoURL
                     },
                     contextmenu: [
                         {

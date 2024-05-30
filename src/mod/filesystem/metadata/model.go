@@ -29,7 +29,11 @@ func generateThumbnailForModel(fsh *filesystem.FileSystemHandler, cacheFolder st
 		Height:          480,
 	})
 
-	img, _ := r.RenderModel(file)
+	img, err := r.RenderModel(file)
+	if err != nil {
+		return "", err
+	}
+
 	opt := jpeg.Options{
 		Quality: 90,
 	}
@@ -39,7 +43,10 @@ func generateThumbnailForModel(fsh *filesystem.FileSystemHandler, cacheFolder st
 		return "", err
 	}
 
-	jpeg.Encode(f, img, &opt)
+	err = jpeg.Encode(f, img, &opt)
+	if err != nil {
+		return "", err
+	}
 	f.Close()
 
 	if !generateOnly && fshAbs.FileExists(outputFile) {

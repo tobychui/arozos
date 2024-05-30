@@ -63,13 +63,17 @@ require (
 	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kr/fs v0.1.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/miekg/dns v1.1.57 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.19 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93 // indirect
+	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/skeema/knownhosts v1.2.1 // indirect
+	github.com/smallfz/libnfs-go v0.0.5 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/willscott/go-nfs-client v0.0.0-20200605172546-271fa9065b33 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
@@ -78,7 +82,7 @@ require (
 	golang.org/x/image v0.15.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.16.1 // indirect
 	google.golang.org/appengine v1.6.8 // indirect

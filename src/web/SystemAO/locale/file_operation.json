@@ -202,8 +202,45 @@
             },
             "titles": {},
             "placeholder": {}
-        }
-        
-        
+        },
+        "ko-kr": {
+            "fwtitle": "파일 작업",
+            "fontFamily": "\"Malgun Gothic\", \"Arial Unicode MS\", \"Nanum Gothic\"",
+            "strings": {
+                "title": "파일 작업",
+                "banner/title": "파일 작업 시간을 계산 중",
+                "info/from": "소스:",
+                "info/to": "대상:",
+                "info/progress": "진행 상황:",
+                "info/calculating": "계산 중",
+                "dup/question": "대상에 동일한 이름의 파일이 최소 하나 있습니다.<b>이 파일에 대해 어떤 작업을 수행하시겠습니까?</b>",
+                "dup/overwrite": "덮어쓰기",
+                "dup/skip": "건너뛰기",
+                "dup/renameAndKeep": "이름 변경 후 유지",
+                "title/moving": "이동 중 ",
+                "title/copying": "복사 중",
+                "title/zipping": "압축 중 ",
+                "title/downloading": "다운로드 중 ",
+                "title/unzipping": "압축 해제 중 ",
+                "title/file": " 파일",
+                "title/files": " 파일들",
+                "button/pause": "일시 중지",
+                "button/resume": "재개",
+                "button/cancel": "취소",
+                "error/Access Denied": "액세스가 거부되었습니다",
+                "error/Source file not exists": "소스 파일이 존재하지 않습니다",
+                "error/Source and destination paths are identical.": "소스와 대상 경로가 동일합니다",
+                "error/Storage Quota Full": "스토리지 할당량이 가득 찼습니다",
+                "error/Dest folder not found": "대상 폴더를 찾을 수 없습니다",
+                "error/Undefined dest location": "정의되지 않은 대상 위치",
+                "error/This source file is Read Only": "이 소스 파일은 읽기 전용입니다",
+                "error/File already exists": "파일이 이미 존재합니다",
+                "error/This directory is Read Only": "이 디렉토리는 읽기 전용입니다",
+                "error/Operation cancelled by user": "사용자에 의해 작업이 취소되었습니다",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        }        
     }
 }

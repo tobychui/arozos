@@ -25,7 +25,6 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	db "imuslab.com/arozos/mod/database"
 	"imuslab.com/arozos/mod/filesystem/abstractions/ftpfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
 	sftpfs "imuslab.com/arozos/mod/filesystem/abstractions/sftpfs"
@@ -107,7 +106,6 @@ type FileSystemHandler struct {
 	RequireBuffer            bool //Set this to true if the fsh do not provide file header functions like Open() or Create(), require WriteStream() and ReadStream()
 	Parentuid                string
 	InitiationTime           int64
-	FilesystemDatabase       *db.Database
 	FileSystemAbstraction    FileSystemAbstraction
 	Filesystem               string
 	StartOptions             FileSystemOption
@@ -160,17 +158,6 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			os.MkdirAll(filepath.ToSlash(filepath.Clean(option.Path))+"/users", 0755)
 		}
 
-		//Create the fsdb for this handler
-		var fsdb *db.Database = nil
-		dbp, err := db.NewDatabase(filepath.ToSlash(filepath.Join(filepath.Clean(option.Path), "aofs.db")), false)
-		if err != nil {
-			if option.Access != arozfs.FsReadOnly {
-				log.Println("[File System] Invalid config: Trying to mount a read only path as read-write mount point. Changing " + option.Name + " mount point to READONLY.")
-				option.Access = arozfs.FsReadOnly
-			}
-		} else {
-			fsdb = dbp
-		}
 		rootpath := filepath.ToSlash(filepath.Clean(option.Path)) + "/"
 		return &FileSystemHandler{
 			Name:                     option.Name,
@@ -181,7 +168,6 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			Hierarchy:                option.Hierarchy,
 			HierarchyConfig:          DefaultEmptyHierarchySpecificConfig,
 			InitiationTime:           time.Now().Unix(),
-			FilesystemDatabase:       fsdb,
 			FileSystemAbstraction:    localfs.NewLocalFileSystemAbstraction(option.Uuid, rootpath, option.Hierarchy, option.Access == arozfs.FsReadOnly),
 			Filesystem:               fstype,
 			StartOptions:             option,
@@ -208,7 +194,6 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			Hierarchy:             option.Hierarchy,
 			HierarchyConfig:       nil,
 			InitiationTime:        time.Now().Unix(),
-			FilesystemDatabase:    nil,
 			FileSystemAbstraction: webdavfs,
 			Filesystem:            fstype,
 			StartOptions:          option,
@@ -248,7 +233,6 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			Hierarchy:             option.Hierarchy,
 			HierarchyConfig:       nil,
 			InitiationTime:        time.Now().Unix(),
-			FilesystemDatabase:    nil,
 			FileSystemAbstraction: smbfs,
 			Filesystem:            fstype,
 			StartOptions:          option,
@@ -296,7 +280,6 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			Hierarchy:             option.Hierarchy,
 			HierarchyConfig:       nil,
 			InitiationTime:        time.Now().Unix(),
-			FilesystemDatabase:    nil,
 			FileSystemAbstraction: sftpfs,
 			Filesystem:            fstype,
 			StartOptions:          option,
@@ -319,7 +302,6 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			Hierarchy:             option.Hierarchy,
 			HierarchyConfig:       nil,
 			InitiationTime:        time.Now().Unix(),
-			FilesystemDatabase:    nil,
 			FileSystemAbstraction: ftpfs,
 			Filesystem:            fstype,
 			StartOptions:          option,
@@ -457,54 +439,6 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username st
 	return fsh.GetDirctorySizeFromRealPath(realpath, includeHidden)
 }
 
-/*
-	File Record Related Functions
-	fsh database that keep track of which files is owned by whom
-*/
-
-// Create a file ownership record
-func (fsh *FileSystemHandler) CreateFileRecord(rpath string, owner string) error {
-	if fsh.FilesystemDatabase == nil {
-		//Not supported file system type
-		return errors.New("Not supported filesystem type")
-	}
-	fsh.FilesystemDatabase.NewTable("owner")
-	fsh.FilesystemDatabase.Write("owner", "owner/"+rpath, owner)
-	return nil
-}
-
-// Read the owner of a file
-func (fsh *FileSystemHandler) GetFileRecord(rpath string) (string, error) {
-	if fsh.FilesystemDatabase == nil {
-		//Not supported file system type
-		return "", errors.New("Not supported filesystem type")
-	}
-
-	fsh.FilesystemDatabase.NewTable("owner")
-	if fsh.FilesystemDatabase.KeyExists("owner", "owner/"+rpath) {
-		owner := ""
-		fsh.FilesystemDatabase.Read("owner", "owner/"+rpath, &owner)
-		return owner, nil
-	} else {
-		return "", errors.New("Owner not exists")
-	}
-}
-
-// Delete a file ownership record
-func (fsh *FileSystemHandler) DeleteFileRecord(rpath string) error {
-	if fsh.FilesystemDatabase == nil {
-		//Not supported file system type
-		return errors.New("Not supported filesystem type")
-	}
-
-	fsh.FilesystemDatabase.NewTable("owner")
-	if fsh.FilesystemDatabase.KeyExists("owner", "owner/"+rpath) {
-		fsh.FilesystemDatabase.Delete("owner", "owner/"+rpath)
-	}
-
-	return nil
-}
-
 // Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 	log.Println("[File System] Reloading File System Abstraction for " + fsh.Name)
@@ -525,20 +459,19 @@ func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
 
 	//Overwrite the pointers to target fsa
 	fsh.FileSystemAbstraction = reloadedFsh.FileSystemAbstraction
-	fsh.FilesystemDatabase = reloadedFsh.FilesystemDatabase
 	fsh.Closed = false
 	return nil
+}
+
+// Check if this file system require user isolation (aka Hierarchy == user)
+func (fsh *FileSystemHandler) RequierUserIsolation() bool {
+	return fsh.Hierarchy == "user"
 }
 
 // Close an openeded File System
 func (fsh *FileSystemHandler) Close() {
 	//Set the close flag to true so others function wont access it
 	fsh.Closed = true
-
-	//Close the fsh database
-	if fsh.FilesystemDatabase != nil {
-		fsh.FilesystemDatabase.Close()
-	}
 
 	//Close the file system object
 	err := fsh.FileSystemAbstraction.Close()

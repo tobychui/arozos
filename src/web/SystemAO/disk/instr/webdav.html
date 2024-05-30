@@ -4,18 +4,18 @@
 </div>
 <div class="ui blue message windowonly nontls instr" style="display:none; margin-top: 0;">
     <h4><i class="windows icon"></i> Login Method for Windows (Non SSL / TLS Mode)</h4>
-    <p>If you are using Windows File Explorer as your WebDAV Client without TLS enabled on arozos server, <b>WebDAV will run in compatibility mode and Basic Auth is not usable. You must authenticate through this Web UI. </b> Please follow the steps below to authenticate your Windows WebDAV Client.</p>
+    <p>-- Deprecated since Windows 10 --<br>
+    To use WebDAV on Windows, you will need a certificate installed or with a reverse proxy with TLS/SSL support</p>
     <ol class="ui list">
-        <li>Mount the WebDAV endpoint in your File Explorer (Endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/{vroot_name})</li>
-        <li>Connect with no username and password</li>
-        <li>You will be directed to a READONLY directory. Refresh this page and see if there is a new client pop up in the "Access Pending Clients" list.</li>
-        <li>Click "Allow Access" to assign your user storage pool to be accessiable by this Windows WebDAV Client(s). (Sometime more than 1 conncetions will be used by the same File Explorer)</li>
-        <li>Refresh your file list in File Explorer and your root folder (user:/) should be listed</li>
+        <li>Use a reverse proxy server like <a href="https://zoraxy.arozos.com" target="_blank">Zoraxy <i class="ui external icon"></i></a> to proxy WebDAV traffic with TLS enabled</li>
+        <li>Click "Map Network Drive" in File Explorer > This PC toolbar</li>
+        <li>Enter <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/{vroot_name} as the target</li>
+        <li>Login with your ArozOS username and password</li>
     </ol>
 </div>
 <div class="ui teal message windowonly tls instr" style="display:none">
     <h4><i class="windows icon"></i> Login Method for Windows (With SSL / TLS MODE)</h4>
-    <p>If you are using Windows File Explorer as your WebDAV Client, go to "My Computer" and add a network drive with the following endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/{vroot_name}</p>
+    <p>If you are using Windows File Explorer as your WebDAV Client, go to "This PC" and add a network drive with the following endpoint: <span class="protocol"></span>//<span class="hostname"></span>:<span class="port"></span>/webdav/{vroot_name}</p>
 </div>
 <a onclick="showAllInstr(this);" style="cursor: pointer;">Show instruction for other platforms</a>
 <script>

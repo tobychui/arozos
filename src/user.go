@@ -7,7 +7,12 @@ package main
 */
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"net/http"
 	"strconv"
 	"strings"
@@ -51,6 +56,11 @@ func UserSystemInit() {
 	//Interface info should be able to view by everyone logged in
 	http.HandleFunc("/system/users/interfaceinfo", func(w http.ResponseWriter, r *http.Request) {
 		authAgent.HandleCheckAuth(w, r, user_getInterfaceInfo)
+	})
+
+	//API for loading other users thumbnail as image file
+	http.HandleFunc("/system/users/profilepic", func(w http.ResponseWriter, r *http.Request) {
+		authAgent.HandleCheckAuth(w, r, user_getProfilePic)
 	})
 
 	//Register setting interface for module configuration
@@ -297,6 +307,63 @@ func user_getInterfaceInfo(w http.ResponseWriter, r *http.Request) {
 
 	jsonString, _ := json.Marshal(interfaceModuleInfos)
 	utils.SendJSONResponse(w, string(jsonString))
+}
+
+// return the user profile picture as image file
+func user_getProfilePic(w http.ResponseWriter, r *http.Request) {
+	thisUsername, err := authAgent.GetUserName(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, "User not logged in")
+		return
+	}
+
+	targetUsername, err := utils.GetPara(r, "user")
+	if err != nil {
+		targetUsername = thisUsername
+	}
+
+	base64Image := getUserIcon(targetUsername)
+	if base64Image == "" && utils.FileExists("./web/img/system/close.png") {
+		//There are no profile image for this user
+		http.ServeFile(w, r, "./web/img/system/close.png")
+		return
+	}
+
+	// Remove the data:image/...;base64, part if it exists
+	if commaIndex := strings.Index(base64Image, ","); commaIndex != -1 {
+		base64Image = base64Image[commaIndex+1:]
+	}
+
+	imgBytes, err := base64.StdEncoding.DecodeString(base64Image)
+	if err != nil {
+		http.Error(w, "Failed to decode base64 string", http.StatusInternalServerError)
+		return
+	}
+
+	img, format, err := image.Decode(strings.NewReader(string(imgBytes)))
+	if err != nil {
+		http.Error(w, "Failed to decode image", http.StatusInternalServerError)
+		return
+	}
+
+	switch format {
+	case "jpeg":
+		w.Header().Set("Content-Type", "image/jpeg")
+		err = jpeg.Encode(w, img, nil)
+	case "png":
+		w.Header().Set("Content-Type", "image/png")
+		err = png.Encode(w, img)
+	case "gif":
+		w.Header().Set("Content-Type", "image/gif")
+		err = gif.Encode(w, img, nil)
+	default:
+		http.Error(w, "Unsupported image format", http.StatusInternalServerError)
+		return
+	}
+
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+	}
 }
 
 func user_handleUserInfo(w http.ResponseWriter, r *http.Request) {

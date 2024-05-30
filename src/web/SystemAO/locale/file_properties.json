@@ -211,8 +211,49 @@
         
                 "": ""
             }
+        },
+        "ko-kr": {
+            "fwtitle": "파일 내용",
+            "fontFamily": "",
+            "strings": {
+                "title/title": "파일 내용",
+                "title/desc": "파일의 기본 내용 및 설명",
+                
+                "properties/key/Default WebApp": "기본 열기 앱",
+                "properties/key/Virtual Path": "가상 접근 경로",
+                "properties/key/Storage Path": "디스크 저장 경로",
+                "properties/key/File Size": "파일 크기",
+                "properties/key/Folder Size": "폴더 크기",
+                "properties/key/Permission": "접근 권한",
+                "properties/key/Last Modified": "마지막 수정",
+                "properties/key/File Type": "파일 유형",
+                "properties/key/Owner": "소유자",
+                "properties/key/Total Size": "총 크기",
+                "properties/key/Virtual Directory": "가상 디렉터리",
+                "properties/key/Storage Directory": "디스크 저장 디렉터리",
+                
+                "lastmod/time/year": " 년",
+                "lastmod/time/month": " 월",
+                "lastmod/time/days": " 일",
+                "lastmod/time/today": "오늘",
+                "lastmod/time/s": "초",
+                "lastmod/time/ago": " 전",
+                
+                "button/changeDefault": "기본 열기 앱 변경",
+                "button/versionHistory": "파일 버전 기록 보기",
+                "button/changeFilePermission": "파일 접근 권한 변경",
+                "loader/loadingFileSize": "파일 크기 계산 중",
+                "selection/multi": "여러 파일 선택됨",
+                
+                "counter/files": " 파일",
+                "counter/folders": " 폴더",
+                
+                "properties/error/Not available for network folders": "네트워크 폴더에서는 사용할 수 없습니다",
+                "properties/error/No record": "기록 없음",
+                
+                "": ""
+            }
         }
-        
         
     }
 }

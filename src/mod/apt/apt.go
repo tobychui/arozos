@@ -33,8 +33,8 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	pkgname = strings.ReplaceAll(pkgname, "&", "")
 	pkgname = strings.ReplaceAll(pkgname, "|", "")
 
-	if a.AllowAutoInstall == false {
-		return errors.New("Package auto install is disabled")
+	if !a.AllowAutoInstall {
+		return errors.New("package auto install is disabled")
 	}
 
 	installed, err := PackageExists(pkgname)
@@ -109,10 +109,8 @@ func PackageExists(pkgname string) (bool, error) {
 		}
 
 	} else {
-		return false, errors.New("Unsupported Platform")
+		return false, errors.New("unsupported Platform")
 	}
-
-	return false, errors.New("Unknown error occured when checking package installed")
 }
 
 func HandlePackageListRequest(w http.ResponseWriter, r *http.Request) {
@@ -153,5 +151,4 @@ func HandlePackageListRequest(w http.ResponseWriter, r *http.Request) {
 	jsonString, _ := json.Marshal(results)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonString)
-	return
 }

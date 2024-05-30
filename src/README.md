@@ -11,8 +11,6 @@ This README file is intended for developer only. If you are normal users, please
 - Do not change the sequence in the startup() function unless necessary
 - When in doubt, add startup flags (and use startup flag to disable experimental functions on startup)
 
-
-
 ## Vendor Resources Overwrite
 
 If you want to overwrite vendor related resources in ArozOS 2.012 or above, create a folder in the system root named ```vendor-res``` and put the replacement files inside here. Here is a list of supported replacement resources files
@@ -41,7 +39,7 @@ Since ArozOS v2.000, we added File System Abstraction (fsa, or sometime as seen 
 
 The ArOZ AJGI / AGI interface provide a JavaScript programmable interface for ArozOS users to create 
 plugin for the system. To initiate the module, you can place a "init.agi" file in the web directory of the module
-(also named the module root). See more details in the [AJGI Documentation](AJGI Documentation.md).
+(also named the module root). See more details in the `agi-doc.md`
 
 AGI script can be run as different scope and permissions. 
 

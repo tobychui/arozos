@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Add new disk to RAID</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
+        <script type="text/javascript" src="../../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../../script/ao_module.js"></script>
+        <style>
+            .installedDisk .checkboxWrapper{
+                position: absolute;
+                right: 1em;
+                top: 1.8em;
+            }
+
+            .installedDisk:not(.disabled){
+                cursor: pointer;
+            }
+            .installedDisk:not(.disabled):hover{
+                background-color: rgb(243, 243, 243);
+            }
+
+            .backicon {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 30%;
+                height: calc(50vh - 10px);
+                background-image: url('./img/drive-add.svg');
+                background-size: contain; 
+                background-repeat: no-repeat; 
+                margin-left: -3%;
+                margin-bottom: -5%;
+                opacity: 0.2; 
+            }
+
+            .installedDisk.active{
+                background-color: rgb(232, 246, 253);
+            }
+        </style>
+    </head>
+    <body>
+        <br>
+        <div class="backicon"></div>
+        <div class="ui container">
+            <div style="float:right;">
+                <button class="ui circular icon basic button" onclick="reloadList();"><i class="ui green refresh icon"></i></button>
+                <button id="confirmButton" onclick="addDisk();" class="ui circular green icon button"><i class="ui check icon"></i></button>
+            </div>
+            <p>Select a disk to add to RAID Volume <span id="targetRAIDVol"></span></p>
+            <br>
+            <div id="noUsableDisk" class="ui yellow message" style="display:none;">
+                <i class="yellow exclamation triangle icon"></i> There are no usable / spare disks on your system
+            </div>
+            <div id="usablediskSelectionList" style="margin-bottom: 1em;">
+
+            </div>
+            <div id="disableddiskSelectionList">
+
+            </div>
+        </div>
+
+        <!-- Disk Format Confirmation -->
+        <div id="confirmDiskChoice" class="ui mini modal">
+            <i class="close icon"></i>
+            <div class="header">
+              Confirm Disk Choice
+            </div>
+            <div class="image content">
+              <div class="ui small image">
+                <img src="./img/drive-format.svg">
+              </div>
+              <div class="description">
+                <h3 id="oprconfirm"></h3>
+                <p><b>Selecting this disk will erase all data permanently.</b> Confirm?</p>
+              </div>
+            </div>
+            <div class="actions">
+              <div class="ui black deny button">
+                Cancel
+              </div>
+              <div class="ui positive left labeled icon button" onclick="confirmAddDisk();">
+                <i class="check icon"></i>
+                Confirm
+              </div>
+            </div>
+          </div>
+
+        <br><br>
+        <script>
+            let selectedDiskID = "";
+            let editingMD = {
+                md: "" //RAID device path, e.g. /dev/md0
+            };
+            if (window.location.hash.length > 1){
+                var tmp = window.location.hash.substr(1);
+                editingMD = JSON.parse(decodeURIComponent(tmp));
+            }
+
+            if (editingMD.md == ""){
+                //invalid usage
+                alert("Invalid usage");
+            }else{
+                //load disk info
+                initDiskList();
+                $("#targetRAIDVol").text(editingMD.md);
+            }
+
+            function bytesToSize(bytes) {
+                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
+                if (bytes == 0) return 'n/a';
+                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                if (i == 0) return bytes + ' ' + sizes[i];
+                return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+            };
+
+            function uuidv4() {
+                return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+                    (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16)
+                );
+            }
+
+            /* Disk Choice Confirmation */
+            function addDisk(){
+                selectedDiskID = $("input[type=radio][name=\"disk\"]:checked");
+                if (selectedDiskID.length == 0){
+                    //No selected disk
+                    return;
+                }
+                selectedDiskID = selectedDiskID[0].value;
+                $("#oprconfirm").text(selectedDiskID);
+                $("#confirmDiskChoice").modal("show");
+            }
+
+            function confirmAddDisk(){
+                /*
+                //Authreq is bypassed as add disk seems don't need that much security
+                var apiObject = {
+                    api: "../system/disk/raid/addMemeber",
+                    data: {
+                        raidDev:  editingMD.md,
+                        memDev: selectedDiskID
+                    },
+                    title: `<i class='yellow add circle icon'></i> Add disk to RAID volume `,
+                    desc: `Confirm formatting and adding ${selectedDiskID} to ${editingMD.md}`,
+                    thisuser: true, //This username as default, set to false for entering other user
+                    method: "POST",
+                    success: undefined
+                }
+                apiObject = encodeURIComponent(JSON.stringify(apiObject));
+        
+                parent.newFloatWindow({
+                    url: "SystemAO/security/authreq.html#" + apiObject,
+                    width: 480,
+                    height: 300,
+                    appicon: "SystemAO/security/img/lock.svg",
+                    title: `Confirm Disk Add`,
+                    parent: ao_module_windowID,
+                    callback: "handleDiskAddCallback"
+                });
+                */
+
+                $.ajax({
+                    url: "../../../system/disk/raid/addMemeber",
+                    data:{
+                        raidDev:  editingMD.md,
+                        memDev: selectedDiskID
+                    },
+                    method: "POST",
+                    success: function(data){
+                        handleDiskAddCallback(data);
+                    } 
+                })
+            }
+
+            window.handleDiskAddCallback = function(data){
+                if (data.error != undefined){
+                    alert(data.error);
+                }else{
+                    //Disk added. Handle callback to parent 
+                    if (ao_module_hasParentCallback()){
+                        ao_module_parentCallback(data);
+                    }
+
+                    //Operation completed. 
+                    setTimeout(function(){
+                        ao_module_close();
+                    }, 300);
+                }
+               
+            }
+
+
+            function reloadList(){
+                initDiskList();
+            }
+
+            function initDiskList(){
+                $("#disableddiskSelectionList").html("");
+                $("#usablediskSelectionList").html("");
+                $.get("../../../system/disk/devices/list", function(data){
+                    if (data.error != undefined){
+                        console.log(data.error);
+                    }else{
+                        let usableDiskCount = 0;
+                        data.forEach(function(driveInfo){
+                            //Generate the children table
+                            let childrenTable = "";
+                            let notUsable = false;
+                            if (driveInfo.children != undefined){
+                                for (var i = 0; i < driveInfo.children.length; i++){
+                                    let thisChild = driveInfo.children[i];
+                                    childrenTable = childrenTable + `<tr>
+                                        <td>${thisChild.name}</td>
+                                        <td>${bytesToSize(thisChild.size)}</td>
+                                        <td>${thisChild.type}</td>
+                                        <td>${thisChild.mountpoint}</td>
+                                    </tr>`;
+
+                                    //Check if this disk is already in other raid object
+                                    if (thisChild.name.substr(0, 2) == "md" || thisChild.type.substr(0, 4) == "raid"){
+                                        //This is already in some raid array
+                                        notUsable = true;
+                                    }
+
+                                    if (thisChild.mountpoint == "/"){
+                                        //This is the root drive! Don't allow self destruct
+                                        notUsable = true;
+                                    }
+                                }
+                            }
+                            
+                            var domUID = uuidv4();
+                            let diskDOM = (`<div onclick="handleSelect(this);" class="ui segment installedDisk ${domUID} ${notUsable?"disabled":""}">
+                                <h4 class="ui header">
+                                    <img src="./img/drive.svg">
+                                    <div class="content">
+                                        ${bytesToSize(driveInfo.size)} - <span class="diskname ${domUID}">Unknown Disk</span>
+                                        <div class="sub header">/dev/${driveInfo.name}</div>
+                                    </div>
+                                </h4>
+                                <div class="children">
+                                    <table class="ui very basic unstackable table">
+                                        <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Size</th>
+                                            <th>Partition Type</th>
+                                            <th>Mount Point</th>
+                                        </tr></thead>
+                                        <tbody>${childrenTable}</tbody>
+                                    </table>
+                                </div>
+                                <div class="checkboxWrapper">
+                                    <div class="ui radio checkbox">
+                                        <input type="radio" name="disk" value="/dev/${driveInfo.name}">
+                                        <label></label>
+                                    </div>
+                                </div>
+                            </div>`);
+                            
+                           
+
+                            if (!notUsable){
+                                $("#usablediskSelectionList").append(diskDOM);
+                            }else{
+                                $("#disableddiskSelectionList").append(diskDOM);
+                            }
+
+                            if (driveInfo.children == undefined || driveInfo.children.length == 0){
+                                $(".installedDisk." + domUID).find(".children").hide();
+                            }
+                            //console.log(driveInfo);
+
+                            if (notUsable){
+                                $(".installedDisk." + domUID).find(".checkboxWrapper").hide();
+                            }
+
+                            resolveDiskLabelToDOM(`/dev/${driveInfo.name}`, ".diskname." + domUID);
+
+                            if (!notUsable){
+                                usableDiskCount++;
+                            }
+                        });
+
+                        if (usableDiskCount == 0){
+                            //No usable disk. Is all disk in use?
+                            $("#noUsableDisk").show();
+                            $("#confirmButton").addClass("disabled");
+                        }else{
+                            $("#noUsableDisk").hide();
+                            $("#confirmButton").removeClass("disabled");
+                        }
+                    }
+                })
+            }
+
+            //Resolve the disk label name to dom
+            function resolveDiskLabelToDOM(diskPath, domSelector){
+                $.get("../../../system/disk/devices/model?devName=" + diskPath, function(data){
+                    let diskLabelName = ""
+                    if (data.error == undefined){
+                        //[0] is disk labeled name
+                        //[1] is disk labeled size
+                        diskLabelName = data[0];
+                    }
+                    $(domSelector).html(diskLabelName);
+                });
+            }
+
+            //Select the select box in the hdd
+            function handleSelect(object){
+                if (!$(object).hasClass("disabled")){
+                    $(object).find("input[type=radio]")[0].checked = true;
+                    $(".installedDisk.active").removeClass(".active");
+                    $(object).addClass('active');
+                }
+            }
+            
+        </script>
+    </body>
+</html>

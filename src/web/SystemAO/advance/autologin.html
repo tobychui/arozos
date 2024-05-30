@@ -77,11 +77,11 @@
                         </div>
                     </div>
                 </div>
-                <div id="adminwarning" class="ui yellow segment" style="display:none">
+                <div id="adminwarning" class="ui yellow message" style="display:none">
                     <i class="info circle icon"></i> We do not recommend enabling auto login on Administrator accounts due to security issues. Click <a href="../vendor/public/autoLoginForAdmin.html" target="_blank">HERE</a> to learn more.
                 </div>
-                <button id="ntb" onclick="newToken(event);" class="ui green disabled button" type="submit">New Token</button>
-                <button onclick="refreshTokenList();" class="ui blue button"><i class="refresh icon"></i>Refresh List</button>
+                <button id="ntb" onclick="newToken(event);" class="ui green basic disabled button" type="submit"><i class="ui add circle icon"></i> New Token</button>
+                <button onclick="refreshTokenList();" class="ui basic blue button"><i class="blue refresh icon"></i>Refresh List</button>
                 <div class="ui green segment" style="display:none;">
                     <h4>Token Created: </h4>
                     <p id="newTokenDisplay"></p>
@@ -168,7 +168,7 @@
                     if (data.length == 0){
                         $("#tokenlist").append(`
                         <div class="item">
-                            <i class="question icon"></i>
+                            <i class="ui green check circle icon"></i>
                             <div class="content" style="font-family: monospace;">
                                No Token Found
                             </div>

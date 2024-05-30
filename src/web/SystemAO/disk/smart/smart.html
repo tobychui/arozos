@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html>
     <head>
         <title>Disk SMART</title>
@@ -27,7 +27,7 @@
             <br>
             <div class="ui divider"></div>
         </div>
-        <div class="ui modal">
+        <div class="ui modal smartdetails">
           <i class="close icon"></i>
           <div class="header">
             SMART Information (<span id="modal_model"></span>)
@@ -97,7 +97,7 @@
             */
             $(".loadedModal").modal('destroy');
             $(".loadedModal").remove();
-            $(".ui.modal").addClass("loadedModal");
+            $(".smartdetails").addClass("loadedModal");
 
             
             function append(id, name, status, capacity){
@@ -141,7 +141,7 @@
                     $("#modal_smart").append("<td>" + value.healthy + "</td>");
                     $("#modal_smart").append("</tr>");
             });
-            $('.ui.modal').modal('show');
+            $('.smartdetails').modal('show');
           }
         </script>
    

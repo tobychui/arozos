@@ -23,7 +23,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	sysdb := g.Option.UserHandler.GetDatabase()
 
 	if !sysdb.TableExists("external_agi") {
-		utils.SendErrorResponse(w, "Invalid Request")
+		http.Error(w, "invalid API request", http.StatusBadRequest)
 		return
 	}
 
@@ -33,7 +33,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	// check if it contains only two part, [rexec uuid]
 	if len(subpathElements) != 3 {
-		utils.SendErrorResponse(w, "Invalid Request")
+		http.Error(w, "invalid API request", http.StatusBadRequest)
 		return
 	}
 
@@ -41,7 +41,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	// get the info from the database
 	data, isExist := g.checkIfExternalEndpointExist(subpathElements[2])
 	if !isExist {
-		utils.SendErrorResponse(w, "Malform Request, invaild UUID given")
+		http.Error(w, "malformed request: invalid UUID given", http.StatusBadRequest)
 		return
 	}
 
@@ -51,12 +51,20 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	// get the userinfo and the realPath
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromUsername(usernameFromDb)
 	if err != nil {
-		utils.SendErrorResponse(w, "Invalid username")
+		http.Error(w, "invalid request: API author no longer exists", http.StatusBadRequest)
 		return
 	}
 	fsh, realPath, err := static.VirtualPathToRealPath(pathFromDb, userInfo)
 	if err != nil {
-		utils.SendErrorResponse(w, "Invalid filepath")
+		http.Error(w, "invalid request: backend script path cannot be resolved", http.StatusBadRequest)
+		return
+	}
+
+	//Check if the script file still exists
+	if !fsh.FileSystemAbstraction.FileExists(realPath) {
+		//Script no longer exists
+		log.Println("[Remote AGI] ", pathFromDb, " cannot be found on "+realPath)
+		http.Error(w, "invalid request: backend script not exists", http.StatusBadRequest)
 		return
 	}
 

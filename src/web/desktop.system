@@ -1,5 +1,5 @@
+<!DOCTYPE html>
 <html>
-
 <head>
     <title>ArozOS Desktop</title>
     <meta charset="UTF-8">
@@ -706,7 +706,7 @@
             pointer-events: auto;
         }
 
-        body.whiteTheme .item:hover{
+        body.whiteTheme .item:not(.clickable):hover{
             background-color: #ececec !important;
         }
 
@@ -1720,7 +1720,7 @@
             if (listMenuShown = true){
                 hideListMenu();
             }
-            $("#quickAccessPanel").fadeIn("fast");
+            $("#quickAccessPanel").fadeToggle("fast");
         }
         function hideToolPanel(){
             $("#quickAccessPanel").fadeOut("fast");
@@ -3427,6 +3427,25 @@
             evt.preventDefault();
         });
 
+        //Remove icons duplication due to sync issue to server
+        function removeDesktopIconDuplicates(){
+            var duplicates = {};
+            $(".launchIcon").each(function(){
+                //Check if there are duplicates. If yes, remove it
+                let thisIconFilename = $(this).attr("filename");
+                let identicalIcons = $(`.launchIcon[filename=\"${thisIconFilename}\"]`);
+                if (identicalIcons.length > 1 && typeof(duplicates[thisIconFilename]) == "undefined"){
+                    duplicates[thisIconFilename] = identicalIcons;
+                }
+            });
+
+            for (const [key, value] of Object.entries(duplicates)) {
+                for (var i = 0; i < value.length-1; i++){
+                    value[i].remove();
+                }
+            }
+        }
+
         //================== DESKTOP FILE LOCATION FUNCTIONS ====================
         function initDesktopFiles(optionObject = {}, callback = undefined) {
             $.get("system/desktop/listDesktop", function(data) {
@@ -3460,6 +3479,11 @@
                            $(this).remove();
                         }
                     });
+
+                    //Duplicate removal function
+                    setTimeout(function(){
+                        //removeDesktopIconDuplicates();
+                    }, 300);
                 }else{
                     //Cleanup all previous icons
                     $("#iconwrapper").children().each(function(){
@@ -3577,17 +3601,11 @@
                     appendIconAtLocation(thisFile, screenLocation[0], screenLocation[1], iheight, iwidth, noflash);
 
                     //Save the icon location to server
-                    $.ajax({
-                        url: "system/desktop/files",
-                        method: "POST",
-                        data: {"set": thisFile.Filename, "x": current[0], "y": current[1]},
-                        success: function(data) {
-                            if (data.error !== undefined) {
-                                console.log(data.error);
-                            }
+                    setIconDesktopLocation(thisFile.Filename, current[0], current[1], function(){
+                        if (data.error !== undefined) {
+                            console.log(data.error);
                         }
                     });
-                    
                 }
 
                 //Update the desktop hash to prevent the auto refresh by hash
@@ -3696,6 +3714,7 @@
             multiSelectionStartPoint = [-1, -1];
             $("#selectionPanel").hide();
         }
+        
 
         function selectAllLaunchIconInRange(minX, maxX, minY, maxY) {
             //Select launch icons from its center point
@@ -4273,18 +4292,12 @@
                         var refreshTimer;
                         uploadFile(thisFile,function(){
                             console.log("Uploader callback");
-                            $.ajax({
-                                url: "system/desktop/files",
-                                method: "POST",
-                                data: {"set": thisFilename, "x": x, "y": y},
-                                success: function(data) {
-                                    //Refresh the desktop
-                                    clearTimeout(refreshTimer);
-                                    refreshTimer = setTimeout(function(){
-                                        refresh(undefined, false);
-                                    }, 500)
-                                    
-                                }
+                            setIconDesktopLocation(thisFilename, x, y, function(){
+                                //Refresh the desktop
+                                clearTimeout(refreshTimer);
+                                refreshTimer = setTimeout(function(){
+                                    refresh(undefined, false);
+                                }, 500)
                             });
                         }, uploadIconUUID);
                         
@@ -4387,13 +4400,8 @@
                         });
 
                         //Save the drag item location
-                        $.ajax({
-                            url: "system/desktop/files",
-                            method: "POST",
-                            data: {"set": sourceFilename, "x": targetLocation[1][0], "y": targetLocation[1][1]},
-                            success: function(data) {
-                                //console.log(data);
-                            }
+                        setIconDesktopLocation(sourceFilename, targetLocation[1][0], targetLocation[1][1], function(){
+                            //console.log(data);
                         });
 
                         //Move all the relative files to the main object
@@ -4412,15 +4420,9 @@
                             let thisIconFileData = JSON.parse(decodeURIComponent($(thisIconObject).attr("filedata")));
                             
                             //Record this in database
-                            $.ajax({
-                                url: "system/desktop/files",
-                                method: "POST",
-                                data: {"set": thisIconFileData.Filename, "x": finalIconLocation[1][0], "y": finalIconLocation[1][1]},
-                                success: function(data) {
-                                    //console.log(data);
-                                }
+                            setIconDesktopLocation(thisIconFileData.Filename, finalIconLocation[1][0], finalIconLocation[1][1], function(){
+                                
                             });
-                            
                         }
 
                         //Get duplication objects
@@ -4455,15 +4457,9 @@
 
                             //Save move record to db
                             let thisIconFileData = JSON.parse(decodeURIComponent($(thisObject).attr("filedata")));
-                            $.ajax({
-                                url: "system/desktop/files",
-                                method: "POST",
-                                data: {"set": thisIconFileData.Filename, "x": nextEmptyGrid[1][0], "y": nextEmptyGrid[1][1]},
-                                success: function(data) {
-                                    //console.log(data);
-                                }
+                            setIconDesktopLocation(thisIconFileData.Filename, nextEmptyGrid[1][0], nextEmptyGrid[1][1], function(){
+                                removeDesktopIconDuplicates();
                             });
-
                         }
                     }
                     
@@ -4486,13 +4482,8 @@
                         left: closestLocation[0] + iconOffsetXY[0],
                         top: closestLocation[1] + iconOffsetXY[1]
                     });
-                    $.ajax({
-                        url: "system/desktop/files",
-                        method: "POST",
-                        data: {"set": sourceFilename, "x": closestGridIndex[0], "y": closestGridIndex[1]},
-                        success: function(data) {
-                            //console.log(data);
-                        }
+                    setIconDesktopLocation(sourceFilename, closestGridIndex[0], closestGridIndex[1], function(){
+
                     });
                 }
             } else if (target.attr("type") == "folder") {
@@ -4685,6 +4676,7 @@
             return locations
         }
 
+        //Set the icon desktop location given filename, grid x and y
         function setIconDesktopLocation(sourceFilename, gridIndexX, gridIndexY, callback = undefined) {
             $.ajax({
                 url: "system/desktop/files",
@@ -4697,6 +4689,7 @@
                         if (callback !== undefined) {
                             callback();
                         }
+                        removeDesktopIconDuplicates();
                     }
                 }
             });

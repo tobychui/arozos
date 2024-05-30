@@ -596,7 +596,10 @@
 			$("#playbackProgress").css("background-color", colorText);
 			$("#playpauseBtn").css("background-color", colorText);
 			$("#volControl").css("background-color", colorText);
-			$(".modeEnabled")[0].style.setProperty( "background-color", colorText, 'important' );
+			if ($(".modeEnabled").length > 0){
+				$(".modeEnabled")[0].style.setProperty( "background-color", colorText, 'important' );
+			}
+			
 			//$(".sameDirFileList").css("background-color", `rgba(${newRGBColor.r}, ${newRGBColor.g}, ${newRGBColor.b}, 0.1)`);
 		}
 		

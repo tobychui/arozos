@@ -8,7 +8,9 @@ import (
 	apt "imuslab.com/arozos/mod/apt"
 	auth "imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/disk/raid"
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/media/mediaserver"
 	permission "imuslab.com/arozos/mod/permission"
 	user "imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/www"
@@ -24,21 +26,20 @@ var authAgent *auth.AuthAgent //System authentication agent
 var permissionHandler *permission.PermissionHandler
 var userHandler *user.UserHandler         //User Handler
 var packageManager *apt.AptPackageManager //Manager for package auto installation
+var raidManager *raid.Manager             //Software RAID Manager, only activate on Linux hosts
 var userWwwHandler *www.Handler           //User Webroot handler
+var mediaServer *mediaserver.Instance     //Media handling server for streaming and downloading large files
 var subserviceBasePort = 12810            //Next subservice port
 
 // =========== SYSTEM BUILD INFORMATION ==============
 var build_version = "development"                      //System build flag, this can be either {development / production / stable}
-var internal_version = "0.2.018"                       //Internal build version, [fork_id].[major_release_no].[minor_release_no]
+var internal_version = "0.2.020"                       //Internal build version, [fork_id].[major_release_no].[minor_release_no]
 var deviceUUID string                                  //The device uuid of this host
 var deviceVendor = "IMUSLAB.INC"                       //Vendor of the system
 var deviceVendorURL = "http://imuslab.com"             //Vendor contact information
 var deviceModel = "AR100"                              //Hardware Model of the system
 var deviceModelDesc = "General Purpose Cloud Platform" //Device Model Description
 var vendorResRoot = "./vendor-res/"                    //Root folder for vendor overwrite resources
-
-//var iconVendor = "vendor/vendor_icon.png"              //Vendor icon location
-//var iconSystem = "vendor/system_icon.png"              //System icon location
 
 // =========== RUNTTIME RELATED ================
 var max_upload_size int64 = 8192 << 20                         //Maxmium upload size, default 8GB
@@ -75,6 +76,7 @@ var allow_hardware_management = flag.Bool("enable_hwman", true, "Enable hardware
 var allow_power_management = flag.Bool("enable_pwman", true, "Enable power management of the host system")
 var wpa_supplicant_path = flag.String("wpa_supplicant_config", "/etc/wpa_supplicant/wpa_supplicant.conf", "Path for the wpa_supplicant config")
 var wan_interface_name = flag.String("wlan_interface_name", "wlan0", "The default wireless interface for connecting to an AP")
+var skip_mdadm_reload = flag.Bool("skip_mdadm_reload", false, "Skip mdadm reload config during startup, might result in werid RAID device ID in some Linux distro")
 
 // Flags related to files and uploads
 var max_upload = flag.Int("max_upload_size", 8192, "Maxmium upload size in MB. Must not exceed the available ram on your system")
@@ -99,7 +101,6 @@ var enable_logging = flag.Bool("logging", true, "Enable logging to file for debu
 // Flags related to running on Cloud Environment or public domain
 var allow_public_registry = flag.Bool("public_reg", false, "Enable public register interface for account creation")
 var allow_autologin = flag.Bool("allow_autologin", true, "Allow RESTFUL login redirection that allow machines like billboards to login to the system on boot")
-var demo_mode = flag.Bool("demo_mode", false, "Run the system in demo mode. All directories and database are read only.")
 var allow_package_autoInstall = flag.Bool("allow_pkg_install", true, "Allow the system to install package using Advanced Package Tool (aka apt or apt-get)")
 var allow_homepage = flag.Bool("homepage", true, "Enable user homepage. Accessible via /www/{username}/")
 

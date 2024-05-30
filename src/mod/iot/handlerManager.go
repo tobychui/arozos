@@ -38,7 +38,7 @@ func NewIoTManager(sysdb *database.Database) *Manager {
 	}
 }
 
-//Register the handler as one of the IoT Protocol Handler.
+// Register the handler as one of the IoT Protocol Handler.
 func (m *Manager) RegisterHandler(h ProtocolHandler) error {
 	//Try to start the handler
 	err := h.Start()
@@ -53,7 +53,7 @@ func (m *Manager) RegisterHandler(h ProtocolHandler) error {
 	return nil
 }
 
-//Handle listing of all avaible scanner and its stats
+// Handle listing of all avaible scanner and its stats
 func (m *Manager) HandleScannerList(w http.ResponseWriter, r *http.Request) {
 	stats := []Stats{}
 	for _, scanner := range m.RegisteredHandler {
@@ -65,7 +65,7 @@ func (m *Manager) HandleScannerList(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Get the device object by id
+// Get the device object by id
 func (m *Manager) GetDeviceByID(devid string) *Device {
 	for _, dev := range m.cachedDeviceList {
 		if dev.DeviceUUID == devid {
@@ -75,7 +75,7 @@ func (m *Manager) GetDeviceByID(devid string) *Device {
 	return nil
 }
 
-//Handle listing of all avaible scanner and its stats
+// Handle listing of all avaible scanner and its stats
 func (m *Manager) HandleIconLoad(w http.ResponseWriter, r *http.Request) {
 	devid, err := utils.GetPara(r, "devid")
 	if err != nil {
@@ -96,7 +96,7 @@ func (m *Manager) HandleIconLoad(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Handle listing of all avaible scanner and its stats
+// Handle listing of all avaible scanner and its stats
 func (m *Manager) HandleExecute(w http.ResponseWriter, r *http.Request) {
 	devid, err := utils.PostPara(r, "devid")
 	if err != nil {
@@ -142,7 +142,7 @@ func (m *Manager) HandleExecute(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Get status of the given device ID
+// Get status of the given device ID
 func (m *Manager) HandleGetDeviceStatus(w http.ResponseWriter, r *http.Request) {
 	devid, err := utils.PostPara(r, "devid")
 	if err != nil {
@@ -171,7 +171,7 @@ func (m *Manager) HandleGetDeviceStatus(w http.ResponseWriter, r *http.Request) 
 	utils.SendErrorResponse(w, "Given device ID does not match any scanned devices")
 }
 
-//Handle IoT Scanning Request
+// Handle IoT Scanning Request
 func (m *Manager) HandleScanning(w http.ResponseWriter, r *http.Request) {
 	//Scan the devices
 	scannedDevices := m.ScanDevices()
@@ -180,7 +180,7 @@ func (m *Manager) HandleScanning(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Handle IoT Listing Request
+// Handle IoT Listing Request
 func (m *Manager) HandleListing(w http.ResponseWriter, r *http.Request) {
 
 	if m.cachedDeviceList == nil || len(m.cachedDeviceList) == 0 {

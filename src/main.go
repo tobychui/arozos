@@ -26,7 +26,7 @@ import (
 	P.S. Try to keep this file < 300 lines
 */
 
-//Close handler, close db and clearn up everything before exit
+// Close handler, close db and clearn up everything before exit
 func SetupCloseHandler() {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -82,10 +82,6 @@ func main() {
 
 	//Handle flag assignments
 	max_upload_size = int64(*max_upload) << 20 //Parse the max upload size
-	if *demo_mode {                            //Disable hardware man under demo mode
-		enablehw := false
-		allow_hardware_management = &enablehw
-	}
 
 	//Clean up previous tmp files
 	final_tmp_directory := filepath.Clean(*tmp_directory) + "/tmp/"
@@ -109,23 +105,8 @@ func main() {
 
 	//Initiate all the static files transfer
 	fs := http.FileServer(http.Dir("./web"))
-	/*
-		if *enable_gzip {
-			//Gzip enabled. Always serve with gzip if header exists
-			//http.Handle("/", gzipmiddleware.Compress(mrouter(fs)))
-			http.Handle("/", mrouter(fs))
-		} else {
-			//Normal file server without gzip
-			http.Handle("/", mrouter(fs))
-		}
-	*/
 	//Updates 2022-09-06: Gzip handler moved inside the master router
 	http.Handle("/", mrouter(fs))
-
-	//Set database read write to ReadOnly after startup if demo mode
-	if *demo_mode {
-		sysdb.UpdateReadWriteMode(true)
-	}
 
 	//Setup handler for Ctrl +C
 	SetupCloseHandler()

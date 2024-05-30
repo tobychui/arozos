@@ -1,6 +1,7 @@
+<!DOCTYPE html>
 <html>
     <head>
-        <title>Module List</title>
+        <title locale="title/title">Module List</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
@@ -14,15 +15,15 @@
                 <table class="ui basic celled structured unstackable table">
                     <thead>
                     <tr>
-                        <th rowspan="2">Module</th>
-                        <th rowspan="2">Group</th>
-                        <th rowspan="2">Supported Extensions</th>
-                        <th colspan="3">Supported Mode</th>
+                        <th rowspan="2" locale="table/module">Module</th>
+                        <th rowspan="2" locale="table/group">Group</th>
+                        <th rowspan="2" locale="table/ext">Supported Extensions</th>
+                        <th colspan="3" locale="table/modes">Supported Mode</th>
                     </tr>
                     <tr>
-                        <th>Default</th>
-                        <th>FloatWindow</th>
-                        <th>Embedded</th>
+                        <th locale="table/modes/default">Default</th>
+                        <th locale="table/modes/floatwindow">FloatWindow</th>
+                        <th locale="table/modes/embedded">Embedded</th>
                     </tr>
                     </thead>
                     <tbody id="moduleList">
@@ -31,14 +32,22 @@
                 </table>
             </div>
               <div class="ui divider"></div>
-              <p>If you have installed WebApps manually, you can click the "Reload WebApps" button to load it without restarting ArozOS.</p>
+              <p locale="desc/reload">If you have installed WebApps manually, you can click the "Reload WebApps" button to load it without restarting ArozOS.</p>
               <button id="reloadWebappButton" class="ui basic small blue button" onclick="reloadWebapps();">
-                <i class="refresh icon"></i> Reload WebApps
+                <i class="refresh icon"></i> <span locale="button/reload">Reload WebApps</span>
               </button>
               <br><br>
         </div>
         <script>
-            initModuleList();
+
+            //Applocale
+            var moduleListLocale = NewAppLocale();
+            moduleListLocale.init("../locale/system_settings/modulelist.json", function(){
+                moduleListLocale.translate();
+                initModuleList();
+            });
+
+            
 
             function reloadWebapps(){
                 let moduleListBackup = $("#moduleList").html();
@@ -92,7 +101,7 @@
                                         <img src="${iconURL}" class="ui mini rounded image">
                                         <div class="content">
                                             ${thisModule.Name}
-                                            <div class="sub header">Version: ${thisModule.Version} </div>
+                                            <div class="sub header">${moduleListLocale.getString("item/version", "Version:")} ${thisModule.Version} </div>
                                         </div>
                                     </h4>
                                 </td>
@@ -116,6 +125,9 @@
                     }
                 });
             }
+
+            
+            
         </script>
     </body>
 </html>

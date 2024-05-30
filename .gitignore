@@ -22,3 +22,5 @@ src/web/Cyinput/*
 release/
 src/system/neuralnet/yolov3.weights
 src/system/ao.db.lock
+src/system/auth/authlog.db.lock
+src/system/neuralnet/predictions.jpg

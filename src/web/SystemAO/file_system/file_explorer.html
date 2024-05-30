@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <title>File Manager</title>
@@ -3897,7 +3898,8 @@
                     $(".dropdown").removeClass("inverted");
                     setPreference("file_explorer/theme","whiteTheme");
                     $("#mobileNaviBar").removeClass("inverted");
-
+                    $("#darkthemebtn").css("color", "#dadada");
+                    
                     //If in vdi mode, update desktop's listMenu as well
                     if (ao_module_virtualDesktop){
                         parent.initTheme("whiteTheme");
@@ -3908,10 +3910,11 @@
                     currentTheme = "darkTheme";
                     $("#darkthemebtn").attr("class","sun icon");
                     $("#darkthemebtn").parent().removeClass("inverted");
+                    $("#darkthemebtn").css("color", "#3d3f47");
                     $(".dropdown").addClass("inverted");
                     setPreference("file_explorer/theme","darkTheme");
                     $("#mobileNaviBar").addClass("inverted");
-
+                    
                      //If in vdi mode, update desktop's listMenu as well
                      if (ao_module_virtualDesktop){
                         parent.initTheme("darkTheme");

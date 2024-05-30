@@ -48,6 +48,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if h.LockSystem == nil {
 		status, err = http.StatusInternalServerError, errNoLockSystem
 	} else {
+		//fmt.Println(r.Method)
 		switch r.Method {
 		case "OPTIONS":
 			status, err = h.handleOptions(w, r)
@@ -83,6 +84,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Check if the request was from a windows client
+func isWindowsClient(r *http.Request) bool {
+	return r.Header["User-Agent"] != nil && strings.Contains(r.Header["User-Agent"][0], "Microsoft-WebDAV-MiniRedir")
+}
+
 func (h *Handler) lock(now time.Time, root string) (token string, status int, err error) {
 	token, err = h.LockSystem.Create(now, LockDetails{
 		Root:      root,
@@ -99,6 +105,11 @@ func (h *Handler) lock(now time.Time, root string) (token string, status int, er
 }
 
 func (h *Handler) confirmLocks(r *http.Request, src, dst string) (release func(), status int, err error) {
+	//Ignore lock on Windows
+	if isWindowsClient(r) {
+		return nil, 200, nil
+	}
+
 	hdr := r.Header.Get("If")
 	if hdr == "" {
 		// An empty If header means that the client hasn't previously created locks.
@@ -231,7 +242,11 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) (status i
 	if err != nil {
 		return status, err
 	}
-	defer release()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
 	ctx := r.Context()
 
@@ -261,12 +276,18 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 	if err != nil {
 		return status, err
 	}
-	defer release()
+
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+
 	// TODO(rost): Support the If-Match, If-None-Match headers? See bradfitz'
 	// comments in http.checkEtag.
 	ctx := r.Context()
 
-	f, err := h.FileSystem.OpenFile(ctx, reqPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	f, err := h.FileSystem.OpenFile(ctx, reqPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
 	if err != nil {
 		return http.StatusNotFound, err
 	}
@@ -283,11 +304,13 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) (status int,
 	if closeErr != nil {
 		return http.StatusMethodNotAllowed, closeErr
 	}
+
 	etag, err := findETag(ctx, h.FileSystem, h.LockSystem, reqPath, fi)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
 	w.Header().Set("ETag", etag)
+
 	return http.StatusCreated, nil
 }
 
@@ -300,7 +323,11 @@ func (h *Handler) handleMkcol(w http.ResponseWriter, r *http.Request) (status in
 	if err != nil {
 		return status, err
 	}
-	defer release()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
 	ctx := r.Context()
 
@@ -358,7 +385,11 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 		if err != nil {
 			return status, err
 		}
-		defer release()
+		defer func() {
+			if release != nil {
+				release()
+			}
+		}()
 
 		// Section 9.8.3 says that "The COPY method on a collection without a Depth
 		// header must act as if a Depth header with value "infinity" was included".
@@ -378,7 +409,11 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 	if err != nil {
 		return status, err
 	}
-	defer release()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
 	// Section 9.9.2 says that "The MOVE method on a collection must act as if
 	// a "Depth: infinity" header was used on it. A client must not submit a
@@ -597,7 +632,11 @@ func (h *Handler) handleProppatch(w http.ResponseWriter, r *http.Request) (statu
 	if err != nil {
 		return status, err
 	}
-	defer release()
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
 	ctx := r.Context()
 
@@ -656,10 +695,11 @@ const (
 // infiniteDepth. Parsing any other string returns invalidDepth.
 //
 // Different WebDAV methods have further constraints on valid depths:
-//	- PROPFIND has no further restrictions, as per section 9.1.
-//	- COPY accepts only "0" or "infinity", as per section 9.8.3.
-//	- MOVE accepts only "infinity", as per section 9.9.2.
-//	- LOCK accepts only "0" or "infinity", as per section 9.10.3.
+//   - PROPFIND has no further restrictions, as per section 9.1.
+//   - COPY accepts only "0" or "infinity", as per section 9.8.3.
+//   - MOVE accepts only "infinity", as per section 9.9.2.
+//   - LOCK accepts only "0" or "infinity", as per section 9.10.3.
+//
 // These constraints are enforced by the handleXxx methods.
 func parseDepth(s string) int {
 	switch s {

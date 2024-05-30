@@ -1,0 +1,482 @@
+<style>
+    .editButton{
+        color: #83b3d2; 
+        cursor: pointer; 
+        float: right;
+    }
+</style>
+<!-- <h3>Enable Samba Service</h3>
+<p>Change current systemctl state of smbd (start / stop).</p>
+<div class="ui toggle checkbox">
+    <input type="checkbox" id="enablesmbd">
+    <label>Enable smbd (Samba Sharing Service)</label>
+</div>
+-->
+
+<div class="ui divider"></div>
+<h3><i class="ui green share alternate icon"></i> Samba Share Lists</h3>
+<p>A list of SMB shares currently written into smb.conf</p>
+<div style="width: 100%; overflow-y: auto;">
+    <div id="sharelist">
+
+    </div>
+    <br>
+</div>
+
+<!-- Create new Samba Share -->
+<h4><i class="ui green circle add icon"></i> Add Samba Share</h4>
+<p>Create a new SMB share folder from local disk</p>
+<form class="ui form" id="shareForm">
+    <div class="field">
+        <label for="shareName">Share Name</label>
+        <input type="text" id="shareName" placeholder="Share Name">
+    </div>
+    <div class="field">
+        <label for="sharePath">Share Path</label>
+        <input type="text" id="sharePath" placeholder="/home/user/myshare">
+        <small><i class="ui yellow exclamation triangle icon"></i> The folder path must be an absolute full path exists on your local disk. e.g. /home/user/myshare/ </small>
+    </div>
+    <div class="field">
+        <label for="validUsers">Valid Users</label>
+        <select multiple="" class="ui search dropdown" id="validUsers">
+        </select>
+        <button onclick="event.preventDefault(); initSambaUserList();" class="ui mini basic button" style="margin-top: 0.4em;"><i class="ui green refresh icon"></i> Refresh User List</button>
+    </div>
+    <div class="field">
+        <div class="ui checkbox">
+            <input type="checkbox" id="readOnly">
+            <label for="readOnly">Read Only<br>
+            <small>Set all files in this share to READ ONLY mode</small></label>
+        </div>
+    </div>
+    <div class="field">
+        <div class="ui checkbox">
+            <input type="checkbox" id="browseable" checked>
+            <label for="browseable">Browseable <br>
+            <small>Make this share discoverable</small></label>
+        </div>
+    </div>
+    <div class="field">
+        <div class="ui checkbox">
+            <input type="checkbox" id="allowGuest">
+            <label for="allowGuest">Allow Guest<br>
+            <small>Enable guest account on this share</small></label>
+        </div>
+    </div>
+    <button type="button" class="ui small basic button" onclick="newSambaShare(); event.preventDefault();"><i class="ui green circle add icon"></i> Create Share</button>
+</form>
+<!-- Create new Samba user -->
+<div class="ui divider"></div>
+<h3><i class="ui green user circle icon"></i> Samba Users List</h3>
+<p>Current list of users registered in Samba database</p>
+<div id="userTableContainer"></div>
+
+<h4><i class="ui green user plus icon"></i> Add Samba User</h4>
+<p>Create Samba user for sharing<br>
+<small>Samba user is not ArozOS user. Creating a Samba user will also create a unix user with login function disabled</small></p>
+<div class="ui container">
+    <form class="ui form" id="userForm">
+        <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="smbuser_username" placeholder="Enter username" required>
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="smbuser_password" placeholder="Enter password" required>
+        </div>
+        <div class="field">
+            <label for="confirmPassword">Confirm Password</label>
+            <input type="password" id="smbuser_confirmPassword" placeholder="Confirm password" required>
+        </div>
+        <button type="button" class="ui basic button" onclick="createNewSambaUser()"><i class="ui checkmark green icon"></i> Confirm</button>
+    </form>
+</div>
+
+
+<script>
+    $("#validUsers").dropdown();
+    $("#shareForm").find("checkbox").checkbox();
+
+    //Load all the users in the samba database
+    function initSambaUserList(){
+        $.get("../../system/storage/samba/listUsers", function(data){
+            if (data.error == undefined){
+                $("#validUsers").html("");
+                renderUserTable(data);
+                if (data.length == 0){
+                    return;
+                }
+                data.forEach(function(userinfo){
+                    $("#validUsers").append(`<option value="${userinfo.UnixUsername}">${userinfo.UnixUsername}</option>`);
+                })
+            }
+        });
+    }
+    initSambaUserList();
+
+    //List the current shares in smb.conf
+    function initShareListTable(){
+        $.get("../../system/storage/samba/list", function(data){
+            if (data.error){
+                msgbox(data.error, false);
+            }else{
+                data.sort(function(a, b) {
+                    if (a.Name < b.Name) return -1;
+                    if (a.Name > b.Name) return 1;
+                    return 0;
+                });
+
+                generateTable(data);
+            }
+        });
+     }
+     initShareListTable();
+
+     //Load current smbd state
+     function initSmbdState(){
+        $.get("../../system/storage/samba/status", function(data){
+            if (data.error != undefined){
+                //Error when loading smbd status
+                msgbox(data.error, false);
+                $("#enablesmbd").parent().addClass('disabled');
+            }else{
+                if (data == true){
+                    $("#enablesmbd").parent().checkbox("set checked");
+                }else{
+                    $("#enablesmbd").parent().checkbox("set unchecked");
+                }
+
+                //Bind checkbox event
+                $("#enablesmbd").on("change", function(data){
+                    let isChecked = $("#enablesmbd")[0].checked;
+                    $.ajax({
+                        url: "../../system/storage/samba/status",
+                        data: {
+                            set: isChecked?"enable":"disable"
+                        },
+                        method: "POST",
+                        success: function(data){
+                            if (data.error != undefined){
+                                msgbox(data.error, false);
+                                $("#enablesmbd").off("change");
+                                initSmbdState();
+                            }else{
+                                msgbox(`SMB Sharing ${isChecked?"enabled":"disabled"}`);
+                            }
+                        }
+                    })
+                })
+            }
+        })
+     }
+     initSmbdState();
+
+
+     function generateTable(data) {
+            // Start the table
+            let table = `
+                <table class="ui basic celled unstackable table">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 100px;"><i class="ui yellow folder icon"></i> Name</th>
+                            <th style="min-width: 100px;"><i class="ui grey hdd icon"></i> Path</th>
+                            <th style="min-width: 100px;">Valid Users</th>
+                            <th>Read Only</th>
+                            <th>Browseable</th>
+                            <th>Guest Ok</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Populate the table rows
+            data.forEach(item => {
+                let userListHex = encodeURIComponent(JSON.stringify([]));
+                if (item.ValidUsers != null){
+                    userListHex = encodeURIComponent(JSON.stringify(item.ValidUsers));
+                }
+               
+                table += `
+                    <tr>
+                        <td>${item.Name}</td>
+                        <td>${item.Path} <span class="editButton" onclick="editSharePath('${item.Name}', '${item.Path}');"><i class="edit icon"></i></span></td>
+                        <td>${(item.ValidUsers!=null)?item.ValidUsers.join(", "):'[unix user]'} ${(item.ValidUsers!=null)?`<span class="shareuserEditBtn editButton" onclick="editSambaUser(this, '${item.Name}');" users="${userListHex}"><i class="edit icon"></i></span>`:""}</td>
+                        <td>${item.ReadOnly?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
+                        <td>${item.Browseable?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
+                        <td>${item.GuestOk?'<i class="ui green check icon"></i>':'<i class="ui red times icon"></i>'}</td>
+                        <td><button title="Remove Share" class="ui basic circular tiny red circular icon button" onclick="deleteSMBShare('${item.Name}');"><i class="ui trash icon"></i></button></td>
+                    </tr>
+                `;
+            });
+
+            // Close the table
+            table += `
+                    </tbody>
+                </table>
+            `;
+
+            if (data.length == 0){
+                table = `<div class="ui basic message"><i class="ui green check circle icon"></i> No Samba share folder found in smb.conf</div>`
+            }
+
+            // Insert the table into the div
+            $("#sharelist").html(table);
+        }
+
+        //Create a new samba share
+        function newSambaShare(){
+            let shareName = $("#shareName").val().trim();
+            let sharePath = $("#sharePath").val().trim();
+            let allowedUsers = $("#validUsers").dropdown("get value");
+            let isReadOnly = $("#readOnly")[0].checked;
+            let isBrowseable = $("#browseable")[0].checked;
+            let allowGuest = $("#allowGuest")[0].checked;
+
+            if (shareName == ""){
+                $("#shareName").parent().addClass("error");
+                msgbox("Share name cannot be empty", false);
+                return;
+            }else{
+                $("#shareName").parent().removeClass("error");
+            }
+
+            if (sharePath == ""){
+                $("#sharePath").parent().addClass("error");
+                msgbox("Share path cannot be empty", false);
+                return;
+            }else{  
+                $("#sharePath").parent().removeClass("error");
+            }
+
+            if (allowedUsers.length == 0){
+                msgbox("At least one user is required to create share");
+                return;
+            }
+
+
+            $.ajax({
+                url: "../../system/storage/samba/add",
+                method: "POST",
+                data: {
+                    "name":shareName,
+                    "path": sharePath,
+                    "users": JSON.stringify(allowedUsers),
+                    "readonly":isReadOnly,
+                    "browseable": isBrowseable,
+                    "guestok":allowGuest
+                },
+                success: function(data){
+                    if (data.error != undefined){
+                        msgbox(data.error, false, 6000);
+                    }else{
+                        msgbox("New Samba share created");
+                    }
+                    initShareListTable();
+                }
+            })
+        }
+
+        //Delete the given smb share name
+        function deleteSMBShare(smbShareName){
+            if (confirm("Confirm remove share " + smbShareName + " ?")){
+                $.ajax({
+                    url: "../../system/storage/samba/remove",
+                    method: "POST",
+                    data:{
+                        "name": smbShareName,
+                    },
+                    success: function(data){
+                        if (data.error != undefined){
+                            msgbox(data.error, false);
+                        }else{
+                            msgbox("Samba share removed");
+                        }
+                        initShareListTable();
+                    }
+                })
+            }
+        }
+
+
+        //Render current list of users in samba
+        function renderUserTable(data) {
+            // Start the table
+            let table = `
+                <table class="ui celled basic small table">
+                    <thead>
+                        <tr>
+                            <th>Unix Username</th>
+                            <th>Domain</th>
+                            <th>ArozOS User</th>
+                            <th>Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Populate the table rows
+            data.forEach(item => {
+                table += `
+                    <tr>
+                        <td><img class="ui avatar image" src="/system/users/profilepic?user=${item.UnixUsername}"> ${item.UnixUsername}</td>
+                        <td>${item.Domain}</td>
+                        <td>${item.IsArozOSUser?"<i class='ui green check icon'></i>":"<i class='ui red times icon'></i>"}</td>
+                        <td><button class="ui basic small red button" onclick="removeSambaUser('${item.UnixUsername}');"><i class="ui red trash icon"></i> Remove Samba User</button></td>
+                    </tr>
+                `;
+            });
+
+            if (data.length == 0){
+                table += `<tr><td colspan="3"><i class="ui green circle check icon"></i> No registered users in Samba database</td></tr>`;
+            }
+
+            // Close the table
+            table += `
+                    </tbody>
+                </table>
+            `;
+
+            // Insert the table into the div
+            $('#userTableContainer').html(table);
+        }
+
+
+        //Create a new samba user
+        function createNewSambaUser(){
+            // Get values from the form
+            const username = $('#smbuser_username').val();
+            const password = $('#smbuser_password').val();
+            const confirmPassword = $('#smbuser_confirmPassword').val();
+
+            // Check if passwords match
+            if (password !== confirmPassword) {
+                msgbox("Confirm password does not match!", false);
+            }
+
+            $.ajax({
+                url: "/system/storage/samba/addUser",
+                method: "POST",
+                data: {
+                    "username": username,
+                    "password": password
+                },
+                success: function(data){
+                    if (data.error != undefined){
+                        msgbox(data.error, false, 5000);
+                    }else{
+                        msgbox("New Samba user created");
+                        $("#smbuser_username").val("");
+                        $("#smbuser_password").val("");
+                        $("#smbuser_confirmPassword").val("");
+                    }
+                    //Update the samba user list in share
+                    initSambaUserList();
+                }
+            })
+        }
+
+        //Remove a samba user given the username
+        function removeSambaUser(targetUsername){
+            if (confirm("Confirm remove samba user \"" + targetUsername + "\" ?")){
+                $.ajax({
+                    url: "/system/storage/samba/delUser",
+                    method: "POST",
+                    data: {
+                        "username": targetUsername
+                    },
+                    success: function(data){
+                        if (data.error != undefined){
+                            msgbox(data.error, false, 5000);
+                        }else{
+                            msgbox("Samba user removed");
+                        }
+
+                        //Update the samba user list in share
+                        initSambaUserList();
+                    }
+                });
+            }
+        }
+
+        //Inline edit for samba users
+        function editSambaUser(targetDom, shareName){
+            let originalUserList = JSON.parse(decodeURIComponent($(targetDom).attr("users")));
+            let fieldElement = $(targetDom).parent();
+            $(fieldElement).html(`<i class="loading spinner icon"></i> Loading User List`);
+            //Overwrite the DOM element with multi-selection dropdown and save button
+            $.get("../../system/storage/samba/listUsers", function(data){
+                if (data.error == undefined){
+                    $(".shareuserEditBtn").remove();
+                    //Append user selector with default value selected
+                    $(fieldElement).html(`<select multiple="" class="ui search dropdown" id="editValidUserList"></select>`);
+                    data.forEach(function(userinfo){
+                        $("#editValidUserList").append(`<option value="${userinfo.UnixUsername}">${userinfo.UnixUsername}</option>`);
+                    });
+                    $("#editValidUserList").dropdown();
+                    $("#editValidUserList").dropdown("set selected", originalUserList);
+
+                    //Append save and cancel button
+                    $(fieldElement).append(`
+                        <div style="margin-top: 0.6em;"> 
+                            <button class="ui small basic button" onclick="saveSambaUserEdit('${shareName}');"><i class="ui green save icon"></i> Save</button>
+                            <button class="ui small basic button" onclick="initShareListTable();"><i class="ui grey remove icon"></i> Cancel</button>
+                        </div>
+                    `);
+
+                }else{
+                    msgbox("Failed to connect to smbd service", false)
+                }
+            });
+        }
+
+        function saveSambaUserEdit(shareName){
+            //Read selection from #editValidUserList
+            let allowedUsers = $("#editValidUserList").dropdown("get value");
+            if (allowedUsers.length == 0){
+                msgbox("At least one user is required per share", false);
+                return
+            }
+
+            $.ajax({
+                url: "/system/storage/samba/updateShareUsers",
+                method: "POST",
+                data: {
+                    "name": shareName,
+                    "users": JSON.stringify(allowedUsers)
+                },
+                success: function(data){
+                    if (data.error != undefined){
+                        msgbox(data.error, false);
+                    }else{
+                        msgbox("Accessible users updated");
+                    }
+                    //Clear share table
+                    initShareListTable();
+                }
+            });
+        }
+
+        function editSharePath(shareName, originalSharePath){
+            let newpath = prompt("New Share Path", originalSharePath);
+            if (newpath != null && newpath != "") {
+                $.ajax({
+                    url: "/system/storage/samba/editPath",
+                    method: "POST",
+                    data: {
+                        "name": shareName,
+                        "path": newpath
+                    },
+                    success: function(data){
+                        if (data.error != undefined){
+                            msgbox(data.error, false);
+                        }else{
+                            msgbox("Share path updated");
+                        }
+                        //Clear share table
+                        initShareListTable();
+                    }
+                });
+            }
+        }
+</script>

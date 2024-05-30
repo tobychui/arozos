@@ -63,6 +63,24 @@
             "placeholder":{
 
             }
+        },
+        "en-US": {
+            "name": "English (US)",
+            "fontFamily" : "Arial, Helvetica, sans-serif",
+            "fwtitle": "",
+            "strings": {
+                "clientinfo/client-information-title": "Client Device Information",
+                "clientinfo/client-device-information": "Client Device Information",
+                "clientinfo/client-device-information-subheader": "These are the information that your browser is telling the ArozOS.",
+                "clientinfo/browser-information": "Browser Information",
+                "clientinfo/cookie-enabled": "Cookie Enabled",
+                "clientinfo/operation-system": "Operation System",
+                "clientinfo/application-name": "Application Name",
+                "clientinfo/browser-engine": "Browser Engine",
+                "clientinfo/user-agent": "User Agent"
+            },
+            "titles": {},
+            "placeholder": {}
         }
     }
 }
