@@ -153,12 +153,16 @@ p,a,div,span,h1,h2,h3,h4,h5,h6{
     color: white;
 }
 
-
 .blackbanner{
     width: 100%;
     background-color: #1b1c1d;
     min-height: 300px;
     color: white;
+}
+
+/* Download */
+.downloadButton {
+    margin-top: 0.4em !important;
 }
 
 

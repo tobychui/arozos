@@ -483,6 +483,18 @@
                         <td>
                             <ul>
                                 <li i18n>512MB system memory and 1.5GB system storage // 512MB 記憶體及 1.5GB 磁碟空間</li>
+                                <li><span i18n>Minimum Server Specification // 最低伺服器規格</span>
+                                    <ul>
+                                        <li i18n>Raspberry Pi Zero W (512MB RAM + 16GB SD Card) // 樹莓派 Zero W (512MB 記憶體 + 16GB SD 卡）</li>
+                                        <li i18n>Intel Atom D525 (1GB RAM + 32GB SSD) // Intel Atom D525 (1GB 記憶體 + 32GB 固態硬碟）</li>
+                                    </ul>
+                                </li>
+                                <li><span i18n>Recommended Server Specification // 建議伺服器規格</span>
+                                    <ul>
+                                        <li i18n>Raspberry Pi 4 (2GB RAM + 32GB SD Card) // 樹莓派4 （2GB 記憶體 + 64GB SD 卡）</li>
+                                        <li i18n>i7 4500U (8GB RAM + 256GB SSD) // i7 4500U (8GB 記憶體 + 256GB 固態硬碟） </li>
+                                    </ul>
+                                </li>
                                 <li i18n>Debian based Linux Distro or Windows // 基於 Debian 之 Linux 發行版或 Windows</li>
                                 <li i18n>Require FFmpeg, Samba (Linux only), nmcli or wpa_supplicant (Device with WiFi only) // 需裝有 FFmpeg，Samba（在 Linux 上運行時），nmcli or wpa_supplicant（具有 WiFi 功能之裝置）</li>
                                 <li i18n>Recommend using mobile device with Progressive WebApp (PWA) support // 建議使用支援 PWA 的手機</li>
@@ -559,12 +571,12 @@
             </div>
             <br>
             <p i18n>Install with precompiled binary // 下載發行版本</p>
-            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack</span></button> 
+            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack</span></button> 
             <i class="plus icon"></i> 
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_arm");'><i class="black download icon"></i> <span i18n></span>arm (v6, v7)</button>
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_arm64");'><i class="black download icon"></i> <span i18n></span>arm64</button>
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_mipsle");'><i class="grey download icon"></i> <span i18n></span>mipsle</button>
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_riscv64");'><i class="grey download icon"></i> <span i18n></span>riscv64</button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm");'><i class="black download icon"></i> <span i18n></span>arm (v6, v7)</button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm64");'><i class="black download icon"></i> <span i18n></span>arm64</button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_mipsle");'><i class="grey download icon"></i> <span i18n></span>mipsle</button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_riscv64");'><i class="grey download icon"></i> <span i18n></span>riscv64</button>
         </div>
         <div class="ui bottom attached tab segment" data-tab="build">
             <p i18n>Require Go (Golang) 1.20 or above. Details build from source instruction can be found on ArozOS Github README file. 
