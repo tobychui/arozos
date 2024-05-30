@@ -6,7 +6,7 @@
 
     And then add the language ISO key to the list below.
 */
-let languages = ['en', 'zh'];
+let languages = ['en', 'zh', 'jp'];
 
 
 //Bind language change dropdown events
@@ -14,6 +14,7 @@ $(".dropdown").dropdown();
 $("#language").on("change",function(){
    let newLang = $("#language").parent().dropdown("get value");
    i18n.changeLanguage(newLang);
+   $("body").attr("class", newLang);
 });
 
 //Initialize the i18n dom library
@@ -23,6 +24,7 @@ var i18n = domI18n({
     languages: languages,
     defaultLanguage: 'en'
 });
+i18n.changeLanguage('en');
 
 /* Main Menu */
 $("#rwdmenubtn").on("click", function(){

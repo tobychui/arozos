@@ -1,6 +1,19 @@
 /* Global */
+
 p,a,div,span,h1,h2,h3,h4,h5,h6{
-    font-family: 'Source Sans Pro', 'Noto Sans TC', sans-serif !important;
+    font-family: 'Source Sans Pro', sans-serif;
+}
+
+body.en *:not(i){
+    font-family: 'Source Sans Pro', 'Noto Sans TC',sans-serif !important;
+}
+
+body.zh *:not(i){
+    font-family: 'Noto Sans TC',sans-serif !important;
+}
+
+body.jp *:not(i){
+    font-family: "Noto Sans JP", sans-serif !important;
 }
 
 .centered.title{
@@ -32,11 +45,11 @@ p,a,div,span,h1,h2,h3,h4,h5,h6{
     border-bottom: 1px solid transparent;
     transition: border-bottom ease-in-out 0.1s;
     color: white !important;
+    border-radius: 0;
 }
 
 #mainmenu #mainmenu .ui.secondary.inverted.menu .link.item:not(.disabled), .ui.secondary.inverted.menu a.item:not(.disabled):hover{
     background-color: transparent;
-    border-radius: 0;
     border-bottom: 1px solid #82adfc;
     color: #82adfc !important;
 }
@@ -165,7 +178,53 @@ p,a,div,span,h1,h2,h3,h4,h5,h6{
     margin-top: 0.4em !important;
 }
 
+/* Learn More */
+#learnmore .linkicons{
+    text-align: center;
+    width: 100%;
+}
 
+#learnmore .linkicons .divider{
+    margin-left: 1em;
+    margin-right: 1em;
+}
+
+#learnmore .linkicons .externallink{
+    margin-bottom: 0.6em;
+    transition: opacity 0.1s ease-in-out;
+}
+
+#learnmore .linkicons .externallink i{
+    /* color: #1b1c1d; */
+    font-weight: 300;
+    font-size: 1.5em;
+}
+
+#learnmore .linkicons .externallink:hover{
+    opacity: 0.8;
+}
+
+
+#learnmore .linkicons .externallink .content{
+    color: #1b1c1d;
+    font-weight: 500;
+    font-size: 0.6em;
+}
+
+
+/* Footer */
+#footer{
+    background-color: #1b1c1d;
+    color: rgb(236, 236, 236);
+}
+
+#footer .bottom-attach .divider{
+    color: rgb(97, 97, 97);
+}
+
+#footer .ui.list .title{
+    margin-bottom: 0.6em;
+}
 
 /* RWD Rules */
 @media (max-width:960px) {

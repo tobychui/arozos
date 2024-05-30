@@ -8,7 +8,10 @@
     <meta name="author" content="tobychui">
 
     <!-- HTML Meta Tags -->
-    <title i18n>Web Desktop System | ArozOS // 網頁桌面系統 | ArozOS</title>
+    <title i18n>Web Desktop System | ArozOS 
+        // 網頁桌面系統 | ArozOS 
+        // Webデスクトップシステム | ArozOS
+    </title>
     <meta name="description" content="Probably the best open-source Web Desktop System in the world">
 
     <!-- Facebook Meta Tags -->
@@ -45,6 +48,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@100;300;400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p&family=Noto+Sans+JP:wght@100..900&display=swap" rel="stylesheet">
 
     <!-- AOS.js-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js" integrity="sha512-A7AYk1fGKX6S2SsHywmPkrnzTZHrgiVT7GcQkLGDe2ev0aWb8zejytzS8wjo7PGEXKqJOrjQ4oORtnimIRZBtw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -58,23 +62,23 @@
                 <div class="item">
                     <img class="ui tiny image" src="img/logo.png">
                 </div>
-                <a class="item" i18n>
-                    Home // 主頁
+                <a class="item" href="#mainmenu" i18n>
+                    Home // 主頁 // ホーム
                 </a>
-                <a class="item" i18n>
-                    About ArozOS // 關於 ArozOS
+                <a class="item" href="#about" i18n>
+                    About ArozOS // 關於 ArozOS // 概要
                 </a>
-                <a class="item" i18n>
-                    Features // 特色功能
+                <a class="item" href="#features" i18n>
+                    Features // 特色功能 // 機能
                 </a>
-                <a class="item" i18n>
-                    Tech Specs // 系統規格
+                <a class="item" href="#techspec" i18n>
+                    Tech Specs // 系統規格 // 技術仕様
                 </a>
-                <a class="item" i18n>
-                    Download // 下載
+                <a class="item" href="#download" i18n>
+                    Download // 下載 // ダウンロード
                 </a>
-                <a class="item" i18n>
-                    Learn More // 了解更多
+                <a class="item" href="#learnmore" i18n>
+                    Learn More // 了解更多 // 詳細
                 </a>
                 <a class="right floated item">
                     <div class="ui inverted small selection dropdown">
@@ -103,34 +107,37 @@
         </div>
         <div class="title">
             <h1 i18n>ArozOS</h1>
-            <p i18n>Web Desktop System for my DIY Network Attached Storage
-                // 用於我家的自組 NAS 之網頁桌面作業系統
+            <p i18n>Web Desktop System for DIY Network Attached Storage
+                // 自組 NAS 之網頁桌面作業系統
+                // ネットワーク接続ストレージ用 Web デスクトップ システム
             </p>
             <div class="scrolldownTips">
                 <img class="ui tiny image" src="img/scrolldown.webp"><br>
-                <span i18n>Scroll down to learn more // 向下滑以了解更多</span>
+                <span i18n>Scroll down to learn more // 向下滑以了解更多 // スクロールダウンして詳細をご覧ください</span>
             </div>
         </div>
     </div>
     <br><br><br><br>
     <!-- About ArozOS-->
-    <div class="ui text container">
+    <div id="about" class="ui text container">
         <div class="ui stackable grid" data-aos="fade-up">
             <div class="six wide column" align="right">
                 <img class="ui medium image" src="img/preview-pc.png">
             </div>
             <div class="ten wide column">
                 <div class="about-text-wrapper">
-                    <p class="about-title"><b i18n>Full Mode // 完整版</b> <span i18n>Web Desktop // 網頁桌面</span></p>
+                    <p class="about-title"><b i18n>Full Mode // 完整版 // フルモード</b> <span i18n>Web Desktop // 網頁桌面 // ウェブデスクトップ</span></p>
                     <p i18n>Turn any PC with browser into your Web Desktop client. Access all your files anytime, anywhere. 
                         // 把任何有瀏覽器之電腦變成您的網頁桌面客戶端，隨時隨地存取您的資料和檔案
+                        // ブラウザがあれば、どんなPCでもWebデスクトップクライアントに。いつでも、どこでも、すべてのファイルにアクセスできます。
                     </p>
                     <div class="ui list">
                         <div class="item">
                             <i class="chevron right icon"></i>
                             <div class="content" i18n>
-                                No Setup and special user permission
+                                No setup and special user permission
                                 // 無需設定、安裝本地應用程式或特別使用者權限
+                                // セットアップと特別なユーザー権限がない
                             </div>
                         </div>
                         <div class="item">
@@ -138,6 +145,7 @@
                             <div class="content" i18n>
                                 Support Chrome, Firefox and Safari
                                 // 支援 Chrome，Firefox 及 Safari
+                                // Chrome、Firefox、Safariをサポート
                             </div>
                         </div>
                         <div class="item">
@@ -145,6 +153,7 @@
                             <div class="content" i18n>
                                 Access via Web UI, FTP, SFTP, WebDAV or SMB
                                 // 使用網頁介面、FTP、SFTP、WebDAV 及 SMB 存取檔案
+                                // ウェブUI、FTP、SFTP、WebDAVまたはSMB経由でのアクセス
                             </div>
                         </div>
                         <div class="item">
@@ -152,6 +161,7 @@
                             <div class="content" i18n>
                                 One of the best Web based File Manager
                                 // 可能是其中一個最好用的網頁檔案管理員
+                                // 使いやすいウェブベースのファイルマネージャー
                             </div>
                         </div>
                         <div class="item">
@@ -159,6 +169,7 @@
                             <div class="content" i18n>
                                 Easily embed other WebApps via external URLs
                                 // 輕鬆使用外部 URL 嵌入其他 WebApp
+                                // 外部URL経由で他のウェブアプリケーションを簡単に統合
                             </div>
                         </div>
                     </div>
@@ -171,9 +182,10 @@
             </div>
             <div class="ten wide column">
                 <div class="about-text-wrapper">
-                    <p class="about-title"><b i18n>Mobile // 手機版</b> <span i18n>Web Desktop // 網頁桌面</span></p>
+                    <p class="about-title"><b i18n>Mobile // 手機版 // モバイル</b> <span i18n>Web Desktop // 網頁桌面 // デスクトップ</span></p>
                     <p i18n>Supporting web desktop on mobile using PWA technology, allowing file access between devices much easier.  
                         // 手機版網頁桌面採用 PWA 技術，讓您可以簡單快速地在裝置之間傳送檔案
+                        // PWA技術を使ってモバイルでのウェブデスクトップをサポートし、デバイス間でのファイルアクセスをより簡単にします。
                     </p>
                     <div class="ui list">
                         <div class="item">
@@ -181,6 +193,7 @@
                             <div class="content" i18n>
                                 No App Installation Required
                                 // 無需安裝任何 App
+                                // アプリのインストール不要
                             </div>
                         </div>
                         <div class="item">
@@ -188,6 +201,7 @@
                             <div class="content" i18n>
                                 Support Android and iOS
                                 // 支援 Android 及 iOS 裝置
+                                // AndroidとiOSに対応
                             </div>
                         </div>
                         <div class="item">
@@ -195,6 +209,7 @@
                             <div class="content" i18n>
                                 Works on Chrome and Firefox
                                 // 支援 Chrome 及 Firefox
+                                // ChromeとFirefoxで動作
                             </div>
                         </div>
                         <div class="item">
@@ -202,6 +217,7 @@
                             <div class="content" i18n>
                                 Layered Window Design
                                 // 多層視窗型作業設計
+                                // レイヤーウィンドウデザイン
                             </div>
                         </div>
                         <div class="item">
@@ -209,6 +225,7 @@
                             <div class="content" i18n>
                                 Synchronize between devices
                                 // 即時在多台裝置之間進行同步
+                                // デバイス間の同期
                             </div>
                         </div>
                     </div>
@@ -218,10 +235,10 @@
     </div>
     <br><br><br><br>
     <!-- Features -->
+    <div class="ui divider"></div>
     <div id="features" class="ui container">
-        <div class="ui divider"></div>
         <div class="centered title">
-            <h1 i18n>Features // 特色功能</h1>
+            <h1 i18n>Features // 特色功能 // 機能</h1>
         </div>
         <div class="ui centered cards" data-aos="zoom-in">
             <div class="basic card">
@@ -229,10 +246,11 @@
                 <img src="img/features/simple.png">
               </div>
               <div class="content">
-                <div class="header" i18n>Well Designed UI // 設計感的介面</div>
+                <div class="header" i18n>Well Designed UI // 設計感的介面 // 美しいUI</div>
                 <div class="description" i18n>
                     Probably the most straight forward and pretty original web-desktop UI you could find
                     // 可能是您能找到，最簡單直接的原創網頁桌面介面
+                    // おそらく、あなたが見つけることができる最もストレートで、かなり独創的なウェブデスクトップUI
                 </div>
               </div>
             </div>
@@ -242,10 +260,11 @@
                   <img src="img/features/media.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>Multimedia Playback // 多媒體播放</div>
+                  <div class="header" i18n>Multimedia Playback // 多媒體播放 // マルチメディア再生</div>
                   <div class="description" i18n>
                     Build in audio and video WebApp for realtime playback and transcoding.
                       // 內置音樂及影片播放器，並可透過網頁介面進行即時編碼串流。
+                      // リアルタイム再生とトランスコード用のオーディオとビデオWebAppを内蔵。
                   </div>
                 </div>
             </div>
@@ -255,10 +274,11 @@
                   <img src="img/features/filemanager.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>File Manager // 檔案管理器</div>
+                  <div class="header" i18n>File Manager // 檔案管理器 // ファイルマネージャー</div>
                   <div class="description" i18n>
                     Easy to use and straight forward File Manager. Support drag & drop upload.
                       // 簡單易用的檔案管理器，可以直接把檔案拖放進去上傳
+                      // 使いやすく、わかりやすいファイルマネージャー。ドラッグ＆ドロップでアップロードできます。
                     </div>
                 </div>
             </div>
@@ -268,10 +288,11 @@
                   <img src="img/features/auth.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>Multiple Authentication Methods // 支援多種登入方式</div>
+                  <div class="header" i18n>Multiple Authentication Methods // 支援多種登入方式 // 複数の認証方法</div>
                   <div class="description" i18n>
                     Support password, oAuth and LDAP login with external account managements.
                       // 可以使用帳戶 + 密碼、oAuth 及 LDAP 登入
+                      // パスワード、oAuth、LDAPログインと外部アカウント管理をサポートします。
                     </div>
                 </div>
             </div>
@@ -281,10 +302,11 @@
                   <img src="img/features/raid.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>Support RAID via mdadm // 支援 mdadm RAID</div>
+                  <div class="header" i18n>Support RAID via mdadm // 支援 mdadm RAID // mdadmによるRAIDのサポート</div>
                   <div class="description" i18n>
                     Support creating and expanding multiple RAID type using mdadm, including RAID0, 1 and 5
                       // 支援使用 mdadm 建立和擴充多種 RAID 類型，包括 RAID0、1 和 5
+                      // mdadmを使用して、RAID0、1、5を含む複数のRAIDタイプの作成と拡張をサポート。
                     </div>
                 </div>
             </div>
@@ -294,10 +316,11 @@
                   <img src="img/features/storagepool.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>Virtual File System & Storage Pool Architecture // 虛擬檔案層與儲存池架構</div>
+                  <div class="header" i18n>Virtual File System & Storage Pool Architecture // 虛擬檔案層與儲存池架構 // VFS とストレージプールアーキテクチャ</div>
                   <div class="description" i18n>
                     Virtual File System layer is implemented to support mounting a remote file system into ArozOS without FUSE
                       // 虛擬檔案系統層支援在無 FUSE 的情況下掛載遠端檔案系統到網頁桌面使用
+                      // FUSE なしでリモートファイルシステムを ArozOS にマウントできるように
                     </div>
                 </div>
             </div>
@@ -307,10 +330,11 @@
                   <img src="img/features/webshare.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>One-Click Web Share // 雲端硬碟檔案分享</div>
+                  <div class="header" i18n>One-Click Web Share // 雲端硬碟檔案分享 // ワンクリック・web共有</div>
                   <div class="description" i18n>
                     Sharing a file via URL is as simple as right-click a file in File Manager and select "Share". Support multiple access permissions!
                       // 在檔案管理器對檔案右鍵就能得到檔案分享網址，並支援多種權限設定。
+                      // URL 経由のファイル共有は、ファイルマネージャでファイルを右クリックして 「共有」 を選択するだけです。
                     </div>
                 </div>
             </div>
@@ -320,10 +344,11 @@
                   <img src="img/features/networkshare.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>Create Network Share // 建立網絡檔案共享</div>
+                  <div class="header" i18n>Create Network Share // 建立網絡檔案共享 // ネットワーク共有の作成</div>
                   <div class="description" i18n>
                     Setup WebDAV, FTP, SFTP or SMB (using Samba) network shares with one click!
                       // 按一下就能設定 WebDAV、FTP、SFTP 或 SMB（需安裝 Samba）網路共用！
+                      // WebDAV、FTP、SFTP、SMB（Sambaを使用）のネットワーク共有をワンクリックで設定！
                     </div>
                 </div>
             </div>
@@ -332,10 +357,11 @@
                   <img src="img/features/agi.png">
                 </div>
                 <div class="content">
-                  <div class="header" i18n>Scriptable Plugin System // 可編程插件系統</div>
+                  <div class="header" i18n>Scriptable Plugin System // 可編程插件系統 // プラグインシステム</div>
                   <div class="description" i18n>
                     Scriptable plugin system based on ECMA5 (JavaScript like), support both front-end and backend extensions
                       // 可透過 ECMA5 （類似 JavaScript）對 ArozOS 前後端進行插件編程開發。
+                      // ECMA5（JavaScript）に基づくスクリプト可能なプラグインシステムは、フロントエンドとバックエンドの両方の拡張機能をサポートします。
                     </div>
                 </div>
             </div>
@@ -360,77 +386,110 @@
     <div id="techspec" class="blackbanner">
         <br><br>
         <div class="centered title">
-            <h1 i18n>Technical Specifications // 技術規格</h1>
+            <h1 i18n>Technical Specifications // 技術規格 // 技術仕様</h1>
         </div>
         <div class="ui text container">
             <table class="ui celled very basic inverted table">
                 <thead>
                     <tr>
-                        <th i18n>Category // 分類</th>
-                        <th i18n>Specifications // 功能及規格</th>
+                        <th i18n>Category // 分類 // カテゴリー</th>
+                        <th i18n>Specifications // 功能及規格 // 仕様</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td i18n>User Interface // 使用者介面</td>
+                        <td i18n>User Interface // 使用者介面 // UI</td>
                         <td>
                             <ul>
-                                <li i18n>Web Desktop Interface // 網頁桌面介面</li>
-                                <li i18n>Mobile Desktop Interface // 手機桌面介面</li>
-                                <li i18n>Management Gateway (Enterprise Use) // 管理入口（企業用）</li>
-                                <li i18n>Scriptable Interface Module (Enterprise Use) // 可編程介面模組（企業用）</li>
-                            </ul>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td i18n>Media & Files Processing // 媒體及檔案處理</td>
-                        <td>
-                            <ul>
-                                <li i18n>Fully Featured File Manager // 多功能檔案管理員</li>
-                                <li i18n>Media Playback, Open or Editing WebApps (Audio, Video, Photo, MDEditor etc) // 多媒體檔案播放、開啟或編輯應用程式 (Audio, Video, Photo, MDEditor 等)</li>
-                                <li i18n>File Upload (Form POST / WebSocket Chunked) // 檔案上傳（Form POST 及 WebSocket Chunked 模式）</li>
-                                <li i18n>File Operations Management System with Real-time Progress, Pause and Cancel Options // 具有即時進度，並可暫停及取消之檔案操作系統</li>
-                                <li i18n>File Versioning Tool // 檔案版本記錄工具</li>
-                                <li i18n>Video Transcode (360p, 720p, 1080p, original) // 影片編碼串流（360p, 720p, 1080p 或 原解像度）</li>
-                                <li i18n>Media File Metadata Extraction (e.g. Audio & Video thumbnail) // 媒體檔案詮釋資料（Metadata）提取（如音樂及影片之縮圖）</li>
-                            </ul>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td i18n>Networking // 網絡與連接</td>
-                        <td>
-                            <ul>
-                                <li i18n>Web Server // 網頁伺服器</li>
-                                <li i18n>mDNS discovery and SSDP broadcast // mDNS 服務發現 及 SSDP廣播</li>
-                                <li i18n>UPnP Port Forwarding // UPnP 連接埠轉送</li>
-                                <li i18n>WiFi Management (Support wpa_supplicant or nmcli) // WiFi 管理（支援 wpa_supplicant 或 nmcli）</li>
-                                <li><span i18n>Network File Share // 網絡檔案分享</span>
-                                    <ul>
-                                        <li i18n>WebDAV</li>
-                                        <li i18n>SFTP</li>
-                                        <li i18n>FTP</li>
-                                        <li i18n>SMB (Samba)</li>
-                                        <li i18n>Directory Server (Compatibility Mode) // 資料夾列表伺服器（相容性模式）</li>
-                                    </ul>
+                                <li i18n>Web Desktop Interface 
+                                    // 網頁桌面介面 
+                                    // ウェブ・デスクトップ・インターフェイス
                                 </li>
-                                <li i18n>Network Storage File Transfer Caching // 網路儲存檔案傳輸快取</li>
-                                <li><span i18n>Multi Permisson Web File Sharing // 多權限模式網頁檔案分享</span>
-                                    <ul>
-                                        <li i18n>Public // 公開</li>
-                                        <li i18n>Same user group / organization // 與分享者同一權限群組或機構</li>
-                                        <li i18n>Logged in user // 任何已登入之用戶</li>
-                                        <li i18n>User defined users // 分享者自定義用戶</li>
-                                        <li i18n>User defeined group / organization // 分享者自定義之權限群組或機構</li>
-                                    </ul>
+                                <li i18n>Mobile Desktop Interface 
+                                    // 手機桌面介面 
+                                    // モバイル・デスクトップ・インターフェイス
+                                </li>
+                                <li i18n>Management Gateway (Enterprise Use)
+                                    // 管理入口（企業用） 
+                                    // 管理ゲートウェイ（企業用）
+                                </li>
+                                <li i18n>Scriptable Interface Module (Enterprise Use) 
+                                    // 可編程介面模組（企業用） 
+                                    // スクリプト可能なインターフェイスモジュール（企業用）
                                 </li>
                             </ul>
                         </td>
                     </tr>
                     <tr>
-                        <td i18n>Disks Management // 磁碟管理</td>
+                        <td i18n>Media & Files Processing // 媒體及檔案處理 // メディアとファイルの処理</td>
                         <td>
                             <ul>
-                                <li><span i18n>Supported Mounting File Systems // 支援掛載檔案系統</span>
+                                <li i18n>Fully Featured File Manager 
+                                    // 多功能檔案管理員
+                                    // フル機能のファイルマネージャー
+                                </li>
+                                <li i18n>Media Playback, Open or Editing WebApps (Audio, Video, Photo, MDEditor etc) 
+                                    // 多媒體檔案播放、開啟或編輯應用程式 (Audio, Video, Photo, MDEditor 等)
+                                    // メディア再生、オープン、編集WebApps（オーディオ、ビデオ、写真、MDEditorなど）
+                                </li>
+                                <li i18n>File Upload (Form POST / WebSocket Chunked) 
+                                    // 檔案上傳（Form POST 及 WebSocket Chunked 模式）
+                                    // ファイルアップロード (Form POST / WebSocket Chunked)
+                                </li>
+                                <li i18n>File Operations Management System with Real-time Progress, Pause and Cancel Options 
+                                    // 具有即時進度，並可暫停及取消之檔案操作系統
+                                    // リアルタイム進捗、一時停止、キャンセルオプション付きファイル操作管理システム
+                                </li>
+                                <li i18n>File Versioning Tool 
+                                    // 檔案版本記錄工具 
+                                    // ファイルのバージョン管理ツール
+                                </li>
+                                <li i18n>Video Transcode (360p, 720p, 1080p, original) 
+                                    // 影片編碼串流（360p, 720p, 1080p 或 原解像度）
+                                    // ビデオのトランスコード（360p、720p、1080p、オリジナル）
+                                </li>
+                                <li i18n>Media File Metadata Extraction (e.g. Audio & Video thumbnail) 
+                                    // 媒體檔案詮釋資料（Metadata）提取（如音樂及影片之縮圖）
+                                    // メディアファイルのメタデータ抽出（例：オーディオ＆ビデオサムネイル）
+                                </li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Networking // 網絡與連接 // ネットワーキング</td>
+                        <td>
+                            <ul>
+                                <li i18n>Web Server // 網頁伺服器 // ウェブサーバー</li>
+                                <li i18n>mDNS discovery and SSDP broadcast // mDNS 服務發現 及 SSDP廣播 // mDNSディスカバリーとSSDPブロードキャスト</li>
+                                <li i18n>UPnP Port Forwarding // UPnP 連接埠轉送 // UPnPポートフォワーディング</li>
+                                <li i18n>WiFi Management (Support wpa_supplicant or nmcli) // WiFi 管理（支援 wpa_supplicant 或 nmcli） // WiFi管理（wpa_supplicantまたはnmcliをサポート）</li>
+                                <li><span i18n>Network File Share // 網絡檔案分享 // ネットワークファイル共有</span>
+                                    <ul>
+                                        <li i18n>WebDAV // WebDAV // ウェブDAV</li>
+                                        <li i18n>SFTP // SFTP // SFTP</li>
+                                        <li i18n>FTP // FTP // FTP</li>
+                                        <li i18n>SMB (Samba) // SMB (Samba) // SMB (Samba)</li>
+                                        <li i18n>Directory Server (Compatibility Mode) // 資料夾列表伺服器（相容性模式） // ディレクトリサーバー（互換モード）</li>
+                                    </ul>
+                                </li>
+                                <li i18n>Network Storage File Transfer Caching // 網路儲存檔案傳輸快取 // ネットワークストレージファイル転送キャッシュ</li>
+                                <li><span i18n>Multi Permission Web File Sharing // 多權限模式網頁檔案分享 // マルチパーミッションウェブファイル共有</span>
+                                    <ul>
+                                        <li i18n>Public // 公開 // 公開</li>
+                                        <li i18n>Same user group / organization // 與分享者同一權限群組或機構 // 同じユーザーグループ/組織</li>
+                                        <li i18n>Logged in user // 任何已登入之用戶 // ログインユーザー</li>
+                                        <li i18n>User defined users // 分享者自定義用戶 // ユーザー定義のユーザー</li>
+                                        <li i18n>User defined group / organization // 分享者自定義之權限群組或機構 // ユーザー定義のグループ/組織</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td i18n>Disks Management // 磁碟管理 // ディスク管理</td>
+                        <td>
+                            <ul>
+                                <li><span i18n>Supported Mounting File Systems // 支援掛載檔案系統 // サポートされているマウントファイルシステム</span>
                                     <ul>
                                         <li i18n>EXT4</li>
                                         <li i18n>NTFS</li>
@@ -441,63 +500,63 @@
                                         <li i18n>SMB</li>
                                     </ul>
                                 </li>
-                                <li><span i18n>RAID Management via mdadm // 基於 mdadm 的 RAID 陣列管理器</span>
+                                <li><span i18n>RAID Management via mdadm // 基於 mdadm 的 RAID 陣列管理器 // mdadmによるRAID管理</span>
                                     <ul>
-                                        <li i18n>RAID 1 (Default) // RAID 1（預設）</li>
+                                        <li i18n>RAID 1 (Default) // RAID 1（預設） // RAID 1（デフォルト）</li>
                                         <li i18n>RAID 5</li>
                                         <li i18n>RAID 0</li>
                                     </ul>
                                 </li>
-                                <li i18n>Physical Disk Automount (delay start) // 物理硬碟掛載（延遲啟動）</li>
-                                <li i18n>ArozOS Virtual File System // ArozOS 虛擬檔案系統層</li>
-                                <li i18n>Auto-cleaning tmp Folder // 自動清理之 tmp 資料夾</li>
+                                <li i18n>Physical Disk Automount (delay start) // 物理硬碟掛載（延遲啟動） // 物理ディスクの自動マウント（遅延スタート）</li>
+                                <li i18n>ArozOS Virtual File System // ArozOS 虛擬檔案系統層 // ArozOS VFS</li>
+                                <li i18n>Auto-cleaning tmp Folder // 自動清理之 tmp 資料夾 // 自動クリーンtmpフォルダ</li>
                             </ul>
                         </td>
                     </tr>
                     <tr>
-                        <td i18n>Security // 安全性</td>
+                        <td i18n>Security // 安全性 // セキュリティ</td>
                         <td>
                             <ul>
                                 <li i18n>oAuth</li>
                                 <li i18n>LDAP</li>
-                                <li i18n>Conncetion & Login Log // 連接及登入記錄檔</li>
-                                <li i18n>IP White / Blacklist // IP 黑/白名單</li>
-                                <li i18n>Exponential login time (when password incorrect) // 指數登入時間（密碼錯誤時）</li>
-                                <li i18n>Auto Login Token (Kiosk Mode) // 自動登入權杖（Kiosk 模式）</li>
+                                <li i18n>Connection & Login Log // 連接及登入記錄檔 // 接続とログインログ</li>
+                                <li i18n>IP White / Blacklist // IP 黑/白名單 // IPホワイト/ブラックリスト</li>
+                                <li i18n>Exponential login time (when password incorrect) // 指數登入時間（密碼錯誤時） // 指数ログイン時間（パスワードが間違っている場合）</li>
+                                <li i18n>Auto Login Token (Kiosk Mode) // 自動登入權杖（Kiosk 模式） // 自動ログイントークン（キオスクモード）</li>
                             </ul>
                         </td>
                     </tr>
                     <tr>
-                        <td i18n>Extensibility // 擴展性</td>
+                        <td i18n>Extensibility // 擴展性 // 拡張性</td>
                         <td>
                             <ul>
-                                <li i18n>ECMA5 (JavaScript like) scripting interface // ECMA5（類似 JavaScript）插件編程 API</li>
-                                <li i18n>3rd party Go / Python module development with sub-service reverse proxy // 使用子服務反向代理進行第 3 方 Go/Python 模組開發</li>
-                                <li i18n>Serverless (User space) // Serverless （用戶空間）</li>
-                                <li i18n>Background Task Scheduler (User space, for tasks automation) // 背景任務排程模組（用戶空間，自動化用）</li>
+                                <li i18n>ECMA5 (JavaScript like) scripting interface // ECMA5（類似 JavaScript）插件編程 API // ECMA5（JavaScriptのような）スクリプトインターフェース</li>
+                                <li i18n>3rd party Go / Python module development with sub-service reverse proxy // 使用子服務反向代理進行第 3 方 Go/Python 模組開發 // サービスリバースプロキシを使用したサードパーティGo/Pythonモジュール開発</li>
+                                <li i18n>Serverless (User space) // Serverless （用戶空間） // サーバーレス（ユーザー空間）</li>
+                                <li i18n>Background Task Scheduler (User space, for tasks automation) // 背景任務排程模組（用戶空間，自動化用） // バックグラウンドタスクスケジューラ（ユーザー空間、タスク自動化用）</li>
                             </ul>
                         </td>
                     </tr>
                     <tr>
-                        <td i18n>Operation Requirements // 系統需求</td>
+                        <td i18n>Operation Requirements // 系統需求 // 動作要件</td>
                         <td>
                             <ul>
-                                <li i18n>512MB system memory and 1.5GB system storage // 512MB 記憶體及 1.5GB 磁碟空間</li>
-                                <li><span i18n>Minimum Server Specification // 最低伺服器規格</span>
+                                <li i18n>512MB system memory and 1.5GB system storage // 512MB 記憶體及 1.5GB 磁碟空間 // 512MBのシステムメモリと1.5GBのシステムストレージ</li>
+                                <li><span i18n>Minimum Server Specification // 最低伺服器規格 // 最小サーバー仕様</span>
                                     <ul>
-                                        <li i18n>Raspberry Pi Zero W (512MB RAM + 16GB SD Card) // 樹莓派 Zero W (512MB 記憶體 + 16GB SD 卡）</li>
-                                        <li i18n>Intel Atom D525 (1GB RAM + 32GB SSD) // Intel Atom D525 (1GB 記憶體 + 32GB 固態硬碟）</li>
+                                        <li i18n>Raspberry Pi Zero W (512MB RAM + 16GB SD Card) // 樹莓派 Zero W (512MB 記憶體 + 16GB SD 卡） // Raspberry Pi Zero W (512MB RAM + 16GB SDカード)</li>
+                                        <li i18n>Intel Atom D525 (1GB RAM + 32GB SSD) // Intel Atom D525 (1GB 記憶體 + 32GB 固態硬碟） // Intel Atom D525 (1GB RAM + 32GB SSD)</li>
                                     </ul>
                                 </li>
-                                <li><span i18n>Recommended Server Specification // 建議伺服器規格</span>
+                                <li><span i18n>Recommended Server Specification // 建議伺服器規格 // 推奨サーバー仕様</span>
                                     <ul>
-                                        <li i18n>Raspberry Pi 4 (2GB RAM + 32GB SD Card) // 樹莓派4 （2GB 記憶體 + 64GB SD 卡）</li>
-                                        <li i18n>i7 4500U (8GB RAM + 256GB SSD) // i7 4500U (8GB 記憶體 + 256GB 固態硬碟） </li>
+                                        <li i18n>Raspberry Pi 4 (2GB RAM + 32GB SD Card) // 樹莓派4 （2GB 記憶體 + 64GB SD 卡） // Raspberry Pi 4 (2GB RAM + 64GB SDカード)</li>
+                                        <li i18n>i7 4500U (8GB RAM + 256GB SSD) // i7 4500U (8GB 記憶體 + 256GB 固態硬碟） // i7 4500U (8GB RAM + 256GB SSD)</li>
                                     </ul>
                                 </li>
-                                <li i18n>Debian based Linux Distro or Windows // 基於 Debian 之 Linux 發行版或 Windows</li>
-                                <li i18n>Require FFmpeg, Samba (Linux only), nmcli or wpa_supplicant (Device with WiFi only) // 需裝有 FFmpeg，Samba（在 Linux 上運行時），nmcli or wpa_supplicant（具有 WiFi 功能之裝置）</li>
-                                <li i18n>Recommend using mobile device with Progressive WebApp (PWA) support // 建議使用支援 PWA 的手機</li>
+                                <li i18n>Debian based Linux Distro or Windows // 基於 Debian 之 Linux 發行版或 Windows // DebianベースのLinuxディストリビューションまたはWindows</li>
+                                <li i18n>Require FFmpeg, Samba (Linux only), nmcli or wpa_supplicant (Device with WiFi only) // 需裝有 FFmpeg，Samba（在 Linux 上運行時），nmcli 或 wpa_supplicant（具有 WiFi 功能之裝置） // FFmpeg、Samba（Linuxのみ）、nmcliまたはwpa_supplicant（WiFi機能搭載デバイスのみ）が必要</li>
+                                <li i18n>Recommend using mobile device with Progressive WebApp (PWA) support // 建議使用支援 PWA 的手機 // PWAサポートのあるモバイルデバイスの使用を推奨</li>
                             </ul>
                         </td>
                     </tr>
@@ -506,72 +565,75 @@
         </div>
     </div>
     <!-- Download -->
-    <div class="ui text container">
+    <div id="download" class="ui text container">
         <br><br>
         <div class="centered title">
-            <h1 i18n>Download // 下載</h1>
+            <h1 i18n>Download // 下載 // ダウンロード</h1>
         </div>
-        <p i18n>ArozOS distrubition is done in two files. The web.tar.gz containing the static web elements and config files, another one is the binary executable that contains the code of the software. You need both of the file downloaded and placed in the same folder in order for ArozOS to work properly.
+        <p i18n>ArozOS distribution is done in two files. The web.tar.gz containing the static web elements and config files, another one is the binary executable that contains the code of the software. You need both of the files downloaded and placed in the same folder in order for ArozOS to work properly.
             // ArozOS 發行版有兩個檔案。一個是包含靜態 Web 和設定檔案的 web.tar.gz，另一個是包含軟體程式碼的二進制執行檔。您需要將這兩個檔案下載並放置在同一資料夾中，ArozOS 方能正常運作。
+            // ArozOSの配布は2つのファイルで行われます。静的ウェブ要素と設定ファイルを含むweb.tar.gzと、ソフトウェアのコードを含むバイナリエグゼキュータブルです。ArozOSが正常に動作するためには、両方のファイルをダウンロードし、同じフォルダに配置する必要があります。
         </p>
         <p i18n>After the ArozOS binary / service is started, navigate to http://localhost:8080 to continue account and system setup.
             // 當 ArozOS 執行檔 / 服務啟動後，使用瀏覽器開啟 http://localhost:8080 以繼續帳戶和系統設定。
+            // ArozOSのバイナリ/サービスが起動した後、http://localhost:8080に移動してアカウントとシステムのセットアップを続行してください。
         </p>
         <div class="ui top attached fluid tabular menu">
             <a class="active item" data-tab="linux"><i class="grey linux icon"></i> Linux</a>
             <a class="item" data-tab="windows"><i class="blue windows icon"></i> Windows</a>
             <a class="item" data-tab="macos"><i class="apple icon"></i> MacOS</a>
-            <a class="item" data-tab="rpi"><i class="red raspberry pi icon"></i><span i18n>SBCs // 單板機</span></a>
-            <a class="item" data-tab="build"><i class="code icon"></i> <span i18n>Build from source // 從原始碼建置</span> </a>
+            <a class="item" data-tab="rpi"><i class="red raspberry pi icon"></i><span i18n>SBCs // 單板機 // SBC</span></a>
+            <a class="item" data-tab="build"><i class="code icon"></i> <span i18n>Build from source // 從原始碼建置 // ソースからビルド</span> </a>
         </div>
         <div class="ui bottom attached active tab segment" data-tab="linux">
-            <p i18n>Install with installer script // 使用安裝器腳本</p>
+            <p i18n>Install with installer script // 使用安裝器腳本 // インストーラースクリプトでインストール</p>
             <div class="ui black message">
                 <code>
                     wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
                 </code>
             </div>
             <br>
-            <p i18n>Install with precompiled binary // 下載發行版本</p>
-            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack</span></button> 
+            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
             <i class="plus icon"></i> 
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_amd64");'><i class="black linux icon"></i> <span i18n>Download x64 // 下載 64位元 執行檔</span></button>
+            <button class="ui basic button" onclick='handleDownload("arozos_linux_amd64");'><i class="black linux icon"></i> <span i18n>Download x64 // 下載 64位元 執行檔 // 64bit版</span></button>
             <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_386");'><i class="black linux icon"></i> <span i18n>Download x32 // 下載 32位元 執行檔</span></button>
+            <button class="ui basic button" onclick='handleDownload("arozos_linux_386");'><i class="black linux icon"></i> <span i18n>Download x32 // 下載 32位元 執行檔 // 32bit版</span></button>
         </div>
         <div class="ui bottom attached tab segment" data-tab="windows">
-            <p i18n>Install with precompiled binary // 下載發行版本</p>
-            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack</span></button> 
+            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
             <i class="plus icon"></i> 
-            <button class="ui basic button" onclick='handleDownload("arozos_windows_amd64.exe");'><i class="blue windows icon"></i> <span i18n>Download ArozOS for Windows // 下載 Windows 版 ArozOS</span></button>
+            <button class="ui basic button" onclick='handleDownload("arozos_windows_amd64.exe");'><i class="blue windows icon"></i> <span i18n>Download ArozOS for Windows // 下載 Windows 版 ArozOS // Windows版ArozOSをダウンロード</span></button>
             <br><br>
             <p i18n>You will need to put both the web.tar.gz file and the exe file in the same folder. Make sure the folder path does not contains non alphabet characters and space. Double click the exe file to start automatic unzip and setup process. 
                 // 您需要將 web.tar.gz 檔案和 exe 檔案放在同一資料夾中。請確保資料夾路徑不包含非字母字元和空格。雙擊 exe 檔開始自動解壓縮和安裝過程。
+                // web.tar.gzファイルとexeファイルの両方を同じフォルダに置く必要があります。フォルダパスにアルファベット以外の文字やスペースが含まれていないことを確認してください。exeファイルをダブルクリックすると、自動解凍とセットアップが開始されます。
             </p>
         </div>
         <div class="ui bottom attached tab segment" data-tab="macos">
-            <p i18n>Install with precompiled binary // 下載發行版本</p>
-            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack</span></button> 
+            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
             <i class="plus icon"></i> 
-            <button class="ui basic button" onclick='handleDownload("arozos_darwin_amd64");'><i class="grey apple icon"></i> <span i18n>Download for Intel Macs // 下載 Intel Mac 版</span></button>
+            <button class="ui basic button" onclick='handleDownload("arozos_darwin_amd64");'><i class="grey apple icon"></i> <span i18n>Download for Intel Macs // 下載 Intel Mac 版 // インテルMac用</span></button>
             <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
-            <button class="ui basic button" onclick='handleDownload("arozos_darwin_arm64");'><i class="black apple icon"></i> <span i18n>Download or Arm Macs // 下載 Arm Mac 版</span></button>
+            <button class="ui basic button" onclick='handleDownload("arozos_darwin_arm64");'><i class="black apple icon"></i> <span i18n>Download or Arm Macs // 下載 Arm Mac 版 // ARM Mac用</span></button>
             <br><br>
-            <p i18n>Open terminal and navigate to the folder containing the binary executable of ArozOS. Start the executable with 
-                ./arozos_darwin_arm64 or ./arozos_darwin_amd64
+            <p i18n>Open terminal and navigate to the folder containing the binary executable of ArozOS. Start the executable with ./arozos_darwin_arm64 or ./arozos_darwin_amd64
                 // 開啟終端機並移動到包含 ArozOS 執行檔的資料夾。使用 ./arozos_darwin_arm64 或 ./arozos_darwin_amd64 啟動 ArozOS。
+                // ターミナルを開き、ArozOS のバイナリ実行ファイルがあるフォルダに移動します。 ./arozos_darwin_arm64 または ./arozos_darwin_amd64 で実行ファイルを起動します。
             </p>
         </div>
         <div class="ui bottom attached tab segment" data-tab="rpi">
-            <p i18n>Install with installer script (armv6-7, arm64, x86) // 使用安裝器腳本 （armv6-7, arm64, x86）</p>
+            <p i18n>Install with installer script (armv6-7, arm64, x86) // 使用安裝器腳本 （armv6-7, arm64, x86） // インストーラスクリプトでインストール (armv6-7、arm64、x86)</p>
             <div class="ui black message">
                 <code>
                     wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
                 </code>
             </div>
             <br>
-            <p i18n>Install with precompiled binary // 下載發行版本</p>
-            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack</span></button> 
+            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
             <i class="plus icon"></i> 
             <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm");'><i class="black download icon"></i> <span i18n></span>arm (v6, v7)</button>
             <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm64");'><i class="black download icon"></i> <span i18n></span>arm64</button>
@@ -581,6 +643,7 @@
         <div class="ui bottom attached tab segment" data-tab="build">
             <p i18n>Require Go (Golang) 1.20 or above. Details build from source instruction can be found on ArozOS Github README file. 
                 // 需要 Go (Go 語言） 1.20 或以上。建置詳情可以在 ArozOS Github README 檔案中找到。
+                // Go (Golang) 1.20以上が必要です。ソースコードからのビルドの詳細は、ArozOS Github READMEファイルに記載されています。
             </p>
             <div class="ui black message">
                 <code>
@@ -594,11 +657,122 @@
                 </code>
             </div>
         </div>
-
         <br><br>
     </div>
+
+    <!-- Learn More -->
+    <div class="ui divider"></div>
+    <div id="learnmore" class="ui text container">
+        <div class="centered title">
+            <h1 i18n>Learn More // 了解更多 // さらに詳しく</h1>
+            <p i18n>If you like this project, please feel free to give us a ⭐ star ⭐.
+                // 如果您喜歡這個開源專案，歡迎來給我們一顆 ⭐星星⭐ 喔！
+                // このプロジェクトが気に入ったら、ぜひ⭐星⭐をお願いします。
+            </p>
+        </div>
+        <div class="ui basic segment linkicons">
+            <div class="ui massive breadcrumb">
+                <a class="section externallink" href="https://github.com/tobychui/arozos" target="_blank">
+                    <div class="ui icon header">
+                        <i class="black github icon"></i>
+                        <div class="content" i18n>
+                            Source Code
+                            // 源碼
+                            // ソースコード
+                        </div>
+                    </div>
+                </a>
+                <i class="divider"> </i>
+                <a class="section externallink" href="https://aroz-online.github.io/ArozOS-Developers/" target="_blank">
+                    <div class="ui icon header">
+                        <i class="green code icon"></i>
+                        <div class="content" i18n>
+                            .agi Docs
+                            // .agi 開發文檔
+                            // .agi ドキュメント
+                        </div>
+                    </div>
+                </a>
+                <i class=" divider"> </i>
+                <a class="section externallink" href="mailto:toby@imuslab.com" target="_blank">
+                    <div class="ui icon header">
+                        <i class="yellow mail icon"></i>
+                        <div class="content" i18n>
+                            Email
+                            // 電子郵件
+                            // 電子メール
+                        </div>
+                    </div>
+                </a>
+                <i class=" divider"> </i>
+                <a class="section externallink" href="https://t.me/ArOZBeta" target="_blank">
+                    <div class="ui icon header">
+                        <i class="blue telegram icon"></i>
+                        <div class="content">
+                            Telegram
+                        </div>
+                    </div>
+                </a>
+            </div>  
+        </div>
+        <br><br><br><br>
+    </div>
+
+     <!-- Footer -->
+     <div id="footer">
+        <div class="ui container">
+            <br><br>
+            <div class="ui stackable grid" style="height: 100%;">
+                <div class="six wide column" style="height: 100%;">
+                    <a href="https://arozos.com"><img src="img/logo.png" class="ui tiny image"></a>
+                    <p><span style="font-weight: 300;">ArozOS Web Desktop System</span><br>
+                        © Toby Chui feat. imuslab</p>
+                       
+                    <div class="bottom-attach">
+                       <br><br>
+                        <div class="ui breadcrumb" style="margin-top: 0.4em;">
+                            <div class="section">香港 </div>
+                            <div class="divider"> / </div>
+                            <div class="section" i18n>Hong Kong</div>
+                            <div class="divider"> / </div>
+                            <div class="section">2016 - <span class="year">2024</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="three wide column">
+                    <div class="ui list">
+                        <div class="item title" i18n>Developer Tools // 開發者工具 // 開発者ツール</div>
+                        <div class="item"><a href="https://github.com/aroz-online/launcher" target="_blank">ArozOS Launcher</a></div>
+                        <div class="item"><a href="https://github.com/aroz-online/WebApp-and-Subservice-Index" target="_blank">WebApp & Subservices</a></div>
+                        <div class="item"><a href="https://aroz-online.github.io/ArozOS-Developers/" target="_blank">.agi Documentations</a></div>
+                        <div class="item"><a href="https://github.com/aroz-online/ArUSB2Win" target="_blank">AOB Filename Decoder</a></div>
+                    </div>
+                </div>	
+                <div class="three wide column">
+                    <div class="ui list">
+                        <div class="item title" i18n>Project Spin-offs // 衍生開源計劃 // 派生オープンソース プロジェクト</div>
+                        <div class="item"><a href="https://zoraxy.arozos.com" target="_blank">Zoraxy</a></div>
+                        <div class="item"><a href="https://github.com/tobychui/imusutm" target="_blank">imusutm</a></div>
+                        <div class="item"><a href="https://github.com/tobychui/SlicerA" target="_blank">Slicer A</a></div>
+                    </div>
+                </div>
+                <div class="three wide column">
+                    <div class="ui list">
+                        <div class="item title" i18n>Related Links // 相關連接 // 関連リンク</div>
+                        <div class="item"><a href="https://www.studytonight.com/post/the-web-desktop-tool-you-need-to-know-about" target="_blank" i18n>Getting Started</a></div>
+                        <div class="item"><a href="https://github.com/tobychui/arozos/releases" target="_blank">ArozOS Release</a></div>
+                        <div class="item"><a href="https://github.com/SysAdmin74/ArozOS-Docker" target="_blank">ArozOS Docker</a></div>
+                        <div class="item"><a href="https://imuslab.com" target="_blank">imuslab</a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br><br><br><br>
+    </div>
+    
     <script>
         AOS.init();
+        $(".year").text(new Date().getFullYear());
     </script>
   </body>
 </html>
