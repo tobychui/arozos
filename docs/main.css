@@ -25,6 +25,15 @@ body.jp *:not(i){
     font-weight: 300 !important;
 }
 
+#backToTopBtn{
+    position: fixed;
+    bottom: 1em;
+    right: 1em;
+    display:none;
+    z-index: 999;
+    border: 1px solid white;
+}
+
 /* Main Menu */
 #mainmenu{
     padding-top: 0.4em;

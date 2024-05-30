@@ -110,3 +110,23 @@ function handleGetWebpack(){
     let webpackURL = "https://github.com/tobychui/arozos/releases/latest/download/web.tar.gz";
     window.open(webpackURL);
 }
+
+/* RWD */
+window.addEventListener('scroll', function() {
+    var scrollPosition = window.scrollY || window.pageYOffset;
+    var windowHeight = window.innerHeight;
+    var hiddenDiv = document.querySelector('#backToTopBtn');
+
+    if (scrollPosition > windowHeight / 2) {
+    hiddenDiv.style.display = 'block';
+    } else {
+    hiddenDiv.style.display = 'none';
+    }
+});
+
+
+function backToTop(){
+    $('html, body').animate({scrollTop : 0},800, function(){
+        window.location.hash = "";
+    });
+}
