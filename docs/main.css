@@ -280,4 +280,10 @@ body.jp *:not(i){
         transform: translateX(-50%);
     }
 
+    #download .stackable.tabular.menu .active.item{
+        background-color: rgb(243, 243, 243);
+        border-width: 0;
+        border-radius: 0.4em !important;
+    }   
+
 }

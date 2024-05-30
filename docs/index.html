@@ -583,7 +583,7 @@
             // 當 ArozOS 執行檔 / 服務啟動後，使用瀏覽器開啟 http://localhost:8080 以繼續帳戶和系統設定。
             // ArozOSのバイナリ/サービスが起動した後、http://localhost:8080に移動してアカウントとシステムのセットアップを続行してください。
         </p>
-        <div class="ui top attached fluid tabular menu">
+        <div class="ui top attached fluid stackable tabular menu">
             <a class="active item" data-tab="linux"><i class="grey linux icon"></i> Linux</a>
             <a class="item" data-tab="windows"><i class="blue windows icon"></i> Windows</a>
             <a class="item" data-tab="macos"><i class="apple icon"></i> MacOS</a>
@@ -599,17 +599,17 @@
             </div>
             <br>
             <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
-            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
+            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
             <i class="plus icon"></i> 
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_amd64");'><i class="black linux icon"></i> <span i18n>Download x64 // 下載 64位元 執行檔 // 64bit版</span></button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_amd64");'><i class="black linux icon"></i> <span i18n>Download x64 // 下載 64位元 執行檔 // 64bit版</span></button>
             <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
-            <button class="ui basic button" onclick='handleDownload("arozos_linux_386");'><i class="black linux icon"></i> <span i18n>Download x32 // 下載 32位元 執行檔 // 32bit版</span></button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_386");'><i class="black linux icon"></i> <span i18n>Download x32 // 下載 32位元 執行檔 // 32bit版</span></button>
         </div>
         <div class="ui bottom attached tab segment" data-tab="windows">
             <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
-            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
+            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
             <i class="plus icon"></i> 
-            <button class="ui basic button" onclick='handleDownload("arozos_windows_amd64.exe");'><i class="blue windows icon"></i> <span i18n>Download ArozOS for Windows // 下載 Windows 版 ArozOS // Windows版ArozOSをダウンロード</span></button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_windows_amd64.exe");'><i class="blue windows icon"></i> <span i18n>Download ArozOS for Windows // 下載 Windows 版 ArozOS // Windows版ArozOSをダウンロード</span></button>
             <br><br>
             <p i18n>You will need to put both the web.tar.gz file and the exe file in the same folder. Make sure the folder path does not contains non alphabet characters and space. Double click the exe file to start automatic unzip and setup process. 
                 // 您需要將 web.tar.gz 檔案和 exe 檔案放在同一資料夾中。請確保資料夾路徑不包含非字母字元和空格。雙擊 exe 檔開始自動解壓縮和安裝過程。
@@ -618,11 +618,11 @@
         </div>
         <div class="ui bottom attached tab segment" data-tab="macos">
             <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
-            <button class="ui basic button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
+            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
             <i class="plus icon"></i> 
-            <button class="ui basic button" onclick='handleDownload("arozos_darwin_amd64");'><i class="grey apple icon"></i> <span i18n>Download for Intel Macs // 下載 Intel Mac 版 // インテルMac用</span></button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_darwin_amd64");'><i class="grey apple icon"></i> <span i18n>Download for Intel Macs // 下載 Intel Mac 版 // インテルMac用</span></button>
             <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
-            <button class="ui basic button" onclick='handleDownload("arozos_darwin_arm64");'><i class="black apple icon"></i> <span i18n>Download or Arm Macs // 下載 Arm Mac 版 // ARM Mac用</span></button>
+            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_darwin_arm64");'><i class="black apple icon"></i> <span i18n>Download or Arm Macs // 下載 Arm Mac 版 // ARM Mac用</span></button>
             <br><br>
             <p i18n>Open terminal and navigate to the folder containing the binary executable of ArozOS. Start the executable with ./arozos_darwin_arm64 or ./arozos_darwin_amd64
                 // 開啟終端機並移動到包含 ArozOS 執行檔的資料夾。使用 ./arozos_darwin_arm64 或 ./arozos_darwin_amd64 啟動 ArozOS。
