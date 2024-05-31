@@ -187,6 +187,11 @@ body.jp *:not(i){
     margin-top: 0.4em !important;
 }
 
+.downloadTabWrapper{
+    width: 100%;
+    overflow-x: hidden;
+}
+
 /* Learn More */
 #learnmore .linkicons{
     text-align: center;

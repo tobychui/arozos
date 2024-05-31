@@ -583,83 +583,85 @@
             // 當 ArozOS 執行檔 / 服務啟動後，使用瀏覽器開啟 http://localhost:8080 以繼續帳戶和系統設定。
             // ArozOSのバイナリ/サービスが起動した後、http://localhost:8080に移動してアカウントとシステムのセットアップを続行してください。
         </p>
-        <div class="ui top attached fluid stackable tabular menu">
-            <a class="active item" data-tab="linux"><i class="grey linux icon"></i> Linux</a>
-            <a class="item" data-tab="windows"><i class="blue windows icon"></i> Windows</a>
-            <a class="item" data-tab="macos"><i class="apple icon"></i> MacOS</a>
-            <a class="item" data-tab="rpi"><i class="red raspberry pi icon"></i><span i18n>SBCs // 單板機 // SBC</span></a>
-            <a class="item" data-tab="build"><i class="code icon"></i> <span i18n>Build from source // 從原始碼建置 // ソースからビルド</span> </a>
-        </div>
-        <div class="ui bottom attached active tab segment" data-tab="linux">
-            <p i18n>Install with installer script // 使用安裝器腳本 // インストーラースクリプトでインストール</p>
-            <div class="ui black message">
-                <code>
-                    wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
-                </code>
+        <div class="downloadTabWrapper">
+            <div class="ui top attached fluid stackable tabular menu">
+                <a class="active item" data-tab="linux"><i class="grey linux icon"></i> Linux</a>
+                <a class="item" data-tab="windows"><i class="blue windows icon"></i> Windows</a>
+                <a class="item" data-tab="macos"><i class="apple icon"></i> MacOS</a>
+                <a class="item" data-tab="rpi"><i class="red raspberry pi icon"></i><span i18n>SBCs // 單板機 // SBC</span></a>
+                <a class="item" data-tab="build"><i class="code icon"></i> <span i18n>Build from source // 從原始碼建置 // ソースからビルド</span> </a>
             </div>
-            <br>
-            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
-            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
-            <i class="plus icon"></i> 
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_amd64");'><i class="black linux icon"></i> <span i18n>Download x64 // 下載 64位元 執行檔 // 64bit版</span></button>
-            <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_386");'><i class="black linux icon"></i> <span i18n>Download x32 // 下載 32位元 執行檔 // 32bit版</span></button>
-        </div>
-        <div class="ui bottom attached tab segment" data-tab="windows">
-            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
-            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
-            <i class="plus icon"></i> 
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_windows_amd64.exe");'><i class="blue windows icon"></i> <span i18n>Download ArozOS for Windows // 下載 Windows 版 ArozOS // Windows版ArozOSをダウンロード</span></button>
-            <br><br>
-            <p i18n>You will need to put both the web.tar.gz file and the exe file in the same folder. Make sure the folder path does not contains non alphabet characters and space. Double click the exe file to start automatic unzip and setup process. 
-                // 您需要將 web.tar.gz 檔案和 exe 檔案放在同一資料夾中。請確保資料夾路徑不包含非字母字元和空格。雙擊 exe 檔開始自動解壓縮和安裝過程。
-                // web.tar.gzファイルとexeファイルの両方を同じフォルダに置く必要があります。フォルダパスにアルファベット以外の文字やスペースが含まれていないことを確認してください。exeファイルをダブルクリックすると、自動解凍とセットアップが開始されます。
-            </p>
-        </div>
-        <div class="ui bottom attached tab segment" data-tab="macos">
-            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
-            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
-            <i class="plus icon"></i> 
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_darwin_amd64");'><i class="grey apple icon"></i> <span i18n>Download for Intel Macs // 下載 Intel Mac 版 // インテルMac用</span></button>
-            <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_darwin_arm64");'><i class="black apple icon"></i> <span i18n>Download or Arm Macs // 下載 Arm Mac 版 // ARM Mac用</span></button>
-            <br><br>
-            <p i18n>Open terminal and navigate to the folder containing the binary executable of ArozOS. Start the executable with ./arozos_darwin_arm64 or ./arozos_darwin_amd64
-                // 開啟終端機並移動到包含 ArozOS 執行檔的資料夾。使用 ./arozos_darwin_arm64 或 ./arozos_darwin_amd64 啟動 ArozOS。
-                // ターミナルを開き、ArozOS のバイナリ実行ファイルがあるフォルダに移動します。 ./arozos_darwin_arm64 または ./arozos_darwin_amd64 で実行ファイルを起動します。
-            </p>
-        </div>
-        <div class="ui bottom attached tab segment" data-tab="rpi">
-            <p i18n>Install with installer script (armv6-7, arm64, x86) // 使用安裝器腳本 （armv6-7, arm64, x86） // インストーラスクリプトでインストール (armv6-7、arm64、x86)</p>
-            <div class="ui black message">
-                <code>
-                    wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
-                </code>
+            <div class="ui bottom attached active tab segment" data-tab="linux">
+                <p i18n>Install with installer script // 使用安裝器腳本 // インストーラースクリプトでインストール</p>
+                <div class="ui black message">
+                    <code>
+                        wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
+                    </code>
+                </div>
+                <br>
+                <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+                <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
+                <i class="plus icon"></i> 
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_amd64");'><i class="black linux icon"></i> <span i18n>Download x64 // 下載 64位元 執行檔 // 64bit版</span></button>
+                <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_386");'><i class="black linux icon"></i> <span i18n>Download x32 // 下載 32位元 執行檔 // 32bit版</span></button>
             </div>
-            <br>
-            <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
-            <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
-            <i class="plus icon"></i> 
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm");'><i class="black download icon"></i> <span i18n></span>arm (v6, v7)</button>
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm64");'><i class="black download icon"></i> <span i18n></span>arm64</button>
-            <!-- <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_mipsle");'><i class="grey download icon"></i> <span i18n></span>mipsle</button> -->
-            <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_riscv64");'><i class="grey download icon"></i> <span i18n></span>riscv64</button>
-        </div>
-        <div class="ui bottom attached tab segment" data-tab="build">
-            <p i18n>Require Go (Golang) 1.20 or above. Details build from source instruction can be found on ArozOS Github README file. 
-                // 需要 Go (Go 語言） 1.20 或以上。建置詳情可以在 ArozOS Github README 檔案中找到。
-                // Go (Golang) 1.20以上が必要です。ソースコードからのビルドの詳細は、ArozOS Github READMEファイルに記載されています。
-            </p>
-            <div class="ui black message">
-                <code>
-                    git clone https://github.com/tobychui/arozos<br>
-                    cd ./arozos/src/<br>
-                    go mod tidy<br>
-                    go build<br>
-                    ./arozos <br>
-                    # Use ./arozos -h for listing all usable paramters<br>
-                    # Use sudo ./arozos for enabling hardware managements features<br>
-                </code>
+            <div class="ui bottom attached tab segment" data-tab="windows">
+                <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+                <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
+                <i class="plus icon"></i> 
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_windows_amd64.exe");'><i class="blue windows icon"></i> <span i18n>Download ArozOS for Windows // 下載 Windows 版 ArozOS // Windows版ArozOSをダウンロード</span></button>
+                <br><br>
+                <p i18n>You will need to put both the web.tar.gz file and the exe file in the same folder. Make sure the folder path does not contains non alphabet characters and space. Double click the exe file to start automatic unzip and setup process. 
+                    // 您需要將 web.tar.gz 檔案和 exe 檔案放在同一資料夾中。請確保資料夾路徑不包含非字母字元和空格。雙擊 exe 檔開始自動解壓縮和安裝過程。
+                    // web.tar.gzファイルとexeファイルの両方を同じフォルダに置く必要があります。フォルダパスにアルファベット以外の文字やスペースが含まれていないことを確認してください。exeファイルをダブルクリックすると、自動解凍とセットアップが開始されます。
+                </p>
+            </div>
+            <div class="ui bottom attached tab segment" data-tab="macos">
+                <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+                <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
+                <i class="plus icon"></i> 
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_darwin_amd64");'><i class="grey apple icon"></i> <span i18n>Download for Intel Macs // 下載 Intel Mac 版 // インテルMac用</span></button>
+                <span style="font-size: 1.2em; font-weight: 600; margin-right: 0.4em">OR</span>
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_darwin_arm64");'><i class="black apple icon"></i> <span i18n>Download or Arm Macs // 下載 Arm Mac 版 // ARM Mac用</span></button>
+                <br><br>
+                <p i18n>Open terminal and navigate to the folder containing the binary executable of ArozOS. Start the executable with ./arozos_darwin_arm64 or ./arozos_darwin_amd64
+                    // 開啟終端機並移動到包含 ArozOS 執行檔的資料夾。使用 ./arozos_darwin_arm64 或 ./arozos_darwin_amd64 啟動 ArozOS。
+                    // ターミナルを開き、ArozOS のバイナリ実行ファイルがあるフォルダに移動します。 ./arozos_darwin_arm64 または ./arozos_darwin_amd64 で実行ファイルを起動します。
+                </p>
+            </div>
+            <div class="ui bottom attached tab segment" data-tab="rpi">
+                <p i18n>Install with installer script (armv6-7, arm64, x86) // 使用安裝器腳本 （armv6-7, arm64, x86） // インストーラスクリプトでインストール (armv6-7、arm64、x86)</p>
+                <div class="ui black message">
+                    <code>
+                        wget -O install.sh https://raw.githubusercontent.com/tobychui/arozos/master/installer/install.sh && bash install.sh
+                    </code>
+                </div>
+                <br>
+                <p i18n>Install with precompiled binary // 下載發行版本 // コンパイル済みバイナリを使ったインストール</p>
+                <button class="ui basic downloadButton button" onclick='handleGetWebpack();'><i class="blue download icon"></i> <span i18n>Download Webpack // 下載 Webpack // Webpackをダウンロード</span></button> 
+                <i class="plus icon"></i> 
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm");'><i class="black download icon"></i> <span i18n></span>arm (v6, v7)</button>
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_arm64");'><i class="black download icon"></i> <span i18n></span>arm64</button>
+                <!-- <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_mipsle");'><i class="grey download icon"></i> <span i18n></span>mipsle</button> -->
+                <button class="ui basic downloadButton button" onclick='handleDownload("arozos_linux_riscv64");'><i class="grey download icon"></i> <span i18n></span>riscv64</button>
+            </div>
+            <div class="ui bottom attached tab segment" data-tab="build">
+                <p i18n>Require Go (Golang) 1.20 or above. Details build from source instruction can be found on ArozOS Github README file. 
+                    // 需要 Go (Go 語言） 1.20 或以上。建置詳情可以在 ArozOS Github README 檔案中找到。
+                    // Go (Golang) 1.20以上が必要です。ソースコードからのビルドの詳細は、ArozOS Github READMEファイルに記載されています。
+                </p>
+                <div class="ui black message">
+                    <code>
+                        git clone https://github.com/tobychui/arozos<br>
+                        cd ./arozos/src/<br>
+                        go mod tidy<br>
+                        go build<br>
+                        ./arozos <br>
+                        # Use ./arozos -h for listing all usable paramters<br>
+                        # Use sudo ./arozos for enabling hardware managements features<br>
+                    </code>
+                </div>
             </div>
         </div>
         <br><br>
@@ -668,7 +670,7 @@
     <!-- Learn More -->
     <div class="ui divider"></div>
     <div id="learnmore" class="ui text container">
-        <div class="centered title">
+        <div class="centered title" style="margin-bottom: 0px;">
             <h1 i18n>Learn More // 了解更多 // さらに詳しく</h1>
             <p i18n>If you like this project, please feel free to give us a ⭐ star ⭐.
                 // 如果您喜歡這個開源專案，歡迎來給我們一顆 ⭐星星⭐ 喔！
@@ -676,12 +678,12 @@
             </p>
         </div>
         <div class="ui basic segment linkicons">
-            <div class="ui massive breadcrumb">
+            <div class="ui big breadcrumb">
                 <a class="section externallink" href="https://github.com/tobychui/arozos" target="_blank">
                     <div class="ui icon header">
                         <i class="black github icon"></i>
                         <div class="content" i18n>
-                            Source Code
+                            Github
                             // 源碼
                             // ソースコード
                         </div>
