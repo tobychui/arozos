@@ -192,6 +192,10 @@ body.jp *:not(i){
     overflow-x: hidden;
 }
 
+#download .ui.black.message{
+    word-break: break-all;
+}
+
 /* Learn More */
 #learnmore .linkicons{
     text-align: center;
