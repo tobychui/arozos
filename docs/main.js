@@ -6,7 +6,7 @@
 
     And then add the language ISO key to the list below.
 */
-let languages = ['en', 'zh', 'jp'];
+let languages = ['en', 'zh', 'jp', 'zh-cn'];
 
 
 //Bind language change dropdown events
