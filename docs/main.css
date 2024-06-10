@@ -16,6 +16,10 @@ body.jp *:not(i){
     font-family: "Noto Sans JP", sans-serif !important;
 }
 
+body.zh-cn *:not(i){
+    font-family: 'Noto Sans SC',sans-serif !important;
+}
+
 .centered.title{
     padding: 2em;
     margin-bottom: 2em;
