@@ -6,7 +6,7 @@
 
 ### User Interface
 
-- Web Desktop Interface (Better than Synology DSM?)
+- Web Desktop Interface
 - Ubuntu remix Windows style startup menu and task bars
 - Clean and easy to use File Manager (Support drag drop, upload etc)
 - Simplistic System Setting Menu
