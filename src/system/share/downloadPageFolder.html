@@ -198,9 +198,28 @@
           
         }
 
+        // Add a div for thumbnail preview
+        if (!$("#thumbnail-preview").length) {
+          $("body").append(`
+            <div id="thumbnail-preview" style="
+              display: none;
+              position: fixed;
+              background: white;
+              padding: 5px;
+              border: 1px solid #ccc;
+              border-radius: 5px;
+              box-shadow: 0 0 10px rgba(0,0,0,0.2);
+              z-index: 1000;
+            ">
+              <img style="max-width: 200px; max-height: 200px;" />
+            </div>
+          `);
+        }
+
         filelist.forEach(file => {
           var filetype = "File";
           var displayName = "";
+          var isImage = false;
           if (file.IsDir == true){
             //Folder
             filetype = "Folder";
@@ -216,6 +235,7 @@
               icon = "🎞️";
             }else if (ext == "png" || ext == "jpeg" || ext == "jpg" || ext == "bmp" || ext == "gif"){
               icon = "🖼️";
+              isImage = true;
             }
 
             displayName =  icon + " " + file.Filename;
@@ -225,12 +245,54 @@
           if (file.IsDir == true){
             filenameLinker = `${displayName}`;
           }
-          $("#folderList").append(`<tr class="fileobject noselect" onclick="highlightThis(this);" filename="${file.Filename}" relpath="${file.RelPath}" type="${filetype.toLocaleLowerCase()}" ondblclick="event.preventDefault(); openThis(this);">
+
+          var tr = $(`<tr class="fileobject noselect" onclick="highlightThis(this);" filename="${file.Filename}" relpath="${file.RelPath}" type="${filetype.toLocaleLowerCase()}" ondblclick="event.preventDefault(); openThis(this);">
               <td style="padding-left: 8px;">${filenameLinker}</td>
               <td>${filetype}</td>
               <td>${file.Filesize}</td>
             </tr>`);
-          });
+
+          // Add hover event for images
+          if (isImage) {
+            // Store the download URL as a data attribute
+            tr.attr('data-download-url', `../../share/download/${downloadUUID}/${file.RelPath}`);
+
+            // Add hover events to the entire row
+            tr.hover(
+              function(e) { // mouseenter
+                var imgUrl = $(this).attr('data-download-url');
+                $("#thumbnail-preview img").attr('src', imgUrl);
+                $("#thumbnail-preview").css({
+                  display: 'block',
+                  left: e.pageX + 20,
+                  top: e.pageY + 20
+                });
+              },
+              function() { // mouseleave
+                $("#thumbnail-preview").hide();
+              }
+            );
+
+            // Update thumbnail position on mouse move over the entire row
+            tr.mousemove(function(e) {
+              $("#thumbnail-preview").css({
+                left: e.pageX + 20,
+                top: e.pageY + 20
+              });
+            });
+          }
+
+          $("#folderList").append(tr);
+        });
+
+        // Add CSS to make the entire row hoverable
+        $("<style>")
+          .prop("type", "text/css")
+          .html(`
+            .fileobject { cursor: pointer; }
+            .fileobject:hover { background-color: rgba(0,0,0,0.05); }
+          `)
+          .appendTo("head");
       }
 
       //Went up one level
