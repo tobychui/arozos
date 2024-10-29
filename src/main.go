@@ -116,15 +116,18 @@ func main() {
 		if *use_tls {
 			if !*disable_http {
 				go func() {
-					log.Println("Standard (HTTP) Web server listening at :" + strconv.Itoa(*listen_port))
-					http.ListenAndServe(*listen_host+":"+strconv.Itoa(*listen_port), nil)
+					var address = fmt.Sprintf("%s:%d", *listen_host, *listen_port)
+					log.Println("Standard (HTTP) Web server listening at", address)
+					http.ListenAndServe(address, nil)
 				}()
 			}
-			log.Println("Secure (HTTPS) Web server listening at :" + strconv.Itoa(*tls_listen_port))
-			http.ListenAndServeTLS(*listen_host+":"+strconv.Itoa(*tls_listen_port), *tls_cert, *tls_key, nil)
+			var address = fmt.Sprintf("%s:%d", *listen_host, *tls_listen_port)
+			log.Println("Secure (HTTPS) Web server listening at", address)
+			http.ListenAndServeTLS(address, *tls_cert, *tls_key, nil)
 		} else {
-			log.Println("Web server listening at :" + strconv.Itoa(*listen_port))
-			http.ListenAndServe(*listen_host+":"+strconv.Itoa(*listen_port), nil)
+			var address = fmt.Sprintf("%s:%d", *listen_host, *listen_port)
+			log.Println("Web server listening at", address)
+			http.ListenAndServe(address, nil)
 		}
 	}()
 
