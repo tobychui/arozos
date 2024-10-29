@@ -51,7 +51,7 @@ type LsblkF struct {
 			Fstype     string      `json:"fstype"`
 			Label      interface{} `json:"label"`
 			UUID       string      `json:"uuid"`
-			Fsavail    string      `json:"fsavail"`
+			Fsavail    int64       `json:"fsavail"`
 			Fsuse      string      `json:"fsuse%"`
 			Mountpoint string      `json:"mountpoint"`
 		} `json:"children"`

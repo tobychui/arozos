@@ -23,6 +23,7 @@
                 "tab/info/Performance":"效能",
                 "tab/info/Runtime":"運行環境",
                 "tab/info/Power":"電源",
+                "tab/info/Updates":"系統更新",
 
                 "tab/module/Add & Remove Module":"新增或移除模組",
                 "tab/module/Subservices":"子服務",
@@ -79,6 +80,7 @@
                 "Connected clients and IoT devices":"客戶端及物聯網裝置",
                 "List of modules loaded in the system":"系統模組及子服務",
                 "Manage Storage Devices and Disks":"儲存池及硬碟管理",
+                "Perform ArozOS Updates":"進行 ArozOS 系統更新",
                 "Manage Host Network and Connections":"網絡與連接",
                 "Add, removed or edit users and groups":"使用者及權限群組",
                 "Cluster, Network Scanning and Task Scheduling":"集群、網絡掃描及定時執行",
@@ -158,6 +160,7 @@
                 "tab/info/Performance":"效能",
                 "tab/info/Runtime":"運行環境",
                 "tab/info/Power":"電源",
+                "tab/info/Updates":"系統更新",
 
                 "tab/module/Add & Remove Module":"新增或移除模組",
                 "tab/module/Subservices":"子服務",
@@ -214,6 +217,7 @@
                 "Connected clients and IoT devices":"客戶端及物聯網裝置",
                 "List of modules loaded in the system":"系統模組及子服務",
                 "Manage Storage Devices and Disks":"儲存池及硬碟管理",
+                "Perform ArozOS Updates":"進行 ArozOS 系統更新",
                 "Manage Host Network and Connections":"網絡與連接",
                 "Add, removed or edit users and groups":"使用者及權限群組",
                 "Cluster, Network Scanning and Task Scheduling":"集群、網絡掃描及定時執行",
@@ -292,6 +296,7 @@
                 "tab/info/Performance":"性能",
                 "tab/info/Runtime":"运行环境",
                 "tab/info/Power":"电源",
+                "tab/info/Updates":"系統更新",
 
                 "tab/module/Add & Remove Module":"新增或移除模块",
                 "tab/module/Subservices":"子服务",
@@ -348,6 +353,7 @@
                 "Connected clients and IoT devices":"客户端与物联网设备",
                 "List of modules loaded in the system":"已加载的模块",
                 "Manage Storage Devices and Disks":"管理存储设备与硬盘",
+                "Perform ArozOS Updates":"进行 ArozOS 系统更新",
                 "Manage Host Network and Connections":"管理网络与连接",
                 "Add, removed or edit users and groups":"添加或移除用户及群组",
                 "Cluster, Network Scanning and Task Scheduling":"集群、网络扫描及定时任务",
@@ -406,6 +412,140 @@
             "placeholder":{
 
             }
+        },
+        "en-US": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "fwtitle": "System Settings",
+            "strings": {
+                "menu/group/Host Information": "System Information",
+                "menu/group/Devices & IoT": "Devices & IoT",
+                "menu/group/Module Management": "Module Management",
+                "menu/group/Disk & Storage": "Disk & Storage",
+                "menu/group/Network & Connection": "Network & Connection",
+                "menu/group/Users & Groups": "Users & Groups",
+                "menu/group/Clusters & Scheduling": "Clusters & Scheduling",
+                "menu/group/Security & Auth": "Security & Auth",
+                "menu/group/Developer Options": "Developer Options",
+                "menu/group/About ArOZ": "About ArozOS",
+                
+                "tab/info/Overview": "Overview",
+                "tab/info/Host Info": "Host Information",
+                "tab/info/Performance": "Performance",
+                "tab/info/Runtime": "Runtime",
+                "tab/info/Power": "Power",
+                "tab/info/Updates": "Updates",
+                
+                "tab/module/Add & Remove Module": "Add or Remove Module",
+                "tab/module/Subservices": "Subservices",
+                "tab/module/Default Module": "Default Open",
+                "tab/module/Module List": "Installed Modules",
+                
+                "tab/disk/Storage Quota": "Storage Quota",
+                "tab/disk/Space Finder": "Space Finder",
+                "tab/disk/Disk Space": "Disk Space",
+                "tab/disk/Disk SMART": "SMART (Disk Health)",
+                "tab/disk/Storage Pools": "System Storage Pools",
+                
+                "tab/device/Client Device": "Client Device",
+                "tab/device/Audio Testing": "Speaker Testing",
+                "tab/device/Display Testing": "Display Testing",
+                "tab/device/Language": "Device Language",
+                "tab/device/IoT Hub": "IoT Driver",
+                
+                "tab/network/Network Info": "Network Overview",
+                "tab/network/Port Forward": "Port Forwarding",
+                "tab/network/Personal Page": "Personal Page",
+                "tab/network/WiFi Info": "WiFi Information",
+                "tab/network/WiFi Settings": "WiFi Settings",
+                "tab/network/File Servers": "File Servers",
+                
+                "tab/users/My Account": "My Account",
+                "tab/users/User List": "User Management",
+                "tab/users/Permission Groups": "Permission Groups",
+                "tab/users/Public Registry": "Public Registry",
+                
+                "tab/cluster/Tasks Scheduler": "Task Scheduler",
+                "tab/cluster/Neighbourhood": "Network Neighborhood",
+                "tab/cluster/Cluster List": "Cluster Management",
+                "tab/cluster/Cluster Toolbox": "Cluster Tools",
+                
+                "tab/security/Connection Log": "Connection Log",
+                "tab/security/Access Control": "Access Control",
+                "tab/security/OAuth": "OAuth Settings",
+                "tab/security/LDAP": "LDAP Settings",
+                
+                "tab/advance/System Log": "System Log",
+                "tab/advance/Auto Login Mode": "Auto Login Mode",
+                "tab/advance/Disk Manager": "Disk Manager",
+                
+                "tab/about/ArozOS": "About ArozOS",
+                "tab/about/Open Source": "Open Source Components",
+                "tab/about/License": "System License",
+                "tab/about/Vendor": "Vendor",
+                
+                "": ""
+            },
+            "titles": {
+                "Config and info about the Server Host": "Server Configuration and Information",
+                "Connected clients and IoT devices": "Clients and IoT Devices",
+                "List of modules loaded in the system": "System Modules and Subservices",
+                "Manage Storage Devices and Disks": "Storage Pools and Disk Management",
+                "Manage Host Network and Connections": "Network and Connection",
+                "Add, removed or edit users and groups": "Users and Permission Groups",
+                "Cluster, Network Scanning and Task Scheduling": "Cluster, Network Scanning, and Scheduling",
+                "System Security and Auth Credentials": "System Security and Authentication",
+                "Advance configs for developers": "Developer Options",
+                "Information of the current running ArOZ Online System": "About ArozOS",
+                
+                "Set the power state of the host device": "Change System Power State",
+                "Change startup paramter in runtime": "Change Runtime Startup Parameters",
+                "System CPU and RAM usage": "System CPU and Memory Usage",
+                "System Information": "System Information",
+                "Overview for user information": "System and User Overview",
+                
+                "Detail about the browser you are using": "Browser Information",
+                "Speaker and volume testing": "Speaker and Volume Testing",
+                "Display testing tools": "Display Testing Tools",
+                "Set the display language of the system": "Set the Device Language",
+                "Manage IoT Devices Scanners": "Installed IoT Device Drivers",
+                
+                "A list of module currently loaded in the system": "Installed WebApp Modules",
+                "Default module use to open a file": "Set Default Module for Opening Files",
+                "Launch and kill subservices": "Start and Stop Subservices",
+                "Install & Remove Module to the system": "Add or Remove WebApp Modules",
+                
+                "User Remaining Space": "Remaining Capacity",
+                "Reclaim Storage Space on Disks": "Find Space-Consuming Files",
+                "System Storage Space on Disks": "Disk Capacity and Available Space",
+                "HardDisk Health Checking": "Disk Health Status",
+                "Storage Pool Mounting Configuration": "Mount and Manage Storage Pools",
+                
+                "Network Information": "Network Status and Information",
+                "UPnP based port forwarding": "Set UPnP Port Forwarding",
+                "Personal Web Page": "Set Up Personal Web Page",
+                "Current Connected WiFi Information": "Current WiFi Connection Information",
+                "Setup WiFi Conenctions": "WiFi Settings",
+                "Network File Transfer Servers": "Web File Transfer Server Settings",
+                
+                "System Tasks and Excution Scheduler": "System Task Scheduling",
+                "Nearby ArOZ Host for Clustering": "Scan for Nearby ArozOS Servers",
+                
+                "Logs for login attempts": "Login Logs",
+                "Prevent / Allow certain IP ranges from logging in": "Blacklist/Whitelist Management",
+                "Allows external account access to system": "Enable or Disable Account Registration",
+                
+                "View ArozOS System Log": "View System Logs",
+                "Allow bots logging into the system automatically": "Enable Bot Auto Login",
+                "Mount, Unmount and Formatting Local Disks": "Mount, Unmount, and Format Disks",
+                
+                "About this ArozOS": "About this ArozOS",
+                "License from the Open Source Community": "Open Source Components",
+                "License of ArozOS": "ArozOS License",
+                "Vendor Notes": "Vendor Notes",
+                "": ""
+            },
+            "placeholder": {}
         }
     }
 }

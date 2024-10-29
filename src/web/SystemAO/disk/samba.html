@@ -293,6 +293,11 @@
                             msgbox("Samba share removed");
                         }
                         initShareListTable();
+
+                        //Reload user smb as well if user is admin and have their shares removed
+                        if (typeof(initSMBActivationStatusOnThisUser) != 'undefined'){
+                            initSMBActivationStatusOnThisUser();
+                        }
                     }
                 })
             }

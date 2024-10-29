@@ -153,6 +153,27 @@
         user-select: none;
         cursor: not-allowed;
     }
+
+    .loginLogo{
+        margin-top: 4em;
+    }
+
+    @media (orientation: landscape) and (max-height: 765px) {
+        .rightLoginFrame{
+            width: 500px !important;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 0;
+            height: 100%;
+            overflow-y: auto;
+            border-radius: 0;
+        }
+        
+        .loginLogo{
+            margin-top: 1.2em;
+        }
+    }
+
     </style>
     </head>
     <body>
@@ -160,8 +181,7 @@
             
         </div>
         <div id="loginInterface" class="rightLoginFrame">
-            <br><br><br>
-            <img class="ui medium image" src="data:image/png;base64, {{service_logo}}">
+            <img class="ui medium image loginLogo" src="data:image/png;base64, {{service_logo}}">
 
             <div class="ui borderless basic segment">
                 <p>Sign in to <span class="hostname">ArozOS</span> with your username and password</p>

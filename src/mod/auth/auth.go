@@ -306,16 +306,24 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 	session.Values["username"] = username
 	session.Values["rememberMe"] = rememberme
 
+	CookieSetSameSitePolicy := http.SameSiteNoneMode
+	if r.TLS == nil {
+		//Connection is done via http
+		CookieSetSameSitePolicy = http.SameSiteLaxMode
+	}
+
 	//Check if remember me is clicked. If yes, set the maxage to 1 week.
 	if rememberme {
 		session.Options = &sessions.Options{
-			MaxAge: 3600 * 24 * 7, //One week
-			Path:   "/",
+			MaxAge:   3600 * 24 * 7, //One week
+			Path:     "/",
+			SameSite: CookieSetSameSitePolicy,
 		}
 	} else {
 		session.Options = &sessions.Options{
-			MaxAge: 3600 * 1, //One hour
-			Path:   "/",
+			MaxAge:   3600 * 1, //One hour
+			Path:     "/",
+			SameSite: CookieSetSameSitePolicy,
 		}
 	}
 	session.Save(r, w)

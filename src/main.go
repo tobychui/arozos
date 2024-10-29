@@ -116,22 +116,22 @@ func main() {
 		if *use_tls {
 			if !*disable_http {
 				go func() {
-					var address = fmt.Sprintf("%s:%d", *listen_host, *listen_port)
+					address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
 					log.Println("Standard (HTTP) Web server listening at", address)
 					http.ListenAndServe(address, nil)
 				}()
 			}
-			var address = fmt.Sprintf("%s:%d", *listen_host, *tls_listen_port)
+			address := fmt.Sprintf("%s:%d", *listen_host, *tls_listen_port)
 			log.Println("Secure (HTTPS) Web server listening at", address)
 			http.ListenAndServeTLS(address, *tls_cert, *tls_key, nil)
 		} else {
-			var address = fmt.Sprintf("%s:%d", *listen_host, *listen_port)
+			address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
 			log.Println("Web server listening at", address)
 			http.ListenAndServe(address, nil)
 		}
 	}()
 
-	if *enable_console == true {
+	if *enable_console {
 		//Startup interactive shell for debug and basic controls
 		Console := console.NewConsole(consoleCommandHandler)
 		Console.ListenAndHandle()

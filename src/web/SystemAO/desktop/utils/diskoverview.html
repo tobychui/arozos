@@ -108,8 +108,23 @@
                             if (thisDiskInfo.children.length > 0){
                                 //Try to extract mountpoint as name
                                 let mountpoint = thisDiskInfo.children[0].mountpoint;
-                                if (mountpoint == null || mountpoint == undefined){
-                                    mountpoint = "";
+                                if (mountpoint == null || mountpoint == undefined || mountpoint == ""){
+                                    //Not mounted via arozos. Try to get the mountpoint from other partitions
+                                    if (thisDiskInfo.children.length > 1){
+                                        //Multiple partitions, combine them into /dev/sdX(1+2+3)
+                                        mountpoint = "/dev/" + thisDiskInfo.children[0].name;
+                                        mountpoint = mountpoint.replace(/[0-9]/g, ""); //Remove the partition number
+                                        mountpoint += "[";
+                                        for (var j = 0; j < thisDiskInfo.children.length; j++){
+                                            let partitionNumber = thisDiskInfo.children[j].name.replace(/[a-zA-Z]/g, "");
+                                            mountpoint += partitionNumber + "+";
+                                        }
+                                        mountpoint = mountpoint.slice(0, -1); //Remove the last +
+                                        mountpoint += "]";
+                                    }else{
+                                        //Single partition
+                                        mountpoint = "/dev/"  + thisDiskInfo.children[0].name;
+                                    }
                                 }
 
                                 diskName = mountpoint;
