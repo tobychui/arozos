@@ -49,6 +49,7 @@ var systemWideLogger *logger.Logger                            //The sync map to
 
 // =========== SYSTEM FLAGS ==============
 // Flags related to System startup
+var listen_host = flag.String("host", "", "Listening host for HTTP server")
 var listen_port = flag.Int("port", 8080, "Listening port for HTTP server")
 var tls_listen_port = flag.Int("tls_port", 8443, "Listening port for HTTPS server")
 var show_version = flag.Bool("version", false, "Show system build version")
