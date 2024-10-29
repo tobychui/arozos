@@ -20,6 +20,8 @@ src/web/Cyinput/*
 # Release folder and database stuffs
 */aofs.db
 release/
+src/files
+src/system/logs 
 src/system/neuralnet/yolov3.weights
 src/system/ao.db.lock
 src/system/auth/authlog.db.lock
