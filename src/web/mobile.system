@@ -145,6 +145,8 @@
 
             #windowButtonWrapper{
                 padding-top:6px;
+                max-height: calc(100% - 4em);
+                overflow-y: auto;
             }
 
             .floatWindowButton{

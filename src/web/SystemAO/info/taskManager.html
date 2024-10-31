@@ -424,22 +424,33 @@
                 }
             })
 
-            $.get("../../system/info/getUsageInfo", function(data){
-                //Update graph
-                addAndShiftChartDate(cpuChart, "", data.CPU);
-                addAndShiftChartDate(ramChart, "", data.RamUsage);
+            //Get UsageInfo with timeout
+            $.ajax({
+                url: "../../system/info/getUsageInfo",
+                method: "GET",
+                success:function(data){
+                    //Update graph
+                    addAndShiftChartDate(cpuChart, "", data.CPU);
+                    addAndShiftChartDate(ramChart, "", data.RamUsage);
 
-                //Update values
-                $("#cpuUsage").text(data.CPU.toFixed(1) + "%");
-                $("#ramUsedPercentage").text(data.RamUsage.toFixed(1) + "%")
-                $("#ramUsed").text(data.UsedRAM);
-                $("#ramTotal").text(data.TotalRam);
+                    //Update values
+                    $("#cpuUsage").text(data.CPU.toFixed(1) + "%");
+                    $("#ramUsedPercentage").text(data.RamUsage.toFixed(1) + "%")
+                    $("#ramUsed").text(data.UsedRAM);
+                    $("#ramTotal").text(data.TotalRam);
 
-                setTimeout(function(){
-                    updateData();
-                }, 1000);
+                    setTimeout(function(){
+                        updateData();
+                    }, 100);
+                },
+                error: function(){
+                    //Error, retry in 5 seconds
+                    setTimeout(function(){
+                        updateData();
+                    }, 5000);
+                },
+                timeout: 2000
             });
-
         }
 
         function addNetData(chart, label, rx, tx) {

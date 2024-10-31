@@ -1457,7 +1457,7 @@
             //Login cookie expire check
             setInterval(function() {
                 checkConnection();
-            }, 15000);
+            }, 120 * 1000);
 
             //Activate all dropdowns
             $(".dropdown").dropdown();
@@ -3370,7 +3370,7 @@
                 for (var i = 0; i < currentBackgroundList.length; i++) {
                     var id = "dbg" + i;
                     var thisImage = "img/desktop/bg/" + currentUserTheme + "/" + currentBackgroundList[i];
-                    $("#bgwrapper").append('<img id="' + id + '" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA" rel="preload" draggable="false" onclick="this.focus();" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
+                    $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" onclick="this.focus();" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
                 }
                 setTimeout(function() {
                     $("#dbg0").addClass("showBackground");
@@ -3400,7 +3400,7 @@
                         for (var i = 0; i < currentBackgroundList.length; i++) {
                             var id = "dbg" + i;
                             var thisImage = "media/?file=" + currentBackgroundList[i];
-                            $("#bgwrapper").append('<img id="' + id + '" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA" rel="preload" draggable="false" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
+                            $("#bgwrapper").append('<img id="' + id + '" rel="preload" draggable="false" style="background-image:url(\'' + thisImage + '\');" class="backgroundFrame"></img>');
                         }
                         setTimeout(function() {
                             $("#dbg0").addClass("showBackground");

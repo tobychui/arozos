@@ -22,7 +22,7 @@ const query_freemem_command_darwin = "ps -A -o %mem | awk '{mem += $1} END {prin
 const query_phymem_command = "sysctl hw.physmem | awk '{print $NF}'"
 const query_phymem_command_darwin = "sysctl hw.memsize | awk '{print $NF}'"
 
-//Get CPU Usage in percentage
+// Get CPU Usage in percentage
 func GetCPUUsage() float64 {
 	usage := float64(0)
 	if runtime.GOOS == "windows" {
@@ -38,6 +38,27 @@ func GetCPUUsage() float64 {
 		}
 		usage = s
 	} else if runtime.GOOS == "linux" || runtime.GOOS == "freebsd" || runtime.GOOS == "darwin" {
+		/*
+			Updated shortcut method
+
+			This method uses the /proc/stat file to get the CPU usage
+			which is more accurate than the previous method
+
+			If the new method got an error, it will fallback to the old method
+		*/
+
+		currentCPUUsage, err := GetCPUUsageUsingProcStat()
+		if err == nil {
+			return currentCPUUsage
+		}
+
+		/*
+			Old Method
+
+			This method uses the top command to get the CPU usage
+			which has higher compatibility but less accurate
+		*/
+
 		//Get CPU first 10 processes uses most CPU resources
 		cmd := exec.Command("bash", "-c", query_cpuproc_command)
 		out, err := cmd.CombinedOutput()
@@ -47,7 +68,7 @@ func GetCPUUsage() float64 {
 		usageCounter := float64(0)
 		usageInfo := strings.Split(string(out), "\n")
 		for _, info := range usageInfo {
-			if strings.Contains(info, "%CPU") == false {
+			if !strings.Contains(info, "%CPU") {
 				dataChunk := strings.Split(strings.TrimSpace(info), " ")
 				if len(dataChunk) > 0 {
 					s, err := strconv.ParseFloat(dataChunk[0], 64)
@@ -70,9 +91,10 @@ func GetCPUUsage() float64 {
 		// Get CPU core count (freebsd way)
 		if runtime.GOOS == "freebsd" {
 			cmd = exec.Command(queryNCPUCommand)
-		} else if runtime.GOOS == "darwin" {
+		} else if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
 			cmd = exec.Command("bash", "-c", queryNCPUCommand)
 		}
+
 		out, err = cmd.CombinedOutput()
 		if err != nil {
 			return usageCounter
@@ -88,6 +110,10 @@ func GetCPUUsage() float64 {
 			usage = 100
 		}
 
+		if usage < float64(0) {
+			usage = 0
+		}
+
 	} else {
 		// CPU Usage Not supported on this platform
 	}
@@ -95,7 +121,7 @@ func GetCPUUsage() float64 {
 	return usage
 }
 
-//Get RAM Usage in Numeric values
+// Get RAM Usage in Numeric values
 func GetNumericRAMUsage() (int64, int64) {
 	usedRam := int64(-1)
 	totalRam := int64(-1)
@@ -228,7 +254,7 @@ func GetNumericRAMUsage() (int64, int64) {
 	return -1, -1
 }
 
-//Get RAM usage, return used / total / used percentage
+// Get RAM usage, return used / total / used percentage
 func GetRAMUsage() (string, string, float64) {
 	usedRam := "Unknown"
 	totalRam := "Unknown"
