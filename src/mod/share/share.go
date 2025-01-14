@@ -8,6 +8,7 @@ package share
 */
 
 import (
+	"compress/flate"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -266,6 +267,17 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	directDownload := false
 	directServe := false
 	relpath := ""
+
+	compressionLevel := flate.DefaultCompression
+	if compressionStr := r.URL.Query().Get("compression_level"); compressionStr != "" {
+		if val, err := strconv.Atoi(compressionStr); err == nil {
+			// Validate compression level range (-2 to 9)
+			if val >= -2 && val <= 9 {
+				compressionLevel = val
+			}
+			// Optional: else could return an error or just silently use default value
+		}
+	}
 
 	id, err := utils.GetPara(r, "id")
 	if err != nil {
@@ -615,7 +627,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					}
 
 					//Build a filelist
-					err := filesystem.ArozZipFile([]*filesystem.FileSystemHandler{zippingSourceFsh}, []string{zippingSource}, nil, targetZipFilename, false)
+					err := filesystem.ArozZipFileWithCompressionLevel([]*filesystem.FileSystemHandler{zippingSourceFsh}, []string{zippingSource}, nil, targetZipFilename, false, compressionLevel)
 					if err != nil {
 						//Failed to create zip file
 						w.WriteHeader(http.StatusInternalServerError)

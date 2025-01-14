@@ -114,12 +114,28 @@
                           </tr>
                         </tbody>
                       </table>
-                    <a href="{{downloadurl}}"><button class="button-primary">Download All</button></a>
-                    <button id="sharebtn" onclick="share();">Share</button>
-                    <p style="font-size: 80%;"><b>Depending on folder size, zipping might take a while to complete.</b></p>
-                    <p>Request File ID: {{reqid}}<br>
-                    Request Timestamp: {{reqtime}}</p>
-                    <small>📂 Double click any item in the list to open or download</small>
+                      <a href="{{downloadurl}}" id="downloadLink"><button class="button-primary">Download All</button></a>
+                      <button id="sharebtn" onclick="share();">Share</button>
+                      <div style="margin-top: 10px;">
+                          <input type="checkbox" id="uncompressedCheck" name="uncompressed">
+                          <label for="uncompressedCheck" style="display: inline">Uncompressed</label>
+                      </div>
+                      <p style="font-size: 80%;"><b>Zipping duration depends on folder size and compression settings. Media files are best zipped without compression for faster processing.</b></p>
+                      <p>Request File ID: {{reqid}}<br>
+                      Request Timestamp: {{reqtime}}</p>
+                      <small>📂 Double click any item in the list to open or download</small>
+                      
+                      <script>
+                      document.getElementById('uncompressedCheck').addEventListener('change', function() {
+                          const downloadLink = document.getElementById('downloadLink');
+                          if (this.checked) {
+                              downloadLink.href = '{{downloadurl}}?compression_level=0';
+                          } else {
+                              downloadLink.href = '{{downloadurl}}';
+                          }
+                      });
+                      </script>
+                      
                     
                 </div>
                 <div class="one-half column" id="filelistWrapper" style="overflow-y: auto; padding-right: 0.5em; min-height: 400px;">
@@ -149,7 +165,12 @@
       var downloadUUID = `{{downloaduuid}}`;
       var currentViewingRoot = ".";
       var selectedFile = null;
-      renderFileList(treeFileList["."]);
+      var stats = renderFileList(treeFileList["."]);
+
+      // most files are already compressed media...
+      if (stats.totalCompressedMediaSize / stats.totalFileSize >= 0.5) {
+        document.getElementById('uncompressedCheck').checked = true;
+      }
 
       handleWindowResize();
       $(window).on("resize", function(e){
@@ -188,6 +209,32 @@
         }
       }
       
+      function convertToBytes(sizeString) {
+        // Remove any spaces and convert to uppercase
+        sizeString = sizeString.replace(/\s+/g, '').toUpperCase();
+        
+        // Regular expression to match number and unit
+        const matches = sizeString.match(/^([\d.]+)([KMGT]?B)$/i);
+        
+        if (!matches) {
+            throw new Error('Invalid format');
+        }
+
+        const size = parseFloat(matches[1]);
+        const unit = matches[2];
+
+        // Conversion factors
+        const units = {
+            'B': 1,
+            'KB': 1024,
+            'MB': 1024 ** 2,
+            'GB': 1024 ** 3,
+            'TB': 1024 ** 4
+        };
+
+        return Math.round(size * units[unit]);
+      }
+
 
       function renderFileList(filelist){
         $("#folderList").html("");
@@ -216,26 +263,37 @@
           `);
         }
 
+        var totalCompressedMediaSize = 0;
+        var totalFileSize = 0;
         filelist.forEach(file => {
           var filetype = "File";
           var displayName = "";
           var isImage = false;
+          
           if (file.IsDir == true){
             //Folder
             filetype = "Folder";
             displayName = "📁 " + file.Filename;
           }else{
             //File
+            totalFileSize += convertToBytes(file.Filesize);
             var ext = file.Filename.split(".").pop();
             var icon = "📄"
             ext = ext.toLowerCase();
-            if (ext == "mp3" || ext == "wav" || ext == "flac" || ext == "aac" || ext == "ogg" || ext == ""){
+            if (ext == "mp3" || ext == "wav" || ext == "flac" || ext == "alac" || ext == "wma" || ext == "aac" || ext == "ogg" || ext == ""){
               icon = "🎵";
-            }else if (ext == "mp4" || ext == "avi" || ext == "webm" || ext == "mkv" || ext == "mov" || ext == "rvmb"){
+              if (ext != "wav") {
+                totalCompressedMediaSize += convertToBytes(file.Filesize);
+              }
+            }else if (ext == "mp4" || ext == "avi" || ext == "webm" || ext == "mkv" || ext == "wmv" || ext == "mov" || ext == "rmvb" || ext == "rm"){
               icon = "🎞️";
-            }else if (ext == "png" || ext == "jpeg" || ext == "jpg" || ext == "bmp" || ext == "gif"){
+              totalCompressedMediaSize += convertToBytes(file.Filesize);
+            }else if (ext == "png" || ext == "jpeg" || ext == "jpg" || ext == "bmp" || ext == "gif" || ext == "webp" || ext == "avif"){
               icon = "🖼️";
               isImage = true;
+              if (ext != "bmp") {
+                totalCompressedMediaSize += convertToBytes(file.Filesize);
+              }
             }
 
             displayName =  icon + " " + file.Filename;
@@ -293,6 +351,10 @@
             .fileobject:hover { background-color: rgba(0,0,0,0.05); }
           `)
           .appendTo("head");
+
+        return {
+          totalCompressedMediaSize, totalFileSize
+        }
       }
 
       //Went up one level

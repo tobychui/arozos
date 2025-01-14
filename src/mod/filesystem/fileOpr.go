@@ -332,6 +332,11 @@ To use it with local file system, pass in nil in fsh for each item in filelist, 
 filesystem.ArozZipFile([]*filesystem.FileSystemHandler{nil}, []string{zippingSource}, nil, targetZipFilename, false)
 */
 func ArozZipFile(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool) error {
+	// Call the new function with default compression level (e.g., 6)
+	return ArozZipFileWithCompressionLevel(sourceFshs, filelist, outputFsh, outputfile, includeTopLevelFolder, flate.DefaultCompression)
+}
+
+func ArozZipFileWithCompressionLevel(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *FileSystemHandler, outputfile string, includeTopLevelFolder bool, compressionLevel int) error {
 	//Create the target zip file
 	var file arozfs.File
 	var err error
@@ -347,6 +352,9 @@ func ArozZipFile(sourceFshs []*FileSystemHandler, filelist []string, outputFsh *
 	defer file.Close()
 
 	writer := zip.NewWriter(file)
+	writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, compressionLevel)
+	})
 	defer writer.Close()
 
 	for i, srcpath := range filelist {
