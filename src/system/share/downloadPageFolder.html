@@ -170,6 +170,8 @@
       // most files are already compressed media...
       if (stats.totalCompressedMediaSize / stats.totalFileSize >= 0.5) {
         document.getElementById('uncompressedCheck').checked = true;
+        const downloadLink = document.getElementById('downloadLink');
+        downloadLink.href = '{{downloadurl}}?compression_level=0';
       }
 
       handleWindowResize();
