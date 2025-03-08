@@ -1,52 +1,69 @@
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="{{root_escape}}script/semantic/semantic.min.css">
-        <script type="text/javascript" src="{{root_escape}}script/jquery.min.js"></script>
-        <script type="text/javascript" src="{{root_escape}}script/semantic/semantic.min.js"></script>
-        <title>Unauthorized</title>
-        <style>
-            #msg{
-                position: absolute;
-                top: calc(50% - 150px);
-                left: calc(50% - 250px);
-                width: 500px;
-                height: 300px;
-                text-align: center;
-            }
 
-            #footer{
-                position: fixed;
-                padding: 2em;
-                padding-left: 5em;
-                padding-right: 5em;
-                bottom: 0px;
-                left: 0px;
-                width: 100%;
-            }   
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="{{root_escape}}script/semantic/semantic.min.css">
+    <script type="text/javascript" src="{{root_escape}}script/jquery.min.js"></script>
+    <script type="text/javascript" src="{{root_escape}}script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="./script/applocale.js"></script>
+    <title>Unauthorized</title>
+    <style>
+        #msg {
+            position: absolute;
+            top: calc(50% - 150px);
+            left: calc(50% - 250px);
+            width: 500px;
+            height: 300px;
+            text-align: center;
+        }
 
-            small{
-                word-break: break-word;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="msg">
-            <h1 style="font-size: 6em; margin-bottom: 0px;">401</h1>
-            <div>
-                <h3 class="">Unauthorized</h3>
-                <div class="ui divider"></div>
-                <p>You do not have permission to view this directory or page. <br><a href="{{root_escape}}">Back</a></p>
-                <div class="ui divider"></div>
-                <div style="text-align: left;">
-                    <small>Request time: <span id="reqtime"></span></small><br>
-                    <small id="reqURLDisplay">Request URI: {{request_url}}</small>
-                </div>
+        #footer {
+            position: fixed;
+            padding: 2em;
+            padding-left: 5em;
+            padding-right: 5em;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+        }
+
+        small {
+            word-break: break-word;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="msg">
+        <h1 style="font-size: 6em; margin-bottom: 0px;">401</h1>
+        <div>
+            <h3 class="" locale="unauthorized/title">Unauthorized</h3>
+            <div class="ui divider"></div>
+            <p locale="unauthorized/message">You do not have permission to view this directory or page. <br><a href="{{root_escape}}">Back</a></p>
+            <div class="ui divider"></div>
+            <div style="text-align: left;">
+                <small locale="reqTime">Request time: </small><small><span id="reqtime"></span></small><br>
+                <small locale="reqURI">Request URI: </small><small id="reqURLDisplay">{{request_url}}</small>
             </div>
         </div>
-        <script>
-            $("#reqtime").text(new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'}));
-        </script>
-    </body>
+    </div>
+    <script>
+        if (typeof (applocale) != "undefined") {
+            //Applocale found. Do localization
+            applocale.init("./SystemAO/locale/notfound.json", function () {
+                applocale.translate();
+            });
+        } else {
+            //Applocale not found. Is this a trim down version of ArozOS?
+            var applocale = {
+                getString: function (key, original) {
+                    return original;
+                }
+            }
+        }
+        $("#reqtime").text(new Date().toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', weekday: "long", hour: '2-digit', hour12: false, minute: '2-digit', second: '2-digit' }));
+    </script>
+</body>
+
 </html>

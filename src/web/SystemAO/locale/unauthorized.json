@@ -1,0 +1,60 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "en-us": {
+            "strings":{
+                "unauthorized/title": "Unauthorized",
+                "unauthorized/message": "You do not have permission to view this directory or page.",
+                "reqTime":"Request time: ",
+                "reqURI": "Request URI: ",
+                "": ""
+            }
+        },
+        "ja-jp": {
+            "strings":{
+                "unauthorized/title": "アクセスが許可されていません",
+                "unauthorized/message": "このディレクトリまたはページを表示する権限がありません。",
+                "reqTime":"リクエスト時間：",
+                "reqURI": "リクエストURI：",
+                "": ""
+            }
+        },
+        "ko_kr": {
+            "strings":{
+                "unauthorized/title": "권한 없음",
+                "unauthorized/message": "이 디렉토리 또는 페이지를 볼 권한이 없습니다.",
+                "reqTime":"요청 시간：",
+                "reqURI": "요청 URI：",
+                "": ""
+            }
+        },
+        "zh-cn": {
+            "strings":{
+                "unauthorized/title": "未授权",
+                "unauthorized/message": "您无权查看此目录或页面。",
+                "reqTime":"请求时间：",
+                "reqURI": "请求地址：",
+                "": ""
+            }
+        },
+        "zh-hk": {
+            "strings":{
+                "unauthorized/title": "未經授權",
+                "unauthorized/message": "您無權查看此目錄或頁面。",
+                "reqTime":"請求時間：",
+                "reqURI": "請求網址：",
+                "": ""
+            }
+        },
+        "zh-tw": {
+            "strings":{
+                "unauthorized/title": "未授權",
+                "unauthorized/message": "您無權存取此目錄或頁面。",
+                "reqTime":"請求時間：",
+                "reqURI": "請求網址：",
+                "": ""
+            }
+        }
+    }
+}

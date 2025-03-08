@@ -1,0 +1,36 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "en-us": {
+            "strings": {
+                "subHeader": "General-purpose web desktop system"
+            }
+        },
+        "ja-jp": {
+            "strings": {
+                "subHeader": "汎用ウェブデスクトップシステム"
+            }
+        },
+        "ko_kr": {
+            "strings": {
+                "subHeader": "범용 웹 데스크탑 시스템"
+            }
+        },
+        "zh-cn": {
+            "strings": {
+                "subHeader": "通用网络桌面系统"
+            }
+        },
+        "zh-hk": {
+            "strings": {
+                "subHeader": "通用網絡桌面系統"
+            }
+        },
+        "zh-tw": {
+            "strings": {
+                "subHeader": "通用網路桌面系統"
+            }
+        }
+    }
+}

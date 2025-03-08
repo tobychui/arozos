@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html ng-app="App">
+
 <head>
     <title>System Overview</title>
     <meta charset="UTF-8">
@@ -35,7 +36,8 @@
             </div>
             <div class="ten wide column">
                 <div class="ui segment">
-                    <h3 class="ui header"><i style="display: inline;" class="yellow folder icon"></i> <span locale="overview/storage">Storage</span></h3>
+                    <h3 class="ui header"><i style="display: inline;" class="yellow folder icon"></i> <span
+                            locale="overview/storage">Storage</span></h3>
                     <div class="ui divider"></div>
                     <div class="ui grid">
                         <div class="six wide column">
@@ -53,7 +55,8 @@
                     </div>
                 </div>
                 <div class="ui segment">
-                    <h3 class="ui header"><i  style="display: inline;" class="blue globe icon"></i> <span locale="overview/personal_homepage">Personal Homepage</span></h3>
+                    <h3 class="ui header"><i style="display: inline;" class="blue globe icon"></i> <span
+                            locale="overview/personal_homepage">Personal Homepage</span></h3>
                     <div class="ui divider"></div>
                     <div class="ui grid">
                         <div class="six wide column">
@@ -65,7 +68,8 @@
                     </div>
                 </div>
                 <div class="ui segment">
-                    <h3 class="ui header"><i  style="display: inline;" class="teal clock icon"></i> <span locale="overview/operation_time">Operation Time</span></h3>
+                    <h3 class="ui header"><i style="display: inline;" class="teal clock icon"></i> <span
+                            locale="overview/operation_time">Operation Time</span></h3>
                     <div class="ui divider"></div>
                     <div class="ui grid">
                         <div class="six wide column">
@@ -85,63 +89,61 @@
             </div>
         </div>
     </div>
-    
+
     <div class="ui divider"></div>
-    <div style="float: right; text-align: right; color: #9c9c9c; margin-right: 1.5em;" >
+    <div style="float: right; text-align: right; color: #9c9c9c; margin-right: 1.5em;">
         <p><span id="hostname"></span><br>
-        <span id="version"></span></p>
+            <span id="version"></span>
+        </p>
     </div>
     <img class="ui small image" id="icon"></img>
-    
+
     <br>
 </body>
 <script>
     var overviewLocale = NewAppLocale();
-    
-    $(document).ready(function() {
-        overviewLocale.init("../locale/system_settings/overview.json", function(){
-            overviewLocale.translate();
-            $.getJSON("../../system/info/getRuntimeInfo", function(data){
-                $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
-                $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
-                $("#operation").attr("startunix", data.StartupTime);
-                accumulateOperationTime();
-            });
 
-            initHostInfo();
-            initUserInfo();
-            initStorageInfo();
-            initHomepageState();
+    if (typeof (applocale) != "undefined") {
+        //Applocale found. Do localization
+        applocale.init("./SystemAO/locale/system_settings/overview.json", function () {
+            applocale.translate();
         });
-    });
+    } else {
+        //Applocale not found. Is this a trim down version of ArozOS?
+        var applocale = {
+            getString: function (key, original) {
+                return original;
+            }
+        }
+    }
 
-    function initHostInfo(){
-        $.get("../../system/info/getArOZInfo?icon=true", function(data){
+    function initHostInfo() {
+        $.get("../../system/info/getArOZInfo?icon=true", function (data) {
             $("#icon").attr('src', 'data:image/png;base64,' + data.VendorIcon);
             $("#hostname").text(data.HostName);
             $("#version").text(data.BuildVersion);
         });
     }
 
-    function initUserInfo(){
-        $.get("../../system/users/userinfo", function(data){
+    function initUserInfo() {
+        $.get("../../system/users/userinfo", function (data) {
             $("#username").text(data.Username);
             $("#usergroup").text("@" + data.Usergroup.join(","));
-            if (data.Icondata != ""){
+            if (data.Icondata != "") {
                 $("#avator").attr("src", data.Icondata);
             }
         });
     }
 
-    function initStorageInfo(){
-        $.get("../../system/disk/quota/quotaInfo", function(data){
+    function initStorageInfo() {
+        $.get("../../system/disk/quota/quotaInfo", function (data) {
             let percentageText = "0%";
-            if (data.Total == -1){
+            if (data.Total == -1) {
                 $("#totalStorage").text(overviewLocale.getString("overview/info/unlimited", "Unlimited"));
-            }else if (data.Total == 0){
+            } else if (data.Total == 0) {
                 $("#totalStorage").text(overviewLocale.getString("overview/info/readonly", "Read Only"));
                 percentageText = "100%";
-            }else{
+            } else {
                 $("#totalStorage").text(ao_module_utils.formatBytes(data.Total, 2));
                 percentageText = parseInt((data.Used / data.Total) * 100).toFixed(2) + "%";
             }
@@ -149,23 +151,23 @@
         });
     }
 
-    function initHomepageState(){
-        $.get("../../system/network/www/toggle", function(data){
-            if (data == true){
+    function initHomepageState() {
+        $.get("../../system/network/www/toggle", function (data) {
+            if (data == true) {
                 $("#homepageStatus").html(`<h5><i class="green circle icon"></i> ${overviewLocale.getString("overview/status/online", "Online")}</h5>`);
-            }else{
+            } else {
                 $("#homepageStatus").html(`<h5><i class="red circle icon"></i> ${overviewLocale.getString("overview/status/offline", "Offline")}</h5>`);
             }
-           
+
         });
     }
 
-    function accumulateOperationTime(){
-        setTimeout(function(){
-            if ($("#operation").length > 0){
+    function accumulateOperationTime() {
+        setTimeout(function () {
+            if ($("#operation").length > 0) {
                 var startUnix = $("#operation").attr("startunix");
                 startUnix = parseInt(startUnix);
-                var newOprTime = parseInt(Date.now()/1000) - startUnix
+                var newOprTime = parseInt(Date.now() / 1000) - startUnix
                 $("#operation").text(ao_module_utils.durationConverter(newOprTime));
                 accumulateOperationTime();
             }

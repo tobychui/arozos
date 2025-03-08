@@ -1,0 +1,60 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "en-us": {
+            "strings": {
+                "notfound/title": "Page Not Found",
+                "notfound/message": "The page or resource you are trying to access does not exist.",
+                "reqTime": "Request time: ",
+                "reqURI": "Request URI: ",
+                "": ""
+            }
+        },
+        "ja-jp": {
+            "strings": {
+                "notfound/title": "ページが見つかりません",
+                "notfound/message": "アクセスしようとしたページまたはリソースは存在しません。",
+                "reqTime": "リクエスト時間：",
+                "reqURI": "リクエストURI：",
+                "": ""
+            }
+        },
+        "ko_kr": {
+            "strings": {
+                "notfound/title": "페이지를 찾을 수 없음",
+                "notfound/message": "접근하려는 페이지 또는 리소스가 존재하지 않습니다.",
+                "reqTime": "요청 시간：",
+                "reqURI": "요청 URI：",
+                "": ""
+            }
+        },
+        "zh-cn": {
+            "strings": {
+                "notfound/title": "找不到网页",
+                "notfound/message": "您访问的页面或资源不存在。",
+                "reqTime": "请求时间：",
+                "reqURI": "请求地址：",
+                "": ""
+            }
+        },
+        "zh-hk": {
+            "strings": {
+                "notfound/title": "網頁無法找到",
+                "notfound/message": "您嘗試存取的頁面或資源並不存在。",
+                "reqTime": "請求時間：",
+                "reqURI": "請求網址：",
+                "": ""
+            }
+        },
+        "zh-tw": {
+            "strings": {
+                "notfound/title": "找不到網頁",
+                "notfound/message": "您嘗試存取的頁面或資源不存在。",
+                "reqTime": "請求時間：",
+                "reqURI": "請求網址：",
+                "": ""
+            }
+        }
+    }
+}

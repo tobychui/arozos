@@ -5,6 +5,7 @@
         <link rel="stylesheet" href="{{root_escape}}script/semantic/semantic.min.css">
         <script type="text/javascript" src="{{root_escape}}script/jquery.min.js"></script>
         <script type="text/javascript" src="{{root_escape}}script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="./script/applocale.js"></script>
         <title>Not Found</title>
         <style>
             #msg{
@@ -35,17 +36,32 @@
         <div id="msg">
             <h1 style="font-size: 6em; margin-bottom: 0px;">404</h1>
             <div>
-                <h3 class="">Page Not Found</h3>
+                <h3 class="" locale="notfound/title">Page Not Found</h3>
                 <div class="ui divider"></div>
-                <p>The page or resource you are trying to access does not exist. <br><a style="cursor: pointer;" onclick="back();">Back</a></p>
+                <p locale="notfound/message">The page or resource you are trying to access does not exist. <br><a style="cursor: pointer;" onclick="back();">Back</a></p>
                 <div class="ui divider"></div>
                 <div style="text-align: left;">
-                    <small>Request time: <span id="reqtime"></span></small><br>
-                    <small id="reqURLDisplay">Request URI: {{request_url}}</small>
+                    <small locale="reqTime">Request time: </small><small><span id="reqtime"></span></small><br>
+                    <small  locale="reqURI">Request URI: </small><small id="reqURLDisplay"> {{request_url}}</small>
                 </div>
             </div>
         </div>
         <script>
+            //Check and prepare localization
+            if (typeof(applocale) != "undefined"){
+                //Applocale found. Do localization
+                applocale.init("./SystemAO/locale/notfound.json", function(){
+                    applocale.translate();
+                });
+            }else{
+                //Applocale not found. Is this a trim down version of ArozOS?
+                var applocale = {
+                    getString: function(key, original){
+                        return original;
+                    }
+                }
+            }
+
             var ao_module_virtualDesktop = false;
             try{
                 ao_module_virtualDesktop = !(!parent.isDesktopMode);
