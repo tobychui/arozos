@@ -62,12 +62,8 @@
     <br>
 </body>
 <script>
-    var locale = NewAppLocale();
-    $(document).ready(function () {
-        locale.init("../locale/system_settings/spec.json", function () {
-            locale.translate();
-            initSystemInfo();
-        });
+    applocale.init("./SystemAO/locale/system_settings/spec.json", function () {
+        applocale.translate();
     });
 
     function initSystemInfo() {

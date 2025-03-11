@@ -103,19 +103,9 @@
 <script>
     var overviewLocale = NewAppLocale();
 
-    if (typeof (applocale) != "undefined") {
-        //Applocale found. Do localization
-        applocale.init("./SystemAO/locale/system_settings/overview.json", function () {
-            applocale.translate();
-        });
-    } else {
-        //Applocale not found. Is this a trim down version of ArozOS?
-        var applocale = {
-            getString: function (key, original) {
-                return original;
-            }
-        }
-    }
+    applocale.init("./SystemAO/locale/system_settings/overview.json", function () {
+        applocale.translate();
+    });
 
     function initHostInfo() {
         $.get("../../system/info/getArOZInfo?icon=true", function (data) {

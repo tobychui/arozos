@@ -67,11 +67,8 @@
     <br><br><br><br>
     </div>
     <script>
-        var locale = NewAppLocale();
-        $(document).ready(function () {
-            locale.init("../locale/system_settings/clientinfo.json", function () {
-                locale.translate();
-            });
+        applocale.init("./SystemAO/locale/system_settings/clientinfo.json", function () {
+            applocale.translate();
         });
 
         $("#cke").html(navigator.cookieEnabled);
