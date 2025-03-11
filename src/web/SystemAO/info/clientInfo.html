@@ -17,10 +17,11 @@
         <div class="ui basic segment">
             <div class="ui header">
                 <span locale="clientinfo/client-device-information">Client Device Information</span>
-                <div class="sub header" locale="clientinfo/client-device-information-subheader">These are the information that your browser is telling the ArozOS.</div>
+                <div class="sub header" locale="clientinfo/client-device-information-subheader">These are the
+                    information that your browser is telling the ArozOS.</div>
             </div>
         </div>
-     
+
         <table class="ui celled striped table">
             <thead>
                 <tr>
@@ -66,9 +67,11 @@
     <br><br><br><br>
     </div>
     <script>
-        var infoLocale = NewAppLocale();
-        infoLocale.init("../locale/system_settings/clientinfo.json", function(){
-            infoLocale.translate();
+        var locale = NewAppLocale();
+        $(document).ready(function () {
+            locale.init("../locale/system_settings/clientinfo.json", function () {
+                locale.translate();
+            });
         });
 
         $("#cke").html(navigator.cookieEnabled);
