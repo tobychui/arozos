@@ -22,7 +22,7 @@
                 "btn/CreateNewSession": "新しいセッションを作成"
             }
         },
-        "ko_kr": {
+        "ko-kr": {
             "strings": {
                 "signin/to": "로그인 대상: ",
                 "signin/with": " 사용자 이름과 비밀번호로",

@@ -4,17 +4,17 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
-                "title/title": "已安裝之應用程式",
-                "table/module":"網頁應用程式",
-                "table/group":"群組",
-                "table/ext":"支援的副檔名",
-                "table/modes": "界面模式",
-                "table/modes/default": "預設",
+                "title/title": "已安裝的 WebApp",
+                "table/module": "WebApp 名稱",
+                "table/group": "分類",
+                "table/ext": "支援的檔案類型",
+                "table/modes": "支援模式",
+                "table/modes/default": "預設模式",
                 "table/modes/floatwindow": "浮動視窗",
-                "table/modes/embedded": "嵌入式",
-                "desc/reload":"在手動安裝 WebApp 後，你可以按「重新載入 WebApp」以載入新安裝的應用程式而不需要重啟 ArozOS 系統。",
+                "table/modes/embedded": "嵌入模式",
+                "desc/reload": "手動安裝 WebApp 後，可按「重新載入」以載入新應用程式，無需重啟 ArozOS 系統。",
                 "button/reload": "重新載入 WebApp",
                 "item/version":"版本："
             },
@@ -23,42 +23,38 @@
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
-                "title/title": "已安裝之 WebApp",
-                "table/module":"WebApp",
-                "table/group":"群組",
-                "table/ext":"支援的副檔名",
-                "table/modes": "界面模式",
-                "table/modes/default": "預設",
+                "title/title": "已安裝的 WebApp",
+                "table/module": "WebApp 名稱",
+                "table/group": "分類",
+                "table/ext": "支援的檔案類型",
+                "table/modes": "支援模式",
+                "table/modes/default": "預設模式",
                 "table/modes/floatwindow": "浮動視窗",
-                "table/modes/embedded": "嵌入式",
-                "desc/reload":"在手動安裝 WebApp 後，你可以按「重新載入 WebApp」以載入新安裝的應用程式而不需要重啟 ArozOS 系統。",
+                "table/modes/embedded": "嵌入模式",
+                "desc/reload": "手動安裝 WebApp 後，可按「重新載入」以載入新應用程式，無需重啟 ArozOS 系統。",
                 "button/reload": "重新載入 WebApp",
-                "item/version":"版本："
+                "item/version": "版本："
             },
             "titles": {},
             "placeholder": {}
         },
-
-        "en-us": {
-            "name": "English (US)",
-            "fontFamily":"Arial, Helvetica, sans-serif",
+        "zh-cn": {
+            "name": "简体中文",
             "strings": {
-                "title/title": "Module List",
-                "table/module":"Module",
-                "table/group":"Group",
-                "table/ext":"Supported Extensions",
-                "table/modes": "Supported Mode",
-                "table/modes/default": "Default",
-                "table/modes/floatwindow": "FloatWindow",
-                "table/modes/embedded": "Embedded",
-                "desc/reload":"If you have installed WebApps manually, you can click the \"Reload WebApps\" button to load it without restarting ArozOS.",
-                "button/reload": "Reload WebApps",
-                "item/version":"Version: "
-            },
-            "titles": {},
-            "placeholder": {}
+                "title/title": "已安装的 WebApp",
+                "table/module": "WebApp 名称",
+                "table/group": "分类",
+                "table/ext": "支持的文件类型",
+                "table/modes": "支持模式",
+                "table/modes/default": "默认模式",
+                "table/modes/floatwindow": "浮动窗口",
+                "table/modes/embedded": "嵌入模式",
+                "desc/reload": "手动安装 WebApp 后，可点击「重新加载」按钮加载新应用，无需重启系统。",
+                "button/reload": "重新加载 WebApp",
+                "item/version": "版本："
+            }
         }
     }
 }

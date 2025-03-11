@@ -12,7 +12,7 @@
                 "": ""
             }
         },
-        "ko_kr": {
+        "ko-kr": {
             "strings": {
                 "notfound/title": "페이지를 찾을 수 없음",
                 "notfound/message": "접근하려는 페이지 또는 리소스가 존재하지 않습니다.",

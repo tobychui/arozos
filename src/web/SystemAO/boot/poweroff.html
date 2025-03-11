@@ -1,165 +1,173 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Host Power Options</title>
-        <style>
-            .warningStripe {
-                background: repeating-linear-gradient(
-                45deg,
-                #f1e869,
-                #dddb67 10px,
-                #979846 10px,
-                #979846 20px
-                );
-            }
-        </style>
-        <script type="text/javascript" src="../../script/applocale.js"></script>
-    </head>
-    <body>
-        <div class="ui container">
-            <div class="ui basic segment">
-                <h3 class="ui header">
-                    <i class="power icon"></i>
-                    <div class="content">
-                        <span locale="hostPower/host_power_title">Host Power</span>
-                        <div class="sub header" locale="hostPower/change_power_state">Change power state of your device</div>
-                    </div>
-                </h3>
-            </div>
-            <div class="ui divider"></div>
-            <div class="ui segment">
-                <h3 class="ui header">
-                    <i id="sysConnStateIcon" class="green check circle icon"></i>
-                    <div class="content">
-                        <span id="sysConnState" locale="hostPower/system_online">System Online</span>
-                        <div class="sub header"><span locale="hostPower/last_update">Last update: </span><span id="lastupdateTime"></span></div>
-                    </div>
-                </h3>
-            </div>
-           
-            <div class="ui divider"></div>
-            <p locale="hostPower/power_options">Power Options</p>
-            <button class="ui red button" onclick="shutdown();"><i class="power off icon"></i> <span locale="hostPower/power_off">Power Off</span></button>
-            <button class="ui yellow button" onclick="restart();"><i class="refresh icon"></i> <span locale="hostPower/restart">Restart</span></button>
-            <div id="msgbox" class="ui green message" style="display:none;">
-                <p><i class="checkmark icon"></i> <span id="succmsg"></span></p>
-            </div>
-            <div class="ui divider"></div>
-            <div class="ui icon message">
-                <i class="yellow exclamation circle icon"></i>
+
+<head>
+    <title>Host Power Options</title>
+    <style>
+        .warningStripe {
+            background: repeating-linear-gradient(45deg,
+                    #f1e869,
+                    #dddb67 10px,
+                    #979846 10px,
+                    #979846 20px);
+        }
+    </style>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <h3 class="ui header">
+                <i class="power icon"></i>
                 <div class="content">
-                    <div class="header" locale="hostPower/restart_shutdown_risk">Restart / Shutdown is risky</div>
-                    <p locale="hostPower/shutdown_warning">If you decide to shutdown your host server, ArozOS will pass the shutdown sequence to the host operating system and there is no way to know from the web interface if the shutdown / restart process has completed. <br>
-                        <b locale="hostPower/ensure_safety">Please make sure you are shutting it down in a location where you can physically power on the host again.</b></p>
+                    <span locale="hostPower/host_power_title">Host Power</span>
+                    <div class="sub header" locale="hostPower/change_power_state">Change power state of your device
+                    </div>
                 </div>
+            </h3>
+        </div>
+        <div class="ui divider"></div>
+        <div class="ui segment">
+            <h3 class="ui header">
+                <i id="sysConnStateIcon" class="green check circle icon"></i>
+                <div class="content">
+                    <span id="sysConnState" locale="hostPower/system_online">System Online</span>
+                    <div class="sub header"><span locale="hostPower/last_update">Last update: </span><span
+                            id="lastupdateTime"></span></div>
+                </div>
+            </h3>
+        </div>
+
+        <div class="ui divider"></div>
+        <p locale="hostPower/power_options">Power Options</p>
+        <button class="ui red button" onclick="shutdown();"><i class="power off icon"></i> <span
+                locale="hostPower/power_off">Power Off</span></button>
+        <button class="ui yellow button" onclick="restart();"><i class="refresh icon"></i> <span
+                locale="hostPower/restart">Restart</span></button>
+        <div id="msgbox" class="ui green message" style="display:none;">
+            <p><i class="checkmark icon"></i> <span id="succmsg"></span></p>
+        </div>
+        <div class="ui divider"></div>
+        <div class="ui icon message">
+            <i class="yellow exclamation circle icon"></i>
+            <div class="content">
+                <div class="header" locale="hostPower/restart_shutdown_risk">Restart / Shutdown is risky</div>
+                <p locale="hostPower/shutdown_warning">If you decide to shutdown your host server, ArozOS will pass the
+                    shutdown sequence to the host operating system and there is no way to know from the web interface if
+                    the shutdown / restart process has completed.</p>
+                <b locale="hostPower/ensure_safety">Please make sure you are shutting it down in a location where you
+                    can physically power on the host again.</b>
             </div>
         </div>
-        
-        <script>
-            $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now()/1000));
+    </div>
 
-            var powerLocale = NewAppLocale();
-            powerLocale.init("../locale/system_settings/power.json", function(){
-                powerLocale.translate();
-                handleConnectionStateCheck();
+    <script>
+        $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now() / 1000));
+
+        var powerLocale = NewAppLocale();
+        powerLocale.init("../locale/system_settings/power.json", function () {
+            powerLocale.translate();
+            handleConnectionStateCheck();
+        });
+
+        function shutdown() {
+            var apiObject = {
+                api: "system/power/shutdown",
+                data: {},
+                title: "<i class='red exclamation triangle icon'></i> Shutdown Host <i class='red exclamation triangle icon'></i>",
+                desc: "Please enter your password to confirm operation.",
+                thisuser: true, //This username as default, set to false for entering other user
+                method: "GET",
+                success: "SystemAO/boot/shutdown.html"
+            }
+
+            apiObject = encodeURIComponent(JSON.stringify(apiObject));
+
+            ao_module_newfw({
+                url: "SystemAO/security/authreq.html#" + apiObject,
+                width: 480,
+                height: 300,
+                appicon: "SystemAO/security/img/lock.svg",
+                title: "Shutdown - Authentication Required",
+                parent: ao_module_windowID,
+                callback: "handleShutdownCallback"
             });
-            
-            function shutdown(){
-                var apiObject = {
-                    api: "system/power/shutdown",
+        }
+
+        function restart() {
+            var apiObject = {
+                api: "system/power/restart",
+                data: {},
+                title: "Password Required",
+                desc: "for restarting the ArozOS Host",
+                thisuser: true, //This username as default, set to false for entering other user
+                method: "GET"
+            }
+
+            apiObject = encodeURIComponent(JSON.stringify(apiObject));
+
+            ao_module_newfw({
+                url: "SystemAO/security/authreq.html#" + apiObject,
+                width: 480,
+                height: 300,
+                appicon: "SystemAO/security/img/lock.svg",
+                title: "Restart - Authentication Required",
+                parent: ao_module_windowID,
+                callback: "handleRestartCallback"
+            });
+        }
+
+        function handleRestartCallback(data) {
+            if (data != false) {
+                //Not cancelled. Continue
+                $("#msgbox").slideDown("fast").delay(5000).slideUp("fast");
+                $("#succmsg").text("Host restarting...");
+            }
+        }
+
+        function handleShutdownCallback(data) {
+            if (data != false) {
+                //Not cancelled. Continue
+                $("#msgbox").slideDown("fast").delay(5000).slideUp("fast");
+                $("#succmsg").text("Host will start shutdown sequence in 60 seconds");
+            }
+        }
+
+
+        setTimeout(function () {
+            handleConnectionStateCheck();
+        }, 3000)
+
+        function handleConnectionStateCheck() {
+            if ($("#sysConnState").length > 0) {
+                $.ajax({
+                    url: "../../system/auth/checkLogin",
                     data: {},
-                    title: "<i class='red exclamation triangle icon'></i> Shutdown Host <i class='red exclamation triangle icon'></i>",
-                    desc: "Please enter your password to confirm operation.",
-                    thisuser: true, //This username as default, set to false for entering other user
-                    method: "GET",
-                    success: "SystemAO/boot/shutdown.html"
-                }
+                    success: function () {
+                        //Online
+                        $("#sysConnState").text(powerLocale.getString("hostPower/status/online", "System Online"));
+                        $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now() / 1000));
+                        $("#sysConnStateIcon").attr("class", "green check circle icon");
 
-                apiObject = encodeURIComponent(JSON.stringify(apiObject));
-
-                ao_module_newfw({
-                    url: "SystemAO/security/authreq.html#" + apiObject,
-                    width: 480,
-                    height: 300,
-                    appicon: "SystemAO/security/img/lock.svg",
-                    title: "Shutdown - Authentication Required",
-                    parent: ao_module_windowID,
-                    callback: "handleShutdownCallback"
+                        setTimeout(function () {
+                            handleConnectionStateCheck();
+                        }, 3000)
+                    },
+                    error: function () {
+                        //Timeout
+                        $("#sysConnState").text(powerLocale.getString("hostPower/status/disconnected", "Disconnected"));
+                        $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now() / 1000));
+                        $("#sysConnStateIcon").attr("class", "yellow exclamation circle icon");
+                        setTimeout(function () {
+                            handleConnectionStateCheck();
+                        }, 3000)
+                    },
+                    timeout: 1000
                 });
             }
+        }
+    </script>
+</body>
 
-            function restart(){
-                var apiObject = {
-                    api: "system/power/restart",
-                    data: {},
-                    title: "Password Required",
-                    desc: "for restarting the ArozOS Host",
-                    thisuser: true, //This username as default, set to false for entering other user
-                    method: "GET"
-                }
-
-                apiObject = encodeURIComponent(JSON.stringify(apiObject));
-
-                ao_module_newfw({
-                    url: "SystemAO/security/authreq.html#" + apiObject,
-                    width: 480,
-                    height: 300,
-                    appicon: "SystemAO/security/img/lock.svg",
-                    title: "Restart - Authentication Required",
-                    parent: ao_module_windowID,
-                    callback: "handleRestartCallback"
-                });
-            }
-
-            function handleRestartCallback(data){
-                if (data != false){
-                    //Not cancelled. Continue
-                    $("#msgbox").slideDown("fast").delay(5000).slideUp("fast");
-                    $("#succmsg").text("Host restarting...");
-                }
-            }
-
-            function handleShutdownCallback(data){
-                if (data != false){
-                    //Not cancelled. Continue
-                    $("#msgbox").slideDown("fast").delay(5000).slideUp("fast");
-                    $("#succmsg").text("Host will start shutdown sequence in 60 seconds");
-                }
-            }
-
-            
-            setTimeout(function(){
-                handleConnectionStateCheck();
-            }, 3000)
-
-            function handleConnectionStateCheck(){
-                if ($("#sysConnState").length > 0){
-                    $.ajax({
-                        url: "../../system/auth/checkLogin",
-                        data: {},
-                        success: function(){
-                            //Online
-                            $("#sysConnState").text(powerLocale.getString("hostPower/status/online","System Online"));
-                            $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now()/1000));
-                            $("#sysConnStateIcon").attr("class","green check circle icon");
-
-                            setTimeout(function(){
-                                handleConnectionStateCheck();
-                            }, 3000)
-                        },
-                        error: function(){
-                            //Timeout
-                            $("#sysConnState").text(powerLocale.getString("hostPower/status/disconnected", "Disconnected"));
-                            $("#lastupdateTime").text(ao_module_utils.timeConverter(Date.now()/1000));
-                            $("#sysConnStateIcon").attr("class","yellow exclamation circle icon");
-                            setTimeout(function(){
-                                handleConnectionStateCheck();
-                            }, 3000)
-                        },
-                        timeout: 1000
-                    });
-                }   
-            }
-        </script>
-    </body>
 </html>

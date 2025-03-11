@@ -1423,7 +1423,7 @@
                 "File Search (Start wildcard search with / , e.g. /.mp3)": "ファイル検索 (/ を付けてワイルドカード検索を開始、例：/.mp3)"
             }
         },
-        "ko_kr": {
+        "ko-kr": {
             "name": "한국어",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {

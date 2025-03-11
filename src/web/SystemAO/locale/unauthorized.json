@@ -12,7 +12,7 @@
                 "": ""
             }
         },
-        "ko_kr": {
+        "ko-kr": {
             "strings":{
                 "unauthorized/title": "권한 없음",
                 "unauthorized/message": "이 디렉토리 또는 페이지를 볼 권한이 없습니다.",

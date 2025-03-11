@@ -67,7 +67,7 @@
                 "Password": "パスワード"
             }
         },
-        "ko_kr": {
+        "ko-kr": {
             "fontFamily": "",
             "strings": {
                 "page/title": "관리자 인증",
