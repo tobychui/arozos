@@ -3,7 +3,7 @@
     "version": "1.0",
     "keys": {
         "zh-cn": {
-            "name": "简体中文（简体）",
+            "name": "简体中文",
             "fontFamily": "\"Microsoft YaHei\", \"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
             "strings": {
                 "":"",
