@@ -62,7 +62,8 @@
     <br>
 </body>
 <script>
-    applocale.init("./SystemAO/locale/system_settings/spec.json", function () {
+    var applocale = NewAppLocale();
+    applocale.init("../locale/system_settings/spec.json", function () {
         applocale.translate();
     });
 

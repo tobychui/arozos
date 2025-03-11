@@ -43,13 +43,13 @@
                         <div class="six wide column">
                             <span locale="overview/used_space">Used Space</span>
                         </div>
-                        <div class="ten wide column" id="usedStorage">
+                        <div class="ten wide column" id="usedStorage" locale="loading">
                             Loading...
                         </div>
                         <div class="six wide column">
                             <span locale="overview/total_space">Total Space</span>
                         </div>
-                        <div class="ten wide column" id="totalStorage">
+                        <div class="ten wide column" id="totalStorage" locale="loading">
                             Loading...
                         </div>
                     </div>
@@ -62,7 +62,7 @@
                         <div class="six wide column">
                             <span locale="overview/status">Status:</span>
                         </div>
-                        <div class="ten wide column" id="homepageStatus">
+                        <div class="ten wide column" id="homepageStatus" locale="loading">
                             Loading...
                         </div>
                     </div>
@@ -75,13 +75,13 @@
                         <div class="six wide column">
                             <span locale="overview/online_since">Online Since:</span>
                         </div>
-                        <div class="ten wide column" id="startup">
+                        <div class="ten wide column" id="startup" locale="loading">
                             Loading...
                         </div>
                         <div class="six wide column">
                             <span locale="overview/up_time">Up Time :</span>
                         </div>
-                        <div class="ten wide column" id="operation">
+                        <div class="ten wide column" id="operation" locale="loading">
                             Loading...
                         </div>
                     </div>
@@ -101,9 +101,8 @@
     <br>
 </body>
 <script>
-    var overviewLocale = NewAppLocale();
-
-    applocale.init("./SystemAO/locale/system_settings/overview.json", function () {
+    var appLocale = NewAppLocale();
+    applocale.init("../locale/system_settings/overview.json", function () {
         applocale.translate();
     });
 

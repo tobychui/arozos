@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="{{root_escape}}script/semantic/semantic.min.css">
-    <script type="text/javascript" src="{{root_escape}}script/jquery.min.js"></script>
-    <script type="text/javascript" src="{{root_escape}}script/semantic/semantic.min.js"></script>
-    <script type="text/javascript" src="./script/applocale.js"></script>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../script/applocale.js"></script>
     <title>Unauthorized</title>
     <style>
         #msg {
@@ -40,7 +40,8 @@
         <div>
             <h3 class="" locale="unauthorized/title">Unauthorized</h3>
             <div class="ui divider"></div>
-            <p locale="unauthorized/message">You do not have permission to view this directory or page. <br><a href="{{root_escape}}">Back</a></p>
+            <p locale="unauthorized/message">You do not have permission to view this directory or page. <br></p>
+            <a style="cursor: pointer;" onclick="back();" locale="back">Back</a>
             <div class="ui divider"></div>
             <div style="text-align: left;">
                 <small locale="reqTime">Request time: </small><small><span id="reqtime"></span></small><br>
@@ -51,7 +52,7 @@
     <script>
         if (typeof (applocale) != "undefined") {
             //Applocale found. Do localization
-            applocale.init("./SystemAO/locale/notfound.json", function () {
+            applocale.init("./locale/unauthorized.json", function () {
                 applocale.translate();
             });
         } else {

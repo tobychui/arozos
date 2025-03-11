@@ -67,7 +67,8 @@
     <br><br><br><br>
     </div>
     <script>
-        applocale.init("./SystemAO/locale/system_settings/clientinfo.json", function () {
+        var applocale = NewAppLocale();
+        applocale.init("../locale/system_settings/clientinfo.json", function () {
             applocale.translate();
         });
 
