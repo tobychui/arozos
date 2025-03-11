@@ -3,63 +3,45 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fwtitle" : "選擇預設網頁應用程式",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "message/select":"請選擇用作開啟 ",
-                "message/files":" 檔案的預設網頁應用程式",
-
-                "button/showAll":"顯示全部應用程式",
-                "button/showRelevent":"顯示相關應用程式",
-                "button/cancel":"取消",
-                "button/confirm":"確認",
-                "":""
+            "fwtitle": "選擇預設網頁應用程式",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "message/select": "請選擇用作開啟 ",
+                "message/files": " 檔案的預設網頁應用程式",
+                "button/showAll": "顯示全部應用程式",
+                "button/showRelevent": "顯示相關應用程式",
+                "button/cancel": "取消",
+                "button/confirm": "確認"
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
-            "fwtitle" : "選擇預設網頁應用程式",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "message/select":"請選擇用作開啟 ",
-                "message/files":" 檔案的預設網頁應用程式",
-
-                "button/showAll":"顯示全部應用程式",
-                "button/showRelevent":"顯示相關應用程式",
-                "button/cancel":"取消",
-                "button/confirm":"確認",
-                "":""
+            "fwtitle": "選擇預設網頁應用程式",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "message/select": "請選擇用作開啟 ",
+                "message/files": " 檔案的預設網頁應用程式",
+                "button/showAll": "顯示全部應用程式",
+                "button/showRelevent": "顯示相關應用程式",
+                "button/cancel": "取消",
+                "button/confirm": "確認"
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
-            "fwtitle" : "选择预设网页应用程序",
-            "strings":{
-                "message/select":"请选择用于打开 ",
-                "message/files":" 文件的预设网页应用程序",
-
-                "button/showAll":"显示全部应用程序",
-                "button/showRelevent":"显示相关应用程序",
-                "button/cancel":"取消",
-                "button/confirm":"确定",
-                "":""
+            "fwtitle": "选择预设网页应用程序",
+            "strings": {
+                "message/select": "请选择用于打开 ",
+                "message/files": " 文件的预设网页应用程序",
+                "button/showAll": "显示全部应用程序",
+                "button/showRelevent": "显示相关应用程序",
+                "button/cancel": "取消",
+                "button/confirm": "确定"
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "en-us": {
             "fwtitle": "Default Opening WebApp",
@@ -85,8 +67,7 @@
                 "button/showAll": "すべてのアプリケーションを表示",
                 "button/showRelevent": "関連するアプリケーションを表示",
                 "button/cancel": "キャンセル",
-                "button/confirm": "確認",
-                "": ""
+                "button/confirm": "確認"
             },
             "titles": {},
             "placeholder": {}
@@ -97,22 +78,13 @@
             "strings": {
                 "message/select": "열기로 사용할 웹 페이지 애플리케이션을 선택하세요",
                 "message/files": " 파일의 기본 웹 애플리케이션",
-        
                 "button/showAll": "모든 애플리케이션 표시",
                 "button/showRelevent": "관련 애플리케이션 표시",
                 "button/cancel": "취소",
-                "button/confirm": "확인",
-                "": ""
+                "button/confirm": "확인"
             },
-            "titles": {
-        
-            },
-            "placeholder": {
-        
-            }
+            "titles": {},
+            "placeholder": {}
         }
-        
-        
-        
     }
 }

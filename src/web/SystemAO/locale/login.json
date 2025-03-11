@@ -2,16 +2,6 @@
     "author": "GT610",
     "version": "1.0",
     "keys": {
-        "en-us": {
-            "strings": {
-                "signin/to": "Sign in to ",
-                "signin/with": " with your username and password",
-                "signIn": "Sign In",
-                "signIn/OAuth": "Sign In via OAuth 2.0",
-                "signIn/LDAP": "Sign In via LDAP",
-                "btn/CreateNewSession": "Create New Session"
-            }
-        },
         "ja-jp": {
             "strings": {
                 "signin/to": "サインイン先: ",

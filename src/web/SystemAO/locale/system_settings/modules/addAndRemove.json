@@ -1,0 +1,13 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "zh-cn":{
+            "name": "简体中文",
+            "strings": {
+                "title": "添加和删除扩展",
+                "subheader": "添加和删除主机上的扩展"
+            }
+        }
+    }
+}
