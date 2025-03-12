@@ -110,42 +110,6 @@
                 "New Folder":"新增文件夹"
             } 
         },
-        "en-us": {
-            "fwtitle": "Choose Files",
-            "fontFamily": "",
-            "strings": {
-                "title": "Choose Files",
-                "roots/user": "User",
-                "roots/storage": "Storage",
-                "message/loading": "Loading...",
-                "message/waitingResp": "Checking selection...",
-                "message/nofile": "No files",
-        
-                "sidebar/vroot/desktop": "Desktop",
-                "sidebar/vroot/document": "Documents",
-                "sidebar/vroot/music": "Music",
-                "sidebar/vroot/photo": "Photos",
-                "sidebar/vroot/video": "Videos",
-                "sidebar/vroot/trash": "Trash",
-                "sidebar/vroot/download": "Downloads",
-                "sidebar/vroot/web": "Web",
-                "sidebar/vroot/model": "Models",
-                "sidebar/vroot/appdata": "App Data",
-        
-                "": ""
-            },
-            "titles": {
-                "Back": "Back",
-                "Parent": "Parent Directory",
-                "Refresh": "Refresh",
-                "Create Folder": "Create Folder",
-                "New Folder": "New Folder"
-            },
-            "placeholder": {
-                "New Filename": "New File",
-                "New Folder": "New Folder"
-            }
-        },
         "ja-jp": {
             "fwtitle": "ファイル選択",
             "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",

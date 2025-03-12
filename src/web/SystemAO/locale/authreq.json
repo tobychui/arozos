@@ -38,19 +38,6 @@
                 "Password": "密码"
             }
         },
-        "en-us": {
-            "fontFamily": "",
-            "strings": {
-                "page/title": "Admin Authentication",
-                "button/confirm": "Confirm",
-                "button/cancel": "Cancel",
-                "": ""
-            },
-            "placeholder": {
-                "Username": "Username",
-                "Password": "Password"
-            }
-        },
         "ja-jp": {
             "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
             "strings": {

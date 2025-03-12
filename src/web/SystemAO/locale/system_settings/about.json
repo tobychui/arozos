@@ -2,11 +2,6 @@
     "author": "GT610",
     "version": "1.0",
     "keys": {
-        "en-us": {
-            "strings": {
-                "subHeader": "General-purpose web desktop system"
-            }
-        },
         "ja-jp": {
             "strings": {
                 "subHeader": "汎用ウェブデスクトップシステム"

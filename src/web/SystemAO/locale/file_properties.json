@@ -128,48 +128,6 @@
                 "":""
             }
         },
-        "en-us": {
-            "fwtitle": "File Contents",
-            "fontFamily": "",
-            "strings": {
-                "title/title": "File Contents",
-                "title/desc": "Basic content and description of the file",
-        
-                "properties/key/Default WebApp": "Default Opening App",
-                "properties/key/Virtual Path": "Virtual Access Path",
-                "properties/key/Storage Path": "Disk Storage Path",
-                "properties/key/File Size": "File Size",
-                "properties/key/Folder Size": "Folder Size",
-                "properties/key/Permission": "Access Permission",
-                "properties/key/Last Modified": "Last Modified",
-                "properties/key/File Type": "File Type",
-                "properties/key/Owner": "Owner",
-                "properties/key/Total Size": "Total Size",
-                "properties/key/Virtual Directory": "Virtual Directory",
-                "properties/key/Storage Directory": "Disk Storage Directory",
-        
-                "lastmod/time/year": " year",
-                "lastmod/time/month": " month",
-                "lastmod/time/days": " days",
-                "lastmod/time/today": "Today",
-                "lastmod/time/s": "s",
-                "lastmod/time/ago": " ago",
-        
-                "button/changeDefault": "Change Default Opening App",
-                "button/versionHistory": "View File Version History",
-                "button/changeFilePermission": "Change File Access Permission",
-                "loader/loadingFileSize": "Calculating file size",
-                "selection/multi": "Multiple files selected",
-        
-                "counter/files": " files",
-                "counter/folders": " folders",
-        
-                "properties/error/Not available for network folders": "Not available for network folders",
-                "properties/error/No record": "No record",
-        
-                "": ""
-            }
-        },
         "ja-jp": {
             "fwtitle": "ファイル内容",
             "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",

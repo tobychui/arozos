@@ -101,28 +101,6 @@
 
             }
         },
-        "en-us":{
-            "fwtitle": "Disk Overview",
-            "strings": {
-            "title/title": "Disk Overview",
-            "title/desc": "Mounting point of the hard disk corresponding to this virtual storage device",
-            "diskinfo/physical": "Physical Hard Disk",
-            "diskinfo/hierarchy": "Storage Device Structure (Format)",
-            "hierarchy/User": "Storage Hierarchy",
-            "hierarchy/Public": "Shared Disk",
-            "hierarchy/Backup": "Backup Disk",
-            "spaceinfo/totalUsed": "Used Disk Space",
-            "spaceinfo/userUsed": "User Disk Space",
-            "spaceinfo/Usable": "Available Disk Space",
-            "spaceinfo/Capacity": "Disk Capacity",
-            "unit/bytes": " Bytes",
-            "error/na": "[Not Available]",
-            "button/close": "Confirm",
-            "": ""
-            },
-            "titles": {},
-            "placeholder": {}
-        },
         "ja-jp": {
             "name":"日本語",
             "fontFamily":"\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",

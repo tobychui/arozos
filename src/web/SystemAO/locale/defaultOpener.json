@@ -43,21 +43,6 @@
             "titles": {},
             "placeholder": {}
         },
-        "en-us": {
-            "fwtitle": "Default Opening WebApp",
-            "fontFamily": "",
-            "strings": {
-                "message/select": "Please select the default WebApp to use for opening ",
-                "message/files": " files.",
-                "button/showAll": "Show All Applications",
-                "button/showRelevent": "Show Relevant Applications",
-                "button/cancel": "Cancel",
-                "button/confirm": "Confirm",
-                "": ""
-            },
-            "titles": {},
-            "placeholder": {}
-        },
         "ja-jp": {
             "fwtitle": "デフォルトのウェブアプリケーションを選択",
             "fontFamily": "\"Yu Gothic\", Meiryo, sans-serif",
