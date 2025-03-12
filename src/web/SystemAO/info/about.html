@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <script type="text/javascript" src="./script/applocale.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
     <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
 </head>
 
@@ -23,7 +23,7 @@
             <p style="margin-top:-12px;">System UUID: <span id="sysuuid"></span></p>
             <img src="../info/img/banner.jpg" class="ui fluid image"></img>
             <br>
-            <p>Developed under ArOZ Project by tobychui<br>
+            <p locale="developers">Developed under ArOZ Project by tobychui<br>
                 Special thanks to Alan Yeung, AceSaad and others who help with this project.</p>
             <div class="ui divider"></div>
             <a href="mailto:toby@imuslab.com" target="_blank"><i class="mail outline icon"></i>toby@imuslab.com</a>
@@ -40,7 +40,7 @@
 <script>
     if (typeof (applocale) != "undefined") {
         //Applocale found. Do localization
-        applocale.init("./SystemAO/locale/system_settings/about.json", function () {
+        applocale.init("../locale/system_settings/about.json", function () {
             applocale.translate();
         });
     } else {

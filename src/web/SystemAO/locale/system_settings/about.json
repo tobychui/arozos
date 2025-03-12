@@ -4,27 +4,32 @@
     "keys": {
         "ja-jp": {
             "strings": {
-                "subHeader": "汎用ウェブデスクトップシステム"
+                "subHeader": "汎用ウェブデスクトップシステム",
+                "developers": "ArOZ プロジェクトの下で tobychui によって開発されました<br>Alan Yeung、AceSaad を含むこのプロジェクトに協力してくださった方に感謝します。"
             }
         },
         "ko-kr": {
             "strings": {
-                "subHeader": "범용 웹 데스크탑 시스템"
+                "subHeader": "범용 웹 데스크탑 시스템",
+                "developers": "ArOZ 프로젝트의 tobychui에 의해 개발되었습니다<br>이 프로젝트에 도움을 주신 Alan Yeung, AceSaad 및 다른 분들께 감사드립니다。"
             }
         },
         "zh-cn": {
             "strings": {
-                "subHeader": "通用网络桌面系统"
+                "subHeader": "通用网络桌面系统",
+                "developers": "由 tobychui 在 ArOZ 项目下开发<br>感谢 Alan Yeung、AceSaad 等为本项目提供帮助的各位。"
             }
         },
         "zh-hk": {
             "strings": {
-                "subHeader": "通用網絡桌面系統"
+                "subHeader": "通用網絡桌面系統",
+                "developers": "由tobychui在 ArOZ 專案下開發<br>感謝 Alan Yeung、AceSaad 等為本專案提供協助的各位。"
             }
         },
         "zh-tw": {
             "strings": {
-                "subHeader": "通用網路桌面系統"
+                "subHeader": "通用網路桌面系統",
+                "developers": "由 tobychui 在 ArOZ 專案下開發<br>感謝 Alan Yeung、AceSaad 等為本專案提供協助的各位。"
             }
         }
     }
