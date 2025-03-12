@@ -1,127 +1,142 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Disk Quota</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
-        <link rel="stylesheet" href="../disk/quota/script/Chart.min.css">
-        <script type="text/javascript" src="../../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
-        <script src="../disk/quota/script/Chart.min.js"></script>
-        <style>
 
-        </style>
-    </head>
-    <body>
-        <div class="ui container">
-            <p>System Storage Space Quota</p>
-            <h1 class="ui header">
-                <span id="usedSpace">Loading</span>
-                <div class="sub header">Total used of <span id="remaining">N/A</span></div>
-            </h1>
-            <div class="ui divider"></div>
-            <p id="loadWarning"><i class="ui loading spinner icon"></i> File Category Graph might take some time to load...</p>
-            <div id="canvas-holder">
-                <canvas id="chart-area"></canvas>
+<head>
+    <title>Disk Quota</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="../disk/quota/script/Chart.min.css">
+    <script type="text/javascript" src="../../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
+    <script src="../disk/quota/script/Chart.min.js"></script>
+    <script src="../../../script/applocale.js"></script>
+</head>
+
+<body>
+    <div class="ui container">
+        <h1 class="ui header">
+            <span id="usedSpace">Loading</span>
+            <div class="sub header">
+                <span locale="totalUsedOf">Total used of </span>
+                <span id="remaining">N/A</span>
             </div>
-            <br>
-            <div class="ui divider"></div>
+        </h1>
+        <div class="ui divider"></div>
+        <p id="loadWarning">
+            <i class="ui loading spinner icon"></i>
+            <span class="loadingTip"> File Category Graph might take some time to load...</span>
+        </p>
+        <div id="canvas-holder">
+            <canvas id="chart-area"></canvas>
         </div>
-        <script>
-            var c = document.getElementById("chart-area");
-            var ctx = c.getContext("2d");
-            var accurateUsedSpace = 0;
+        <br>
+        <div class="ui divider"></div>
+    </div>
+    <script>
 
-            initQuotaInfo();
-            initFileTypeDistribution();
-            
-            function initQuotaInfo(){
-                //This will initalize the accumulative update quota information (Not accuratem, just estimation)
-                $.get("../../../system/disk/quota/quotaInfo",function(data){
-                    if (data.error !== undefined){
+        // Load locale
+        var quotaLocale = NewAppLocale();
+        $(document).ready(function () {
+            quotaLocale.init("../locale/disk/quota/quota.json", function () {
+                quotaLocale.translate();
+            });
+        });
 
-                    }else{
-                        var used = ao_module_utils.formatBytes(data.Used);
-                        var total = "Unlimited";
-                        if (data.Total > 0){
-                            total = ao_module_utils.formatBytes(data.Total);
-                        }else if (data.Total == 0){
-                            total = "Read Only";
-                        }
+        var c = document.getElementById("chart-area");
+        var ctx = c.getContext("2d");
+        var accurateUsedSpace = 0;
 
-                        $("#usedSpace").html(used + ` <i style="color: #dedede;" class="tiny info circle icon" title="Cumulative Estimation"></i>`);
-                        $("#remaining").text(total);
-                    }
-                }); 
-            }
+        initQuotaInfo();
+        initFileTypeDistribution();
 
-            function initFileTypeDistribution(){
-                var dynamicColors = function() {
-                    var r = Math.floor(Math.random() * 180 + 75);
-                    var g = Math.floor(Math.random() * 180 + 75);
-                    var b = Math.floor(Math.random() * 180 + 75);
-                    return "rgb(" + r + "," + g + "," + b + ")";
-                };
-                $.get("../../../system/disk/quota/quotaDist",function(list){
-                    accurateUsedSpace = 0;
-                    if (list == null){
-                        return;
-                    }
-                    //Create the corret data structure for the pie chart
-                    data = {};
-                    var dataset = [];
-                    var labels = [];
-                    var colors = [];
-                    var stopping = list.length;
-                    for (var i = 0; i < stopping; i++){
-                        labels.push(list[i].Mime);
-                        dataset.push(list[i].Size);
-                        accurateUsedSpace += list[i].Size;
-                        colors.push(dynamicColors());
+        function initQuotaInfo() {
+            //This will initalize the accumulative update quota information (Not accuratem, just estimation)
+            $.get("../../../system/disk/quota/quotaInfo", function (data) {
+                if (data.error !== undefined) {
+
+                } else {
+                    var used = ao_module_utils.formatBytes(data.Used);
+                    var total = "Unlimited";
+                    if (data.Total > 0) {
+                        total = ao_module_utils.formatBytes(data.Total);
+                    } else if (data.Total == 0) {
+                        total = "Read Only";
                     }
 
-                    //Update the actual used spaces
-                    var actualSpaceUsed = ao_module_utils.formatBytes(accurateUsedSpace);
-                    $("#usedSpace").text(actualSpaceUsed);
-                
-                   
-                    data["datasets"] = [{
-                        data: dataset, 
-                        backgroundColor: colors
-                    }];
-                    data["labels"] = labels;
-                    var fileDistChart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: data,
-                        options: {
-                            responsive: true,
-                            tooltips: {
-                                callbacks: {
-                                    label: function(tooltipItem, data){
-                                        var partitionsize = (data.datasets[0].data[tooltipItem.index]);
-                                        var labeltext = data.labels[tooltipItem.index];
-                                        var label = labeltext + ": " +ao_module_utils.formatBytes(partitionsize, 2);
-                                        return label;
-                                    }
-                                },
-                            },
-                            legend: {
-                                position: 'right',
-                                labels: {
-                                    boxWidth: 20,
-                                    padding: 20
+                    $("#usedSpace").html(used + ` <i style="color: #dedede;" class="tiny info circle icon" title="Cumulative Estimation"></i>`);
+                    $("#remaining").text(total);
+                }
+            });
+        }
+
+        function initFileTypeDistribution() {
+            var dynamicColors = function () {
+                var r = Math.floor(Math.random() * 180 + 75);
+                var g = Math.floor(Math.random() * 180 + 75);
+                var b = Math.floor(Math.random() * 180 + 75);
+                return "rgb(" + r + "," + g + "," + b + ")";
+            };
+            $.get("../../../system/disk/quota/quotaDist", function (list) {
+                accurateUsedSpace = 0;
+                if (list == null) {
+                    return;
+                }
+                //Create the corret data structure for the pie chart
+                data = {};
+                var dataset = [];
+                var labels = [];
+                var colors = [];
+                var stopping = list.length;
+                for (var i = 0; i < stopping; i++) {
+                    labels.push(list[i].Mime);
+                    dataset.push(list[i].Size);
+                    accurateUsedSpace += list[i].Size;
+                    colors.push(dynamicColors());
+                }
+
+                //Update the actual used spaces
+                var actualSpaceUsed = ao_module_utils.formatBytes(accurateUsedSpace);
+                $("#usedSpace").text(actualSpaceUsed);
+
+
+                data["datasets"] = [{
+                    data: dataset,
+                    backgroundColor: colors
+                }];
+                data["labels"] = labels;
+                var fileDistChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        tooltips: {
+                            callbacks: {
+                                label: function (tooltipItem, data) {
+                                    var partitionsize = (data.datasets[0].data[tooltipItem.index]);
+                                    var labeltext = data.labels[tooltipItem.index];
+                                    var label = labeltext + ": " + ao_module_utils.formatBytes(partitionsize, 2);
+                                    return label;
                                 }
+                            },
+                        },
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 20,
+                                padding: 20
                             }
                         }
-                    });
-
-                    $("#loadWarning").hide();
+                    }
                 });
-               
-            }
 
-        </script>
-   
-    </body>
+                $("#loadWarning").hide();
+            });
+
+        }
+
+    </script>
+
+</body>
+
 </html>

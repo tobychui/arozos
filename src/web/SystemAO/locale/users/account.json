@@ -1,0 +1,91 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "アカウント情報",
+                "subheader": "アカウント情報とパスワードを管理",
+                "button/upload": "アップロード",
+                "changeContentEmail": "連絡先メールの変更",
+                "newEmail": "新しいメールアドレス",
+                "button/update": "更新",
+                "changePswd": "パスワードの変更",
+                "oldPswd": "現在のパスワード",
+                "newPswd": "新しいパスワード",
+                "confirmPswd": "新しいパスワードの確認",
+                "welcomeBack": "ようこそ戻ってきました",
+                "msg": "この通知は必要でない場合は閉じることができます"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "계정 정보",
+                "subheader": "계정 정보 및 비밀번호 관리",
+                "button/upload": "업로드",
+                "changeContentEmail": "연락처 이메일 변경",
+                "newEmail": "새 이메일",
+                "button/update": "갱신",
+                "changePswd": "비밀번호 변경",
+                "oldPswd": "기존 비밀번호",
+                "newPswd": "새 비밀번호",
+                "confirmPswd": "새 비밀번호 확인",
+                "welcomeBack": "돌아오셨습니다",
+                "msg": "이 알림을 필요시 닫을 수 있습니다"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "我的账户",
+                "subheader": "管理账户信息和密码",
+                "button/upload": "上传",
+                "changeContentEmail": "更改联系邮箱",
+                "newEmail": "新邮箱",
+                "button/update": "更新",
+                "changePswd": "更改密码",
+                "oldPswd": "旧密码",
+                "newPswd": "新密码",
+                "confirmPswd": "确认新密码",
+                "welcomeBack": "欢迎回来",
+                "msg": "这是一个可关闭的通知"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "我的帳號",
+                "subheader": "管理帳號資料和密碼",
+                "button/upload": "上傳",
+                "changeContentEmail": "更改聯絡電郵",
+                "newEmail": "新電郵",
+                "button/update": "更新",
+                "changePswd": "更改密碼",
+                "oldPswd": "舊密碼",
+                "newPswd": "新密碼",
+                "confirmPswd": "確認新密碼",
+                "welcomeBack": "歡迎回來",
+                "msg": "此通知可按需要關閉"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "我的帳戶",
+                "subheader": "管理帳戶資訊與密碼",
+                "button/upload": "上傳",
+                "changeContentEmail": "變更聯絡郵件",
+                "newEmail": "新郵件",
+                "button/update": "更新",
+                "changePswd": "變更密碼",
+                "oldPswd": "舊密碼",
+                "newPswd": "新密碼",
+                "confirmPswd": "確認新密碼",
+                "welcomeBack": "歡迎回來",
+                "msg": "此通知可依需求關閉"
+            }
+        }
+    }
+}
