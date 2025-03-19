@@ -29,9 +29,9 @@
   <script>
 
     // Load locale
-    var closeTabInstructionLocale = NewAppLocale();
-    closeTabInstructionLocale.init("./locale/closeTabInstruction.json", function () {
-      closeTabInstructionLocale.translate();
+    var pageLocale = NewAppLocale();
+    pageLocale.init("./locale/closeTabInstruction.json", function () {
+      pageLocale.translate();
     });
 
     $('.ui.basic.modal').modal('show');

@@ -1,0 +1,111 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "访问控制",
+                "subheader": "管理允许登录此主机的IP",
+                "whitelist": "白名单",
+                "enableWhiteList": "启用白名单过滤",
+                "whitelistUpdateFeedback": "白名单状态已更新",
+                "AddOrRemoveWhitelistedIPRange": "添加或移除白名单IP范围",
+                "button/add": "添加",
+                "table/IPRange": "IP范围",
+                "table/remove": "移除",
+                "blacklist": "黑名单",
+                "enableBlacklistFiltering": "启用黑名单过滤",
+                "blacklistUpdateFeedback": "黑名单状态已更新",
+                "AddOrRemoveBannedIPRange": "添加或移除封禁IP范围",
+                "button/ban": "封禁",
+                "table/unban": "解封",
+                "tip": "对于白名单和黑名单，您可以输入单个IP或IP范围。IP范围语法示例如下："
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "アクセス制御",
+                "subheader": "このホストへのログインを許可するIPを管理",
+                "whitelist": "ホワイトリスト",
+                "enableWhiteList": "ホワイトリストフィルタリングを有効化",
+                "whitelistUpdateFeedback": "ホワイトリスト状態が更新されました",
+                "AddOrRemoveWhitelistedIPRange": "ホワイトリストIP範囲を追加または削除",
+                "button/add": "追加",
+                "table/IPRange": "IP範囲",
+                "table/remove": "削除",
+                "blacklist": "ブラックリスト",
+                "enableBlacklistFiltering": "ブラックリストフィルタリングを有効化",
+                "blacklistUpdateFeedback": "ブラックリスト状態が更新されました",
+                "AddOrRemoveBannedIPRange": "封鎖IP範囲を追加または削除",
+                "button/ban": "封鎖",
+                "table/unban": "解禁",
+                "tip": "ホワイトリストとブラックリストでは、単一IPまたはIP範囲を入力できます。IP範囲の記法例："
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "접근 제어",
+                "subheader": "이 호스트에 로그인 허용 IP 관리",
+                "whitelist": "화이트리스트",
+                "enableWhiteList": "화이트리스트 필터링 활성화",
+                "whitelistUpdateFeedback": "화이트리스트 상태가 업데이트되었습니다",
+                "AddOrRemoveWhitelistedIPRange": "화이트리스트 IP 범위 추가/제거",
+                "button/add": "추가",
+                "table/IPRange": "IP 범위",
+                "table/remove": "제거",
+                "blacklist": "블랙리스트",
+                "enableBlacklistFiltering": "블랙리스트 필터링 활성화",
+                "blacklistUpdateFeedback": "블랙리스트 상태가 업데이트되었습니다",
+                "AddOrRemoveBannedIPRange": "차단 IP 범위 추가/제거",
+                "button/ban": "차단",
+                "table/unban": "해제",
+                "tip": "화이트리스트와 블랙리스트에는 단일 IP 또는 IP 범위를 입력할 수 있습니다. IP 범위 문법 예시:"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "存取控制",
+                "subheader": "管理可登錄此主機的IP",
+                "whitelist": "白名單",
+                "enableWhiteList": "啟用白名單過濾",
+                "whitelistUpdateFeedback": "白名單狀態已更新",
+                "AddOrRemoveWhitelistedIPRange": "新增或移除白名單IP範圍",
+                "button/add": "新增",
+                "table/IPRange": "IP範圍",
+                "table/remove": "移除",
+                "blacklist": "黑名單",
+                "enableBlacklistFiltering": "啟用黑名單過濾",
+                "blacklistUpdateFeedback": "黑名單狀態已更新",
+                "AddOrRemoveBannedIPRange": "新增或移除封鎖IP範圍",
+                "button/ban": "封鎖",
+                "table/unban": "解封",
+                "tip": "對於白名單和黑名單，您可以輸入單一IP或IP範圍。IP範圍語法示例如下："
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "存取控制",
+                "subheader": "管理可登入此主機的IP",
+                "whitelist": "白名單",
+                "enableWhiteList": "啟用白名單過濾",
+                "whitelistUpdateFeedback": "白名單狀態已更新",
+                "AddOrRemoveWhitelistedIPRange": "新增或移除白名單IP範圍",
+                "button/add": "新增",
+                "table/IPRange": "IP範圍",
+                "table/remove": "移除",
+                "blacklist": "黑名單",
+                "enableBlacklistFiltering": "啟用黑名單過濾",
+                "blacklistUpdateFeedback": "黑名單狀態已更新",
+                "AddOrRemoveBannedIPRange": "新增或移除封鎖IP範圍",
+                "button/ban": "封鎖",
+                "table/unban": "解封",
+                "tip": "對於白名單和黑名單，您可以輸入單一IP或IP範圍。IP範圍語法示例如下："
+            }
+        }
+    }
+}

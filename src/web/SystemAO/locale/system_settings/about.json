@@ -3,33 +3,63 @@
     "version": "1.0",
     "keys": {
         "ja-jp": {
+            "name": "日本語",
             "strings": {
                 "subHeader": "汎用ウェブデスクトップシステム",
-                "developers": "ArOZ プロジェクトの下で tobychui によって開発されました<br>Alan Yeung、AceSaad を含むこのプロジェクトに協力してくださった方に感謝します。"
+                "developers": "ArOZ プロジェクトの下で tobychui によって開発されました<br>Alan Yeung、AceSaad を含むこのプロジェクトに協力してくださった方に感謝します。",
+                "sysVer": "システムバージョン",
+                "sysUUID": "システムUUID",
+                "copyright/1": "ArOZ Online System のコード、ロゴ、アートワークはtobychuiの著作権です。全著作権所有。詳細やバグ報告は当社の",
+                "githubRepo": "GitHubリポジトリ",
+                "copyright/2": "をご覧ください。"
             }
         },
         "ko-kr": {
+            "name": "한국어",
             "strings": {
                 "subHeader": "범용 웹 데스크탑 시스템",
-                "developers": "ArOZ 프로젝트의 tobychui에 의해 개발되었습니다<br>이 프로젝트에 도움을 주신 Alan Yeung, AceSaad 및 다른 분들께 감사드립니다。"
+                "developers": "ArOZ 프로젝트의 tobychui에 의해 개발되었습니다<br>이 프로젝트에 도움을 주신 Alan Yeung, AceSaad 및 다른 분들께 감사드립니다.",
+                "sysVer": "시스템 버전",
+                "sysUUID": "시스템 UUID",
+                "copyright/1": "ArOZ Online System 코드, 로고 및 아트워크는 tobychui의 저작권입니다. 모든 권리 보유. 문의나 버그 보고는我们的",
+                "githubRepo": "GitHub 저장소",
+                "copyright/2": "을 방문해 주세요."
             }
         },
         "zh-cn": {
+            "name": "简体中文",
             "strings": {
                 "subHeader": "通用网络桌面系统",
-                "developers": "由 tobychui 在 ArOZ 项目下开发<br>感谢 Alan Yeung、AceSaad 等为本项目提供帮助的各位。"
+                "developers": "由 tobychui 在 ArOZ 项目下开发<br>感谢 Alan Yeung、AceSaad 等为本项目提供帮助的各位。",
+                "sysVer": "系统版本",
+                "sysUUID": "系统UUID",
+                "copyright/1": "ArOZ Online System代码、Logo及艺术作品版权归tobychui所有，保留所有权利。访问我们的",
+                "githubRepo": "GitHub仓库",
+                "copyright/2": "获取帮助或提交问题报告。"
             }
         },
         "zh-hk": {
+            "name": "繁體中文（香港）",
             "strings": {
                 "subHeader": "通用網絡桌面系統",
-                "developers": "由tobychui在 ArOZ 專案下開發<br>感謝 Alan Yeung、AceSaad 等為本專案提供協助的各位。"
+                "developers": "由tobychui在 ArOZ 專案下開發<br>感謝 Alan Yeung、AceSaad 等為本專案提供協助的各位。",
+                "sysVer": "系統版本",
+                "sysUUID": "系統UUID",
+                "copyright/1": "ArOZ Online System 代碼、Logo及藝術作品版權屬tobychui所有，保留所有權利。瀏覽我們的",
+                "githubRepo": "GitHub倉庫",
+                "copyright/2": "以查詢或提交錯誤報告。"
             }
         },
         "zh-tw": {
+            "name": "繁體中文（台灣）",
             "strings": {
                 "subHeader": "通用網路桌面系統",
-                "developers": "由 tobychui 在 ArOZ 專案下開發<br>感謝 Alan Yeung、AceSaad 等為本專案提供協助的各位。"
+                "developers": "由 tobychui 在 ArOZ 專案下開發<br>感謝 Alan Yeung、AceSaad 等為本專案提供協助的各位。",
+                "sysVer": "系統版本",
+                "sysUUID": "系統UUID",
+                "copyright/1": "ArOZ Online System 代碼、Logo及藝術作品著作權歸tobychui所有，保留所有權利。造訪我們的",
+                "githubRepo": "GitHub倉儲",
+                "copyright/2": "以提出問題或錯誤回報。"
             }
         }
     }

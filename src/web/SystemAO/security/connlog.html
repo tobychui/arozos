@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Connection Log</title>
     <meta charset="UTF-8">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/applocale.js"></script>
     <style>
         a.pageFocus {
             background: #222222;
@@ -23,31 +25,40 @@
         }
 
         .noselect {
-            -webkit-touch-callout: none; /* iOS Safari */
-            -webkit-user-select: none; /* Safari */
-            -khtml-user-select: none; /* Konqueror HTML */
-            -moz-user-select: none; /* Old versions of Firefox */
-            -ms-user-select: none; /* Internet Explorer/Edge */
-            user-select: none; /* Non-prefixed version, currently
+            -webkit-touch-callout: none;
+            /* iOS Safari */
+            -webkit-user-select: none;
+            /* Safari */
+            -khtml-user-select: none;
+            /* Konqueror HTML */
+            -moz-user-select: none;
+            /* Old versions of Firefox */
+            -ms-user-select: none;
+            /* Internet Explorer/Edge */
+            user-select: none;
+            /* Non-prefixed version, currently
                                         supported by Chrome, Edge, Opera and Firefox */
         }
     </style>
 </head>
+
 <body>
     <div class="ui container" style="height: 100% !important;">
         <div>
-            <p>Connection Attempts</p>
             <h1 class="ui header">
-                <span id="normalStatus">Analysing</span>
+                <span id="normalStatus" locale="status">Analysing</span>
                 <div class="sub header">
-                    <span id="loginAptCount"></span> login request logged this month with <span id="incorrectRatio"></span> incorrect password attempts.
+                    <span id="loginAptCount"></span> 
+                    <span locale="request">login request logged this month with</span> 
+                    <span id="incorrectRatio"></span> 
+                    <span locale="incorrect">incorrect password attempts.</span>
                 </div>
             </h1>
             <div class="ui divider"></div>
             <div class="ui fluid selection dropdown">
                 <input type="hidden" name="tablekey" onchange="loadRecords(this);">
                 <i class="dropdown icon"></i>
-                <div class="default text">Date</div>
+                <div class="default text" locale="date">Date</div>
                 <div id="recordTables" class="menu">
 
                 </div>
@@ -58,16 +69,16 @@
             <table class="ui celled table">
                 <thead>
                     <tr>
-                        <th>Accepted</th>
-                        <th>Timestamp</th>
-                        <th>Requested Account</th>
-                        <th>IP Address</th>
-                        <th>Connection Type</th>
-                        <th>Access Port</th>
+                        <th locale="table/accepted">Accepted</th>
+                        <th locale="timestamp">Timestamp</th>
+                        <th locale="reqAcc">Requested Account</th>
+                        <th locale="ip">IP Address</th>
+                        <th locale="connType">Connection Type</th>
+                        <th locale="port">Access Port</th>
                     </tr>
                 </thead>
                 <tbody id="records">
-                
+
                 </tbody>
             </table>
             <div style="width: 100%" align="center">
@@ -77,41 +88,47 @@
         </div>
         <br><br>
     </div>
-    
+
     <script>
-        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun","Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        // Load locale
+        var pageLocale = NewAppLocale();
+        pageLocale.init("../locale/security/connlog.json", function () {
+            pageLocale.translate();
+        });
+
+        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         var maxPage = 0;
         var recordPerPage = 20;
         $(".ui.dropdown").dropdown();
         initMonthList();
-       
+
         //Get the table that belongs to today. Put in offset if the current month not found in list
-        function getCurrentMonthTable(monOffset = 0){
+        function getCurrentMonthTable(monOffset = 0) {
             const d = new Date();
             return monthNames[d.getMonth() - monOffset] + "-" + d.getFullYear()
         }
 
         //Get the month list
-        function initMonthList(){
+        function initMonthList() {
             $.ajax({
                 url: "../../system/auth/logger/index",
-                success: function(data){
+                success: function (data) {
                     var currentMonthTable = getCurrentMonthTable();
                     var currentMontHTableExists = false;
-                    if (data.error){
+                    if (data.error) {
                         alert(data.error);
-                    }else{
+                    } else {
                         $("#recordTables").html("");
                         data.forEach(tableName => {
-                            if (tableName == currentMonthTable){
+                            if (tableName == currentMonthTable) {
                                 currentMontHTableExists = true;
                             }
                             $("#recordTables").append(`<div class="item" data-value="${tableName}">${tableName}</div>`);
                         });
 
-                        if (data.length == 0){
+                        if (data.length == 0) {
                             //No record
-                            $("#normalStatus").parent().attr("class","ui header");
+                            $("#normalStatus").parent().attr("class", "ui header");
                             $("#normalStatus").text("No Record");
                             $("#incorrectRatio").text("0%");
                             $("#loginAptCount").text("0");
@@ -119,37 +136,37 @@
                     }
 
                     //Select the current month if it exists
-                    if (currentMontHTableExists){
-                        setTimeout(function(){
+                    if (currentMontHTableExists) {
+                        setTimeout(function () {
                             $("#recordTables").parent().dropdown("set selected", getCurrentMonthTable());
                         }, 500);
                         loadRecordsByTableName(getCurrentMonthTable());
-                    }else{
+                    } else {
                         $("#normalStatus").text("No Record");
                     }
-              
-                    
+
+
                 }
             });
         }
 
-        function loadRecordsByTableName(tableName){
+        function loadRecordsByTableName(tableName) {
             $.ajax({
                 url: "../../system/auth/logger/list",
-                data: {record: tableName},
-                success: function(data){
+                data: { record: tableName },
+                success: function (data) {
                     $("#records").html("");
                     $("#pageIndexs").html("");
-                    if (data.error !== undefined){
+                    if (data.error !== undefined) {
                         $("#records").html(`<tr>
                             <td data-label="status" colspan="5"><i class="remove icon"></i> ${data.error}</td>
                         </tr>`);
-                    }else{
-                        if (data.length == 0){
+                    } else {
+                        if (data.length == 0) {
                             $("#records").html(`<tr>
                                 <td data-label="status" colspan="5"><i class="checkmark icon"></i> No login record in this time period.</td>
                             </tr>`);
-                        }else{
+                        } else {
                             //console.log(data);
                             //Reverse the array so the latest login on top
                             var pageCounter = 1;
@@ -159,18 +176,18 @@
                             data.forEach(entry => {
                                 var timestamp = getDatetimeFromTimestamp(entry.Timestamp);
                                 var statusIcon = `<i class="green checkmark icon"></i>`;
-                                if (entry.LoginSucceed == false){
+                                if (entry.LoginSucceed == false) {
                                     statusIcon = `<i class="red remove icon"></i>`;
                                 }
 
                                 var authType = entry.AuthType;
-                                if (authType == ""){
+                                if (authType == "") {
                                     authType = "N/A"
-                                }else if (authType == "web"){
+                                } else if (authType == "web") {
                                     authType = `<i class="blue globe icon"></i> Web Interface`
-                                }else if (authType == "ftp"){
+                                } else if (authType == "ftp") {
                                     authType = `<i class="yellow folder icon"></i> FTP`
-                                }else if (authType == "webdav"){
+                                } else if (authType == "webdav") {
                                     authType = `<i class="blue folder icon"></i> WebDAV`
                                 }
 
@@ -184,7 +201,7 @@
                                 </tr>`);
 
                                 recordCounter++;
-                                if (recordCounter % recordPerPage == 0){
+                                if (recordCounter % recordPerPage == 0) {
                                     //Next page
                                     pageCounter++;
                                     pageIndexs.push(`<a class="section pageLabel page${pageCounter} noselect" onclick="showPage(${pageCounter});">${pageCounter}</a>`);
@@ -202,12 +219,12 @@
             });
         }
 
-        function showPage(pageNumber){
-            if (pageNumber < 1){
+        function showPage(pageNumber) {
+            if (pageNumber < 1) {
                 pageNumber = 1;
             }
 
-            if (pageNumber > maxPage){
+            if (pageNumber > maxPage) {
                 pageNumber = maxPage;
             }
 
@@ -217,14 +234,14 @@
             $(`.pageLabel.page${pageNumber}`).addClass("active").addClass("pageFocus");
         }
 
-        function loadRecords(object){
+        function loadRecords(object) {
             var tableName = object.value;
             loadRecordsByTableName(tableName);
         }
 
-        function updateSummaryText(records){
-            if (records.length == 0){
-                $("#normalStatus").parent().attr("class","ui header");
+        function updateSummaryText(records) {
+            if (records.length == 0) {
+                $("#normalStatus").parent().attr("class", "ui header");
                 $("#normalStatus").text("No Record");
                 $("#loginAptCount").text("No ");
                 return;
@@ -234,41 +251,42 @@
 
             //Calculate the risk ratio
             records.forEach(entry => {
-                if (entry.LoginSucceed){
+                if (entry.LoginSucceed) {
                     succ++;
-                }else{
+                } else {
                     failed++;
                 }
             });
 
             //Do a quick summary
             var failRatio = (failed) / (succ + failed) * 100;
-            if (failRatio > 70){
-                $("#normalStatus").parent().attr("class","ui red header");
+            if (failRatio > 70) {
+                $("#normalStatus").parent().attr("class", "ui red header");
                 $("#normalStatus").text("HIGH RISK");
-            }else if (failRatio > 50){
-                $("#normalStatus").parent().attr("class","ui yellow header");
+            } else if (failRatio > 50) {
+                $("#normalStatus").parent().attr("class", "ui yellow header");
                 $("#normalStatus").text("LOW RISK");
-            }else{
+            } else {
                 // No problem
-                $("#normalStatus").parent().attr("class","ui green header");
+                $("#normalStatus").parent().attr("class", "ui green header");
                 $("#normalStatus").text("Normal");
-                
+
             }
             $("#incorrectRatio").text(failRatio.toFixed(1) + "%");
             $("#loginAptCount").text(succ + failed);
         }
 
-       function getDatetimeFromTimestamp(timestamp){
+        function getDatetimeFromTimestamp(timestamp) {
             var s = new Date(timestamp * 1000);
-            var localOption =Intl.DateTimeFormat().resolvedOptions()
+            var localOption = Intl.DateTimeFormat().resolvedOptions()
             var options = { timeZone: 'UTC' };
-            if (localOption != undefined && localOption.timeZone != undefined){
+            if (localOption != undefined && localOption.timeZone != undefined) {
                 options.timeZone = localOption.timeZone;
             }
-            
-            return s.toLocaleDateString(undefined,options) + " " +  s.toLocaleTimeString(undefined,options);
-       }
+
+            return s.toLocaleDateString(undefined, options) + " " + s.toLocaleTimeString(undefined, options);
+        }
     </script>
 </body>
+
 </html>
