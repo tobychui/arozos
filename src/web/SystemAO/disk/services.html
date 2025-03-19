@@ -1,71 +1,75 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="UTF-8">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/semantic/semantic.min.js"></script>
     <script src="../../script/clipboard.min.js"></script>
+    <script src="../../script/applocale.js"></script>
     <style>
-        .hidden{
-            display:none;
+        .hidden {
+            display: none;
         }
 
-        .disabled{
+        .disabled {
             opacity: 0.5;
             pointer-events: none;
         }
-        
 
-        .detailBtn{
+
+        .detailBtn {
             position: absolute;
             right: 0.4em;
             top: calc(30% + 0.5em);
         }
 
-        .servertype.active .detailBtn{
+        .servertype.active .detailBtn {
             pointer-events: none;
             opacity: 0.3;
         }
 
-        .servertype:hover{
+        .servertype:hover {
             opacity: 0.7;
         }
 
-        .servertype.active{
-            background-color: #f7f7f7  !important;
+        .servertype.active {
+            background-color: #f7f7f7 !important;
             border-right: 3px solid #6bc2ec !important;
         }
 
-        .clickable{
+        .clickable {
             cursor: pointer;
         }
 
-        .fileservice{
+        .fileservice {
             margin-bottom: 1em;
         }
 
-        .serviceConnEndpoints{
+        .serviceConnEndpoints {
             margin-top: 0 !important;
             display: inline-block;
-            vertical-align:top;
+            vertical-align: top;
         }
-        
+
         .ui.toggle.checkbox input[type=checkbox]:checked~label::before,
         .ui.toggle.checkbox input[type=checkbox]:checked:focus~label::before {
-        background: #8cd493 !important;
+            background: #8cd493 !important;
         }
     </style>
 </head>
+
 <body>
     <br>
-   <div class="ui container">
+    <div class="ui container">
         <div class="ui header">
             <div class="content">
-                Network File Transfer Servers
-                <div class="sub header">Manage the exported file server interface for ArozOS Virtual File System</div>
+                <span locale="header">Network File Transfer Servers</span>
+                <div class="sub header" locale="subheader">Manage the exported file server interface for ArozOS Virtual
+                    File System</div>
             </div>
         </div>
         <br>
@@ -93,27 +97,34 @@
         <br><br>
     </div>
     <script>
+
+        // Load locale
+        var pageLocale = NewAppLocale();
+        pageLocale.init("../locale/disk/services.json", function () {
+            pageLocale.translate();
+        });
+
         var isAdmin = false;
         var fileServerServices = [];
-        
-        function isAdminCheck(){
-            $.get("../../system/desktop/user?noicon=true", function(data){
+
+        function isAdminCheck() {
+            $.get("../../system/desktop/user?noicon=true", function (data) {
                 isAdmin = data.IsAdmin;
                 initServiceList();
             });
         }
         isAdminCheck();
 
-        function initServiceList(callback=undefined){
+        function initServiceList(callback = undefined) {
             $("#serviceList").html("");
-            $.get("../../system/network/server/list", function(data){
+            $.get("../../system/network/server/list", function (data) {
                 console.log(data);
                 fileServerServices = data;
                 data.forEach(server => {
                     console.log(server);
                     let checkboxDefaultState = "";
                     let messageDefaultColor = "";
-                    if (server.Enabled){
+                    if (server.Enabled) {
                         checkboxDefaultState = "checked";
                         messageDefaultColor = "green";
                     }
@@ -141,23 +152,23 @@
                     </div>`);
                 });
 
-                if (data.length > 0){
+                if (data.length > 0) {
                     openServerConfig(data[0].ID);
                     $($(".servertype")[0]).addClass("active");
                 }
 
                 //Get a list of endpoints that is dedicated for this file server
-                $.get("../../system/network/server/endpoints", function(data){
-                    for (let [id, endpoints] of Object.entries(data)){
+                $.get("../../system/network/server/endpoints", function (data) {
+                    for (let [id, endpoints] of Object.entries(data)) {
                         console.log(id, endpoints)
                         //Get the target connection display for this endpoint
-                        $(".serviceConnEndpoints").each(function(){
-                            if ($(this).attr("fserv") == id){
+                        $(".serviceConnEndpoints").each(function () {
+                            if ($(this).attr("fserv") == id) {
                                 //This is the one. Render the endpoints on it
                                 let endpointHTML = "";
                                 endpoints.forEach(ep => {
                                     var portName = ":" + ep.Port;
-                                    if (ep.Port == 0){
+                                    if (ep.Port == 0) {
                                         //Do not define port. Hence do not show it
                                         portName = "";
                                     }
@@ -169,14 +180,14 @@
                             }
                         });
                         var clipboard = new ClipboardJS('.clip');
-                        
-                        clipboard.on('success', function(e) {
+
+                        clipboard.on('success', function (e) {
                             //console.info('Action:', e.action);
                             //console.info('Text:', e.text);
                             console.info('Trigger:', e.trigger);
                             let targetElement = e.trigger;
                             $(targetElement).html(`<i class="ui green checkmark icon"></i> Copied`);
-                            setTimeout(function(){
+                            setTimeout(function () {
                                 let originalURL = $(targetElement).attr("conn");
                                 $(targetElement).html(originalURL);
                             }, 3000);
@@ -185,91 +196,92 @@
 
                         //Activate all checkbox
                         $(".ui.checkbox").checkbox();
-                        if (!isAdmin){
+                        if (!isAdmin) {
                             //This user not admin. Disable all checkbox
                             $(".ui.checkbox").addClass("disabled");
                         }
                         updateAllServiceState();
                     }
 
-                    if (callback != undefined){
+                    if (callback != undefined) {
                         callback();
                     }
                 });
             });
-       }
+        }
 
-        function updateAllServiceState(){
-            $.get("../../system/network/server/status", function(data){
-                $(".enableState").each(function(){
+        function updateAllServiceState() {
+            $.get("../../system/network/server/status", function (data) {
+                $(".enableState").each(function () {
                     var fservid = $(this).attr("fserv");
                     var enableState = data[fservid];
-                    if (enableState){
+                    if (enableState) {
                         $(this).checkbox("set checked");
-                    }else{
+                    } else {
                         $(this).checkbox("set unchecked");
                     }
                 });
             });
         }
 
-       function handleServiceStateChange(object, event){
+        function handleServiceStateChange(object, event) {
             event.preventDefault();
             let targetElement = object;
-            setTimeout(function(){
+            setTimeout(function () {
                 //This delay is to make sure the checkbox event is executed first
                 //Before the state is checked
                 let isChecked = $(targetElement).checkbox("is checked");
-                let isCheckedString = isChecked?"true":"false";
+                let isCheckedString = isChecked ? "true" : "false";
                 let serviceId = $(targetElement).attr("fserv");
                 $.ajax({
                     url: "../../system/network/server/toggle",
                     method: "POST",
-                    data: {id: serviceId, enable: isCheckedString},
-                    success: function(){
+                    data: { id: serviceId, enable: isCheckedString },
+                    success: function () {
                         updateAllServiceState();
                     }
                 })
             }, 100);
-       }
+        }
 
-       function getServiceById(serviceid){
-            for (var i =0; i < fileServerServices.length; i++){
-                if (fileServerServices[i].ID == serviceid){
+        function getServiceById(serviceid) {
+            for (var i = 0; i < fileServerServices.length; i++) {
+                if (fileServerServices[i].ID == serviceid) {
                     return fileServerServices[i];
                 }
             }
-       }
+        }
 
-       function openServerConfig(serviceid, evt=undefined, object=undefined){
-            if (evt != undefined){
+        function openServerConfig(serviceid, evt = undefined, object = undefined) {
+            if (evt != undefined) {
                 evt.preventDefault();
             }
             $(".servertype.active").removeClass("active");
             $(object).addClass("active");
             let targetService = getServiceById(serviceid);
             let targetServiceConfigPage = targetService.ConfigPage;
-            if (targetServiceConfigPage == "" || targetServiceConfigPage == undefined){
+            if (targetServiceConfigPage == "" || targetServiceConfigPage == undefined) {
                 $("#serviceSettings").html(`No Configuration Avabile`);
-            }else{
+            } else {
                 $("#serviceInstruction").load("../../" + targetService.ConnInstrPage);
-                if (isAdmin){
+                if (isAdmin) {
                     $("#serviceSettings").load("../../" + targetService.ConfigPage);
-                }else{
+                } else {
                     $("#serviceSettings").load("../disk/instr/noaccess.html");
                 }
-               
-            }
-       }    
 
-       function updateCheckboxBackground(object, event){
+            }
+        }
+
+        function updateCheckboxBackground(object, event) {
             let message = $(object).parent().parent();
-            if (object.checked){
+            if (object.checked) {
                 $(message).addClass("green");
-            }else{
+            } else {
                 $(message).removeClass("green");
             }
-       }
+        }
     </script>
 </body>
+
 </html>
