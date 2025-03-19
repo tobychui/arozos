@@ -1,0 +1,56 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "ログビューア",
+                "subheader": "システムログをリアルタイムで確認",
+                "notes": "注意：一部のログファイルは非常に大きい可能性があります。開く前にサイズを確認してください",
+                "logrender": "← 左側のメニューからログファイルを選択してデバッグを開始",
+                "openLogInNewTab": "新しいタブで開く"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "로그 보기",
+                "subheader": "실시간 시스템 로그 확인",
+                "notes": "참고: 일부 로그 파일은 매우 클 수 있습니다. 열기 전에 파일 크기를 확인하십시오.",
+                "logrender": "← 왼쪽 메뉴에서 로그 파일을 선택하여 디버깅을 시작",
+                "openLogInNewTab": "새 탭에서 열기"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "日志查看",
+                "subheader": "实时查看系统日志",
+                "notes": "注意：部分日志文件可能较大。请在打开前确认文件大小",
+                "logrender": "← 从左侧菜单选择日志文件开始调试",
+                "openLogInNewTab": "在新标签页中打开"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "日誌查看",
+                "subheader": "即時查看系統日誌",
+                "notes": "注意：部分日誌文件可能非常龐大。請在開啟前確認文件大小",
+                "logrender": "← 從左側選單選擇日誌文件開始調試",
+                "openLogInNewTab": "在新分頁中開啟"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "日誌檢視",
+                "subheader": "即時查看系統日誌",
+                "notes": "注意：部分日誌檔可能非常龐大。請在開啟前確認檔案大小",
+                "logrender": "← 從左側選單選擇日誌檔開始除錯",
+                "openLogInNewTab": "在新分頁中開啟"
+            }
+        }
+    }
+}

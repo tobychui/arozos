@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <head>
     <title>Licenses</title>
     <meta charset="UTF-8">
@@ -6,6 +7,7 @@
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/applocale.js"></script>
     <script type="text/javascript" src="../../script/ao_module.js"></script>
 </head>
 
@@ -13,20 +15,26 @@
     <div class="ui container">
         <div class="ui basic segment">
             <div class="ui header">
-                Open Source Licenses
-                <div class="sub header">This page shows all the licenses of the related open source resources used in this project.</div>
+                <span locale="title">Open Source Licenses</span>
+                <div class="sub header" locale="subheader">This page shows all the licenses of the related open source
+                    resources used in this project.</div>
             </div>
         </div>
         <div class="ui divider"></div>
     </div>
-    
+
     <div id="mainarea" class="ui container">
-       
+
     </div>
     <br><br>
 </body>
 <script>
-    $.get("../../system/info/license", function(data){
+    // Load locale
+    var pageLocale = NewAppLocale();
+    pageLocale.init("../locale/info/license.json", function () {
+        pageLocale.translate();
+    });
+    $.get("../../system/info/license", function (data) {
         data.forEach(license => {
             $("#mainarea").append(`<div class="ui blue segment">
                 <h3>${license[0]}</h3>
@@ -35,4 +43,5 @@
         });
     });
 </script>
+
 </html>
