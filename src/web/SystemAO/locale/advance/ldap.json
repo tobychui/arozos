@@ -1,0 +1,106 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "LDAP アクセス",
+                "subheader": "LDAP を使用して外部アカウントを ArozOS に接続",
+                "info": "現在のアカウントは LDAP サーバー内に存在する必要があります。存在しない場合、同期機能は正常に動作しません。",
+                "enableLDAP": "LDAP を有効にする",
+                "bingUsername": "バインド ユーザー名",
+                "bingPswd": "バインド パスワード",
+                "FQDN": "FQDN",
+                "baseDN": "ベース DN",
+                "button/update": "更新",
+                "button/testConn": "接続テスト",
+                "table/username": "ユーザー名",
+                "table/group": "所属グループ",
+                "equGroup": "ArozOS での対応ユーザー グループ",
+                "updates": "設定が更新されました",
+                "Syncorize User": "ユーザー同期"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "LDAP 액세스",
+                "subheader": "LDAP을 사용해 외부 계정을 ArozOS에 연결",
+                "info": "현재 계정은 LDAP 서버 내부에 존재해야 합니다. 존재하지 않을 경우 동기화 기능이 정상적으로 작동하지 않습니다.",
+                "enableLDAP": "LDAP 활성화",
+                "bingUsername": "바인드 사용자 이름",
+                "bingPswd": "바인드 비밀번호",
+                "FQDN": "FQDN",
+                "baseDN": "기본 DN",
+                "button/update": "업데이트",
+                "button/testConn": "연결 테스트",
+                "table/username": "사용자 이름",
+                "table/group": "소속 그룹",
+                "equGroup": "ArozOS 내 대응 사용자 그룹",
+                "updates": "설정이 업데이트되었습니다",
+                "Syncorize User": "사용자 동기화"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "LDAP 访问",
+                "subheader": "通过 LDAP 允许外部账户访问 ArozOS",
+                "info": "您的当前账户必须存在于 LDAP 服务器中，否则同步功能将无法正常工作。",
+                "enableLDAP": "启用 LDAP",
+                "bingUsername": "绑定用户名",
+                "bingPswd": "绑定密码",
+                "FQDN": "完全限定域名",
+                "baseDN": "基础 DN",
+                "button/update": "更新",
+                "button/testConn": "测试连接",
+                "table/username": "用户名",
+                "table/group": "所属组",
+                "equGroup": "ArozOS 内对应用户组",
+                "updates": "设置已更新",
+                "Syncorize User": "同步用户"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "LDAP 存取",
+                "subheader": "透過 LDAP 允許外部帳戶存取 ArozOS",
+                "info": "您的當前帳戶必須存在於 LDAP 伺服器中，否則同步功能將無法正常運作。",
+                "enableLDAP": "啟用 LDAP",
+                "bingUsername": "綁定用戶名稱",
+                "bingPswd": "綁定密碼",
+                "FQDN": "完全限定域名",
+                "baseDN": "基底 DN",
+                "button/update": "更新",
+                "button/testConn": "測試連線",
+                "table/username": "用戶名稱",
+                "table/group": "所屬群組",
+                "equGroup": "ArozOS 內對應用戶群組",
+                "updates": "設定已更新",
+                "Syncorize User": "同步用戶"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "LDAP 存取權限",
+                "subheader": "透過 LDAP 允許外部帳號存取 ArozOS",
+                "info": "您的目前帳號必須存在於 LDAP 伺服器內，否則同步功能將無法正常運作。",
+                "enableLDAP": "啟用 LDAP",
+                "bingUsername": "綁定使用者名稱",
+                "bingPswd": "綁定密碼",
+                "FQDN": "完整限定域名",
+                "baseDN": "基底 DN",
+                "button/update": "更新設定",
+                "button/testConn": "測試連線",
+                "table/username": "使用者名稱",
+                "table/group": "所屬群組",
+                "equGroup": "ArozOS 內對應使用者群組",
+                "updates": "設定已更新",
+                "Syncorize User": "使用者同步"
+            }
+        }
+    }
+}

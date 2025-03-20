@@ -1,0 +1,96 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "自動ログインモード",
+                "subheader": "自動ログインとインターフェースモジュールの表示を許可",
+                "intro": "この機能を使用すると、指定されたユーザーがトークンを使用して自動ログインし、そのインターフェースモジュールを表示できます。看板用途に設計されていますが、ウェブサービスデモなど他の目的にも使用できます。",
+                "warning": "アカウントのトークンはパスワードと同様に保護してください。",
+                "selectUserAcc": "ユーザー アカウントを選択",
+                "adminwarning/1": "セキュリティ上の問題を考慮し、管理者アカウントで自動ログインを有効にすることは推奨されません。詳細は",
+                "adminwarning/2": "ここ",
+                "adminwarning/3": "をクリックしてください。",
+                "button/newToken": "新しいトークン",
+                "button/refreshList": "リストを更新",
+                "tokenCreated": "作成されたトークン:",
+                "selectedUserTokens": "選択されたユーザーのトークン",
+                "pleaseSelect": "対象ユーザーを選択してください"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "자동 로그인 모드",
+                "subheader": "자동 로그인 및 인터페이스 모듈 표시 허용",
+                "intro": "이 기능은 지정된 사용자가 지정된 토큰을 사용하여 자동 로그인하고 인터페이스 모듈을 표시할 수 있도록 합니다. 전광판 용도로 설계되었지만 웹 서비스 데모 등 다른 목적에도 사용할 수 있습니다.",
+                "warning": "계정의 토큰을 비밀번호와 동일하게 보호해야 합니다.",
+                "selectUserAcc": "사용자 계정 선택",
+                "adminwarning/1": "보안 문제로 인해 관리자 계정에서 자동 로그인을 활성화하는 것은 권장되지 않습니다. 자세한 내용은",
+                "adminwarning/2": "여기",
+                "adminwarning/3": "를 클릭하세요.",
+                "button/newToken": "새 토큰",
+                "button/refreshList": "리스트 새로 고침",
+                "tokenCreated": "생성된 토큰:",
+                "selectedUserTokens": "선택한 사용자의 토큰",
+                "pleaseSelect": "대상 사용자를 선택해 주세요"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "自动登录模式",
+                "subheader": "允许自动登录和界面模块显示",
+                "intro": "此功能允许指定用户使用给定令牌自动登录并显示其界面模块。虽然该功能设计用于广告牌用途，但也可用于其他用途，如 Web 服务演示等。",
+                "warning": "请将您的账户令牌视为密码妥善保管。",
+                "selectUserAcc": "选择用户账户",
+                "adminwarning/1": "出于安全考虑，我们不建议在管理员账户上启用自动登录功能。点击",
+                "adminwarning/2": "此处",
+                "adminwarning/3": "了解更多。",
+                "button/newToken": "新建令牌",
+                "button/refreshList": "刷新列表",
+                "tokenCreated": "已创建令牌：",
+                "selectedUserTokens": "当前用户的令牌",
+                "pleaseSelect": "请选择目标用户"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "自動登入模式",
+                "subheader": "允許自動登入及界面模組顯示",
+                "intro": "此功能允許指定用戶使用指定的令牌自動登入並顯示其界面模組。雖然此功能設計用於顯示屏用途，但亦可用於其他用途，例如網絡服務演示等。",
+                "warning": "請將您的帳戶令牌視為密碼妥善保管。",
+                "selectUserAcc": "選擇用戶帳戶",
+                "adminwarning/1": "因安全問題，我們不建議在管理員帳戶上啟用自動登入功能。點擊",
+                "adminwarning/2": "此處",
+                "adminwarning/3": "以了解更多。",
+                "button/newToken": "新建代幣",
+                "button/refreshList": "刷新列表",
+                "tokenCreated": "已建立代幣：",
+                "selectedUserTokens": "所選用戶的代幣",
+                "pleaseSelect": "請選擇目標用戶"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "自動登入模式",
+                "subheader": "允許自動登入及介面模組顯示",
+                "intro": "此功能允許指定使用者使用指定的代幣自動登入並顯示其介面模組。雖然此功能設計用於看板用途，但也可用於其他用途，例如網路服務示範等。",
+                "warning": "請將您的帳號代幣視為密碼妥善保管。",
+                "selectUserAcc": "選擇使用者帳號",
+                "adminwarning/1": "因安全問題，我們不建議在管理員帳號上啟用自動登入功能。點擊",
+                "adminwarning/2": "此處",
+                "adminwarning/3": "以獲得更多資訊。",
+                "button/newToken": "產生新代幣",
+                "button/refreshList": "重新整理列表",
+                "tokenCreated": "已建立代幣：",
+                "selectedUserTokens": "所選使用者的代幣",
+                "pleaseSelect": "請選擇目標使用者"
+            }
+        }
+    }
+}

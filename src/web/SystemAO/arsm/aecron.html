@@ -1,75 +1,75 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="UTF-8">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/applocale.js"></script>
     <script src="../arsm/js/moment.min.js"></script>
     <style>
-        .hidden{
-            display:none;
+        .hidden {
+            display: none;
         }
     </style>
 </head>
+
 <body>
     <div class="ui container">
         <div class="ui basic segment">
             <div class="ui header">
                 <i class="calendar alternate outline icon"></i>
                 <div class="content">
-                    System Schedular
-                    <div class="sub header">Schedule tasks to run while you are offline</div>
+                    <span locale="header">System Schedular</span>
+                    <div class="sub header" locale="subheader">Schedule tasks to run while you are offline</div>
                 </div>
             </div>
         </div>
-       
+
         <div class="ui divider"></div>
         <table class="ui celled striped table">
             <thead>
                 <tr>
-                    <th colspan="4">
-                        Scheduled Tasks
-                    </th>
+                    <th colspan="4" locale="table/title">Scheduled Tasks</th>
                 </tr>
                 <tr>
-                    <th>
-                        Script
-                    </th>
-                    <th>
-                        Location
-                    </th>
-                    <th>
-                        Interval
-                    </th>
-                    <th>
-                        Base Time
-                    </th>
+                    <th locale="table/script">Script</th>
+                    <th locale="table/location">Location</th>
+                    <th locale="table/interval">Interval</th>
+                    <th locale="table/basetime">Base Time</th>
                 </tr>
             </thead>
             <tbody id="scheduleList">
-               
+
             </tbody>
-          </table>
-          <button id="schedulerButton" class="ui button" onclick="openSystemScheudler();">Open System Scheduler</button>
+        </table>
+        <button id="schedulerButton" class="ui button" onclick="openSystemScheudler();" locale="button/openSystemScheudler">Open System Scheduler</button>
     </div>
     <script>
+
+        // Load locale
+        var pageLocale = NewAppLocale();
+        pageLocale.init("../locale/arsm/aecron.json", function () {
+            pageLocale.translate();
+        });
+
         initScheduleList();
-        function initScheduleList(){
+        function initScheduleList() {
             $.ajax({
                 url: "../../system/arsm/aecron/list",
                 data: {},
-                success: function(data){
+                success: function (data) {
                     $("#scheduleList").html("");
-                    if (data.length == 0){
+                    if (data.length == 0) {
                         $("#scheduleList").append(`<tr>
                             <td colspan="4">
                                 No registered schedule.
                             </td>
                         </tr>`);
-                    }else{
+                    } else {
                         data.forEach(task => {
                             var scriptName = task.ScriptFile.split("/").pop();
                             $("#scheduleList").append(`<tr>
@@ -86,10 +86,10 @@
             });
         }
 
-        function parseSecondsToHumanReadableFormat(seconds){
+        function parseSecondsToHumanReadableFormat(seconds) {
             seconds = Number(seconds);
-            var d = Math.floor(seconds / (3600*24));
-            var h = Math.floor(seconds % (3600*24) / 3600);
+            var d = Math.floor(seconds / (3600 * 24));
+            var h = Math.floor(seconds % (3600 * 24) / 3600);
             var m = Math.floor(seconds % 3600 / 60);
             var s = Math.floor(seconds % 60);
 
@@ -103,24 +103,24 @@
 
         //Check if the user has access right to the scheduler
         $.ajax({
-            url : "../../system/modules/list",
+            url: "../../system/modules/list",
             data: {},
-            success: function(data){
+            success: function (data) {
                 var allowAccess = false;
                 data.forEach(moduleInfo => {
-                    if (moduleInfo.Name == "Tasks Scheduler"){
+                    if (moduleInfo.Name == "Tasks Scheduler") {
                         //This user has access to task scheduler
                         allowAccess = true;
                     }
                 });
 
-                if (!allowAccess){
+                if (!allowAccess) {
                     $("#schedulerButton").hide();
                 }
             }
         })
 
-        function openSystemScheudler(){
+        function openSystemScheudler() {
             ao_module_newfw({
                 url: "SystemAO/arsm/scheduler.html",
                 appicon: "SystemAO/arsm/img/scheduler.png",
@@ -131,4 +131,5 @@
 
     </script>
 </body>
+
 </html>
