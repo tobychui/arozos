@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Access Control</title>
     <meta charset="UTF-8">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/applocale.js"></script>
     <style>
         a.pageFocus {
             background: #222222;
@@ -23,46 +25,61 @@
         }
 
         .noselect {
-            -webkit-touch-callout: none; /* iOS Safari */
-            -webkit-user-select: none; /* Safari */
-            -khtml-user-select: none; /* Konqueror HTML */
-            -moz-user-select: none; /* Old versions of Firefox */
-            -ms-user-select: none; /* Internet Explorer/Edge */
-            user-select: none; /* Non-prefixed version, currently
+            -webkit-touch-callout: none;
+            /* iOS Safari */
+            -webkit-user-select: none;
+            /* Safari */
+            -khtml-user-select: none;
+            /* Konqueror HTML */
+            -moz-user-select: none;
+            /* Old versions of Firefox */
+            -ms-user-select: none;
+            /* Internet Explorer/Edge */
+            user-select: none;
+            /* Non-prefixed version, currently
                                         supported by Chrome, Edge, Opera and Firefox */
         }
     </style>
 </head>
+
 <body>
     <br>
     <div class="ui container" style="height: 100% !important;">
         <div>
             <h3 class="ui header">
-                Access Control
-                <div class="sub header">Manage IPs from logging into this host</div>
+                <span locale="title">Access Control</span>
+                <div class="sub header" locale="subheader">Manage IPs from logging into this host</div>
             </h3>
             <div class="ui divider"></div>
-            <h3><i class="ui green checkmark icon"></i> Whitelist</h3>
+            <h3><i class="ui green checkmark icon"></i> 
+                <span locale="whitelist">Whitelist</span>
+            </h3>
             <div class="ui toggle checkbox">
                 <input type="checkbox" id="enableWhiteList" onchange="">
-                <label>Enable Whitelist Filtering</label>
+                <label locale="enableWhiteList">Enable Whitelist Filtering</label>
             </div>
             <div class="ui inverted green segment" id="whitelistUpdateFeedback" style="display:none;">
-                <i class="ui checkmark icon"></i> Whitelist Status Updated
+                <i class="ui checkmark icon"></i> 
+                <span locale="whitelistUpdateFeedback">Whitelist Status Updated</span>
             </div>
 
             <div class="ui basic segment">
-                <p>Add or Remove new whitelisted IP range</p>
+                <p locale="AddOrRemoveWhitelistedIPRange">Add or Remove new whitelisted IP range</p>
                 <div class="ui action fluid input">
                     <input type="text" id="whitelistIpRange" placeholder="192.168.1.100 - 192.168.1.250">
-                    <button class="ui green button" onclick="whitelistIpRange();"><i class="ui checkmark icon"></i> Add</button>
+                    <button class="ui green button" onclick="whitelistIpRange();">
+                        <i class="ui checkmark icon"></i>
+                        <span locale="button/add">Add</span>
+                    </button>
                 </div>
 
                 <table class="ui celled table">
                     <thead>
-                        <tr><th>IP Range</th>
-                        <th>Remove</th>
-                    </tr></thead>
+                        <tr>
+                            <th locale="table/IPRange">IP Range</th>
+                            <th locale="table/remove">Remove</th>
+                        </tr>
+                    </thead>
                     <tbody id="whitelistTable">
 
                     </tbody>
@@ -71,41 +88,46 @@
 
 
             <div class="ui divider"></div>
-            <h3><i class="ui red remove icon"></i> Blacklist</h3>
+            <h3><i class="ui red remove icon"></i> 
+                <span locale="blacklist">Blacklist</span>
+            </h3>
             <div class="ui toggle checkbox">
                 <input type="checkbox" id="enableBlacklist" onchange="updateBlacklistEnableState(this.checked);">
-                <label>Enable Blacklist Filtering</label>
+                <label locale="enableBlacklistFiltering">Enable Blacklist Filtering</label>
             </div>
             <div class="ui inverted green segment" id="blacklistUpdateFeedback" style="display:none;">
-                <i class="ui checkmark icon"></i> Blacklist Status Updated
+                <i class="ui checkmark icon"></i> 
+                <span locale="blacklistUpdateFeedback">Blacklist Status Updated</span>
             </div>
             <div class="ui basic segment">
-                <p>Add or Remove new banned IP range</p>
+                <p locale="AddOrRemoveBannedIPRange">Add or Remove new banned IP range</p>
                 <div class="ui action fluid input">
                     <input type="text" id="blacklistIpRange" placeholder="192.168.1.100 - 192.168.1.250">
-                    <button class="ui red button" onclick="blacklistIpRange();"><i class="ui lock icon"></i> Ban</button>
+                    <button class="ui red button" onclick="blacklistIpRange();">
+                        <i class="ui lock icon"></i>
+                        <span locale="button/ban">Ban</span>
+                    </button>
                 </div>
 
                 <table class="ui celled table">
                     <thead>
-                        <tr><th>IP Range</th>
-                        <th>Unban</th>
-                    </tr></thead>
+                        <tr>
+                            <th locale="table/IPRange">IP Range</th>
+                            <th locale="table/unban">Unban</th>
+                        </tr>
+                    </thead>
                     <tbody id="blacklisttable">
 
                     </tbody>
                 </table>
             </div>
-          
-           
-            <!-- 
-            <div class="ui divider"></div>
-            <h3>Regional Block</h3>
-            -->
 
             <div class="ui divider"></div>
             <div class="ui grey message">
-                <p><i class="ui info circle icon"></i> For Whitelist and Blacklist, you can enter either a single IP or an IP range. IP range syntax examples as follows.</p>
+                <p><i class="ui info circle icon"></i> 
+                    <span locale="tip">For Whitelist and Blacklist, you can enter either a single IP or
+                    an IP range. IP range syntax examples as follows.</span>
+                </p>
                 <div class="ui bulleted list">
                     <div class="item">192.168.1.100</div>
                     <div class="item">123.36.53.100</div>
@@ -114,204 +136,211 @@
             </div>
             <br><br>
         </div>
-    
-    <script>
-        //Init
-        var preloading = true;
-        $(".checkbox").checkbox();
-        initBlacklist();
-        initWhiteList();
 
-        /*
-            Whitelist Related
-        */
-
-        function initWhiteList(){
-            //Get the whitelist enable state
-            $.get("../../system/auth/whitelist/enable", function(data){
-                if (data == true){
-                    //Whitelist is enabled
-                    $("#enableWhiteList").parent().checkbox("set checked");
-                }else{
-                    $("#enableWhiteList").parent().checkbox("set unchecked");
-                }
-
-                $("#enableWhiteList").on("change", function(){
-                    //Toggle enable
-                    $.ajax({
-                        url: "../../system/auth/whitelist/enable",
-                        method: "POST",
-                        data: {enable: this.checked},
-                        success: function(data){
-                            $("#whitelistUpdateFeedback").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
-                        }
-                    })
-                })
-               
+        <script>
+            // Load locale
+            var pageLocale = NewAppLocale();
+            pageLocale.init("../locale/security/accesscontrol.json", function () {
+                pageLocale.translate();
             });
 
-            //Get the whitelist table
-            $("#whitelistTable").html(`<tr>
+            //Init
+            var preloading = true;
+            $(".checkbox").checkbox();
+            initBlacklist();
+            initWhiteList();
+
+            /*
+                Whitelist Related
+            */
+
+            function initWhiteList() {
+                //Get the whitelist enable state
+                $.get("../../system/auth/whitelist/enable", function (data) {
+                    if (data == true) {
+                        //Whitelist is enabled
+                        $("#enableWhiteList").parent().checkbox("set checked");
+                    } else {
+                        $("#enableWhiteList").parent().checkbox("set unchecked");
+                    }
+
+                    $("#enableWhiteList").on("change", function () {
+                        //Toggle enable
+                        $.ajax({
+                            url: "../../system/auth/whitelist/enable",
+                            method: "POST",
+                            data: { enable: this.checked },
+                            success: function (data) {
+                                $("#whitelistUpdateFeedback").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
+                            }
+                        })
+                    })
+
+                });
+
+                //Get the whitelist table
+                $("#whitelistTable").html(`<tr>
                 <td colspan="3"><i class="loading spinner icon"></i> Loading</td>
             </tr>`);
-            $.get("../../system/auth/whitelist/list", function(data){
-                $("#whitelistTable").html('');
-                data.forEach(entry => {
-                    //Strip out all space from record
-                    displayEntry = entry.split(" ").join("");
+                $.get("../../system/auth/whitelist/list", function (data) {
+                    $("#whitelistTable").html('');
+                    data.forEach(entry => {
+                        //Strip out all space from record
+                        displayEntry = entry.split(" ").join("");
 
-                    //Check if this is reserved ip range
-                    var enableRemove = true;
-                    if (entry == "127.0.0.1"){
-                        enableRemove = false;
-                    }
+                        //Check if this is reserved ip range
+                        var enableRemove = true;
+                        if (entry == "127.0.0.1") {
+                            enableRemove = false;
+                        }
 
-                    var removeButtonClass = ""
-                    if (!enableRemove){
-                        removeButtonClass = "disabled";
-                    }
+                        var removeButtonClass = ""
+                        if (!enableRemove) {
+                            removeButtonClass = "disabled";
+                        }
 
-                    $("#whitelistTable").append(`<tr>
+                        $("#whitelistTable").append(`<tr>
                     <td>${displayEntry}</td>
                     <td><button class="ui basic red ${removeButtonClass} icon button" onclick="removeWhitelistforIpRange(this);" range="${entry}"><i class="ui white remove icon"></i></button></td>
                   </tr>`);
-                })
+                    })
 
-                if (data.length == 0){
-                    $("#whitelistTable").html(`<tr>
+                    if (data.length == 0) {
+                        $("#whitelistTable").html(`<tr>
                         <td colspan="3"><i class="remove icon"></i> No Whitelisted IPs</td>
                     </tr>`);
-                }
-            });
-        }
-
-        function whitelistIpRange(){
-            var targetIP = $("#whitelistIpRange").val();
-            $.ajax({
-                url: "../../system/auth/whitelist/set",
-                method: "POST",
-                data: {iprange: targetIP},
-                success: function(data){
-                    if (data.error != undefined){
-                        alert(data.error);
-                    }else{
-                        $("#whitelistIpRange").val('')
-                        initWhiteList();
                     }
-                    
-                }
-            });
-        }
+                });
+            }
 
-        function removeWhitelistforIpRange(object){
-            var unbanIpRange = $(object).attr("range");
-            $.ajax({
-                url: "../../system/auth/whitelist/unset",
-                method: "POST",
-                data: {iprange: unbanIpRange},
-                success: function(data){
-                    if (data.error != undefined){
-                        alert(data.error);
-                    }else{
-                        $("#whitelistIpRange").val('')
-                        initWhiteList();
+            function whitelistIpRange() {
+                var targetIP = $("#whitelistIpRange").val();
+                $.ajax({
+                    url: "../../system/auth/whitelist/set",
+                    method: "POST",
+                    data: { iprange: targetIP },
+                    success: function (data) {
+                        if (data.error != undefined) {
+                            alert(data.error);
+                        } else {
+                            $("#whitelistIpRange").val('')
+                            initWhiteList();
+                        }
+
                     }
-                    
-                }
-            });
-        }
+                });
+            }
 
-        /*
+            function removeWhitelistforIpRange(object) {
+                var unbanIpRange = $(object).attr("range");
+                $.ajax({
+                    url: "../../system/auth/whitelist/unset",
+                    method: "POST",
+                    data: { iprange: unbanIpRange },
+                    success: function (data) {
+                        if (data.error != undefined) {
+                            alert(data.error);
+                        } else {
+                            $("#whitelistIpRange").val('')
+                            initWhiteList();
+                        }
 
-            Blacklist Related
+                    }
+                });
+            }
 
-        */
-        function initBlacklist(){
-            //Get the Blacklist enable state
-            $.get("../../system/auth/blacklist/enable", function(data){
-                if (data == true){
-                    //Blacklist is enabled
-                    $("#enableBlacklist").parent().checkbox("set checked");
-                }else{
-                    $("#enableBlacklist").parent().checkbox("set unchecked");
-                }
+            /*
+    
+                Blacklist Related
+    
+            */
+            function initBlacklist() {
+                //Get the Blacklist enable state
+                $.get("../../system/auth/blacklist/enable", function (data) {
+                    if (data == true) {
+                        //Blacklist is enabled
+                        $("#enableBlacklist").parent().checkbox("set checked");
+                    } else {
+                        $("#enableBlacklist").parent().checkbox("set unchecked");
+                    }
 
-                preloading = false;
-            });
+                    preloading = false;
+                });
 
-            //Get the Blacklist table
-            $("#blacklisttable").html(`<tr>
+                //Get the Blacklist table
+                $("#blacklisttable").html(`<tr>
                     <td colspan="3"><i class="loading spinner icon"></i> Loading</td>
                 </tr>`);
-            $.get("../../system/auth/blacklist/list", function(data){
-                $("#blacklisttable").html('');
-                data.forEach(entry => {
-                    //Strip out all space from record
-                    displayEntry = entry.split(" ").join("");
-                    $("#blacklisttable").append(`<tr>
+                $.get("../../system/auth/blacklist/list", function (data) {
+                    $("#blacklisttable").html('');
+                    data.forEach(entry => {
+                        //Strip out all space from record
+                        displayEntry = entry.split(" ").join("");
+                        $("#blacklisttable").append(`<tr>
                     <td>${displayEntry}</td>
                     <td><button class="ui green icon button" onclick="removeBlacklistforIpRange(this);" range="${entry}"><i class="ui white lock open icon"></i></button></td>
                   </tr>`);
-                })
+                    })
 
-                if (data.length == 0){
-                    $("#blacklisttable").html(`<tr>
+                    if (data.length == 0) {
+                        $("#blacklisttable").html(`<tr>
                         <td colspan="3"><i class="remove icon"></i> No Banned IPs</td>
                     </tr>`);
-                }
-            })
-        }
-
-        function updateBlacklistEnableState(enabled){
-            if (preloading){
-                //Do not update status during preload stage
-                return;
+                    }
+                })
             }
-            $.ajax({
-                url: "../../system/auth/blacklist/enable",
-                method: "POST",
-                data: {enable: enabled},
-                success: function(data){
-                    $("#blacklistUpdateFeedback").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
-                }
-            })
-        }
 
-        function blacklistIpRange(){
-            var targetIP = $("#blacklistIpRange").val();
-            $.ajax({
-                url: "../../system/auth/blacklist/ban",
-                method: "POST",
-                data: {iprange: targetIP},
-                success: function(data){
-                    if (data.error != undefined){
-                        alert(data.error);
-                    }else{
-                        $("#blacklistIpRange").val('')
-                        initBlacklist();
-                    }
-                    
+            function updateBlacklistEnableState(enabled) {
+                if (preloading) {
+                    //Do not update status during preload stage
+                    return;
                 }
-            });
-        }
+                $.ajax({
+                    url: "../../system/auth/blacklist/enable",
+                    method: "POST",
+                    data: { enable: enabled },
+                    success: function (data) {
+                        $("#blacklistUpdateFeedback").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
+                    }
+                })
+            }
 
-        function removeBlacklistforIpRange(object){
-            var unbanIpRange = $(object).attr("range");
-            $.ajax({
-                url: "../../system/auth/blacklist/unban",
-                method: "POST",
-                data: {iprange: unbanIpRange},
-                success: function(data){
-                    if (data.error != undefined){
-                        alert(data.error);
-                    }else{
-                        $("#blacklistIpRange").val('')
-                        initBlacklist();
+            function blacklistIpRange() {
+                var targetIP = $("#blacklistIpRange").val();
+                $.ajax({
+                    url: "../../system/auth/blacklist/ban",
+                    method: "POST",
+                    data: { iprange: targetIP },
+                    success: function (data) {
+                        if (data.error != undefined) {
+                            alert(data.error);
+                        } else {
+                            $("#blacklistIpRange").val('')
+                            initBlacklist();
+                        }
+
                     }
-                    
-                }
-            });
-        }
-    </script>
+                });
+            }
+
+            function removeBlacklistforIpRange(object) {
+                var unbanIpRange = $(object).attr("range");
+                $.ajax({
+                    url: "../../system/auth/blacklist/unban",
+                    method: "POST",
+                    data: { iprange: unbanIpRange },
+                    success: function (data) {
+                        if (data.error != undefined) {
+                            alert(data.error);
+                        } else {
+                            $("#blacklistIpRange").val('')
+                            initBlacklist();
+                        }
+
+                    }
+                });
+            }
+        </script>
 </body>
+
 </html>

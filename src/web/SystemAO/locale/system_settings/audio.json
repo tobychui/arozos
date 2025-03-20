@@ -64,27 +64,6 @@
             "placeholder":{
 
             }
-        },
-        "en-US": {
-            "name": "English (US)",
-            "fontFamily" : "Arial, Helvetica, sans-serif",
-            "strings":{
-                "arozaudio/arozaudio-title": "ArozOS Audio Test",
-                "arozaudio/system-audio": "System Audio",
-                "arozaudio/system-audio-subheader": "Test and adjust your global audio / volume settings",
-                "arozaudio/left-speaker": "Left Speaker",
-                "arozaudio/speaker-test": "Speaker Test",
-                "arozaudio/right-speaker": "Right Speaker",
-                "arozaudio/master-volume": "Master Volume",
-                "arozaudio/this-device-global-volume": "This device global volume: ",
-                "arozaudio/some-modules-volume": "Some modules use stand-alone volume management system. Master volume may not be able to control all module's volume."
-            },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
         }
     }
 }

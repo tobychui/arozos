@@ -1,0 +1,121 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "モジュールの追加と削除",
+                "subheader": "ホスト上の拡張機能の追加と削除",
+                "msg/instFail": "モジュールのインストールに失敗しました",
+                "msg/instComplete": "モジュールのインストールが完了しました",
+                "msg/complete/subheader": "下のリストで新しいモジュールが表示されるはずです",
+                "newWebApp/title": "新WebApp",
+                "newWebApp/subheader": "ArozOSホストに新WebAppをダウンロード",
+                "newWebApp/installViaGitRepo": "Gitリポジトリ経由でのインストール",
+                "newWebApp/installViaGitRepo/subheader": "以下のフィールドに入力し「インストール」をクリック",
+                "newWebApp/InstallViaZipFile": "ZIPファイル経由でのインストール",
+                "newWebApp/InstallViaZipFile/subheader": "インストーラーのZIPファイルを選択してアップロード",
+                "button/install": "インストール",
+                "button/selectInstaller": "インストーラーを選択",
+                "removeWebApp/title": "WebAppの削除",
+                "removeWebApp/subheader": "ArozOSホストからWebAppモジュールを削除",
+                "msg/uninstComplete": "WebAppモジュールのアンインストールが正常に完了しました",
+                "msg/noModuleInstalled": "インストールされたモジュールはありません",
+                "fetchingFiles": "ファイルを取得中"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "모듈 추가 및 제거",
+                "subheader": "호스트에 있는 확장 프로그램 추가 및 제거",
+                "msg/instFail": "모듈 설치 실패",
+                "msg/instComplete": "모듈 설치 완료",
+                "msg/complete/subheader": "아래 목록에서 새로운 모듈을 볼 수 있습니다",
+                "newWebApp/title": "새 WebApp",
+                "newWebApp/subheader": "ArozOS 호스트에 새로운 WebApp을 다운로드",
+                "newWebApp/installViaGitRepo": "Git 리포지토리로 설치",
+                "newWebApp/installViaGitRepo/subheader": "아래 필드에 입력하고 '설치'를 클릭하세요",
+                "newWebApp/InstallViaZipFile": "ZIP 파일로 설치",
+                "newWebApp/InstallViaZipFile/subheader": "설치용 ZIP 파일을 선택하고 업로드하세요",
+                "button/install": "설치",
+                "button/selectInstaller": "설치기를 선택",
+                "removeWebApp/title": "WebApp 제거",
+                "removeWebApp/subheader": "ArozOS 호스트에서 WebApp 모듈 제거",
+                "msg/uninstComplete": "WebApp 모듈이 성공적으로 제거되었습니다",
+                "msg/noModuleInstalled": "설치된 모듈 없음",
+                "fetchingFiles": "파일을 가져오는 중"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "添加和删除扩展",
+                "subheader": "添加和删除主机上的扩展",
+                "msg/instFail": "模块安装失败",
+                "msg/instComplete": "模块安装完成",
+                "msg/complete/subheader": "您应该能在下面的列表中看到新模块",
+                "newWebApp/title": "新 WebApp",
+                "newWebApp/subheader": "将新 WebApp 下载到 ArozOS 主机",
+                "newWebApp/installViaGitRepo": "通过 Git 仓库安装",
+                "newWebApp/installViaGitRepo/subheader": "在下方输入 Github 仓库链接并点击 安装",
+                "newWebApp/InstallViaZipFile": "通过 Zip 文件安装",
+                "newWebApp/InstallViaZipFile/subheader": "选择模块 Zip 文件并上传安装",
+                "button/install": "安装",
+                "button/selectInstaller": "选择安装包",
+                "removeWebApp/title": "移除 WebApp",
+                "removeWebApp/subheader": "从 ArozOS 主机移除 WebApp 模块",
+                "msg/uninstComplete": "WebApp 模块已成功卸载",
+                "msg/noModuleInstalled": "未安装任何模块",
+                "fetchingFiles": "正在获取文件"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "新增及移除模組",
+                "subheader": "新增及移除主機上的擴展",
+                "msg/instFail": "模組安裝失敗",
+                "msg/instComplete": "模組安裝完成",
+                "msg/complete/subheader": "你應可在下方列表中看到新模組",
+                "newWebApp/title": "新 WebApp",
+                "newWebApp/subheader": "將新 WebApp 下載到 ArozOS 主機",
+                "newWebApp/installViaGitRepo": "透過 Git 倉庫安裝",
+                "newWebApp/installViaGitRepo/subheader": "在下方輸入 Github 倉庫連結並按 安裝",
+                "newWebApp/InstallViaZipFile": "透過 Zip 檔案安裝",
+                "newWebApp/InstallViaZipFile/subheader": "選擇模組 Zip 檔案並上傳安裝",
+                "button/install": "安裝",
+                "button/selectInstaller": "選擇安裝包",
+                "removeWebApp/title": "移除 WebApp",
+                "removeWebApp/subheader": "從 ArozOS 主機移除 WebApp 模組",
+                "msg/uninstComplete": "WebApp 模組已成功移除",
+                "msg/noModuleInstalled": "未安裝任何模組",
+                "fetchingFiles": "正在取得檔案"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "新增與移除模組",
+                "subheader": "新增與移除主機上的擴充套件",
+                "msg/instFail": "模組安裝失敗",
+                "msg/instComplete": "模組安裝完成",
+                "msg/complete/subheader": "您應可在下方清單中看到新模組",
+                "newWebApp/title": "新 WebApp",
+                "newWebApp/subheader": "將新 WebApp 下載至 ArozOS 主機",
+                "newWebApp/installViaGitRepo": "透過 Git 倉儲安裝",
+                "newWebApp/installViaGitRepo/subheader": "在下方輸入 Github 倉儲連結並點選 安裝",
+                "newWebApp/InstallViaZipFile": "透過 Zip 檔案安裝",
+                "newWebApp/InstallViaZipFile/subheader": "選擇模組 Zip 檔案並上傳安裝",
+                "button/install": "安裝",
+                "button/selectInstaller": "選擇安裝程式",
+                "removeWebApp/title": "移除 WebApp",
+                "removeWebApp/subheader": "從 ArozOS 主機移除 WebApp 模組",
+                "msg/uninstComplete": "WebApp 模組已成功移除",
+                "msg/noModuleInstalled": "尚未安裝任何模組",
+                "fetchingFiles": "正在取得檔案"
+            }
+        }
+    }
+}
