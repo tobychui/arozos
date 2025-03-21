@@ -71,6 +71,7 @@ function NewAppLocale() {
 
         translate: function(targetLang = "") {
             const lang = targetLang || this.lang;
+            if (lang === 'en-us') return; // Don't translate English
             if (!this.localData.keys?.[lang]) {
                 console.warn(`[Applocale] failed to load language ${lang}, falling back to default`);
                 return;
@@ -99,6 +100,7 @@ function NewAppLocale() {
 
         // API
         getString: function(key, original) {
+            if (this.lang === 'en-us') return original; // Directly return original if English
             return this.localData.keys[this.lang]?.strings?.[key] || original;
         }
     };

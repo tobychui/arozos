@@ -2,6 +2,12 @@
     "author": "tobychui",
     "version": "1.0",
     "keys": {
+        "en-us": {
+            "name": "English (US)",
+            "strings": {
+                "//": "This language is a placeholder for locale.html to read lang options properly."
+            }
+        },
         "zh-tw": {
             "name": "繁體中文（台灣）",
             "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
