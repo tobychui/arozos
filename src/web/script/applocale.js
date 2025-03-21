@@ -72,7 +72,7 @@ function NewAppLocale() {
         translate: function(targetLang = "") {
             const lang = targetLang || this.lang;
             if (!this.localData.keys?.[lang]) {
-                console.warn(`[Applocale] Language ${lang} not supported`);
+                console.warn(`[Applocale] failed to load language ${lang}, falling back to default`);
                 return;
             }
 
