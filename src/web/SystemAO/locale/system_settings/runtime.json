@@ -67,7 +67,7 @@
             }
         },
         "zh-cn": {
-            "name": "简体中文（简体）",
+            "name": "简体中文",
             "fwtitle" : "",
             "strings":{
                 "runtime/runtime_adjustment": "运行时配置调整",
