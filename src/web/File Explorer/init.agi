@@ -1,0 +1,27 @@
+/* 
+    File System Module Registration
+    Version: 2.1.0
+*/
+
+var moduleLaunchInfo = {
+    Name: "File Explorer (AGI)",
+    Desc: "File management system for ArOZ OS, in AGI mode (testing).",
+    Group: "System",
+    IconPath: "File Explorer/img/pwa/128.png",
+    Version: "2.1.0",
+    StartDir: "File Explorer/index.html",
+    SupportFW: true,
+    LaunchFWDir: "File Explorer/index.html",
+    SupportEmb: false,
+    InitFWSize: [1024, 768],
+    InitEmbSize: [640, 480],
+    SupportedExt: ["*"]  // 支持所有文件类型
+};
+
+// 注册核心存储接口（参考项目中的storage.go实现）
+newDBTableIfNotExists("file_system");
+
+// 注册模块到系统
+registerModule(JSON.stringify(moduleLaunchInfo));
+
+console.log("File System Module Registered");

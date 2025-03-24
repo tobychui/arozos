@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>File Permissions</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <style>
+        body {}
+
+        .fitted.checkbox {
+            height: 20px;
+        }
+    </style>
+</head>
+
+<body id="filePropertiesWindow">
+    <br>
+    <div class="ui container">
+        <h3 class="ui header">
+            <span locale="header">File Permissions</span>
+            <div class="sub header" locale="subheader">Update file permissions for other gateways</div>
+        </h3>
+        <div class="ui divider"></div>
+        <p id="filename"></p>
+        <div class="ui grid">
+            <div class="five wide column">
+                <br>
+                <div class="ui divider"></div>
+                <span locale="user">User</span>
+                <div class="ui divider"></div>
+                <span locale="group">Group</span>
+                <div class="ui divider"></div>
+                <span locale="other">Other</span>
+            </div>
+            <div class="three wide column" style="text-align: center;">
+                <span locale="read">Read</span>
+                <div class="ui divider"></div>
+                <div class="ui fitted disabled checkbox">
+                    <input id="1" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+                <div class="ui divider"></div>
+                <div class="ui fitted disabled checkbox">
+                    <input id="4" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+                <div class="ui divider"></div>
+                <div class="ui fitted checkbox">
+                    <input id="7" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+            </div>
+            <div class="three wide column" style="text-align: center;">
+                <span locale="write">Write</span>
+                <div class="ui divider"></div>
+                <div class="ui fitted disabled checkbox">
+                    <input id="2" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+                <div class="ui divider"></div>
+                <div class="ui fitted disabled checkbox">
+                    <input id="5" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+                <div class="ui divider"></div>
+                <div class="ui fitted checkbox">
+                    <input id="8" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+            </div>
+            <div class="three wide column" style="text-align: center;">
+                <span locale="execute">Execute</span>
+                <div class="ui divider"></div>
+                <div class="ui fitted disabled checkbox">
+                    <input id="3" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+                <div class="ui divider"></div>
+                <div class="ui fitted disabled checkbox">
+                    <input id="6" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+                <div class="ui divider"></div>
+                <div class="ui fitted checkbox">
+                    <input id="9" type="checkbox" autocomplete="false">
+                    <label></label>
+                </div>
+            </div>
+        </div>
+        <br>
+        <div class="ui accordion">
+            <div class="title">
+                <i class="dropdown icon"></i>
+                <span locale="AdvSet">Advance Settings</span>
+            </div>
+            <div class="content">
+                <div class="ui toggle checkbox">
+                    <input type="checkbox" name="removeProtection" onchange="toggleProtection(this);"
+                        autocomplete="false" checked="false">
+                    <label locale="allowUserGroupPerm">Allow Edit User / Group Permission</label>
+                </div>
+                <br>
+                <small locale="warning">
+                    Removing User / Group permission to critical files might lead to system failure.
+                    Please make sure you know what you are doing.
+                </small>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <button class="ui right floated button" onclick="ao_module_close();" locale="button/cancel">Cancel</button>
+        <button class="ui green right floated button" onclick="update();" locale="button/update">Update</button>
+        <br> <br>
+    </div>
+
+
+    <div id="filesizeLoader" class="ui active dimmer">
+        <div class="ui indeterminate text loader" locale="reqFileSystem">Requesting File System</div>
+    </div>
+
+    <div id="success" class="ui basic modal">
+        <div class="ui icon header">
+            <i class="green checkmark icon"></i>
+            <span locale="PermUpdated">Pernmission Updated</span>
+        </div>
+        <div class="actions">
+            <div class="ui ok inverted button" locale="button/ok">OK</div>
+        </div>
+    </div>
+
+    <div id="failed" class="ui basic modal">
+        <div class="ui icon header">
+            <i class="red remove icon"></i>
+            Pernmission Update Failed
+        </div>
+        <div class="content">
+            <p id="errmsg"></p>
+        </div>
+        <div class="actions">
+            <div class="ui ok inverted button">
+                OK
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load locale
+        var pageLocale = NewAppLocale();
+        pageLocale.init("../locale/file_system/file_permission.json", function () {
+            pageLocale.translate();
+        });
+        $(".ui.checkbox").checkbox();
+        $('.ui.accordion').accordion();
+        $(".ui.modal").modal();
+        //Initiate the view model
+        var files = ao_module_loadInputFiles();
+        var fileProperties = [];
+        var groupID = 0;
+
+        for (var i = 0; i < files.length; i++) {
+            getPermission(files[i]);
+        }
+
+        if (files.length == 1) {
+            var filename = files[0].split("/").pop();
+            $("#filename").append(filename);
+        } else {
+            $("#filename").append(`<i class="file icon"></i>` + files.length + " files selected");
+        }
+
+        function getPermission(filepath) {
+            $.ajax({
+                url: "../../system/file_system/handleFilePermission",
+                data: { file: filepath },
+                success: function (data) {
+                    var permissionBites = [];
+                    var perChar = data.split("");
+                    //Shift out the group ID, currently useless
+                    groupID = perChar.shift();
+                    for (var i = 0; i < perChar.length; i++) {
+                        //i: 0 - 2 => (7)55
+                        var permissionSettingBit = parseInt(perChar[i]).toString(2).padStart(3, "0").split("")
+                        for (var j = 0; j < permissionSettingBit.length; j++) {
+                            //j: 0 - 2 => 111
+                            permissionBites.push(permissionSettingBit[j]);
+                        }
+                    }
+
+                    //Render the file permission
+                    console.log(data);
+
+                    //Assign the permission checkbox
+                    for (var i = 0; i < permissionBites.length; i++) {
+                        if (permissionBites[i] == "1") {
+                            $("#" + (i + 1))[0].checked = true;
+                        }
+                    }
+
+                    $("#filesizeLoader").hide();
+                }
+            });
+        }
+
+        function toggleProtection(button) {
+            if (button.checked == true) {
+                $(".disabled.checkbox").removeClass("disabled");
+            } else {
+
+                for (var i = 1; i < 7; i++) {
+                    $("#" + i).parent().addClass("disabled");
+                }
+            }
+        }
+
+        function resetCheckboxes() {
+            for (var i = 1; i < 10; i++) {
+                $("#" + i)[0].checked = false;
+            }
+        }
+
+        function update() {
+            var newPermission = generatePermissionString();
+            files.forEach(filepath => {
+                $.ajax({
+                    url: "../../system/file_system/handleFilePermission",
+                    data: { file: filepath, mode: newPermission },
+                    success: function (data) {
+                        if (data.error !== undefined) {
+                            $("#failed").modal("show");
+                            $("#errmsg").text(data.error);
+                        } else {
+                            $("#success").modal("show");
+                        }
+                        console.log(data);
+                    }
+                });
+            })
+
+        }
+
+
+        function generatePermissionString() {
+            var binary = [];
+            for (var i = 1; i < 10; i++) {
+                if ($("#" + i)[0].checked == true) {
+                    binary.push(1);
+                } else {
+                    binary.push(0);
+                }
+            }
+
+            //Convert the binary into hex
+            var octalRepresentation = parseInt(binary.join(""), 2).toString(8);
+
+            return groupID + octalRepresentation;
+        }
+
+
+    </script>
+</body>
+
+</html>
