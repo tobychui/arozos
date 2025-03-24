@@ -18,10 +18,5 @@ var moduleLaunchInfo = {
     SupportedExt: ["*"]  // 支持所有文件类型
 };
 
-// 注册核心存储接口（参考项目中的storage.go实现）
-newDBTableIfNotExists("file_system");
-
 // 注册模块到系统
 registerModule(JSON.stringify(moduleLaunchInfo));
-
-console.log("File System Module Registered");
