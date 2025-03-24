@@ -11,7 +11,31 @@ if (!requirelib("share")) {
 // Get file info
 var files = filelib.readdir(dir);
 
-// 自定义字节转可读大小函数
+// Sort
+var sortedPaths = filelib.aglob(dir + "*", "user");
+
+var fileMap = {};
+files.forEach(function(file) {
+    fileMap[file.Filepath] = file;
+});
+
+var sortedFiles = [];
+sortedPaths.forEach(function(filepath) {
+    if (fileMap.hasOwnProperty(filepath)) {
+        sortedFiles.push(fileMap[filepath]);
+        delete fileMap[filepath];
+    }
+});
+
+for (var remainingPath in fileMap) {
+    if (fileMap.hasOwnProperty(remainingPath)) {
+        sortedFiles.push(fileMap[remainingPath]);
+    }
+}
+
+files = sortedFiles;
+
+// Bytes to size
 function bytesToSize(bytes) {
     var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     if (bytes === 0) return '0 Byte';
@@ -22,9 +46,6 @@ function bytesToSize(bytes) {
 // Add more for compatibility
 for (var i = 0; i < files.length; i++) {
     var file = files[i];
-
-    // For compatibility. Realpath should be completely removed in the future due to security reasons
-    file.Realpath = "hidden";
 
     file.Displaysize = bytesToSize(file.Filesize);
 
