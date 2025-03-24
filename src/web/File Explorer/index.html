@@ -1122,51 +1122,31 @@
                                     callback();
                                 }
 
+                                //Check if it is already rooted and no more parent ahead
+                                if (currentPath == "") {
+                                    currentPath = "user:/";
+                                }
+
                                 enableAutoRefresh = true;
                             });
                         }
-                    }, function (error) { // 新增错误回调
-                        // 处理网络请求失败的情况
-                        console.error("AGI request failed:", error);
+                    }, function (error) {
+                        // Close the loading screen
+                        $("#folderList").find(".dimmer").removeClass("active");
                         enableAutoRefresh = false;
-                        //Parse path error. Try to refresh the page
-                        if (error.startsWith("Redirect:")) {
-                            var redirectAction = data.error.substr(9).trim();
-                            if (redirectAction == "parent") {
-                                var pdir = currentPath.split("/");
-                                pdir.pop(); pdir.pop();
-                                pdir = pdir.join("/");
-                                currentPath = pdir;
-                                listDirectory(currentPath);
-                            } else if (redirectAction == "root") {
-                                var currentRoot = currentPath.split("/").shift();
-                                listDirectory(currentRoot);
-                            } else if (redirectAction == "userroot") {
-                                listDirectory("user:/")
-                            } else {
-                                //Try to breakdown the redirection path
-                                listDirectory(redirectAction, undefined, false);
-                            }
-                            return
-                        }
-
-                        //Check if it is already rooted and no more parent ahead
-                        if (currentPath == "") {
-                            currentPath = "user:/";
-                        }
 
                         //Print folder not found exception
                         $("#folderList").show();
                         $("#folderList").html(`<div class="ui basic segment">
                                         <div class="ui header themed">
                                             <i class="remove icon"></i> <span>${applocale.getString("message/folderCannotOpen", "This Folder Cannot Be Opened")}</span>
-                                            <div class="sub header" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc", "The server return the following error message:")} <br><code>${data.error.toUpperCase()}</code><br>
+                                            <div class="sub header" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc", "Either the folder doesn't exist, or the server encountered an internal error (500).")}<br><br>
                                                 ${new Date().toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', weekday: "long", hour: '2-digit', hour12: false, minute: '2-digit', second: '2-digit' })}</div>
                                         </div>
                                     </div>`);
                         $("#fileList").hide();
 
-                        return;
+                        console.error("AGI request failed");
                     });
                 },
                 error: function () {
