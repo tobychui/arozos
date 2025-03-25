@@ -1066,92 +1066,77 @@
             //Highlight new path coot
             highlightCurrentRoot();
 
-            //Get sort mode from server side
+            // Get directory through AGI
             let loadStartPath = currentPath;
-            $.ajax({
-                url: "../../system/file_system/sortMode",
-                metod: "POST",
-                data: { opr: "get", folder: currentPath },
-                success: function (data) {
-                    if (data.error == undefined) {
-                        sortMode = data;
+            ao_module_agirun("File Manager/functions/listDir.js", {
+                dir: decodeURIComponent(path),
+                sort: sortMode
+            }, function (data) {
+                currentFilelist = [];
+
+                if (data === null) {
+                    //There is nothing in this folder.
+                    $("#folderList").hide();
+                    $("#fileList").hide();
+                    if (callback !== undefined) {
+                        callback();
                     }
-                    $("#sortingMethodSelector").dropdown("set selected", sortMode);
+                    return;
+                }
 
-                    ao_module_agirun("File Explorer/functions/listDir.js", {
-                        dir: decodeURIComponent(path),
-                        sort: sortMode
-                    }, function (data) {
-                        currentFilelist = [];
+                if (currentPath != loadStartPath) {
+                    //Use switch to another path before the load finish. Do not render
+                    return;
+                }
 
-                        if (data === null) {
-                            //There is nothing in this folder.
-                            $("#folderList").hide();
-                            $("#fileList").hide();
-                            if (callback !== undefined) {
-                                callback();
+                if (data.error !== undefined) {
+                } else {
+                    enableAutoRefresh = true;
+                    //Filelist returned. Render it
+                    renderDirectory(data, function () {
+                        //Restore the selected file list
+                        $(".fileObject.item").each(function () {
+                            for (var i = 0; i < selectedFiles.length; i++) {
+                                var thisFilename = selectedFiles[i];
+                                if (thisFilename == $(this).attr("filename")) {
+                                    $(this).addClass("selected");
+                                }
                             }
-                            return;
+                        });
+
+                        //Restore the previous scroll position
+                        $("#folderView").scrollTop(currentScrollTop);
+
+                        //Perform the callback
+                        if (callback !== undefined) {
+                            callback();
                         }
 
-                        if (currentPath != loadStartPath) {
-                            //Use switch to another path before the load finish. Do not render
-                            return;
+                        //Check if it is already rooted and no more parent ahead
+                        if (currentPath == "") {
+                            currentPath = "user:/";
                         }
 
-                        if (data.error !== undefined) {
-                        } else {
-                            enableAutoRefresh = true;
-                            //Filelist returned. Render it
-                            renderDirectory(data, function () {
-                                //Restore the selected file list
-                                $(".fileObject.item").each(function () {
-                                    for (var i = 0; i < selectedFiles.length; i++) {
-                                        var thisFilename = selectedFiles[i];
-                                        if (thisFilename == $(this).attr("filename")) {
-                                            $(this).addClass("selected");
-                                        }
-                                    }
-                                });
+                        enableAutoRefresh = true;
+                    });
+                }
+            }, function (error) {
+                // Close the loading screen
+                $("#folderList").find(".dimmer").removeClass("active");
+                enableAutoRefresh = false;
 
-                                //Restore the previous scroll position
-                                $("#folderView").scrollTop(currentScrollTop);
-
-                                //Perform the callback
-                                if (callback !== undefined) {
-                                    callback();
-                                }
-
-                                //Check if it is already rooted and no more parent ahead
-                                if (currentPath == "") {
-                                    currentPath = "user:/";
-                                }
-
-                                enableAutoRefresh = true;
-                            });
-                        }
-                    }, function (error) {
-                        // Close the loading screen
-                        $("#folderList").find(".dimmer").removeClass("active");
-                        enableAutoRefresh = false;
-
-                        //Print folder not found exception
-                        $("#folderList").show();
-                        $("#folderList").html(`<div class="ui basic segment">
+                //Print folder not found exception
+                $("#folderList").show();
+                $("#folderList").html(`<div class="ui basic segment">
                                         <div class="ui header themed">
                                             <i class="remove icon"></i> <span>${applocale.getString("message/folderCannotOpen", "This Folder Cannot Be Opened")}</span>
                                             <div class="sub header" style="margin-top:12px;">${applocale.getString("message/folderCannotOpen/codedesc", "Either the folder doesn't exist, or the server encountered an internal error (500).")}<br><br>
                                                 ${new Date().toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', weekday: "long", hour: '2-digit', hour12: false, minute: '2-digit', second: '2-digit' })}</div>
                                         </div>
                                     </div>`);
-                        $("#fileList").hide();
+                $("#fileList").hide();
 
-                        console.error("AGI request failed");
-                    });
-                },
-                error: function () {
-                    enableAutoRefresh = true;
-                }
+                console.error("AGI request failed");
             });
         }
 
@@ -4555,10 +4540,10 @@
             console.log(fileList);
             var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
             ao_module_newfw({
-                url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
+                url: "File Manager/file_properties.html#" + hashPassthrough,
                 width: 340,
                 height: 480,
-                appicon: "SystemAO/file_system/img/properties.png",
+                appicon: "./img/properties.png",
                 title: "File Properties",
             });
         }
@@ -4611,7 +4596,7 @@
 
                 var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
                 ao_module_newfw({
-                    url: "SystemAO/file_system/file_properties.html#" + hashPassthrough,
+                    url: "File Manager/file_properties.html#" + hashPassthrough,
                     width: 340,
                     height: 480,
                     appicon: "SystemAO/file_system/img/properties.png",
