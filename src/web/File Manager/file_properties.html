@@ -156,37 +156,42 @@
 
         function renderMultipleObjects() {
             hideLoader();
-            var filesizeSum = sumProperties(fileProperties, "Filesize");
-            $("#properties").append(ui_getInput(fileProperties[0].VirtualDirname + "/", "Root Name"));
-            var filecount = 0;
-            var foldercount = 0;
-            for (var i = 0; i < fileProperties.length; i++) {
-                if (fileProperties[i].IsDirectory) {
-                    foldercount++;
-                } else {
-                    filecount++;
-                }
-            }
-            $("#properties").append(ui_getText(applocale.getString("selection/multi", "Multiple selections")));
-            $("#properties").append(ui_getText(filecount + applocale.getString("counter/files", " Files")));
-            $("#properties").append(ui_getText(foldercount + applocale.getString("counter/folders", " Folders")));
 
-            let totalSizeText = bytesToSize(filesizeSum) + ` (${filesizeSum} bytes)`
-            if (filesizeSum < 0) {
-                //Network folder. Do not render size
-                totalSizeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/Not available for network folders", "Not available for network folders")}`;
-            }
+            const filesizeSum = sumProperties(fileProperties, "Filesize");
+            let filecount = 0, foldercount = 0;
 
-            //Append other properties as table
-            $("#properties").append(ui_getTable(
-                [],
-                [
-                    ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
-                    ["Total Size", totalSizeText],
-                ]
-            ));
+            // Pre-build HTML
+            let html = ui_getInput(fileProperties[0].VirtualDirname + "/", "Root Name");
 
+            // Get counts
+            fileProperties.forEach(item => {
+                item.IsDirectory ? foldercount++ : filecount++;
+            });
 
+            // Add summary table
+            html += ui_getText(applocale.getString("selection/multi", "Multiple selections"));
+            html += buildCounterElements(filecount, foldercount);
+            html += buildSummaryTable(filesizeSum);
+
+            // Inject DOM once
+            $("#properties").html(html);
+        }
+
+        // Build counter elements
+        function buildCounterElements(fileCount, folderCount) {
+            return [
+                ui_getText(`${fileCount} ${applocale.getString("counter/files", "Files")}`),
+                ui_getText(`${folderCount} ${applocale.getString("counter/folders", "Folders")}`)
+            ].join("");
+        }
+
+        // Build summary table
+        function buildSummaryTable(filesizeSum) {
+            const totalSizeText = formatSize(filesizeSum);
+            return ui_getTable([], [
+                ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
+                ["Total Size", totalSizeText]
+            ]);
         }
 
         function sumProperties(data, propName) {
@@ -229,7 +234,7 @@
                 }
             }
 
-            // Add DOM once
+            // Inject DOM once
             $("#properties").html(html);
 
             // Async content
