@@ -15,7 +15,7 @@
     <script type="text/javascript" src="../script/qrcode.min.js"></script>
     <script type="text/javascript" src="../script/applocale.js"></script>
     <link rel="stylesheet" href="../script/ao.css">
-    <link rel="stylesheet" href="file_explorer.css">
+    <link rel="stylesheet" href="index.css">
     <script>
         window.mobilecheck = function () {
             var check = false;
@@ -23,9 +23,6 @@
             return check;
         };
     </script>
-    <style>
-
-    </style>
 </head>
 
 <body class="whiteTheme">
@@ -254,10 +251,6 @@
             <div id="storageroot" class="ui list" style="padding-top:0px !important;">
                 <p class="dir item" style="opacity: 0.8;"><span locale="message/initiating">Initiating</span></p>
             </div>
-            <!-- <div class="ui divider"></div>
-                <div id="networkneibour" class="ui list" style="padding-top:0px !important;">
-                    
-                </div> -->
             <div class="ui divider"></div>
             <p id="selectInfo"></p>
         </div>
@@ -3248,13 +3241,18 @@
 
         function filePermission() {
             //Open file permission window
-            if ($(".fileObject.selected").length > 0) {
-                //Build the filelist
+            const selectedFiles = $(".fileObject.selected");
+
+            if (selectedFiles.length > 0) {
                 var fileList = [];
-                $(".fileObject.selected").each(function () {
+                selectedFiles.each(function () {
                     var filepath = $(this).attr("filepath");
                     fileList.push(filepath);
-                });
+                });                
+
+                //Build the filelist
+                var fileList = [];
+
 
                 var hashPassthrough = encodeURIComponent(JSON.stringify(fileList));
 
