@@ -11,7 +11,6 @@
 
                 "properties/key/Default WebApp": "預設開啟應用",
                 "properties/key/Virtual Path": "虛擬存取路徑",
-                "properties/key/Storage Path": "磁碟儲存路徑",
                 "properties/key/File Size": "檔案大小",
                 "properties/key/Folder Size": "資料夾大小",
                 "properties/key/Permission": "存取權限",
@@ -53,7 +52,6 @@
 
                 "properties/key/Default WebApp": "預設開啟應用",
                 "properties/key/Virtual Path": "虛擬存取路徑",
-                "properties/key/Storage Path": "磁碟儲存路徑",
                 "properties/key/File Size": "檔案大小",
                 "properties/key/Folder Size": "資料夾大小",
                 "properties/key/Permission": "存取權限",
@@ -95,7 +93,6 @@
 
                 "properties/key/Default WebApp": "预设启动应用",
                 "properties/key/Virtual Path": "虚拟存储路径",
-                "properties/key/Storage Path": "磁盘存储路径",
                 "properties/key/File Size": "文件大小",
                 "properties/key/Folder Size": "文件夹大小",
                 "properties/key/Permission": "存取权限",
@@ -137,7 +134,6 @@
         
                 "properties/key/Default WebApp": "デフォルトの開くアプリ",
                 "properties/key/Virtual Path": "仮想アクセスパス",
-                "properties/key/Storage Path": "ディスクストレージパス",
                 "properties/key/File Size": "ファイルサイズ",
                 "properties/key/Folder Size": "フォルダサイズ",
                 "properties/key/Permission": "アクセス権限",
@@ -179,7 +175,6 @@
                 
                 "properties/key/Default WebApp": "기본 열기 앱",
                 "properties/key/Virtual Path": "가상 접근 경로",
-                "properties/key/Storage Path": "디스크 저장 경로",
                 "properties/key/File Size": "파일 크기",
                 "properties/key/Folder Size": "폴더 크기",
                 "properties/key/Permission": "접근 권한",

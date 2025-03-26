@@ -96,9 +96,6 @@
             initFileProperties();
         });
 
-
-
-
         //Hide windows / linux only operations
         $.get("/system/info/getArOZInfo", function (data) {
             if (data.HostOS == "windows") {
@@ -120,31 +117,22 @@
         }
 
         function getFileProp(vpath, callback) {
-            // ao_module_agirun("File Manager/functions/getProperties.js", {
-            //     vpath: vpath
-            // }, function (path) {
-            //     console.log("AGI request success");
-            // });
-            $.ajax({
-                url: "../../system/file_system/getProperties",
-                data: { path: vpath },
-                method: "POST",
-                success: function (data) {
-                    callback(data);
-                    fileInfo = data;
-                    //Initialize system theme
-                    fpw_loadPreference("file_explorer/theme", function (data) {
-                        if (data.error === undefined) {
-                            if (data == "darkTheme") {
-                                $("body").addClass("darkTheme");
-                            } else {
-                                $("body").addClass("whiteTheme");
-                            }
+            ao_module_agirun("File Manager/functions/getProperties.js", {
+                path: vpath
+            }, function (data) {
+                callback(data);
+                fileInfo = data;
+                //Initialize system theme
+                fpw_loadPreference("file_explorer/theme", function (data) {
+                    if (data.error === undefined) {
+                        if (data == "darkTheme") {
+                            $("body").addClass("darkTheme");
+                        } else {
+                            $("body").addClass("whiteTheme");
                         }
-                    });
-
-                }
-            })
+                    }
+                });
+            });
         }
 
         function openFilePermissionPanel() {
@@ -186,7 +174,6 @@
                 [],
                 [
                     ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
-                    ["Storage Directory", fileProperties[0].StorageDirname + "/"],
                     ["Total Size", totalSizeText],
                 ]
             ));
@@ -239,7 +226,6 @@
                             [],
                             [
                                 ["Virtual Path", data.VirtualPath],
-                                ["Storage Path", data.StoragePath],
                                 ["Permission", data.Permission],
                                 ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
                                 ["File Type", "System Shortcut"],
@@ -271,7 +257,6 @@
                                     [
                                         defaultWebAppField,
                                         ["Virtual Path", data.VirtualPath],
-                                        ["Storage Path", data.StoragePath],
                                         [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
                                         ["Permission", data.Permission],
                                         ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
@@ -298,7 +283,6 @@
                         [],
                         [
                             ["Virtual Path", data.VirtualPath],
-                            ["Storage Path", data.StoragePath],
                             [filesizeText, folderSizeText],
                             ["Permission", data.Permission],
                             ["Last Modified", lastModTimeText],
