@@ -15,13 +15,11 @@ var moduleLaunchInfo = {
     SupportEmb: false,
     InitFWSize: [1024, 768],
     InitEmbSize: [640, 480],
-    SupportedExt: ["*"]  // 支持所有文件类型
+    SupportedExt: ["*"]  // All
 };
 
-// 注册核心存储接口（参考项目中的storage.go实现）
+// Might need
 newDBTableIfNotExists("file_system");
 
-// 注册模块到系统
+// Register module to system
 registerModule(JSON.stringify(moduleLaunchInfo));
-
-console.log("File System Module Registered");

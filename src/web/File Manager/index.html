@@ -2762,27 +2762,20 @@
                 $("#forceDeleteConfirmBox").transition("slide left in");
                 forceDeleteList = deletePendingList;
             } else {
-                //Start force delete function
                 let fdlistLength = forceDeleteList.length;
-                requestCSRFToken(function (token) {
-                    $.ajax({
-                        url: "../../system/file_system/fileOpr",
-                        method: "POST",
-                        data: { opr: "delete", src: JSON.stringify(forceDeleteList), csrft: token },
-                        success: function (data) {
-                            if (data.error !== undefined) {
-                                msgbox("red remove", applocale.getString("message/" + data.error, data.error));
-                            } else {
-                                refreshList();
-                                msgbox("checkmark", fdlistLength + applocale.getString("message/remove/success", " objects removed."))
-                            }
-                        }
-                    });
-                    //Finishing up delete sequence
-                    forceDeleteList = [];
-                    hideAllPopupWindows();
+                ao_module_agirun("File Manager/functions/file_operations/delete.js", {
+                    pathsParam: JSON.stringify(forceDeleteList)
+                }, function (data) {
+                    if (data.error !== undefined) {
+                        msgbox("red remove", applocale.getString("message/" + data.error, data.error));
+                    } else {
+                        refreshList();
+                        msgbox("checkmark", fdlistLength + applocale.getString("message/remove/success", " objects removed."))
+                    }
                 });
-
+                // Finishing up delete sequence
+                forceDeleteList = [];
+                hideAllPopupWindows();
             }
         }
 
@@ -3248,7 +3241,7 @@
                 selectedFiles.each(function () {
                     var filepath = $(this).attr("filepath");
                     fileList.push(filepath);
-                });                
+                });
 
                 //Build the filelist
                 var fileList = [];
