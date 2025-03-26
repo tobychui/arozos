@@ -34,6 +34,14 @@
             font-size: 1.2em;
         }
 
+        .hidden {
+            display: none !important;
+        }
+
+        .vertical-margin {
+            margin-top: 4px !important;
+        }
+
         .small.basic.white.fluid.button {
             color: var(--text_color_secondary) !important;
         }
@@ -56,14 +64,14 @@
 
         </div>
         <br>
-        <button style="display:none;" class="ui small white basic fluid button singleFileOnly"
-            onclick="changeDefaultWebApp();"><i class="ui external square alternate icon blue"></i><span
-                locale="button/changeDefault">Change Default WebApp</span></button>
-        <button style="display:none; margin-top: 4px;" class="ui small basic white fluid button singleFileOnly"
+        <button class="ui small white basic fluid button singleFileOnly hidden" onclick="changeDefaultWebApp();"><i
+                class="ui external square alternate icon blue"></i><span locale="button/changeDefault">Change Default
+                WebApp</span></button>
+        <button class="ui small basic white fluid button singleFileOnly hidden vertical-margin"
             onclick="viewVersionHistory();"><i class="ui undo green icon"></i><span locale="button/versionHistory">View
                 Version History</span></button>
-        <button style="margin-top: 4px;" class="ui small basic white fluid button linuxonly"
-            onclick="openFilePermissionPanel();" locale="button/changeFilePermission">Change File Permissions</button>
+        <button class="ui small basic white fluid button linuxonly vertical-margin" onclick="openFilePermissionPanel();"
+            locale="button/changeFilePermission">Change File Permissions</button>
         <br>
     </div>
     <div id="filesizeLoader" class="ui active dimmer">
@@ -192,110 +200,86 @@
         //Render one object property to the ui element
         function renderSingleObject(data) {
             hideLoader();
+            let html = ''; // Pre-build html
+
             if (data.error !== undefined) {
                 //Something went wrong
-                $("#properties").append(`<h4 class="ui header">
-                        <i class="question icon"></i>
-                        <div class="content">
-                            File Properties Unknown
-                            <div class="sub header">The system were unable to read the selected file properties.</div>
-                        </div>
-                    </h4>
-                    <div class="ui divider"></div>
-                    <small>${data.error}</small>
-                    `);
+                html = `<h4 class="ui header">
+                    <i class="question icon"></i>
+                    <div class="content">
+                        File Properties Unknown
+                        <div class="sub header">The system were unable to read the selected file properties.</div>
+                    </div>
+                </h4>
+                <div class="ui divider"></div>
+                <small>${data.error}</small>`;
             } else {
-                //Append Filename
+                // Info
                 var filesizeText = "File Size";
-                if (data.IsDirectory) {
-                    $("#properties").append(ui_getInput(data.Basename, "Folder Name"));
-                    filesizeText = "Folder Size";
+                const isDir = data.IsDirectory;
+                html += ui_getInput(data.Basename, isDir ? "Folder Name" : "File Name");
+                html += ui_getText(data.MimeType);;
+
+                if (!isDir && data.Basename.split(".").pop() !== "shortcut") {
+                    // Async content placeholder
+                    html += '<div id="asyncContent"></div>';
                 } else {
-                    $("#properties").append(ui_getInput(data.Basename, "File Name"));
+                    // Sync content
+                    html += buildFileTable(data, isDir);
                 }
-
-                //Append MIME Type
-                $("#properties").append(ui_getText(data.MimeType));
-
-                //Get the default opener
-                if (!data.IsDirectory) {
-                    //Check if this file is shortcut
-                    if (data.Basename.split(".").pop() == "shortcut") {
-                        //This is shortcut file
-                        $("#properties").append(ui_getTable(
-                            [],
-                            [
-                                ["Virtual Path", data.VirtualPath],
-                                ["Permission", data.Permission],
-                                ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
-                                ["File Type", "System Shortcut"],
-                                ["Owner", data.Owner],
-
-                            ]
-                        ));
-                    } else {
-                        //Normal Files
-                        $(".singleFileOnly").show();
-                        $.ajax({
-                            url: "../../system/modules/getDefault",
-                            method: "GET",
-                            data: {
-                                opr: "launch",
-                                ext: "." + data.Basename.split(".").pop(),
-                                mode: "launch"
-                            },
-                            success: function (openerinfo) {
-                                //Check if the module is set.
-                                var defaultWebAppField = ["Default WebApp", `<img class="ui mini spaced image" style="margin-left: 0px; padding-right: 8px;" src="../../${openerinfo.IconPath}">` + openerinfo.Name];
-                                if (openerinfo.Name == undefined) {
-                                    //Not set. 
-                                    defaultWebAppField = ["Default WebApp", `<a href="#" onclick="changeDefaultWebApp();">Set Default WebApp</a>`];
-                                }
-                                //Append other properties as table
-                                $("#properties").append(ui_getTable(
-                                    [],
-                                    [
-                                        defaultWebAppField,
-                                        ["Virtual Path", data.VirtualPath],
-                                        [filesizeText, bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`],
-                                        ["Permission", data.Permission],
-                                        ["Last Modified", generateDisplayLastModTime(data.LastModTime)],
-                                        ["File Type", "File"],
-                                        ["Owner", data.Owner],
-
-                                    ]
-                                ));
-                            }
-                        });
-                    }
-
-                } else {
-                    let folderSizeText = bytesToSize(data.Filesize) + ` (${data.Filesize} bytes)`;
-                    if (data.Filesize < 0) {
-                        //Network folder. Do not render size
-                        folderSizeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/Not available for network folders", "Not available for network folders")}`;
-                    }
-                    let lastModTimeText = generateDisplayLastModTime(data.LastModTime);
-                    if (data.LastModUnix == 0) {
-                        lastModTimeText = `<i class="times circle outline yellow icon"></i> ${applocale.getString("properties/error/No record", "No record")}`;
-                    }
-                    $("#properties").append(ui_getTable(
-                        [],
-                        [
-                            ["Virtual Path", data.VirtualPath],
-                            [filesizeText, folderSizeText],
-                            ["Permission", data.Permission],
-                            ["Last Modified", lastModTimeText],
-                            ["File Type", "Folder"],
-                            ["Owner", data.Owner],
-
-                        ]
-                    ));
-                }
-
-
             }
 
+            // Add DOM once
+            $("#properties").html(html);
+
+            // Async content
+            if (!data.IsDirectory && data.Basename.split(".").pop() !== "shortcut") {
+                loadAsyncContent(data);
+            }
+
+        }
+
+        // Build file table
+        function buildFileTable(data, isDir) {
+            let sizeText = formatSize(data.Filesize);
+            let lastModText = generateDisplayLastModTime(data.LastModTime);
+
+            return ui_getTable([], [
+                ["Virtual Path", data.VirtualPath],
+                [isDir ? "Folder Size" : "File Size", sizeText],
+                ["Permission", data.Permission],
+                ["Last Modified", lastModText],
+                ["File Type", isDir ? "Folder" : "File"],
+                ["Owner", data.Owner]
+            ]);
+        }
+
+        function loadAsyncContent(data) {
+            $(".singleFileOnly").show();
+            $.ajax({
+                url: "../../system/modules/getDefault",
+                method: "GET",
+                data: {
+                    opr: "launch",
+                    ext: "." + data.Basename.split(".").pop(),
+                    mode: "launch"
+                },
+                success: function (openerinfo) {
+                    const content = buildFileTable(data, openerinfo);
+                    $("#asyncContent").replaceWith(content);
+                }
+            });
+        }
+
+        // Format bytes to human readable
+        function formatSize(bytes) {
+            if (bytes < 0) {
+                return `<i class="times circle outline yellow icon"></i> ${applocale.getString(
+                    "properties/error/Not available for network folders",
+                    "Not available for network folders"
+                )}`;
+            }
+            return bytesToSize(bytes) + ` (${bytes} bytes)`;
         }
 
         function hideLoader() {
