@@ -1,6 +1,7 @@
 /*
     Application Locale Module
     author: tobychui
+    contributor: GT610
 
     This module translate the current web application page 
     to the desired language specific by the browser.
@@ -16,104 +17,95 @@
     }
 */
 
-function NewAppLocale(){
+function NewAppLocale() {
     return {
         lang: (localStorage.getItem('global_language') == null || localStorage.getItem('global_language') == "default" ? navigator.language : localStorage.getItem('global_language')).toLowerCase(),
         localeFile: "",
         localData: {},
-        init: function(localeFile, callback = undefined) {
-            this.localeFile = localeFile;
+        _cache: new Map(), // Cache layer
+        _observer: null,  // MutationObserver
+
+        init: function(localeFile, callback) {
+            // Check memory cache
+            if (this._cache.has(localeFile)) {
+                this.localData = this._cache.get(localeFile);
+                if (callback) callback(this.localData);
+                return;
+            }
+
             let targetApplocaleObject = this;
             $.ajax({
                 dataType: "json",
                 url: localeFile,
                 success: function(data) {
+                    targetApplocaleObject._cache.set(localeFile, data); // Cache result
                     targetApplocaleObject.localData = data;
-                    if (callback != undefined) {
-                        callback(data);
-                    }
                     
-                    if (data.keys[targetApplocaleObject.lang] != undefined && data.keys[targetApplocaleObject.lang].fwtitle != undefined && data.keys[targetApplocaleObject.lang].fwtitle != "" && ao_module_virtualDesktop) {
-                        //Update the floatwindow title as well
+                    // Automatically observe DOM changes
+                    if (!targetApplocaleObject._observer) {
+                        targetApplocaleObject._observer = new MutationObserver(mutations => {
+                            mutations.forEach(mutation => {
+                                $(mutation.addedNodes).find('[locale]').addBack('[locale]').each(function() {
+                                    targetApplocaleObject._translateElement(this);
+                                });
+                            });
+                        });
+                        targetApplocaleObject._observer.observe(document, {
+                            subtree: true,
+                            childList: true
+                        });
+                    }
+
+                    if (data.keys[targetApplocaleObject.lang]?.fwtitle && ao_module_virtualDesktop) {
                         ao_module_setWindowTitle(data.keys[targetApplocaleObject.lang].fwtitle);
                     }
-    
-                    if (data.keys[targetApplocaleObject.lang] != undefined && data.keys[targetApplocaleObject.lang].fontFamily != undefined){
-                        //This language has a prefered font family. Inject it
-                        $("h1, h2, h3, p, span, div, a, button").css({
-                            "font-family":data.keys[targetApplocaleObject.lang].fontFamily
-                        });
-                        console.log("[Applocale] Updating font family to: ", data.keys[targetApplocaleObject.lang].fontFamily)
+                    
+                    if (data.keys[targetApplocaleObject.lang]?.fontFamily) {
+                        $("body").css("font-family", data.keys[targetApplocaleObject.lang].fontFamily);
                     }
-                  
+
+                    callback && callback(data);
                 }
             });
         },
+
         translate: function(targetLang = "") {
-            var targetLang = targetLang || this.lang;
-            //Check if the given locale exists
-            if (this.localData == undefined || this.localData.keys === undefined || this.localData.keys[targetLang] == undefined) {
-                console.log("[Applocale] This language is not supported. Using default")
-                return
+            const lang = targetLang || this.lang;
+            if (lang === 'en-us') return; // Don't translate English
+            if (!this.localData.keys?.[lang]) {
+                console.warn(`[Applocale] failed to load language ${lang}, falling back to default`);
+                return;
             }
-    
-            //Update the page content to fit the localization
-            let hasTitleLocale = (this.localData.keys[targetLang].titles !== undefined);
-            let hasStringLocale = (this.localData.keys[targetLang].strings !== undefined);
-            let hasPlaceHolderLocale = (this.localData.keys[targetLang].placeholder !== undefined);
-            let localizedDataset =  this.localData.keys[targetLang];
-            $("*").each(function() {
-                if ($(this).attr("title") != undefined && hasTitleLocale) {
-                    let targetString = localizedDataset.titles[$(this).attr("title")];
-                    if (targetString != undefined) {
-                        $(this).attr("title", targetString);
-                    }
-    
-                }
-    
-                if ($(this).attr("locale") != undefined && hasStringLocale) {
-                    let targetString = localizedDataset.strings[$(this).attr("locale")];
-                    if (targetString != undefined) {
-                        $(this).html(targetString);
-                    }
-                }
-    
-                if ($(this).attr("placeholder") != undefined && hasPlaceHolderLocale) {
-                    let targetString = localizedDataset.placeholder[$(this).attr("placeholder")];
-                    if (targetString != undefined) {
-                        $(this).attr("placeholder", targetString);
-                    }
-                }
-            })
-    
-            if (this.localData.keys[this.lang] != undefined && this.localData.keys[this.lang].fontFamily != undefined){
-                //This language has a prefered font family. Inject it
-                $("h1, h2, h3, h4, h5, p, span, div, a").css({
-                    "font-family":this.localData.keys[this.lang].fontFamily
-                });
+
+            // Optimize selector performance
+            const elements = document.querySelectorAll('[locale], [data-i18n]');
+            elements.forEach(el => this._translateElement(el));
+        },
+
+        // Use private method to translate element
+        _translateElement: function(el) {
+            const localized = this.localData.keys[this.lang];
+            const attr = el.getAttribute('locale') || el.getAttribute('data-i18n');
+            
+            if (el.hasAttribute('title') && localized?.titles?.[attr]) {
+                el.title = localized.titles[attr];
+            }
+            if (localized?.strings?.[attr]) {
+                el.textContent = localized.strings[attr];
+            }
+            if (el.placeholder && localized?.placeholder?.[attr]) {
+                el.placeholder = localized.placeholder[attr];
             }
         },
-        getString: function(key, original, type = "strings") {
-            var targetLang = this.lang;
-            if (this.localData.keys === undefined || this.localData.keys[targetLang] == undefined) {
-                return original;
-            }
-            let targetString = this.localData.keys[targetLang].strings[key];
-            if (targetString != undefined) {
-                return targetString
-            } else {
-                return original
-            }
-        },
-        applyFontStyle: function(target){
-            $(target).css({
-                "font-family":applocale.localData.keys[applocale.lang].fontFamily
-            })
+
+        // API
+        getString: function(key, original) {
+            if (this.lang === 'en-us') return original; // Directly return original if English
+            return this.localData.keys[this.lang]?.strings?.[key] || original;
         }
-    }
+    };
 }
 
-if (applocale == undefined){
-    //Only allow once instance of global applocale obj
+if (typeof applocale === 'undefined') {
     var applocale = NewAppLocale();
 }
