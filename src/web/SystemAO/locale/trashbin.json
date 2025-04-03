@@ -107,9 +107,9 @@
             }
         },
         "zh-cn": {
-            "fwtitle" : "垃圾箱",
+            "fwtitle" : "回收站",
             "strings":{
-                "title/title":"垃圾箱",
+                "title/title":"回收站",
                 
                 "button/deleteAll":"全部删除",
                 "button/details":"详情",
@@ -120,14 +120,14 @@
                 "list/details":"详细信息",
                 "list/restore":"恢复文件",
                 "list/scanning":"正在从所有虚拟磁盘区扫描回收文件",
-                "list/notrash":"垃圾箱内并没有任何文件或文件夹",
+                "list/notrash":"回收站内并没有任何文件或文件夹",
 
                 "opr/move":"移动",
                 "opr/file":"文件",
                 "opr/files":"文件",
                 "opr/and":" 及 ",
                 "opr/more":" 等文件",
-                "opr/toTrashBin":"到垃圾箱？",
+                "opr/toTrashBin":"到回收站？",
                 "opr/delete":"删除： ",
                 "opr/cancel":"取消",
                 "opr/confirm":"确定",
@@ -135,7 +135,7 @@
                 "message/nofileselected":"没有选择任何文件",
                 "message/property":"属性",
                 "message/value":"数值",
-                "message/notrash":"垃圾箱内没有文件或文件夹",
+                "message/notrash":"回收站内没有文件或文件夹",
                 "message/confirmDelete":"确定要 **永久删除** 所有文件？ ",
 
                 "detail/storageFilename":"文件存储名称",

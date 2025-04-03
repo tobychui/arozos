@@ -1,0 +1,41 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "ネットワークファイル転送サーバー",
+                "subheader": "ArozOS仮想ファイルシステムのエクスポートされたファイルサーバーインターフェースを管理"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "네트워크 파일 전송 서버",
+                "subheader": "ArozOS 가상 파일 시스템의 내보낸 파일 서버 인터페이스 관리"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "网络文件传输服务器",
+                "subheader": "管理ArozOS虚拟文件系统的导出文件服务器接口"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "網絡文件傳輸伺服器",
+                "subheader": "管理ArozOS虛擬文件系統的導出文件伺服器介面"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "網路文件傳輸伺服器",
+                "subheader": "管理ArozOS虛擬檔案系統的導出檔案伺服器介面"
+            }
+        }
+    }
+}

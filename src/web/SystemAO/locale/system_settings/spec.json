@@ -2,56 +2,122 @@
     "author": "tobychui",
     "version": "1.0",
     "keys": {
-        "zh-tw": {
-            "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "hwinfo/specifications": "規格",
-                "hwinfo/model": "處理器型號",
-                "hwinfo/frequency": "處理器頻率",
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo\", \"Yu Gothic\", sans-serif",
+            "strings": {
+                "loading": "読み込み中...",
+                "hwinfo/specifications": "仕様",
+                "hwinfo/model": "プロセッサーモデル",
+                "hwinfo/frequency": "CPU周波数",
+                "hwinfo/instruction": "命令セット",
+                "hwinfo/hardware": "ハードウェア",
+                "hwinfo/revision": "バージョン",
+                "hwinfo/memory": "メモリ",
+                "hwinfo/nic": "ネットワークカード",
+                "hwinfo/drive": "ハードディスク",
+                "hwinfo/usb": "USB",
+                "hwinfo/operation_time": "稼働時間",
+                "hwinfo/boot_time": "起動時間",
+                "hwinfo/up_time": "稼働時間",
+                "taskManager/cpu": "CPU",
+                "taskManager/cpu_description": "過去60秒間のCPU使用率（%）",
+                "taskManager/cpu_info": "汎用プロセッサー",
+                "taskManager/cpu_usage_description": "使用率",
+                "taskManager/cpu_frequency_description": "クロック周波数",
+                "taskManager/memory": "メモリ",
+                "taskManager/memory_description": "過去60秒間のRAM使用状況",
+                "taskManager/memory_info": "読み込み中...",
+                "taskManager/ram_used_description": "使用中",
+                "taskManager/ram_used_percentage_description": "使用率（%）",
+                "taskManager/ram_total_description": "総容量",
+                "taskManager/network": "ネットワーク",
+                "taskManager/network_description": "過去60秒間のネットワーク使用状況",
+                "taskManager/network_scale": "100kbps",
+                "taskManager/network_received_description": "受信",
+                "taskManager/network_transmitted_description": "送信"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"맑은 고딕\", sans-serif",
+            "strings": {
+                "loading": "로딩 중...",
+                "hwinfo/specifications": "사양",
+                "hwinfo/model": "프로세서 모델",
+                "hwinfo/frequency": "프로세서 주파수",
+                "hwinfo/instruction": "명령 집합",
+                "hwinfo/hardware": "하드웨어",
+                "hwinfo/revision": "버전",
+                "hwinfo/memory": "메모리",
+                "hwinfo/nic": "네트워크 카드",
+                "hwinfo/drive": "하드 디스크",
+                "hwinfo/usb": "USB",
+                "hwinfo/operation_time": "작동 시간",
+                "hwinfo/boot_time": "부팅 시간",
+                "hwinfo/up_time": "작동 시간",
+                "taskManager/cpu": "CPU",
+                "taskManager/cpu_description": "최근 60초 CPU 사용률 (%)",
+                "taskManager/cpu_info": "일반용 프로세서",
+                "taskManager/cpu_usage_description": "사용률",
+                "taskManager/cpu_frequency_description": "시계 주파수",
+                "taskManager/memory": "메모리",
+                "taskManager/memory_description": "최근 60초 RAM 사용 현황",
+                "taskManager/memory_info": "로딩 중...",
+                "taskManager/ram_used_description": "사용량",
+                "taskManager/ram_used_percentage_description": "사용률 (%)",
+                "taskManager/ram_total_description": "총 용량",
+                "taskManager/network": "네트워크",
+                "taskManager/network_description": "최근 60초 네트워크 사용 현황",
+                "taskManager/network_scale": "100kbps",
+                "taskManager/network_received_description": "수신",
+                "taskManager/network_transmitted_description": "송신"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fwtitle": "",
+            "strings": {
+                "loading": "加载中...",
+                "hwinfo/specifications": "规格",
+                "hwinfo/model": "处理器型号",
+                "hwinfo/frequency": "处理器频率",
                 "hwinfo/instruction": "指令集",
                 "hwinfo/hardware": "硬件",
                 "hwinfo/revision": "版本",
-                "hwinfo/memory": "記憶體",
-                "hwinfo/nic": "網卡",
-                "hwinfo/drive": "硬碟",
+                "hwinfo/memory": "内存",
+                "hwinfo/nic": "网卡",
+                "hwinfo/drive": "磁盘",
                 "hwinfo/usb": "USB",
-                "hwinfo/operation_time": "運行時間",
-                "hwinfo/boot_time": "啟動時間",
-                "hwinfo/up_time": "運行時間",
-
-                "taskManager/cpu": "處理器",
-                "taskManager/cpu_description": "過去 60 秒內的 CPU 使用率 (%)",
-                "taskManager/cpu_info": "通用處理器",
+                "hwinfo/operation_time": "运行时间",
+                "hwinfo/boot_time": "启动时间",
+                "hwinfo/up_time": "运行时间",
+                "taskManager/cpu": "处理器",
+                "taskManager/cpu_description": "过去 60 秒 CPU 使用率（%）",
+                "taskManager/cpu_info": "通用处理器",
                 "taskManager/cpu_usage_description": "使用率",
-                "taskManager/cpu_frequency_description": "時脈頻率",
-                "taskManager/memory": "記憶體",
-                "taskManager/memory_description": "RAM 使用率",
-                "taskManager/memory_info": "載入中...",
+                "taskManager/cpu_frequency_description": "时钟频率",
+                "taskManager/memory": "内存",
+                "taskManager/memory_description": "过去 60 秒内的 RAM 使用情况",
+                "taskManager/memory_info": "载入中...",
                 "taskManager/ram_used_description": "已使用",
                 "taskManager/ram_used_percentage_description": "已使用 (%)",
-                "taskManager/ram_total_description": "總計",
-                "taskManager/network": "網絡",
-                "taskManager/network_description": "過去 60 秒內的網絡使用情況",
+                "taskManager/ram_total_description": "总容量",
+                "taskManager/network": "网络",
+                "taskManager/network_description": "过去 60 秒内的网络使用情况",
                 "taskManager/network_scale": "100 kbps",
                 "taskManager/network_received_description": "接收",
-                "taskManager/network_transmitted_description": "傳輸",
-            
-
-                
-                "":""
+                "taskManager/network_transmitted_description": "发送",
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "loading": "載入中...",
                 "hwinfo/specifications": "規格",
                 "hwinfo/model": "處理器型號",
                 "hwinfo/frequency": "處理器頻率",
@@ -65,76 +131,65 @@
                 "hwinfo/operation_time": "運行時間",
                 "hwinfo/boot_time": "啟動時間",
                 "hwinfo/up_time": "運行時間",
-
                 "taskManager/cpu": "處理器",
-                "taskManager/cpu_description": "過去 60 秒內的 CPU 使用率 (%)",
+                "taskManager/cpu_description": "過去 60 秒 CPU 使用率（%）",
                 "taskManager/cpu_info": "通用處理器",
                 "taskManager/cpu_usage_description": "使用率",
-                "taskManager/cpu_frequency_description": "時脈頻率",
+                "taskManager/cpu_frequency_description": "時脈速度",
                 "taskManager/memory": "記憶體",
                 "taskManager/memory_description": "RAM 使用率",
                 "taskManager/memory_info": "載入中...",
                 "taskManager/ram_used_description": "已使用",
                 "taskManager/ram_used_percentage_description": "已使用 (%)",
-                "taskManager/ram_total_description": "總計",
+                "taskManager/ram_total_description": "總容量",
                 "taskManager/network": "網絡",
                 "taskManager/network_description": "過去 60 秒內的網絡使用情況",
                 "taskManager/network_scale": "100 kbps",
                 "taskManager/network_received_description": "接收",
-                "taskManager/network_transmitted_description": "傳輸",
-
-                "":""
+                "taskManager/network_transmitted_description": "傳出",
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
-        "zh-cn": {
-            "name": "简体中文（简体）",
-            "fwtitle" : "",
-            "strings":{
-                "hwinfo/specifications": "规格",
-                "hwinfo/model": "处理器型号",
-                "hwinfo/frequency": "处理器频率",
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "loading": "載入中...",
+                "hwinfo/specifications": "規格",
+                "hwinfo/model": "處理器型號",
+                "hwinfo/frequency": "處理器頻率",
                 "hwinfo/instruction": "指令集",
                 "hwinfo/hardware": "硬件",
                 "hwinfo/revision": "版本",
-                "hwinfo/memory": "内存",
-                "hwinfo/nic": "网卡",
+                "hwinfo/memory": "記憶體",
+                "hwinfo/nic": "網卡",
                 "hwinfo/drive": "硬碟",
                 "hwinfo/usb": "USB",
-                "hwinfo/operation_time": "运行时间",
-                "hwinfo/boot_time": "启动时间",
-                "hwinfo/up_time": "运行时间",
-
-                "taskManager/cpu": "处理器",
-                "taskManager/cpu_description": "过去 60 秒内的 CPU 使用率 (%)",
-                "taskManager/cpu_info": "通用处理器",
+                "hwinfo/operation_time": "運行時間",
+                "hwinfo/boot_time": "啟動時間",
+                "hwinfo/up_time": "運行時間",
+                "taskManager/cpu": "處理器",
+                "taskManager/cpu_description": "過去 60 秒 CPU 使用率（%）",
+                "taskManager/cpu_info": "通用處理器",
                 "taskManager/cpu_usage_description": "使用率",
-                "taskManager/cpu_frequency_description": "时脉频率",
-                "taskManager/memory": "记忆体",
+                "taskManager/cpu_frequency_description": "時脈速度",
+                "taskManager/memory": "記憶體",
                 "taskManager/memory_description": "RAM 使用率",
-                "taskManager/memory_info": "载入中...",
+                "taskManager/memory_info": "載入中...",
                 "taskManager/ram_used_description": "已使用",
                 "taskManager/ram_used_percentage_description": "已使用 (%)",
-                "taskManager/ram_total_description": "总计",
-                "taskManager/network": "网络",
-                "taskManager/network_description": "过去 60 秒内的网络使用情况",
+                "taskManager/ram_total_description": "總容量",
+                "taskManager/network": "網絡",
+                "taskManager/network_description": "過去 60 秒內的網絡使用情況",
                 "taskManager/network_scale": "100 kbps",
                 "taskManager/network_received_description": "接收",
-                "taskManager/network_transmitted_description": "传输",
-                
-                "":""
+                "taskManager/network_transmitted_description": "傳出",
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         }
     }
 }

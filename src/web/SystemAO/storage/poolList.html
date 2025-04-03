@@ -1,38 +1,45 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <title>Storage Pool Manager</title>
+    <script src="../../script/applocale.js"></script>
+    <title locale="title">Storage Pool Manager</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <style>
         .svg-icon {
             display: inline-flex;
             align-self: center;
-        }.svg-icon svg {
-            height:1em;
-            width:1em;
         }
-        .clickable{
+
+        .svg-icon svg {
+            height: 1em;
+            width: 1em;
+        }
+
+        .clickable {
             cursor: pointer;
             transition: opacity 0.1s ease-in-out;
         }
-        .clickable:hover{
+
+        .clickable:hover {
             opacity: 0.6;
         }
-        .storagepool.active{
+
+        .storagepool.active {
             background-color: #f7f7f7;
         }
 
-        .reloadpoolBtn{
+        .reloadpoolBtn {
             position: absolute;
             right: 0.4em;
             top: 0.8em;
         }
 
-        .statusTextWrapper{
+        .statusTextWrapper {
             text-align: right;
             width: 100%;
             overflow: hidden;
@@ -43,39 +50,40 @@
             display: flex;
             justify-content: end;
         }
-        .statusText{
+
+        .statusText {
             opacity: 0.1;
             font-weight: lighter;
             font-size: 2em;
-            align-self:flex-end;
+            align-self: flex-end;
             margin-bottom: 0.2em;
             margin-right: 0.2em;
             pointer-events: none;
             user-select: none;
         }
-        
     </style>
 </head>
+
 <body>
     <div class="ui container">
         <div class="ui basic segment">
             <h3 class="ui header">
-                Storage Pools
-                <div class="sub header">Manage system and permission group storage pools</div>
+                <span locale="header">Storage Pools</span>
+                <div class="sub header" locale="subheader">Manage system and permission group storage pools</div>
             </h3>
         </div>
         <div id="ok" class="ui basic modal">
             <div class="ui icon header">
                 <i class="green checkmark icon"></i>
-                Storage Pool Reloaded
+                <span locale="reloaded/title">Storage Pool Reloaded</span>
             </div>
             <div class="content" align="center">
-                <p>Storage Pool has successfully reloaded.</p>
+                <p locale="reloaded/msg">Storage Pool has successfully reloaded.</p>
             </div>
             <div class="actions">
                 <div class="ui green ok inverted button">
-                <i class="checkmark icon"></i>
-                OK
+                    <i class="checkmark icon"></i>
+                    <span locale="button/ok">OK</span>
                 </div>
             </div>
         </div>
@@ -86,7 +94,8 @@
                 </div>
                 <div class="ui divider"></div>
                 <div style="width: 100%;" align="center">
-                    <button title="Reload All Storage Pools" onclick="reloadAllStoragePool();" class="circular basic red large ui icon button">
+                    <button title="Reload All Storage Pools" onclick="reloadAllStoragePool();"
+                        class="circular basic red large ui icon button">
                         <i class="red refresh icon"></i>
                     </button>
                 </div>
@@ -100,31 +109,39 @@
                     <button onclick="newFsh();" title="Add Storage" class="circular basic large ui icon button">
                         <i class="add icon"></i>
                     </button>
-                    <button onclick="bridgeFsh();" title="Bridge Storage" class="circular basic blue large ui icon button">
+                    <button onclick="bridgeFsh();" title="Bridge Storage"
+                        class="circular basic blue large ui icon button">
                         <i class="linkify icon"></i>
                     </button>
                 </div>
             </div>
         </div>
-    <script>
-        var selectedStoragePool = "system";
-        var storagePoolList = [];
-        //Create all elements
-        $(".ui.dropdown").dropdown();
+        <script>
 
-        //Render the poollist
-        loadStoragePoolList();
+            // Load locale
+            var pageLocale = NewAppLocale();
+            pageLocale.init("../locale/storage/poolList.json", function () {
+                pageLocale.translate();
+            });
 
-        function loadStoragePoolList(){
-            $("#poolList").html("");
-            $.get("../../system/storage/pool/list", function(data){
-                if (data.error !== undefined){
-                    $("#poolList").html("<p>" + data.error + "</p>");
-                }else{
-                    $("#poolNameList").html(``);
-                    storagePoolList = data;
-                    data.forEach(storagePool => {
-                       $("#poolNameList").append(` <div class="ui clickable storagepool segment" uuid="${storagePool.Owner}" onclick="loadThisPoolDetails('${storagePool.Owner}');">
+            var selectedStoragePool = "system";
+            var storagePoolList = [];
+            //Create all elements
+            $(".ui.dropdown").dropdown();
+
+            //Render the poollist
+            loadStoragePoolList();
+
+            function loadStoragePoolList() {
+                $("#poolList").html("");
+                $.get("../../system/storage/pool/list", function (data) {
+                    if (data.error !== undefined) {
+                        $("#poolList").html("<p>" + data.error + "</p>");
+                    } else {
+                        $("#poolNameList").html(``);
+                        storagePoolList = data;
+                        data.forEach(storagePool => {
+                            $("#poolNameList").append(` <div class="ui clickable storagepool segment" uuid="${storagePool.Owner}" onclick="loadThisPoolDetails('${storagePool.Owner}');">
                         <h4 class="ui header storagepool">
                             <img src="../../img/system/cluster.svg">
                             <div class="content">
@@ -138,57 +155,57 @@
                             <i class="green refresh icon"></i>
                         </button>
                         </div>`);
-                    });
-                }
+                        });
+                    }
 
-                loadThisPoolDetails(selectedStoragePool);
-            }); 
-        }
-
-        function loadThisPoolDetails(owner){
-            selectedStoragePool = owner;
-            var targetStoragePool = undefined;
-            for (var i = 0; i < storagePoolList.length; i++){
-                let thisStoragePool = storagePoolList[i];
-                if (thisStoragePool.Owner == owner){
-                    targetStoragePool = thisStoragePool;
-                    break;
-                }
+                    loadThisPoolDetails(selectedStoragePool);
+                });
             }
 
-           
-            $(".storagepool.active").removeClass("active");
-            $(".storagepool").each(function(){
-                if ($(this).attr("uuid") == owner){
-                    $(this).addClass("active");
-                }
-            })
-        
-
-            $("#disklist").html("");
-            var storages = targetStoragePool.Storages;
-            storages.forEach(function(storage){
-                var color = "#8adb9d";
-                var isReserved = false;
-                var driveIcon = "drive-virtual.svg";
-                var statusText = "Online";
-                var statusClass = ""
-                if (storage.UUID == "tmp" || storage.UUID == "user"){
-                    isReserved = true;
-                    color = "#fade8e";
-                    statusClass = "online"
-                }else if (storage.Closed == true){
-                    color = "#7d7d7d";
-                    statusText = "Stopped"
-                    statusClass = "stopped"
+            function loadThisPoolDetails(owner) {
+                selectedStoragePool = owner;
+                var targetStoragePool = undefined;
+                for (var i = 0; i < storagePoolList.length; i++) {
+                    let thisStoragePool = storagePoolList[i];
+                    if (thisStoragePool.Owner == owner) {
+                        targetStoragePool = thisStoragePool;
+                        break;
+                    }
                 }
 
-                if (storage.Hierarchy == "public"){
-                    driveIcon = "drive-public.svg";
-                }else if (isReserved){
-                    driveIcon = "drive.svg";
-                }
-                var editButtons = `<button onclick="editFsh('${storage.UUID}','${owner}');" title="Edit Virtual Disk" onclick="" class="circular tiny basic ui icon button editButton">
+
+                $(".storagepool.active").removeClass("active");
+                $(".storagepool").each(function () {
+                    if ($(this).attr("uuid") == owner) {
+                        $(this).addClass("active");
+                    }
+                })
+
+
+                $("#disklist").html("");
+                var storages = targetStoragePool.Storages;
+                storages.forEach(function (storage) {
+                    var color = "#8adb9d";
+                    var isReserved = false;
+                    var driveIcon = "drive-virtual.svg";
+                    var statusText = "Online";
+                    var statusClass = ""
+                    if (storage.UUID == "tmp" || storage.UUID == "user") {
+                        isReserved = true;
+                        color = "#fade8e";
+                        statusClass = "online"
+                    } else if (storage.Closed == true) {
+                        color = "#7d7d7d";
+                        statusText = "Stopped"
+                        statusClass = "stopped"
+                    }
+
+                    if (storage.Hierarchy == "public") {
+                        driveIcon = "drive-public.svg";
+                    } else if (isReserved) {
+                        driveIcon = "drive.svg";
+                    }
+                    var editButtons = `<button onclick="editFsh('${storage.UUID}','${owner}');" title="Edit Virtual Disk" onclick="" class="circular tiny basic ui icon button editButton">
                     <i class="edit icon"></i>
                 </button>
                 <button onclick="toggleFsh('${storage.UUID}','${owner}');" title="Toggle Virtual Disk IO" onclick="" class="circular tiny basic ui icon button shutdownButton">
@@ -197,7 +214,7 @@
                 <button onclick="removeFsh('${storage.UUID}','${owner}');" title="Remove Virtual Disk" onclick="" class="circular tiny basic ui icon button removeFshButton">
                     <i class="red remove icon"></i>
                 </button>`;
-                $("#disklist").append(`<div class="ui vdisk segment ${statusClass}" uuid="${storage.UUID}" style="border-left: 3px solid ${color};">
+                    $("#disklist").append(`<div class="ui vdisk segment ${statusClass}" uuid="${storage.UUID}" style="border-left: 3px solid ${color};">
                     <h4 class="ui header storagepool">
                         <img src="../../img/system/${driveIcon}">
                         <div class="content">
@@ -212,7 +229,7 @@
                         </div>
                     </h4>
                     <div class="fshbuttons" style="position: absolute; top: 0.8em; right: 0.8em;">
-                        ${isReserved?`<span style="color: #c9c9c9; pointer-events: none; user-select: none;">System Reserved</span>`:editButtons}
+                        ${isReserved ? `<span style="color: #c9c9c9; pointer-events: none; user-select: none;">System Reserved</span>` : editButtons}
                     </div>
                     <div class="statusTextWrapper">
                         <div class="statusText">
@@ -221,10 +238,10 @@
                     </div>
                     
                 </div>`);
-            });
+                });
 
-            if (storages.length == 0){
-                $("#disklist").append(`<div class="ui segment nostorage" style="border-left: 3px solid #303030;">
+                if (storages.length == 0) {
+                    $("#disklist").append(`<div class="ui segment nostorage" style="border-left: 3px solid #303030;">
                     <h4 class="ui header storagepool">
                         <img src="../../img/system/drive-notfound.svg">
                         <div class="content">
@@ -235,28 +252,28 @@
                         </div>
                     </h4>
                 `);
-            }
+                }
 
-            $.get("../../system/storage/pool/listraw?target=" + owner, function(data){
-                if (data.error == undefined){
-                    data.forEach(function(storage){
-                        console.log(storage);
-                        let thisStorageUUID = storage.uuid;
-                        let matchingDiskFound = false;
-                        $(".vdisk").each(function(){
-                            if ($(this).attr("uuid") == thisStorageUUID && !$(this).hasClass("stopped")){
-                                $(this).addClass("online");
-                                $(this).find(".statusText").text("Online");
-                                matchingDiskFound = true;
-                            }else if ($(this).hasClass("stopped")){
-                                //Found but it has been shutted
-                                matchingDiskFound = true;
-                            }
-                        });
+                $.get("../../system/storage/pool/listraw?target=" + owner, function (data) {
+                    if (data.error == undefined) {
+                        data.forEach(function (storage) {
+                            console.log(storage);
+                            let thisStorageUUID = storage.uuid;
+                            let matchingDiskFound = false;
+                            $(".vdisk").each(function () {
+                                if ($(this).attr("uuid") == thisStorageUUID && !$(this).hasClass("stopped")) {
+                                    $(this).addClass("online");
+                                    $(this).find(".statusText").text("Online");
+                                    matchingDiskFound = true;
+                                } else if ($(this).hasClass("stopped")) {
+                                    //Found but it has been shutted
+                                    matchingDiskFound = true;
+                                }
+                            });
 
-                        if (!matchingDiskFound){
-                            //Add offline disk record to the list
-                            $("#disklist").append(`<div class="ui vdisk segment offline" uuid="${storage.uuid}" style="border-left: 3px solid #3e3a39;">
+                            if (!matchingDiskFound) {
+                                //Add offline disk record to the list
+                                $("#disklist").append(`<div class="ui vdisk segment offline" uuid="${storage.uuid}" style="border-left: 3px solid #3e3a39;">
                                 <h4 class="ui header storagepool">
                                     <img src="../../img/system/drive-notfound.svg">
                                     <div class="content">
@@ -265,7 +282,7 @@
                                             <div class="ui list">
                                                 <div class="item">Mount Point: ${storage.path}</div>
                                                 <div class="item">Hierarchy: ${storage.hierarchy}</div>
-                                                <div class="item">ReadOnly: ${storage.access=="readonly"}</div>
+                                                <div class="item">ReadOnly: ${storage.access == "readonly"}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -284,195 +301,195 @@
                                     </div>
                                 </div>
                             </div>`);
-                        }
-                    });
+                            }
+                        });
 
-                    $('.vdisk').each(function(){
-                        if (!$(this).hasClass("online") && !$(this).hasClass("offline") && !$(this).hasClass("stopped")){
-                            //This pool record not exists in json file, check if this is bridged
-                            var fshid = $(this).attr("uuid");
-                            let thisFsh = $(this);
-                            $.ajax({
-                                url: "../../system/storage/pool/checkBridge",
-                                data: {base: selectedStoragePool, fsh: fshid},
-                                success: function(data){
-                                    if (data == true){
-                                        thisFsh.find(".shutdownButton").hide();
-                                        thisFsh.find(".editButton").hide();
-                                        thisFsh.css({
-                                            "border-left": "3px solid #e29eff",
-                                        });
-                                        thisFsh.find("img").attr('src', '../../img/system/drive-bridge.svg');
-                                        thisFsh.find(".statusText").text("Bridged");
-                                    }else{
-                                        thisFsh.find(".fshbuttons").hide();
-                                        thisFsh.css({
-                                            "border-left": "3px dotted #ff6666",
-                                        });
-                                        thisFsh.find(".statusText").text("Removed");
+                        $('.vdisk').each(function () {
+                            if (!$(this).hasClass("online") && !$(this).hasClass("offline") && !$(this).hasClass("stopped")) {
+                                //This pool record not exists in json file, check if this is bridged
+                                var fshid = $(this).attr("uuid");
+                                let thisFsh = $(this);
+                                $.ajax({
+                                    url: "../../system/storage/pool/checkBridge",
+                                    data: { base: selectedStoragePool, fsh: fshid },
+                                    success: function (data) {
+                                        if (data == true) {
+                                            thisFsh.find(".shutdownButton").hide();
+                                            thisFsh.find(".editButton").hide();
+                                            thisFsh.css({
+                                                "border-left": "3px solid #e29eff",
+                                            });
+                                            thisFsh.find("img").attr('src', '../../img/system/drive-bridge.svg');
+                                            thisFsh.find(".statusText").text("Bridged");
+                                        } else {
+                                            thisFsh.find(".fshbuttons").hide();
+                                            thisFsh.css({
+                                                "border-left": "3px dotted #ff6666",
+                                            });
+                                            thisFsh.find(".statusText").text("Removed");
+                                        }
                                     }
-                                }
-                            });
-                           
-                        }
-                    });
-                }
+                                });
 
-                if ($(".vdisk").length > 0 && $(".nostorage").length > 0){
-                    $(".nostorage").remove();
-                }
-            });
-        }
+                            }
+                        });
+                    }
 
-        function editSelectedPool(){
-            if (selectedStoragePool == ""){
-                console.log("Pool not selected: ", selectedStoragePool)
-                return
+                    if ($(".vdisk").length > 0 && $(".nostorage").length > 0) {
+                        $(".nostorage").remove();
+                    }
+                });
             }
 
-            ao_module_newfw({
-                url:"SystemAO/storage/poolEditor.html#" + encodeURIComponent(selectedStoragePool),
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/icon.png",
-                title: "Edit Storage Pool",
-                callback: "finishCreateHandler",
-                parent: ao_module_windowID
-            });
-        }
+            function editSelectedPool() {
+                if (selectedStoragePool == "") {
+                    console.log("Pool not selected: ", selectedStoragePool)
+                    return
+                }
 
-        function finishCreateHandler(state){
-            //Reload the list
-            loadStoragePoolList();
-        }
+                ao_module_newfw({
+                    url: "SystemAO/storage/poolEditor.html#" + encodeURIComponent(selectedStoragePool),
+                    width: 530,
+                    height: 740,
+                    appicon: "SystemAO/storage/img/icon.png",
+                    title: "Edit Storage Pool",
+                    callback: "finishCreateHandler",
+                    parent: ao_module_windowID
+                });
+            }
+
+            function finishCreateHandler(state) {
+                //Reload the list
+                loadStoragePoolList();
+            }
 
 
-        function reloadAllStoragePool(){
-            if (confirm("THIS WILL CRASH THE SYSTEM IF YOUR CONFIG IS INVALID. CONFIRM?")){
+            function reloadAllStoragePool() {
+                if (confirm("THIS WILL CRASH THE SYSTEM IF YOUR CONFIG IS INVALID. CONFIRM?")) {
                     //OK. Reload storage pool for this pool
                     $.ajax({
-                    url: "../../system/storage/pool/reload?pool=1eb201a3-d0f6-6630-5e6d-2f40480115c5",
-                    success: function(data){
-                        console.log(data);
-                        loadStoragePoolList();
-                        $("#ok").modal("show");
-                    },
-                    error: function(){
-                        loadStoragePoolList();
-                    }
-                });
-                
-            }
-        }
-
-        function bridgeFsh(){
-            let url = "SystemAO/storage/fshBridge.html#" + encodeURIComponent(JSON.stringify({group: selectedStoragePool}))
-            if (typeof(ao_module_newfw) == "undefined"){
-                window.open("../../" + url);
-                return
-            }
-            ao_module_newfw({
-                url: url,
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/bridge.svg",
-                title: "New File System Handler Bridging",
-                callback: "finishFshEdit",
-                parent: ao_module_windowID
-            });
-        }
-
-        function editFsh(uuid, gpname){
-            if (typeof(ao_module_newfw) == "undefined"){
-                window.open("../../SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({uuid: uuid, group: gpname})));
-                return
-            }
-            ao_module_newfw({
-                url:"SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({uuid: uuid, group: gpname})),
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/fsh.svg",
-                title: "Edit File System Handler",
-                callback: "finishFshEdit",
-                parent: ao_module_windowID
-            });
-        }
-
-        function newFsh(){
-            if (typeof(ao_module_newfw) == "undefined"){
-                window.open("../../SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({group: selectedStoragePool})));
-                return
-            }
-            ao_module_newfw({
-                url:"SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({group: selectedStoragePool})),
-                width: 530,
-                height: 740,
-                appicon: "SystemAO/storage/img/fsh.svg",
-                title: "New File System Handler",
-                callback: "finishFshEdit",
-                parent: ao_module_windowID
-            });
-        }
-
-
-        function reloadStoagePool(owner, event){
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            if (confirm("Confirm reloading " + owner + " storage pool?")){
-                //OK. Reload storage pool for this pool
-                $.ajax({
-                    url: "../../system/storage/pool/reload",
-                    data: {pool: owner},
-                    success: function(data){
-                        console.log(data);
-                        loadStoragePoolList();
-                        $("#ok").modal("show");
-                    },
-                    error: function(){
-                        loadStoragePoolList();
-                    }
-                });
-            }
-        }
-
-        function toggleFsh(uuid, gpname){
-            $.ajax({
-                url: "../../system/storage/pool/toggle",
-                data: {"fsh":uuid, "group": gpname},
-                success: function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        loadStoragePoolList();
-                    }
-
-                }
-            })
-        }
-
-
-        function removeFsh(uuid, group){
-            if (confirm("Confirm removing FSH: " + uuid + ":/ ?")){
-                $.ajax({
-                    url: "../../system/storage/pool/removeHandler",
-                    data: {uuid: uuid, group: group},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            //Remove succeed
+                        url: "../../system/storage/pool/reload?pool=1eb201a3-d0f6-6630-5e6d-2f40480115c5",
+                        success: function (data) {
+                            console.log(data);
+                            loadStoragePoolList();
+                            $("#ok").modal("show");
+                        },
+                        error: function () {
                             loadStoragePoolList();
                         }
-                    }
+                    });
+
+                }
+            }
+
+            function bridgeFsh() {
+                let url = "SystemAO/storage/fshBridge.html#" + encodeURIComponent(JSON.stringify({ group: selectedStoragePool }))
+                if (typeof (ao_module_newfw) == "undefined") {
+                    window.open("../../" + url);
+                    return
+                }
+                ao_module_newfw({
+                    url: url,
+                    width: 530,
+                    height: 740,
+                    appicon: "SystemAO/storage/img/bridge.svg",
+                    title: "New File System Handler Bridging",
+                    callback: "finishFshEdit",
+                    parent: ao_module_windowID
                 });
             }
-           
-        }
 
-        window.finishFshEdit = function(){
-            loadStoragePoolList();
-        }
-    </script>
+            function editFsh(uuid, gpname) {
+                if (typeof (ao_module_newfw) == "undefined") {
+                    window.open("../../SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({ uuid: uuid, group: gpname })));
+                    return
+                }
+                ao_module_newfw({
+                    url: "SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({ uuid: uuid, group: gpname })),
+                    width: 530,
+                    height: 740,
+                    appicon: "SystemAO/storage/img/fsh.svg",
+                    title: "Edit File System Handler",
+                    callback: "finishFshEdit",
+                    parent: ao_module_windowID
+                });
+            }
+
+            function newFsh() {
+                if (typeof (ao_module_newfw) == "undefined") {
+                    window.open("../../SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({ group: selectedStoragePool })));
+                    return
+                }
+                ao_module_newfw({
+                    url: "SystemAO/storage/fshedit.html#" + encodeURIComponent(JSON.stringify({ group: selectedStoragePool })),
+                    width: 530,
+                    height: 740,
+                    appicon: "SystemAO/storage/img/fsh.svg",
+                    title: "New File System Handler",
+                    callback: "finishFshEdit",
+                    parent: ao_module_windowID
+                });
+            }
+
+
+            function reloadStoagePool(owner, event) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (confirm("Confirm reloading " + owner + " storage pool?")) {
+                    //OK. Reload storage pool for this pool
+                    $.ajax({
+                        url: "../../system/storage/pool/reload",
+                        data: { pool: owner },
+                        success: function (data) {
+                            console.log(data);
+                            loadStoragePoolList();
+                            $("#ok").modal("show");
+                        },
+                        error: function () {
+                            loadStoragePoolList();
+                        }
+                    });
+                }
+            }
+
+            function toggleFsh(uuid, gpname) {
+                $.ajax({
+                    url: "../../system/storage/pool/toggle",
+                    data: { "fsh": uuid, "group": gpname },
+                    success: function (data) {
+                        if (data.error !== undefined) {
+                            alert(data.error);
+                        } else {
+                            loadStoragePoolList();
+                        }
+
+                    }
+                })
+            }
+
+
+            function removeFsh(uuid, group) {
+                if (confirm("Confirm removing FSH: " + uuid + ":/ ?")) {
+                    $.ajax({
+                        url: "../../system/storage/pool/removeHandler",
+                        data: { uuid: uuid, group: group },
+                        success: function (data) {
+                            if (data.error !== undefined) {
+                                alert(data.error);
+                            } else {
+                                //Remove succeed
+                                loadStoragePoolList();
+                            }
+                        }
+                    });
+                }
+
+            }
+
+            window.finishFshEdit = function () {
+                loadStoragePoolList();
+            }
+        </script>
 </body>
 
 </html>

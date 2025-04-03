@@ -1,0 +1,87 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "クラスターネイバーフッド",
+                "subheader": "自動クラスター検出サービス",
+                "scanError": "クラスタースキャンエラー",
+                "thisHost": "自ホスト情報",
+                "thisHost/subheader": "このホストサーバーが送信するブロードキャスト情報",
+                "nearbyHosts": "近隣ホスト",
+                "nearbyHosts/subheader": "ローカルエリアネットワークからのArozOSブロードキャスト受信機",
+                "offlineHosts": "オフラインホスト",
+                "offlineHosts/subheader": "30日以内にオフラインになったホスト",
+                "tip": "30日以上オフラインのホストはシステム記録から自動削除されます",
+                "lastUpdates/1": "最終更新",
+                "lastUpdates/2": "秒前"
+            }
+        },
+        "ko-kr": {
+            "strings": {
+                "header": "클러스터 네트워크",
+                "subheader": "자동 클러스터 탐색 서비스",
+                "scanError": "클러스터 스캔 오류",
+                "thisHost": "현재 호스트",
+                "thisHost/subheader": "이 호스트 서버에서 전송된 브로드캐스트 정보",
+                "nearbyHosts": "근접 호스트",
+                "nearbyHosts/subheader": "로컬 에어리어 네트워크의 ArozOS 브로드캐스트 수신기",
+                "offlineHosts": "오프라인 호스트",
+                "offlineHosts/subheader": "30일 미만 오프라인 상태 호스트",
+                "tip": "30일 이상 오프라인 호스트는 시스템 기록에서 자동 삭제됩니다",
+                "lastUpdates/1": "마지막 업데이트",
+                "lastUpdates/2": "초 전"
+            }
+        },
+        "zh-cn": {
+            "strings": {
+                "header": "集群网络拓扑",
+                "subheader": "自动集群发现服务",
+                "scanError": "集群扫描错误",
+                "thisHost": "本机信息",
+                "thisHost/subheader": "当前主机服务器发送的广播信息",
+                "nearbyHosts": "邻近主机",
+                "nearbyHosts/subheader": "来自局域网的ArozOS广播接收器",
+                "offlineHosts": "离线主机",
+                "offlineHosts/subheader": "离线未满30天的主机",
+                "tip": "离线超过30天的主机将自动从系统记录中移除",
+                "lastUpdates/1": "最后更新于",
+                "lastUpdates/2": "秒前"
+            }
+        },
+        "zh-hk": {
+            "strings": {
+                "header": "集群網絡拓撲",
+                "subheader": "自動集群發現服務",
+                "scanError": "集群掃描錯誤",
+                "thisHost": "本機資訊",
+                "thisHost/subheader": "當前主機伺服器發送的廣播信息",
+                "nearbyHosts": "鄰近主機",
+                "nearbyHosts/subheader": "來自區域網絡的ArozOS廣播接收器",
+                "offlineHosts": "離線主機",
+                "offlineHosts/subheader": "離線未滿30日的主機",
+                "tip": "離線超過30日的主機將自動從系統記錄中移除",
+                "lastUpdates/1": "最後更新於",
+                "lastUpdates/2": "秒前"
+            }
+        },
+        "zh-tw": {
+            "strings": {
+                "header": "叢集網絡拓撲",
+                "subheader": "自動叢集探索服務",
+                "scanError": "叢集掃描錯誤",
+                "thisHost": "本機資訊",
+                "thisHost/subheader": "目前主機伺服器發送的廣播訊息",
+                "nearbyHosts": "鄰近主機",
+                "nearbyHosts/subheader": "來自區域網路的ArozOS廣播接收器",
+                "offlineHosts": "離線主機",
+                "offlineHosts/subheader": "離線未滿30天的主機",
+                "tip": "離線超過30天的主機將自動從系統記錄中移除",
+                "lastUpdates/1": "最後更新時間",
+                "lastUpdates/2": "秒前"
+            }
+        }
+    }
+}

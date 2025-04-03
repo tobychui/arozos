@@ -1,77 +1,92 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="UTF-8">
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/applocale.js"></script>
     <script src="../arsm/js/moment.min.js"></script>
     <style>
-        .hidden{
-            display:none;
+        .hidden {
+            display: none;
         }
     </style>
 </head>
+
 <body>
     <div class="ui container">
         <div class="ui basic segment">
             <div class="ui header">
                 <i class="server icon"></i>
                 <div class="content">
-                    Cluster Neightbourhood
-                    <div class="sub header">Automatic Cluster Discovery Services</div>
+                    <span locale="header">Cluster Neightbourhood</span>
+                    <div class="sub header" locale="subheader">Automatic Cluster Discovery Services</div>
                 </div>
             </div>
         </div>
-        
+
         <div class="ui divider"></div>
         <div class="ui red message" id="errbox" style="display:none;">
-            <div class="header">
+            <div class="header" locale="scanError">
                 Cluster Scan Error
             </div>
             <p id="errormsg">An unknown error has occurred. Please try again later.</p>
         </div>
         <h4 class="ui header">
-            This Host
-            <div class="sub header">The broadcasting information sent out by this host server.</div>
+            <span locale="thisHost">This Host</span>
+            <div class="sub header" locale="thisHost/subheader">The broadcasting information sent out by this host
+                server.</div>
         </h4>
         <div class="ui basic segment" id="thisHost">
-            
+
         </div>
         <div class="ui divider"></div>
         <h4 class="ui header">
-            Nearby Hosts
-            <div class="sub header">The ArozOS broadcast receiver from the Local Area Network.</div>
+            <span locale="nearbyHosts">Nearby Hosts</span>
+            <div class="sub header" locale="nearbyHosts/subheader">The ArozOS broadcast receiver from the Local Area
+                Network.</div>
         </h4>
         <div class="ui basic segment" id="nearybylist">
-            
+
         </div>
         <div class="ui divider"></div>
         <h4 class="ui header">
-            Offline Hosts
-            <div class="sub header">Host that goes offline for less than 30 days</div>
+            <span locale="offlineHosts">Offline Hosts</span>
+            <div class="sub header" locale="offlineHosts/subheader">Host that goes offline for less than 30 days</div>
         </h4>
         <div class="ui basic segment" id="offlineList">
-            
+
         </div>
-        <small>All hosts that offline for more than 30 days will be automatically removed from the system record</small>
+        <small locale="tip">All hosts that offline for more than 30 days will be automatically removed from the system
+            record</small>
         <div class="ui divider"></div>
-        <p>Last Updates: <span id="lastUpdateTime"></span> seconds ago</p>
+        <p>
+            <span locale="lastUpdates/1">Last Updates</span>:
+            <span id="lastUpdateTime"></span>
+            <span locale="lastUpdates/2">seconds ago</span>
+        </p>
         <br><br><br>
     </div>
     <script>
+        // Load locale
+        var pageLocale = NewAppLocale();
+        pageLocale.init("../locale/cluster/neighbour.json", function () {
+            pageLocale.translate();
+        });
 
         initClusterScannerList();
-        function initClusterScannerList(){
-            $.get("../../system/cluster/scan", function(data){
-                if (data.error !== undefined){
+        function initClusterScannerList() {
+            $.get("../../system/cluster/scan", function (data) {
+                if (data.error !== undefined) {
                     $("#errormsg").text(data.error);
                     $("#errbox").show();
-                }else{
+                } else {
                     //Render this Host info
-                    if (data.ThisHost != null){
+                    if (data.ThisHost != null) {
                         var host = data.ThisHost
                         $("#thisHost").append(`<div class="ui icon green message">
                             <i class="server icon"></i>
@@ -117,22 +132,22 @@
 
                     //Render remote host info
                     $("#nearybylist").html("");
-                    if (data.NearbyHosts == null){
+                    if (data.NearbyHosts == null) {
                         $("#nearybylist").append(`<div class="ui icon teal message">
                                 <i class="question icon"></i>
                                 <div class="content">
                                     No nearby hosts discovered
                                 </div>
                             `);
-                    }else{
+                    } else {
                         data.NearbyHosts.forEach(host => {
                             var iplinks = [];
                             host.IPv4.forEach(ip => {
                                 iplinks.push(`<a href="//${ip}:${host.Port}" target="_blank">${ip}</a>`);
-                            }) 
+                            })
                             var ipDOM = iplinks.join(" / ");
                             var macDOM = host.MacAddr.join(" / ");
-                            if (host.MacAddr.length == 0){
+                            if (host.MacAddr.length == 0) {
                                 //Old version of ArozOS, do not support MAC addr broadcast
                                 macDOM = "Version Not Supported";
                             }
@@ -176,32 +191,32 @@
                                     </div>
                                 </div>
                             </div>`);
-                            });
+                        });
                     }
 
-                   
+
 
                     //Update the update time
                     $("#lastUpdateTime").text(Math.floor(Date.now() / 1000) - data.LastUpdate);
                 }
             });
 
-            $.get("../../system/cluster/record", function(data){
+            $.get("../../system/cluster/record", function (data) {
                 $("#offlineList").html("");
-                if (data != null){
-                    data.forEach(function(host){
+                if (data != null) {
+                    data.forEach(function (host) {
                         let ipDOM = "No Record";
-                        if (host.LastSeenIP != null && host.LastSeenIP.length > 0){
+                        if (host.LastSeenIP != null && host.LastSeenIP.length > 0) {
                             ipDOM = host.LastSeenIP.join(" / ");
                         }
                         let macDOM = "No Record";
                         let wakeOnLanButton = "";
-                        if (host.MacAddr != null && host.MacAddr.length > 0){
+                        if (host.MacAddr != null && host.MacAddr.length > 0) {
                             macDOM = host.MacAddr.join(" / ");
                             wakeOnLanButton = `<button class="ui right floated basic button" mac="${encodeURIComponent(JSON.stringify(host.MacAddr))}" onclick="wakeonlan(this);"><i class="power icon"></i> Wake On LAN</button>`;
                         }
-                        
-                       
+
+
                         $("#offlineList").append(`<div class="ui icon message">
                          <i class="server icon"></i>
                             <div class="content">
@@ -245,7 +260,7 @@
                         </div>`);
                     });
                 }
-                if (data == null || data.length == 0){
+                if (data == null || data.length == 0) {
                     $("#offlineList").append(`<div class="ui message">
                         <div class="content">
                             <i class="checkmark icon"></i> No Offline Network Host
@@ -255,21 +270,21 @@
             });
         }
 
-        function wakeonlan(object){
+        function wakeonlan(object) {
             $(object).addClass("disabled");
             let macAddr = $(object).attr("mac");
             macAddr = JSON.parse(decodeURIComponent(macAddr));
             let counter = macAddr.length;
-            macAddr.forEach(function(thisMac){
-                $.get("../../system/cluster/wol?mac=" + thisMac, function(data){
-                    console.log("Wake On Lan packet sent to "  + thisMac + " with results: "+ data);
+            macAddr.forEach(function (thisMac) {
+                $.get("../../system/cluster/wol?mac=" + thisMac, function (data) {
+                    console.log("Wake On Lan packet sent to " + thisMac + " with results: " + data);
                     counter--;
-                    if (counter == 0){
+                    if (counter == 0) {
                         //All WOL packet has been sent
                         let currentButtonText = $(object).html();
                         $(object).addClass("green").addClass("icon");;
                         $(object).html(`<i class="green checkmark icon"></i>`);
-                        setTimeout(function(){
+                        setTimeout(function () {
                             $(object).removeClass("green").removeClass("remove");
                             $(object).html(currentButtonText);
                             $(object).removeClass("disabled");
@@ -277,9 +292,10 @@
                     }
                 });
             });
-            
+
         }
-       
+
     </script>
 </body>
+
 </html>

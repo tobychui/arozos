@@ -1,0 +1,81 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "status": "分析中",
+                "request": "次本月记录的登录请求，",
+                "incorrect": "无效密码尝试",
+                "date": "日期",
+                "table/accepted": "已接受",
+                "timestamp": "时间戳",
+                "reqAcc": "请求的账户",
+                "ip": "IP地址",
+                "connType": "连接类型",
+                "port": "访问端口"
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "status": "分析中",
+                "request": "今月のログイン要求",
+                "incorrect": "不正なパスワードの試行",
+                "date": "日付",
+                "table/accepted": "承認済み",
+                "timestamp": "タイムスタンプ",
+                "reqAcc": "要求アカウント",
+                "ip": "IPアドレス",
+                "connType": "接続タイプ",
+                "port": "アクセスポート"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "status": "분석 중",
+                "request": "이번 달 로그인 요청",
+                "incorrect": "잘못된 패스워드 시도",
+                "date": "날짜",
+                "table/accepted": "승인됨",
+                "timestamp": "타임스탬프",
+                "reqAcc": "요청 계정",
+                "ip": "IP 주소",
+                "connType": "연결 유형",
+                "port": "접속 포트"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "status": "分析中",
+                "request": "次本月紀錄的登入要求，",
+                "incorrect": "無效密碼嘗試",
+                "date": "日期",
+                "table/accepted": "已接受",
+                "timestamp": "時間戳記",
+                "reqAcc": "要求帳號",
+                "ip": "IP地址",
+                "connType": "連接類型",
+                "port": "訪問端口"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "status": "分析中",
+                "request": "次本月記錄的登入請求，",
+                "incorrect": "無效密碼嘗試",
+                "date": "日期",
+                "table/accepted": "已接受",
+                "timestamp": "時間戳記",
+                "reqAcc": "請求帳號",
+                "ip": "IP位址",
+                "connType": "連線類型",
+                "port": "存取埠"
+            }
+        }
+    }
+}

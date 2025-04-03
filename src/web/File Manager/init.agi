@@ -1,0 +1,25 @@
+/* 
+    File System Module Registration
+    Version: 2.1.0
+*/
+
+var moduleLaunchInfo = {
+    Name: "File Manager (AGI)",
+    Desc: "File management system for ArOZ OS, in AGI mode (testing).",
+    Group: "System",
+    IconPath: "File Manager/img/pwa/128.png",
+    Version: "2.1.0",
+    StartDir: "File Manager/index.html",
+    SupportFW: true,
+    LaunchFWDir: "File Manager/index.html",
+    SupportEmb: false,
+    InitFWSize: [1024, 768],
+    InitEmbSize: [640, 480],
+    SupportedExt: ["*"]  // All
+};
+
+// Might need
+newDBTableIfNotExists("file_system");
+
+// Register module to system
+registerModule(JSON.stringify(moduleLaunchInfo));

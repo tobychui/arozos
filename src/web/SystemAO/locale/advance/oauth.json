@@ -1,0 +1,116 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "OAuth アクセス",
+                "subheader": "OAuth 2.0 を使用して外部アカウントを ArozOS に接続",
+                "enableOauth": "OAuth を有効にする",
+                "autoRedirect": "自動リダイレクト",
+                "selectIdP": "OAuth IdP の選択（サービスプロバイダー）",
+                "redirectURL/1": "リダイレクト URL を提供する必要があります",
+                "redirectURL/2": "3 番目の認証依存元",
+                "server": "サーバー URL",
+                "clientID": "クライアント ID",
+                "secret": "クライアントシークレット",
+                "button/update": "更新",
+                "updated": "設定が更新されました",
+                "selectProvider": "プロバイダーを選択",
+                "Gitlab": "GitLab",
+                "Github": "GitHub",
+                "Microsoft": "Microsoft",
+                "Google": "Google"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "OAuth 액세스",
+                "subheader": "OAuth 2.0을 사용해 외부 계정을 ArozOS에 연결",
+                "enableOauth": "OAuth 활성화",
+                "autoRedirect": "자동 리다이렉트",
+                "selectIdP": "OAuth IdP 선택(서비스 공급자)",
+                "redirectURL/1": "다음 리다이렉트 URL을 제공해야 합니다",
+                "redirectURL/2": "3rd 인증 의존처에",
+                "server": "서버 URL",
+                "clientID": "클라이언트 ID",
+                "secret": "클라이언트 시크릿",
+                "button/update": "업데이트",
+                "updated": "설정이 업데이트되었습니다",
+                "selectProvider": "공급자 선택",
+                "Gitlab": "GitLab",
+                "Github": "GitHub",
+                "Microsoft": "Microsoft",
+                "Google": "Google"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "OAuth 访问",
+                "subheader": "通过 OAuth 2.0 允许外部账户访问 ArozOS",
+                "enableOauth": "启用 OAuth",
+                "autoRedirect": "自动重定向",
+                "selectIdP": "选择 OAuth IdP（即服务提供商）",
+                "redirectURL/1": "您需要提供",
+                "redirectURL/2": "给第三方认证依赖方",
+                "server": "服务器 URL",
+                "clientID": "客户端 ID",
+                "secret": "客户端密钥",
+                "button/update": "更新",
+                "updated": "设置已更新",
+                "selectProvider": "选择服务提供商",
+                "Gitlab": "GitLab",
+                "Github": "GitHub",
+                "Microsoft": "Microsoft",
+                "Google": "Google"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "OAuth 存取",
+                "subheader": "透過 OAuth 2.0 允許外部帳戶存取 ArozOS",
+                "enableOauth": "啟用 OAuth",
+                "autoRedirect": "自動重定向",
+                "selectIdP": "選擇 OAuth IdP（服務供應商）",
+                "redirectURL/1": "您需要提供",
+                "redirectURL/2": "予第三方認證依賴方",
+                "server": "伺服器 URL",
+                "clientID": "客戶端 ID",
+                "secret": "客戶端機密",
+                "button/update": "更新",
+                "updated": "設定已更新",
+                "selectProvider": "選擇服務供應商",
+                "Gitlab": "GitLab",
+                "Github": "GitHub",
+                "Microsoft": "Microsoft",
+                "Google": "Google"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "OAuth 存取權限",
+                "subheader": "透過 OAuth 2.0 允許外部帳號存取 ArozOS",
+                "enableOauth": "啟用 OAuth",
+                "autoRedirect": "自動重新導向",
+                "selectIdP": "選擇 OAuth IdP（服務提供者）",
+                "redirectURL/1": "您需要提供",
+                "redirectURL/2": "給第三方認證依賴方",
+                "server": "伺服器 URL",
+                "clientID": "客戶端識別碼",
+                "secret": "客戶端機密",
+                "button/update": "更新設定",
+                "updated": "設定已更新",
+                "selectProvider": "選擇服務提供者",
+                "Gitlab": "GitLab",
+                "Github": "GitHub",
+                "Microsoft": "Microsoft",
+                "Google": "Google"
+            }
+        }
+    }
+}

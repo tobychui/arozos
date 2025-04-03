@@ -1,0 +1,66 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "既定モジュールの設定",
+                "subheader": "拡張子ごとにデフォルトモジュールを管理",
+                "msgbox/updated": "既定モジュールの設定が更新されました",
+                "msgbox/hint": "ファイルを再度開いて正常に動作するか確認してください",
+                "table/file_extension": "拡張子",
+                "table/current_default": "現在の既定値",
+                "table/modify_default": "既定値の変更（変更を保存）"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "기본 모듈 설정",
+                "subheader": "확장자별 기본 모듈 관리",
+                "msgbox/updated": "기본 모듈 설정이 업데이트되었습니다",
+                "msgbox/hint": "파일을 다시 열어 작동 여부를 확인하세요",
+                "table/file_extension": "확장자",
+                "table/current_default": "현재 기본값",
+                "table/modify_default": "기본값 변경 (변경 시 저장)"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "默认模块",
+                "subheader": "管理您的默认模块以打开具有给定扩展名的文件",
+                "msgbox/updated": "默认打开模块已更新",
+                "msgbox/hint": "尝试重新打开文件以确认是否正常工作",
+                "table/file_extension": "文件扩展名",
+                "table/current_default": "当前默认",
+                "table/modify_default": "修改默认（更改即保存）"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "預設模組設定",
+                "subheader": "管理預設模組以開啟指定副檔名的檔案",
+                "msgbox/updated": "預設開啟模組已更新",
+                "msgbox/hint": "請嘗試重新開啟檔案以確認是否正常運作",
+                "table/file_extension": "副檔名",
+                "table/current_default": "目前預設",
+                "table/modify_default": "修改預設（修改後自動儲存）"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "預設模組設定",
+                "subheader": "管理預設模組以開啟指定副檔名的檔案",
+                "msgbox/updated": "預設開啟模組已更新",
+                "msgbox/hint": "請嘗試重新開啟檔案以確認是否正常運作",
+                "table/file_extension": "副檔名",
+                "table/current_default": "目前預設",
+                "table/modify_default": "修改預設（修改後自動儲存）"
+            }
+        }
+    }
+}

@@ -4,8 +4,8 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "clientinfo/client-information-title": "客戶端資訊",
                 "clientinfo/client-device-information": "客戶端設備資訊",
                 "clientinfo/client-device-information-subheader": "這些是您的瀏覽器提供給 ArozOS 的資訊。",
@@ -16,17 +16,13 @@
                 "clientinfo/browser-engine": "瀏覽器引擎",
                 "clientinfo/user-agent": "使用者代理"
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "clientinfo/client-information-title": "客戶端資訊",
                 "clientinfo/client-device-information": "客戶端設備資訊",
                 "clientinfo/client-device-information-subheader": "這些是您的瀏覽器提供給 ArozOS 的資訊。",
@@ -37,16 +33,12 @@
                 "clientinfo/browser-engine": "瀏覽器引擎",
                 "clientinfo/user-agent": "使用者代理"
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
-            "name": "简体中文（简体）",
-            "strings":{
+            "name": "简体中文",
+            "strings": {
                 "clientinfo/client-information-title": "客户端信息",
                 "clientinfo/client-device-information": "客户端设备信息",
                 "clientinfo/client-device-information-subheader": "这些是您的浏览器提供给 ArozOS 的信息。",
@@ -56,28 +48,6 @@
                 "clientinfo/application-name": "应用程序名称",
                 "clientinfo/browser-engine": "浏览器引擎",
                 "clientinfo/user-agent": "用户代理"
-            },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
-        },
-        "en-US": {
-            "name": "English (US)",
-            "fontFamily" : "Arial, Helvetica, sans-serif",
-            "fwtitle": "",
-            "strings": {
-                "clientinfo/client-information-title": "Client Device Information",
-                "clientinfo/client-device-information": "Client Device Information",
-                "clientinfo/client-device-information-subheader": "These are the information that your browser is telling the ArozOS.",
-                "clientinfo/browser-information": "Browser Information",
-                "clientinfo/cookie-enabled": "Cookie Enabled",
-                "clientinfo/operation-system": "Operation System",
-                "clientinfo/application-name": "Application Name",
-                "clientinfo/browser-engine": "Browser Engine",
-                "clientinfo/user-agent": "User Agent"
             },
             "titles": {},
             "placeholder": {}

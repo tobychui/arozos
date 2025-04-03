@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title locale="page/title">Authentication Required</title>
     <meta charset="UTF-8">
@@ -10,22 +11,23 @@
     <script type="text/javascript" src="../../script/ao_module.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
     <style>
-        .topSlate{
+        .topSlate {
             background-image: url("img/auth_slate.png");
             background-repeat: no-repeat;
             background-repeat: no-repeat !important;
             background-size: 100% auto;
             background-attachment: fixed !important;
             background-color: #1a1a1a;
-            height: 70px; 
+            height: 70px;
             margin-bottom: 4px;
         }
 
-        .whitefont{
+        .whitefont {
             color: white !important;
         }
     </style>
 </head>
+
 <body>
     <div class="topSlate">
         <div class="ui container">
@@ -51,9 +53,9 @@
             <button class="ui black button" locale="button/confirm" onclick="confirm()">Confirm</button>
             <button class="ui button" locale="button/cancel" onclick="cancel()">Cancel</button>
         </div>
-        
+
     </div>
-    
+
     <script>
         /*
             Usage Example:
@@ -78,43 +80,43 @@
             });
 
         */
-       ao_module_setFixedWindowSize();
-       ao_module_setWindowSize(420, 260);
-       var actionObject = {};
-       var method = "GET";
-       if (window.location.hash.length > 1){
+        ao_module_setFixedWindowSize();
+        ao_module_setWindowSize(420, 260);
+        var actionObject = {};
+        var method = "GET";
+        if (window.location.hash.length > 1) {
             var object = JSON.parse(decodeURIComponent(window.location.hash.substr(1)));
             console.log(object);
 
-            if (typeof(object.title) != "undefined"){
+            if (typeof (object.title) != "undefined") {
                 $("#title").html(object.title);
             }
 
-            if (typeof(object.desc) != "undefined"){
+            if (typeof (object.desc) != "undefined") {
                 $("#desc").html(object.desc);
             }
 
-            if (typeof(object.thisuser) != "undefined" && object.thisuser == true){
+            if (typeof (object.thisuser) != "undefined" && object.thisuser == true) {
                 //Load user info from server side
-                $.get("../../system/desktop/user", function(data){
+                $.get("../../system/desktop/user", function (data) {
                     $("#username").val(data.Username);
-                    $("#username").attr("readonly","true");
+                    $("#username").attr("readonly", "true");
                     $("#username").parent().addClass("disabled");
                 });
             }
 
-            if (typeof(object.method) != "undefined" && object.method != ""){
+            if (typeof (object.method) != "undefined" && object.method != "") {
                 method = object.method;
             }
 
             actionObject = object;
-       }else{
-           //Invalid usage
-       }
+        } else {
+            //Invalid usage
+        }
 
 
-       function confirm(){
-        $("password").parent().removeClass("error");
+        function confirm() {
+            $("password").parent().removeClass("error");
             var payload = actionObject.data;
             //Append custom payload to the original payload
             payload.username = $("#username").val();
@@ -124,56 +126,57 @@
                 url: "../../" + actionObject.api,
                 data: payload,
                 method: method,
-                success: function(data){
-                    if (data.error != undefined){
+                success: function (data) {
+                    if (data.error != undefined) {
                         //callback to parent with error code
-                        if (ao_module_hasParentCallback()){
+                        if (ao_module_hasParentCallback()) {
                             ao_module_parentCallback(data);
                         }
 
                         ao_module_close();
-                    }else{
-                        if (ao_module_hasParentCallback()){
+                    } else {
+                        if (ao_module_hasParentCallback()) {
                             ao_module_parentCallback(data);
                         }
 
-                        if (actionObject.success != undefined){
+                        if (actionObject.success != undefined) {
                             window.top.location = "../../" + actionObject.success;
                         }
 
                         ao_module_close();
                     }
-                    
-                }, error: function(){
+
+                }, error: function () {
                     $("#password").parent().addClass("error");
-                    if ($("#username").parent().hasClass("disabled") == false){
+                    if ($("#username").parent().hasClass("disabled") == false) {
                         $("#username").parent().addClass("error");
                     }
                 }
             })
-       }
+        }
 
-       function cancel(){
-            if (ao_module_hasParentCallback()){
+        function cancel() {
+            if (ao_module_hasParentCallback()) {
                 ao_module_parentCallback(false);
             }
 
             ao_module_close();
-       }
+        }
 
-       if (applocale){
+        if (applocale) {
             //Applocale found. Do localization
-            applocale.init("../locale/authreq.json", function(){
+            applocale.init("../locale/authreq.json", function () {
                 applocale.translate();
             });
-        }else{
+        } else {
             //Applocale not found. Is this a trim down version of ArozOS?
             var applocale = {
-                getString: function(key, original){
+                getString: function (key, original) {
                     return original;
                 }
             }
         }
     </script>
 </body>
+
 </html>

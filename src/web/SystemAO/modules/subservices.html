@@ -1,96 +1,101 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Subservices</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-    </head>
-    <body>
-        <br>
+
+<head>
+    <title>Subservices</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+    <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+</head>
+
+<body>
+    <br>
+    <div class="ui container">
         <div class="ui container">
-            <div class="ui container">
-                <div class="ui header">
-                    <i class="server icon"></i>
-                    <div class="content">
-                        Manage Subservice
-                        <div class="sub header">Glue services together using subservices</div>
-                    </div>
-                </div>
-                <div class="ui accordion">
-                    <div class="title">
-                        <i class="dropdown icon"></i>
-                        What is Subservice?
-                    </div>
-                    <div class="content">
-                        <p class="transition hidden">Subservice is one type of ArOZ Online Module that is not build in to the system core but act like one. It is powered by reverse proxy build into the ArOZ Online Core so it can serve web content just like a build in module. Unlike the core modules that cannot be toggle off, you can switch subservices off to save power when needed.</p>
-                    </div>
+            <div class="ui header">
+                <i class="server icon"></i>
+                <div class="content">
+                    <span locale="title">Manage Subservice</span>
+                    <div class="sub header" locale="subheader">Glue services together using subservices</div>
                 </div>
             </div>
-            <h4>Running Services</h4>
-            <table class="ui celled striped table">
-                <thead>
-                    <tr>
-                        <th>
-                            Corresponding Module
-                        </th>
-                        <th>
-                            Port
-                        </th>
-                        <th>
-                            Reverse Proxy Path
-                        </th>
-                        <th>
-                            Executable (Process ID)
-                        </th>
-                        <th>
-                            Action
-                        </th>
-                    </tr>
-                </thead>
-                <tbody id="sslist">
-                   
-                </tbody>
-            </table>
-            <h4>Disabled Services</h4>
-            <table class="ui celled table">
-                <thead>
-                  <tr><th>Service Name</th>
-                  <th>Executable</th>
-                  <th>Action</th>
-                </tr></thead>
-                <tbody id="disServiceList">
-               
-                </tbody>
+            <div class="ui accordion">
+                <div class="title">
+                    <i class="dropdown icon"></i>
+                    <span locale="faq/q">What is Subservice?</span>
+                </div>
+                <div class="content">
+                    <p class="transition hidden" locale="faq/a">
+                        Subservice is one type of ArOZ OS Module that is not build in to
+                        the system core but act like one. It is powered by reverse proxy build into the ArOZ Online Core
+                        so it can serve web content just like a build in module. Unlike the core modules that cannot be
+                        toggle off, you can switch subservices off to save power when needed.</p>
+                </div>
+            </div>
         </div>
-        <script>
-            $('.ui.accordion').accordion();
+        <h4 locale="runningServices">Running Services</h4>
+        <table class="ui celled striped table">
+            <thead>
+                <tr>
+                    <th locale="runningServices/corModule">Corresponding Module</th>
+                    <th locale="runningServices/port">Port</th>
+                    <th locale="runningServices/revProxyPath">Reverse Proxy Path</th>
+                    <th locale="runningServices/exe">Executable (Process ID)</th>
+                    <th locale="action">Action</th>
+                </tr>
+            </thead>
+            <tbody id="sslist">
 
-            initSubserviceList();
-            function initSubserviceList(){
-                $("#sslist").html("");
-                $("#disServiceList").html("");
-                $.get("../../system/subservice/list",function(data){
-                    if (data.error !== undefined){
+            </tbody>
+        </table>
+        <h4 locale="disabledServices">Disabled Services</h4>
+        <table class="ui celled table">
+            <thead>
+                <tr>
+                    <th locale="disabledServices/name">Service Name</th>
+                    <th locale="disabledServices/exe">Executable</th>
+                    <th locale="action">Action</th>
+                </tr>
+            </thead>
+            <tbody id="disServiceList">
 
-                    }else{
-                        for (var i = 0; i < data.Enabled.length; i++){
-                            var ss = data.Enabled[i];
-                            var port = ss.Port;
-                            if (port == 0){
-                                //This module is not using reverse proxy
-                                port = "NO_PROXY";
-                            }
-                            var rpe = ss.RpEndpoint;
-                            if (rpe == ""){
-                                rpe = "N/A";
-                            }else{
-                                rpe = "/" + rpe;
-                            }
-                            $("#sslist").append(`<tr>
+            </tbody>
+    </div>
+    <script>
+        // Load locale
+        var subservicesLocale = NewAppLocale();
+        subservicesLocale.init("../locale/system_settings/modules/subservices.json", function () {
+            subservicesLocale.translate();
+        });
+
+        $('.ui.accordion').accordion();
+
+        initSubserviceList();
+        function initSubserviceList() {
+            $("#sslist").html("");
+            $("#disServiceList").html("");
+            $.get("../../system/subservice/list", function (data) {
+                if (data.error !== undefined) {
+
+                } else {
+                    for (var i = 0; i < data.Enabled.length; i++) {
+                        var ss = data.Enabled[i];
+                        var port = ss.Port;
+                        if (port == 0) {
+                            //This module is not using reverse proxy
+                            port = "NO_PROXY";
+                        }
+                        var rpe = ss.RpEndpoint;
+                        if (rpe == "") {
+                            rpe = "N/A";
+                        } else {
+                            rpe = "/" + rpe;
+                        }
+                        $("#sslist").append(`<tr>
                             <td>
                                 <h4 class="ui image header">
                                     <img src="../../${ss.Info.IconPath}" class="ui mini rounded image">
@@ -106,58 +111,59 @@
                             <td class="">${ss.Path} (${ss.ProcessID})</td>
                             <td class=""><button name="${ss.Info.Name}" sd="${ss.ServiceDir}" class="ui primary tiny button" onclick="kill(this);">DISABLE</button></td>
                             </tr>`);
-                        }
+                    }
 
-                        for (var i = 0; i < data.Disabled.length; i++){
-                            var thisDisabledService = data.Disabled[i];
-                            $("#disServiceList").append(` <tr>
+                    for (var i = 0; i < data.Disabled.length; i++) {
+                        var thisDisabledService = data.Disabled[i];
+                        $("#disServiceList").append(` <tr>
                                 <td>${thisDisabledService.ServiceDir}</td>
                                 <td>${thisDisabledService.Path}</td>
                                 <td><button onclick="start(this);" dir="${thisDisabledService.ServiceDir}" class="ui positive tiny button">Start</button></td>
                             </tr>`);
-                        }
                     }
-                });
-            }
+                }
+            });
+        }
 
-            function kill(object){
-                var name = $(object).attr("name");
-                var sd = $(object).attr("sd");
-                $.ajax({
-                    url: "../../system/subservice/kill",
-                    data: {serviceDir: sd, moduleName: name},
-                    method: "POST",
-                    success: function(data){
-                        console.log(data);
-                        //Update the launchMenu
-                        parent.initModuleList();
+        function kill(object) {
+            var name = $(object).attr("name");
+            var sd = $(object).attr("sd");
+            $.ajax({
+                url: "../../system/subservice/kill",
+                data: { serviceDir: sd, moduleName: name },
+                method: "POST",
+                success: function (data) {
+                    console.log(data);
+                    //Update the launchMenu
+                    parent.initModuleList();
 
-                        //Update the list
+                    //Update the list
+                    initSubserviceList();
+                }
+            });
+        }
+
+        function start(object) {
+            var dir = $(object).attr("dir");
+            $.ajax({
+                url: "../../system/subservice/start",
+                data: { serviceDir: dir },
+                method: "POST",
+                success: function (data) {
+                    console.log(data);
+                    //Update the launchMenu
+                    parent.initModuleList();
+
+                    //Update the list
+                    setTimeout(function () {
+                        //Allow 1 seconds to it to startup
                         initSubserviceList();
-                    }
-                });
-            }
+                    }, 1000);
 
-            function start(object){
-                var dir = $(object).attr("dir");
-                $.ajax({
-                    url: "../../system/subservice/start",
-                    data: {serviceDir: dir},
-                    method: "POST",
-                    success: function(data){
-                        console.log(data);
-                        //Update the launchMenu
-                        parent.initModuleList();
+                }
+            });
+        }
+    </script>
+</body>
 
-                        //Update the list
-                        setTimeout(function(){
-                            //Allow 1 seconds to it to startup
-                            initSubserviceList();
-                        }, 1000);
-                        
-                    }
-                });
-            }
-        </script>
-    </body>
 </html>

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html ng-app="App">
+
 <head>
     <title>System Info</title>
     <meta charset="UTF-8">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
 </head>
 
 <body>
@@ -19,7 +21,7 @@
                 <div style="display:inline-block;" id="build"></div>
                 <div style="float:right !important;" id="manufacturer"></div>
             </div>
-            
+
         </div>
     </div>
     <div class="ui container">
@@ -27,34 +29,34 @@
         <h3 class="ui header" locale="hwinfo/specifications">Specifications</h3>
         <div class="ui grid">
             <div class="six wide column" locale="hwinfo/model">Model :</div>
-            <div class="ten wide column" id="model">Loading...</div>
+            <div class="ten wide column" id="model" locale="loading" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/frequency">Frequency :</div>
-            <div class="ten wide column" id="freq">Loading...</div>
+            <div class="ten wide column" id="freq" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/instruction">Instruction :</div>
-            <div class="ten wide column" id="instruction">Loading...</div>
+            <div class="ten wide column" id="instruction" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/hardware">Hardware :</div>
-            <div class="ten wide column" id="hardware">Loading...</div>
+            <div class="ten wide column" id="hardware" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/revision">Revision :</div>
-            <div class="ten wide column" id="revision">Loading...</div>
+            <div class="ten wide column" id="revision" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/memory">Memory :</div>
-            <div class="ten wide column" id="ram">Loading...</div>
+            <div class="ten wide column" id="ram" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/nic">NIC :</div>
-            <div class="ten wide column" id="nic">Loading...</div>
+            <div class="ten wide column" id="nic" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/drive">Drive :</div>
-            <div class="ten wide column" id="drive">Loading...</div>
+            <div class="ten wide column" id="drive" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/usb">USB :</div>
-            <div class="ten wide column" id="usb">Loading...</div>
+            <div class="ten wide column" id="usb" locale="loading">Loading...</div>
         </div>
         <br>
         <h3 class="ui header" locale="hwinfo/operation_time">Operation Time</h3>
         <div class="ui grid">
             <div class="six wide column" locale="hwinfo/boot_time">Boot Time:</div>
-            <div class="ten wide column" id="startup">Loading...</div>
+            <div class="ten wide column" id="startup" locale="loading">Loading...</div>
             <div class="six wide column" locale="hwinfo/up_time">Up Time :</div>
-            <div class="ten wide column" id="operation">Loading...</div>
+            <div class="ten wide column" id="operation" locale="loading">Loading...</div>
         </div>
     </div>
-    
+
     <div class="ui divider"></div>
     <img class="ui small image" id="icon"></img>
     <br>
@@ -70,42 +72,42 @@
     });
 
     function initSystemInfo() {
-        $.getJSON("../../system/info/getArOZInfo?icon=true", function(data) {
+        $.getJSON("../../system/info/getArOZInfo?icon=true", function (data) {
             $("#modelname").html(data["DeviceModel"]);
             $("#icon").attr("src", "data:image/png;base64," + data["VendorIcon"]);
             $("#build").html(data["BuildVersion"]);
             $("#manufacturer").html(data["DeviceVendor"]);
         });
-        $.getJSON("../../system/info/getCPUinfo", function(data) {
+        $.getJSON("../../system/info/getCPUinfo", function (data) {
             $("#model").html(data["Model"]);
             $("#freq").html(data["Freq"] + "MHz");
             $("#instruction").html(data["Instruction"]);
             $("#hardware").html(data["Hardware"]);
             $("#revision").html(data["Revision"]);
         });
-        $.get("../../system/info/getRAMinfo", function(data) {
+        $.get("../../system/info/getRAMinfo", function (data) {
             $("#ram").html(humanFileSize(data, false));
         });
-        $.getJSON("../../system/info/ifconfig", function(data) {
+        $.getJSON("../../system/info/ifconfig", function (data) {
             $("#nic").html("");
-            $(data).each(function(index, item) {
+            $(data).each(function (index, item) {
                 $("#nic").append(item + "<br>");
             });
         });
-        $.getJSON("../../system/info/getDriveStat", function(data) {
+        $.getJSON("../../system/info/getDriveStat", function (data) {
             $("#drive").html("");
-            $(data).each(function(index, item) {
+            $(data).each(function (index, item) {
                 $("#drive").append(item["DriveLetter"] + " (" + item["FileSystem"] + ") " + humanFileSize(item["FreeSpace"], true) + "<br>");
             });
         });
-        $.getJSON("../../system/info/usbPorts", function(data) {
+        $.getJSON("../../system/info/usbPorts", function (data) {
             $("#usb").html("");
-            $(data).each(function(index, item) {
+            $(data).each(function (index, item) {
                 $("#usb").append(item + "<br>");
             });
         });
 
-        $.getJSON("../../system/info/getRuntimeInfo", function(data){
+        $.getJSON("../../system/info/getRuntimeInfo", function (data) {
             $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
             $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
             $("#operation").attr("startunix", data.StartupTime);
@@ -113,12 +115,12 @@
         });
     }
 
-    function accumulateOperationTime(){
-        setTimeout(function(){
-            if ($("#operation").length > 0){
+    function accumulateOperationTime() {
+        setTimeout(function () {
+            if ($("#operation").length > 0) {
                 var startUnix = $("#operation").attr("startunix");
                 startUnix = parseInt(startUnix);
-                var newOprTime = parseInt(Date.now()/1000) - startUnix
+                var newOprTime = parseInt(Date.now() / 1000) - startUnix
                 $("#operation").text(ao_module_utils.durationConverter(newOprTime));
                 accumulateOperationTime();
             }

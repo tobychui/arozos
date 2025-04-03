@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title locale="title/title">File Properties</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/ao_module.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+    <link rel="stylesheet" href="../../script/ao.css">
+    <style>
+        body {
+            overflow: hidden;
+        }
+
+        #filePropertiesWindow {
+            background-color: var(--body_background);
+            color: var(--body_text);
+        }
+
+        #filePropertiesWindow td,
+        .header,
+        p,
+        div {
+            color: var(--body_text) !important;
+        }
+
+        #filePropertiesWindow input {
+            background-color: var(--body_background_secondary) !important;
+            color: var(--text_color) !important;
+            font-size: 1.2em;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .vertical-margin {
+            margin-top: 4px !important;
+        }
+
+        .small.basic.white.fluid.button {
+            color: var(--text_color_secondary) !important;
+        }
+
+        .small.basic.white.fluid.button:hover {
+            background-color: var(--body_background_active) !important;
+        }
+    </style>
+</head>
+
+<body id="filePropertiesWindow">
+    <br>
+    <div class="ui container">
+        <h3 class="ui header">
+            <span locale="title/title">File Properties</span>
+            <div class="sub header" locale="title/desc">Basic File Information</div>
+        </h3>
+        <div class="ui divider"></div>
+        <div id="properties">
+
+        </div>
+        <br>
+        <button class="ui small white basic fluid button singleFileOnly hidden" onclick="changeDefaultWebApp();"><i
+                class="ui external square alternate icon blue"></i><span locale="button/changeDefault">Change Default
+                WebApp</span></button>
+        <button class="ui small basic white fluid button singleFileOnly hidden vertical-margin"
+            onclick="viewVersionHistory();"><i class="ui undo green icon"></i><span locale="button/versionHistory">View
+                Version History</span></button>
+        <button class="ui small basic white fluid button linuxonly vertical-margin" onclick="openFilePermissionPanel();"
+            locale="button/changeFilePermission">Change File Permissions</button>
+        <br>
+    </div>
+    <div id="filesizeLoader" class="ui active dimmer">
+        <div class="ui indeterminate text loader" locale="loader/loadingFileSize">Calculating File Size</div>
+    </div>
+    <script>
+        //Initiate the view model
+        var files = ao_module_loadInputFiles();
+        var fileProperties = [];
+        var fileInfo = {};
+        function initFileProperties() {
+            $("#properties").html("");
+            if (files.length == 1) {
+                //There are only 1 file to be shown
+                getFileProp(files[0], renderSingleObject);
+            } else if (files.length > 1) {
+                for (var i = 0; i < files.length; i++) {
+                    getFileProp(files[i], function (data) {
+                        fileProperties.push(data);
+                        if (fileProperties.length == files.length) {
+                            renderMultipleObjects();
+                        }
+                    });
+                }
+            }
+        }
+
+        applocale.init("../SystemAO/locale/file_properties.json", function () {
+            applocale.translate();
+            initFileProperties();
+        });
+
+        //Hide windows / linux only operations
+        $.get("/system/info/getArOZInfo", function (data) {
+            if (data.HostOS == "windows") {
+                $(".linuxonly").hide();
+            } else {
+                $(".windowsonly").hide();
+            }
+        });
+
+        function viewVersionHistory() {
+            var hashPassthrough = encodeURIComponent(JSON.stringify(files));
+            ao_module_newfw({
+                url: "SystemAO/file_system/file_versions.html#" + hashPassthrough,
+                width: 570,
+                height: 480,
+                appicon: "SystemAO/file_system/img/properties.png",
+                title: "File Version History",
+            });
+        }
+
+        function getFileProp(vpath, callback) {
+            ao_module_agirun("File Manager/functions/getProperties.js", {
+                path: vpath
+            }, function (data) {
+                callback(data);
+                fileInfo = data;
+                //Initialize system theme
+                fpw_loadPreference("file_explorer/theme", function (data) {
+                    if (data.error === undefined) {
+                        if (data == "darkTheme") {
+                            $("body").addClass("darkTheme");
+                        } else {
+                            $("body").addClass("whiteTheme");
+                        }
+                    }
+                });
+            });
+        }
+
+        function openFilePermissionPanel() {
+            var hashPassthrough = encodeURIComponent(JSON.stringify(files));
+            ao_module_newfw({
+                url: "SystemAO/file_system/file_permission.html#" + hashPassthrough,
+                width: 340,
+                height: 480,
+                appicon: "SystemAO/file_system/img/properties.png",
+                title: "File Permissions",
+            });
+        }
+
+        function renderMultipleObjects() {
+            hideLoader();
+
+            const filesizeSum = sumProperties(fileProperties, "Filesize");
+            let filecount = 0, foldercount = 0;
+
+            // Pre-build HTML
+            let html = ui_getInput(fileProperties[0].VirtualDirname + "/", "Root Name");
+
+            // Get counts
+            fileProperties.forEach(item => {
+                item.IsDirectory ? foldercount++ : filecount++;
+            });
+
+            // Add summary table
+            html += ui_getText(applocale.getString("selection/multi", "Multiple selections"));
+            html += buildCounterElements(filecount, foldercount);
+            html += buildSummaryTable(filesizeSum);
+
+            // Inject DOM once
+            $("#properties").html(html);
+        }
+
+        // Build counter elements
+        function buildCounterElements(fileCount, folderCount) {
+            return [
+                ui_getText(`${fileCount} ${applocale.getString("counter/files", "Files")}`),
+                ui_getText(`${folderCount} ${applocale.getString("counter/folders", "Folders")}`)
+            ].join("");
+        }
+
+        // Build summary table
+        function buildSummaryTable(filesizeSum) {
+            const totalSizeText = formatSize(filesizeSum);
+            return ui_getTable([], [
+                ["Virtual Directory", fileProperties[0].VirtualDirname + "/"],
+                ["Total Size", totalSizeText]
+            ]);
+        }
+
+        function sumProperties(data, propName) {
+            var sum = 0;
+            for (var i = 0; i < data.length; i++) {
+                sum += data[i][propName];
+            }
+            return sum;
+        }
+
+        //Render one object property to the ui element
+        function renderSingleObject(data) {
+            hideLoader();
+            let html = ''; // Pre-build html
+
+            if (data.error !== undefined) {
+                //Something went wrong
+                html = `<h4 class="ui header">
+                    <i class="question icon"></i>
+                    <div class="content">
+                        File Properties Unknown
+                        <div class="sub header">The system were unable to read the selected file properties.</div>
+                    </div>
+                </h4>
+                <div class="ui divider"></div>
+                <small>${data.error}</small>`;
+            } else {
+                // Info
+                var filesizeText = "File Size";
+                const isDir = data.IsDirectory;
+                html += ui_getInput(data.Basename, isDir ? "Folder Name" : "File Name");
+                html += ui_getText(data.MimeType);;
+
+                if (!isDir && data.Basename.split(".").pop() !== "shortcut") {
+                    // Async content placeholder
+                    html += '<div id="asyncContent"></div>';
+                } else {
+                    // Sync content
+                    html += buildFileTable(data, isDir);
+                }
+            }
+
+            // Inject DOM once
+            $("#properties").html(html);
+
+            // Async content
+            if (!data.IsDirectory && data.Basename.split(".").pop() !== "shortcut") {
+                loadAsyncContent(data);
+            }
+
+        }
+
+        // Build file table
+        function buildFileTable(data, isDir) {
+            let sizeText = formatSize(data.Filesize);
+            let lastModText = generateDisplayLastModTime(data.LastModTime);
+
+            return ui_getTable([], [
+                ["Virtual Path", data.VirtualPath],
+                [isDir ? "Folder Size" : "File Size", sizeText],
+                ["Permission", data.Permission],
+                ["Last Modified", lastModText],
+                ["File Type", isDir ? "Folder" : "File"],
+                ["Owner", data.Owner]
+            ]);
+        }
+
+        function loadAsyncContent(data) {
+            $(".singleFileOnly").show();
+            $.ajax({
+                url: "../../system/modules/getDefault",
+                method: "GET",
+                data: {
+                    opr: "launch",
+                    ext: "." + data.Basename.split(".").pop(),
+                    mode: "launch"
+                },
+                success: function (openerinfo) {
+                    const content = buildFileTable(data, openerinfo);
+                    $("#asyncContent").replaceWith(content);
+                }
+            });
+        }
+
+        // Format bytes to human readable
+        function formatSize(bytes) {
+            if (bytes < 0) {
+                return `<i class="times circle outline yellow icon"></i> ${applocale.getString(
+                    "properties/error/Not available for network folders",
+                    "Not available for network folders"
+                )}`;
+            }
+            return bytesToSize(bytes) + ` (${bytes} bytes)`;
+        }
+
+        function hideLoader() {
+            $("#filesizeLoader").hide();
+            $("body").css('overflow-y', "auto");
+        }
+
+        //Model rendering scripts
+        function ui_getInput(value, placeholder = "", type = "text") {
+            return `<div class="ui fluid small input">
+                            <input type="${type}" placeholder="${placeholder}" value="${value}" readonly="true">
+                        </div>`
+        }
+
+        function ui_getText(value, color = "black") {
+            return `<p style="color:${color}; margin-bottom:0px;">${value}</p>`;
+        }
+
+        function ui_getDivider() {
+            return `<div class="ui divider"></div>`;
+        }
+
+        //head is a 1D array and table is 2D array
+        function ui_getTable(heads, table) {
+            html = `<table class="ui very basic fluid table">`;
+            if (heads.length > 0) {
+                html += `<thead><tr>`;
+                for (var i = 0; i < heads.length; i++) {
+                    html += `<th>${heads[i]}</th>`;
+                }
+                html += `</tr></thead>`;
+            }
+            html += `<tbody>`;
+            for (var i = 0; i < table.length; i++) {
+                html += `<tr>`;
+                for (var j = 0; j < table[i].length; j++) {
+                    var keyString = table[i][j];
+                    if (j == 0 && applocale) {
+                        keyString = applocale.getString("properties/key/" + keyString.trim(), keyString);
+                    }
+                    html += `<td style="word-break: break-all;">${keyString}</td>`
+                }
+                html += `</tr>`;
+            }
+
+            html += `</tbody>
+                        </table>`;
+            return html
+        }
+
+        function bytesToSize(bytes) {
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes == 0) return '0 Byte';
+            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        /*
+
+        Updates Oct 2020 - Matching File Explorer Theme on other file system tabs
+
+        */
+
+        function fpw_toggleDarkTheme() {
+            $("#filePropertiesWindow").css({
+                "background-color": "#242330",
+                "color": "white",
+            });
+
+            $("#filePropertiesWindow td,.header,p,div").css({
+                "color": "white",
+            });
+
+            $("#filePropertiesWindow .input").addClass("inverted transparent big")
+        }
+
+
+        function fpw_loadPreference(key, callback) {
+            $.get("../../system/file_system/preference?key=" + key, function (data) {
+                callback(data);
+            });
+        }
+
+
+        /*
+            Updates 30 Jan 2021: Added change of file opener
+        */
+
+        //Open Opener Selector for the given file
+        function changeDefaultWebApp() {
+            var ext = fileInfo.Ext;
+            var openFileList = [];
+            var openFileObject = {
+                filepath: fileInfo.VirtualPath,
+                filename: fileInfo.Basename,
+            }
+            openFileList.push(openFileObject);
+            var openParamter = encodeURIComponent(JSON.stringify(openFileObject));
+            ao_module_newfw({
+                url: "SystemAO/file_system/defaultOpener.html#" + openParamter,
+                width: 320,
+                height: 510,
+                appicon: "SystemAO/file_system/img/opener.png",
+                title: "Default WebApp for " + ext,
+                parent: ao_module_windowID,
+                callback: "handleRefresh"
+            });
+        }
+
+        function handleRefresh() {
+            //Default opener changed. Update the display
+            initFileProperties();
+        }
+
+        /*
+            Updates 9 April 2021: Added day compare for last modification days
+        */
+
+        function generateDisplayLastModTime(lastModTime) {
+            //Try to split the date into js date format
+            var dateInfo = (lastModTime.split(" ")[0]).split("-");
+            var modTime = new Date(dateInfo[0], dateInfo[1], dateInfo[2]);
+            var diff = calcDate(new Date(), modTime);
+            var displayText = "Unknown";
+            if (diff[2] > 0) {
+                //years
+                displayText = diff[2] + applocale.getString("lastmod/time/year", " year");
+                if (diff[2] > 1) {
+                    displayText += applocale.getString("lastmod/time/s", "s")
+                }
+
+                displayText += applocale.getString("lastmod/time/ago", " ago");
+
+            } else if (diff[1] > 0) {
+                //months
+                displayText = diff[1] + applocale.getString("lastmod/time/month", "  month");
+                if (diff[1] > 1) {
+                    displayText += applocale.getString("lastmod/time/s", "s")
+                }
+
+                displayText += applocale.getString("lastmod/time/ago", " ago");
+            } else if (diff[0] > 0) {
+                //days
+                displayText = diff[0] + applocale.getString("lastmod/time/days", "  day");
+                if (diff[0] > 1) {
+                    displayText += applocale.getString("lastmod/time/s", "s");
+                }
+
+                displayText += applocale.getString("lastmod/time/ago", " ago");
+            } else {
+                //just now
+                displayText = applocale.getString("lastmod/time/today", "Today");
+            }
+
+            return displayText + " (" + lastModTime + ")";
+        }
+
+        function calcDate(date1 = new Date(), date2) {
+            var diff = Math.floor(date1.getTime() - date2.getTime());
+            var day = 1000 * 60 * 60 * 24;
+
+            var days = Math.floor(diff / day);
+            var months = Math.floor(days / 31);
+            var years = Math.floor(months / 12);
+
+
+            return [days, months, years];
+        }
+    </script>
+</body>
+
+</html>

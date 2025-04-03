@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title locale="title/title">Share Entry List</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script type="text/javascript" src="../../script/jquery.min.js"></script>
+        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../script/ao_module.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
+        <script type="text/javascript" src="../../script/clipboard.min.js"></script>
+        <style>
+            .backgroundIcon{
+                position: fixed;
+                bottom: 0px;
+                right: 0px;
+                opacity: 0.4;
+                margin-right: -5em;
+                margin-bottom: -5em;
+                z-index: -99;
+                pointer-events: none;
+                user-select: none;
+            }
+        </style>
+    </head>
+    <body id="filePropertiesWindow">
+        <div class="backgroundIcon">
+            <img class="ui medium image" src="../../img/system/share.svg">
+        </div>
+        <br>
+        <div class="ui container">
+            <h3 class="ui header">
+                <i class="share alternate icon"></i>
+                <div class="content">
+                    <span locale="title/title">Share Entries</span> <span id="vrootname"></span>
+                    <div class="sub header" locale="title/desc">Shared files in this drive</div>
+                </div>
+            </h3>
+            <div class="ui divider"></div>
+            <div id="succ" style="display:none;" class="ui green message">
+                <i class="ui checkmark icon"></i> <span id="msg" locale="message/removed">Share Removed</span>
+            </div>
+            <div style="max-height: calc(100vh - 120px); overflow-y: auto;">
+                <table class="ui very basic fluid celled compact table unstackable">
+                    <tbody id="shares">
+                      <tr>
+                        <td>
+                          <h4 class="ui header">
+                                <div class="content">
+                                <span locale="message/noshare/title">No Shares</span>
+                                <div locale="message/noshare/desc" class="sub header">Try select a file using File Manager and right click share</div>
+                            </div>
+                            </h4>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+            </div>
+            <br>
+        </div>
+        <script>
+            //Get fsh id from hash if exists
+            let fshId = "";
+            if (window.location.hash.length > 1){
+                var fshIds = window.location.hash.substr(1);
+                fshIds = JSON.parse(decodeURIComponent(fshIds));
+                fshId = fshIds[0];
+                $("#vrootname").text("(" + fshId + ")");
+            }
+
+            applocale.init("../../SystemAO/locale/sharelist.json", function(){
+                applocale.translate();
+                listSharedItems();
+            });
+
+            
+            function listSharedItems(){
+                $("#shares").html("");
+                $.get("../../system/file_system/share/list?fsh=" + fshId, function(data){
+                    console.log(data);
+                    data.forEach(function(entry){
+                        let filename = entry.FileVirtualPath.split("/").pop();
+                        let port = window.location.port;
+                        if (window.location.port == ""){
+                            port = "";
+                        }
+
+                        let openShareButton = ` <a title="Open Share" href="/share/${entry.UUID}" target="_blank" class="ui icon basic button"><i class="external icon"></i></a>`;
+                        if (!entry.CanAccess){
+                            openShareButton = "";
+                        }
+                        let openButton = `<button title="Open in File Manager" path="${entry.FileVirtualPath}" isfolder="${entry.IsFolder}" onclick="openThis(this);" class="ui icon basic button"><i class="folder open icon"></i></button>`;
+                        if (!entry.CanOpenInFileManager){
+                            openButton = "";
+                        }
+                        let deleteButton = `<button title="Delete Share" uuid="${entry.UUID}" onclick="deleteShare(this);" class="ui red icon button"><i class="trash icon"></i></button>`;
+                        if (!entry.CanDelete){
+                            deleteButton = "";
+                        }
+
+                        $("#shares").append(`
+                            <tr>
+                                <td>
+                                    <h4 class="ui header">
+                                        <div class="content">
+                                            <span>${filename} </span>
+                                            <div class="sub header">${applocale.getString("item/creator", "Creator: ")} ${entry.Owner} / ${applocale.getString("item/perm", "Permission: ")} ${entry.Permission} / <span class="linkCopier" style="cursor:pointer; color: #3452eb;" title="Copy Link" data-clipboard-text="${window.location.protocol + '//' + window.location.hostname + ":" + port + "/share/" + entry.UUID}"><i class="linkify icon"></i></span>
+                                        </div>
+                                    </h4>
+                                </td>
+                                <td style="padding-right: 0.6em;">
+                                    <div class="ui small vertical buttons">
+                                        ${openShareButton}
+                                        ${openButton}
+                                        ${deleteButton}
+                                    </div>
+                                </td>
+                       </tr>`);
+                    });
+
+                    var clipboard = new ClipboardJS('.linkCopier');
+                    clipboard.on('success', function(e) {
+                        //console.info('Action:', e.action);
+                        // console.info('Text:', e.text);
+                        // console.info('Trigger:', e.trigger);
+                        let originalContent =  $(e.trigger).html();
+                        $(e.trigger).html(`<i class="ui green checkmark icon"></i>`);
+                        $(e.trigger).css("pointer-events", "none");
+                        setTimeout(function(){
+                            $(e.trigger).html(originalContent);
+                            $(e.trigger).css("pointer-events", "auto");
+                        }, 1500);
+                        e.clearSelection();
+                    });
+
+                    if (data.length == 0){
+                        $("#shares").html(`<tr>
+                        <td>
+                          <h4 class="ui header">
+                                <div class="content">
+                                <span locale="message/noshare/title">No Shares</span>
+                                <div locale="message/noshare/desc" class="sub header">Try select a file using File Manager and right click share</div>
+                            </div>
+                            </h4>
+                        </td>
+                      </tr>`);
+                    }
+
+                    applocale.translate();
+                });
+            }
+
+            function openThis(object){
+                var vpath = $(object).attr("path");
+                var isFolder = $(object).attr("isfolder") == "true";
+                let openingPath = vpath;
+                if (isFolder){
+                    ao_module_openPath(vpath);
+                }else{
+                    let c = vpath.split("/");
+                    let filename = c.pop();
+                    let folderpath = c.join("/");
+                    ao_module_openPath(folderpath, filename);
+                }
+                
+            }
+
+            function deleteShare(object){
+                let deleteUUID = $(object).attr("uuid");
+                if (confirm(applocale.getString("message/delwarning", "All collaborators will lose access to this file via File Share interface. Confirm?"))){
+                    $.ajax({
+                        url: "../../system/file_system/share/delete",
+                        method: "POST",
+                        data: {uuid: deleteUUID},
+                        success: function(data){
+                            console.log(data);
+                            listSharedItems();
+                            $("#succ").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
+                        }
+                    });
+                }
+            }
+        </script>
+    </body>
+</html> 

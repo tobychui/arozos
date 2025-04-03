@@ -1,0 +1,111 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "ファイル権限",
+                "subheader": "他のゲートウェイ用ファイル権限を更新",
+                "read": "読み取り",
+                "write": "書き込み",
+                "execute": "実行",
+                "user": "ユーザー",
+                "group": "グループ",
+                "other": "その他",
+                "AdvSet": "高度な設定",
+                "allowUserGroupPerm": "ユーザー/グループ権限の編集を許可",
+                "warning": "重要なファイルのユーザー/グループ権限を削除するとシステム障害が発生する可能性があります。実行内容を確認してください。",
+                "reqFileSystem": "ファイルシステムの要求中",
+                "PermUpdated": "権限が更新されました",
+                "button/cancel": "キャンセル",
+                "button/update": "更新",
+                "button/ok": "OK"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "파일 권한",
+                "subheader": "다른 게이트웨이용 파일 권한 업데이트",
+                "read": "읽기",
+                "write": "쓰기",
+                "execute": "실행",
+                "user": "사용자",
+                "group": "그룹",
+                "other": "기타",
+                "AdvSet": "고급 설정",
+                "allowUserGroupPerm": "사용자/그룹 권한 편집 허용",
+                "warning": "중요 파일의 사용자/그룹 권한을 제거하면 시스템 장애가 발생할 수 있습니다. 작업 내용을 확인하세요.",
+                "reqFileSystem": "파일 시스템 요청 중",
+                "PermUpdated": "권한이 업데이트되었습니다",
+                "button/cancel": "취소",
+                "button/update": "업데이트",
+                "button/ok": "확인"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "文件权限",
+                "subheader": "更新其他网关的文件权限",
+                "read": "读取",
+                "write": "写入",
+                "execute": "执行",
+                "user": "用户",
+                "group": "组",
+                "other": "其他",
+                "AdvSet": "高级设置",
+                "allowUserGroupPerm": "允许编辑用户/组权限",
+                "warning": "移除关键文件的用户/组权限可能导致系统故障。请确保您了解操作后果。",
+                "reqFileSystem": "请求文件系统中",
+                "PermUpdated": "权限已更新",
+                "button/cancel": "取消",
+                "button/update": "更新",
+                "button/ok": "确定"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "文件權限",
+                "subheader": "更新其他閘道的文件權限",
+                "read": "讀取",
+                "write": "寫入",
+                "execute": "執行",
+                "user": "用戶",
+                "group": "群組",
+                "other": "其他",
+                "AdvSet": "進階設定",
+                "allowUserGroupPerm": "允許編輯用戶/群組權限",
+                "warning": "移除關鍵文件的用戶/群組權限可能導致系統故障。請確保您清楚操作內容。",
+                "reqFileSystem": "請求文件系統中",
+                "PermUpdated": "權限已更新",
+                "button/cancel": "取消",
+                "button/update": "更新",
+                "button/ok": "確定"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "檔案權限",
+                "subheader": "更新其他閘道的檔案權限",
+                "read": "讀取",
+                "write": "寫入",
+                "execute": "執行",
+                "user": "使用者",
+                "group": "群組",
+                "other": "其他",
+                "AdvSet": "進階設定",
+                "allowUserGroupPerm": "允許編輯使用者/群組權限",
+                "warning": "移除關鍵檔案的使用者/群組權限可能導致系統故障。請確認您了解操作內容。",
+                "reqFileSystem": "請求檔案系統中",
+                "PermUpdated": "權限已更新",
+                "button/cancel": "取消",
+                "button/update": "更新",
+                "button/ok": "確定"
+            }
+        }
+    }
+}

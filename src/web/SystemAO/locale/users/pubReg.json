@@ -1,0 +1,111 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "一般登録",
+                "subheader": "このシステムでアカウントを登録できるように許可",
+                "enableReg": "一般アカウント登録を有効化",
+                "defPermGroup": "新規ユーザーのデフォルト権限グループ",
+                "selectPermGroup": "権限グループを選択",
+                "button/update": "設定を更新",
+                "regUserList": "登録ユーザー一覧",
+                "downloadCSV": "CSV形式でダウンロード",
+                "listDesc": "登録ユーザーの一覧です。注意：ユーザーの登録情報はアカウント削除後も保持されます。アカウントの状態は「Still Registered」カラムに表示されます。",
+                "table/username": "ユーザー名",
+                "table/email": "メール",
+                "table/stillReg": "継続登録中",
+                "button/refresh": "テーブルを更新",
+                "button/clear": "未登録ユーザー情報をクリア",
+                "succdialog": "登録設定が更新されました",
+                "errdialog": "更新に失敗："
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "공개 등록",
+                "subheader": "이 시스템에서 계정 등록을 허용",
+                "enableReg": "공개 계정 등록 활성화",
+                "defPermGroup": "신규 사용자의 기본 권한 그룹",
+                "selectPermGroup": "권한 그룹 선택",
+                "button/update": "설정 적용",
+                "regUserList": "등록된 사용자 목록",
+                "downloadCSV": "CSV로 내보내기",
+                "listDesc": "등록된 사용자 목록입니다. 주의: 사용자의 등록 정보는 계정 해지 시에도 유지됩니다. 계정 상태는 'Still Registered' 열에 표시됩니다.",
+                "table/username": "사용자 이름",
+                "table/email": "이메일",
+                "table/stillReg": "계속 등록됨",
+                "button/refresh": "테이블 새로고침",
+                "button/clear": "미등록 사용자 정보 삭제",
+                "succdialog": "등록 설정이 업데이트되었습니다",
+                "errdialog": "업데이트 실패:"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "公众注册",
+                "subheader": "允许公众在此系统注册账户",
+                "enableReg": "启用公众账户注册",
+                "defPermGroup": "新用户默认权限组",
+                "selectPermGroup": "选择权限组",
+                "button/update": "更新设置",
+                "regUserList": "已注册用户列表",
+                "downloadCSV": "导出为CSV",
+                "listDesc": "已注册用户列表。注意：用户注册信息在注销账户后不会被删除。用户账户状态将在“仍注册”列中显示。",
+                "table/username": "用户名",
+                "table/email": "邮箱",
+                "table/stillReg": "仍注册",
+                "button/refresh": "刷新表格",
+                "button/clear": "清除未注册用户信息",
+                "succdialog": "注册设置已更新",
+                "errdialog": "更新失败："
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "公開註冊",
+                "subheader": "允許公眾在此系統註冊帳號",
+                "enableReg": "啟用公眾帳號註冊",
+                "defPermGroup": "新用戶預設權限群組",
+                "selectPermGroup": "選擇權限群組",
+                "button/update": "更新設置",
+                "regUserList": "已註冊用戶列表",
+                "downloadCSV": "下載為CSV",
+                "listDesc": "已註冊用戶列表。注意：用戶註冊資訊在註銷帳號後不會被刪除。帳號狀態將在「仍註冊」一欄顯示。",
+                "table/username": "用戶名稱",
+                "table/email": "電子郵箱",
+                "table/stillReg": "仍註冊",
+                "button/refresh": "刷新表格",
+                "button/clear": "清除未註冊用戶資訊",
+                "succdialog": "註冊設置已更新",
+                "errdialog": "更新失敗："
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "公開註冊",
+                "subheader": "允許公眾在此系統註冊帳號",
+                "enableReg": "啟用公開帳號註冊",
+                "defPermGroup": "新使用者預設權限群組",
+                "selectPermGroup": "選擇權限群組",
+                "button/update": "更新設定",
+                "regUserList": "已註冊使用者列表",
+                "downloadCSV": "匯出為CSV",
+                "listDesc": "已註冊使用者列表。注意：使用者註冊資訊在註銷帳號後不會被刪除。帳號狀態將在「Still Registered」欄位顯示。",
+                "table/username": "使用者名稱",
+                "table/email": "電子信箱",
+                "table/stillReg": "仍註冊",
+                "button/refresh": "刷新表格",
+                "button/clear": "清除未註冊使用者資訊",
+                "succdialog": "註冊設定已更新",
+                "errdialog": "更新失敗："
+            }
+        }
+    }
+}

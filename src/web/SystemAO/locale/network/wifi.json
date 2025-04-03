@@ -1,0 +1,126 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "Wi-Fi設定",
+                "SSID": "Wi-Fi SSID",
+                "interface": "インターフェース",
+                "toggleDesc": "無線インターフェースの電源切替",
+                "updateSucceedMessage": "インターフェースの状態が更新されました",
+                "noInterface": "接続されたWLANインターフェースがありません",
+                "table/AP": "Wi-Fiアクセスポイント",
+                "table/level": "信号レベル（品質）",
+                "physicalAddr": "物理アドレス",
+                "table/connect": "接続",
+                "table/remove": "削除",
+                "button/rescan": "再スキャン",
+                "scanning": "周辺のWi-Fiアクセスポイントをスキャン中",
+                "credentialRequired": "認証情報が必要です",
+                "pswd": "パスワード",
+                "button/cancel": "キャンセル",
+                "connect": "接続",
+                "signal_0.svg": "弱い信号",
+                "signal_5.svg": "強い信号"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "Wi-Fi 설정",
+                "SSID": "Wi-Fi SSID",
+                "interface": "인터페이스",
+                "toggleDesc": "무선 인터페이스 전원 토글",
+                "updateSucceedMessage": "인터페이스 상태가 업데이트되었습니다",
+                "noInterface": "연결된 WLAN 인터페이스가 없습니다",
+                "table/AP": "Wi-Fi 액세스 포인트",
+                "table/level": "신호 수준 (품질)",
+                "physicalAddr": "물리적 주소",
+                "table/connect": "연결",
+                "table/remove": "삭제",
+                "button/rescan": "재스캔",
+                "scanning": "근처 Wi-Fi 액세스 포인트를 스캔 중",
+                "credentialRequired": "자격 증명이 필요합니다",
+                "pswd": "비밀번호",
+                "button/cancel": "취소",
+                "connect": "연결",
+                "signal_0.svg": "약한 신호",
+                "signal_5.svg": "강한 신호"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "Wi-Fi 设置",
+                "SSID": "Wi-Fi SSID",
+                "interface": "接口",
+                "toggleDesc": "无线接口电源切换",
+                "updateSucceedMessage": "接口状态已更新",
+                "noInterface": "未检测到 WLAN 接口",
+                "table/AP": "Wi-Fi 接入点",
+                "table/level": "信号强度（质量）",
+                "physicalAddr": "物理地址",
+                "table/connect": "连接",
+                "table/remove": "移除",
+                "button/rescan": "重新扫描",
+                "scanning": "正在扫描附近 Wi-Fi 接入点",
+                "credentialRequired": "需要凭证",
+                "pswd": "密码",
+                "button/cancel": "取消",
+                "connect": "连接",
+                "signal_0.svg": "信号弱",
+                "signal_5.svg": "信号强"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "Wi-Fi 設定",
+                "SSID": "Wi-Fi SSID",
+                "interface": "介面",
+                "toggleDesc": "無線介面電源切換",
+                "updateSucceedMessage": "介面狀態已更新",
+                "noInterface": "未偵測到 WLAN 介面",
+                "table/AP": "Wi-Fi 存取點",
+                "table/level": "訊號強度（品質）",
+                "physicalAddr": "物理位址",
+                "table/connect": "連線",
+                "table/remove": "移除",
+                "button/rescan": "重新掃描",
+                "scanning": "正在掃描附近 Wi-Fi 存取點",
+                "credentialRequired": "需要憑證",
+                "pswd": "密碼",
+                "button/cancel": "取消",
+                "connect": "連線",
+                "signal_0.svg": "訊號弱",
+                "signal_5.svg": "訊號強"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "無線網路設定",
+                "SSID": "Wi-Fi 識別名稱",
+                "interface": "介面",
+                "toggleDesc": "無線介面電源切換",
+                "updateSucceedMessage": "介面狀態已更新",
+                "noInterface": "未偵測到 WLAN 介面",
+                "table/AP": "無線存取點",
+                "table/level": "訊號強度（品質）",
+                "physicalAddr": "物理位址",
+                "table/connect": "連線",
+                "table/remove": "移除",
+                "button/rescan": "重新掃描",
+                "scanning": "正在掃描周邊無線存取點",
+                "credentialRequired": "需要憑證",
+                "pswd": "密碼",
+                "button/cancel": "取消",
+                "connect": "連線",
+                "signal_0.svg": "訊號弱",
+                "signal_5.svg": "訊號強"
+            }
+        }
+    }
+}

@@ -1,0 +1,101 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "個人ホームページ",
+                "subheader": "ArozOSで独自のホームページを作成",
+                "msg/title": "個人ホームページとは？",
+                "msg/list/1": "ArozOSを使用して静的ウェブサイトをホストできます",
+                "msg/list/2": "すべてのウェブサイトのソースは、ユーザーのファイルシステム内のファイルマネージャからアクセス可能です",
+                "msg/list/3": "以下のURLで誰でもアクセス可能です",
+                "togglehp": "個人ホームページの有効化/無効化",
+                "enablehp": "個人ホームページを有効にする",
+                "updateSuceed": "ホームページ設定が更新されました",
+                "selectRoot": "ウェブルートフォルダの選択",
+                "button/open": "開く",
+                "warning": "ウェブルート内のすべてのファイルは、インターネット上の誰もがアクセス可能です。",
+                "webrootSetSuceed": "ウェブルートディレクトリが更新されました",
+                "tip": "*設定は更新時に自動保存されます"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "개인 홈 페이지",
+                "subheader": "ArozOS에서 개인 홈 페이지 만들기",
+                "msg/title": "개인 홈 페이지란?",
+                "msg/list/1": "ArozOS를 사용하여 정적 웹사이트 호스팅이 가능합니다",
+                "msg/list/2": "웹 사이트 소스는 사용자 파일 시스템 내의 파일 관리자에서 접근 가능합니다",
+                "msg/list/3": "다음 URL로 모든 사용자가 접근 가능합니다",
+                "togglehp": "개인 홈 페이지 활성화",
+                "enablehp": "개인 홈 페이지 활성화",
+                "updateSuceed": "홈 페이지 설정이 업데이트되었습니다",
+                "selectRoot": "웹 루트 폴더 선택",
+                "button/open": "열기",
+                "warning": "웹 루트 폴더 내의 모든 파일은 인터넷 사용자에게 공개됩니다.",
+                "webrootSetSuceed": "웹 루트 경로가 업데이트되었습니다",
+                "tip": "*변경 사항은 즉시 저장됩니다"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "个人主页",
+                "subheader": "在ArozOS上创建自己的主页",
+                "msg/title": "什么是个人主页？",
+                "msg/list/1": "您可以使用ArozOS托管静态网站",
+                "msg/list/2": "所有网站源文件均可通过您的文件管理器访问",
+                "msg/list/3": "可通过以下URL访问您的主页",
+                "togglehp": "启用个人主页",
+                "enablehp": "启用个人主页",
+                "updateSuceed": "主页状态已更新",
+                "selectRoot": "选择Web根目录位置",
+                "button/open": "打开",
+                "warning": "Web根目录内的所有文件均可被互联网用户访问。",
+                "webrootSetSuceed": "Web根目录位置已更新",
+                "tip": "*所有更改会在更新时自动保存"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "個人主頁",
+                "subheader": "在ArozOS上建立個人主頁",
+                "msg/title": "什麼是個人主頁？",
+                "msg/list/1": "您可使用ArozOS托管靜態網站",
+                "msg/list/2": "所有網站資源均可透過您的文件管理器存取",
+                "msg/list/3": "可透過以下連結訪問您的個人主頁",
+                "togglehp": "啟用個人主頁",
+                "enablehp": "啟用個人主頁",
+                "updateSuceed": "主頁設定已更新",
+                "selectRoot": "選擇Web根目錄位置",
+                "button/open": "開啟",
+                "warning": "Web根目錄內的所有文件均會被網際網路上的任何人存取。",
+                "webrootSetSuceed": "Web根目錄位置已更新",
+                "tip": "*所有更改會在更新時自動儲存"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "個人首頁",
+                "subheader": "在ArozOS上建立個人首頁",
+                "msg/title": "什麼是個人首頁？",
+                "msg/list/1": "您可使用ArozOS托管靜態網站",
+                "msg/list/2": "所有網站資源均可透過使用者文件系統內的檔案管理器存取",
+                "msg/list/3": "可透過以下網址存取您的個人首頁",
+                "togglehp": "啟用個人首頁",
+                "enablehp": "啟用個人首頁",
+                "updateSuceed": "首頁設定已更新",
+                "selectRoot": "選擇Web根目錄位置",
+                "button/open": "開啟",
+                "warning": "Web根目錄內的全部檔案將會對網際網路使用者公開。",
+                "webrootSetSuceed": "Web根目錄路徑已更新",
+                "tip": "*所有變更於更新時自動儲存"
+            }
+        }
+    }
+}

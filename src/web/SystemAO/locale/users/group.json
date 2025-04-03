@@ -1,0 +1,91 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "管理组权限",
+                "subheader": "管理组权限与访问权限",
+                "button/newGroup": "新建组",
+                "button/edit": "编辑",
+                "button/remove": "移除",
+                "table/groupName": "组名称",
+                "table/accessPerm": "访问权限",
+                "table/adminPrev": "管理员权限",
+                "table/defQuota": "默认存储配额",
+                "table/select": "选择",
+                "groupList/admin": "管理员",
+                "groupList/adminAllModules": "所有模块（管理员）"
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "グループ権限管理",
+                "subheader": "グループ権限とアクセス権の管理",
+                "button/newGroup": "新しいグループ",
+                "button/edit": "編集",
+                "button/remove": "削除",
+                "table/groupName": "グループ名",
+                "table/accessPerm": "アクセス権限",
+                "table/adminPrev": "管理者権限",
+                "table/defQuota": "デフォルトストレージクオータ",
+                "table/select": "選択",
+                "groupList/admin": "管理者",
+                "groupList/adminAllModules": "全モジュール（管理者）"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "그룹 권한 관리",
+                "subheader": "그룹 권한 및 접근 권한 관리",
+                "button/newGroup": "새 그룹",
+                "button/edit": "수정",
+                "button/remove": "삭제",
+                "table/groupName": "그룹 이름",
+                "table/accessPerm": "접근 권한",
+                "table/adminPrev": "관리자 권한",
+                "table/defQuota": "기본 저장량 할당량",
+                "table/select": "선택",
+                "groupList/admin": "관리자",
+                "groupList/adminAllModules": "모든 모듈(관리자)"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "群組權限管理",
+                "subheader": "管理群組權限與存取權限",
+                "button/newGroup": "新增群組",
+                "button/edit": "編輯",
+                "button/remove": "移除",
+                "table/groupName": "群組名稱",
+                "table/accessPerm": "存取權限",
+                "table/adminPrev": "管理員權限",
+                "table/defQuota": "預設儲存配額",
+                "table/select": "選擇",
+                "groupList/admin": "管理員",
+                "groupList/adminAllModules": "所有模組（管理員）"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "群組權限管理",
+                "subheader": "管理群組權限與存取權限",
+                "button/newGroup": "新增群組",
+                "button/edit": "編輯",
+                "button/remove": "移除",
+                "table/groupName": "群組名稱",
+                "table/accessPerm": "存取權限",
+                "table/adminPrev": "管理員權限",
+                "table/defQuota": "預設儲存配額",
+                "table/select": "選擇",
+                "groupList/admin": "管理員",
+                "groupList/adminAllModules": "所有模組（管理員）"
+            }
+        }
+    }
+}

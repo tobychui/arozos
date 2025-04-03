@@ -1,66 +1,76 @@
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="{{root_escape}}script/semantic/semantic.min.css">
-        <script type="text/javascript" src="{{root_escape}}script/jquery.min.js"></script>
-        <script type="text/javascript" src="{{root_escape}}script/semantic/semantic.min.js"></script>
-        <title>Not Found</title>
-        <style>
-            #msg{
-                position: absolute;
-                top: calc(50% - 150px);
-                left: calc(50% - 250px);
-                width: 500px;
-                height: 300px;
-                text-align: center;
-            }
 
-            #footer{
-                position: fixed;
-                padding: 2em;
-                padding-left: 5em;
-                padding-right: 5em;
-                bottom: 0px;
-                left: 0px;
-                width: 100%;
-            }   
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../script/applocale.js"></script>
+    <title>Not Found</title>
+    <style>
+        #msg {
+            position: absolute;
+            top: calc(50% - 150px);
+            left: calc(50% - 250px);
+            width: 500px;
+            height: 300px;
+            text-align: center;
+        }
 
-            small{
-                word-break: break-word;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="msg">
-            <h1 style="font-size: 6em; margin-bottom: 0px;">404</h1>
-            <div>
-                <h3 class="">Page Not Found</h3>
-                <div class="ui divider"></div>
-                <p>The page or resource you are trying to access does not exist. <br><a style="cursor: pointer;" onclick="back();">Back</a></p>
-                <div class="ui divider"></div>
-                <div style="text-align: left;">
-                    <small>Request time: <span id="reqtime"></span></small><br>
-                    <small id="reqURLDisplay">Request URI: {{request_url}}</small>
-                </div>
+        #footer {
+            position: fixed;
+            padding: 2em;
+            padding-left: 5em;
+            padding-right: 5em;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+        }
+
+        small {
+            word-break: break-word;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="msg">
+        <h1 style="font-size: 6em; margin-bottom: 0px;">404</h1>
+        <div>
+            <h3 class="" locale="notfound/title">Page Not Found</h3>
+            <div class="ui divider"></div>
+            <p locale="notfound/message">The page or resource you are trying to access does not exist. <br></p>
+            <a style="cursor: pointer;" onclick="back();" locale="back">Back</a>
+            <div class="ui divider"></div>
+            <div style="text-align: left;">
+                <small locale="reqTime">Request time: </small><small><span id="reqtime"></span></small><br>
+                <small locale="reqURI">Request URI: </small><small id="reqURLDisplay"> {{request_url}}</small>
             </div>
         </div>
-        <script>
-            var ao_module_virtualDesktop = false;
-            try{
-                ao_module_virtualDesktop = !(!parent.isDesktopMode);
-            }catch(ex){
-                
-            }
+    </div>
+    <script>
+        var applocale = NewAppLocale();
+        applocale.init("./SystemAO/locale/notfound.json", function () {
+            applocale.translate();
+        });
 
-            function back(){
-                if (ao_module_virtualDesktop){
-                    history.back();
-                }else{
-                    window.location.href = "{{root_escape}}";
-                }
+        var ao_module_virtualDesktop = false;
+        try {
+            ao_module_virtualDesktop = !(!parent.isDesktopMode);
+        } catch (ex) {
+
+        }
+
+        function back() {
+            if (ao_module_virtualDesktop) {
+                history.back();
+            } else {
+                window.location.href = "{{root_escape}}";
             }
-            $("#reqtime").text(new Date().toLocaleString(undefined, {year: 'numeric', month: '2-digit', day: '2-digit', weekday:"long", hour: '2-digit', hour12: false, minute:'2-digit', second:'2-digit'}));
-        </script>
-    </body>
+        }
+        $("#reqtime").text(new Date().toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', weekday: "long", hour: '2-digit', hour12: false, minute: '2-digit', second: '2-digit' }));
+    </script>
+</body>
+
 </html>

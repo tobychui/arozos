@@ -87,32 +87,6 @@
             "placeholder":{
 
             }
-        },
-        "en-us": {
-            "fwtitle": "File Version Management",
-            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings": {
-                "title/title": "File Version Management",
-                "title/desc": "Old versions of this file will be automatically deleted after 30 days. You can also manually delete version backups from the list below.",
-                "button/newver": "Create New Version",
-                "button/removeAll": "Permanently Delete All Old Versions",
-                "message/nofile/title": "No Files",
-                "message/nofile/desc": "Incorrect usage",
-                "message/nohist/title": "No Old Versions",
-                "message/nohist/desc": "This file has no old version records",
-                "title/download": "Download This Version",
-                "title/restore": "Restore to This Version",
-                "title/delete": "Delete This Version",
-                "msgbox/created": "New file version created",
-                "msgbox/restored": "File restored to the specified version",
-                "msgbox/deletedall": "All old file versions deleted",
-                "warning/deleteall": "This action will *permanently delete* all old version backups of this file. Confirm deletion?",
-                "warning/restore": "Restoring to this file version will remove all versions newer than this one. Confirm restoration?",
-                "": ""
-            },
-            "titles": {},
-            "placeholder": {}
         }
-        
     }
 }

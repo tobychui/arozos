@@ -1,198 +1,218 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>User List</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-    </head>
-    <body>
-        <div class="ui container">
-            <div class="ui basic segment">
-                <div class="ui header">
-                    <i class="user icon"></i>
-                        <div class="content">
-                        Manage Users
-                        <div class="sub header">Manage registered users</div>
-                    </div>
-                </div>
-                <button class="ui primary small button" onclick="showNewUserUI();">
-                    <i class="add icon"></i>Create
-                </button>
-                <button id="editbtn" class="ui small disabled button" onclick="showEditUI();">
-                    <i class="edit icon"></i>Edit
-                </button>
-               
-                <button id="editUserButton" class="ui small negative disabled right floated button" onclick="removeUser();">
-                    Remove
-                </button>
-            </div>
-            <div class="ui styled fluid accordion">
-                <div class="title">
-                    <i class="dropdown icon"></i>
-                    Advance Operations
-                </div>
-                <div class="content">
-                    <h3>Import from CSV</h3>
-                    <p>Example Structure of the csv format (one user per row)</p>
-                    <table class="ui mini celled table" style="max-width: 500px;">
-                        <tbody>
-                            <tr>
-                              <td>User Name</td>
-                              <td>Default Password</td>
-                              <td>Default Group</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p>(Please make sure the group exists before import)</p>
-                    <button id="importbtn" class="ui small green button" onclick="importFromCSV();">
-                        <i class="upload icon"></i>Import from CSV
-                    </button>
-                    <button id="importbtn" class="ui small button" onclick="window.open('../users/template.csv');">
-                        Download CSV Template
-                    </button>
-                    <div class="ui divider"></div>
-                    <h3>Multi-Selection Remove</h3>
-                    <p>Select multiple users by their user group</p>
-                    <div class="ui selection dropdown">
-                        <input id="usergroupselector" type="hidden" name="Group">
-                        <i class="dropdown icon"></i>
-                        <div class="default text">Group</div>
-                        <div id="grouplist" class="menu">
-                        </div>
-                    </div>
-                    <button class="ui red button" onclick="deleteUsersInGroup();">Remove All Users in Group</button>
-                    <br><br>
-                    <div class="ui checkbox">
-                        <input id="mustbeonegroup" type="checkbox" name="iff">
-                        <label>only if the user is in exactly one group</label>
-                    </div>
-                </div>
-            </div>
 
-            <table class="ui very basic celled table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Permission Group</th>
-                        <th>Select</th>
-                    </tr>
-                </thead>
-                <tbody id="userTable" >
-                 
-                </tbody>
-              </table>
-              <br><br>
+<head>
+    <title>User List</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <div class="ui header">
+                <i class="user icon"></i>
+                <div class="content">
+                    <span locale="title">Manage Users</span>
+                    <div class="sub header" locale="subheader">Manage registered users</div>
+                </div>
+            </div>
+            <button class="ui primary small button" onclick="showNewUserUI();">
+                <i class="add icon"></i>
+                <span locale="button/create">Create</span>
+            </button>
+            <button id="editbtn" class="ui small disabled button" onclick="showEditUI();">
+                <i class="edit icon"></i>
+                <span locale="button/edit">Edit</span>
+            </button>
+
+            <button id="editUserButton" class="ui small negative disabled right floated button" locale="button/remove"
+                onclick="removeUser();">
+                Remove
+            </button>
         </div>
-        <!-- Import Confirm Dialog-->
-        <div class="ui modal" id="confirmImport">
-            <i class="close icon"></i>
-            <div class="header">
-                Import Users
+        <div class="ui styled fluid accordion">
+            <div class="title">
+                <i class="dropdown icon"></i>
+                <span locale="advOpt">Advance Operations</span>
             </div>
             <div class="content">
-                <div class="description">
-                <div class="ui header">Confirm importing the following users?</div>
+                <h3 locale="importCSV">Import from CSV</h3>
+                <p locale="advOpt/egTitle">Example Structure of the csv format (one user per row)</p>
+                <table class="ui mini celled table" style="max-width: 500px;">
+                    <tbody>
+                        <tr>
+                            <td locale="advOpt/eg/username">Username</td>
+                            <td loacle="advOpt/eg/defPswd">Default Password</td>
+                            <td locale="advOpt/eg/defGroup">Default Group</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p locale="advOpt/reminder">(Please make sure the group exists before import)</p>
+                <button id="importbtn" class="ui small green button" onclick="importFromCSV();">
+                    <i class="upload icon"></i>
+                    <span locale="importCSV">Import from CSV</span>
+                </button>
+                <button id="importbtn" class="ui small button" onclick="window.open('../users/template.csv');">
+                    <span locale="button/downloadCSVtemp">Download CSV Template</span>
+                </button>
+                <div class="ui divider"></div>
+                <h3 locale="advOpt/MultiSelectionRemove">Multi-Selection Remove</h3>
+                <p locale="advOpt/MultiSelectionTip">Select multiple users by their user group</p>
+                <div class="ui selection dropdown">
+                    <input id="usergroupselector" type="hidden" name="Group">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Group</div>
+                    <div id="grouplist" class="menu">
+                    </div>
+                </div>
+                <button class="ui red button" onclick="deleteUsersInGroup();">
+                    <span locale="button/removeAllUsersInGroup">Remove All Users in Group</span>
+                </button>
+                <br><br>
+                <div class="ui checkbox">
+                    <input id="mustbeonegroup" type="checkbox" name="iff">
+                    <label locale="oneGroupCheckbox">only if the user is in exactly one group</label>
+                </div>
+            </div>
+        </div>
+
+        <table class="ui very basic celled table">
+            <thead>
+                <tr>
+                    <th locale="table/username">Username</th>
+                    <th locale="table/permGroup">Permission Group</th>
+                    <th locale="table/select">Select</th>
+                </tr>
+            </thead>
+            <tbody id="userTable">
+            </tbody>
+        </table>
+        <br><br>
+    </div>
+    <!-- Import Confirm Dialog-->
+    <div class="ui modal" id="confirmImport">
+        <i class="close icon"></i>
+        <div class="header">
+            <span locale="import/header">Import Users</span>
+        </div>
+        <div class="content">
+            <div class="description">
+                <div class="ui header" locale="import/comfirm">Confirm importing the following users?</div>
                 <table class="ui celled table">
                     <thead>
-                      <tr><th>Username</th>
-                      <th>Default Password</th>
-                      <th>Group</th>
-                    </tr></thead>
+                        <tr>
+                            <th locale="import/table/username">Username</th>
+                            <th locale="import/table/defPswd">Default Password</th>
+                            <th locale="import/table/group">Group</th>
+                        </tr>
+                    </thead>
                     <tbody id="userImportPreview">
-                     
                     </tbody>
-                  </table>
-                </div>
-            </div>
-            <div class="actions">
-                <div class="ui black deny button">
-                Cancel
-                </div>
-                <div class="ui positive right labeled icon button" onclick="confirmImportUsers();">
-                OK
-                <i class="checkmark icon"></i>
-                </div>
+                </table>
             </div>
         </div>
-        <!-- Delete Confirm Dialog -->
-        <div class="ui modal" id="deleteConfirmDialog">
-            <i class="close icon"></i>
-            <div class="header" style="color: #eb4034;">
-              <i class="user times icon"></i> Remove Users
+        <div class="actions">
+            <div class="ui black deny button">
+                <span locale="button/cancel">Cancel</span>
             </div>
-            <div class="content">
-              <div class="description">
-                <div class="ui header">The following users will be removed from the system. This action is <span style="color: #eb4034;">NOT REVERSIBLE</span>.</div>
+            <div class="ui positive right labeled icon button" onclick="confirmImportUsers();">
+                <span locale="button/ok">OK</span>
+                <i class="checkmark icon"></i>
+            </div>
+        </div>
+    </div>
+    <!-- Delete Confirm Dialog -->
+    <div class="ui modal" id="deleteConfirmDialog">
+        <i class="close icon"></i>
+        <div class="header" style="color: #eb4034;">
+            <i class="user times icon"></i>
+            <span locale="delete/header">Remove Users</span>
+        </div>
+        <div class="content">
+            <div class="description">
+                <div class="ui header">
+                    <span locale="delete/desc">The following users will be removed from the system. This action is </span>
+                    <span style="color: #eb4034;" locale="delete/desc/warning">NOT REVERSIBLE</span>
+                    <span locale="delete/desc/fullstop">.</span>
+                </div>
                 <div id="removePendingUsers" class="ui bulleted list">
-
-                </div>
-              </div>
-            </div>
-            <div class="actions">
-              <div class="ui black deny button">
-                Cancel
-              </div>
-              <div class="ui red right labeled icon button" onclick="confirmRemoval(this);">
-                Confirm Removal
-                <i class="checkmark icon"></i>
-              </div>
-            </div>
-          </div>
-        <!-- Error Display Dialog-->
-        <div class="ui basic modal errormodal">
-            <div class="ui icon header">
-                <i class="red remove icon"></i>
-                Some accounts cannot be created
-            </div>
-            <div class="content">
-                <p class="errormessage"></p>
-            </div>
-            <div class="actions">
-                <div class="ui ok inverted button">
-                    <i class="checkmark icon"></i>
-                    OK
                 </div>
             </div>
         </div>
-        <script>
-            //Init UI elements
-            $('.ui.accordion').accordion();
-            $('.ui.dropdown').dropdown();
+        <div class="actions">
+            <div class="ui black deny button">
+                <span locale="button/cancel">Cancel</span>
+            </div>
+            <div class="ui red right labeled icon button" onclick="confirmRemoval(this);">
+                <span locale="button/confirmRemoval">Confirm Removal</span>
+                <i class="checkmark icon"></i>
+            </div>
+        </div>
+    </div>
+    <!-- Error Display Dialog-->
+    <div class="ui basic modal errormodal">
+        <div class="ui icon header">
+            <i class="red remove icon"></i>
+            <span locale="error/message">Some accounts cannot be created</span>
+        </div>
+        <div class="content">
+            <p class="errormessage"></p>
+        </div>
+        <div class="actions">
+            <div class="ui ok inverted button">
+                <i class="checkmark icon"></i>
+                <span locale="button/ok">OK</span>
+            </div>
+        </div>
+    </div>
+    <script>
 
-            //Init group list
-            $.get("../../system/permission/listgroup", function(data){
-                $("#grouplist").html("");
-                if (data.error !== undefined){
-                    console.log(data.error);
-                }else{
-                    data.forEach(group => {
-                        $("#grouplist").append(`<div class="item" data-value="${group}">${group}</div>`);
-                    });
-                }
-            });
+        // Load locale
+        var pageLocale = NewAppLocale();
+        pageLocale.init("../locale/users/userList.json", function () {
+            pageLocale.translate();
+        });
+
+        //Init UI elements
+        $('.ui.accordion').accordion();
+        $('.ui.dropdown').dropdown();
+
+        //Init group list
+        $.get("../../system/permission/listgroup", function (data) {
+            $("#grouplist").html("");
+            if (data.error !== undefined) {
+                console.log(data.error);
+            } else {
+                data.forEach(group => {
+                    $("#grouplist").append(`<div class="item" data-value="${group}">${group}</div>`);
+                });
+            }
+        });
 
 
-            //Init User List
-            initUserList();
-            function initUserList(){
-                $("#userTable").html("");
-                $("#editbtn").addClass('disabled');
-                $.ajax({
-                    url: "../../system/users/list",
-                    success: function(data){
-                        for (var i =0; i < data.length; i++){
-                            var username = data[i][0];
-                            var group = data[i][1];
-                            var profilePic = data[i][2];
-                            if (profilePic == ""){
-                                profilePic = "../users/img/noprofileicon.png"
-                            }
-                            var accountStatus = data[i][3];
-                            $("#userTable").append(`<tr>
+        //Init User List
+        initUserList();
+        function initUserList() {
+            $("#userTable").html("");
+            $("#editbtn").addClass('disabled');
+            $.ajax({
+                url: "../../system/users/list",
+                success: function (data) {
+                    for (var i = 0; i < data.length; i++) {
+                        var username = data[i][0];
+                        var group = data[i][1];
+                        var profilePic = data[i][2];
+                        if (profilePic == "") {
+                            profilePic = "../users/img/noprofileicon.png"
+                        }
+                        var accountStatus = data[i][3];
+                        $("#userTable").append(`<tr>
                                 <td>
                                     <h4 class="ui image header">
                                         <img src="${profilePic}" class="ui mini rounded image">
@@ -211,175 +231,176 @@
                                     </div>
                                 </td>
                             </tr>`);
-                        }
-                    },
-                    error: function(data){
-                        $("#userTable").html("<p> Failed to load user database. </p>");
                     }
-                });
-            }
+                },
+                error: function (data) {
+                    $("#userTable").html("<p> Failed to load user database. </p>");
+                }
+            });
+        }
 
-            var importPendingData = "";
-            function importFromCSV(){
-                //Open the native file selector for uploading a csv file
-                ao_module_selectFiles(function(files){
-                    var targetFile = files[0];
-                    console.log(targetFile, files);
-                    //Read the csv file into string
-                    ao_module_utils.readFileFromFileObject(targetFile, function(content){
-                        //Render the preview user list
-                        $("#userImportPreview").html("");
-                        var lines = content.split("\r\n").join("\n").split("\n");
-                        lines.forEach(line => {
-                            var data = line.split(",");
-                            if (line.length < 3){
-                                return;
-                            }
-                            $("#userImportPreview").append(`
+        var importPendingData = "";
+        function importFromCSV() {
+            //Open the native file selector for uploading a csv file
+            ao_module_selectFiles(function (files) {
+                var targetFile = files[0];
+                console.log(targetFile, files);
+                //Read the csv file into string
+                ao_module_utils.readFileFromFileObject(targetFile, function (content) {
+                    //Render the preview user list
+                    $("#userImportPreview").html("");
+                    var lines = content.split("\r\n").join("\n").split("\n");
+                    lines.forEach(line => {
+                        var data = line.split(",");
+                        if (line.length < 3) {
+                            return;
+                        }
+                        $("#userImportPreview").append(`
                                 <tr>
                                     <td data-label="Name">${data[0]}</td>
                                     <td data-label="DP">${data[1]}</td>
                                     <td data-label="Group">${data[2]}</td>
                                 </tr>`);
-                        });
-                        $("#confirmImport").modal("show");
-                        //Post the content to server side
-                        importPendingData = content;
                     });
-                }, "file", ".csv", false);
-            }
-
-            var deletePendingGroup = "";
-            function deleteUsersInGroup(){
-                var targetGroup = $("#usergroupselector").val();
-                if (targetGroup == ""){
-                    return;
-                }
-                deletePendingGroup = targetGroup;
-                
-                $.get("../../system/users/list", function(data){
-                    var username = [];
-                    data.forEach(user => {
-                        var userGroup = user[1];
-                        if ($("#mustbeonegroup")[0].checked == true){
-                            if (userGroup.length == 1 && userGroup[0] == (deletePendingGroup)){
-                                username.push(user[0]);
-                            }
-                        }else{
-                            if (userGroup.includes(deletePendingGroup)){
-                                username.push(user[0]);
-                            }
-                        }
-                       
-                    });
-
-                    $("#removePendingUsers").html("");
-                    username.forEach(thisuser => {
-                        $("#removePendingUsers").append(`<div class="item">${thisuser}</div>`);
-                    });
+                    $("#confirmImport").modal("show");
+                    //Post the content to server side
+                    importPendingData = content;
                 });
+            }, "file", ".csv", false);
+        }
 
-
-                $("#deleteConfirmDialog").modal("show");
-
+        var deletePendingGroup = "";
+        function deleteUsersInGroup() {
+            var targetGroup = $("#usergroupselector").val();
+            if (targetGroup == "") {
+                return;
             }
+            deletePendingGroup = targetGroup;
 
-            function confirmRemoval(btn){
-                let group = deletePendingGroup;
-                let removeUsersWithOneGroupOnly = $("#mustbeonegroup")[0].checked;
-                $(btn).addClass("loading");
-                $.ajax({
-                    url :"../../system/auth/groupdel",
-                    data: {group: group, exact: removeUsersWithOneGroupOnly},
-                    success: function(data){
-                        $("#deleteConfirmDialog").modal("hide");
-                        $(btn).removeClass("loading");
-                        initUserList();
-                    }
-                })
-            }
-
-            function confirmImportUsers(){
-                $.ajax({
-                    url: "../../system/auth/csvimport",
-                    data: {csv: importPendingData},
-                    success: function(data){
-                        //The returned data should ba list of errors (if any)
-                        if (data.length == 0){
-                            //Reload the list
-                            initUserList();
-                        }else{
-                            //Display error list
-                            console.log(data);
-                            $(".errormodal").modal("show");
-                            var errmsg = data.join("<br>");
-                            $(".errormessage").html(errmsg); 
-                            initUserList();
+            $.get("../../system/users/list", function (data) {
+                var username = [];
+                data.forEach(user => {
+                    var userGroup = user[1];
+                    if ($("#mustbeonegroup")[0].checked == true) {
+                        if (userGroup.length == 1 && userGroup[0] == (deletePendingGroup)) {
+                            username.push(user[0]);
+                        }
+                    } else {
+                        if (userGroup.includes(deletePendingGroup)) {
+                            username.push(user[0]);
                         }
                     }
+
                 });
-            }
 
-            function showNewUserUI(){
-                ao_module_newfw({
-                    url: "user.system",
-                    width: 530,
-                    height: 740,
-                    appicon: "SystemAO/users/img/user-white.svg",
-                    title: "Create New User",
-                    callback: "finishCreateHandler",
-                    parent: ao_module_windowID
+                $("#removePendingUsers").html("");
+                username.forEach(thisuser => {
+                    $("#removePendingUsers").append(`<div class="item">${thisuser}</div>`);
                 });
-            }
+            });
 
-            function showEditUI(){
-                var username = $("input[name='selectUser']:checked").val();
-                ao_module_newfw({
-                    url:"SystemAO/users/editUser.html#" + encodeURIComponent(username),
-                    width: 530,
-                    height: 740,
-                    appicon: "SystemAO/users/img/user-white.svg",
-                    title: "Edit User",
-                    callback: "finishCreateHandler",
-                    parent: ao_module_windowID
-                });
-            }
 
-            function removeUser(){
-                var username = $("input[name='selectUser']:checked").val();
-                if (confirm("Remove " + username + " from the system PERMANENTLY?")){
-                    $.ajax({
-                        url: "../../system/users/removeUser",
-                        data: {username: username},
-                        method: "POST",
-                        success: function(data){
-                            if (data.error !== undefined){
-                                alert(data.error);
-                            }else{
-                                //Reload the list
-                                initUserList();
-                            }
-                        }
-                    });
-                }
-            }
+            $("#deleteConfirmDialog").modal("show");
 
-            function finishCreateHandler(state){
-                if (state){
+        }
+
+        function confirmRemoval(btn) {
+            let group = deletePendingGroup;
+            let removeUsersWithOneGroupOnly = $("#mustbeonegroup")[0].checked;
+            $(btn).addClass("loading");
+            $.ajax({
+                url: "../../system/auth/groupdel",
+                data: { group: group, exact: removeUsersWithOneGroupOnly },
+                success: function (data) {
+                    $("#deleteConfirmDialog").modal("hide");
+                    $(btn).removeClass("loading");
                     initUserList();
                 }
+            })
+        }
+
+        function confirmImportUsers() {
+            $.ajax({
+                url: "../../system/auth/csvimport",
+                data: { csv: importPendingData },
+                success: function (data) {
+                    //The returned data should ba list of errors (if any)
+                    if (data.length == 0) {
+                        //Reload the list
+                        initUserList();
+                    } else {
+                        //Display error list
+                        console.log(data);
+                        $(".errormodal").modal("show");
+                        var errmsg = data.join("<br>");
+                        $(".errormessage").html(errmsg);
+                        initUserList();
+                    }
+                }
+            });
+        }
+
+        function showNewUserUI() {
+            ao_module_newfw({
+                url: "user.system",
+                width: 530,
+                height: 740,
+                appicon: "SystemAO/users/img/user-white.svg",
+                title: "Create New User",
+                callback: "finishCreateHandler",
+                parent: ao_module_windowID
+            });
+        }
+
+        function showEditUI() {
+            var username = $("input[name='selectUser']:checked").val();
+            ao_module_newfw({
+                url: "SystemAO/users/editUser.html#" + encodeURIComponent(username),
+                width: 530,
+                height: 740,
+                appicon: "SystemAO/users/img/user-white.svg",
+                title: "Edit User",
+                callback: "finishCreateHandler",
+                parent: ao_module_windowID
+            });
+        }
+
+        function removeUser() {
+            var username = $("input[name='selectUser']:checked").val();
+            if (confirm("Remove " + username + " from the system PERMANENTLY?")) {
+                $.ajax({
+                    url: "../../system/users/removeUser",
+                    data: { username: username },
+                    method: "POST",
+                    success: function (data) {
+                        if (data.error !== undefined) {
+                            alert(data.error);
+                        } else {
+                            //Reload the list
+                            initUserList();
+                        }
+                    }
+                });
+            }
+        }
+
+        function finishCreateHandler(state) {
+            if (state) {
+                initUserList();
+            }
+        }
+
+        function enableEdit(object) {
+            if ($(object).attr("self") != "true") {
+                $("#editUserButton").removeClass("disabled");
+                $("#editbtn").removeClass("disabled");
+            } else {
+                $("#editUserButton").addClass("disabled");
+                $("#editbtn").removeClass("disabled");
             }
 
-            function enableEdit(object){
-                if ($(object).attr("self") != "true"){
-                    $("#editUserButton").removeClass("disabled");
-                    $("#editbtn").removeClass("disabled");
-                }else{
-                    $("#editUserButton").addClass("disabled");
-                    $("#editbtn").removeClass("disabled");
-                }
-               
-            }
-        </script>
-    </body>
+        }
+    </script>
+</body>
+
 </html>

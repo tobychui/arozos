@@ -1,0 +1,71 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "header": "システム・スケジューラ",
+                "subheader": "オフライン時にタスクを実行するように予約",
+                "table/title": "スケジュールされたタスク",
+                "table/script": "スクリプト",
+                "table/location": "場所",
+                "table/interval": "間隔",
+                "table/basetime": "基準時間",
+                "button/openSystemScheudler": "システムスケジューラを開く"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "header": "시스템 스케줄러",
+                "subheader": "오프라인 상태에서도 실행할 태스크를 예약하세요",
+                "table/title": "예약된 작업",
+                "table/script": "스크립트",
+                "table/location": "위치",
+                "table/interval": "간격",
+                "table/basetime": "기준 시간",
+                "button/openSystemScheudler": "시스템 스케줄러 열기"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "header": "系统调度器",
+                "subheader": "安排在离线时运行的任务",
+                "table/title": "已计划任务",
+                "table/script": "脚本",
+                "table/location": "位置",
+                "table/interval": "间隔",
+                "table/basetime": "基准时间",
+                "button/openSystemScheudler": "打开系统调度器"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "header": "系統排程器",
+                "subheader": "預約在離線時執行的任務",
+                "table/title": "已計劃任務",
+                "table/script": "腳本",
+                "table/location": "位置",
+                "table/interval": "間隔",
+                "table/basetime": "基準時間",
+                "button/openSystemScheudler": "打開系統排程器"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "header": "系統排程器",
+                "subheader": "預約在離線時執行的任務",
+                "table/title": "已排程作業",
+                "table/script": "程式腳本",
+                "table/location": "位置",
+                "table/interval": "間隔時間",
+                "table/basetime": "基準時間",
+                "button/openSystemScheudler": "開啟系統排程器"
+            }
+        }
+    }
+}

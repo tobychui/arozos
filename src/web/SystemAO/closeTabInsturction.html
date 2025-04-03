@@ -1,37 +1,47 @@
 <html>
-    <head>
-        <title>Close Tab Instruction</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../script/semantic/semantic.min.js"></script>
-        <style>
-            body{
-                background-color:black;
-                pointer-events:  none;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="ui basic visible modal">
-            <div class="ui icon header">
-              <i class="green checkmark icon"></i>
-              Operation Completed
-            </div>
-            <div class="content" align="center">
-              <p>You can now close this tab and continue using the system in other tabs.</p>
-            </div>
-          </div>
-          <script>
 
-            $('.ui.basic.modal').modal('show');
-           
-            //If this tab is opened in fw mode accidentally, close this tab.
-            if (!(!parent.isDesktopMode)){
-                var ao_module_windowID =  $(window.frameElement).parent().parent().attr("windowId");
-                parent.closeFwProcess(ao_module_windowID);
-            }
-          </script>
-    </body>
+<head>
+  <title>Close Tab Instruction</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+  <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+  <script type="text/javascript" src="../script/jquery.min.js"></script>
+  <script type="text/javascript" src="../script/semantic/semantic.min.js"></script>
+  <script type="text/javascript" src="../script/applocale.js"></script>"
+  <style>
+    body {
+      background-color: black;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ui basic visible modal">
+    <div class="ui icon header">
+      <i class="green checkmark icon"></i>
+      <span locale="opCompleted">Operation Completed</span>
+    </div>
+    <div class="content" align="center">
+      <p locale="msg">You can now close this tab and continue using the system in other tabs.</p>
+    </div>
+  </div>
+  <script>
+
+    // Load locale
+    var pageLocale = NewAppLocale();
+    pageLocale.init("./locale/closeTabInstruction.json", function () {
+      pageLocale.translate();
+    });
+
+    $('.ui.basic.modal').modal('show');
+
+    //If this tab is opened in fw mode accidentally, close this tab.
+    if (!(!parent.isDesktopMode)) {
+      var ao_module_windowID = $(window.frameElement).parent().parent().attr("windowId");
+      parent.closeFwProcess(ao_module_windowID);
+    }
+  </script>
+</body>
+
 </html>

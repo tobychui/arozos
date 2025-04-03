@@ -1,246 +1,255 @@
 <!DOCTYPE HTML>
 <html>
-    <head>
+
+<head>
     <meta charset="UTF-8">
     <meta name="robots" content="noindex" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="author" href="humans.txt"/>
+    <link rel="author" href="humans.txt" />
     <title>ArozOS - Login</title>
     <link rel="stylesheet" href="script/semantic/semantic.min.css">
     <link rel="stylesheet" href="script/ao.css">
     <script type="application/javascript" src="script/jquery.min.js"></script>
     <script type="application/javascript" src="script/semantic/semantic.min.js"></script>
-    
+    <script type="text/javascript" src="./script/applocale.js"></script>
+
     <style>
-    @media only screen and (max-height: 1000px) {
-        .leftPictureFrame {
-        height:auto !important;
+        @media only screen and (max-height: 1000px) {
+            .leftPictureFrame {
+                height: auto !important;
+            }
         }
-    }
 
-    :root{
-        --main_theme_color: #5baf6d;
-        --secondary_theme_color: #4b7952;
-        --dimmer_theme_color: #125e1b;
-        --inverse_theme_color: #e0f1b3;
-    }
+        :root {
+            --main_theme_color: #5baf6d;
+            --secondary_theme_color: #4b7952;
+            --dimmer_theme_color: #125e1b;
+            --inverse_theme_color: #e0f1b3;
+        }
 
-    .leftPictureFrame{
-        position:fixed;
-        top:0px;
-        left:0px;
-        min-width:calc(100% - 500px);
-        min-height:100%;
-        background-color:#faf7eb;
-        background-image:url("./system/info/wallpaper.jpg");
-        -webkit-background-size: cover;
-        -moz-background-size: cover;
-        -o-background-size: cover;
-        background-size: cover;
-        background-repeat: no-repeat, no-repeat;
-        background-position:bottom left;
-    }
+        .leftPictureFrame {
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            min-width: calc(100% - 500px);
+            min-height: 100%;
+            background-color: #faf7eb;
+            background-image: url("./system/info/wallpaper.jpg");
+            -webkit-background-size: cover;
+            -moz-background-size: cover;
+            -o-background-size: cover;
+            background-size: cover;
+            background-repeat: no-repeat, no-repeat;
+            background-position: bottom left;
+        }
 
-    .rightLoginFrame{
-        position:fixed;
-        top:0;
-        right:0;
-        height:100%;
-        width:500px;
-        background:white;
-        z-index:100%;
-        padding-left: 30px;
-        padding-right: 20px;
-    }
+        .rightLoginFrame {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: 500px;
+            background: white;
+            z-index: 100%;
+            padding-left: 30px;
+            padding-right: 20px;
+        }
 
-    @media (max-width: 600px) {
-        .rightLoginFrame{
+        @media (max-width: 600px) {
+            .rightLoginFrame {
+                width: 100%;
+            }
+        }
+
+        @media (min-width: 600px) {
+            @supports (backdrop-filter: blur(10px)) {
+
+                /* This browser support backdrop filter */
+                .rightLoginFrame {
+                    margin-top: 5em;
+                    margin-right: 5em;
+                    margin-left: 5em;
+                    height: calc(100% - 10em);
+                    border-radius: 1em;
+                }
+
+                .leftPictureFrame {
+                    min-width: calc(100%);
+                }
+            }
+        }
+
+        .fullHeightImage {
+            height: 100% !important;
+            position: relative;
+            left: -20px;
+
+        }
+
+        .bottombar {
+            position: absolute;
+            bottom: 1em;
+            left: 0;
+            padding-left: 20px;
             width: 100%;
         }
-    }
-    
-    @media (min-width: 600px) {
-        @supports (backdrop-filter: blur(10px)) {
-        /* This browser support backdrop filter */
+
+        #animationFrame {
+            position: absolute;
+            bottom: 0px;
+            width: 100%;
+        }
+
+        .textbox {
+            margin-bottom: 15px;
+        }
+
+        .themecolor {
+            background-color: var(--main_theme_color) !important;
+            transition: background-color 0.1s;
+        }
+
+        .themecolor:hover {
+            background-color: var(--secondary_theme_color) !important;
+        }
+
+        .subthemecolor {
+            background-color: var(--secondary_theme_color) !important;
+            transition: background-color 0.1s;
+        }
+
+        .subthemecolor:hover {
+            background-color: var(--dimmer_theme_color) !important;
+        }
+
+        .inversehighlight {
+            padding: 0.4em;
+            padding-top: 0.2em;
+            padding-bottom: 0.3em;
+            background-color: var(--dimmer_theme_color);
+            color: white;
+            border-radius: 0.4em;
+            margin-top: 0.4em;
+        }
+
+        .loginbtn {
+            color: white !important;
+            margin-top: 4em;
+        }
+
+        .oauthbtn {
+            color: white !important;
+            margin-top: 1em;
+        }
+
+        .alternativeAccount:not(.disabled) {
+            cursor: pointer;
+        }
+
+        .alternativeAccount:not(.disabled):hover {
+            background-color: rgb(245, 245, 245);
+        }
+
+        .alternativeAccount:disabled {
+            opacity: 0.6;
+            pointer-events: none !important;
+            user-select: none;
+            cursor: not-allowed;
+        }
+
+        .loginLogo {
+            margin-top: 4em;
+        }
+
+        @media (orientation: landscape) and (max-height: 765px) {
             .rightLoginFrame {
-                margin-top: 5em;
-                margin-right: 5em;
-                margin-left: 5em;
-                height:calc(100% - 10em);
-                border-radius: 1em;
+                width: 500px !important;
+                margin-left: auto;
+                margin-right: auto;
+                margin-top: 0;
+                height: 100%;
+                overflow-y: auto;
+                border-radius: 0;
             }
 
-            .leftPictureFrame{
-                min-width:calc(100%);
+            .loginLogo {
+                margin-top: 1.2em;
             }
         }
-    }
-
-    .fullHeightImage{
-        height:100% !important;
-        position:relative;
-        left:-20px;
-        
-    }
-
-    .bottombar{
-        position:absolute;
-        bottom:1em;
-        left:0;
-        padding-left: 20px;
-        width:100%;
-    }
-
-    #animationFrame{
-        position:absolute;
-        bottom:0px;
-        width:100%;
-    }
-
-    .textbox{
-        margin-bottom:15px;
-    }
-
-    .themecolor{
-        background-color: var(--main_theme_color) !important;
-        transition: background-color 0.1s;
-    }
-
-    .themecolor:hover{
-        background-color: var(--secondary_theme_color) !important;
-    }
-
-    .subthemecolor{
-        background-color: var(--secondary_theme_color) !important;
-        transition: background-color 0.1s;
-    }
-
-    .subthemecolor:hover{
-        background-color: var(--dimmer_theme_color) !important;
-    }
-
-    .inversehighlight{
-        padding: 0.4em;
-        padding-top: 0.2em;
-        padding-bottom: 0.3em;
-        background-color: var(--dimmer_theme_color);
-        color: white;
-        border-radius: 0.4em;
-        margin-top: 0.4em;
-    }
-
-    .loginbtn{
-        color:white !important;
-        margin-top:4em;
-    }
-
-    .oauthbtn{
-        color:white !important;
-        margin-top:1em;
-    }
-
-    .alternativeAccount:not(.disabled){
-        cursor: pointer;
-    }
-
-    .alternativeAccount:not(.disabled):hover{
-        background-color: rgb(245, 245, 245);
-    }
-
-    .alternativeAccount:disabled{
-        opacity: 0.6;
-        pointer-events: none !important;
-        user-select: none;
-        cursor: not-allowed;
-    }
-
-    .loginLogo{
-        margin-top: 4em;
-    }
-
-    @media (orientation: landscape) and (max-height: 765px) {
-        .rightLoginFrame{
-            width: 500px !important;
-            margin-left: auto;
-            margin-right: auto;
-            margin-top: 0;
-            height: 100%;
-            overflow-y: auto;
-            border-radius: 0;
-        }
-        
-        .loginLogo{
-            margin-top: 1.2em;
-        }
-    }
-
     </style>
-    </head>
-    <body>
-        <div class="leftPictureFrame">
-            
-        </div>
-        <div id="loginInterface" class="rightLoginFrame">
-            <img class="ui medium image loginLogo" src="data:image/png;base64, {{service_logo}}">
+</head>
 
-            <div class="ui borderless basic segment">
-                <p>Sign in to <span class="hostname">ArozOS</span> with your username and password</p>
-                
-               
-                
-                <div class="ui fluid input textbox">
-                    <input id="username" type="text" placeholder="Username">
-                </div>
-                <div class="ui fluid input textbox">
-                    <input id="magic" type="password" placeholder="Password">
-                </div>
+<body>
+    <div class="leftPictureFrame">
 
-                <div class="ui checkbox">
-                    <input id="rmbme" type="checkbox">
-                    <label for="rmbme">Remember Me</label>
-                </div>
-                
-                <br><br>
-                <button id="loginbtn" class="ui button loginbtn themecolor" style="display:inline-block;">Sign In</button>
-                <div class="oauthonly" style="display:inline-block;">
-                    <a class="ui button oauthbtn subthemecolor" href="system/auth/oauth/login">Sign In via OAuth 2.0</a><br>
-                </div>
-                <div class="ldaponly" style="display:inline-block;">
-                    <a class="ui button oauthbtn subthemecolor" href="ldapLogin.system">Sign In via LDAP</a><br>
-                </div>
-                <div class="resumableOnly" style="display:none;">
-                    <br>
-                    <div class="ui clickable segment alternativeAccount" style="margin-bottom: 0px; padding-bottom: 8px; width: 100%; padding-top: 0px;">
-                        <div style="margin-top: 0.6em;">
-                            <div class="ui header">
-                                <img class="usericon ui circular image" src="img/public/user.svg">
-                                <div class="content" style="font-size: 95% !important;">
-                                    <span class="username"><i class="ui loading spinner icon"></i></span> 
-                                    <div class="sub header usergroup"><i class="ui green check circle icon" style="margin-right: 0px;"></i> Resumable Session</div>
-                                </div>
+    </div>
+    <div id="loginInterface" class="rightLoginFrame">
+        <img class="ui medium image loginLogo" src="data:image/png;base64, {{service_logo}}">
+
+        <div class="ui borderless basic segment">
+            <p locale="signin/to" style="display: inline;">Sign in to </p><span class="hostname" style="display: inline;">ArozOS</span><p locale="signin/with" style="display: inline;"> with your username and password</p><br/>
+            <br>
+
+
+            <div class="ui fluid input textbox">
+                <input id="username" type="text" placeholder="Username">
+            </div>
+            <div class="ui fluid input textbox">
+                <input id="magic" type="password" placeholder="Password">
+            </div>
+
+            <div class="ui checkbox">
+                <input id="rmbme" type="checkbox">
+                <label for="rmbme">Remember Me</label>
+            </div>
+
+            <br><br>
+            <button id="loginbtn" class="ui button loginbtn themecolor" locale="signIn" style="display:inline-block;">Sign In</button>
+            <div class="oauthonly" style="display:inline-block;">
+                <a class="ui button oauthbtn subthemecolor" href="system/auth/oauth/login" locale="signIn/OAuth">Sign In via OAuth 2.0</a><br>
+            </div>
+            <div class="ldaponly" style="display:inline-block;">
+                <a class="ui button oauthbtn subthemecolor" href="ldapLogin.system" locale="signIn/LDAP">Sign In via LDAP</a><br>
+            </div>
+            <div class="resumableOnly" style="display:none;">
+                <br>
+                <div class="ui clickable segment alternativeAccount"
+                    style="margin-bottom: 0px; padding-bottom: 8px; width: 100%; padding-top: 0px;">
+                    <div style="margin-top: 0.6em;">
+                        <div class="ui header">
+                            <img class="usericon ui circular image" src="img/public/user.svg">
+                            <div class="content" style="font-size: 95% !important;">
+                                <span class="username"><i class="ui loading spinner icon"></i></span>
+                                <div class="sub header usergroup"><i class="ui green check circle icon"
+                                        style="margin-right: 0px;"></i> Resumable Session</div>
                             </div>
                         </div>
                     </div>
-                    <br>
-                    <button class="ui subthemecolor newResumableSession button" style="color: white; display:none;"><i class="ui add icon"></i> Create New Session</button>
                 </div>
-
                 <br>
-                <div class="ui breadcrumb" style="margin-top:12px;">
-                    <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
-                    <div class="divider signup"> / </div>
-                    <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
-                </div>
-                <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span id="errmsg">Error. Incorrect username or password.</span></p>
-               
+                <button class="ui subthemecolor newResumableSession button" locale="btn/CreateNewSession" style="color: white; display:none;"><i
+                        class="ui add icon"></i> Create New Session</button>
             </div>
-           
-            <div class="bottombar">
-                © <a href="https://arozos.com">ArozOS</a> 2017 - <span class="thisyear"></span><br>
-                <small class="inversehighlight" style="font-size: 80%">Request Timestamp: <span id="requestTime"></span> | <span id="requestHostCommonName"></span></small>
+
+            <br>
+            <div class="ui breadcrumb" style="margin-top:12px;">
+                <a class="section signup" style="cursor:pointer; display:none;"
+                    href="public/register/register.system">Sign Up</a>
+                <div class="divider signup"> / </div>
+                <a id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
             </div>
+            <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span
+                    id="errmsg">Error. Incorrect username or password.</span></p>
+
         </div>
-        
+
+        <div class="bottombar">
+            © <a href="https://arozos.com">ArozOS</a> 2017 - <span class="thisyear"></span><br>
+            <small class="inversehighlight" style="font-size: 80%">Request Timestamp: <span id="requestTime"></span> |
+                <span id="requestHostCommonName"></span></small>
+        </div>
+    </div>
+
     <script>
         var redirectionAddress = "{{redirection_addr}}";
         var loginAddress = "{{login_addr}}";
@@ -248,19 +257,31 @@
         var autoRedirectTimer;
         var isMobile = false; //initiate as false
         // device detection
-        if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent) 
-            || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(navigator.userAgent.substr(0,4))) { 
+        if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|ipad|iris|kindle|Android|Silk|lge |maemo|midp|mmp|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(navigator.userAgent)
+            || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(navigator.userAgent.substr(0, 4))) {
             isMobile = true;
-        }  
-
-
-
-        if (isMobile){
-            //Full screen the login panel
-            $("#loginInterface").css("width","100%");
         }
 
-        if (systemUserCount == 0){
+        if (isMobile) {
+            //Full screen the login panel
+            $("#loginInterface").css("width", "100%");
+        }
+
+        if (typeof (applocale) != "undefined") {
+            //Applocale found. Do localization
+            applocale.init("./SystemAO/locale/login.json", function () {
+                applocale.translate();
+            });
+        } else {
+            //Applocale not found. Is this a trim down version of ArozOS?
+            var applocale = {
+                getString: function (key, original) {
+                    return original;
+                }
+            }
+        }
+
+        if (systemUserCount == 0) {
             //There are no user in this system yet. Rediect to user setup
             window.location.href = "/user.system";
         }
@@ -268,73 +289,73 @@
         //Hide elements by default
         $(".ldaponly").hide();
         $(".oauthonly").hide();
-        
-        $(document).ready(function(){
+
+        $(document).ready(function () {
             function zeroPad(num) {
                 return num < 10 ? '0' + num : num;
             }
 
-            var currentdate = new Date(); 
+            var currentdate = new Date();
             var datetime = zeroPad(currentdate.getDate()) + "/"
-                + zeroPad(currentdate.getMonth() + 1) + "/" 
-                + currentdate.getFullYear() + " "  
-                + zeroPad(currentdate.getHours()) + ":"  
-                + zeroPad(currentdate.getMinutes()) + ":" 
+                + zeroPad(currentdate.getMonth() + 1) + "/"
+                + currentdate.getFullYear() + " "
+                + zeroPad(currentdate.getHours()) + ":"
+                + zeroPad(currentdate.getMinutes()) + ":"
                 + zeroPad(currentdate.getSeconds());
             $("#requestTime").text(datetime);
             $("#requestHostCommonName").text(location.hostname);
             $(".ui.checkbox").checkbox();
             //Check if the user already logged in
-            $.get("system/auth/checkLogin",function(data){
-                try{
-                    if (data === true || data.trim() == "true"){
-                    //User already logged in. Redirect to target page.
-                    if (redirectionAddress == ""){
-                        //Redirect back to index
-                        window.location.href = "/";
-                    }else{
-                        console.log(data);
-                        //window.location.href = redirectionAddress;
+            $.get("system/auth/checkLogin", function (data) {
+                try {
+                    if (data === true || data.trim() == "true") {
+                        //User already logged in. Redirect to target page.
+                        if (redirectionAddress == "") {
+                            //Redirect back to index
+                            window.location.href = "/";
+                        } else {
+                            console.log(data);
+                            //window.location.href = redirectionAddress;
+                        }
                     }
-                }
-                }catch(ex){
+                } catch (ex) {
                     //Assume not logged in
                     console.log(data);
                 }
-                
+
             });
 
             //Check if the system is open for registry
-            $.get("public/register/checkPublicRegister",function(data){
-                if (data == true){
+            $.get("public/register/checkPublicRegister", function (data) {
+                if (data == true) {
                     $(".signup").show();
-                }else{
+                } else {
                     $(".signup").remove();
                 }
             });
 
             //OAuth related code, check if system is open for ext login
-            $.getJSON("system/auth/oauth/checkoauth",function(data){
-                if (data.enabled == true){
+            $.getJSON("system/auth/oauth/checkoauth", function (data) {
+                if (data.enabled == true) {
                     $(".oauthonly").show();
-                }else{
+                } else {
                     $(".oauthonly").hide();
                 }
                 //if auto redirect is on
-                if(data.auto_redirect == true) {
+                if (data.auto_redirect == true) {
                     //checking if they come from desktop.system or mobile.system
                     //if they come from that two pages, usually mean they are just logged out.
-                    if(document.referrer != ''){
+                    if (document.referrer != '') {
                         var path = new URL(document.referrer);
                     } else {
                         var path = new URL('http://0.0.0.0');
 
                     }
-                    if(document.referrer != window.location.origin + "/desktop.system" && document.referrer != window.location.origin + "/mobile.system" && path.origin + path.pathname !=  window.location.origin + "/system/auth/oauth/authorize"){
-                        $(".ts.borderless.basic.segment").attr("style","display: none;");
-                        $(".ts.borderless.basic.segment").attr("id","aoLogin");
+                    if (document.referrer != window.location.origin + "/desktop.system" && document.referrer != window.location.origin + "/mobile.system" && path.origin + path.pathname != window.location.origin + "/system/auth/oauth/authorize") {
+                        $(".ts.borderless.basic.segment").attr("style", "display: none;");
+                        $(".ts.borderless.basic.segment").attr("id", "aoLogin");
                         $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ui borderless basic segment"><p><i class="key icon"></i>Redirecting to organization sign-in page in 5 seconds...</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">Cancel</a></div>');
-                        autoRedirectTimer = setTimeout(function(){
+                        autoRedirectTimer = setTimeout(function () {
                             window.location.href = "system/auth/oauth/login?redirect=" + redirectionAddress;
                         }, 3000);
                     }
@@ -342,34 +363,34 @@
             });
 
             //LDAP related code, check if system is open for ext login
-            $.getJSON("system/auth/ldap/checkldap",function(data){
-                if (data.enabled == true && window.location.pathname.toLowerCase() != "/ldaplogin.system"){
+            $.getJSON("system/auth/ldap/checkldap", function (data) {
+                if (data.enabled == true && window.location.pathname.toLowerCase() != "/ldaplogin.system") {
                     $(".ldaponly").show();
-                }else{
+                } else {
                     $(".ldaponly").hide();
                 }
             });
 
             //Switchable accounts related code, check if the user has a session to continue
-            $.getJSON("system/auth/u/p/list",function(data){
-                if (data.Username != ""){
+            $.getJSON("system/auth/u/p/list", function (data) {
+                if (data.Username != "") {
                     //There is a session to resume
                     let resumeableAccountUsername = data.Username;
                     $(".resumableOnly").show();
                     $(".resumableOnly").find(".username").text(data.Username);
                     console.log(data.ProfileImage, $('.resumableOnly').find(".usericon"));
-                    if (data.ProfileImage != ""){
+                    if (data.ProfileImage != "") {
                         $('.resumableOnly').find(".usericon").attr("src", data.ProfileImage);
                     }
 
-                    $(".alternativeAccount").on("click", function(event){
+                    $(".alternativeAccount").on("click", function (event) {
                         $("#username").val(resumeableAccountUsername);
                         $("#username").parent().addClass("disabled");
                         $(".alternativeAccount").addClass("disabled");
                         $(".newResumableSession").show();
                     });
 
-                    $(".newResumableSession").on("click", function(event){
+                    $(".newResumableSession").on("click", function (event) {
                         $("#username").val("");
                         $("#username").parent().removeClass("disabled");
                         $(".alternativeAccount").removeClass("disabled");
@@ -378,56 +399,56 @@
                 }
             });
 
-            if(get('redirect') != undefined){
-                $(".section.signin").attr("href","system/auth/oauth/login?redirect=" + redirectionAddress);
+            if (get('redirect') != undefined) {
+                $(".section.signin").attr("href", "system/auth/oauth/login?redirect=" + redirectionAddress);
             }
 
             //Get the system hostname and replace the hostname fields
-            $.get("system/info/getArOZInfo", function(data){
+            $.get("system/info/getArOZInfo", function (data) {
                 document.title = data.HostName + " - Sign In"
                 $(".hostname").text(data.HostName);
             });
         });
 
         //Event handlers for buttons
-        $("#loginbtn").on("click",function(){
+        $("#loginbtn").on("click", function () {
             login();
         });
 
-        $("input").on("keydown",function(event){
+        $("input").on("keydown", function (event) {
             if (event.keyCode === 13) {
                 event.preventDefault();
-                if ($(this).attr("id") == "magic"){
+                if ($(this).attr("id") == "magic") {
                     login();
-                }else{
+                } else {
                     //Fuocus to password field
                     $("#magic").focus();
                 }
-                
+
             }
         });
 
         //Login system with the given username and password
-        function login(){
+        function login() {
             var username = $("#username").val();
             var magic = $("#magic").val();
             var rmbme = document.getElementById("rmbme").checked;
             $("input").addClass('disabled');
-            $.post(loginAddress, {"username": username, "password": magic, "rmbme": rmbme}).done(function(data){
-                if (data.error !== undefined){
+            $.post(loginAddress, { "username": username, "password": magic, "rmbme": rmbme }).done(function (data) {
+                if (data.error !== undefined) {
                     //Something went wrong during the login
                     $("#errmsg").text(data.error);
                     $("#errmsg").parent().stop().finish().slideDown('fast').delay(5000).slideUp('fast');
-                }else if(data.redirect !== undefined){
+                } else if (data.redirect !== undefined) {
                     //LDAP Related Code
                     window.location.href = data.redirect;
-                }else{
+                } else {
                     //Login succeed
-                    if (redirectionAddress == "" || redirectionAddress == "/"){
+                    if (redirectionAddress == "" || redirectionAddress == "/") {
                         //Redirect back to index
                         window.location.href = "./";
-                    }else{
-                        if (window.location.hash.length > 0){
+                    } else {
+                        if (window.location.hash.length > 0) {
                             redirectionAddress += window.location.hash
                         }
                         window.location.href = redirectionAddress;
@@ -438,12 +459,12 @@
 
         }
 
-        function get(name){
-            if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
+        function get(name) {
+            if (name = (new RegExp('[?&]' + encodeURIComponent(name) + '=([^&]*)')).exec(location.search))
                 return decodeURIComponent(name[1]);
         }
 
-        function stopAutoRedirect(){
+        function stopAutoRedirect() {
             clearTimeout(autoRedirectTimer);
             $("#aoLogin").removeAttr("style");
             $("#autoRedirectSegment").attr("style", "display:none");
@@ -451,17 +472,18 @@
 
         $(".thisyear").text(new Date().getFullYear());
 
-        function updateRenderElements(){
-            if (window.innerHeight < 520){
+        function updateRenderElements() {
+            if (window.innerHeight < 520) {
                 $(".bottombar").hide();
-            }else{
+            } else {
                 $(".bottombar").show();
             }
         }
         updateRenderElements();
-        $(window).on("resize", function(){
+        $(window).on("resize", function () {
             updateRenderElements();
         });
     </script>
-    </body>
+</body>
+
 </html>

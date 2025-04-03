@@ -1,0 +1,56 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "strings": {
+                "signin/to": "サインイン先: ",
+                "signin/with": " ユーザー名とパスワードを使用して",
+                "signIn": "サインイン",
+                "signIn/OAuth": "OAuth 2.0でサインイン",
+                "signIn/LDAP": "LDAPでサインイン",
+                "btn/CreateNewSession": "新しいセッションを作成"
+            }
+        },
+        "ko-kr": {
+            "strings": {
+                "signin/to": "로그인 대상: ",
+                "signin/with": " 사용자 이름과 비밀번호로",
+                "signIn": "로그인",
+                "signIn/OAuth": "OAuth 2.0으로 로그인",
+                "signIn/LDAP": "LDAP으로 로그인",
+                "btn/CreateNewSession": "새 세션 생성"
+            }
+        },
+        "zh-cn": {
+            "strings": {
+                "signin/to": "登录到 ",
+                "signin/with": " 使用您的用户名和密码",
+                "signIn": "登录",
+                "signIn/OAuth": "通过 OAuth 2.0 登录",
+                "signIn/LDAP": "通过 LDAP 登录",
+                "btn/CreateNewSession": "创建新会话"
+            }
+        },
+        "zh-hk": {
+            "strings": {
+                "signin/to": "登入至 ",
+                "signin/with": " 使用您的用戶名及密碼",
+                "signIn": "登入",
+                "signIn/OAuth": "透過 OAuth 2.0 登入",
+                "signIn/LDAP": "透過 LDAP 登入",
+                "btn/CreateNewSession": "建立新會話"
+            }
+        },
+        "zh-tw": {
+            "strings": {
+                "signin/to": "登入至 ",
+                "signin/with": " 使用您的使用者名稱及密碼",
+                "signIn": "登入",
+                "signIn/OAuth": "透過 OAuth 2.0 登入",
+                "signIn/LDAP": "透過 LDAP 登入",
+                "btn/CreateNewSession": "建立新工作階段"
+            }
+        }
+    }
+}

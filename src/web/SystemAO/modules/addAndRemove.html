@@ -1,128 +1,156 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Subservices</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-        <style>
-            .ui.active.segment{
-                background-color: #f5f5f5 !important;
-            }
 
-            .ui.segment.installedModule{
-                cursor: pointer;
-                margin: 0px !important;
-            }
+<head>
+    <title>Subservices</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+    <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+    <style>
+        .ui.active.segment {
+            background-color: #f5f5f5 !important;
+        }
 
-            .ui.segment.installedModule:hover{
-                background-color: #e3e3e3;
-            }
-        </style>
-    
-    </head>
-    <body>
-        <br>
+        .ui.segment.installedModule {
+            cursor: pointer;
+            margin: 0px !important;
+        }
+
+        .ui.segment.installedModule:hover {
+            background-color: #e3e3e3;
+        }
+    </style>
+
+</head>
+
+<body>
+    <br>
+    <div class="ui container">
         <div class="ui container">
-            <div class="ui container">
-                <div class="ui header">
-                    <i class="add icon"></i>
-                    <div class="content">
-                        Add & Remove Module
-                        <div class="sub header">Install or Uninstall WebApp Modules from this Host</div>
-                    </div>
+            <div class="ui header">
+                <i class="add icon"></i>
+                <div class="content">
+                    <span locale="title">Add & Remove Module</span>
+                    <div class="sub header" locale="subheader">Install or Uninstall WebApp Modules from this Host</div>
                 </div>
+            </div>
+        </div>
+        <div class="ui divider"></div>
+        <div class="ui red message" style="display:none;" id="errmsgbox">
+            <h4 class="ui header">
+                <i class="remove icon"></i>
+                <div class="content">
+                    <span locale="msg/instFail">Module Installation Failed</span>
+                    <div class="sub header" id="errmsg"></div>
+                </div>
+            </h4>
+        </div>
+        <div class="ui green message" style="display:none;" id="ok">
+            <h4 class="ui header">
+                <i class="checkmark icon"></i>
+                <div class="content">
+                    <span locale="msg/instComplete">Module Installation Completed</span>
+                    <div class="sub header" locale="msg/complete/subheader">You should be able to see your new module in
+                        the list below.</div>
+                </div>
+            </h4>
+        </div>
+        <div class="ui blue segment">
+            <h4 class="ui header">
+                <span locale="newWebApp/title">New WebApp</span>
+                <div class="sub header" locale="newWebApp/subheader">Download new WebApp to your ArozOS Host</div>
+            </h4>
+
+            <div class="ui divider"></div>
+            <h5 locale="newWebApp/installViaGitRepo">Install via Git Repository</h5>
+            <p locale="newWebApp/installViaGitRepo/subheader">
+                Enter the Github repo link in the field below and click "Install"
+            </p>
+            <div class="ui small fluid action input" id="installViaGitInput">
+                <input id="gitlink" type="text" placeholder="http://github.com/....">
+                <button class="ui blue button" onclick="installViaGit();" >
+                    <i class="download icon"></i>
+                    <span locale="button/install">Install</span>
+                </button>
+            </div>
+
+            <div class="ui blue message" style="display:none;" id="installingDialog">
+                <p><i class="ui loading spinner icon"></i>
+                    <span locale="newWebApp/installing">Module installing in the background. Please wait until this dialog is closed.</span>
+                </p>
+            </div>
+
+            <div class="ui divider"></div>
+            <h5 locale="newWebApp/InstallViaZipFile">Install via Zip File</h4>
+            <p locale="newWebApp/InstallViaZipFile/subheader">Select your module zip file and upload it to the system for installation.</p>
+            <div class="ui small fluid action input">
+                <input type="text" id="installpendingFile" placeholder="New Module.zip">
+                <button class="ui button" onclick="selectInstaller()">
+                    <i class="folder open icon"></i>
+                    <span locale="button/selectInstaller">Select Installer</span>
+                </button>
+                <button class="ui blue button" onclick="InstallViaZipFile(this)">
+                    <i class="zip icon"></i>
+                    <span locale="button/install">Install</span>
+                </button>
+            </div>
+
+
+        </div>
+        <div class="ui red segment">
+            <h4 class="ui header">
+                <span locale="removeWebApp/title">Remove WebApp</span>
+                <div class="sub header" locale="removeWebApp/subheader">Remove WebApp from your ArozOS Host</div>
+            </h4>
+            <div class="ui green message" id="succ" style="display:none;">
+                <i class="check icon"></i>
+                <span locale="msg/uninstComplete">WebApp module uninstalled successfully.</span>
             </div>
             <div class="ui divider"></div>
-            <div class="ui red message" style="display:none;" id="errmsgbox">
-                <h4 class="ui header">
-                    <i class="remove icon"></i>
-                    <div class="content">
-                        Module Installation Failed
-                        <div class="sub header" id="errmsg"></div>
-                    </div>
-                </h4>
-            </div>
-            <div class="ui green message" style="display:none;" id="ok">
-                <h4 class="ui header">
-                    <i class="checkmark icon"></i>
-                    <div class="content">
-                        Module Installation Completed
-                        <div class="sub header" >You should be able to see your new module in the list below.</div>
-                    </div>
-                </h4>
-            </div>
-            <div class="ui blue segment">
-                <h4 class="ui header">
-                    New WebApp
-                    <div class="sub header">Download new WebApp to your ArozOS Host</div>
-                </h4>
-                <div class="ui divider"></div>
-                <h5>Install via Git Repository</h5>
-                <p>Enter the Github repo link in the field below and click "Install"</p>
-                <div class="ui small fluid action input" id="installViaGitInput">
-                    <input id="gitlink" type="text" placeholder="http://github.com/....">
-                    <button class="ui blue button" onclick="installViaGit();"><i class="download icon"></i> Install</button>
-                </div>
-                <div class="ui blue message" style="display:none;" id="installingDialog">
-                    <p><i class="ui loading spinner icon"></i> Module installing in the background. Please wait until this dialog is closed.</p>
-                </div>
-                <div class="ui divider"></div>
-                <h4>Install via Zip File</h4>
-              
-                
-                <p>Select your module zip file and upload it to the system for installation.</p>
-                <div class="ui small fluid action input">
-                    <input type="text" id="installpendingFile" placeholder="New Module.zip">
-                    <button class="ui button" onclick="selectInstaller()"><i class="folder open icon"></i> Select Installer</button>
-                    <button class="ui blue button" onclick="InstallViaZipFile(this)"><i class="zip icon" ></i> Install</button>
-                </div>
-                
-            
-            </div>
-            <div class="ui red segment">
-                <h4 class="ui header">
-                    Remove WebApp
-                    <div class="sub header">Remove WebApp from your ArozOS Host</div>
-                </h4>
-                <div class="ui green message" id="succ" style="display:none;">
-                    <i class="check icon"></i> WebApp module uninstalled successfully. 
-                </div>
-                <div class="ui divider"></div>
-                <div id="modulelist">
-                    No Module Installed
-                </div>
+            <div id="modulelist" locale="msg/noModuleInstalled">
+                No Module Installed
             </div>
         </div>
+    </div>
 
-        <div id="loadingUI" class="ui dimmer">
-            <div class="ui indeterminate text loader">Fetching Files</div>
+    <div id="loadingUI" class="ui dimmer">
+        <div class="ui indeterminate text loader" locale="fetchingFiles">
+            Fetching Files
         </div>
-        <script>
-            var moduleList = [];
+    </div>
+    <script>
 
-            initModuleUninstallList();
-            function bytesToSize(bytes) {
-                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-                if (bytes == 0) return '0 Byte';
-                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-                return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
-            }
+        // Load locale
+        var addAndRemoveLocale = NewAppLocale();
+        addAndRemoveLocale.init("../locale/system_settings/modules/addAndRemove.json", function () {
+            addAndRemoveLocale.translate();
+        });
 
-            function initModuleUninstallList(){
-                $.get("../../system/module/install", function(data){
-                    console.log(data);
-                    moduleList = data;
-                    $("#modulelist").html("");
-                    data.forEach(mod => {
-                        var uninstallButtonClass = "";
-                        if (mod.Uninstallable == false){
-                            uninstallButtonClass = "disabled"
-                        }
-                        $("#modulelist").append(`<div class="ui basic segment installedModule" onclick="selectThisModule(event, this);">
+        var moduleList = [];
+
+        initModuleUninstallList();
+        function bytesToSize(bytes) {
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes == 0) return '0 Byte';
+            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+        }
+
+        function initModuleUninstallList() {
+            $.get("../../system/module/install", function (data) {
+                console.log(data);
+                moduleList = data;
+                $("#modulelist").html("");
+                data.forEach(mod => {
+                    var uninstallButtonClass = "";
+                    if (mod.Uninstallable == false) {
+                        uninstallButtonClass = "disabled"
+                    }
+                    $("#modulelist").append(`<div class="ui basic segment installedModule" onclick="selectThisModule(event, this);">
                         <img class="ui top aligned image" style="margin-right: 12px; width: 50px;" src="../../${mod.IconPath}">
                         <div style="display:inline-block;">
                             <b>${mod.Name}</b>
@@ -139,131 +167,132 @@
                             </div>
                         </div>
                     </div> `);
-                    });
                 });
-            }
+            });
+        }
 
-            function removeModule(e, btn){
-                var modulename = $(btn).attr("name");
-                //Ask for confirmation
-                if (confirm("Confirm permanently remove " + modulename + " ?")){
-                    $.ajax({
-                        url: "../../system/module/install",
-                        data: {opr: "remove", module: modulename},
-                        success: function(data){
-                            if (data.error !== undefined){
-                                $(btn).parent().find(".errmsg").text(data.error);
-                                $(btn).parent().find(".errordialog").slideDown("fast").delay(10000).slideUp("fast");
-                            }else{
-                                //Reload list
-                                initModuleUninstallList();
-
-                                //Reload desktop module list
-                                if (parent && parent.initModuleList != undefined){
-                                    parent.initModuleList();
-                                }
-
-                                $("#succ").slideDown("fast").delay(3000).slideUp('fast');
-                            }
-
-                        }
-                    });
-                }
-            }
-
-            function selectInstaller(){
-                ao_module_openFileSelector(fileSelected, "user:/Desktop", "file",true, {
-                    filter: ["zip"]
-                });
-            }
-
-            function fileSelected(filedata){
-                for (var i=0; i < filedata.length; i++){
-                    var filename = filedata[i].filename;
-                    var filepath = filedata[i].filepath;
-                    $("#installpendingFile").val(filepath);
-                }
-            }
-
-            function InstallViaZipFile(btn){
-                //Select the upload module zip file
-                var installerPath = $("#installpendingFile").val();
-                if (installerPath == ""){
-                    $("#installpendingFile").parent().addClass("error");
-                }else{
-                    $("#installpendingFile").parent().removeClass("error");
-                }
-
-                $(btn).addClass("loading");
-                //Install it
-                $.ajax({
-                    url: "../../system/modules/installViaZip",
-                    data: {path: installerPath},
-                    success: function(data){
-                        console.log(data);
-                        if (data.error !== undefined){
-                            $("#errmsg").text(data.error);
-                            $("#errmsgbox").slideDown("fast").delay(10000).slideUp("fast");
-                        }else{
-                            //Install completed.
-                            if (parent && parent.initModuleList != undefined){
-                                parent.initModuleList();
-                            }
-
-                            initModuleUninstallList();
-                            $("#ok").slideDown('fast').delay(5000).slideUp('fast');
-                        }
-                        $(btn).removeClass("loading");
-                    },
-                    error: function(){
-                        $(btn).removeClass("loading");
-                        alert("Installation failed due to unknown reason")
-                    }
-                })
-            }
-            
-            function installViaGit(){
-                var url = $("#gitlink").val();
-                $("#installingDialog").show();
-                $("#installViaGitInput").addClass("disabled");
+        function removeModule(e, btn) {
+            var modulename = $(btn).attr("name");
+            //Ask for confirmation
+            if (confirm("Confirm permanently remove " + modulename + " ?")) {
                 $.ajax({
                     url: "../../system/module/install",
-                    data: {opr: "gitinstall", url: url},
-                    success: function(data){
-                        console.log(data);
-                        if (data.error !== undefined){
-                            $("#errmsg").text(data.error);
-                            $("#errmsgbox").slideDown("fast").delay(10000).slideUp("fast");
-                        }else{
-                            //OK. Reload the list
-                            if (parent && parent.initModuleList != undefined){
+                    data: { opr: "remove", module: modulename },
+                    success: function (data) {
+                        if (data.error !== undefined) {
+                            $(btn).parent().find(".errmsg").text(data.error);
+                            $(btn).parent().find(".errordialog").slideDown("fast").delay(10000).slideUp("fast");
+                        } else {
+                            //Reload list
+                            initModuleUninstallList();
+
+                            //Reload desktop module list
+                            if (parent && parent.initModuleList != undefined) {
                                 parent.initModuleList();
                             }
 
-                            //Reload the uninstall list
-                            initModuleUninstallList();
-                           
+                            $("#succ").slideDown("fast").delay(3000).slideUp('fast');
                         }
-                        $("#installingDialog").hide();
-                        $("#installViaGitInput").removeClass("disabled");
-                    },
-                    error: function(){
-                        $("#errmsg").text(data.error);
-                        $("#errmsgbox").slideDown("fast").delay(10000).slideUp("fast");
-                        $("#installingDialog").hide();
-                        $("#installViaGitInput").removeClass("disabled");
+
                     }
                 });
+            }
+        }
 
+        function selectInstaller() {
+            ao_module_openFileSelector(fileSelected, "user:/Desktop", "file", true, {
+                filter: ["zip"]
+            });
+        }
+
+        function fileSelected(filedata) {
+            for (var i = 0; i < filedata.length; i++) {
+                var filename = filedata[i].filename;
+                var filepath = filedata[i].filepath;
+                $("#installpendingFile").val(filepath);
+            }
+        }
+
+        function InstallViaZipFile(btn) {
+            //Select the upload module zip file
+            var installerPath = $("#installpendingFile").val();
+            if (installerPath == "") {
+                $("#installpendingFile").parent().addClass("error");
+            } else {
+                $("#installpendingFile").parent().removeClass("error");
             }
 
-            function selectThisModule(e, obj){
-                e.preventDefault();
-                $(".ui.segment.installedModule.active").removeClass('active');
-                $(".actionField").hide();
-                $(obj).addClass("active");
-                $(obj).find(".actionField").show();
-            }
-        </script>
-    </body>
+            $(btn).addClass("loading");
+            //Install it
+            $.ajax({
+                url: "../../system/modules/installViaZip",
+                data: { path: installerPath },
+                success: function (data) {
+                    console.log(data);
+                    if (data.error !== undefined) {
+                        $("#errmsg").text(data.error);
+                        $("#errmsgbox").slideDown("fast").delay(10000).slideUp("fast");
+                    } else {
+                        //Install completed.
+                        if (parent && parent.initModuleList != undefined) {
+                            parent.initModuleList();
+                        }
+
+                        initModuleUninstallList();
+                        $("#ok").slideDown('fast').delay(5000).slideUp('fast');
+                    }
+                    $(btn).removeClass("loading");
+                },
+                error: function () {
+                    $(btn).removeClass("loading");
+                    alert("Installation failed due to unknown reason")
+                }
+            })
+        }
+
+        function installViaGit() {
+            var url = $("#gitlink").val();
+            $("#installingDialog").show();
+            $("#installViaGitInput").addClass("disabled");
+            $.ajax({
+                url: "../../system/module/install",
+                data: { opr: "gitinstall", url: url },
+                success: function (data) {
+                    console.log(data);
+                    if (data.error !== undefined) {
+                        $("#errmsg").text(data.error);
+                        $("#errmsgbox").slideDown("fast").delay(10000).slideUp("fast");
+                    } else {
+                        //OK. Reload the list
+                        if (parent && parent.initModuleList != undefined) {
+                            parent.initModuleList();
+                        }
+
+                        //Reload the uninstall list
+                        initModuleUninstallList();
+
+                    }
+                    $("#installingDialog").hide();
+                    $("#installViaGitInput").removeClass("disabled");
+                },
+                error: function () {
+                    $("#errmsg").text(data.error);
+                    $("#errmsgbox").slideDown("fast").delay(10000).slideUp("fast");
+                    $("#installingDialog").hide();
+                    $("#installViaGitInput").removeClass("disabled");
+                }
+            });
+
+        }
+
+        function selectThisModule(e, obj) {
+            e.preventDefault();
+            $(".ui.segment.installedModule.active").removeClass('active');
+            $(".actionField").hide();
+            $(obj).addClass("active");
+            $(obj).find(".actionField").show();
+        }
+    </script>
+</body>
+
 </html>

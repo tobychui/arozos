@@ -8,17 +8,19 @@
     <script type="application/javascript" src="../../script/jquery.min.js"></script>
     <script type="application/javascript" src="../../script/clipboard.min.js"></script>
     <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <script src="../../script/applocale.js"></script>
     <style>
         /* Tooltip container */
-        
+
         .tooltip {
             position: relative;
             display: inline-block;
             border-bottom: 1px dotted black;
             /* If you want dots under the hoverable text */
         }
+
         /* Tooltip text */
-        
+
         .tooltip .tooltiptext {
             visibility: hidden;
             width: 120px;
@@ -37,8 +39,9 @@
             opacity: 0;
             transition: opacity 0.3s;
         }
+
         /* Tooltip arrow */
-        
+
         .tooltip .tooltiptext::after {
             content: "";
             position: absolute;
@@ -58,10 +61,12 @@
             <div class="ui header">
                 <i class="key icon"></i>
                 <div class="content">
-                    LDAP Access
-                    <div class="sub header">Allow external account to access ArozOS with LDAP
+                    <span locale="header">LDAP Access</span>
+                    <div class="sub header" locale="subheader">Allow external account to access ArozOS with LDAP
                         <br>
-                        <i class="info circle icon"></i> Your current account MUST exist inside the LDAP server; otherwise synchronize function will not work properly.
+                        <i class="info circle icon"></i>
+                        <span locale="info">Your current account MUST exist inside the LDAP server; otherwise synchronize
+                            function will not work properly.</span>
                     </div>
                 </div>
             </div>
@@ -71,7 +76,7 @@
             <h5 class="ui header">
                 <i class="checkmark icon"></i>
                 <div class="content">
-                    Settings Updated
+                    <span locale="updates">Settings Updated</span>
                 </div>
             </h5>
         </div>
@@ -79,44 +84,44 @@
             <div class="field">
                 <div class="ui toggle checkbox">
                     <input type="checkbox" id="enable" name="public">
-                    <label>Enable LDAP</label>
+                    <label locale="enableLDAP">Enable LDAP</label>
                 </div>
             </div>
             <div class="field">
-                <label>Bind Username</label>
+                <label locale="bingUsername">Bind Username</label>
                 <div class="ui fluid input">
                     <input type="text" id="bind_username" placeholder="root">
                 </div>
             </div>
             <div class="field">
-                <label>Bind Password</label>
+                <label locale="bingPswd">Bind Password</label>
                 <div class="ui fluid input">
                     <input type="password" id="bind_password" placeholder="p@ssw0rd">
                 </div>
             </div>
             <div class="field">
-                <label>FQDN</label>
+                <label locale="FQDN">FQDN</label>
                 <div class="ui fluid input">
                     <input type="text" id="fqdn" placeholder="10.0.0.1">
                 </div>
             </div>
             <div class="field">
-                <label>Base DN</label>
+                <label locale="baseDN">Base DN</label>
                 <div class="ui fluid input">
                     <input type="text" id="base_dn" placeholder="cn=users,dc=ldap">
                 </div>
             </div>
-            <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
-            <button id="test_btn" onclick="test();" class="ui button" type="submit">Test Connection</button>
+            <button id="ntb" onclick="update();" class="ui green button" type="submit" locale="button/update">Update</button>
+            <button id="test_btn" onclick="test();" class="ui button" type="submit" locale="button/testConn">Test Connection</button>
         </div>
         <div class="ui divider"></div>
         <div id="testConnection" style="display: none">
             <table class="ui celled table">
                 <thead>
                     <tr>
-                        <th>Username</th>
-                        <th>Group belongs to</th>
-                        <th>Equivalence user group in arozos</th>
+                        <th locale="table/username">Username</th>
+                        <th locale="table/group">Group belongs to</th>
+                        <th locale="equGroup">Equivalence user group in arozos</th>
                     </tr>
                 </thead>
                 <tbody id="information">
@@ -129,12 +134,17 @@
 
 
     <script>
-        $(document).ready(function() {
+        // Load locale
+        var pageLocale = NewAppLocale();
+        pageLocale.init("../locale/advance/ldap.json", function () {
+            pageLocale.translate();
+        });
+        $(document).ready(function () {
             read();
         });
 
         function read() {
-            $.getJSON("../../system/auth/ldap/config/read", function(data) {
+            $.getJSON("../../system/auth/ldap/config/read", function (data) {
                 if (data.enabled) {
                     $("#enable").parent().checkbox("check")
                 }
@@ -150,13 +160,13 @@
 
         function update() {
             $.post("../../system/auth/ldap/config/write", {
-                    enabled: $("#enable").parent().checkbox("is checked"),
-                    bind_username: $("#bind_username").val(),
-                    bind_password: $("#bind_password").val(),
-                    fqdn: $("#fqdn").val(),
-                    base_dn: $("#base_dn").val(),
-                })
-                .done(function(data) {
+                enabled: $("#enable").parent().checkbox("is checked"),
+                bind_username: $("#bind_username").val(),
+                bind_password: $("#bind_password").val(),
+                fqdn: $("#fqdn").val(),
+                base_dn: $("#base_dn").val(),
+            })
+                .done(function (data) {
                     if (data.error != undefined) {
                         alert(data.error);
                     } else {
@@ -169,7 +179,7 @@
         function test() {
             $("#test_btn").text("Testing...");
             $.get("../../system/auth/ldap/config/testConnection")
-                .done(function(data) {
+                .done(function (data) {
                     $("#information").html("");
                     if (data.error != undefined) {
                         if (data.error != "") {
@@ -194,7 +204,7 @@
                         return;
                     }
                     //OK!
-                    $(data.userinfo).each(function(index, element) {
+                    $(data.userinfo).each(function (index, element) {
                         $("#information").append(`
                             <tr>
                                 <td data-label="username">` + element.username + `</td>
@@ -216,7 +226,7 @@
         function syncorize() {
             $("#sync_btn").text("Syncorizing...");
             $.get("../../system/auth/ldap/config/syncorizeUser")
-                .done(function(data) {
+                .done(function (data) {
                     if (data.error != undefined) {
                         alert(data.error);
                     } else {
