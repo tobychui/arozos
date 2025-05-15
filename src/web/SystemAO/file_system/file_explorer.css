@@ -249,17 +249,6 @@ body.darkTheme .ui.icon.button{
     color:var(--fileopr_oprtxt);
 }
 
-.navibar .twolines.fileOprBtn{
-    padding-top: 0.1em;
-    padding-bottom: 0.1em;
-}
-.navibar .twolines.fileOprBtn .opricon{
-    width: 40px;
-}
-.navibar .twolines.fileOprBtn .oprtxt{
-    font-size: 1em;
-}
-
 .navibar.mobile .fileOprBtn{
     padding-bottom: 0.4em;
     padding-top: 0.2em;
@@ -307,6 +296,13 @@ body.darkTheme .ui.icon.button{
 
 .navibar.mobile .fileoprGroupDivider{
     height: 64px;
+}
+
+
+.navibar .fileoprSmallBtnMobile .opricon {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
 }
 
 .ui.selection.dropdown{
