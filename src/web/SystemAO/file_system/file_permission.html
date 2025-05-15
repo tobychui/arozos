@@ -5,14 +5,12 @@
     <title>File Permissions</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.css">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
     <script type="text/javascript" src="../../script/jquery.min.js"></script>
     <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
     <script src="../../script/applocale.js"></script>
     <script type="text/javascript" src="../../script/ao_module.js"></script>
     <style>
-        body {}
-
         .fitted.checkbox {
             height: 20px;
         }
@@ -162,6 +160,30 @@
         var fileProperties = [];
         var groupID = 0;
 
+        // Permission map
+        const permissionMap = [
+            // User
+            { id: 1, pos: 0 }, // user_read (0b100000000)
+            { id: 2, pos: 1 }, // user_write (0b010000000)
+            { id: 3, pos: 2 }, // user_execute (0b001000000)
+
+            // Group
+            { id: 4, pos: 3 }, // group_read (0b000100000)
+            { id: 5, pos: 4 }, // group_write (0b000010000)
+            { id: 6, pos: 5 }, // group_execute (0b000001000)
+
+            // Other
+            { id: 7, pos: 6 }, // other_read (0b000000100)
+            { id: 8, pos: 7 }, // other_write (0b000000010)
+            { id: 9, pos: 8 }  // other_execute (0b000000001)
+        ];
+
+        // Cache the permission checkboxes
+        const permissionCheckboxes = permissionMap.reduce((acc, { id }) => {
+            acc[id] = document.getElementById(id);
+            return acc;
+        }, {});
+
         for (var i = 0; i < files.length; i++) {
             getPermission(files[i]);
         }
@@ -197,7 +219,7 @@
                     //Assign the permission checkbox
                     for (var i = 0; i < permissionBites.length; i++) {
                         if (permissionBites[i] == "1") {
-                            $("#" + (i + 1))[0].checked = true;
+                            permissionCheckboxes[i + 1].checked = true;
                         }
                     }
 
@@ -218,9 +240,9 @@
         }
 
         function resetCheckboxes() {
-            for (var i = 1; i < 10; i++) {
-                $("#" + i)[0].checked = false;
-            }
+            permissionMap.forEach(({ id }) => {
+                permissionCheckboxes[id].checked = false;
+            });
         }
 
         function update() {
@@ -243,23 +265,13 @@
 
         }
 
-
         function generatePermissionString() {
-            var binary = [];
-            for (var i = 1; i < 10; i++) {
-                if ($("#" + i)[0].checked == true) {
-                    binary.push(1);
-                } else {
-                    binary.push(0);
-                }
-            }
-
-            //Convert the binary into hex
-            var octalRepresentation = parseInt(binary.join(""), 2).toString(8);
-
-            return groupID + octalRepresentation;
+            const binary = new Array(9).fill(0);
+            permissionMap.forEach(({ id, pos }) => {
+                binary[pos] = permissionCheckboxes[id].checked ? 1 : 0; // 使用缓存引用
+            });
+            return groupID + parseInt(binary.join(''), 2).toString(8);
         }
-
 
     </script>
 </body>
