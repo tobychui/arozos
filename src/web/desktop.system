@@ -4,16 +4,15 @@
     <title>ArozOS Desktop</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./script/semantic/semantic.min.css">
+    <link rel="stylesheet" href="./script/fomantic/semantic.min.css">
     <link id="fwcss" rel="stylesheet" href="./script/ao.css">
     <link rel="stylesheet" href="./script/contextmenu.css">
     <link rel="stylesheet" href="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.css">
     <script type="text/javascript" src="./script/jquery.min.js"></script>
-    <script type="text/javascript" src="./script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="./script/fomantic/semantic.min.js"></script>
     <script type="text/javascript" src="./script/ao_module.js"></script>
     <script type="text/javascript" src="./SystemAO/desktop/script/jsCalendar/source/jsCalendar.js"></script>
     <script type="text/javascript" src="./script/applocale.js"></script>
-    <!-- <script type="text/javascript" src="./script/html2canvas.min.js"></script> -->
     <link rel="icon" href="img/system/favicon.png">
     <style>
         body {
@@ -711,12 +710,12 @@
         }
 
         @supports not (backdrop-filter: blur(2px)) {
-            .notificationbar .cover{
-                /*
+            /* .notificationbar .cover{
+                
                 //Replaced with Javascript implementation on Firefox
                 background-color: rgba(24,24,24,0.3);
-                */
-            }
+               
+            } */
             
             #bgwrapper{
                 transition: all 0.5s ease;
@@ -772,11 +771,11 @@
             cursor:pointer;
         }
 
-        .notification.object:hover{
-            /*
+        /* .notification.object:hover{
+            
                 border-left: 3px solid #83D8FF;
-            */
-        }
+           
+        } */
 
         .blured{
             filter: blur(2px);
