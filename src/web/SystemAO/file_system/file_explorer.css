@@ -1153,14 +1153,7 @@ body.darkTheme .ui.icon.button{
 }
 
 .saving {
-    -moz-animation: saving 3s ease-out;
-    -moz-animation-iteration-count: infinite;
-
-    -webkit-animation: saving 3s ease-out;
-    -webkit-animation-iteration-count: infinite;
-
-    -ms-animation: saving 3s ease-out;
-    -ms-animation-iteration-count: infinite;
+    animation: saving 3s ease-out infinite;
 }
 
 @keyframes saving {
