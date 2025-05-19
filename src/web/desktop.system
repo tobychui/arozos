@@ -710,12 +710,12 @@
         }
 
         @supports not (backdrop-filter: blur(2px)) {
-            .notificationbar .cover{
-                /*
+            /* .notificationbar .cover{
+                
                 //Replaced with Javascript implementation on Firefox
                 background-color: rgba(24,24,24,0.3);
-                */
-            }
+               
+            } */
             
             #bgwrapper{
                 transition: all 0.5s ease;
@@ -771,11 +771,11 @@
             cursor:pointer;
         }
 
-        .notification.object:hover{
-            /*
+        /* .notification.object:hover{
+            
                 border-left: 3px solid #83D8FF;
-            */
-        }
+           
+        } */
 
         .blured{
             filter: blur(2px);
