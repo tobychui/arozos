@@ -32,3 +32,4 @@ src/tmp/aofs.db.lock
 src/system/smtp_conf.json
 src/system/cron.json
 src/system/bridge.json
+/src/tmp
