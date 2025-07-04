@@ -4849,7 +4849,7 @@
                     $(".uploadTask").each(function () {
                         if ($(this).attr("taskID") == uuid) {
                             //Update this progress bar
-                            $(this).find(".bar").css("width", progress + "%");
+                            $(this).progress('set percent', progress);
                             $(this).find(".progress.percentage").html(`<i class="ui upload icon"></i> ${progress.toFixed(1)}%`);
                             //console.log(progress.toFixed(1) + "%");
                             if (progress == 100) {
@@ -5408,7 +5408,7 @@
             $("#uploadProgressList").append(`<div class="uploadTask" taskID="${newuuid}">
                 <p style="width: calc(100% - 15px);">${filename} (${humanReadableFilesize})</p>
                 <div class="ui small themed progress" style="margin-top:-12px;">
-                    <div class="bar" style="width: 0%; min-width: 0px;">
+                    <div class="bar">
                         <div class="progress percentage"></div>
                     </div>
                 </div>
