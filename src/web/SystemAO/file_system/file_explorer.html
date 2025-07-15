@@ -4962,9 +4962,10 @@
                         $(".uploadTask").each(function () {
                             if ($(this).attr("taskID") == taskUUID) {
                                 //Update this progress bar to completed
-                                $(this).find(".bar").css("width", "100%");
-                                $(this).find(".progress:not(.percentage)").attr("class", "ui tiny success progress");
-                                $(this).find(".progress.percentage").hide();
+                                $(this).find(".progress-percentage").css({
+                                    "font-weight": "bold",
+                                    "color": "#21ba45"
+                                });
                                 $(this).find(".uploadTaskRemoveIcon").show();
                                 $(this).addClass("ended");
 
@@ -4989,8 +4990,11 @@
                                 $(".uploadTask").each(function () {
                                     if ($(this).attr("taskID") == taskUUID) {
                                         //Update this progress bar to completed
-                                        $(this).find(".bar").css("width", "100%");
-                                        $(this).find(".progress:not(.percentage)").attr("class", "ui tiny error progress");
+                                        $(this).find(".progress-percentage").text("Error");
+                                        $(this).find(".progress-percentage").css({
+                                            "font-weight": "bold",
+                                            "color": "#db2828"
+                                        });
                                         $(this).find(".uploadTaskRemoveIcon").show();
                                         $(this).addClass("ended");
                                         $(this).find(".progress.percentage").hide();
@@ -5106,14 +5110,12 @@
                     $(".uploadTask").each(function () {
                         if ($(this).attr("taskID") == taskUUID) {
                             //Update this progress bar
-                            $(this).find(".bar").css("width", progress + "%");
-                            $(this).find(".progress.percentage").text(progress.toFixed(1) + "%");
+                            $(this).find(".progress-percentage").text(progress.toFixed(1) + "%");
                             if (progress == 100) {
-                                //When progress = 100 and the server is not response with 200,
-                                //That means the upload has finish and server is processing the upload
-                                $(this).find(".progress").addClass("active");
-                                $(this).find(".progress.percentage").hide();
-
+                                $(this).find(".progress-percentage").css({
+                                    "font-weight": "bold",
+                                    "color": "#21ba45"
+                                });
                             }
                         }
                     });
@@ -5126,8 +5128,10 @@
                         $(".uploadTask").each(function () {
                             if ($(this).attr("taskID") == taskUUID) {
                                 //Update this progress bar to completed
-                                $(this).find(".bar").css("width", "100%");
-                                $(this).find(".progress").attr("class", "ui tiny success progress");
+                                $(this).find(".progress-percentage").css({
+                                    "font-weight": "bold",
+                                    "color": "#21ba45"
+                                });
                                 $(this).find(".uploadTaskRemoveIcon").show();
                                 $(this).addClass("ended");
                                 //Update 15-11-2020
@@ -5147,8 +5151,11 @@
                             $(".uploadTask").each(function () {
                                 if ($(this).attr("taskID") == taskUUID) {
                                     //Update this progress bar to completed
-                                    $(this).find(".bar").css("width", "100%");
-                                    $(this).find(".progress").attr("class", "ui tiny error progress");
+                                    $(this).find(".progress-percentage").text("Error");
+                                    $(this).find(".progress-percentage").css({
+                                        "font-weight": "bold",
+                                        "color": "#db2828"
+                                    });
                                     $(this).find(".uploadTaskRemoveIcon").show();
                                     $(this).addClass("ended");
                                 }
@@ -5170,7 +5177,6 @@
                         $(".uploadTask").each(function () {
                             if ($(this).attr("taskID") == taskUUID) {
                                 //Upload screwed up. Show error
-                                $(this).find(".progress").attr("class", "ui tiny error progress");
                                 $(this).find(".uploadTaskRemoveIcon").show();
                                 $(this).addClass("ended");
                             }
@@ -5406,14 +5412,17 @@
             }
 
             $("#uploadProgressList").append(`<div class="uploadTask" taskID="${newuuid}">
-                <p style="width: calc(100% - 15px);">${filename} (${humanReadableFilesize})</p>
-                <div class="ui small themed progress" style="margin-top:-12px;">
-                    <div class="bar">
-                        <div class="progress percentage"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span>${filename}</span>
+                        <span style="margin-left: 8px; font-size: 0.9em; color: #777;">(${humanReadableFilesize})</span>
                     </div>
-                </div>
-                <div class="uploadTaskRemoveIcon" onclick="removeThisTask(this, '${newuuid}');" style="">
-                    <i class="remove icon"></i>
+                    <div class="progress-info">
+                        <span class="progress-percentage" style="margin-right: 24px;">0%</span>
+                        <div class="uploadTaskRemoveIcon" onclick="removeThisTask(this, '${newuuid}');">
+                            <i class="remove icon"></i>
+                        </div>
+                    </div>
                 </div>
             </div>`);
             return newuuid;
