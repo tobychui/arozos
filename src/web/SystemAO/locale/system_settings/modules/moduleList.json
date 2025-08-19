@@ -1,0 +1,60 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title": "已安裝的 WebApp",
+                "table/module": "WebApp 名稱",
+                "table/group": "分類",
+                "table/ext": "支援的檔案類型",
+                "table/modes": "支援模式",
+                "table/modes/default": "預設模式",
+                "table/modes/floatwindow": "浮動視窗",
+                "table/modes/embedded": "嵌入模式",
+                "desc/reload": "手動安裝 WebApp 後，可按「重新載入」以載入新應用程式，無需重啟 ArozOS 系統。",
+                "button/reload": "重新載入 WebApp",
+                "item/version":"版本："
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title": "已安裝的 WebApp",
+                "table/module": "WebApp 名稱",
+                "table/group": "分類",
+                "table/ext": "支援的檔案類型",
+                "table/modes": "支援模式",
+                "table/modes/default": "預設模式",
+                "table/modes/floatwindow": "浮動視窗",
+                "table/modes/embedded": "嵌入模式",
+                "desc/reload": "手動安裝 WebApp 後，可按「重新載入」以載入新應用程式，無需重啟 ArozOS 系統。",
+                "button/reload": "重新載入 WebApp",
+                "item/version": "版本："
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title/title": "已安装的 WebApp",
+                "table/module": "WebApp 名称",
+                "table/group": "分类",
+                "table/ext": "支持的文件类型",
+                "table/modes": "支持模式",
+                "table/modes/default": "默认模式",
+                "table/modes/floatwindow": "浮动窗口",
+                "table/modes/embedded": "嵌入模式",
+                "desc/reload": "手动安装 WebApp 后，可点击「重新加载」按钮加载新应用，无需重启系统。",
+                "button/reload": "重新加载 WebApp",
+                "item/version": "版本："
+            }
+        }
+    }
+}

@@ -91,35 +91,6 @@
 
             }
         },
-        "en-us": {
-            "fwtitle" : "Account Manager",
-            "strings":{
-                "desc/currentAccount": "Current Account",
-                "desc/savedAccount": "Saved accounts on this browser",
-                "desc/sign-in-new":"Sign-in to new account",
-                "desc/username": "Username",
-                "desc/password": "Password",
-                "desc/enterPassword": "Enter password to resume session",
-                "desc/switchAccount": "Add Local Account",
-                "desc/noAlternative":"No other account stored on this browser",
-                "desc/sessionValid": "Session Valid",
-                "desc/sessionExpired": "Session Expired",
-                "desc/addAccount": "Add local account",
-                "desc/signoutAll":"Sign out other saved accounts",
-
-                "msg/logout/confirm": "This will logout all other accounts from this browser. Confirm?",
-                "msg/logout/thisAcConfirm": "Exiting Session. Confirm?",
-                "button/login": "login",
-                "button/logout": "Logout",
-                "":""
-            },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
-        },
         "ja-jp":{
             "name":"日本語",
             "fwtitle" : "アカウントマネージャー",

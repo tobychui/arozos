@@ -1,62 +1,75 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Module List</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-    </head>
-    <body>
-        <div class="ui container">
-            <div class="ui basic segment">
-                <div class="ui header">
-                    <i class="external icon"></i>
-                    <div class="content">
-                        Default Opening Module
-                        <div class="sub header">Manage your default modules to open files with given extensions</div>
-                    </div>
-                </div>
-            </div>
-            <div id="msgbox" class="ui icon positive message" style="display:none;">
-                <i class="checkmark icon"></i>
-                <div class="content">
-                    <div class="header">
-                    Default Opening Module Updated
-                    </div>
-                    <p>Try to open your file again and see if it is working</p>
-                </div>
-            </div>
-            <table class="ui celled table">
-                <thead>
-                  <tr><th>File Extension</th>
-                  <th>Current Default </th>
-                  <th>Modify Default (Save on Change)</th>
-                </tr></thead>
-                <tbody id="defaultOpenerList">
-              
-                </tbody>
-              </table>
-        </div>
-        <script>
-            loadDefaultOpener();
 
-            function loadDefaultOpener(){
-                $("#defaultOpenerList").html("");
-                $.ajax({
-                    url: "../../system/modules/getDefault?opr=list",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            console.log(data.error);
-                            return;
-                        }
-                        for (var i =0; i < data.length; i++){
-                            var ext = data[i][0];
-                            var module = encodeURIComponent(data[i][1]);
-                            var displayModuleName = data[i][1];
-                            $("#defaultOpenerList").append(`<tr>
+<head>
+    <title>Module List</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <script type="text/javascript" src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+    <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui basic segment">
+            <div class="ui header">
+                <i class="external icon"></i>
+                <div class="content">
+                    <span locale="title">Default Opening Module</span>
+                    <div class="sub header" locale="subheader">
+                        Manage your default modules to open files with given extensions</div>
+                </div>
+            </div>
+        </div>
+        <div id="msgbox" class="ui icon positive message" style="display:none;">
+            <i class="checkmark icon"></i>
+            <div class="content">
+                <div class="header" locale="msgbox/updated">
+                    Default Opening Module Updated
+                </div>
+                <p locale="msgbox/hint">Try to open your file again and see if it is working</p>
+            </div>
+        </div>
+        <table class="ui celled table">
+            <thead>
+                <tr>
+                    <th locale="table/file_extension">File Extension</th>
+                    <th locale="table/current_default">Current Default </th>
+                    <th locale="table/modify_default">Modify Default (Save on Change)</th>
+                </tr>
+            </thead>
+            <tbody id="defaultOpenerList">
+
+            </tbody>
+        </table>
+    </div>
+    <script>
+
+        // Load Locale
+        var defaultOpenerLocale = NewAppLocale();
+        defaultOpenerLocale.init("../locale/system_settings/modules/defaultOpener.json", function () {
+            defaultOpenerLocale.translate();
+        });
+
+        loadDefaultOpener();
+
+        function loadDefaultOpener() {
+            $("#defaultOpenerList").html("");
+            $.ajax({
+                url: "../../system/modules/getDefault?opr=list",
+                success: function (data) {
+                    if (data.error !== undefined) {
+                        console.log(data.error);
+                        return;
+                    }
+                    for (var i = 0; i < data.length; i++) {
+                        var ext = data[i][0];
+                        var module = encodeURIComponent(data[i][1]);
+                        var displayModuleName = data[i][1];
+                        $("#defaultOpenerList").append(`<tr>
                                 <td>${ext}</td>
                                 <td>${displayModuleName}</td>
                                 <td><select class="ui search selection dropdown" ext="${ext}" module="${module}" onchange="updateDefaultOpener(this);">
@@ -64,44 +77,45 @@
                                 </select>
                                 </td>
                             </tr>`);
+                    }
+
+                    //Load modules into search dropdowns
+                    $.get("../../system/modules/list", function (moudleList) {
+                        for (var i = 0; i < moudleList.length; i++) {
+                            var thisModule = moudleList[i];
+                            $(".search.dropdown").each(function () {
+                                var thisExt = $(this).attr("ext");
+                                var thisDefaultModule = decodeURIComponent($(this).attr("module"));
+                                if (thisModule.SupportedExt !== null && thisModule.SupportedExt.includes(thisExt)) {
+                                    //Accept this file type
+                                }
+                                if (thisDefaultModule !== thisModule.Name) {
+                                    $(this).append(`<option value="${thisModule.Name}">${thisModule.Name}</option>`);
+                                }
+
+                            });
                         }
 
-                        //Load modules into search dropdowns
-                        $.get("../../system/modules/list",function(moudleList){
-                            for (var i=0; i < moudleList.length; i++){
-                                var thisModule = moudleList[i];
-                                $(".search.dropdown").each(function(){
-                                    var thisExt = $(this).attr("ext");
-                                    var thisDefaultModule = decodeURIComponent($(this).attr("module"));
-                                    if (thisModule.SupportedExt !== null && thisModule.SupportedExt.includes(thisExt)){
-                                        //Accept this file type
-                                    }
-                                    if (thisDefaultModule !== thisModule.Name){
-                                        $(this).append(`<option value="${thisModule.Name}">${thisModule.Name}</option>`);
-                                    }
-                                    
-                                });
-                            }
+                        $('.ui.dropdown').dropdown();
+                    });
+                }
+            });
+        }
 
-                            $('.ui.dropdown').dropdown();
-                        });
+        function updateDefaultOpener(object) {
+            if ($(object).val() !== "default") {
+                var ext = $(object).attr('ext');
+                //Refresh the list
+                $.ajax({
+                    url: "../../system/modules/getDefault?opr=set&ext=" + ext + "&module=" + $(object).val(),
+                    success: function (data) {
+                        setTimeout(loadDefaultOpener, 500);
                     }
                 });
+                $("#msgbox").stop().finish().slideDown('fast').delay(5000).slideUp('fast');
             }
+        }
+    </script>
+</body>
 
-            function updateDefaultOpener(object){
-                if ($(object).val() !== "default"){
-                    var ext = $(object).attr('ext');
-                    //Refresh the list
-                    $.ajax({
-                        url: "../../system/modules/getDefault?opr=set&ext=" + ext + "&module=" + $(object).val(),
-                        success: function(data){
-                            setTimeout(loadDefaultOpener,500);
-                        }
-                    });
-                    $("#msgbox").stop().finish().slideDown('fast').delay(5000).slideUp('fast');
-                }
-            }
-        </script>
-    </body>
 </html>

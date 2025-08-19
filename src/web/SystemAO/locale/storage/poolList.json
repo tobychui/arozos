@@ -1,0 +1,61 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "ストレージプール管理",
+                "header": "ストレージプール",
+                "subheader": "システムと権限グループのストレージプールを管理",
+                "reloaded/title": "ストレージプールを再読み込みしました",
+                "reloaded/msg": "ストレージプールが正常に再読み込まれました",
+                "button/ok": "OK"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "스토리지 풀 관리자",
+                "header": "스토리지 풀",
+                "subheader": "시스템 및 권한 그룹 스토리지 풀 관리",
+                "reloaded/title": "스토리지 풀 재로드 완료",
+                "reloaded/msg": "스토리지 풀이 성공적으로 재로드되었습니다",
+                "button/ok": "확인"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "存储池管理",
+                "header": "存储池",
+                "subheader": "管理系统及权限组存储池",
+                "reloaded/title": "存储池已重载",
+                "reloaded/msg": "存储池已成功重载",
+                "button/ok": "确定"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "存儲池管理",
+                "header": "存儲池",
+                "subheader": "管理系統及權限群組存儲池",
+                "reloaded/title": "存儲池已重新加載",
+                "reloaded/msg": "存儲池已成功重新加載",
+                "button/ok": "確定"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "儲存池管理",
+                "header": "儲存池",
+                "subheader": "管理系統及權限群組儲存池",
+                "reloaded/title": "儲存池已重新載入",
+                "reloaded/msg": "儲存池已成功重新載入",
+                "button/ok": "確定"
+            }
+        }
+    }
+}

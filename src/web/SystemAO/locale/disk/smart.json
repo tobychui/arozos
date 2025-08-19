@@ -1,0 +1,81 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "disksDetected": "台のディスクを検出",
+                "loadingSmartData": "S.M.A.R.T データの読み込み中...",
+                "info": "SMART 情報",
+                "info/id": "ID",
+                "info/name": "項目名",
+                "info/value": "値",
+                "info/worst": "最悪値",
+                "info/thresh": "閾値",
+                "info/status": "状態",
+                "button/close": "閉じる"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "disksDetected": "개 디스크 감지됨",
+                "loadingSmartData": "S.M.A.R.T 데이터 로딩 중...",
+                "info": "SMART 정보",
+                "info/id": "ID",
+                "info/name": "항목명",
+                "info/value": "값",
+                "info/worst": "최악",
+                "info/thresh": "기준값",
+                "info/status": "상태",
+                "button/close": "닫기"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "disksDetected": "块硬盘已检测到",
+                "loadingSmartData": "正在加载 S.M.A.R.T 数据...",
+                "info": "S.M.A.R.T 信息",
+                "info/id": "ID",
+                "info/name": "名称",
+                "info/value": "值",
+                "info/worst": "最差值",
+                "info/thresh": "阈值",
+                "info/status": "状态",
+                "button/close": "关闭"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "disksDetected": "塊硬碟已檢測到",
+                "loadingSmartData": "正在加載 S.M.A.R.T 資料...",
+                "info": "SMART資訊",
+                "info/id": "編號",
+                "info/name": "名稱",
+                "info/value": "數值",
+                "info/worst": "最差值",
+                "info/thresh": "閾值",
+                "info/status": "狀態",
+                "button/close": "關閉"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "disksDetected": "塊硬碟已偵測到",
+                "loadingSmartData": "正在載入 S.M.A.R.T 資料...",
+                "info": "SMART資訊",
+                "info/id": "編號",
+                "info/name": "名稱",
+                "info/value": "值",
+                "info/worst": "最差值",
+                "info/thresh": "閾值",
+                "info/status": "狀態",
+                "button/close": "關閉"
+            }
+        }
+    }
+}

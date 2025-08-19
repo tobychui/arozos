@@ -1,149 +1,162 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Disk SMART</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
-        <link rel="stylesheet" href="../disk/quota/script/Chart.min.css">
-        <script type="text/javascript" src="../../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
-        <script src="../disk/quota/script/Chart.min.js"></script>
-        <style>
 
-        </style>
-    </head>
-    <body>
-        <div class="ui container">
-            <p>Drive SMART</p>
-            <h1 class="ui header">
-                <span id="healthy">Loading</span>
-                <div class="sub header"><span id="totaldisk">N/A</span> disks detected.</div>
-            </h1>
-            <div class="ui divider"></div>
-            <p id="loadWarning"><i class="ui loading spinner icon"></i> Loading SMART data...</p>
-                <div id="smart-holder" class="ui unstackable items">
-                  </div>
-            <br>
-            <div class="ui divider"></div>
+<head>
+  <title>Disk S.M.A.R.T</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
+  <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
+  <script type="text/javascript" src="../../../script/jquery.min.js"></script>
+  <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
+  <script src="../../../script/applocale.js"></script>
+</head>
+
+<body>
+  <div class="ui container">
+    <h1 class="ui header">
+      <span id="healthy">Loading</span>
+      <div class="sub header">
+        <span id="totaldisk">N/A</span>
+        <span locale="disksDetected">disks detected.</span></div>
+    </h1>
+    <div class="ui divider"></div>
+    <p id="loadWarning"><i class="ui loading spinner icon"></i>
+      <span locale="loadingSmartData">Loading S.M.A.R.T data...</span>
+    </p>
+    <div id="smart-holder" class="ui unstackable items">
+    </div>
+    <br>
+    <div class="ui divider"></div>
+  </div>
+  <div class="ui modal smartdetails">
+    <i class="close icon"></i>
+    <div class="header">
+      <span locale="info">S.M.A.R.T Information </span>
+      (<span id="modal_model"></span>)
+    </div>
+    <div class="content">
+      <table class="ui very basic fluid celled table">
+        <thead>
+          <tr>
+            <th locale="info/id">ID</th>
+            <th locale="info/name">Name</th>
+            <th locale="info/value">Value</th>
+            <th locale="info/worst">Worst</th>
+            <th locale="info/thresh">Thresh</th>
+            <th locale="info/status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="modal_smart">
+          <tr>
+            <td>
+              ...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <div class="ui black deny button">
+        <span locale="button/close">Close</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    // Load locale
+    var quotaLocale = NewAppLocale();
+    $(document).ready(function () {
+      quotaLocale.init("../../locale/disk/smart.json", function () {
+        quotaLocale.translate();
+      });
+    });
+
+    var smart_template = `<div class="item">
+        <div class="tiny image" style="width: auto !important; margin-top: -10px;">
+        <img src="/SystemAO/disk/smart/img/hard-drive.svg" style="height:60px;width:auto; padding: 8px;">
         </div>
-        <div class="ui modal smartdetails">
-          <i class="close icon"></i>
-          <div class="header">
-            SMART Information (<span id="modal_model"></span>)
-          </div>
-          <div class="content">
-            <table class="ui very basic fluid celled table">
-              <thead>
-                <tr><th>ID</th>
-                <th>Name</th>
-                <th>Value</th>
-                <th>Worst</th>
-                <th>Thresh</th>
-                <th>Status</th>
-              </tr></thead>
-              <tbody id="modal_smart">
-                <tr>
-                  <td>
-                    ...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="actions">
-            <div class="ui black deny button">
-              Close
+            <div class="content">
+                    <p class="header">{model}</p>
+                    <button class="ui right floated icon button" id="{id}" onclick="showDetails(this)"><i class="info icon"></i></button>
+                    <div class="meta"><span>{status}</span></div>
+                    <div class="description"><p></p></div>
+                    <div class="extra">{capacity}</div>
             </div>
-          </div>
-        </div>
-        <script>
-          var smart_template = `<div class="item">
-              <div class="tiny image" style="width: auto !important; margin-top: -10px;">
-                <img src="/SystemAO/disk/smart/img/hard-drive.svg" style="height:60px;width:auto; padding: 8px;">
-              </div>
-              <div class="content">
-                <p class="header">{model}</p>
-                <button class="ui right floated icon button" id="{id}" onclick="showDetails(this)"><i class="info icon"></i></button>
-                <div class="meta"><span>{status}</span></div>
-                <div class="description"><p></p></div>
-                <div class="extra">{capacity}</div>
-              </div>
-            </div>`;
-          var smartDATA;  
-          $.getJSON("/system/disk/smart/getSMART", function(data) {
-                smartDATA = data;
+    </div>`;
+    var smartDATA;
+    $.getJSON("/system/disk/smart/getSMART", function (data) {
+      smartDATA = data;
 
-                $("#mainmenu").html("");
-                if (data.devices == null || $(data).length == 0) {
-                    //$("#smart-holder").append(append("-1","No disk find!","",-1));
-                    $("#healthy").text("No disks detected.");
-                    $("#totaldisk").text("0");
-                }else{
-                  $.each(data.devices, function(index, value) {
-                    $("#smart-holder").append(append(index,value.smart.model_name,value.smart.healthy,value.smart.user_capacity.bytes));
-                  });
-                  $("#healthy").text(data.healthy);
-                  $("#totaldisk").text(data.devices.length);
-                }
-                $("#loadWarning").remove();
-            });
+      $("#mainmenu").html("");
+      if (data.devices == null || $(data).length == 0) {
+        //$("#smart-holder").append(append("-1","No disk find!","",-1));
+        $("#healthy").text("No disks detected.");
+        $("#totaldisk").text("0");
+      } else {
+        $.each(data.devices, function (index, value) {
+          $("#smart-holder").append(append(index, value.smart.model_name, value.smart.healthy, value.smart.user_capacity.bytes));
+        });
+        $("#healthy").text(data.healthy);
+        $("#totaldisk").text(data.devices.length);
+      }
+      $("#loadWarning").remove();
+    });
 
-            //Execute once when the page load, to destroy the old model
-            /*
-              This section was added because once the page changed, multiple modal
-              is appended to the page which lead to duplication of modal when calling
-              modal("show"). Do not remove the 3 lines below.
-            */
-            $(".loadedModal").modal('destroy');
-            $(".loadedModal").remove();
-            $(".smartdetails").addClass("loadedModal");
+    //Execute once when the page load, to destroy the old model
+    /*
+            This section was added because once the page changed, multiple modal
+            is appended to the page which lead to duplication of modal when calling
+            modal("show"). Do not remove the 3 lines below.
+    */
+    $(".loadedModal").modal('destroy');
+    $(".loadedModal").remove();
+    $(".smartdetails").addClass("loadedModal");
 
-            
-            function append(id, name, status, capacity){
-              var tmp = smart_template;
-              tmp = tmp.replaceAll("{id}",id);
-              tmp = tmp.replaceAll("{model}",name);
-              tmp = tmp.replaceAll("{status}",status);
-              tmp = tmp.replaceAll("{capacity}",disksize(capacity));
-              return tmp;
-            }
 
-          function disksize(size) {
-            if (size >= 1000000000000) {
-                return Math.floor(size / 1000000000000) + " TB";
-            } else if (size >= 1000000000) {
-                return Math.floor(size / 1000000000) + " GB";
-            } else if (size >= 1000000) {
-                return Math.floor(size / 1000000) + " MB";
-            } else if (size >= 1024) {
-                return Math.floor(size / 1000) + " KB";
-            } else if (size > 0) {
-                return size + " Bytes";
-            } else if (size == 0) {
-                return "Unknown capacity";
-            } else {
-                return "";
-            }
-          }
+    function append(id, name, status, capacity) {
+      var tmp = smart_template;
+      tmp = tmp.replaceAll("{id}", id);
+      tmp = tmp.replaceAll("{model}", name);
+      tmp = tmp.replaceAll("{status}", status);
+      tmp = tmp.replaceAll("{capacity}", disksize(capacity));
+      return tmp;
+    }
 
-          function showDetails(selector) {
-            $("#modal_smart").html("");
-            var id = $(selector).attr("id");
-            $("#modal_model").text(smartDATA.devices[id].smart.model_name);
-            $.each(smartDATA.devices[id].smart.ata_smart_attributes.table, function(index, value) {
-                    $("#modal_smart").append("<tr>");
-                    $("#modal_smart").append("<td>" + value.id + "</td>");
-                    $("#modal_smart").append("<td>" + value.name + "</td>");
-                    $("#modal_smart").append("<td>" + value.value + "</td>");
-                    $("#modal_smart").append("<td>" + value.worst + "</td>");
-                    $("#modal_smart").append("<td>" + value.thresh + "</td>");
-                    $("#modal_smart").append("<td>" + value.healthy + "</td>");
-                    $("#modal_smart").append("</tr>");
-            });
-            $('.smartdetails').modal('show');
-          }
-        </script>
-   
-    </body>
+    function disksize(size) {
+      if (size >= 1000000000000) {
+        return Math.floor(size / 1000000000000) + " TB";
+      } else if (size >= 1000000000) {
+        return Math.floor(size / 1000000000) + " GB";
+      } else if (size >= 1000000) {
+        return Math.floor(size / 1000000) + " MB";
+      } else if (size >= 1024) {
+        return Math.floor(size / 1000) + " KB";
+      } else if (size > 0) {
+        return size + " Bytes";
+      } else if (size == 0) {
+        return "Unknown capacity";
+      } else {
+        return "";
+      }
+    }
+
+    function showDetails(selector) {
+      $("#modal_smart").html("");
+      var id = $(selector).attr("id");
+      $("#modal_model").text(smartDATA.devices[id].smart.model_name);
+      $.each(smartDATA.devices[id].smart.ata_smart_attributes.table, function (index, value) {
+        $("#modal_smart").append("<tr>");
+        $("#modal_smart").append("<td>" + value.id + "</td>");
+        $("#modal_smart").append("<td>" + value.name + "</td>");
+        $("#modal_smart").append("<td>" + value.value + "</td>");
+        $("#modal_smart").append("<td>" + value.worst + "</td>");
+        $("#modal_smart").append("<td>" + value.thresh + "</td>");
+        $("#modal_smart").append("<td>" + value.healthy + "</td>");
+        $("#modal_smart").append("</tr>");
+      });
+      $('.smartdetails').modal('show');
+    }
+  </script>
+
+</body>
+
 </html>

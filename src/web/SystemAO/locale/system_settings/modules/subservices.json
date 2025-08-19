@@ -1,0 +1,96 @@
+{
+    "author": "GT610",
+    "version": "1.0",
+    "keys": {
+        "ja-jp": {
+            "name": "日本語",
+            "strings": {
+                "title": "サブサービスの管理",
+                "subheader": "サブサービスを使用してサービスを結合",
+                "faq/q": "サブサービスとは？",
+                "faq/a": "サブサービスはシステムコアに組み込まれていない ArOZ OS モジュールの一種です。システムコアに組み込まれたリバースプロキシを活用し、ビルトインモジュールのようにウェブコンテンツを提供できます。コアモジュールとは異なり、必要に応じてサブサービスをオフにすることで電力を節約できます。",
+                "runningServices": "実行中のサービス",
+                "runningServices/corModule": "対応するモジュール",
+                "runningServices/port": "ポート",
+                "runningServices/revProxyPath": "リバースプロキシパス",
+                "runningServices/exe": "実行ファイル (プロセス ID)",
+                "disabledServices": "無効化されたサービス",
+                "disabledServices/name": "サービス名",
+                "disabledServices/exe": "実行ファイル",
+                "action": "アクション"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "strings": {
+                "title": "서브 서비스 관리",
+                "subheader": "서브 서비스를 사용한 서비스 결합",
+                "faq/q": "서브 서비스란?",
+                "faq/a": "서브 서비스는 시스템 코어에 내장되지 않은 ArOZ OS 모듈의 한 종류로, 시스템 코어에 내장된 리버스 프록시를 활용해 내장 모듈처럼 웹 콘텐츠를 제공할 수 있습니다. 코어 모듈과 달리 필요 시 서브 서비스를 비활성화하여 전력을 절약할 수 있습니다.",
+                "runningServices": "실행 중인 서비스",
+                "runningServices/corModule": "대응 모듈",
+                "runningServices/port": "포트",
+                "runningServices/revProxyPath": "리버스 프록시 경로",
+                "runningServices/exe": "실행 파일 (프로세스 ID)",
+                "disabledServices": "비활성화된 서비스",
+                "disabledServices/name": "서비스 이름",
+                "disabledServices/exe": "실행 파일",
+                "action": "액션"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "strings": {
+                "title": "管理子服务",
+                "subheader": "使用子服务将服务粘合在一起",
+                "faq/q": "什么是子服务？",
+                "faq/a": "子服务是 ArOZ OS 模块的一种类型，它不内置在系统核心中，但可以像核心模块一样运作。它通过系统核心内置的反向代理提供网页内容。与无法关闭的核心模块不同，您可以在需要时禁用子服务以节省电力。",
+                "runningServices": "运行中的服务",
+                "runningServices/corModule": "对应模块",
+                "runningServices/port": "端口",
+                "runningServices/revProxyPath": "反向代理路径",
+                "runningServices/exe": "可执行文件 (进程 ID)",
+                "disabledServices": "已禁用服务",
+                "disabledServices/name": "服务名称",
+                "disabledServices/exe": "可执行文件",
+                "action": "操作"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "title": "管理子服務",
+                "subheader": "透過子服務將服務結合",
+                "faq/q": "什麼是子服務？",
+                "faq/a": "子服務是 ArOZ OS 模組的一種類型，並未內置於系統核心，但可像核心模組般運作。它透過系統核心內置的反向代理提供網頁內容。與無法關閉的核心模組不同，您可於需要時停用子服務以節省電力。",
+                "runningServices": "正在運行的服務",
+                "runningServices/corModule": "對應模組",
+                "runningServices/port": "端口",
+                "runningServices/revProxyPath": "反向代理路徑",
+                "runningServices/exe": "可執行文件 (進程 ID)",
+                "disabledServices": "已停用的服務",
+                "disabledServices/name": "服務名稱",
+                "disabledServices/exe": "可執行文件",
+                "action": "操作"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "title": "子服務管理",
+                "subheader": "透過子服務整合服務",
+                "faq/q": "子服務是什麼？",
+                "faq/a": "子服務是 ArOZ OS 模組的一種類型，未內建於系統核心，但可像核心模組般運作。它透過系統核心內建的反向代理提供網頁內容。與無法關閉的核心模組不同，您可於需要時停用子服務以節省電力。",
+                "runningServices": "執行中的服務",
+                "runningServices/corModule": "對應模組",
+                "runningServices/port": "埠",
+                "runningServices/revProxyPath": "反向代理路徑",
+                "runningServices/exe": "可執行檔 (進程 ID)",
+                "disabledServices": "已停用服務",
+                "disabledServices/name": "服務名稱",
+                "disabledServices/exe": "可執行檔",
+                "action": "操作"
+            }
+        }
+    }
+}

@@ -19,39 +19,39 @@ var MINCACHESIZE = 300;  //Min song list length for start using cache method
 
 //Include the common library
 var succ = includes("common.js")
-if (succ == false){
+if (succ == false) {
     console.log("Failed to load common.js");
 }
 
 
 //Handle user request
-function handleUserRequest(){
-    if (requirelib("filelib") == false){
+function handleUserRequest() {
+    if (requirelib("filelib") == false) {
         sendJSONResp(JSON.stringify({
             error: "Unable to load filelib"
         }));
-    }else{
+    } else {
         var musicDis = [];
-        
+
         //Make the user's root music folder if not exists
-        if (filelib.fileExists("user:/Music/") == false){
+        if (filelib.fileExists("user:/Music/") == false) {
             filelib.mkdir("user:/Music/");
         }
 
         //Scan all music directories
         var rootDirs = filelib.glob("/");
-        for (var i = 0; i < rootDirs.length; i++){
+        for (var i = 0; i < rootDirs.length; i++) {
             var thisRoot = rootDirs[i];
-           
+
             //Always use all roots
             musicDis.push(thisRoot);
-            
+
         }
 
         //Handle user request on listing
-        if (typeof(listSong) != "undefined"){
+        if (typeof (listSong) != "undefined") {
             //List song given type
-            if (listSong == "all"){
+            if (listSong == "all") {
                 //Load from cache first. If cache list > 1000 then deliver the cache then update the cache file
                 newDBTableIfNotExists("AirMusic");
                 var cacheListRaw = readDBItem("AirMusic", "cache");
@@ -59,15 +59,15 @@ function handleUserRequest(){
                 //if (typeof(start) != "undefined" && typeof(end) != "undefined"){
                 //    isRanged = true;
                 //}
-                if (cacheListRaw == ""){
+                if (cacheListRaw == "") {
                     //Cache list not generated yet. Continue
 
-                }else if (cacheListRaw != ""){
+                } else if (cacheListRaw != "") {
                     //There is something in the cache list. Try parse it
-                    try{
+                    try {
                         //Try parse it.
                         var cacheList = JSON.parse(cacheListRaw);
-                        if (cacheList.length > MINCACHESIZE){
+                        if (cacheList.length > MINCACHESIZE) {
                             //Too many songs. Just use the cache list instead.
                             sendJSONResp(JSON.stringify({
                                 cached: true,
@@ -75,7 +75,7 @@ function handleUserRequest(){
                             }));
                             return
                         }
-                    }catch(ex){
+                    } catch (ex) {
 
                     }
                 }
@@ -83,21 +83,21 @@ function handleUserRequest(){
                 //Do the scanning
                 var songData = [];
                 var musicFiles = [];
-                for (var i = 0; i < musicDis.length; i++){
+                for (var i = 0; i < musicDis.length; i++) {
                     var thisFileLib = musicDis[i];
                     var allfilelist = filelib.walk(thisFileLib + "Music/", "file");
-                    for (var k = 0; k < allfilelist.length; k++){
+                    for (var k = 0; k < allfilelist.length; k++) {
                         var ext = allfilelist[k].split('.').pop();
-                        if (IsSupportExt(ext) == true && !IsMetaFile(allfilelist[k])){
+                        if (IsSupportExt(ext) == true && !IsMetaFile(allfilelist[k])) {
                             musicFiles.push(allfilelist[k]);
                         }
                     }
                 }
 
-                for (var i = 0; i < musicFiles.length; i++){
+                for (var i = 0; i < musicFiles.length; i++) {
                     var thisMusicFile = musicFiles[i];
                     var thisSongData = [];
-                    
+
                     /*
                         Catch formats looks like this
                         entry = [access_url, filename, ext, filesize]
@@ -128,8 +128,8 @@ function handleUserRequest(){
                     cached: false,
                     list: songData
                 }));
-            
-            }else if (listSong.substr(0,7) == "search:"){
+
+            } else if (listSong.substr(0, 7) == "search:") {
                 //Search mode
                 var keyword = listSong.substr(7)
                 keyword = keyword.toLowerCase();
@@ -138,50 +138,50 @@ function handleUserRequest(){
                 var cachedList = readDBItem("AirMusic", "cache");
                 var allfilelist = [];
 
-                function getRealtimeAllFleList(){
+                function getRealtimeAllFleList() {
                     var allfilelist = [];
-                    for (var i = 0; i < musicDis.length; i++){
+                    for (var i = 0; i < musicDis.length; i++) {
                         var thisFileLib = musicDis[i];
-                        thisDirList  = filelib.walk(thisFileLib, "file");
-                        for (var j = 0; j < thisDirList.length; j++){
+                        thisDirList = filelib.walk(thisFileLib, "file");
+                        for (var j = 0; j < thisDirList.length; j++) {
                             allfilelist.push(thisDirList[j]);
                         }
                     }
                     return allfilelist;
                 }
 
-                if (cachedList == ""){
+                if (cachedList == "") {
                     //No cache. Do real time scanning
                     allfilelist = getRealtimeAllFleList();
-                }else{
+                } else {
                     //Try parse it. If parse failed fallback to realtime scanning
-                    try{    
+                    try {
                         cachedList = JSON.parse(cachedList);
-                        for (var j = 0; j < cachedList.length; j++){
+                        for (var j = 0; j < cachedList.length; j++) {
                             var thisCachedSong = cachedList[j];
                             var thisFilepath = thisCachedSong[0].replace("/media?file=", "");
                             //Check if this file still exists. If not, get realtime list instead.
-                            if (filelib.fileExists(thisFilepath)){
+                            if (filelib.fileExists(thisFilepath)) {
                                 allfilelist.push(thisFilepath);
-                            }else{
+                            } else {
                                 //Cache outdated. Rescanning now
                                 allfilelist = getRealtimeAllFleList();
                                 execd("buildCache.js")
                                 break;
                             }
                         }
-                    }catch(ex){
+                    } catch (ex) {
                         //Fallback
                         allfilelist = getRealtimeAllFleList();
                     }
                 }
-                    
-                for (var k = 0; k < allfilelist.length; k++){
+
+                for (var k = 0; k < allfilelist.length; k++) {
                     var thisFile = allfilelist[k];
                     var ext = allfilelist[k].split('.').pop();
                     var filename = allfilelist[k].split('/').pop();
                     filename = filename.toLowerCase();
-                    if (IsSupportExt(ext) == true && filename.indexOf(keyword) !== -1 && !IsMetaFile(allfilelist[k])){
+                    if (IsSupportExt(ext) == true && filename.indexOf(keyword) !== -1 && !IsMetaFile(allfilelist[k])) {
                         //This file match our ext req and keyword exists
                         var thisSongData = [];
                         //Access Path 
@@ -197,42 +197,42 @@ function handleUserRequest(){
                         //File size
                         var fileSize = bytesToSize(filelib.filesize(thisFile))
                         thisSongData.push(fileSize)
-        
+
                         songData.push(thisSongData);
 
                     }
                 }
-                
+
 
                 //Send resp
                 sendJSONResp(JSON.stringify(songData));
 
                 //Run build cache in background so to update any cache if exists
                 execd("buildCache.js")
-            }else{
+            } else {
                 //WIP
                 console.log("listSong type " + listSong + " work in progress")
             }
-        }else if (typeof(listdir) != "undefined"){
+        } else if (typeof (listdir) != "undefined") {
             //List dir given path
-            if (listdir == "root"){
+            if (listdir == "root") {
                 //List the information of the user roots that contain Music folder
                 var rootInfo = [];
-                for (var i =0; i < musicDis.length; i++){
+                for (var i = 0; i < musicDis.length; i++) {
                     var thisRootInfo = [];
 
                     var thisMusicDir = musicDis[i];
                     var thisRoot = thisMusicDir.split("/").shift() + "/";
                     var objcetsInRoot = [];
-                    if (thisRoot == "user:/"){
+                    if (thisRoot == "user:/") {
                         objcetsInRoot = filelib.readdir(thisRoot + "Music");
-                    }else{
+                    } else {
                         objcetsInRoot = filelib.readdir(thisRoot);
                         thisMusicDir = thisRoot;
                     }
-                    
+
                     var rootName = filelib.rootName(thisRoot);
-                    if (rootName == false){
+                    if (rootName == false) {
                         rootName = thisRoot
                     }
                     thisRootInfo.push(rootName);
@@ -240,11 +240,11 @@ function handleUserRequest(){
 
                     var files = [];
                     var folders = [];
-                    for (var j = 0; j < objcetsInRoot.length; j++){
+                    for (var j = 0; j < objcetsInRoot.length; j++) {
                         var thisObject = objcetsInRoot[j];
-                        if (thisObject.IsDir){
+                        if (thisObject.IsDir) {
                             folders.push(thisObject.Filepath);
-                        }else{
+                        } else {
                             files.push(thisObject.Filepath);
                         }
                     }
@@ -256,20 +256,20 @@ function handleUserRequest(){
                 }
 
                 sendJSONResp(JSON.stringify(rootInfo));
-            }else{
+            } else {
                 //List information about other folders
                 var targetpath = decodeURIComponent(listdir);
                 var filelist = filelib.readdir(targetpath);
                 var files = [];
                 var fileSizes = [];
                 var folders = [];
-                for (var j = 0; j < filelist.length; j++){
+                for (var j = 0; j < filelist.length; j++) {
                     var thisFile = filelist[j];
-                    if (thisFile.IsDir){
+                    if (thisFile.IsDir) {
                         folders.push(thisFile.Filepath);
-                    }else{
+                    } else {
                         var ext = thisFile.Ext.substr(1);
-                        if (IsSupportExt(ext)  && !IsMetaFile(thisFile.Filepath)){
+                        if (IsSupportExt(ext) && !IsMetaFile(thisFile.Filepath)) {
                             files.push(thisFile.Filepath);
                             fileSizes.push(thisFile.Filesize);
                         }
@@ -278,8 +278,8 @@ function handleUserRequest(){
 
                 //For each folder, get its information
                 var folderInfo = [];
-                
-                for (var i = 0; i < folders.length; i++){ 
+
+                for (var i = 0; i < folders.length; i++) {
                     var thisFolderInfo = [];
                     var folderName = folders[i].split("/").pop();
                     /*
@@ -310,10 +310,10 @@ function handleUserRequest(){
                     thisFolderInfo.push(-1);
                     folderInfo.push(thisFolderInfo)
                 }
-                
-                
+
+
                 var fileInfo = [];
-                for (var i = 0; i < files.length; i++){
+                for (var i = 0; i < files.length; i++) {
                     var thisFileInfo = [];
                     var filename = files[i].split("/").pop();
                     filename = filename.split('.')
@@ -337,9 +337,9 @@ function handleUserRequest(){
                 results.push(fileInfo);
                 sendJSONResp(JSON.stringify(results));
             }
-            
 
-        }else if (typeof(listFolder) != "undefined"){
+
+        } else if (typeof (listFolder) != "undefined") {
             //List folder giben filepath
 
         }
