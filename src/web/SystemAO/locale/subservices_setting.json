@@ -1,0 +1,126 @@
+{
+    "author": "GitHub Copilot",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "subservices/Title": "子服務管理",
+                "subservices/Subtitle": "使用子服務將服務串連在一起",
+                "subservices/WhatIs": "什麼是子服務？",
+                "subservices/Desc": "子服務是 ArOZ Online 模組的一種，並非系統核心內建，但可像核心模組一樣運作。它由 ArOZ Online Core 內建的反向代理提供支援，因此能像內建模組一樣提供網頁內容。與無法關閉的核心模組不同，子服務可隨時關閉以節省資源。",
+                "subservices/Running": "運行中服務",
+                "subservices/Module": "對應模組",
+                "subservices/Port": "埠號",
+                "subservices/ProxyPath": "反向代理路徑",
+                "subservices/Executable": "執行檔 (程序 ID)",
+                "subservices/Action": "操作",
+                "subservices/Disable": "停用",
+                "subservices/Disabled": "已停用服務",
+                "subservices/ServiceName": "服務名稱",
+                "subservices/Start": "啟動"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "subservices/Title": "子服務管理",
+                "subservices/Subtitle": "使用子服務將服務串連在一起",
+                "subservices/WhatIs": "什麼是子服務？",
+                "subservices/Desc": "子服務是 ArOZ Online 模組的一種，並非系統核心內建，但可像核心模組一樣運作。它由 ArOZ Online Core 內建的反向代理提供支援，因此能像內建模組一樣提供網頁內容。與無法關閉的核心模組不同，子服務可隨時關閉以節省資源。",
+                "subservices/Running": "運行中服務",
+                "subservices/Module": "對應模組",
+                "subservices/Port": "埠號",
+                "subservices/ProxyPath": "反向代理路徑",
+                "subservices/Executable": "執行檔 (程序 ID)",
+                "subservices/Action": "操作",
+                "subservices/Disable": "停用",
+                "subservices/Disabled": "已停用服務",
+                "subservices/ServiceName": "服務名稱",
+                "subservices/Start": "啟動"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fontFamily": "\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
+            "strings": {
+                "subservices/Title": "子服务管理",
+                "subservices/Subtitle": "使用子服务将服务串联在一起",
+                "subservices/WhatIs": "什么是子服务？",
+                "subservices/Desc": "子服务是 ArOZ Online 模块的一种，并非系统核心内建，但可像核心模块一样运作。它由 ArOZ Online Core 内建的反向代理提供支持，因此能像内建模块一样提供网页内容。与无法关闭的核心模块不同，子服务可随时关闭以节省资源。",
+                "subservices/Running": "运行中服务",
+                "subservices/Module": "对应模块",
+                "subservices/Port": "端口",
+                "subservices/ProxyPath": "反向代理路径",
+                "subservices/Executable": "可执行文件 (进程 ID)",
+                "subservices/Action": "操作",
+                "subservices/Disable": "禁用",
+                "subservices/Disabled": "已禁用服务",
+                "subservices/ServiceName": "服务名称",
+                "subservices/Start": "启动"
+            }
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "strings": {
+                "subservices/Title": "Manage Subservice",
+                "subservices/Subtitle": "Glue services together using subservices",
+                "subservices/WhatIs": "What is Subservice?",
+                "subservices/Desc": "Subservice is one type of ArOZ Online Module that is not built into the system core but acts like one. It is powered by a reverse proxy built into the ArOZ Online Core so it can serve web content just like a built-in module. Unlike the core modules that cannot be toggled off, you can switch subservices off to save power when needed.",
+                "subservices/Running": "Running Services",
+                "subservices/Module": "Corresponding Module",
+                "subservices/Port": "Port",
+                "subservices/ProxyPath": "Reverse Proxy Path",
+                "subservices/Executable": "Executable (Process ID)",
+                "subservices/Action": "Action",
+                "subservices/Disable": "DISABLE",
+                "subservices/Disabled": "Disabled Services",
+                "subservices/ServiceName": "Service Name",
+                "subservices/Start": "Start"
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "subservices/Title": "サブサービス管理",
+                "subservices/Subtitle": "サブサービスでサービスを連携",
+                "subservices/WhatIs": "サブサービスとは？",
+                "subservices/Desc": "サブサービスは、ArOZ Online モジュールの一種で、システムコアに組み込まれていませんが、コアモジュールのように動作します。ArOZ Online Core に組み込まれたリバースプロキシによって動作し、コアモジュールと同様にウェブコンテンツを提供できます。コアモジュールと異なり、サブサービスは必要に応じてオフにしてリソースを節約できます。",
+                "subservices/Running": "稼働中のサービス",
+                "subservices/Module": "対応モジュール",
+                "subservices/Port": "ポート",
+                "subservices/ProxyPath": "リバースプロキシパス",
+                "subservices/Executable": "実行ファイル (プロセスID)",
+                "subservices/Action": "操作",
+                "subservices/Disable": "無効化",
+                "subservices/Disabled": "無効化されたサービス",
+                "subservices/ServiceName": "サービス名",
+                "subservices/Start": "開始"
+            }
+        },
+        "ko_kr": {
+            "name": "한국어",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "subservices/Title": "서브서비스 관리",
+                "subservices/Subtitle": "서브서비스로 서비스를 연결합니다",
+                "subservices/WhatIs": "서브서비스란?",
+                "subservices/Desc": "서브서비스는 ArOZ Online 모듈의 한 종류로, 시스템 코어에 내장되어 있지 않지만 코어 모듈처럼 동작합니다. ArOZ Online Core에 내장된 리버스 프록시로 구동되어 코어 모듈과 같이 웹 콘텐츠를 제공합니다. 코어 모듈과 달리 서브서비스는 필요에 따라 끌 수 있어 자원을 절약할 수 있습니다.",
+                "subservices/Running": "실행 중인 서비스",
+                "subservices/Module": "해당 모듈",
+                "subservices/Port": "포트",
+                "subservices/ProxyPath": "리버스 프록시 경로",
+                "subservices/Executable": "실행 파일 (프로세스 ID)",
+                "subservices/Action": "동작",
+                "subservices/Disable": "비활성화",
+                "subservices/Disabled": "비활성화된 서비스",
+                "subservices/ServiceName": "서비스 이름",
+                "subservices/Start": "시작"
+            }
+        }
+    }
+}

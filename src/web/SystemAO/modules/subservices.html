@@ -7,6 +7,7 @@
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
     </head>
     <body>
@@ -16,55 +17,47 @@
                 <div class="ui header">
                     <i class="server icon"></i>
                     <div class="content">
-                        Manage Subservice
-                        <div class="sub header">Glue services together using subservices</div>
+                        <span locale="subservices/Title">Manage Subservice</span>
+                        <div class="sub header"><span locale="subservices/Subtitle">Glue services together using subservices</span></div>
                     </div>
                 </div>
                 <div class="ui accordion">
                     <div class="title">
                         <i class="dropdown icon"></i>
-                        What is Subservice?
+                        <span locale="subservices/WhatIs">What is Subservice?</span>
                     </div>
                     <div class="content">
-                        <p class="transition hidden">Subservice is one type of ArOZ Online Module that is not build in to the system core but act like one. It is powered by reverse proxy build into the ArOZ Online Core so it can serve web content just like a build in module. Unlike the core modules that cannot be toggle off, you can switch subservices off to save power when needed.</p>
+                        <p class="transition hidden"><span locale="subservices/Desc">Subservice is one type of ArOZ Online Module that is not build in to the system core but act like one. It is powered by reverse proxy build into the ArOZ Online Core so it can serve web content just like a build in module. Unlike the core modules that cannot be toggle off, you can switch subservices off to save power when needed.</span></p>
                     </div>
                 </div>
             </div>
-            <h4>Running Services</h4>
+            <h4 locale="subservices/Running">Running Services</h4>
             <table class="ui celled striped table">
                 <thead>
                     <tr>
-                        <th>
-                            Corresponding Module
-                        </th>
-                        <th>
-                            Port
-                        </th>
-                        <th>
-                            Reverse Proxy Path
-                        </th>
-                        <th>
-                            Executable (Process ID)
-                        </th>
-                        <th>
-                            Action
-                        </th>
+                        <th locale="subservices/Module">Corresponding Module</th>
+                        <th locale="subservices/Port">Port</th>
+                        <th locale="subservices/ProxyPath">Reverse Proxy Path</th>
+                        <th locale="subservices/Executable">Executable (Process ID)</th>
+                        <th locale="subservices/Action">Action</th>
                     </tr>
                 </thead>
                 <tbody id="sslist">
                    
                 </tbody>
             </table>
-            <h4>Disabled Services</h4>
-            <table class="ui celled table">
-                <thead>
-                  <tr><th>Service Name</th>
-                  <th>Executable</th>
-                  <th>Action</th>
-                </tr></thead>
-                <tbody id="disServiceList">
+                        <h4 locale="subservices/Disabled">Disabled Services</h4>
+                        <table class="ui celled table">
+                                <thead>
+                                    <tr>
+                                        <th locale="subservices/ServiceName">Service Name</th>
+                                        <th locale="subservices/Executable">Executable</th>
+                                        <th locale="subservices/Action">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="disServiceList">
                
-                </tbody>
+                                </tbody>
         </div>
         <script>
             $('.ui.accordion').accordion();
@@ -113,7 +106,7 @@
                             $("#disServiceList").append(` <tr>
                                 <td>${thisDisabledService.ServiceDir}</td>
                                 <td>${thisDisabledService.Path}</td>
-                                <td><button onclick="start(this);" dir="${thisDisabledService.ServiceDir}" class="ui positive tiny button">Start</button></td>
+                                <td><button onclick="start(this);" dir="${thisDisabledService.ServiceDir}" class="ui positive tiny button"><span locale="subservices/Start">Start</span></button></td>
                             </tr>`);
                         }
                     }
@@ -158,6 +151,22 @@
                     }
                 });
             }
+
+            $(document).ready(function(){
+                if (applocale){
+                    //Applocale found. Do localization
+                    applocale.init("../locale/subservices_setting.json", function(){
+                        applocale.translate();
+                    });
+                }else{
+                    //App locale not found. Is this a trim down version of ArozOS?
+                    applocale = {
+                        getString: function(key, original){
+                            return original;
+                        }
+                    }
+                }
+            });
         </script>
     </body>
 </html>
