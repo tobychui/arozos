@@ -8,6 +8,7 @@ package share
 */
 
 import (
+	"compress/flate"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -267,6 +268,17 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 	directServe := false
 	relpath := ""
 
+	compressionLevel := flate.DefaultCompression
+	if compressionStr := r.URL.Query().Get("compression_level"); compressionStr != "" {
+		if val, err := strconv.Atoi(compressionStr); err == nil {
+			// Validate compression level range (-2 to 9)
+			if val >= -2 && val <= 9 {
+				compressionLevel = val
+			}
+			// Optional: else could return an error or just silently use default value
+		}
+	}
+
 	id, err := utils.GetPara(r, "id")
 	if err != nil {
 		//ID is not defined in the URL paramter. New ID defination is based on the subpath content
@@ -368,9 +380,10 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 		shareOption := val.(*shareEntry.ShareOption)
 
 		//Check for permission
-		if shareOption.Permission == "anyone" {
+		switch shareOption.Permission {
+		case "anyone":
 			//OK to proceed
-		} else if shareOption.Permission == "signedin" {
+		case "signedin":
 			if !s.options.AuthAgent.CheckAuth(r) {
 				//Redirect to login page
 				if directDownload || directServe {
@@ -383,7 +396,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			} else {
 				//Ok to proccedd
 			}
-		} else if shareOption.Permission == "samegroup" {
+		case "samegroup":
 			thisuserinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
 				if directDownload || directServe {
@@ -422,7 +435,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-		} else if shareOption.Permission == "users" {
+		case "users":
 			thisuserinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
 				//User not logged in. Redirect to login page
@@ -447,7 +460,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-		} else if shareOption.Permission == "groups" {
+		case "groups":
 			thisuserinfo, err := s.options.UserHandler.GetUserInfoFromRequest(w, r)
 			if err != nil {
 				//User not logged in. Redirect to login page
@@ -484,7 +497,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-		} else {
+		default:
 			//Unsupported mode. Show notfound
 			http.NotFound(w, r)
 			return
@@ -615,7 +628,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					}
 
 					//Build a filelist
-					err := filesystem.ArozZipFile([]*filesystem.FileSystemHandler{zippingSourceFsh}, []string{zippingSource}, nil, targetZipFilename, false)
+					err := filesystem.ArozZipFileWithCompressionLevel([]*filesystem.FileSystemHandler{zippingSourceFsh}, []string{zippingSource}, nil, targetZipFilename, false, compressionLevel)
 					if err != nil {
 						//Failed to create zip file
 						w.WriteHeader(http.StatusInternalServerError)

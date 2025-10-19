@@ -10,7 +10,6 @@ import (
 	"imuslab.com/arozos/mod/fileservers"
 	"imuslab.com/arozos/mod/fileservers/servers/dirserv"
 	"imuslab.com/arozos/mod/fileservers/servers/ftpserv"
-	"imuslab.com/arozos/mod/fileservers/servers/nfsserv"
 	"imuslab.com/arozos/mod/fileservers/servers/samba"
 	"imuslab.com/arozos/mod/fileservers/servers/sftpserv"
 	"imuslab.com/arozos/mod/fileservers/servers/webdavserv"
@@ -36,7 +35,6 @@ var (
 	FTPManager        *ftpserv.Manager
 	WebDAVManager     *webdavserv.Manager
 	SFTPManager       *sftpserv.Manager
-	NFSManager        *nfsserv.Manager
 	SambaShareManager *samba.ShareManager
 	DirListManager    *dirserv.Manager
 )
@@ -327,20 +325,6 @@ func FileServerInit() {
 		UserManager: userHandler,
 		ServerUUID:  deviceUUID,
 	})
-
-	//NFS
-	/*
-		NFSManager = nfsserv.NewNfsServer(nfsserv.Option{
-			UserManager:      userHandler,
-			ListeningPort:    2049,
-			AllowAccessGroup: []*permission.PermissionGroup{},
-			Logger:           nil,
-		})
-		err := NFSManager.Start()
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-	*/
 
 	//Samba
 	var err error

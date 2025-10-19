@@ -26,3 +26,7 @@ src/system/neuralnet/yolov3.weights
 src/system/ao.db.lock
 src/system/auth/authlog.db.lock
 src/system/neuralnet/predictions.jpg
+src/system/auth/authlog.db
+src/system/bridge.json
+src/system/cron.json
+src/system/smtp_conf.json

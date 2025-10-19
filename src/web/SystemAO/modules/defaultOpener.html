@@ -7,6 +7,7 @@
         <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../script/applocale.js"></script>
         <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
     </head>
     <body>
@@ -15,8 +16,8 @@
                 <div class="ui header">
                     <i class="external icon"></i>
                     <div class="content">
-                        Default Opening Module
-                        <div class="sub header">Manage your default modules to open files with given extensions</div>
+                        <span locale="defaultOpener/Title">Default Opening Module</span>
+                        <div class="sub header"><span locale="defaultOpener/Subtitle">Manage your default modules to open files with given extensions</span></div>
                     </div>
                 </div>
             </div>
@@ -24,17 +25,19 @@
                 <i class="checkmark icon"></i>
                 <div class="content">
                     <div class="header">
-                    Default Opening Module Updated
+                        <span locale="defaultOpener/Updated">Default Opening Module Updated</span>
                     </div>
-                    <p>Try to open your file again and see if it is working</p>
+                    <p><span locale="defaultOpener/TryAgain">Try to open your file again and see if it is working</span></p>
                 </div>
             </div>
             <table class="ui celled table">
                 <thead>
-                  <tr><th>File Extension</th>
-                  <th>Current Default </th>
-                  <th>Modify Default (Save on Change)</th>
-                </tr></thead>
+                    <tr>
+                        <th locale="defaultOpener/FileExtension">File Extension</th>
+                        <th locale="defaultOpener/CurrentDefault">Current Default</th>
+                        <th locale="defaultOpener/ModifyDefault">Modify Default (Save on Change)</th>
+                    </tr>
+                </thead>
                 <tbody id="defaultOpenerList">
               
                 </tbody>
@@ -42,7 +45,7 @@
         </div>
         <script>
             loadDefaultOpener();
-
+            
             function loadDefaultOpener(){
                 $("#defaultOpenerList").html("");
                 $.ajax({
@@ -102,6 +105,22 @@
                     $("#msgbox").stop().finish().slideDown('fast').delay(5000).slideUp('fast');
                 }
             }
+
+            $(document).ready(function(){
+                if (applocale){
+                    //Applocale found. Do localization
+                    applocale.init("../locale/default_opener_settings.json", function(){
+                        applocale.translate();
+                    });
+                }else{
+                    //Applocale not found. Is this a trim down version of ArozOS?
+                    applocale = {
+                        getString: function(key, original){
+                            return original;
+                        }
+                    }
+                }
+            });
         </script>
     </body>
 </html>
