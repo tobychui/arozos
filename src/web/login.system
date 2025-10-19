@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="script/ao.css">
     <script type="application/javascript" src="script/jquery.min.js"></script>
     <script type="application/javascript" src="script/semantic/semantic.min.js"></script>
-    <script type="text/javascript" src="./script/applocale.js"></script>
     <script type="text/javascript" src="script/locale/login.js"></script>
     
     <style>
@@ -282,68 +281,16 @@
         </div>
         
     <script>
-        var loginLocaleData = window.LOGIN_LOCALE_DATA || null;
-        var localeReady = false;
-        var localeReadyCallbacks = [];
-
-        function applyLocaleData(data) {
-            if (!data) {
-                return;
-            }
-            loginLocaleData = data;
-            if (typeof applocale !== "undefined") {
-                applocale.localData = data;
-                if (typeof applocale.translate === "function") {
-                    applocale.translate();
-                }
-            }
-            localeReady = true;
-            while (localeReadyCallbacks.length > 0) {
-                try {
-                    localeReadyCallbacks.shift()(loginLocaleData);
-                } catch (err) {
-                    console.error("[LoginLocale] callback error", err);
-                }
-            }
+        var localeManager = window.LoginLocale || null;
+        if (localeManager && typeof localeManager.init === "function") {
+            localeManager.init();
         }
 
-        function onLocaleReady(callback) {
-            if (typeof callback !== "function") {
-                return;
+        function localeGetString(key, fallback) {
+            if (localeManager && typeof localeManager.getString === "function") {
+                return localeManager.getString(key, fallback);
             }
-            if (localeReady && loginLocaleData) {
-                callback(loginLocaleData);
-            } else {
-                localeReadyCallbacks.push(callback);
-            }
-        }
-
-        if (typeof (applocale) !== "undefined") {
-            if (loginLocaleData) {
-                applyLocaleData(loginLocaleData);
-            } else {
-                applocale.init("./locale/login.json", function (data) {
-                    applyLocaleData(data);
-                });
-            }
-        } else {
-            var applocale = {
-                getString: function (key, original) {
-                    return original;
-                },
-                translate: function () {}
-            };
-            if (loginLocaleData) {
-                applyLocaleData(loginLocaleData);
-            }
-        }
-
-        if (!loginLocaleData && typeof applocale === "undefined" && typeof $ !== "undefined" && $.getJSON) {
-            $.getJSON("./locale/login.json", function (data) {
-                applyLocaleData(data);
-            }).fail(function (jqXHR, textStatus, errorThrown) {
-                console.error("Failed to load language options from login.json:", textStatus, errorThrown);
-            });
+            return fallback;
         }
 
         var redirectionAddress = "{{redirection_addr}}";
@@ -399,17 +346,23 @@
                 }
             });
 
-            function populateLanguageOptions(localeData) {
-                if (!localeData || !localeData.keys) {
+            function populateLanguageOptions() {
+                if (!localeManager || typeof localeManager.getAvailableLocales !== 'function') {
                     return;
                 }
-                for (const [key, value] of Object.entries(localeData.keys)) {
+                var locales = localeManager.getAvailableLocales();
+                for (var key in locales) {
+                    if (!Object.prototype.hasOwnProperty.call(locales, key)) {
+                        continue;
+                    }
                     if (!$("#langlist .item[data-value='" + key + "']").length) {
+                        var value = locales[key];
                         var langName = (value && value.name) ? value.name : key;
-                        $("#langlist").append(`<div class="item" data-value="${key}">${langName}</div>`);
+                        $("#langlist").append('<div class="item" data-value="' + key + '">' + langName + '</div>');
                     }
                 }
                 var currentLang = localStorage.getItem('global_language') || 'default';
+                $("#language").val(currentLang);
                 $('.selection.dropdown').dropdown('refresh');
                 $('.selection.dropdown').dropdown('set selected', currentLang);
             }
@@ -418,16 +371,22 @@
                 $.get("system/info/getArOZInfo", function(data){
                     if (data && data.HostName){
                         $(".hostname").text(data.HostName);
-                        var titleSuffix = (typeof applocale !== 'undefined' && applocale.getString) ? applocale.getString('page/titleSuffix', 'Sign In') : 'Sign In';
+                        var titleSuffix = localeGetString('page/titleSuffix', 'Sign In');
                         document.title = data.HostName + " - " + titleSuffix;
                     }
                 });
             }
 
-            onLocaleReady(function(localeData){
-                populateLanguageOptions(localeData);
+            var runLocaleEnhancements = function () {
+                populateLanguageOptions();
                 updateHostnameAndTitle();
-            });
+            };
+
+            if (localeManager && typeof localeManager.onReady === 'function') {
+                localeManager.onReady(runLocaleEnhancements);
+            } else {
+                runLocaleEnhancements();
+            }
             
             //Check if the user already logged in
             $.get("system/auth/checkLogin",function(data){
@@ -478,7 +437,9 @@
                     if(document.referrer != window.location.origin + "/desktop.system" && document.referrer != window.location.origin + "/mobile.system" && path.origin + path.pathname !=  window.location.origin + "/system/auth/oauth/authorize"){
                         $(".ts.borderless.basic.segment").attr("style","display: none;");
                         $(".ts.borderless.basic.segment").attr("id","aoLogin");
-                        $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ui borderless basic segment"><p><i class="key icon"></i>' + (typeof applocale !== 'undefined' ? applocale.getString('login/redirectMessage', 'Redirecting to organization sign-in page in 5 seconds...') : 'Redirecting to organization sign-in page in 5 seconds...') + '</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">' + (typeof applocale !== 'undefined' ? applocale.getString('login/cancel', 'Cancel') : 'Cancel') + '</a></div>');
+                        var redirectMessage = localeGetString('login/redirectMessage', 'Redirecting to organization sign-in page in 5 seconds...');
+                        var cancelText = localeGetString('login/cancel', 'Cancel');
+                        $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ui borderless basic segment"><p><i class="key icon"></i>' + redirectMessage + '</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">' + cancelText + '</a></div>');
                         autoRedirectTimer = setTimeout(function(){
                             window.location.href = "system/auth/oauth/login?redirect=" + redirectionAddress;
                         }, 3000);
@@ -557,8 +518,8 @@
                 if (data.error !== undefined){
                     //Something went wrong during the login  
                     var errorMsg = data.error;
-                    if (typeof applocale !== 'undefined' && applocale.getString && data.error === "Error. Incorrect username or password.") {
-                        errorMsg = applocale.getString('login/errorIncorrect', data.error);
+                    if (data.error === "Error. Incorrect username or password.") {
+                        errorMsg = localeGetString('login/errorIncorrect', data.error);
                     }
                     $("#errmsg").text(errorMsg);
                     $("#errmsg").parent().stop().finish().slideDown('fast').delay(5000).slideUp('fast');
