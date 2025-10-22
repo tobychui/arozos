@@ -1,1 +1,0 @@
-.\darknet_windows_amd64.exe classifier predict cfg/imagenet1k.data cfg/darknet19.cfg darknet19.weights a.jpg

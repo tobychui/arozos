@@ -57,27 +57,6 @@ function extractFolderName(folderpath){
     return folderpath.split("/").pop();
 }
 
-function initSelectedModelValue(){
-    ao_module_agirun("Photo/backend/modelSelector.js",{
-
-    }, function(data){
-        currentModel = data;
-        $("#selectedModel").dropdown("set selected", data);
-    })
-}
-
-function updateSelectedModel(nnnm){
-    if (nnnm != ""){
-        ao_module_agirun("Photo/backend/modelSelector.js",{
-            set: true,
-            model: nnnm
-        }, function(data){
-           console.log("Update model status: ", data);
-           $("#modelUpdated").slideDown("fast").delay(3000).slideUp('fast');
-        })
-    }
-}
-
 function settingObject(){
     return {
         excludeDirs: ["Manga","thumbnail"],
@@ -91,7 +70,6 @@ function settingObject(){
             });
             
             $(".ui.dropdown").dropdown();
-            initSelectedModelValue();
         },
 
         addDir(element){
@@ -175,7 +153,6 @@ function photoListObject() {
         vroots: [],
         images: [],
         folders: [],
-        tags: [],
         
         // init
         init() {
@@ -253,23 +230,6 @@ function photoListObject() {
                     this.vroots = data;
                 });
             })
-        },
-
-        getTags(){
-            fetch(ao_root + "system/ajgi/interface?script=Photo/backend/listTags.js", {
-                method: 'POST',
-                cache: 'no-cache',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    "vroot": this.currentPath
-                })
-            }).then(resp => {
-                resp.json().then(data => {
-                    this.tags = data;
-                });
-            });
         }
     }
 }
@@ -337,16 +297,13 @@ function showSetting(){
 function rescan(object){
     var originalContent = $(object).html();
     $(object).addClass("disabled");
-    $(object).html(`<i class="ui spinner loading icon"></i> Analysing`);
-    ao_module_agirun("Photo/backend/classify.js", {
-
-    }, function(data){
-        //Done
+    $(object).html(`<i class="ui spinner loading icon"></i> Refreshing`);
+    // Image classification has been removed, just refresh the view
+    setTimeout(function(){
         $(object).removeClass("disabled");
         $(object).html(`<i class="ui green checkmark icon"></i> Done`);
         setTimeout(function(){
             $(object).html(originalContent);
         }, 3000);
-        
-    });
+    }, 1000);
 }

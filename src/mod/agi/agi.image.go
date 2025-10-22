@@ -20,7 +20,6 @@ import (
 
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
-	"imuslab.com/arozos/mod/neuralnet"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -373,81 +372,6 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		}
 	})
 
-	vm.Set("_imagelib_classify", func(call otto.FunctionCall) otto.Value {
-		vsrc, err := call.Argument(0).ToString()
-		if err != nil {
-			g.RaiseError(err)
-			return otto.FalseValue()
-		}
-
-		classifier, err := call.Argument(1).ToString()
-		if err != nil {
-			classifier = "default"
-		}
-
-		if classifier == "" || classifier == "undefined" {
-			classifier = "default"
-		}
-
-		//Convert the vsrc to real path
-		fsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
-		if err != nil {
-			g.RaiseError(err)
-			return otto.FalseValue()
-		}
-
-		analysisSrc := rsrc
-		var closerFunc func()
-		if fsh.RequireBuffer {
-			analysisSrc, closerFunc, err = g.bufferRemoteResourcesToLocal(fsh, u, rsrc)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-			defer closerFunc()
-		}
-
-		if classifier == "default" || classifier == "darknet19" {
-			//Use darknet19 for classification
-			r, err := neuralnet.AnalysisPhotoDarknet19(analysisSrc)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			result, err := vm.ToValue(r)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			return result
-
-		} else if classifier == "yolo3" {
-			//Use yolo3 for classification, return positions of object as well
-			r, err := neuralnet.AnalysisPhotoYOLO3(analysisSrc)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			result, err := vm.ToValue(r)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			return result
-
-		} else {
-			//Unsupported classifier
-			log.Println("[AGI] Unsupported image classifier name: " + classifier)
-			g.RaiseError(err)
-			return otto.FalseValue()
-		}
-
-	})
-
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`
 		var imagelib = {};
@@ -455,6 +379,5 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		imagelib.resizeImage = _imagelib_resizeImage;
 		imagelib.cropImage = _imagelib_cropImage;
 		imagelib.loadThumbString = _imagelib_loadThumbString;
-		imagelib.classify = _imagelib_classify;
 	`)
 }

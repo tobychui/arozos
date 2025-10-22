@@ -5,7 +5,6 @@
 */
 
 requirelib("filelib");
-requirelib("imagelib");
 
 //Tags record structure
 /*
@@ -77,21 +76,6 @@ function setExcludeFolders(newFolderList){
     return writeDBItem("image", "excludes", JSON.stringify(newFolderList));
 }
 
-function getNNModel(){
-    newDBTableIfNotExists("image");
-    var nnmodel = readDBItem("image", "nnm");
-    if (nnmodel == ""){
-        return "yolo3";
-    }else{
-        return nnmodel;
-    }
-}
-
-function setNNModel(newNNM){
-    newDBTableIfNotExists("image");
-    return writeDBItem("image", "nnm", newNNM);
-}
-
 //Check if this photo shd be rendered
 function checkIsInExcludeFolders(filename, excludeFiles){
     var excludeRootFolders = excludeFiles;
@@ -154,20 +138,9 @@ function getAllImageFilesInRoot(targetRootID){
 
 //Get the tag of a certain image file given its filepath
 function getImageTags(imagefile){
-    var results = imagelib.classify(imagefile, getNNModel()); 
-    var tags = [];
-    for (var i = 0; i < results.length; i++){
-        console.log(results[i].Name, results[i].Percentage);
-        if (results[i].Percentage > 10){
-            //Confidence larger than 50
-            tags.push({
-                "object": results[i].Name,
-                "confidence":results[i].Percentage
-            });
-        }
-    }
-
-    return tags;
+    // Image classification has been removed to reduce binary size for embedded devices
+    // Return empty tags array
+    return [];
 }
 
 function getImageTagsRecord(imagefile){

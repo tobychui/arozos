@@ -67,11 +67,10 @@
   </style>
 </head>
 <body>
-  <div id="fileOpenDetails" class="ui container" style="margin-top: 0.4em;">
-    <p>File Rendered:  <a href="" id="filename" target="_blank"></a></p>
-  </div>
   <div id="resolte-contaniner">
-    
+    <div id="loading" style="display:flex;align-items:center;justify-content:center;min-height:150px;font-size:1.1rem;color:#666">
+      loading
+    </div>
   </div>
   <script>
     //Get the input file from the hash
@@ -98,13 +97,19 @@
       window.location.href = "./index.html"
     }
     function loadFile(file_path){
-        $("#resolte-contaniner").officeToHtml({
-          url: file_path,
-          pdfSetting: {
-            setLang: "",
-            setLangFilesPath: ""
-          }
-        });
+        try {
+          var error = $("#resolte-contaniner").officeToHtml({
+            url: file_path,
+            pdfSetting: {
+              setLang: "",
+              setLangFilesPath: ""
+            }
+          });
+        } catch (err) {
+          console.error(err);
+          $("#loading").text("Error loading file: " + (err && err.message ? err.message : String(err)));
+          $("#loading").css("color", "red");
+        }
       }
   </script>
 </body>

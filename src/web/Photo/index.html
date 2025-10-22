@@ -117,17 +117,6 @@
                 </div>
             </div>
 
-            <div class="item">
-                Tags
-                <div class="menu" >
-                    <div style="max-height: 100px; overflow-y: auto;">
-                        <template x-for="key in Object.keys(tags)">
-                            <a class="item" x-on:click="console.log( tags[key][0],tags[key][1]); images = tags[key]; $('#noimg').hide();" :filedata="encodeURIComponent(JSON.stringify(tags[key]));" ><i class="ui hashtag icon"></i> <span x-text="key"></span></a>
-                        </template>
-                    </div>
-                    
-                </div>
-            </div>
             <a class="item" onclick="rescan(this);">Rescan <i class="ui search icon"></i></a>
             <a class="item" onclick="showSetting();">Settings <i class="ui setting icon"></i></a>
 
@@ -171,34 +160,15 @@
     <div class="ui modal setting" x-data="settingObject()" x-init="init();">
         <i class="close icon"></i>
         <div class="header">
-            Photo Classification Settings
+            Photo Settings
         </div>
         <div class="content">
-            <p><i class="angle right icon"></i> Select Neural Network Model for Classification</p>
-            <div class="ui selection dropdown" id="selectedModel" onchange="updateSelectedModel($(this).dropdown('get value'));">
-                <input type="hidden" name="nnm">
-                <i class="dropdown icon"></i>
-                <div class="default text">default</div>
-                <div class="menu">
-                    <div class="item" data-value="yolo3">YOLO 3</div>
-                    <div class="item" data-value="darknet19">Darknet 19</div>
-                </div>
-            </div>
-            <div class="ui green message" id="modelUpdated" style="display:none;">
-                <div class="content">
-                    <i class="green small checkmark icon"></i>   Model Updated
-                </div>
-            </div>
-            <br>
-            <small><i class="ui info icon"></i> For host with less than 1GB free memory, Darknet 19 is recommend. However, this might result is less accurate classification predictions.</small>
-            <div class="ui divider"></div>
-            <p><i class="angle right icon"></i> Base folder name to exclude when auto-tag generaton</p>
+            <p><i class="angle right icon"></i> Base folder name to exclude when browsing</p>
             <div id="newexc" class="ui action fluid input">
                 <input type="text" placeholder="Private">
                 <button class="ui blue basic button" x-on:click="addDir($el);"><i class="ui add icon"></i> Add</button>
               </div>
               <small>Example: To exclude *:/Photo/Private/, just fill in the folder name "Private"</small>
-                <div class="ui middle aligned relaxed divided list">
                     <div class="item" id="noexcRecords" style="display:none;"><i class="remove icon"></i> No Exclude Directory Record</div>
 
                     <template x-for="excludedir in excludeDirs">

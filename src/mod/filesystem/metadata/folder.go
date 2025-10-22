@@ -1,16 +1,20 @@
 package metadata
 
 import (
+	"encoding/base64"
 	"errors"
 	"image"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
 	"log"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nfnt/resize"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -27,15 +31,18 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 	cacheFolderInsideThisFolder := filepath.Join(file, "/.metadata/.cache")
 	if !fshAbs.FileExists(cacheFolderInsideThisFolder) {
 		//This folder do not have a cache folder
-		return "", errors.New("No previewable files")
+		succ := generateLayeredThumbnailFolder(fsh, file)
+		if !succ {
+			return "", errors.New("failed to generate layered thumbnails inside folder")
+		}
 	}
 
 	//Load the base template
-	if !fshAbs.FileExists("web/img/system/folder-preview.png") {
+	if !utils.FileExists("web/img/system/folder-preview.png") {
 		//Missing system files. Skip rendering
-		return "", errors.New("Missing system template image file")
+		return "", errors.New("missing system template image file")
 	}
-	image1, err := fshAbs.Open("web/img/system/folder-preview.png")
+	image1, err := os.Open("web/img/system/folder-preview.png")
 	if err != nil {
 		return "", err
 	}
@@ -68,10 +75,26 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 		backImgOffset := image.Pt(155, 110)
 		defer image2.Close()
 		resizedBackImg := resize.Resize(250, 250, backImage, resize.Lanczos3)
-		draw.Draw(resultThumbnail, resizedBackImg.Bounds().Add(backImgOffset), resizedBackImg, image.ZP, draw.Over)
+		draw.Draw(resultThumbnail, resizedBackImg.Bounds().Add(backImgOffset), resizedBackImg, image.Point{}, draw.Over)
 	} else {
-		//Nothing to preview inside this folder
-		return "", errors.New("No previewable files")
+		//Nothing to preview inside this folder, check if the folder is really empty
+		filesInside, _ := fshAbs.ReadDir(file)
+		if len(filesInside) > 1 {
+			//Not only the metadata folder is inside
+			templateFile := "web/img/system/folder-content.png"
+			if utils.FileExists(templateFile) {
+				content, err := os.ReadFile(templateFile)
+				if err != nil {
+					return "", err
+				}
+				encoded := base64.StdEncoding.EncodeToString(content)
+				return string(encoded), nil
+			} else {
+				return "", errors.New("missing system template image file")
+			}
+		}
+
+		return "", errors.New("no previewable files")
 	}
 
 	//Render the top image
@@ -92,7 +115,7 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 
 	topImageOffset := image.Pt(210, 210)
 	resizedTopImage := resize.Resize(260, 260, topImage, resize.Lanczos3)
-	draw.Draw(resultThumbnail, resizedTopImage.Bounds().Add(topImageOffset), resizedTopImage, image.ZP, draw.Over)
+	draw.Draw(resultThumbnail, resizedTopImage.Bounds().Add(topImageOffset), resizedTopImage, image.Point{}, draw.Over)
 
 	outfile, err := fshAbs.Create(filepath.Join(cacheFolder, filepath.Base(file)+".png"))
 	if err != nil {
@@ -103,4 +126,64 @@ func generateThumbnailForFolder(fsh *filesystem.FileSystemHandler, cacheFolder s
 
 	ctx, err := getImageAsBase64(fsh, cacheFolder+filepath.Base(file)+".png")
 	return ctx, err
+}
+
+// generateLayeredThumbnailFolder generate 2 thumbnails inside that folder
+// for folder thumbnail render
+func generateLayeredThumbnailFolder(fsh *filesystem.FileSystemHandler, file string) bool {
+	if fsh.RequireBuffer {
+		//Too much work for buffer mode, skip generating
+		return false
+	}
+	fshAbs := fsh.FileSystemAbstraction
+	//Check if this folder has cache image folder
+	cacheFolderInsideThisFolder := filepath.Join(file, "/.metadata/.cache")
+	if !fshAbs.FileExists(cacheFolderInsideThisFolder) {
+		//Create the cache folder
+		err := fshAbs.MkdirAll(cacheFolderInsideThisFolder, 0755)
+		if err != nil {
+			return false
+		}
+	}
+
+	//List all files in the folder
+	files, err := fshAbs.ReadDir(file)
+	if err != nil {
+		return false
+	}
+
+	//Generate thumbnails for the first 2 image files
+	imageExtensions := []string{".jpg", ".jpeg", ".png"}
+	generatedCount := 0
+	for _, fi := range files {
+		if fi.IsDir() || fi.Name()[0] == '.' {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(fi.Name()))
+		isImage := false
+		for _, imgExt := range imageExtensions {
+			if ext == imgExt {
+				isImage = true
+				break
+			}
+		}
+		if isImage {
+			filePath := filepath.Join(file, fi.Name())
+			// Generate thumbnail for this image into the cache folder
+			_, err := generateThumbnailForImage(fsh, cacheFolderInsideThisFolder+"/", filePath, false)
+			if err == nil {
+				generatedCount++
+				if generatedCount >= 2 {
+					break
+				}
+			}
+		}
+	}
+
+	if generatedCount == 0 {
+		// -1 because there always will be at least 1 folder (the metadata folder)
+		return false
+	}
+
+	return true
 }
