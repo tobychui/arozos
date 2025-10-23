@@ -8,11 +8,11 @@
 
 //Define the launchInfo for the module
 var moduleLaunchInfo = {
-    Name: "Manga Cafe",
+    Name: "Manga",
 	Group: "Media",
-	IconPath: "Manga Cafe/img/small_icon.png",
+	IconPath: "Manga/img/small_icon.png",
 	Version: "1.1",
-	StartDir: "Manga Cafe/index.html"
+	StartDir: "Manga/index.html"
 }
 
 //Register the module

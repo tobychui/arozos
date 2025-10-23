@@ -213,7 +213,7 @@
             <div class="ui selection dropdown">
                 <input id="language" type="hidden" name="language">
                 <i class="dropdown icon"></i>
-                <div class="default text" locale="locale/language-default-text">Language</div>
+                <div class="default text">Language</div>
                 <div class="menu" id="langlist">
                     <div class="item" data-value="default" locale="locale/browser-default">Browser Default</div>
                 </div>
@@ -342,7 +342,9 @@
             $('.selection.dropdown').dropdown({
                 onChange: function(value) {
                     localStorage.setItem('global_language', value);
-                    location.reload();
+                    if (localeManager && typeof localeManager.setLanguage === 'function') {
+                        localeManager.setLanguage(value);
+                    }
                 }
             });
 
@@ -377,9 +379,29 @@
                 });
             }
 
+            window.updateHostnameAndTitle = updateHostnameAndTitle;
+
+            window.updateDropdownText = function() {
+                var localeManager = window.LoginLocale;
+                if (!localeManager) return;
+                var currentLang = localeManager.getCurrentLanguage();
+                var text = 'Language';
+                if (currentLang === 'default') {
+                    text = localeGetString('locale/browser-default', 'Browser Default');
+                } else {
+                    var locales = localeManager.getAvailableLocales();
+                    var langData = locales[currentLang];
+                    if (langData && langData.name) {
+                        text = langData.name;
+                    }
+                }
+                $('.selection.dropdown .text').text(text);
+            };
+
             var runLocaleEnhancements = function () {
                 populateLanguageOptions();
                 updateHostnameAndTitle();
+                updateDropdownText();
             };
 
             if (localeManager && typeof localeManager.onReady === 'function') {

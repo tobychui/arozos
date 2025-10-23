@@ -60,11 +60,14 @@ for (var i =0; i < rootList.length; i++){
                     }
                 }
 
-                //Get the starting chapter
-                var startChapter = foldersInTitle[0];
-
+                //Get the chapter names
+                var chapterNames = [];
+                for (var i = 0; i < foldersInTitle.length; i++) {
+                    chapterNames.push(foldersInTitle[i].split("/").pop());
+                }
+               
                 //Prase the return output, src folder, chapter count and title image path
-                scannedTitles.push([thisFileObject, chapterCount, titleImagePath, startChapter]);
+                scannedTitles.push([thisFileObject, chapterCount, titleImagePath, chapterNames]);
             }
         }
     }
