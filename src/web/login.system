@@ -5,11 +5,12 @@
     <meta name="robots" content="noindex" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="author" href="humans.txt"/>
-    <title>ArozOS - Login</title>
+    <title locale="page/title">ArozOS - Login</title>
     <link rel="stylesheet" href="script/semantic/semantic.min.css">
     <link rel="stylesheet" href="script/ao.css">
     <script type="application/javascript" src="script/jquery.min.js"></script>
     <script type="application/javascript" src="script/semantic/semantic.min.js"></script>
+    <script type="text/javascript" src="script/locale/login.js"></script>
     
     <style>
     @media only screen and (max-height: 1000px) {
@@ -158,6 +159,32 @@
         margin-top: 4em;
     }
 
+    .languageSelector{
+        position: absolute;
+        top: 1em;
+        right: 1em;
+        z-index: 1000;
+    }
+
+    .languageSelector .ui.dropdown{
+        min-width: 120px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 0.3em;
+    }
+
+    .languageSelector .ui.dropdown .menu{
+        min-width: 140px;
+    }
+
+    @media (max-width: 600px) {
+        .languageSelector {
+            position: fixed;
+            top: 0.5em;
+            right: 0.5em;
+        }
+    }
+
     @media (orientation: landscape) and (max-height: 765px) {
         .rightLoginFrame{
             width: 500px !important;
@@ -180,33 +207,45 @@
         <div class="leftPictureFrame">
             
         </div>
+        
+        <!-- Language Selector -->
+        <div class="languageSelector">
+            <div class="ui selection dropdown">
+                <input id="language" type="hidden" name="language">
+                <i class="dropdown icon"></i>
+                <div class="default text" locale="locale/language-default-text">Language</div>
+                <div class="menu" id="langlist">
+                    <div class="item" data-value="default" locale="locale/browser-default">Browser Default</div>
+                </div>
+            </div>
+        </div>
         <div id="loginInterface" class="rightLoginFrame">
             <img class="ui medium image loginLogo" src="data:image/png;base64, {{service_logo}}">
 
             <div class="ui borderless basic segment">
-                <p>Sign in to <span class="hostname">ArozOS</span> with your username and password</p>
+                <p><span locale="login/introPrefix">Sign in to </span><span class="hostname">ArozOS</span><span locale="login/introSuffix"> </span><span locale="login/description">with your username and password</span></p>
                 
                
                 
                 <div class="ui fluid input textbox">
-                    <input id="username" type="text" placeholder="Username">
+                    <input id="username" type="text" placeholder="Username" locale="username">
                 </div>
                 <div class="ui fluid input textbox">
-                    <input id="magic" type="password" placeholder="Password">
+                    <input id="magic" type="password" placeholder="Password" locale="password">
                 </div>
 
                 <div class="ui checkbox">
                     <input id="rmbme" type="checkbox">
-                    <label for="rmbme">Remember Me</label>
+                    <label for="rmbme" locale="login/rememberMe">Remember Me</label>
                 </div>
                 
                 <br><br>
-                <button id="loginbtn" class="ui button loginbtn themecolor" style="display:inline-block;">Sign In</button>
+                <button id="loginbtn" class="ui button loginbtn themecolor" style="display:inline-block;" locale="login/signinButton">Sign In</button>
                 <div class="oauthonly" style="display:inline-block;">
-                    <a class="ui button oauthbtn subthemecolor" href="system/auth/oauth/login">Sign In via OAuth 2.0</a><br>
+                    <a class="ui button oauthbtn subthemecolor" href="system/auth/oauth/login" locale="login/oauthButton">Sign In via OAuth 2.0</a><br>
                 </div>
                 <div class="ldaponly" style="display:inline-block;">
-                    <a class="ui button oauthbtn subthemecolor" href="ldapLogin.system">Sign In via LDAP</a><br>
+                    <a class="ui button oauthbtn subthemecolor" href="ldapLogin.system" locale="login/ldapButton">Sign In via LDAP</a><br>
                 </div>
                 <div class="resumableOnly" style="display:none;">
                     <br>
@@ -216,32 +255,44 @@
                                 <img class="usericon ui circular image" src="img/public/user.svg">
                                 <div class="content" style="font-size: 95% !important;">
                                     <span class="username"><i class="ui loading spinner icon"></i></span> 
-                                    <div class="sub header usergroup"><i class="ui green check circle icon" style="margin-right: 0px;"></i> Resumable Session</div>
+                                    <div class="sub header usergroup"><i class="ui green check circle icon" style="margin-right: 0px;"></i> <span locale="login/resumableSession">Resumable Session</span></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <br>
-                    <button class="ui subthemecolor newResumableSession button" style="color: white; display:none;"><i class="ui add icon"></i> Create New Session</button>
+                    <button class="ui subthemecolor newResumableSession button" style="color: white; display:none;"><i class="ui add icon"></i> <span locale="login/createNewSession">Create New Session</span></button>
                 </div>
 
                 <br>
                 <div class="ui breadcrumb" style="margin-top:12px;">
-                    <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system">Sign Up</a>
+                    <a class="section signup" style="cursor:pointer; display:none;" href="public/register/register.system" locale="login/signUp">Sign Up</a>
                     <div class="divider signup"> / </div>
-                    <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system">Forgot Password</a>
+                    <a  id="forgetpw" class="section" style="cursor:pointer" href="reset.system" locale="login/forgotPassword">Forgot Password</a>
                 </div>
-                <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span id="errmsg">Error. Incorrect username or password.</span></p>
+                <p style="margin-top:18px;color:#ff7a70; display:none;font-size:1.2em;"><i class="remove icon"></i><span id="errmsg" locale="login/errorIncorrect">Error. Incorrect username or password.</span></p>
                
             </div>
            
             <div class="bottombar">
                 © <a href="https://arozos.com">ArozOS</a> 2017 - <span class="thisyear"></span><br>
-                <small class="inversehighlight" style="font-size: 80%">Request Timestamp: <span id="requestTime"></span> | <span id="requestHostCommonName"></span></small>
+                <small class="inversehighlight" style="font-size: 80%"><span locale="login/requestTimestamp">Request Timestamp</span>: <span id="requestTime"></span> | <span id="requestHostCommonName"></span></small>
             </div>
         </div>
         
     <script>
+        var localeManager = window.LoginLocale || null;
+        if (localeManager && typeof localeManager.init === "function") {
+            localeManager.init();
+        }
+
+        function localeGetString(key, fallback) {
+            if (localeManager && typeof localeManager.getString === "function") {
+                return localeManager.getString(key, fallback);
+            }
+            return fallback;
+        }
+
         var redirectionAddress = "{{redirection_addr}}";
         var loginAddress = "{{login_addr}}";
         var systemUserCount = "{{usercount}}" - 0; //Magic way to convert string to int :)
@@ -284,6 +335,59 @@
             $("#requestTime").text(datetime);
             $("#requestHostCommonName").text(location.hostname);
             $(".ui.checkbox").checkbox();
+            
+            // Initialize language dropdown using settings method
+            var storedLanguage = localStorage.getItem('global_language') || 'default';
+            $("#language").val(storedLanguage);
+            $('.selection.dropdown').dropdown({
+                onChange: function(value) {
+                    localStorage.setItem('global_language', value);
+                    location.reload();
+                }
+            });
+
+            function populateLanguageOptions() {
+                if (!localeManager || typeof localeManager.getAvailableLocales !== 'function') {
+                    return;
+                }
+                var locales = localeManager.getAvailableLocales();
+                for (var key in locales) {
+                    if (!Object.prototype.hasOwnProperty.call(locales, key)) {
+                        continue;
+                    }
+                    if (!$("#langlist .item[data-value='" + key + "']").length) {
+                        var value = locales[key];
+                        var langName = (value && value.name) ? value.name : key;
+                        $("#langlist").append('<div class="item" data-value="' + key + '">' + langName + '</div>');
+                    }
+                }
+                var currentLang = localStorage.getItem('global_language') || 'default';
+                $("#language").val(currentLang);
+                $('.selection.dropdown').dropdown('refresh');
+                $('.selection.dropdown').dropdown('set selected', currentLang);
+            }
+
+            function updateHostnameAndTitle() {
+                $.get("system/info/getArOZInfo", function(data){
+                    if (data && data.HostName){
+                        $(".hostname").text(data.HostName);
+                        var titleSuffix = localeGetString('page/titleSuffix', 'Sign In');
+                        document.title = data.HostName + " - " + titleSuffix;
+                    }
+                });
+            }
+
+            var runLocaleEnhancements = function () {
+                populateLanguageOptions();
+                updateHostnameAndTitle();
+            };
+
+            if (localeManager && typeof localeManager.onReady === 'function') {
+                localeManager.onReady(runLocaleEnhancements);
+            } else {
+                runLocaleEnhancements();
+            }
+            
             //Check if the user already logged in
             $.get("system/auth/checkLogin",function(data){
                 try{
@@ -333,7 +437,9 @@
                     if(document.referrer != window.location.origin + "/desktop.system" && document.referrer != window.location.origin + "/mobile.system" && path.origin + path.pathname !=  window.location.origin + "/system/auth/oauth/authorize"){
                         $(".ts.borderless.basic.segment").attr("style","display: none;");
                         $(".ts.borderless.basic.segment").attr("id","aoLogin");
-                        $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ui borderless basic segment"><p><i class="key icon"></i>Redirecting to organization sign-in page in 5 seconds...</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">Cancel</a></div>');
+                        var redirectMessage = localeGetString('login/redirectMessage', 'Redirecting to organization sign-in page in 5 seconds...');
+                        var cancelText = localeGetString('login/cancel', 'Cancel');
+                        $(".ts.borderless.basic.segment").after('<div id="autoRedirectSegment" class="ui borderless basic segment"><p><i class="key icon"></i>' + redirectMessage + '</p><br><a style="cursor: pointer;" onclick="stopAutoRedirect()">' + cancelText + '</a></div>');
                         autoRedirectTimer = setTimeout(function(){
                             window.location.href = "system/auth/oauth/login?redirect=" + redirectionAddress;
                         }, 3000);
@@ -382,11 +488,6 @@
                 $(".section.signin").attr("href","system/auth/oauth/login?redirect=" + redirectionAddress);
             }
 
-            //Get the system hostname and replace the hostname fields
-            $.get("system/info/getArOZInfo", function(data){
-                document.title = data.HostName + " - Sign In"
-                $(".hostname").text(data.HostName);
-            });
         });
 
         //Event handlers for buttons
@@ -415,8 +516,12 @@
             $("input").addClass('disabled');
             $.post(loginAddress, {"username": username, "password": magic, "rmbme": rmbme}).done(function(data){
                 if (data.error !== undefined){
-                    //Something went wrong during the login
-                    $("#errmsg").text(data.error);
+                    //Something went wrong during the login  
+                    var errorMsg = data.error;
+                    if (data.error === "Error. Incorrect username or password.") {
+                        errorMsg = localeGetString('login/errorIncorrect', data.error);
+                    }
+                    $("#errmsg").text(errorMsg);
                     $("#errmsg").parent().stop().finish().slideDown('fast').delay(5000).slideUp('fast');
                 }else if(data.redirect !== undefined){
                     //LDAP Related Code
