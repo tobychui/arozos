@@ -13,48 +13,44 @@
     <script src="../script/jquery.min.js"></script>
     <script src="../script/semantic/semantic.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="histogram.js"></script>
+    <script src="photo.js"></script>
     <style>
-        @media only screen and (min-width: 850px) {
-            #menu {
-                flex: 1;
-                max-width: 200px;
-                min-width: 200px;
-                height: 100vh;
-                display: block;
-            }
-            #showmenuBtn {
-                display: none;
-            }
+        #main {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
         
-        @media only screen and (max-width: 850px) {
-            #menu {
-                display: none;
-                height: 100vh;
-            }
-            #showmenuBtn {
-                position: fixed;
-                bottom: 1.8em;
-                left: 1em;
-            }
+        #menu {
+            flex: 0 0 auto;
+            width: 100%;
+            height: auto;
+        }
+        
+        #path-selector {
+            flex: 0 0 auto;
+            padding: 1em;
+            background: #2c2c2c;
+            border-bottom: 1px solid #444;
+            color: #ffffff;
         }
         
         #display {
             flex: 1;
-            margin: 0 0;
-            height: 100vh;
-        }
-        
-        #main {
-            display: flex;
+            margin: 0;
+            overflow: hidden;
+            background: #1a1a1a;
         }
         
         body {
             overflow: hidden;
+            background: #1a1a1a;
+            color: #ffffff;
         }
 
         .imagecard{
-            border: 1px solid transparent;
+            border: 1px solid #444;
         }
 
         .imagecard img{
@@ -84,48 +80,229 @@
             backdrop-filter: blur(2px);
         }
 
+        .subfolders-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5em;
+        }
+
+        #noimg {
+            text-align: center;
+            margin: 2em auto;
+            max-width: 400px;
+            color: white;
+        }
+
+        #noimg .sub.header {
+            color: #cccccc;
+        }
+
+        .photo-viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            display: none;
+        }
+
+        .viewer-content {
+            display: flex;
+            height: 100%;
+            position: relative;
+        }
+
+        .viewer-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .viewer-bg img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: blur(20px);
+        }
+
+        .viewer-left, .viewer-right {
+            z-index: 2;
+            position: relative;
+        }
+
+        .viewer-left {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .viewer-left img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .viewer-right {
+            width: 350px;
+            background: rgba(40, 40, 40,0.6);
+            padding: 20px;
+            color: white;
+            overflow-y: auto;
+        }
+
+        .info-panel h3 {
+            margin-top: 0;
+            color: #f76c5d;
+        }
+
+        .info-panel h4 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #f76c5d;
+        }
+
+        .info-panel h5 {
+            margin-top: 15px;
+            margin-bottom: 5px;
+            color: #cccccc;
+            font-size: 0.9em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-panel table {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .info-panel .exif-section-table {
+            margin-bottom: 15px;
+        }
+
+        .info-panel td {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            padding: 6px 4px;
+            font-size: 0.9em;
+        }
+
+        .info-panel td:first-child {
+            font-weight: bold;
+            width: 120px;
+            white-space: nowrap;
+            color: #cccccc;
+        }
+
+        .info-panel td:last-child {
+            word-break: break-all;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 1em;
+            right: 1em;
+            background: #222222;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            z-index: 500;
+        }
+
+        .close-btn:hover {
+            background: #d9534f;
+        }
+
+        #shooting-params-section .column {
+            padding: 0.1em !important;
+        }
+
+        #shooting-params-section .propertiesLabel {
+             border: 1px solid #c0c0c0 !important;
+             border-radius: 0.4em !important;
+             margin: 0.1em;
+             padding: 0.2em 0.4em;
+        }
+
+        #shooting-params-grid{
+            margin: 0 !important;
+        }
+
     </style>
 
 </head>
 <body>
-    <script src="photo.js"></script>
     <div id="main" x-data='photoListObject()' x-init="init()">
-        <div class="ui left vertical menu" id="menu">
-            <div class="item" style="background-color: #f76c5d;">
-                <img class="ui fluid image" src="img/banner.png">
-            </div>
+        <div class="ui inverted secondary menu" id="menu">
             <div class="item">
-                Browse Photos
+                <img class="ui fluid image" src="img/banner.png" style="max-height: 40px;">
+            </div>
+            <div class="ui inverted dropdown item">
+                Browse Photos <i class="dropdown icon"></i>
                 <div class="menu">
-                    <template x-for="vroot in vroots" x-init="getRootInfo()">
+                    <template x-for="vroot in vroots">
                         <a class="item" :rootpath="vroot[1]" x-on:click="updateRenderingPath(vroot[2]);"><i class="ui disk icon"></i> <span x-text="vroot[0] + ' (' + vroot[1] + ')'"></span></a>
                     </template>
                     
                 </div>
             </div>
-            <a id="parentFolderButton" class="item" x-on:click="parentFolder();" style="display:none;">
-                <i class="reply icon"></i> Parent Folder
-            </a>
-            <div class="item">
-                Sub Folders
-                <div class="menu" style="max-height: 100px; overflow-y: auto;">
-                    <div class="item" id="nosubfolder" style="display:none;">No Sub Folders</div>
-                    <template x-for="folder in folders">
-                        <a class="item" x-on:click="updateRenderingPath(folder);" ><i class="ui folder open icon"></i> <span x-text="extractFolderName(folder);"></span></a>
-                    </template>
-                    
+            <div class="ui inverted dropdown item">
+                Sort By <i class="dropdown icon"></i>
+                <div class="menu">
+                    <a class="item" x-on:click="changeSort('default');" :class="{ 'active': sortOrder === 'default' }"><i class="ui sort alphabet up icon"></i> Filename Ascending</a>
+                    <a class="item" x-on:click="changeSort('reverse');" :class="{ 'active': sortOrder === 'reverse' }"><i class="ui sort alphabet down icon"></i> Filename Descending</a>
+                    <a class="item" x-on:click="changeSort('smallToLarge');" :class="{ 'active': sortOrder === 'smallToLarge' }"><i class="ui sort amount up icon"></i> Size Small to Large</a>
+                    <a class="item" x-on:click="changeSort('largeToSmall');" :class="{ 'active': sortOrder === 'largeToSmall' }"><i class="ui sort amount down icon"></i> Size Large to Small</a>
+                    <a class="item" x-on:click="changeSort('mostRecent');" :class="{ 'active': sortOrder === 'mostRecent' }"><i class="ui calendar icon"></i> Newest First</a>
+                    <a class="item" x-on:click="changeSort('leastRecent');" :class="{ 'active': sortOrder === 'leastRecent' }"><i class="ui calendar outline icon"></i> Oldest First</a>
+                    <a class="item" x-on:click="changeSort('fileTypeAsce');" :class="{ 'active': sortOrder === 'fileTypeAsce' }"><i class="ui file alternate icon"></i> Extension Ascending</a>
+                    <a class="item" x-on:click="changeSort('fileTypeDesc');" :class="{ 'active': sortOrder === 'fileTypeDesc' }"><i class="ui file alternate outline icon"></i> Extension Descending</a>
+                    <a class="item" x-on:click="changeSort('smart');" :class="{ 'active': sortOrder === 'smart' }"><i class="ui magic icon"></i> Natural Order</a>
                 </div>
             </div>
-
-            <a class="item" onclick="rescan(this);">Rescan <i class="ui search icon"></i></a>
-            <a class="item" onclick="showSetting();">Settings <i class="ui setting icon"></i></a>
+            
+            <!-- Right floated menu -->
+            <a class="right floated icon item" x-on:click="toggleViewMode();">
+                <i x-show="viewMode === 'grid'" class="ui bars large icon"></i>
+                <i x-show="viewMode === 'list'" class="ui th large icon"></i>
+            </a>
 
         </div>
 
+        <div id="path-selector">
+            <div class="ui inverted breadcrumb">
+                <span x-text="currentPath"></span>
+            </div>
+            <div class="ui divider"></div>
+            <div >
+                <a id="parentFolderButton" class="ui basic inverted button" x-on:click="parentFolder();" style="display:none;">
+                    <i class="reply icon"></i> Parent Folder
+                </a>
+                <div id="subfolders-buttons" class="subfolders-container" style="margin-top: 0.6em;">
+                    <div class="item" id="nosubfolder" style="display:none;"><!-- <i class="ui green circle check icon"></i> No Sub Folders --></div>
+                    <template x-for="folder in folders">
+                        <a class="ui basic small inverted button" x-on:click="updateRenderingPath(folder);"><i class="ui folder open icon"></i> <span x-text="extractFolderName(folder);"></span></a>
+                    </template>
+                </div>
+            </div>
+        </div>
+
         <div id="display">
-            <div id="noimg" class="ui basic segment" style="display:none;">
+            <div id="noimg" class="ui basic inverted segment" style="display:none;">
                 <h4 class="ui header">
-                    <i class="red question icon"></i>
                     <div class="content">
                         Empty Folder
                         <div class="sub header">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
@@ -133,7 +310,7 @@
                 </h4>
             </div>
             <div id="viewboxContainer">
-                <div id="viewbox" class="ui six cards viewbox">
+                <div x-show="viewMode === 'grid'" id="viewbox" class="ui six cards viewbox">
                     <template x-for="image in images">
                         <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.split('/').pop(),'filepath':image}))">
                             <a class="image" x-init="updateImageSizes();">
@@ -142,55 +319,172 @@
                         </div>
                     </template>
                 </div>
+                <div x-show="viewMode === 'list'" class="ui relaxed divided inverted list">
+                    <template x-for="image in images">
+                        <div class="item" style="cursor: pointer; padding-left: 10px; " x-on:click="showImage($el); ShowModal();" :filedata="encodeURIComponent(JSON.stringify({'filename':image.split('/').pop(),'filepath':image}))">
+                            <img class="ui small image" :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image" style="width: 60px; height: 60px;">
+                            <div class="content">
+                                <div class="header" x-text="image.split('/').pop()"></div>
+                                <div class="description" x-text="image"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
             </div>
         </div>
 
         
     </div>
-    <button id="showmenuBtn" class="ui basic big icon button" onclick="toggleMenu();"><i class="ui content icon"></i></button>
+    <!-- Photo Viewer -->
+    <div id="photo-viewer" class="photo-viewer">
+        
+        <div class="viewer-content">
+            <div class="viewer-bg">
+                <img id="bg-image" src="" />
+            </div>
+            <div class="viewer-left">
+                <img id="fullImage" src="" />
+                <button class="close-btn" onclick="closeViewer()">×</button>
+            </div>
+            <div class="viewer-right">
+                <div class="info-panel">
+                    <h3>Photo Information</h3>
+                    <table class="ui very basic table inverted">
+                        <tbody>
+                            <tr>
+                                <td><strong>Filename:</strong></td>
+                                <td><span id="info-filename"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Filepath:</strong></td>
+                                <td><span id="info-filepath"></span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Image Dimensions:</strong></td>
+                                <td><span id="info-dimensions">Loading...</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <h4>EXIF Data</h4>
+                    <div id="exif-data">
+                        <!-- Basic Information -->
+                        <div id="basic-info-section" style="display: none;">
+                            <h5>Basic Information</h5>
+                            <table class="ui very basic table inverted exif-section-table">
+                                <tbody>
+                                    <tr id="format-row" style="display: none;"><td>Format</td><td id="format-value"></td></tr>
+                                    <tr id="dimensions-row" style="display: none;"><td>Dimensions</td><td id="dimensions-value"></td></tr>
+                                    <tr id="pixels-row" style="display: none;"><td>Pixels</td><td id="pixels-value"></td></tr>
+                                    <tr id="color-space-row" style="display: none;"><td>Color Space</td><td id="color-space-value"></td></tr>
+                                    <tr id="shooting-time-row" style="display: none;"><td>Shooting Time</td><td id="shooting-time-value"></td></tr>
+                                    <tr id="software-row" style="display: none;"><td>Software</td><td id="software-value"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="ui divider" id="basic-info-divider" style="display: none;"></div>
 
-    <!-- Photo Viewing Modal -->
-    <div class="ui basic small modal viewer">
-        <i class="close icon" style="margin-top: -2em;"></i>
-        <div class="image content">
-            <img id="fullImage" class="ui fluid image" src="" onload="$('.ui.modal.viewer').modal('refresh');"/>
-        </div>
-    </div>
-
-    <div class="ui modal setting" x-data="settingObject()" x-init="init();">
-        <i class="close icon"></i>
-        <div class="header">
-            Photo Settings
-        </div>
-        <div class="content">
-            <p><i class="angle right icon"></i> Base folder name to exclude when browsing</p>
-            <div id="newexc" class="ui action fluid input">
-                <input type="text" placeholder="Private">
-                <button class="ui blue basic button" x-on:click="addDir($el);"><i class="ui add icon"></i> Add</button>
-              </div>
-              <small>Example: To exclude *:/Photo/Private/, just fill in the folder name "Private"</small>
-                    <div class="item" id="noexcRecords" style="display:none;"><i class="remove icon"></i> No Exclude Directory Record</div>
-
-                    <template x-for="excludedir in excludeDirs">
-                        <div class="item">
-                            <div class="right floated content">
-                                <div class="ui negative small basic button" x-on:click="removeDir(excludedir);"><i class="remove icon"></i> Remove</div>
-                            </div>
-                            <img class="ui avatar image" src="./img/collection.svg">
-                            <div class="content" x-text="excludedir + ' (Exclude *:/Photo/' + excludedir + '/)'">
-                                
+                        <!-- Shooting Parameters -->
+                        <div id="shooting-params-section" style="display: none;">
+                            <h5>Shooting Parameters</h5>
+                            <div id="shooting-params-grid" class="ui grid">
+                                <div class="eight wide column" id="focal-length-row" style="display: none;">
+                                    <div class="propertiesLabel">
+                                        <img src="img/focal.svg" alt="Focal Length Icon" style="width: 16px; height: 16px; margin-right: 5px; margin-bottom: -0.2em">
+                                        <span id="focal-length-value"></span>
+                                    </div>
+                                </div>
+                                <div class="eight wide column" id="aperture-row" style="display: none;">
+                                    <div class="propertiesLabel">
+                                        <img src="img/aperature.svg" alt="Focal Length Icon" style="width: 16px; height: 16px; margin-right: 5px; margin-bottom: -0.2em">
+                                        <span id="aperture-value"></span>
+                                    </div>
+                                </div>
+                                <div class="eight wide column" id="shutter-speed-row" style="display: none;">
+                                    <div class="propertiesLabel">
+                                        <img src="img/shutter_speed.svg" alt="Focal Length Icon" style="width: 16px; height: 16px; margin-right: 5px; margin-bottom: -0.2em">
+                                        <span id="shutter-speed-value"></span>
+                                    </div>
+                                </div>
+                                <div class="eight wide column" id="iso-row" style="display: none;">
+                                    <div class="propertiesLabel">
+                                        <img src="img/iso.svg" alt="Focal Length Icon" style="width: 16px; height: 16px; margin-right: 5px; margin-bottom: -0.2em">
+                                        <span>ISO </span><span id="iso-value"></span>
+                                   </div>
+                                </div>
+                                <div class="eight wide column" id="ev-row" style="display: none;">
+                                    <div class="propertiesLabel">
+                                        <img src="img/exposure.svg" alt="EV Icon" style="width: 16px; height: 16px; margin-right: 5px; margin-bottom: -0.25em">
+                                        <span>EV </span> <span id="ev-value"></span>
+                                    </div>  
+                                </div>  
                             </div>
                         </div>
-                    </template>
-              </div>
-        </div>
-        <div class="actions">
-            <div class="ui deny right button">
-                    Close
-            </div>
-            <div class="ui positive left labeled icon button" x-on:click="save();">
-                    Save
-                <i class="checkmark icon"></i>
+                        <div class="ui divider" id="shooting-params-divider" style="display: none;"></div>
+
+                        <!-- Tone Analysis -->
+                        <div id="tone-analysis-section" style="display: none;">
+                            <h5>Tone Analysis</h5>
+                            <table class="ui very basic table inverted exif-section-table">
+                                <tbody>
+                                    <tr><td>Tone Type</td><td class="tone-type-value">Analyzing...</td></tr>
+                                    <tr><td>Brightness</td><td class="brightness-value">Analyzing...</td></tr>
+                                    <tr><td>Contrast</td><td class="contrast-value">Analyzing...</td></tr>
+                                    <tr><td>Shadow Ratio</td><td class="shadow-ratio-value">Analyzing...</td></tr>
+                                    <tr><td>Highlight Ratio</td><td class="highlight-ratio-value">Analyzing...</td></tr>
+                                    <tr><td colspan="2"><canvas id="histogram-canvas" width="300" height="120" style="width: 100%; height: 120px; background: #222; margin: 10px 0; border-radius: 4px;"></canvas></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="ui divider" id="tone-analysis-divider" style="display: none;"></div>
+
+                        <!-- Device Information -->
+                        <div id="device-info-section" style="display: none;">
+                            <h5>Device Information</h5>
+                            <table class="ui very basic table inverted exif-section-table">
+                                <tbody>
+                                    <tr id="camera-row" style="display: none;"><td>Camera</td><td id="camera-value"></td></tr>
+                                    <tr id="lens-row" style="display: none;"><td>Lens</td><td id="lens-value"></td></tr>
+                                    <tr id="focal-length-device-row" style="display: none;"><td>Focal Length</td><td id="focal-length-device-value"></td></tr>
+                                    <tr id="max-aperture-row" style="display: none;"><td>Max Aperture</td><td id="max-aperture-value"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="ui divider" id="device-info-divider" style="display: none;"></div>
+
+                        <!-- Shooting Mode -->
+                        <div id="shooting-mode-section" style="display: none;">
+                            <h5>Shooting Mode</h5>
+                            <table class="ui very basic table inverted exif-section-table">
+                                <tbody>
+                                    <tr id="exposure-program-row" style="display: none;"><td>Exposure Program</td><td id="exposure-program-value"></td></tr>
+                                    <tr id="exposure-mode-row" style="display: none;"><td>Exposure Mode</td><td id="exposure-mode-value"></td></tr>
+                                    <tr id="metering-mode-row" style="display: none;"><td>Metering Mode</td><td id="metering-mode-value"></td></tr>
+                                    <tr id="white-balance-row" style="display: none;"><td>White Balance</td><td id="white-balance-value"></td></tr>
+                                    <tr id="flash-row" style="display: none;"><td>Flash</td><td id="flash-value"></td></tr>
+                                    <tr id="scene-capture-row" style="display: none;"><td>Scene Capture Type</td><td id="scene-capture-value"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="ui divider" id="shooting-mode-divider" style="display: none;"></div>
+
+                        <!-- Technical Parameters -->
+                        <div id="technical-params-section" style="display: none;">
+                            <h5>Technical Parameters</h5>
+                            <table class="ui very basic table inverted exif-section-table">
+                                <tbody>
+                                    <tr id="shutter-speed-tech-row" style="display: none;"><td>Shutter Speed</td><td id="shutter-speed-tech-value"></td></tr>
+                                    <tr id="aperture-value-row" style="display: none;"><td>Aperture Value</td><td id="aperture-value-value"></td></tr>
+                                    <tr id="focal-plane-res-row" style="display: none;"><td>Focal Plane Resolution</td><td id="focal-plane-res-value"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- No EXIF data message -->
+                        <div id="no-exif-message" style="display: none;">
+                            <p>No EXIF data available</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -201,27 +495,8 @@
     //Calculate image size on document ready
 
     $(window).on("resize ", function() {
-        //check if the menu is opened
-        if (window.innerWidth < 850) {
-            $('#menu').slideUp('fast',function(){
-            });
-        }
-        if (window.innerWidth >= 850) {
-            $('#menu').slideDown('fast',function(){
-            });
-        }
-
         updateImageSizes();
     });
-
-    function toggleMenu(){
-        $('#menu').toggle('fast',function(){
-            updateImageSizes();
-            setTimeout(function(){
-                updateImageSizes();
-            }, 100);
-        });
-    }
 
     
 </script>

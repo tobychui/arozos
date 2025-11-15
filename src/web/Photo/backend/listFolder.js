@@ -23,7 +23,7 @@ function isHiddenFile(filepath){
 }
 
 function folderContainSubFiles(filepath){
-    var results = filelib.aglob(filepath + "/*", "user");
+    var results = filelib.aglob(filepath + "/*", "smart");
     if (results.length > 0){
         return true;
     }
@@ -38,8 +38,13 @@ function dirname(filepath){
 
 
 function main(){
+    //Get the sort method from agi input
+    if (typeof(sort) == "undefined"){
+        sort = "smart";
+    }
+    
     //Scan the folder
-    var results = filelib.aglob(folder, "user");
+    var results = filelib.aglob(folder, sort);
 
     //Sort the files
     var files = [];

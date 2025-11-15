@@ -53,6 +53,7 @@ github.com/pierrec/lz4/v4,https://github.com/pierrec/lz4/blob/v4.1.22/LICENSE,BS
 github.com/pjbgf/sha1cd,https://github.com/pjbgf/sha1cd/blob/v0.5.0/LICENSE,Apache-2.0
 github.com/pkg/sftp,https://github.com/pkg/sftp/blob/v1.13.9/LICENSE,BSD-2-Clause
 github.com/robertkrimen/otto,https://github.com/robertkrimen/otto/blob/v0.5.1/LICENSE,MIT
+github.com/rwcarlsen/goexif,https://github.com/rwcarlsen/goexif/blob/9e8deecbddbd/LICENSE,BSD-2-Clause
 github.com/satori/go.uuid,https://github.com/satori/go.uuid/blob/v1.2.0/LICENSE,MIT
 github.com/sergi/go-diff/diffmatchpatch,https://github.com/sergi/go-diff/blob/v1.4.0/LICENSE,MIT
 github.com/skeema/knownhosts,https://github.com/skeema/knownhosts/blob/v1.3.2/LICENSE,Apache-2.0
@@ -66,13 +67,13 @@ github.com/xi2/xz,Unknown,Unknown
 gitlab.com/NebulousLabs/fastrand,https://gitlab.com/NebulousLabs/fastrand/blob/603482d69e40/LICENSE,MIT
 gitlab.com/NebulousLabs/go-upnp,https://gitlab.com/NebulousLabs/go-upnp/blob/11da932010b6/LICENSE,MIT
 gitlab.com/NebulousLabs/go-upnp/goupnp,https://gitlab.com/NebulousLabs/go-upnp/blob/11da932010b6/goupnp\LICENSE,BSD-2-Clause
-golang.org/x/crypto,https://cs.opensource.google/go/x/crypto/+/v0.43.0:LICENSE,BSD-3-Clause
+golang.org/x/crypto,https://cs.opensource.google/go/x/crypto/+/v0.44.0:LICENSE,BSD-3-Clause
 golang.org/x/image,https://cs.opensource.google/go/x/image/+/v0.32.0:LICENSE,BSD-3-Clause
-golang.org/x/net,https://cs.opensource.google/go/x/net/+/v0.46.0:LICENSE,BSD-3-Clause
+golang.org/x/net,https://cs.opensource.google/go/x/net/+/v0.47.0:LICENSE,BSD-3-Clause
 golang.org/x/oauth2,https://cs.opensource.google/go/x/oauth2/+/v0.32.0:LICENSE,BSD-3-Clause
-golang.org/x/sync/syncmap,https://cs.opensource.google/go/x/sync/+/v0.17.0:LICENSE,BSD-3-Clause
-golang.org/x/sys,https://cs.opensource.google/go/x/sys/+/v0.37.0:LICENSE,BSD-3-Clause
-golang.org/x/text,https://cs.opensource.google/go/x/text/+/v0.30.0:LICENSE,BSD-3-Clause
+golang.org/x/sync/syncmap,https://cs.opensource.google/go/x/sync/+/v0.18.0:LICENSE,BSD-3-Clause
+golang.org/x/sys,https://cs.opensource.google/go/x/sys/+/v0.38.0:LICENSE,BSD-3-Clause
+golang.org/x/text,https://cs.opensource.google/go/x/text/+/v0.31.0:LICENSE,BSD-3-Clause
 gopkg.in/asn1-ber.v1,https://github.com/go-asn1-ber/asn1-ber/blob/f715ec2f112d/LICENSE,MIT
 gopkg.in/sourcemap.v1,https://github.com/go-sourcemap/sourcemap/blob/v1.0.5/LICENSE,BSD-2-Clause
 gopkg.in/warnings.v0,https://github.com/go-warnings/warnings/blob/v0.1.2/LICENSE,BSD-2-Clause

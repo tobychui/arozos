@@ -35,13 +35,76 @@
             }
 
             .chapterSelector{
-                overflow-y: auto;
-                max-height: 300px;
+
             }
 
             #banner{
                 pointer-events: none;
                 user-select: none;
+            }
+
+            .manga-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 20px;
+                padding: 20px 0;
+            }
+
+            .manga-thumbnail {
+                width: 150px;
+                height: 200px;
+                object-fit: cover;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: transform 0.2s;
+            }
+
+            .manga-thumbnail:hover {
+                transform: scale(1.05);
+            }
+
+            .manga-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .manga-title {
+                margin-top: 10px;
+                font-weight: bold;
+                word-break: break-word;
+                max-width: 150px;
+            }
+
+            #mangaDetail {
+                display: none;
+                padding: 20px 0;
+            }
+
+            .detail-view {
+                margin-top: 0.5em;
+                display: flex;
+                gap: 20px;
+            }
+
+            .detail-thumbnail {
+                flex: 0 0 200px;
+            }
+
+            .detail-thumbnail img {
+                width: 200px;
+                height: 300px;
+                object-fit: cover;
+                border-radius: 5px;
+            }
+
+            .detail-chapters {
+                flex: 1;
+            }
+
+            .back-button {
+                margin-bottom: 20px;
             }
         </style>
     </head>
@@ -68,8 +131,23 @@
             </div>
         </div>
         <div class="ui container">
-            <div class="ui basic segment" id="mangalist">
+            <div id="mangaGrid" class="manga-grid">
                 
+            </div>
+            <div id="mangaDetail">
+                <div class="ui basic button back-button" onclick="showGrid();">
+                    <i class="arrow left icon"></i> Back
+                </div>
+                <div class="detail-view ui segment">
+                    <div class="detail-thumbnail">
+                        <img id="detailImg" src="" alt="Manga Cover">
+                        <div class="manga-title" id="detailTitle"></div>
+                    </div>
+                    <div class="detail-chapters">
+                        <h3>Chapters</h3>
+                        <div id="chapterList" class="chapterSelector"></div>
+                    </div>
+                </div>
             </div>
             <div id="no_manga_info">
                 <div class="ui message">
@@ -155,43 +233,24 @@
             });
 
             function renderMangaList(mangaList){
-                $("#mangalist").html("");
+                $("#mangaGrid").html("");
                 mangaList.forEach(manga => {
                     var mangaFolderFullPath = manga[0];
                     var chapterCount = manga[1];
                     var titleImagePath = manga[2];
                     var chapterNames = manga[3];
-                    console.log(manga);
                     var title = manga[0].split("/").pop();
                     var preview = `/media?file=${manga[2]}`;
                     if (manga[2] == null || manga[2] == ""){
                         preview = "./img/notitle.png";
                     }
 
-                    let firstChapterURL = mangaFolderFullPath + "/" + chapterNames[0];
-                    let chapterSelectionButtons = ``;
-                    chapterNames.forEach(chapterName => {
-                        chapterSelectionButtons += `<a href="viewComic.html#${mangaFolderFullPath}/${chapterName}" class="ui mini basic button chapterBtn manga">${chapterName}</a>`;
-                    });
-
-                    $("#mangalist").append(`<div class="ui basic message" style="width: 100%; display: inline-block; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); padding: 1em 1.5em; margin-bottom: 1em;">
-                        <div class="content">
-                            <div class="ui grid stackable">
-                                <div class="four wide column" style="padding-right:0;">
-                                    <a href="viewComic.html#${firstChapterURL}" class="ui medium image" style="display:block; text-align:center;">
-                                        <img src="${preview}" />
-                                    </a>
-                                </div>
-                                <div class="twelve wide column" style="display:flex; flex-direction:column; justify-content:center;">
-                                    <div class="header" style="word-break:break-word;">${title}</div>
-                                    <div class="meta" style="margin-top:0.35em;">Ch#: ${manga[1]}</div>
-                                    <div class="ui segment chapterSelector">
-                                        ${chapterSelectionButtons}
-                                    </div>
-                                </div>
-                            </div>
+                    $("#mangaGrid").append(`
+                        <div class="manga-item" onclick="showDetail('${mangaFolderFullPath}', '${title.replace(/'/g, "\\'")}', '${preview}', ${JSON.stringify(chapterNames).replace(/"/g, '&quot;')})">
+                            <img class="manga-thumbnail" src="${preview}" alt="${title}">
+                            <div class="manga-title">${title}</div>
                         </div>
-                    </div>`);
+                    `);
                 });
 
                 if (mangaList.length == 0){
@@ -208,6 +267,22 @@
                      $("#no_manga_info").hide();
                      $("#no_search_results").hide();
                 }
+            }
+
+            function showDetail(mangaFolderFullPath, title, preview, chapterNames){
+                $("#detailTitle").text(title);
+                $("#detailImg").attr("src", preview);
+                $("#chapterList").html("");
+                chapterNames.forEach(chapterName => {
+                    $("#chapterList").append(`<a href="viewComic.html#${mangaFolderFullPath}/${chapterName}" class="ui mini basic button chapterBtn manga">${chapterName}</a>`);
+                });
+                $("#mangaGrid").hide();
+                $("#mangaDetail").show();
+            }
+
+            function showGrid(){
+                $("#mangaDetail").hide();
+                $("#mangaGrid").show();
             }
 
             function filterManga(){
