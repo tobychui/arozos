@@ -21,11 +21,15 @@ func setupTestModuleHandler(t *testing.T) (*ModuleHandler, func()) {
 		t.Fatal(err)
 	}
 
-	// Create a minimal user handler for testing
-	userHandler := &user.UserHandler{
-		UniversalModules: []string{},
+	// Create a minimal user handler for testing using NewUserHandler
+	// For tests, we can pass nil for optional components we don't need
+	userHandler, err := user.NewUserHandler(database, nil, nil, nil, nil)
+	if err != nil {
+		database.Close()
+		os.RemoveAll(tempDir)
+		t.Fatal(err)
 	}
-	userHandler.SetDatabase(database)
+	userHandler.UniversalModules = []string{}
 
 	handler := NewModuleHandler(userHandler, tempDir)
 
