@@ -121,7 +121,7 @@ func TestPostPara(t *testing.T) {
 	// Test case 1: Valid POST parameter
 	req := httptest.NewRequest("POST", "/test", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.PostForm = map[string][]string{"key": {"value"}}
+	req.Form = map[string][]string{"key": {"value"}}
 	result, err := PostPara(req, "key")
 	if err != nil || result != "value" {
 		t.Errorf("Test case 1 failed. Expected: 'value', Got: '%s', Error: %v", result, err)
@@ -137,35 +137,35 @@ func TestPostPara(t *testing.T) {
 func TestPostBool(t *testing.T) {
 	// Test case 1: Valid "true" string
 	req := httptest.NewRequest("POST", "/test", nil)
-	req.PostForm = map[string][]string{"key": {"true"}}
+	req.Form = map[string][]string{"key": {"true"}}
 	result, err := PostBool(req, "key")
 	if err != nil || !result {
 		t.Errorf("Test case 1 failed. Expected: true, Got: %v, Error: %v", result, err)
 	}
 
 	// Test case 2: Valid "1" string
-	req.PostForm = map[string][]string{"key": {"1"}}
+	req.Form = map[string][]string{"key": {"1"}}
 	result, err = PostBool(req, "key")
 	if err != nil || !result {
 		t.Errorf("Test case 2 failed. Expected: true, Got: %v, Error: %v", result, err)
 	}
 
 	// Test case 3: Valid "false" string
-	req.PostForm = map[string][]string{"key": {"false"}}
+	req.Form = map[string][]string{"key": {"false"}}
 	result, err = PostBool(req, "key")
 	if err != nil || result {
 		t.Errorf("Test case 3 failed. Expected: false, Got: %v, Error: %v", result, err)
 	}
 
 	// Test case 4: Valid "0" string
-	req.PostForm = map[string][]string{"key": {"0"}}
+	req.Form = map[string][]string{"key": {"0"}}
 	result, err = PostBool(req, "key")
 	if err != nil || result {
 		t.Errorf("Test case 4 failed. Expected: false, Got: %v, Error: %v", result, err)
 	}
 
 	// Test case 5: Invalid boolean string
-	req.PostForm = map[string][]string{"key": {"invalid"}}
+	req.Form = map[string][]string{"key": {"invalid"}}
 	_, err = PostBool(req, "key")
 	if err == nil {
 		t.Error("Test case 5 failed. Expected an error for invalid boolean.")
@@ -175,28 +175,28 @@ func TestPostBool(t *testing.T) {
 func TestPostInt(t *testing.T) {
 	// Test case 1: Valid integer string
 	req := httptest.NewRequest("POST", "/test", nil)
-	req.PostForm = map[string][]string{"key": {"123"}}
+	req.Form = map[string][]string{"key": {"123"}}
 	result, err := PostInt(req, "key")
 	if err != nil || result != 123 {
 		t.Errorf("Test case 1 failed. Expected: 123, Got: %v, Error: %v", result, err)
 	}
 
 	// Test case 2: Negative integer
-	req.PostForm = map[string][]string{"key": {"-456"}}
+	req.Form = map[string][]string{"key": {"-456"}}
 	result, err = PostInt(req, "key")
 	if err != nil || result != -456 {
 		t.Errorf("Test case 2 failed. Expected: -456, Got: %v, Error: %v", result, err)
 	}
 
 	// Test case 3: Invalid integer string
-	req.PostForm = map[string][]string{"key": {"abc"}}
+	req.Form = map[string][]string{"key": {"abc"}}
 	_, err = PostInt(req, "key")
 	if err == nil {
 		t.Error("Test case 3 failed. Expected an error for invalid integer.")
 	}
 
 	// Test case 4: Integer with whitespace
-	req.PostForm = map[string][]string{"key": {"  789  "}}
+	req.Form = map[string][]string{"key": {"  789  "}}
 	result, err = PostInt(req, "key")
 	if err != nil || result != 789 {
 		t.Errorf("Test case 4 failed. Expected: 789, Got: %v, Error: %v", result, err)

@@ -57,7 +57,7 @@ func TestRenderErrorTemplate(t *testing.T) {
 
 	// Test case 1: Successful error template rendering
 	gateway := &Gateway{
-		Option: AgiOptions{
+		Option: &AgiSysInfo{
 			BuildVersion:    "2.0",
 			InternalVersion: "24",
 		},
@@ -128,7 +128,7 @@ func TestRenderErrorTemplate(t *testing.T) {
 
 	// Test case 7: Different version numbers
 	gateway2 := &Gateway{
-		Option: AgiOptions{
+		Option: &AgiSysInfo{
 			BuildVersion:    "3.1.4",
 			InternalVersion: "159",
 		},
