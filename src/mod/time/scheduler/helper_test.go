@@ -19,14 +19,22 @@ func TestLoadJobsFromFile(t *testing.T) {
 	testFile := filepath.Join(tempDir, "test_cron.json")
 	jobs := []*Job{
 		{
-			ID:       "job1",
-			Name:     "Test Job 1",
-			Schedule: "* * * * *",
+			Name:              "Test Job 1",
+			Creator:           "admin",
+			Description:       "Test job 1 description",
+			ExecutionInterval: 60,
+			BaseTime:          0,
+			FshID:             "fsh1",
+			ScriptVpath:       "/script1.js",
 		},
 		{
-			ID:       "job2",
-			Name:     "Test Job 2",
-			Schedule: "0 0 * * *",
+			Name:              "Test Job 2",
+			Creator:           "admin",
+			Description:       "Test job 2 description",
+			ExecutionInterval: 3600,
+			BaseTime:          0,
+			FshID:             "fsh2",
+			ScriptVpath:       "/script2.js",
 		},
 	}
 
@@ -43,8 +51,8 @@ func TestLoadJobsFromFile(t *testing.T) {
 	if len(loadedJobs) != 2 {
 		t.Errorf("Test case 1 failed. Expected 2 jobs, got %d", len(loadedJobs))
 	}
-	if len(loadedJobs) > 0 && loadedJobs[0].ID != "job1" {
-		t.Errorf("Test case 1 failed. Expected job1, got %s", loadedJobs[0].ID)
+	if len(loadedJobs) > 0 && loadedJobs[0].Name != "Test Job 1" {
+		t.Errorf("Test case 1 failed. Expected 'Test Job 1', got %s", loadedJobs[0].Name)
 	}
 
 	// Test case 2: Non-existent file
@@ -97,9 +105,13 @@ func TestLoadJobsFromFile(t *testing.T) {
 	singleJobFile := filepath.Join(tempDir, "single.json")
 	singleJob := []*Job{
 		{
-			ID:       "solo",
-			Name:     "Single Job",
-			Schedule: "0 12 * * *",
+			Name:              "Single Job",
+			Creator:           "admin",
+			Description:       "Single job description",
+			ExecutionInterval: 43200,
+			BaseTime:          0,
+			FshID:             "fsh3",
+			ScriptVpath:       "/script3.js",
 		},
 	}
 	singleJSON, _ := json.Marshal(singleJob)
@@ -120,9 +132,13 @@ func TestLoadJobsFromFile(t *testing.T) {
 	specialFile := filepath.Join(tempDir, "special.json")
 	specialJobs := []*Job{
 		{
-			ID:       "special-job",
-			Name:     "Job with special chars: !@#$%",
-			Schedule: "* * * * *",
+			Name:              "Job with special chars: !@#$%",
+			Creator:           "admin",
+			Description:       "Special characters test",
+			ExecutionInterval: 60,
+			BaseTime:          0,
+			FshID:             "fsh4",
+			ScriptVpath:       "/script4.js",
 		},
 	}
 	specialJSON, _ := json.Marshal(specialJobs)
