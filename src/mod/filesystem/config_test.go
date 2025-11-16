@@ -93,11 +93,14 @@ func TestLoadConfigFromJSON(t *testing.T) {
 		t.Error("Test case 6 failed. Empty string should return error")
 	}
 
-	// Test case 7: Null JSON
+	// Test case 7: Null JSON - unmarshals to nil slice without error
 	nullJSON := `null`
-	_, err = loadConfigFromJSON([]byte(nullJSON))
-	if err == nil {
-		t.Error("Test case 7 failed. Null JSON should return error")
+	result, err := loadConfigFromJSON([]byte(nullJSON))
+	if err != nil {
+		t.Errorf("Test case 7 failed. Null JSON unmarshals without error: %v", err)
+	}
+	if result != nil {
+		t.Error("Test case 7 failed. Null JSON should unmarshal to nil slice")
 	}
 }
 

@@ -64,7 +64,7 @@ func (m *Manager) CreateRAIDDevice(devName string, raidName string, raidLevel in
 
 	//Validate if raid level
 	if !IsValidRAIDLevel("raid" + strconv.Itoa(raidLevel)) {
-		return fmt.Errorf("invalid or unsupported raid level given: raid" + strconv.Itoa(raidLevel))
+		return fmt.Errorf("invalid or unsupported raid level given: raid%d", raidLevel)
 	}
 
 	//Validate the number of disk is enough for the raid

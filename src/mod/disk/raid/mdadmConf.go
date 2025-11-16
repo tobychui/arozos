@@ -97,7 +97,7 @@ func (m *Manager) UpdateMDADMConfig() error {
 	//Load the config from system
 	currentConfigBytes, err := os.ReadFile("/etc/mdadm/mdadm.conf")
 	if err != nil {
-		return fmt.Errorf("unable to open mdadm.conf: " + err.Error())
+		return fmt.Errorf("unable to open mdadm.conf: %w", err)
 	}
 	currentConf := string(currentConfigBytes)
 

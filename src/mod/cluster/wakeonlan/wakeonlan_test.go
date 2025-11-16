@@ -118,13 +118,10 @@ func TestMACAddressParsing(t *testing.T) {
 		t.Errorf("Test case 2 failed. MAC length should be 6, got %d", len(mac))
 	}
 
-	// Test case 3: Continuous MAC (no separators)
+	// Test case 3: Continuous MAC (no separators) - not supported by net.ParseMAC
 	mac, err = net.ParseMAC("001122334455")
-	if err != nil {
-		t.Errorf("Test case 3 failed. Continuous MAC should parse: %v", err)
-	}
-	if len(mac) != 6 {
-		t.Errorf("Test case 3 failed. MAC length should be 6, got %d", len(mac))
+	if err == nil {
+		t.Error("Test case 3 failed. Continuous MAC without separators should return error")
 	}
 
 	// Test case 4: Dotted MAC (Cisco format)

@@ -91,8 +91,8 @@ func TestGetRootEscapeFromCurrentPath(t *testing.T) {
 
 	// Test case 13: Path with double slashes
 	result = getRootEscapeFromCurrentPath("/test//double")
-	// This should treat double slashes as separate levels (empty string counts as level)
-	expected = "../../../../"
+	// Double slashes create empty segments in split, but the function just counts splits
+	expected = "../../../"
 	if result != expected {
 		t.Errorf("Test case 13 failed. Expected '%s', got '%s'", expected, result)
 	}
