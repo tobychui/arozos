@@ -136,12 +136,16 @@ func TestMACAddressParsing(t *testing.T) {
 	}
 
 	// Test case 5: Verify MAC bytes
-	mac, _ = net.ParseMAC("01:23:45:67:89:AB")
-	if mac[0] != 0x01 || mac[1] != 0x23 || mac[2] != 0x45 {
-		t.Error("Test case 5 failed. MAC bytes not correctly parsed")
-	}
-	if mac[3] != 0x67 || mac[4] != 0x89 || mac[5] != 0xAB {
-		t.Error("Test case 5 failed. MAC bytes not correctly parsed")
+	mac, err = net.ParseMAC("01:23:45:67:89:AB")
+	if err != nil {
+		t.Errorf("Test case 5 failed. Failed to parse MAC: %v", err)
+	} else {
+		if mac[0] != 0x01 || mac[1] != 0x23 || mac[2] != 0x45 {
+			t.Error("Test case 5 failed. MAC bytes not correctly parsed")
+		}
+		if mac[3] != 0x67 || mac[4] != 0x89 || mac[5] != 0xAB {
+			t.Error("Test case 5 failed. MAC bytes not correctly parsed")
+		}
 	}
 
 	// Test case 6: Lowercase hex
@@ -166,7 +170,10 @@ func TestPacketStructure(t *testing.T) {
 	}
 
 	// Test case 2: Verify MAC is repeated 16 times
-	mac, _ := net.ParseMAC("11:22:33:44:55:66")
+	mac, err := net.ParseMAC("11:22:33:44:55:66")
+	if err != nil {
+		t.Fatalf("Test case 2 failed. Failed to parse MAC: %v", err)
+	}
 	offset := 6
 	for i := 0; i < 16; i++ {
 		copy(packet[offset:], mac)
