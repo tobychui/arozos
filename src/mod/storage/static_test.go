@@ -71,6 +71,10 @@ func TestGetDriveCapacity(t *testing.T) {
 	if freeDiff < 0 {
 		freeDiff = -freeDiff
 	}
+	availableDiff := int64(available) - int64(available3)
+	if availableDiff < 0 {
+		availableDiff = -availableDiff
+	}
 	// Allow for up to 100MB difference due to disk activity
 	if freeDiff > 100*1024*1024 {
 		t.Logf("Warning: Free space changed by more than 100MB between calls: %d vs %d", free, free3)
