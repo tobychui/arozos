@@ -31,7 +31,7 @@ type RenderHandler struct {
 	renderingFolder sync.Map
 }
 
-//Create a new RenderHandler
+// Create a new RenderHandler
 func NewRenderHandler() *RenderHandler {
 	return &RenderHandler{
 		renderingFiles:  sync.Map{},
@@ -39,7 +39,7 @@ func NewRenderHandler() *RenderHandler {
 	}
 }
 
-//Build cache for all files (non recursive) for the given filepath
+// Build cache for all files (non recursive) for the given filepath
 func (rh *RenderHandler) BuildCacheForFolder(fsh *filesystem.FileSystemHandler, vpath string, username string) error {
 	fshAbs := fsh.FileSystemAbstraction
 	rpath, _ := fshAbs.VirtualPathToRealPath(vpath, username)
@@ -74,7 +74,7 @@ func (rh *RenderHandler) LoadCacheAsBytes(fsh *filesystem.FileSystemHandler, vpa
 	return resultingBytes, nil
 }
 
-//Try to load a cache from file. If not exists, generate it now
+// Try to load a cache from file. If not exists, generate it now
 func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath string, generateOnly bool) (string, error) {
 	//Create a cache folder
 	fshAbs := fsh.FileSystemAbstraction
@@ -83,55 +83,62 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 	hidden.HideFile(filepath.Dir(filepath.Clean(cacheFolder)))
 	hidden.HideFile(cacheFolder)
 
-	//Check if cache already exists. If yes, return the image from the cache folder
+	needsGen, cacheData, err := rh.checkCacheNeeded(fsh, rpath, generateOnly, cacheFolder)
+	if err != nil {
+		return "", err
+	}
+	if !needsGen {
+		return cacheData, nil
+	}
+
+	//Generate
+	return rh.generateCache(fsh, cacheFolder, rpath, generateOnly)
+}
+
+// checkCacheNeeded checks if cache generation is needed
+func (rh *RenderHandler) checkCacheNeeded(fsh *filesystem.FileSystemHandler, rpath string, generateOnly bool, cacheFolder string) (needsGeneration bool, cacheData string, err error) {
 	if CacheExists(fsh, rpath) {
 		if generateOnly {
-			//Only generate, do not return image
-			return "", nil
+			return false, "", nil
 		}
 
-		//Allow thumbnail to be either jpg or png file
 		ext := ".jpg"
-		if !fshAbs.FileExists(cacheFolder + filepath.Base(rpath) + ".jpg") {
+		if !fsh.FileSystemAbstraction.FileExists(cacheFolder + filepath.Base(rpath) + ".jpg") {
 			ext = ".png"
 		}
 
-		//Updates 02/10/2021: Check if the source file is newer than the cache. Update the cache if true
-		folderModeTime, _ := fshAbs.GetModTime(rpath)
-		cacheImageModeTime, _ := fshAbs.GetModTime(cacheFolder + filepath.Base(rpath) + ext)
+		folderModeTime, _ := fsh.FileSystemAbstraction.GetModTime(rpath)
+		cacheImageModeTime, _ := fsh.FileSystemAbstraction.GetModTime(cacheFolder + filepath.Base(rpath) + ext)
 		if folderModeTime > cacheImageModeTime {
-			//File is newer than cache. Delete the cache
-			fshAbs.Remove(cacheFolder + filepath.Base(rpath) + ext)
+			fsh.FileSystemAbstraction.Remove(cacheFolder + filepath.Base(rpath) + ext)
+			return true, "", nil
 		} else {
-			//Check if the file is being writting by another process. If yes, wait for it
 			counter := 0
 			for rh.fileIsBusy(rpath) && counter < 15 {
 				counter += 1
 				time.Sleep(1 * time.Second)
 			}
 
-			//Time out and the file is still busy
 			if rh.fileIsBusy(rpath) {
-				log.Println("Process racing for cache file. Skipping", filepath.Base(rpath))
-				return "", errors.New("Process racing for cache file. Skipping")
+				return false, "", errors.New("process racing for cache file")
 			}
 
-			//Read and return the image
 			ctx, err := getImageAsBase64(fsh, cacheFolder+filepath.Base(rpath)+ext)
-			return ctx, err
+			return false, ctx, err
 		}
 
 	} else if fsh.ReadOnly {
-		//Not exists, but this Fsh is read only. Return nothing
-		return "", errors.New("Cannot generate thumbnail on readonly file system")
+		return false, "", errors.New("cannot generate thumbnail on readonly file system")
 	} else {
-		//This file not exists yet. Check if it is being hold by another process already
 		if rh.fileIsBusy(rpath) {
-			log.Println("Process racing for cache file. Skipping", filepath.Base(rpath))
-			return "", errors.New("Process racing for cache file. Skipping")
+			return false, "", errors.New("process racing for cache file")
 		}
 	}
 
+	return true, "", nil
+}
+
+func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheFolder string, rpath string, generateOnly bool) (string, error) {
 	//Cache image not exists. Set this file to busy
 	rh.renderingFiles.Store(rpath, "busy")
 
@@ -175,8 +182,15 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 		return img, err
 	}
 
+	//SVG file
+	if strings.ToLower(filepath.Ext(rpath)) == ".svg" {
+		img, err := generateThumbnailForSVG(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
+		return img, err
+	}
+
 	//Folder preview renderer
-	if fshAbs.IsDir(rpath) && len(filepath.Base(rpath)) > 0 && filepath.Base(rpath)[:1] != "." {
+	if fsh.FileSystemAbstraction.IsDir(rpath) && len(filepath.Base(rpath)) > 0 && filepath.Base(rpath)[:1] != "." {
 		img, err := generateThumbnailForFolder(fsh, cacheFolder, rpath, generateOnly)
 		rh.renderingFiles.Delete(rpath)
 		return img, err
@@ -184,7 +198,7 @@ func (rh *RenderHandler) LoadCache(fsh *filesystem.FileSystemHandler, rpath stri
 
 	//Other filters
 	rh.renderingFiles.Delete(rpath)
-	return "", errors.New("No supported format")
+	return "", errors.New("no supported format")
 }
 
 func (rh *RenderHandler) fileIsBusy(path string) bool {
@@ -211,7 +225,7 @@ func getImageAsBase64(fsh *filesystem.FileSystemHandler, rpath string) (string, 
 	return string(encoded), nil
 }
 
-//Load a list of folder cache from websocket, pass in "" (empty string) for default sorting method
+// Load a list of folder cache from websocket, pass in "" (empty string) for default sorting method
 func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request, fsh *filesystem.FileSystemHandler, rpath string, sortmode string) {
 	//Get a list of files pending to be cached and sent
 	targetPath := filepath.ToSlash(filepath.Clean(rpath))
@@ -339,13 +353,13 @@ func (rh *RenderHandler) HandleLoadCache(w http.ResponseWriter, r *http.Request,
 
 }
 
-//Check if the cache for a file exists
+// Check if the cache for a file exists
 func CacheExists(fsh *filesystem.FileSystemHandler, file string) bool {
 	cacheFolder := filepath.ToSlash(filepath.Join(filepath.Clean(filepath.Dir(file)), "/.metadata/.cache/") + "/")
 	return fsh.FileSystemAbstraction.FileExists(cacheFolder+filepath.Base(file)+".jpg") || fsh.FileSystemAbstraction.FileExists(cacheFolder+filepath.Base(file)+".png")
 }
 
-//Get cache path for this file, given realpath
+// Get cache path for this file, given realpath
 func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, error) {
 	if CacheExists(fsh, file) {
 		fshAbs := fsh.FileSystemAbstraction
@@ -362,7 +376,7 @@ func GetCacheFilePath(fsh *filesystem.FileSystemHandler, file string) (string, e
 	}
 }
 
-//Remove cache if exists, given realpath
+// Remove cache if exists, given realpath
 func RemoveCache(fsh *filesystem.FileSystemHandler, file string) error {
 	if CacheExists(fsh, file) {
 		cachePath, err := GetCacheFilePath(fsh, file)

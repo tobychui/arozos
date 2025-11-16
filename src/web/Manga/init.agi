@@ -1,0 +1,19 @@
+/*
+	Manga Cafe 
+	Author: tobychui
+
+	The grestest tool to read Manga on your arozos
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "Manga",
+	Group: "Media",
+	IconPath: "Manga/img/small_icon.png",
+	Version: "1.1",
+	StartDir: "Manga/index.html"
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));

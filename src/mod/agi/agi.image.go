@@ -2,6 +2,7 @@ package agi
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -9,6 +10,7 @@ import (
 	_ "image/jpeg"
 	"image/png"
 	_ "image/png"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -17,10 +19,10 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/oliamb/cutter"
 	"github.com/robertkrimen/otto"
+	"github.com/rwcarlsen/goexif/exif"
 
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
-	"imuslab.com/arozos/mod/neuralnet"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -373,79 +375,140 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		}
 	})
 
-	vm.Set("_imagelib_classify", func(call otto.FunctionCall) otto.Value {
-		vsrc, err := call.Argument(0).ToString()
+	//Check if image has EXIF
+	vm.Set("_imagelib_hasExif", func(call otto.FunctionCall) otto.Value {
+		imageFileVpath, err := call.Argument(0).ToString()
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
-		classifier, err := call.Argument(1).ToString()
-		if err != nil {
-			classifier = "default"
-		}
-
-		if classifier == "" || classifier == "undefined" {
-			classifier = "default"
-		}
-
-		//Convert the vsrc to real path
-		fsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
+		fsh, imagePath, err := static.VirtualPathToRealPath(imageFileVpath, u)
 		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
-		analysisSrc := rsrc
+		if !fsh.FileSystemAbstraction.FileExists(imagePath) {
+			g.RaiseError(errors.New("File not exists! Given " + imagePath))
+			return otto.FalseValue()
+		}
+
+		openingPath := imagePath
 		var closerFunc func()
 		if fsh.RequireBuffer {
-			analysisSrc, closerFunc, err = g.bufferRemoteResourcesToLocal(fsh, u, rsrc)
+			bufferPath, cf := g.getUserSpecificTempFilePath(u, imagePath)
+			closerFunc = cf
+			defer closerFunc()
+			c, err := fsh.FileSystemAbstraction.ReadFile(imagePath)
 			if err != nil {
-				g.RaiseError(err)
+				g.RaiseError(errors.New("Read from file system failed: " + err.Error()))
 				return otto.FalseValue()
 			}
-			defer closerFunc()
+			os.WriteFile(bufferPath, c, 0775)
+			openingPath = bufferPath
 		}
 
-		if classifier == "default" || classifier == "darknet19" {
-			//Use darknet19 for classification
-			r, err := neuralnet.AnalysisPhotoDarknet19(analysisSrc)
+		//Check for EXIF
+		var reader io.Reader
+		if fsh.RequireBuffer {
+			file, err := os.Open(openingPath)
 			if err != nil {
-				g.RaiseError(err)
 				return otto.FalseValue()
 			}
-
-			result, err := vm.ToValue(r)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			return result
-
-		} else if classifier == "yolo3" {
-			//Use yolo3 for classification, return positions of object as well
-			r, err := neuralnet.AnalysisPhotoYOLO3(analysisSrc)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			result, err := vm.ToValue(r)
-			if err != nil {
-				g.RaiseError(err)
-				return otto.FalseValue()
-			}
-
-			return result
-
+			defer file.Close()
+			reader = file
 		} else {
-			//Unsupported classifier
-			log.Println("[AGI] Unsupported image classifier name: " + classifier)
+			file, err := fsh.FileSystemAbstraction.Open(openingPath)
+			if err != nil {
+				return otto.FalseValue()
+			}
+			defer file.Close()
+			reader = file
+		}
+		_, err = exif.Decode(reader)
+		if err != nil {
+			return otto.FalseValue()
+		}
+		return otto.TrueValue()
+	})
+
+	//Get EXIF data as JSON
+	vm.Set("_imagelib_getExif", func(call otto.FunctionCall) otto.Value {
+		imageFileVpath, err := call.Argument(0).ToString()
+		if err != nil {
 			g.RaiseError(err)
 			return otto.FalseValue()
 		}
 
+		fsh, imagePath, err := static.VirtualPathToRealPath(imageFileVpath, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		if !fsh.FileSystemAbstraction.FileExists(imagePath) {
+			g.RaiseError(errors.New("File not exists! Given " + imagePath))
+			return otto.FalseValue()
+		}
+
+		openingPath := imagePath
+		var closerFunc func()
+		if fsh.RequireBuffer {
+			bufferPath, cf := g.getUserSpecificTempFilePath(u, imagePath)
+			closerFunc = cf
+			defer closerFunc()
+			c, err := fsh.FileSystemAbstraction.ReadFile(imagePath)
+			if err != nil {
+				g.RaiseError(errors.New("Read from file system failed: " + err.Error()))
+				return otto.FalseValue()
+			}
+			os.WriteFile(bufferPath, c, 0775)
+			openingPath = bufferPath
+		}
+
+		//Extract EXIF
+		var reader io.Reader
+		if fsh.RequireBuffer {
+			file, err := os.Open(openingPath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			defer file.Close()
+			reader = file
+		} else {
+			file, err := fsh.FileSystemAbstraction.Open(openingPath)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+			defer file.Close()
+			reader = file
+		}
+		x, err := exif.Decode(reader)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		exifInfo := make(map[string]interface{})
+		exifString := x.String()
+		lines := strings.Split(exifString, "\n")
+		for _, line := range lines {
+			if strings.Contains(line, ": ") {
+				parts := strings.SplitN(line, ": ", 2)
+				if len(parts) == 2 {
+					exifInfo[parts[0]] = parts[1]
+				}
+			}
+		}
+		jsonBytes, err := json.Marshal(exifInfo)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		result, _ := vm.ToValue(string(jsonBytes))
+		return result
 	})
 
 	//Wrap all the native code function into an imagelib class
@@ -455,6 +518,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		imagelib.resizeImage = _imagelib_resizeImage;
 		imagelib.cropImage = _imagelib_cropImage;
 		imagelib.loadThumbString = _imagelib_loadThumbString;
-		imagelib.classify = _imagelib_classify;
+		imagelib.hasExif = _imagelib_hasExif;
+		imagelib.getExif = _imagelib_getExif;
 	`)
 }

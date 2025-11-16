@@ -620,14 +620,7 @@ return true if success, false if failed
 
 #### AI Classifier Options (since v1.119)
 
-**ImageLib AI Classifier requires darknet to operate normally. If your ArozOS is a trim down version or using a host architecture that ArozOS did not ship with a valid darknet binary executable in ```system/neuralnet/``` folder, this will always return```false```.**
-
-```
-Classify allow the following classifier options
-
-1) default / darknet19
-2) yolo3
-```
+**ImageLib AI Classifier has been removed in this version to reduce binary size for embedded devices. The imagelib.classify() function is no longer available.**
 
 The output of the classifier will output the followings
 
