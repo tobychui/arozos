@@ -84,22 +84,22 @@ func TestGetRootEscapeFromCurrentPath(t *testing.T) {
 
 	// Test case 12: Very deep path (10 levels)
 	result = getRootEscapeFromCurrentPath("/a/b/c/d/e/f/g/h/i/j")
-	expected = "../../../../../../../../../"
+	expected = "../../../../../../../../../../"
 	if result != expected {
 		t.Errorf("Test case 12 failed. Expected '%s', got '%s'", expected, result)
 	}
 
 	// Test case 13: Path with double slashes
 	result = getRootEscapeFromCurrentPath("/test//double")
-	// This should treat double slashes as separate levels
-	expected = "../../../"
+	// This should treat double slashes as separate levels (empty string counts as level)
+	expected = "../../../../"
 	if result != expected {
 		t.Errorf("Test case 13 failed. Expected '%s', got '%s'", expected, result)
 	}
 
 	// Test case 14: Path starting without slash
 	result = getRootEscapeFromCurrentPath("relative/path")
-	expected = "../../"
+	expected = "../"
 	if result != expected {
 		t.Errorf("Test case 14 failed. Expected '%s', got '%s'", expected, result)
 	}

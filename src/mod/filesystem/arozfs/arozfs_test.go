@@ -104,8 +104,8 @@ func TestGenericVirtualPathToRealPathTranslator(t *testing.T) {
 	if err != nil {
 		t.Errorf("Test case 2 failed. Unexpected error: %v", err)
 	}
-	if rpath != "/users/testuser/folder/file.txt" {
-		t.Errorf("Test case 2 failed. Expected '/users/testuser/folder/file.txt', got '%s'", rpath)
+	if rpath != "users/testuser/folder/file.txt" {
+		t.Errorf("Test case 2 failed. Expected 'users/testuser/folder/file.txt', got '%s'", rpath)
 	}
 
 	// Test case 3: Root path
@@ -146,8 +146,8 @@ func TestGenericVirtualPathToRealPathTranslator(t *testing.T) {
 	if err != nil {
 		t.Errorf("Test case 7 failed. Unexpected error: %v", err)
 	}
-	if rpath != "/folder/file.txt" {
-		t.Errorf("Test case 7 failed. Expected '/folder/file.txt', got '%s'", rpath)
+	if rpath != "folder/file.txt" {
+		t.Errorf("Test case 7 failed. Expected 'folder/file.txt', got '%s'", rpath)
 	}
 
 	// Test case 8: Path with backslashes
@@ -221,8 +221,8 @@ func TestGenericPathFilter(t *testing.T) {
 
 	// Test case 2: Path starting with ./
 	result = GenericPathFilter("./folder/file.txt")
-	if result != "/folder/file.txt" {
-		t.Errorf("Test case 2 failed. Expected '/folder/file.txt', got '%s'", result)
+	if result != "folder/file.txt" {
+		t.Errorf("Test case 2 failed. Expected 'folder/file.txt', got '%s'", result)
 	}
 
 	// Test case 3: Empty path

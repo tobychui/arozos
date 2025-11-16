@@ -2,7 +2,6 @@ package filesystem
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
