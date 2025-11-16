@@ -31,3 +31,10 @@ src/system/bridge.json
 src/system/cron.json
 src/system/smtp_conf.json
 /src/web/FFmpeg Factory
+
+# Test artifacts
+src/coverage.out
+src/test_output.txt
+*.test
+coverage.out
+test_output.txt
