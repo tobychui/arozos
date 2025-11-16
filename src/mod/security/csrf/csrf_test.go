@@ -50,47 +50,56 @@ func TestGenerateNewToken(t *testing.T) {
 	}
 }
 
-func TestValidateToken(t *testing.T) {
+func TestCheckTokenValidation(t *testing.T) {
 	tm := NewTokenManager(nil, 2) // 2 second expiry for testing
 
 	// Test case 1: Validate newly generated token
 	username := "testuser"
 	token := tm.GenerateNewToken(username)
-	isValid := tm.ValidateToken(username, token)
+	isValid := tm.CheckTokenValidation(username, token)
 	if !isValid {
 		t.Error("Test case 1 failed. Newly generated token should be valid")
 	}
 
-	// Test case 2: Validate with wrong username
-	isValid = tm.ValidateToken("wronguser", token)
+	// Test case 2: Token is consumed after validation (deleted)
+	// Trying to validate same token again should fail
+	isValid = tm.CheckTokenValidation(username, token)
 	if isValid {
-		t.Error("Test case 2 failed. Token should not be valid for wrong username")
+		t.Error("Test case 2 failed. Token should be consumed after first use")
 	}
 
-	// Test case 3: Validate with wrong token
-	isValid = tm.ValidateToken(username, "wrong-token")
+	// Test case 3: Validate with wrong username
+	token3 := tm.GenerateNewToken(username)
+	isValid = tm.CheckTokenValidation("wronguser", token3)
 	if isValid {
-		t.Error("Test case 3 failed. Wrong token should not be valid")
+		t.Error("Test case 3 failed. Token should not be valid for wrong username")
 	}
 
-	// Test case 4: Validate after expiry
+	// Test case 4: Validate with wrong token
+	isValid = tm.CheckTokenValidation(username, "wrong-token")
+	if isValid {
+		t.Error("Test case 4 failed. Wrong token should not be valid")
+	}
+
+	// Test case 5: Validate after expiry
+	token4 := tm.GenerateNewToken(username)
 	time.Sleep(3 * time.Second) // Wait for token to expire
-	isValid = tm.ValidateToken(username, token)
+	isValid = tm.CheckTokenValidation(username, token4)
 	if isValid {
-		t.Error("Test case 4 failed. Expired token should not be valid")
+		t.Error("Test case 5 failed. Expired token should not be valid")
 	}
 
-	// Test case 5: Validate empty token
-	isValid = tm.ValidateToken(username, "")
+	// Test case 6: Validate empty token
+	isValid = tm.CheckTokenValidation(username, "")
 	if isValid {
-		t.Error("Test case 5 failed. Empty token should not be valid")
+		t.Error("Test case 6 failed. Empty token should not be valid")
 	}
 
-	// Test case 6: Validate empty username
-	token2 := tm.GenerateNewToken("user2")
-	isValid = tm.ValidateToken("", token2)
+	// Test case 7: Validate empty username
+	token5 := tm.GenerateNewToken("user2")
+	isValid = tm.CheckTokenValidation("", token5)
 	if isValid {
-		t.Error("Test case 6 failed. Empty username should not be valid")
+		t.Error("Test case 7 failed. Empty username should not be valid")
 	}
 }
 
