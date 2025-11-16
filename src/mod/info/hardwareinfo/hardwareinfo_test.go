@@ -4,12 +4,16 @@ import (
 	"testing"
 )
 
-func TestGetCPUInfo(t *testing.T) {
-	info := GetCPUInfo()
-	t.Logf("CPU Info: %v", info)
-}
-
-func TestGetMemoryInfo(t *testing.T) {
-	info := GetMemoryInfo()
-	t.Logf("Memory Info: %v", info)
+func TestNewInfoServer(t *testing.T) {
+	arozInfo := ArOZInfo{
+		BuildVersion: "1.0",
+		DeviceVendor: "Test",
+		DeviceModel:  "Test Model",
+		HostOS:       "linux",
+		CPUArch:      "amd64",
+	}
+	server := NewInfoServer(arozInfo)
+	if server == nil {
+		t.Error("Server should not be nil")
+	}
 }

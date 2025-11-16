@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-func TestNewTaskManager(t *testing.T) {
-	// Test case 1: Create new task manager
-	tm := NewTaskManager()
+func TestNewNightlyTaskManager(t *testing.T) {
+	// Test case 1: Create new task manager with runtime at 3 AM
+	tm := NewNightlyTaskManager(3)
 	if tm == nil {
 		t.Error("Test case 1 failed. Task manager should not be nil")
 	}
@@ -14,15 +14,11 @@ func TestNewTaskManager(t *testing.T) {
 
 func TestRegisterNightlyTask(t *testing.T) {
 	// Test case 1: Register a task
-	tm := NewTaskManager()
-	err := tm.RegisterNightlyTask(NightlyTask{
-		Name: "test-task",
-		ExecuteTime: "00:00",
-		Task: func() error {
-			return nil
-		},
+	tm := NewNightlyTaskManager(3)
+	tm.RegisterNightlyTask(func() {
+		// Test task function
 	})
-	if err != nil {
-		t.Errorf("Test case 1 failed. Error registering task: %v", err)
+	if len(tm.NightlTasks) != 1 {
+		t.Error("Task was not registered correctly")
 	}
 }

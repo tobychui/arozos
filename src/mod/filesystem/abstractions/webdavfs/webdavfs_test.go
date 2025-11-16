@@ -4,9 +4,10 @@ import (
 	"testing"
 )
 
-func TestNewWebDAVFS(t *testing.T) {
-	fs := NewWebDAVFS("", "", "")
-	if fs == nil {
-		t.Error("FS should not be nil")
+func TestNewWebDAVMount(t *testing.T) {
+	// Test that function with invalid parameters returns error
+	_, err := NewWebDAVMount("test-uuid", "user", "http://invalid-url", "user", "pass")
+	if err == nil {
+		t.Error("Expected error with invalid WebDAV server")
 	}
 }

@@ -4,9 +4,12 @@ import (
 	"testing"
 )
 
-func TestNewDynamicProxyHandler(t *testing.T) {
-	handler := NewDynamicProxyHandler(nil, nil)
-	if handler == nil {
-		t.Error("Handler should not be nil")
+func TestNewDynamicProxy(t *testing.T) {
+	router, err := NewDynamicProxy(8080)
+	if err != nil {
+		t.Error("Error creating dynamic proxy:", err)
+	}
+	if router == nil {
+		t.Error("Router should not be nil")
 	}
 }

@@ -4,9 +4,10 @@ import (
 	"testing"
 )
 
-func TestNewSMTPNotifier(t *testing.T) {
-	notifier := NewSMTPNotifier("", 0, "", "")
-	if notifier == nil {
-		t.Error("Notifier should not be nil")
+func TestGenerateEmptyConfigFile(t *testing.T) {
+	// Test generating an empty config file
+	err := GenerateEmptyConfigFile("/tmp/test_smtp_config.json")
+	if err != nil {
+		t.Errorf("Error generating config file: %v", err)
 	}
 }

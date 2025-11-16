@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-func TestNewWebSocketHandler(t *testing.T) {
-	handler := NewWebSocketHandler()
-	if handler == nil {
-		t.Error("Handler should not be nil")
+func TestNewRouter(t *testing.T) {
+	router := NewRouter()
+	if router == nil {
+		t.Error("Router should not be nil")
 	}
 }

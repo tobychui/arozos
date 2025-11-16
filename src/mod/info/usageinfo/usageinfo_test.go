@@ -4,9 +4,8 @@ import (
 	"testing"
 )
 
-func TestNewUsageCollector(t *testing.T) {
-	collector := NewUsageCollector()
-	if collector == nil {
-		t.Error("Collector should not be nil")
-	}
+func TestGetCPUUsage(t *testing.T) {
+	// Test that function doesn't panic
+	usage := GetCPUUsage()
+	t.Logf("CPU Usage: %.2f%%", usage)
 }

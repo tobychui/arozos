@@ -4,9 +4,12 @@ import (
 	"testing"
 )
 
-func TestNewBridge(t *testing.T) {
-	bridge := NewBridge(nil, nil)
-	if bridge == nil {
-		t.Error("Bridge should not be nil")
+func TestNewBridgeRecord(t *testing.T) {
+	record := NewBridgeRecord("/tmp/test_bridge.json")
+	if record == nil {
+		t.Error("Record should not be nil")
+	}
+	if record.Filename != "/tmp/test_bridge.json" {
+		t.Error("Filename mismatch")
 	}
 }

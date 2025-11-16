@@ -4,9 +4,8 @@ import (
 	"testing"
 )
 
-func TestNewDiskFsHandler(t *testing.T) {
-	handler := NewDiskFsHandler()
-	if handler == nil {
-		t.Error("Handler should not be nil")
-	}
+func TestFormatPackageInstalled(t *testing.T) {
+	// Test that function doesn't panic
+	_ = FormatPackageInstalled("ext4")
+	t.Log("FormatPackageInstalled executed successfully")
 }

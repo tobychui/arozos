@@ -4,9 +4,15 @@ import (
 	"testing"
 )
 
-func TestNewIoTManager(t *testing.T) {
-	manager := NewIoTManager(nil, nil)
-	if manager == nil {
-		t.Error("Manager should not be nil")
+func TestEndpointStruct(t *testing.T) {
+	// Test creating an Endpoint structure
+	endpoint := Endpoint{
+		RelPath: "/api/toggle",
+		Name:    "Toggle Light",
+		Desc:    "Toggle the light on and off",
+		Type:    "bool",
+	}
+	if endpoint.Name != "Toggle Light" {
+		t.Error("Name mismatch")
 	}
 }

@@ -4,9 +4,10 @@ import (
 	"testing"
 )
 
-func TestNewSFTPFS(t *testing.T) {
-	fs := NewSFTPFS("", "", "", 0)
-	if fs == nil {
-		t.Error("FS should not be nil")
+func TestNewSFTPFileSystemAbstraction(t *testing.T) {
+	// Test that function with invalid parameters returns error
+	_, err := NewSFTPFileSystemAbstraction("test-uuid", "user", "invalid-url", 22, "/", "user", "pass")
+	if err == nil {
+		t.Error("Expected error with invalid server URL")
 	}
 }
