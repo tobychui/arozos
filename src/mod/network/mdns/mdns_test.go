@@ -4,12 +4,32 @@ import (
 	"testing"
 )
 
-func TestNewmDNSHandler(t *testing.T) {
-	// Test case 1: Create with nil parameters
-	handler, err := NewMDNS(nil, "", 0, "")
-	if err != nil {
-		// Expected to fail with nil parameters
-		t.Logf("Expected error with nil parameters: %v", err)
+func TestNewMDNS(t *testing.T) {
+	// Test case 1: Create with minimal valid parameters
+	config := NetworkHost{
+		HostName:     "test-host",
+		Port:         8080,
+		Domain:       "test",
+		Model:        "test-model",
+		UUID:         "test-uuid",
+		Vendor:       "test-vendor",
+		BuildVersion: "1.0",
+		MinorVersion: "0",
 	}
-	_ = handler
+
+	handler, err := NewMDNS(config, "")
+	if err != nil {
+		// May fail if mDNS registration fails (e.g., port in use, permissions)
+		t.Logf("Expected error in test environment: %v", err)
+		return
+	}
+
+	if handler == nil {
+		t.Error("Test case 1 failed. Handler should not be nil when no error")
+	}
+
+	// Clean up if successful
+	if handler != nil {
+		handler.Close()
+	}
 }
