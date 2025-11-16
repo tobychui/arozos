@@ -159,6 +159,14 @@ func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheF
 		return img, err
 	}
 
+	//RAW image formats (Sony, Canon, Nikon, etc.)
+	rawFormats := []string{".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"}
+	if utils.StringInArray(rawFormats, strings.ToLower(filepath.Ext(rpath))) {
+		img, err := generateThumbnailForRAW(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
+		return img, err
+	}
+
 	//Video formats, extract from the 5 sec mark
 	vidFormats := []string{".mkv", ".mp4", ".webm", ".ogv", ".avi", ".rmvb"}
 	if utils.StringInArray(vidFormats, strings.ToLower(filepath.Ext(rpath))) {

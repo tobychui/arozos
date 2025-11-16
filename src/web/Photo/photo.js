@@ -11,6 +11,23 @@ let prePhoto = "";
 let nextPhoto = "";
 let currentModel = "";
 
+// RAW file handling functions
+function getFileExtension(filepath) {
+    return filepath.split('.').pop().toLowerCase();
+}
+
+function isRawFile(filepath) {
+    const ext = getFileExtension(filepath);
+    return ['arw', 'cr2', 'dng', 'nef', 'raf', 'orf'].includes(ext);
+}
+
+// Get viewable image URL (handles RAW files)
+function getViewableImageUrl(filepath, callback) {
+    // Both RAW and regular images now use backend rendering
+    const imageUrl = "../media?file=" + encodeURIComponent(filepath);
+    callback(imageUrl, true, false, isRawFile(filepath) ? 'backend_raw' : 'direct');
+}
+
 function scrollbarVisable(){
     return $("body")[0].scrollHeight > $("body").height();
 }
@@ -202,13 +219,14 @@ function closeViewer(){
     $('#photo-viewer').hide();
     window.location.hash = '';
     ao_module_setWindowTitle("Photo");
+
     setTimeout(function(){
         $("#fullImage").attr("src","img/loading.png");
         $("#bg-image").attr("src","");
         $("#info-filename").text("");
         $("#info-filepath").text("");
         $("#info-dimensions").text("Loading...");
-        
+
         // Reset EXIF data display
         $('#basic-info-section').hide();
         $('#shooting-params-section').hide();
@@ -218,7 +236,7 @@ function closeViewer(){
         $('#technical-params-section').hide();
         $('#no-exif-message').hide();
         $('.ui.divider').hide();
-        
+
         // Clear histogram canvas
         const canvas = document.getElementById('histogram-canvas');
         if (canvas) {
@@ -234,8 +252,9 @@ function showImage(object){
     if (typeof resetZoom === 'function') {
         resetZoom();
     }
-    
+
     var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
+
     // Update image dimensions and generate histogram when loaded
     $("#fullImage").off("load").on('load', function() {
         let width = this.naturalWidth;
@@ -249,48 +268,54 @@ function showImage(object){
         }
     });
 
-    let imageUrl = "../media?file=" + fd.filepath;
-    $("#fullImage").attr('src', imageUrl);
-    $("#bg-image").attr('src', imageUrl);
-    $("#info-filename").text(fd.filename);
-    $("#info-filepath").text(fd.filepath);
-    
-    var nextCard = $(object).next();
-    var prevCard = $(object).prev();
-    if (nextCard.length > 0){
-        nextPhoto = nextCard[0];
-    }else{
-        nextPhoto = null;
-    }
+    // Get image URL (backend handles RAW files automatically)
+    getViewableImageUrl(fd.filepath, (imageUrl, isSupported, isBlob, method) => {
+        $("#fullImage").attr('src', imageUrl);
+        $("#bg-image").attr('src', imageUrl);
+        $("#info-filename").text(fd.filename);
+        $("#info-filepath").text(fd.filepath);
 
-    if (prevCard.length > 0){
-        prePhoto = prevCard[0];
-    }else{
-        prePhoto = null;
-    }
+        // Log the rendering method used
+        if (method === 'backend_raw') {
+            console.log('RAW file: Rendered by backend');
+        }
 
+        var nextCard = $(object).next();
+        var prevCard = $(object).prev();
+        if (nextCard.length > 0){
+            nextPhoto = nextCard[0];
+        }else{
+            nextPhoto = null;
+        }
 
-    ao_module_setWindowTitle("Photo - " + fd.filename);
+        if (prevCard.length > 0){
+            prePhoto = prevCard[0];
+        }else{
+            prePhoto = null;
+        }
 
-    window.location.hash = encodeURIComponent(JSON.stringify({filename: fd.filename, filepath: fd.filepath}));
+        ao_module_setWindowTitle("Photo - " + fd.filename);
 
-    // Check for EXIF data
-    fetch(ao_root + "system/ajgi/interface?script=Photo/backend/getExif.js", {
-        method: 'POST',
-        cache: 'no-cache',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            "filepath": fd.filepath
-        })
-    }).then(resp => {
-        resp.json().then(data => {
-            formatExifData(data, fd);
-        })
-    }).catch(error => {
-        console.error('Failed to fetch EXIF data:', error);
-        formatExifData({}, fd); // Call with empty EXIF to show tone analysis
+        window.location.hash = encodeURIComponent(JSON.stringify({filename: fd.filename, filepath: fd.filepath}));
+
+        // Check for EXIF data
+        fetch(ao_root + "system/ajgi/interface?script=Photo/backend/getExif.js", {
+            method: 'POST',
+            cache: 'no-cache',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "filepath": fd.filepath
+            })
+        }).then(resp => {
+            resp.json().then(data => {
+                formatExifData(data, fd);
+            })
+        }).catch(error => {
+            console.error('Failed to fetch EXIF data:', error);
+            formatExifData({}, fd); // Call with empty EXIF to show tone analysis
+        });
     });
 }
 

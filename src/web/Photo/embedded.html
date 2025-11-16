@@ -286,11 +286,14 @@
 
         loadNearbyFiles(playbackFile.filepath);
 
-        function loadImage(filename, filepath){
+        async function loadImage(filename, filepath){
             $("#img").hide();
             ao_module_setWindowTitle("Photo - " + filename);
-            $("#img").attr("src", '../media?file=' + encodeURIComponent(filepath))
+
+            // Backend handles RAW files automatically
+            $("#img").attr("src", '../media?file=' + encodeURIComponent(filepath));
             currentImageURL = '../media?file=' + encodeURIComponent(filepath);
+
             currentImageFilename = filename;
             //realigin to center
             $('#img').on('load', function() {
