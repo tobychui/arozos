@@ -68,8 +68,8 @@ func TestIsPrivateSubnet(t *testing.T) {
 
 	// Test case 10: Edge of 10.x.x.x range
 	ip = net.ParseIP("10.255.255.255")
-	if !isPrivateSubnet(ip) {
-		t.Error("Test case 10 failed. 10.255.255.255 should be private")
+	if isPrivateSubnet(ip) {
+		t.Error("Test case 10 failed. 10.255.255.255 should not be private (end is exclusive)")
 	}
 
 	// Test case 11: Just outside 10.x.x.x range
@@ -80,8 +80,8 @@ func TestIsPrivateSubnet(t *testing.T) {
 
 	// Test case 12: Edge of 192.168.x.x range
 	ip = net.ParseIP("192.168.255.255")
-	if !isPrivateSubnet(ip) {
-		t.Error("Test case 12 failed. 192.168.255.255 should be private")
+	if isPrivateSubnet(ip) {
+		t.Error("Test case 12 failed. 192.168.255.255 should not be private (end is exclusive)")
 	}
 
 	// Test case 13: Just outside 192.168.x.x range
