@@ -85,6 +85,7 @@ function photoListObject() {
         folders: [],
         viewMode: 'grid', // 'grid' or 'list'
         sortOrder: 'smart',
+        restored: false,
         
         // init
         init() {
@@ -92,9 +93,10 @@ function photoListObject() {
             this.getRootInfo();
             this.renderSize = getImageWidth();
             updateImageSizes();
+            this.restored = false;
         },
         
-        updateRenderingPath(newPath){
+        updateRenderingPath(newPath, callback = null){
             this.currentPath = JSON.parse(JSON.stringify(newPath));
             this.pathWildcard = newPath + '/*';
             if (this.pathWildcard.split("/").length == 3){
@@ -103,7 +105,8 @@ function photoListObject() {
             }else{
                 $("#parentFolderButton").show();
             }
-            this.getFolderInfo();
+            this.restored = false;
+            this.getFolderInfo(callback);
         },
 
         parentFolder(){
@@ -114,7 +117,7 @@ function photoListObject() {
             this.updateRenderingPath( this.currentPath);
         },
 
-        getFolderInfo() {
+        getFolderInfo(callback = null) {
             fetch(ao_root + "system/ajgi/interface?script=Photo/backend/listFolder.js", {
                 method: 'POST',
                 cache: 'no-cache',
@@ -144,7 +147,9 @@ function photoListObject() {
                     }
                     console.log(this.folders);
 
+                    if (!this.restored) { restoreFromHash(); this.restored = true; }
                     
+                    if (callback) callback();
                 });
             });
         },
@@ -195,9 +200,10 @@ function ShowModal(){
 
 function closeViewer(){
     $('#photo-viewer').hide();
+    window.location.hash = '';
     ao_module_setWindowTitle("Photo");
     setTimeout(function(){
-        $("#fullImage").attr("src","");
+        $("#fullImage").attr("src","img/loading.png");
         $("#bg-image").attr("src","");
         $("#info-filename").text("");
         $("#info-filepath").text("");
@@ -224,6 +230,11 @@ function closeViewer(){
 
 
 function showImage(object){
+    // Reset zoom level when switching photos
+    if (typeof resetZoom === 'function') {
+        resetZoom();
+    }
+    
     var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
     // Update image dimensions and generate histogram when loaded
     $("#fullImage").off("load").on('load', function() {
@@ -244,8 +255,8 @@ function showImage(object){
     $("#info-filename").text(fd.filename);
     $("#info-filepath").text(fd.filepath);
     
-    var nextCard = $(object).next(".imagecard");
-    var prevCard = $(object).prev(".imagecard");
+    var nextCard = $(object).next();
+    var prevCard = $(object).prev();
     if (nextCard.length > 0){
         nextPhoto = nextCard[0];
     }else{
@@ -260,6 +271,8 @@ function showImage(object){
 
 
     ao_module_setWindowTitle("Photo - " + fd.filename);
+
+    window.location.hash = encodeURIComponent(JSON.stringify({filename: fd.filename, filepath: fd.filepath}));
 
     // Check for EXIF data
     fetch(ao_root + "system/ajgi/interface?script=Photo/backend/getExif.js", {
@@ -621,3 +634,61 @@ function formatExifData(exif, fileData) {
         if (sectionsShown > 1) $('#technical-params-divider').show();
     }
 }
+
+function restoreFromHash() {
+    if (window.location.hash) {
+        let hashData = decodeURIComponent(window.location.hash.substring(1));
+        try {
+            let data = JSON.parse(hashData);
+            // Find the element with matching filepath
+            let elements = document.querySelectorAll('[filedata]');
+            for (let el of elements) {
+                let fdStr = el.getAttribute('filedata');
+                if (fdStr) {
+                    let fd = JSON.parse(decodeURIComponent(fdStr));
+                    if (fd.filepath === data.filepath) {
+                        showImage(el);
+                        ShowModal();
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Invalid hash data', e);
+        }
+    }
+}
+
+// Modify the window onload event to ensure folder and thumbnails are loaded first
+window.addEventListener('load', () => {
+    setTimeout(function(){
+        if (window.location.hash) {
+            const hashData = decodeURIComponent(window.location.hash.substring(1));
+            try {
+                const data = JSON.parse(hashData);
+                let filename = data.filename;
+                let filepath = data.filepath;
+                let dir = filepath.split("/").slice(0, -1).join("/");
+
+                // Access the Alpine data instance
+                const appElement = document.querySelector('[x-data*="photoListObject"]');
+                if (appElement) {
+                    const app = appElement._x_dataStack[0];
+                    if (app.currentPath !== dir) {
+                        app.updateRenderingPath(dir, () => { 
+                           setTimeout(function(){
+                                console.log("Test")
+                                restoreFromHash(); 
+                           }, 100);
+                        });
+                    } else {
+                        // Folder is already loaded, try to restore immediately
+                        restoreFromHash();
+                    }
+                }
+            } catch (e) {
+                console.error('Invalid hash data', e);
+            }
+        }   
+     }, 100);
+});

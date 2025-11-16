@@ -141,12 +141,27 @@
             align-items: center;
             justify-content: center;
             padding: 20px;
+            overflow: hidden;
+            cursor: grab;
         }
 
         .viewer-left img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+            transition: transform 0.1s ease-out;
+            cursor: auto;
+            user-select: none;
+        }
+
+        .viewer-left img.zoomed {
+            max-width: none;
+            max-height: none;
+            cursor: grab;
+        }
+
+        .viewer-left img.dragging {
+            cursor: grabbing;
         }
 
         .viewer-right {
@@ -222,8 +237,8 @@
             z-index: 500;
         }
 
-        .close-btn:hover {
-            background: #d9534f;
+        .close-btn.info-panel-close {
+            display: none;
         }
 
         #shooting-params-section .column {
@@ -241,17 +256,95 @@
             margin: 0 !important;
         }
 
+        .show-info-btn {
+            position: absolute;
+            top: 1em;
+            right: 3em;
+            background: #222222;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            z-index: 500;
+            display:none;
+        }
+
+        @media (max-width: 768px) {
+            .viewer-right {
+                position: fixed;
+                right: 0;
+                backdrop-filter: blur(10px);
+                height: 100%;
+                overflow-y: auto;
+                background-color: rgba(40, 40, 40,0.8);
+                display:none;
+            }
+            .close-btn {
+                position: fixed;
+                right: 1em;
+            }
+            .close-btn.info-panel-close {
+                display: block;
+            }
+
+            .show-info-btn {
+                display: block;
+            }
+        }
+
+        /* Zoom Snackbar Styles */
+        .zoom-snackbar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            z-index: 1001;
+            backdrop-filter: blur(4px);
+        }
+
+        .zoom-reset-btn {
+            background: #f76c5d;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .zoom-reset-btn:hover {
+            background: #e55a4f;
+        }
+
+        @media (max-width: 768px) {
+            .zoom-snackbar {
+                display: none !important;
+            }
+        }
     </style>
 
 </head>
 <body>
     <div id="main" x-data='photoListObject()' x-init="init()">
-        <div class="ui inverted secondary menu" id="menu">
+        <div class="ui inverted secondary small menu" id="menu">
             <div class="item">
                 <img class="ui fluid image" src="img/banner.png" style="max-height: 40px;">
             </div>
             <div class="ui inverted dropdown item">
-                Browse Photos <i class="dropdown icon"></i>
+                Disk <i class="dropdown icon"></i>
                 <div class="menu">
                     <template x-for="vroot in vroots">
                         <a class="item" :rootpath="vroot[1]" x-on:click="updateRenderingPath(vroot[2]);"><i class="ui disk icon"></i> <span x-text="vroot[0] + ' (' + vroot[1] + ')'"></span></a>
@@ -288,7 +381,7 @@
             </div>
             <div class="ui divider"></div>
             <div >
-                <a id="parentFolderButton" class="ui basic inverted button" x-on:click="parentFolder();" style="display:none;">
+                <a id="parentFolderButton" class="ui basic inverted button" x-on:click="parentFolder();" style="display:none; margin-top: 0.6em;">
                     <i class="reply icon"></i> Parent Folder
                 </a>
                 <div id="subfolders-buttons" class="subfolders-container" style="margin-top: 0.6em;">
@@ -343,13 +436,17 @@
                 <img id="bg-image" src="" />
             </div>
             <div class="viewer-left">
-                <img id="fullImage" src="" />
+                <img id="fullImage" src="img/loading.png" />
                 <button class="close-btn" onclick="closeViewer()">×</button>
+                <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
             </div>
             <div class="viewer-right">
+                <div>
+                    <button class="close-btn info-panel-close" onclick="hideInfoPanel()">×</button>
+                </div>
                 <div class="info-panel">
                     <h3>Photo Information</h3>
-                    <table class="ui very basic table inverted">
+                    <table class="ui very basic compact table inverted">
                         <tbody>
                             <tr>
                                 <td><strong>Filename:</strong></td>
@@ -370,7 +467,7 @@
                         <!-- Basic Information -->
                         <div id="basic-info-section" style="display: none;">
                             <h5>Basic Information</h5>
-                            <table class="ui very basic table inverted exif-section-table">
+                            <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
                                     <tr id="format-row" style="display: none;"><td>Format</td><td id="format-value"></td></tr>
                                     <tr id="dimensions-row" style="display: none;"><td>Dimensions</td><td id="dimensions-value"></td></tr>
@@ -424,7 +521,7 @@
                         <!-- Tone Analysis -->
                         <div id="tone-analysis-section" style="display: none;">
                             <h5>Tone Analysis</h5>
-                            <table class="ui very basic table inverted exif-section-table">
+                            <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
                                     <tr><td>Tone Type</td><td class="tone-type-value">Analyzing...</td></tr>
                                     <tr><td>Brightness</td><td class="brightness-value">Analyzing...</td></tr>
@@ -440,7 +537,7 @@
                         <!-- Device Information -->
                         <div id="device-info-section" style="display: none;">
                             <h5>Device Information</h5>
-                            <table class="ui very basic table inverted exif-section-table">
+                            <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
                                     <tr id="camera-row" style="display: none;"><td>Camera</td><td id="camera-value"></td></tr>
                                     <tr id="lens-row" style="display: none;"><td>Lens</td><td id="lens-value"></td></tr>
@@ -454,7 +551,7 @@
                         <!-- Shooting Mode -->
                         <div id="shooting-mode-section" style="display: none;">
                             <h5>Shooting Mode</h5>
-                            <table class="ui very basic table inverted exif-section-table">
+                            <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
                                     <tr id="exposure-program-row" style="display: none;"><td>Exposure Program</td><td id="exposure-program-value"></td></tr>
                                     <tr id="exposure-mode-row" style="display: none;"><td>Exposure Mode</td><td id="exposure-mode-value"></td></tr>
@@ -470,7 +567,7 @@
                         <!-- Technical Parameters -->
                         <div id="technical-params-section" style="display: none;">
                             <h5>Technical Parameters</h5>
-                            <table class="ui very basic table inverted exif-section-table">
+                            <table class="ui very basic compact table inverted exif-section-table">
                                 <tbody>
                                     <tr id="shutter-speed-tech-row" style="display: none;"><td>Shutter Speed</td><td id="shutter-speed-tech-value"></td></tr>
                                     <tr id="aperture-value-row" style="display: none;"><td>Aperture Value</td><td id="aperture-value-value"></td></tr>
@@ -487,17 +584,402 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Zoom Snackbar -->
+        <div id="zoom-snackbar" class="zoom-snackbar" style="display: none;">
+            <span id="zoom-level-display">x1.0</span>
+            <button id="zoom-reset-btn" class="zoom-reset-btn" onclick="resetZoom()">Reset</button>
+        </div>
     </div>
 
 </body>
 <script>
 
     //Calculate image size on document ready
-
     $(window).on("resize ", function() {
         updateImageSizes();
+        
+        // Show info panel when resizing to desktop width (> 768px)
+        if (window.innerWidth > 768) {
+            const infoPanel = document.querySelector('.viewer-right');
+            if (infoPanel && infoPanel.style.display === 'none') {
+                showInfoPanel();
+            }
+        }
     });
 
+    function hideInfoPanel() {
+        document.querySelector('.viewer-right').style.display = 'none';
+    }
+
+    function showInfoPanel() {
+        document.querySelector('.viewer-right').style.display = 'block';
+    }
+
+    // Zoom and Pan functionality
+    let zoomLevel = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    let initialDistance = 0;
+    let initialZoom = 1;
+
+    function resetZoom() {
+        zoomLevel = 1;
+        panX = 0;
+        panY = 0;
+        updateImageTransform();
+        document.getElementById('fullImage').classList.remove('zoomed');
+    }
+
+    function updateImageTransform() {
+        const img = document.getElementById('fullImage');
+        const snackbar = document.getElementById('zoom-snackbar');
+        const zoomDisplay = document.getElementById('zoom-level-display');
+        
+        if (zoomLevel > 1) {
+            img.style.transform = `scale(${zoomLevel}) translate(${panX}px, ${panY}px)`;
+            img.classList.add('zoomed');
+            
+            // Show zoom snackbar
+            zoomDisplay.textContent = 'x' + zoomLevel.toFixed(1);
+            snackbar.style.display = 'flex';
+        } else {
+            img.style.transform = 'none';
+            img.classList.remove('zoomed');
+            panX = 0;
+            panY = 0;
+            
+            // Hide zoom snackbar
+            snackbar.style.display = 'none';
+        }
+    }
+
+    function zoomAtPoint(scale, centerX, centerY) {
+        const img = document.getElementById('fullImage');
+        const rect = img.getBoundingClientRect();
+        const containerRect = img.parentElement.getBoundingClientRect();
+        
+        // Calculate the point relative to the image center
+        const x = (centerX - rect.left) / rect.width - 0.5;
+        const y = (centerY - rect.top) / rect.height - 0.5;
+        
+        // Calculate the zoom factor
+        const newZoom = Math.max(1, Math.min(5, scale));
+        
+        if (newZoom !== zoomLevel) {
+            // Adjust pan to keep the zoom point fixed
+            const zoomFactor = newZoom / zoomLevel;
+            panX = panX * zoomFactor - x * (newZoom - 1) * 50;
+            panY = panY * zoomFactor - y * (newZoom - 1) * 50;
+            
+            zoomLevel = newZoom;
+            constrainPan();
+            updateImageTransform();
+        }
+    }
+
+    function constrainPan() {
+        const img = document.getElementById('fullImage');
+        const rect = img.getBoundingClientRect();
+        const containerRect = img.parentElement.getBoundingClientRect();
+        
+        const maxPanX = Math.max(0, (rect.width * zoomLevel - containerRect.width) / 2 / zoomLevel * 100);
+        const maxPanY = Math.max(0, (rect.height * zoomLevel - containerRect.height) / 2 / zoomLevel * 100);
+        
+        panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+        panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+    }
+
+    // Initialize zoom and pan when photo viewer is shown
+    function initZoomPan() {
+        const img = document.getElementById('fullImage');
+        const container = document.querySelector('.viewer-left');
+        
+        // Reset zoom state
+        resetZoom();
+
+        // Define handler functions to allow removal and re-addition
+        let handleDblClick = function(e) {
+            console.log(e);
+            e.preventDefault();
+            if (zoomLevel > 1) {
+                resetZoom();
+            } else {
+                zoomAtPoint(2, e.clientX, e.clientY);
+            }
+        };
+
+        let handleWheel = function(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            let actualZoomLevel = zoomLevel * delta;
+            if (actualZoomLevel < 1) actualZoomLevel = 1;
+            if (actualZoomLevel > 3.3) actualZoomLevel = 3.3;
+            zoomAtPoint(actualZoomLevel, e.clientX, e.clientY);
+        };
+
+        let handleMouseDown = function(e) {
+            if (zoomLevel > 1) {
+                e.preventDefault();
+                isDragging = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                img.classList.add('dragging');
+            }
+        };
+
+        let handleMouseMove = function(e) {
+            if (isDragging && zoomLevel > 1) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+                
+                panX += deltaX / zoomLevel;
+                panY += deltaY / zoomLevel;
+                
+                constrainPan();
+                updateImageTransform();
+                
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        };
+
+        let handleMouseUp = function() {
+            if (isDragging) {
+                isDragging = false;
+                img.classList.remove('dragging');
+            }
+        };
+
+        let handleTouchStart = function(e) {
+            if (e.touches.length === 1) {
+                // Single touch - prepare for pan
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                if (zoomLevel > 1) {
+                    isDragging = true;
+                    img.classList.add('dragging');
+                }
+            } else if (e.touches.length === 2) {
+                // Two touches - prepare for pinch zoom
+                e.preventDefault();
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                touchStartDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                initialZoom = zoomLevel;
+                isDragging = false;
+            }
+        };
+
+        let handleTouchMove = function(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 1 && isDragging && zoomLevel > 1) {
+                // Single touch pan
+                const deltaX = e.touches[0].clientX - touchStartX;
+                const deltaY = e.touches[0].clientY - touchStartY;
+                
+                panX += deltaX / zoomLevel;
+                panY += deltaY / zoomLevel;
+                
+                constrainPan();
+                updateImageTransform();
+                
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                // Two touches pinch zoom
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                
+                if (touchStartDistance > 0) {
+                    const scale = currentDistance / touchStartDistance;
+                    const newZoom = Math.max(1, Math.min(5, initialZoom * scale));
+                    
+                    if (newZoom !== zoomLevel) {
+                        // Zoom at center point between touches
+                        const centerX = (touch1.clientX + touch2.clientX) / 2;
+                        const centerY = (touch1.clientY + touch2.clientY) / 2;
+                        zoomAtPoint(newZoom, centerX, centerY);
+                    }
+                }
+            }
+        };
+
+        let handleTouchEnd = function(e) {
+            if (e.touches.length === 0) {
+                isDragging = false;
+                img.classList.remove('dragging');
+            }
+        };
+
+        // Remove existing listeners to prevent double triggering
+        img.removeEventListener('dblclick', handleDblClick);
+        img.removeEventListener('wheel', handleWheel);
+        img.removeEventListener('mousedown', handleMouseDown);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        img.removeEventListener('touchstart', handleTouchStart);
+        img.removeEventListener('touchmove', handleTouchMove);
+        img.removeEventListener('touchend', handleTouchEnd);
+
+        // Add listeners back
+        img.addEventListener('dblclick', handleDblClick);
+        img.addEventListener('wheel', handleWheel);
+        img.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        img.addEventListener('touchstart', handleTouchStart);
+        img.addEventListener('touchmove', handleTouchMove);
+        img.addEventListener('touchend', handleTouchEnd);
+        
+        // Double click to zoom
+        img.addEventListener('dblclick', function(e) {
+            console.log(e);
+            e.preventDefault();
+            if (zoomLevel > 1) {
+                resetZoom();
+            } else {
+                zoomAtPoint(2, e.clientX, e.clientY);
+            }
+        });
+        
+        // Mouse wheel zoom
+        img.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            let actualZoomLevel = zoomLevel * delta;
+            if (actualZoomLevel < 1) actualZoomLevel = 1;
+            if (actualZoomLevel > 3.3) actualZoomLevel = 3.3;;
+            zoomAtPoint(actualZoomLevel, e.clientX, e.clientY);
+        });
+        
+        // Mouse drag pan
+        img.addEventListener('mousedown', function(e) {
+            if (zoomLevel > 1) {
+                e.preventDefault();
+                isDragging = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                img.classList.add('dragging');
+            }
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging && zoomLevel > 1) {
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+                
+                panX += deltaX / zoomLevel;
+                panY += deltaY / zoomLevel;
+                
+                constrainPan();
+                updateImageTransform();
+                
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        });
+        
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                img.classList.remove('dragging');
+            }
+        });
+        
+        // Touch events for mobile
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartDistance = 0;
+        
+        img.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1) {
+                // Single touch - prepare for pan
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                if (zoomLevel > 1) {
+                    isDragging = true;
+                    img.classList.add('dragging');
+                }
+            } else if (e.touches.length === 2) {
+                // Two touches - prepare for pinch zoom
+                e.preventDefault();
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                touchStartDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                initialZoom = zoomLevel;
+                isDragging = false;
+            }
+        });
+        
+        img.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 1 && isDragging && zoomLevel > 1) {
+                // Single touch pan
+                const deltaX = e.touches[0].clientX - touchStartX;
+                const deltaY = e.touches[0].clientY - touchStartY;
+                
+                panX += deltaX / zoomLevel;
+                panY += deltaY / zoomLevel;
+                
+                constrainPan();
+                updateImageTransform();
+                
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                // Two touches pinch zoom
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                );
+                
+                if (touchStartDistance > 0) {
+                    const scale = currentDistance / touchStartDistance;
+                    const newZoom = Math.max(1, Math.min(5, initialZoom * scale));
+                    
+                    if (newZoom !== zoomLevel) {
+                        // Zoom at center point between touches
+                        const centerX = (touch1.clientX + touch2.clientX) / 2;
+                        const centerY = (touch1.clientY + touch2.clientY) / 2;
+                        zoomAtPoint(newZoom, centerX, centerY);
+                    }
+                }
+            }
+        });
+        
+        img.addEventListener('touchend', function(e) {
+            if (e.touches.length === 0) {
+                isDragging = false;
+                img.classList.remove('dragging');
+            }
+        });
+    }
+
+    // Initialize zoom and pan when modal is shown
+    const originalShowModal = ShowModal;
+    ShowModal = function() {
+        originalShowModal();
+        // Wait a bit for the image to load, then initialize zoom/pan
+        setTimeout(initZoomPan, 100);
+    };
     
 </script>
 
