@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-func TestNewWebDAVServer(t *testing.T) {
-	server := NewWebDAVServer(nil, 0)
+func TestNewServer(t *testing.T) {
+	server := NewServer("", "/webdav", "/tmp", false, nil)
 	if server == nil {
 		t.Error("Server should not be nil")
 	}

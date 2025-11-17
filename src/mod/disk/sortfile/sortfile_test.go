@@ -4,11 +4,9 @@ import (
 	"testing"
 )
 
-func TestSortFiles(t *testing.T) {
-	files := []string{"z.txt", "a.txt", "m.txt"}
-	sorted := SortFiles(files, "name", false)
-	if len(sorted) != 3 {
-		t.Error("Sorted length mismatch")
+func TestNewLargeFileScanner(t *testing.T) {
+	scanner := NewLargeFileScanner(nil)
+	if scanner == nil {
+		t.Error("Scanner should not be nil")
 	}
-	t.Logf("Sorted: %v", sorted)
 }

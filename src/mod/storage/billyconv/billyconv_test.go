@@ -4,9 +4,10 @@ import (
 	"testing"
 )
 
-func TestConvertPath(t *testing.T) {
-	// Test path conversion
-	path := "/test/path"
-	converted := ConvertToOSPath(path)
-	t.Logf("Converted path: %s", converted)
+func TestNewArozFsToBillyFsAdapter(t *testing.T) {
+	// Test creating a Billy filesystem adapter
+	adapter := NewArozFsToBillyFsAdapter(nil)
+	if adapter == nil {
+		t.Error("Adapter should not be nil")
+	}
 }

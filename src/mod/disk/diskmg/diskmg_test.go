@@ -4,9 +4,8 @@ import (
 	"testing"
 )
 
-func TestNewDiskManager(t *testing.T) {
-	manager := NewDiskManager(nil)
-	if manager == nil {
-		t.Error("Manager should not be nil")
-	}
+func TestCheckDeviceValid(t *testing.T) {
+	// Test device validation function
+	valid, devID := checkDeviceValid("sda1")
+	t.Logf("Device validation result: %v, ID: %s", valid, devID)
 }

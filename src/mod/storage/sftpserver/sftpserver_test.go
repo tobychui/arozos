@@ -5,8 +5,9 @@ import (
 )
 
 func TestNewSFTPServer(t *testing.T) {
-	server := NewSFTPServer(nil, "", 0)
-	if server == nil {
-		t.Error("Server should not be nil")
+	server, err := NewSFTPServer(nil)
+	if err == nil && server != nil {
+		t.Error("Expected error with nil config")
 	}
+	t.Logf("Server creation result: %v", err)
 }
