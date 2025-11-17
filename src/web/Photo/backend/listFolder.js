@@ -1,5 +1,5 @@
 requirelib("filelib")
-include("../constants.js")
+
 
 function getExt(filename){
     return filename.split(".").pop();
@@ -8,10 +8,17 @@ function getExt(filename){
 function isImage(filename){
     var ext = getExt(filename);
     ext = ext.toLowerCase();
-    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" || isRawImage(filename)){
+    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" ||
+        isRawImage(filename)){
         return true;
     }
     return false;
+}
+
+function isRawImage(filename){
+    var ext = getExt(filename);
+    ext = ext.toLowerCase();
+    return (ext == "arw" || ext == "cr2" || ext == "dng" || ext == "nef" || ext == "raf" || ext == "orf");
 }
 
 function getBasename(filename){

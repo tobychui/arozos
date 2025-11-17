@@ -2,10 +2,6 @@
 	Photo Module Register Script
 */
 
-//Include shared constants
-requirelib("filelib");
-include("Photo/constants.js");
-
 //Setup the module information
 var moduleLaunchInfo = {
     Name: "Photo",
@@ -20,7 +16,7 @@ var moduleLaunchInfo = {
 	LaunchEmb: "Photo/embedded.html",
 	InitFWSize: [900, 550],
 	InitEmbSize: [900, 500],
-	SupportedExt: [".jpg",".jpeg",".gif",".png",".webp"].concat(RAW_IMAGE_EXTENSIONS.map(function(ext) { return "." + ext; }))
+	SupportedExt: [".jpg",".jpeg",".gif",".png",".webp", ".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"]
 }
 
 //Register the module

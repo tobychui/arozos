@@ -2,7 +2,12 @@ var loadedfile = requirelib("filelib");
 if (!loadedfile) {
     console.log("Failed to load lib filelib, terminated.");
 }
-include("../constants.js");
+
+function isRawImage(filename){
+    var ext = getExt(filename);
+    ext = ext.toLowerCase();
+    return (ext == "arw" || ext == "cr2" || ext == "dng" || ext == "nef" || ext == "raf" || ext == "orf");
+}
 
 function getExt(filename){
     return filename.split(".").pop();
@@ -71,7 +76,7 @@ function listNearby(){
         var ext = thisFile.Ext.substr(1);
         ext = ext.toLowerCase();
         if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp" ||
-            RAW_IMAGE_EXTENSIONS.includes(ext)){
+            isRawImage(filename)){
             result.push(thisFile.Filepath);
         }
     }
