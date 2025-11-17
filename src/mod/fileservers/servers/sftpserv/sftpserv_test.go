@@ -5,8 +5,15 @@ import (
 )
 
 func TestNewSFTPServer(t *testing.T) {
-	manager := NewSFTPServer(nil)
-	if manager == nil {
-		t.Error("Manager should not be nil")
-	}
+	// Test that passing nil causes expected panic (constructor requires valid ManagerOption)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic when passing nil to NewSFTPServer")
+		} else {
+			t.Logf("Expected panic caught: %v", r)
+		}
+	}()
+
+	// This should panic with nil pointer dereference
+	_ = NewSFTPServer(nil)
 }

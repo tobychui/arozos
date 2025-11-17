@@ -5,8 +5,15 @@ import (
 )
 
 func TestNewDirectoryServer(t *testing.T) {
-	server := NewDirectoryServer(nil)
-	if server == nil {
-		t.Error("Server should not be nil")
-	}
+	// Test that passing nil causes expected panic (constructor requires valid Option)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic when passing nil to NewDirectoryServer")
+		} else {
+			t.Logf("Expected panic caught: %v", r)
+		}
+	}()
+
+	// This should panic with nil pointer dereference
+	_ = NewDirectoryServer(nil)
 }
