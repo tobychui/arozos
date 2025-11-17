@@ -26,6 +26,15 @@ import (
 
 */
 
+// RAW image format extensions supported by the system
+var RawImageFormats = []string{".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"}
+
+// IsRawImageFile checks if the given file path is a RAW image format
+func IsRawImageFile(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	return utils.StringInArray(RawImageFormats, ext)
+}
+
 type RenderHandler struct {
 	renderingFiles  sync.Map
 	renderingFolder sync.Map
@@ -155,6 +164,13 @@ func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheF
 	imageFormats := []string{".png", ".jpeg", ".jpg"}
 	if utils.StringInArray(imageFormats, strings.ToLower(filepath.Ext(rpath))) {
 		img, err := generateThumbnailForImage(fsh, cacheFolder, rpath, generateOnly)
+		rh.renderingFiles.Delete(rpath)
+		return img, err
+	}
+
+	//RAW image formats (Sony, Canon, Nikon, etc.)
+	if IsRawImageFile(rpath) {
+		img, err := generateThumbnailForRAW(fsh, cacheFolder, rpath, generateOnly)
 		rh.renderingFiles.Delete(rpath)
 		return img, err
 	}

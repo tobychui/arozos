@@ -17,6 +17,7 @@ import (
 	"imuslab.com/arozos/mod/compatibility"
 	"imuslab.com/arozos/mod/filesystem"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/media/transcoder"
 	"imuslab.com/arozos/mod/user"
@@ -141,6 +142,13 @@ func (s *Instance) ServeMediaMime(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
+
+	// RAW images are served as JPEG
+	if metadata.IsRawImageFile(realFilepath) {
+		utils.SendTextResponse(w, "image/jpeg")
+		return
+	}
+
 	targetFshAbs := targetFsh.FileSystemAbstraction
 	if targetFsh.RequireBuffer {
 		//File is not on local. Guess its mime by extension
@@ -171,6 +179,21 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	targetFshAbs := targetFsh.FileSystemAbstraction
+
+	// Check if this is a RAW image file and render it as JPEG
+	if metadata.IsRawImageFile(realFilepath) {
+		jpegData, err := metadata.RenderRAWImage(targetFsh, realFilepath)
+		if err != nil {
+			// If RAW rendering fails, fall back to serving the raw file
+			s.options.Logger.PrintAndLog("Media Server", "Failed to render RAW image: "+err.Error(), nil)
+		} else {
+			// Successfully rendered RAW image, serve as JPEG
+			w.Header().Set("Content-Type", "image/jpeg")
+			w.Header().Set("Content-Length", strconv.Itoa(len(jpegData)))
+			w.Write(jpegData)
+			return
+		}
+	}
 
 	//Check if downloadMode
 	downloadMode := false

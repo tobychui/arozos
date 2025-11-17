@@ -1,5 +1,6 @@
 requirelib("filelib")
 
+
 function getExt(filename){
     return filename.split(".").pop();
 }
@@ -7,10 +8,64 @@ function getExt(filename){
 function isImage(filename){
     var ext = getExt(filename);
     ext = ext.toLowerCase();
-    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp"){
+    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" ||
+        isRawImage(filename)){
         return true;
     }
     return false;
+}
+
+function isRawImage(filename){
+    var ext = getExt(filename);
+    ext = ext.toLowerCase();
+    return (ext == "arw" || ext == "cr2" || ext == "dng" || ext == "nef" || ext == "raf" || ext == "orf");
+}
+
+function getBasename(filename){
+    var parts = filename.split("/");
+    var name = parts[parts.length - 1];
+    var nameParts = name.split(".");
+    nameParts.pop();
+    return nameParts.join(".");
+}
+
+function filterDuplicates(files){
+    // Create a map to store files by their basename
+    var fileMap = {};
+
+    for (var i = 0; i < files.length; i++){
+        var filepath = files[i];
+        var basename = getBasename(filepath);
+        var isRaw = isRawImage(filepath);
+
+        if (!fileMap[basename]){
+            fileMap[basename] = {
+                raw: null,
+                jpg: null
+            };
+        }
+
+        if (isRaw){
+            fileMap[basename].raw = filepath;
+        } else {
+            fileMap[basename].jpg = filepath;
+        }
+    }
+
+    // Build result array, prioritizing RAW over JPG
+    var result = [];
+    for (var basename in fileMap){
+        var entry = fileMap[basename];
+        if (entry.raw){
+            // If RAW exists, use it (ignore JPG)
+            result.push(entry.raw);
+        } else if (entry.jpg){
+            // Otherwise use JPG
+            result.push(entry.jpg);
+        }
+    }
+
+    return result;
 }
 
 function isHiddenFile(filepath){
@@ -42,7 +97,7 @@ function main(){
     if (typeof(sort) == "undefined"){
         sort = "smart";
     }
-    
+
     //Scan the folder
     var results = filelib.aglob(folder, sort);
 
@@ -55,14 +110,18 @@ function main(){
             if (!isHiddenFile(thisFile) && folderContainSubFiles(thisFile)){
                 folders.push(thisFile);
             }
-            
+
         }else{
             if (isImage(thisFile)){
                 files.push(thisFile);
             }
         }
     }
-    sendJSONResp(JSON.stringify([folders, files]));	
+
+    // Filter out JPG duplicates when RAW files exist
+    files = filterDuplicates(files);
+
+    sendJSONResp(JSON.stringify([folders, files]));
 }
 
 main();

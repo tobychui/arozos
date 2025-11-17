@@ -16,7 +16,7 @@ var moduleLaunchInfo = {
 	LaunchEmb: "Photo/embedded.html",
 	InitFWSize: [900, 550],
 	InitEmbSize: [900, 500],
-	SupportedExt: [".jpg",".jpeg",".gif",".png"]
+	SupportedExt: [".jpg",".jpeg",".gif",".png",".webp", ".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"]
 }
 
 //Register the module
