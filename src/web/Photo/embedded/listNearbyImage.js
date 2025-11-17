@@ -2,15 +2,10 @@ var loadedfile = requirelib("filelib");
 if (!loadedfile) {
     console.log("Failed to load lib filelib, terminated.");
 }
+include("../constants.js");
 
 function getExt(filename){
     return filename.split(".").pop();
-}
-
-function isRawImage(filename){
-    var ext = getExt(filename);
-    ext = ext.toLowerCase();
-    return (ext == "arw" || ext == "cr2" || ext == "dng" || ext == "nef" || ext == "raf" || ext == "orf");
 }
 
 function getBasename(filename){
@@ -76,7 +71,7 @@ function listNearby(){
         var ext = thisFile.Ext.substr(1);
         ext = ext.toLowerCase();
         if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp" ||
-            ext == "arw" || ext == "cr2" || ext == "dng" || ext == "nef" || ext == "raf" || ext == "orf"){
+            RAW_IMAGE_EXTENSIONS.includes(ext)){
             result.push(thisFile.Filepath);
         }
     }

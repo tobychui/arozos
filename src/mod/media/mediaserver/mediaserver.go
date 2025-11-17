@@ -136,18 +136,6 @@ func (s *Instance) ValidateSourceFile(w http.ResponseWriter, r *http.Request) (*
 	return fsh, targetfile, realFilepath, nil
 }
 
-// Check if file is a RAW image format
-func isRawImageFile(filepath string) bool {
-	ext := strings.ToLower(filepath[strings.LastIndex(filepath, "."): ])
-	rawFormats := []string{".arw", ".cr2", ".dng", ".nef", ".raf", ".orf"}
-	for _, format := range rawFormats {
-		if ext == format {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *Instance) ServeMediaMime(w http.ResponseWriter, r *http.Request) {
 	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
 	if err != nil {
@@ -156,7 +144,7 @@ func (s *Instance) ServeMediaMime(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// RAW images are served as JPEG
-	if isRawImageFile(realFilepath) {
+	if metadata.IsRawImageFile(realFilepath) {
 		utils.SendTextResponse(w, "image/jpeg")
 		return
 	}
@@ -193,7 +181,7 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 	targetFshAbs := targetFsh.FileSystemAbstraction
 
 	// Check if this is a RAW image file and render it as JPEG
-	if isRawImageFile(realFilepath) {
+	if metadata.IsRawImageFile(realFilepath) {
 		jpegData, err := metadata.RenderRAWImage(targetFsh, realFilepath)
 		if err != nil {
 			// If RAW rendering fails, fall back to serving the raw file

@@ -11,21 +11,11 @@ let prePhoto = "";
 let nextPhoto = "";
 let currentModel = "";
 
-// RAW file handling functions
-function getFileExtension(filepath) {
-    return filepath.split('.').pop().toLowerCase();
-}
-
-function isRawFile(filepath) {
-    const ext = getFileExtension(filepath);
-    return ['arw', 'cr2', 'dng', 'nef', 'raf', 'orf'].includes(ext);
-}
-
 // Get viewable image URL (handles RAW files)
 function getViewableImageUrl(filepath, callback) {
     // Both RAW and regular images now use backend rendering
     const imageUrl = "../media?file=" + encodeURIComponent(filepath);
-    callback(imageUrl, true, false, isRawFile(filepath) ? 'backend_raw' : 'direct');
+    callback(imageUrl, true, false, isRawImage(filepath) ? 'backend_raw' : 'direct');
 }
 
 function scrollbarVisable(){
