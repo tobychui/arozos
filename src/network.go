@@ -12,6 +12,7 @@ import (
 	"imuslab.com/arozos/mod/fileservers/servers/ftpserv"
 	"imuslab.com/arozos/mod/fileservers/servers/samba"
 	"imuslab.com/arozos/mod/fileservers/servers/sftpserv"
+	"imuslab.com/arozos/mod/fileservers/servers/tftpserv"
 	"imuslab.com/arozos/mod/fileservers/servers/webdavserv"
 	network "imuslab.com/arozos/mod/network"
 	mdns "imuslab.com/arozos/mod/network/mdns"
@@ -33,6 +34,7 @@ var (
 
 	//File Server Managers
 	FTPManager        *ftpserv.Manager
+	TFTPManager       *tftpserv.Manager
 	WebDAVManager     *webdavserv.Manager
 	SFTPManager       *sftpserv.Manager
 	SambaShareManager *samba.ShareManager
@@ -305,6 +307,16 @@ func FileServerInit() {
 		AllowUpnp:   *allow_upnp,
 	})
 
+	//TFTP
+	TFTPManager = tftpserv.NewTFTPManager(&tftpserv.ManagerOption{
+		Hostname:    *host_name,
+		TmpFolder:   *tmp_directory,
+		Logger:      systemWideLogger,
+		UserManager: userHandler,
+		TftpServer:  nil,
+		Sysdb:       sysdb,
+	})
+
 	//SFTP
 	SFTPManager = sftpserv.NewSFTPServer(&sftpserv.ManagerOption{
 		Hostname:    *host_name,
@@ -354,6 +366,11 @@ func FileServerInit() {
 	adminRouter.HandleFunc("/system/storage/ftp/updateGroups", FTPManager.HandleFTPAccessUpdate)
 	adminRouter.HandleFunc("/system/storage/ftp/setPort", FTPManager.HandleFTPSetPort)
 	adminRouter.HandleFunc("/system/storage/ftp/passivemode", FTPManager.HandleFTPPassiveModeSettings)
+
+	//TFTP
+	adminRouter.HandleFunc("/system/storage/tftp/status", TFTPManager.HandleTFTPServerStatus)
+	adminRouter.HandleFunc("/system/storage/tftp/setPort", TFTPManager.HandleTFTPPort)
+	adminRouter.HandleFunc("/system/storage/tftp/defaultUser", TFTPManager.HandleTFTPDefaultUser)
 
 	//Samba Shares (Optional)
 	if SambaShareManager != nil {
@@ -427,6 +444,21 @@ func FileServerInit() {
 		EnableCheck:       FTPManager.IsFtpServerEnabled,
 		ToggleFunc:        FTPManager.FTPServerToggle,
 		GetEndpoints:      FTPManager.FTPGetEndpoints,
+	})
+
+	networkFileServerDaemon = append(networkFileServerDaemon, &fileservers.Server{
+		ID:                "tftp",
+		Name:              "TFTP",
+		Desc:              "Trivial File Transfer Protocol Server",
+		IconPath:          "img/system/network-folder.svg",
+		DefaultPorts:      []int{69},
+		Ports:             []int{},
+		ForwardPortIfUpnp: false,
+		ConnInstrPage:     "SystemAO/disk/instr/tftp.html",
+		ConfigPage:        "SystemAO/disk/tftp.html",
+		EnableCheck:       TFTPManager.IsTftpServerEnabled,
+		ToggleFunc:        TFTPManager.TFTPServerToggle,
+		GetEndpoints:      TFTPManager.TFTPGetEndpoints,
 	})
 
 	networkFileServerDaemon = append(networkFileServerDaemon, &fileservers.Server{

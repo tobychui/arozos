@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .hidden{
+            display:none;
+        }
+
+        .disabled{
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui form">
+        <div class="field">
+            <label>Default User for TFTP Access</label>
+            <select id="defaultUser" class="ui search dropdown" >
+                <option value="">Select a user account</option>
+            </select>
+            <small>All TFTP file operations will be performed using this user's permissions and storage quota.</small>
+        </div>
+
+        <div class="field">
+            <label>Listening Port</label>
+            <div class="ui labeled input">
+                <input id="listeningPort" type="number" placeholder="69" min="69" onchange="updateTFTPPort(this.value)">
+            </div>
+            <small>Default TFTP port is 69. Changing this port requires TFTP clients to explicitly specify the port.</small>
+        </div>
+        <br><br>
+        <div id="ok" class="ui secondary inverted green segment" style="display:none;">
+            <i class="checkmark icon"></i> Setting Applied
+        </div>
+        <div id="error" class="ui secondary inverted red segment" style="display:none;">
+            <i class="remove icon"></i> <span class="msg">Something went wrong</span>
+        </div>
+    </div>
+    <br><br>
+    <script>
+        $(".ui.dropdown").dropdown();
+        $(document).ready(function(){
+            //Load user list for default user selection
+            $.get("../../system/users/list?noicon=true", function(data){
+                if (data.error !== undefined){
+                    console.log(data.error);
+                }else{
+                    data.forEach(user => {
+                        let username = user[0];
+                        $("#defaultUser").append(`<option value="${username}">${username}</option>`);
+                    });
+                }
+                //Select the current default user
+                initDefaultTFTPUsername(function(){
+                    $("#defaultUser").on('change', function(){
+                        updateDefaultUser(this.value);
+                    });
+                   
+                });
+                
+            });
+
+
+        });
+
+        function initTFTPServerStatus(){
+            //Load current system status
+            $.get("../../system/storage/tftp/status", function(data){
+                if (data.error !== undefined){
+                    console.log(data.error);
+                }else{
+                    if (data.Enabled == false){
+                        $("#listeningPort").parent().addClass("disabled");
+                    }
+
+                    $("#listeningPort").val(data.Port);
+                    $(".port").text(data.Port);
+
+                    //Set default user
+                    if (data.DefaultUser && data.DefaultUser != ""){
+                        $("#defaultUser").dropdown("set selected", data.DefaultUser);
+                    }
+
+                    //Set user groups
+                    if (data.UserGroups && data.UserGroups.length > 0){
+                        $("#grouplist").dropdown("set selected", data.UserGroups);
+                    }
+                }
+                $(".ui.checkbox").checkbox();
+            });
+        }
+
+        function showOk(){
+            $("#ok").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
+        }
+
+        function showError(msg){
+            $("#error .msg").text(msg);
+            $("#error").stop().finish().slideDown("fast").delay(3000).slideUp("fast");
+        }
+
+        function updateDefaultUser(username){
+            if (username == ""){
+                showError("Please select a valid user");
+                return;
+            }
+
+            $.ajax({
+                url: "../../system/storage/tftp/defaultUser",
+                method: "POST",
+                data: {username: username},
+                success: function(data){
+                    if (data.error !== undefined){
+                        showError(data.error);
+                    }else{
+                        showOk();
+                    }
+                },
+                error: function(){
+                    showError("Failed to update default user");
+                }
+            });
+        }
+
+        function updateTFTPPort(port){
+            if (port < 1 || port > 65535){
+                showError("Invalid port number");
+                return;
+            }
+
+            $.ajax({
+                url: "../../system/storage/tftp/setPort",
+                method: "GET",
+                data: {port: port},
+                success: function(data){
+                    if (data.error !== undefined){
+                        showError(data.error);
+                    }else{
+                        showOk();
+                        //Reload status to reflect changes
+                        setTimeout(initTFTPServerStatus, 500);
+                    }
+                },
+                error: function(){
+                    showError("Failed to update port");
+                }
+            });
+        }
+
+        function initDefaultTFTPUsername(callback){
+            $.get("../../system/storage/tftp/defaultUser", function(data){
+                if (data.error !== undefined){
+                    console.log(data.error);
+                }else{
+                    if (data != ""){
+                        $("#defaultUser").dropdown("set selected", data);
+                    }
+                }
+
+                if (callback){
+                    callback();
+                }
+
+            });
+        }
+    </script>
+</body>
+</html>

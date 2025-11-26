@@ -53,19 +53,19 @@ func util_init() {
 	})
 
 	/*
-		STL File Viewer - Plotted from ArOZ Online Beta
+		3D Model Viewer - Supports STL and OBJ files
 	*/
 	moduleHandler.RegisterModule(module.ModuleInfo{
-		Name:         "STL Viewer",
-		Desc:         "3D Model Viewer for STL Files",
+		Name:         "3D Model Viewer",
+		Desc:         "3D Model Viewer for STL and OBJ Files",
 		Group:        "Utilities",
 		IconPath:     "SystemAO/utilities/img/stlViewer.png",
-		Version:      "1.0",
+		Version:      "2.0",
 		SupportFW:    false,
 		SupportEmb:   true,
 		LaunchEmb:    "SystemAO/utilities/stlViewer.html",
 		InitEmbSize:  []int{720, 500},
-		SupportedExt: []string{".stl"},
+		SupportedExt: []string{".stl", ".obj"},
 	})
 
 	/*

@@ -51,6 +51,39 @@ func GetPara(r *http.Request, key string) (string, error) {
 	}
 }
 
+func GetBool(r *http.Request, key string) (bool, error) {
+	x, err := GetPara(r, key)
+	if err != nil {
+		return false, err
+	}
+
+	x = strings.TrimSpace(x)
+
+	if x == "1" || strings.ToLower(x) == "true" {
+		return true, nil
+	} else if x == "0" || strings.ToLower(x) == "false" {
+		return false, nil
+	}
+
+	return false, errors.New("invalid boolean given")
+}
+
+// Get GET paramter as int
+func GetInt(r *http.Request, key string) (int, error) {
+	x, err := GetPara(r, key)
+	if err != nil {
+		return 0, err
+	}
+
+	x = strings.TrimSpace(x)
+	rx, err := strconv.Atoi(x)
+	if err != nil {
+		return 0, err
+	}
+
+	return rx, nil
+}
+
 // Get POST paramter
 func PostPara(r *http.Request, key string) (string, error) {
 	r.ParseForm()

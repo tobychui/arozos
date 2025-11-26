@@ -1,0 +1,98 @@
+<div class="ui yellow message" style="margin-top: 0;">
+    <h4 class="ui header">
+        <i class="warning icon"></i>
+        <div class="content">
+            TFTP Protocol Notice
+        </div>
+    </h4>
+    <p><b>TFTP (Trivial File Transfer Protocol)</b> is a simple, lightweight file transfer protocol designed for basic file transfer operations.</p>
+    <ul class="ui list">
+        <li><b>No Authentication:</b> TFTP does not support user authentication. Access control is managed through the default user configuration.</li>
+        <li><b>No Directory Listing:</b> TFTP clients cannot browse directories. You must know the exact file path.</li>
+        <li><b>File Size Limit:</b> Maximum file size is 32MB per transfer.</li>
+        <li><b>UDP Protocol:</b> TFTP uses UDP (port 69 by default), which may require firewall configuration.</li>
+        <li><b>Security Warning:</b> Use TFTP only in trusted networks. For secure file transfer, consider using SFTP instead.</li>
+    </ul>
+</div>
+
+<div class="ui styled fluid accordion" style="margin-top: 1em;">
+    <div class="active  title" >
+        <i class="dropdown icon"></i>
+        <i class="windows icon"></i>
+        Using TFTP on Windows
+    </div>
+    <div class="active  content">
+        <p>Windows includes a built-in TFTP client. First, enable it via Control Panel:</p>
+        <ol>
+            <li>Open <code>Control Panel</code> → <code>Programs and Features</code></li>
+            <li>Click <code>Turn Windows features on or off</code></li>
+            <li>Check <b>TFTP Client</b> and click OK</li>
+        </ol>
+        <p>To download a file from ArozOS TFTP server, open Command Prompt and run:</p>
+        <code>tftp -i [hostname] GET [filesystem-uuid]/path/to/file.txt C:\destination\file.txt</code>
+        <br><br>
+        <p>To upload a file to ArozOS TFTP server:</p>
+        <code>tftp -i [hostname] PUT C:\source\file.txt [filesystem-uuid]/path/to/file.txt</code>
+    </div>
+    
+    <div class="title maconly">
+        <i class="dropdown icon"></i>
+        <i class="apple icon"></i>
+        Using TFTP on macOS
+    </div>
+    <div class="content maconly">
+        <p>macOS includes a built-in TFTP client accessible via Terminal.</p>
+        <p>To download a file from ArozOS TFTP server, open Terminal and run:</p>
+        <code>tftp [hostname]</code><br>
+        <code>get [filesystem-uuid]/path/to/file.txt /destination/path/file.txt</code><br>
+        <code>quit</code>
+        <br><br>
+        <p>To upload a file to ArozOS TFTP server:</p>
+        <code>tftp [hostname]</code><br>
+        <code>put /source/path/file.txt [filesystem-uuid]/path/to/file.txt</code><br>
+        <code>quit</code>
+    </div>
+    
+    <div class="title">
+        <i class="dropdown icon"></i>
+        <i class="linux icon"></i>
+        Using TFTP on Linux
+    </div>
+    <div class="content">
+        <p>Install TFTP client if not already installed:</p>
+        <code>sudo apt-get install tftp-hpa</code> (Debian/Ubuntu)<br>
+        <code>sudo yum install tftp</code> (RedHat/CentOS)
+        <br><br>
+        <p>To transfer files:</p>
+        <code>tftp [hostname]</code><br>
+        <code>get [filesystem-uuid]/path/to/file.txt</code><br>
+        <code>put /local/file.txt [filesystem-uuid]/path/to/file.txt</code><br>
+        <code>quit</code>
+    </div>
+    
+    <div class="title">
+        <i class="dropdown icon"></i>
+        <i class="info circle icon"></i>
+        File System UUID Path Format
+    </div>
+    <div class="content">
+        <p>TFTP file paths in ArozOS follow this format:</p>
+        <code>[filesystem-uuid]/path/to/file</code>
+        <br><br>
+        <p>To find your filesystem UUID, check your File Manager or system settings. Common UUIDs include:</p>
+        <ul>
+            <li><code>user</code> - Your personal user directory</li>
+            <li><code>tmp</code> - Temporary files directory</li>
+        </ul>
+        <p><b>You can use either:</b> <code>user:/documents/report.txt</code> or <code>/user/documents/report.txt</code> in TFTP</p>
+    </div>
+</div>
+
+<script>
+    var isMac = navigator.platform.indexOf('Mac') > -1;
+    var isWindows = navigator.platform.indexOf('Win') > -1;
+
+
+    // Initialize Semantic UI accordion
+    $('.ui.accordion').accordion();
+</script>

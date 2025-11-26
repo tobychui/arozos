@@ -50,6 +50,7 @@ github.com/nwaples/rardecode,https://github.com/nwaples/rardecode/blob/v1.1.3/LI
 github.com/oliamb/cutter,https://github.com/oliamb/cutter/blob/v0.2.2/LICENSE,MIT
 github.com/oov/psd,https://github.com/oov/psd/blob/5db5eafcecbb/LICENSE,MIT
 github.com/pierrec/lz4/v4,https://github.com/pierrec/lz4/blob/v4.1.22/LICENSE,BSD-3-Clause
+github.com/pin/tftp/v3,https://github.com/pin/tftp/blob/v3.1.0/LICENSE,MIT
 github.com/pjbgf/sha1cd,https://github.com/pjbgf/sha1cd/blob/v0.5.0/LICENSE,Apache-2.0
 github.com/pkg/sftp,https://github.com/pkg/sftp/blob/v1.13.9/LICENSE,BSD-2-Clause
 github.com/robertkrimen/otto,https://github.com/robertkrimen/otto/blob/v0.5.1/LICENSE,MIT
@@ -68,7 +69,7 @@ gitlab.com/NebulousLabs/fastrand,https://gitlab.com/NebulousLabs/fastrand/blob/6
 gitlab.com/NebulousLabs/go-upnp,https://gitlab.com/NebulousLabs/go-upnp/blob/11da932010b6/LICENSE,MIT
 gitlab.com/NebulousLabs/go-upnp/goupnp,https://gitlab.com/NebulousLabs/go-upnp/blob/11da932010b6/goupnp\LICENSE,BSD-2-Clause
 golang.org/x/crypto,https://cs.opensource.google/go/x/crypto/+/v0.44.0:LICENSE,BSD-3-Clause
-golang.org/x/image,https://cs.opensource.google/go/x/image/+/v0.32.0:LICENSE,BSD-3-Clause
+golang.org/x/image,https://cs.opensource.google/go/x/image/+/v0.33.0:LICENSE,BSD-3-Clause
 golang.org/x/net,https://cs.opensource.google/go/x/net/+/v0.47.0:LICENSE,BSD-3-Clause
 golang.org/x/oauth2,https://cs.opensource.google/go/x/oauth2/+/v0.32.0:LICENSE,BSD-3-Clause
 golang.org/x/sync/syncmap,https://cs.opensource.google/go/x/sync/+/v0.18.0:LICENSE,BSD-3-Clause
@@ -111,6 +112,7 @@ imuslab.com/arozos/mod/fileservers/servers/dirserv,Unknown,Unknown
 imuslab.com/arozos/mod/fileservers/servers/ftpserv,Unknown,Unknown
 imuslab.com/arozos/mod/fileservers/servers/samba,Unknown,Unknown
 imuslab.com/arozos/mod/fileservers/servers/sftpserv,Unknown,Unknown
+imuslab.com/arozos/mod/fileservers/servers/tftpserv,Unknown,Unknown
 imuslab.com/arozos/mod/fileservers/servers/webdavserv,Unknown,Unknown
 imuslab.com/arozos/mod/filesystem,Unknown,Unknown
 imuslab.com/arozos/mod/filesystem/abstractions/ftpfs,Unknown,Unknown
@@ -163,6 +165,7 @@ imuslab.com/arozos/mod/storage/bridge,Unknown,Unknown
 imuslab.com/arozos/mod/storage/du,Unknown,Unknown
 imuslab.com/arozos/mod/storage/ftp,Unknown,Unknown
 imuslab.com/arozos/mod/storage/sftpserver,Unknown,Unknown
+imuslab.com/arozos/mod/storage/tftp,Unknown,Unknown
 imuslab.com/arozos/mod/storage/webdav,Unknown,Unknown
 imuslab.com/arozos/mod/subservice,Unknown,Unknown
 imuslab.com/arozos/mod/time/nightly,Unknown,Unknown

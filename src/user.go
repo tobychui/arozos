@@ -446,6 +446,8 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 		utils.SendErrorResponse(w, "User not logged in")
 		return
 	}
+
+	noicon, _ := utils.GetBool(r, "noicon")
 	if authAgent.CheckAuth(r) {
 		entries, _ := sysdb.ListTable("auth")
 		var results [][]interface{}
@@ -454,7 +456,10 @@ func user_handleList(w http.ResponseWriter, r *http.Request) {
 				username := strings.Split(string(keypairs[0]), "/")[1]
 				group := []string{}
 				//Get user icon if it exists in the database
-				userIcon := getUserIcon(username)
+				userIcon := ""
+				if !noicon {
+					userIcon = getUserIcon(username)
+				}
 
 				json.Unmarshal(keypairs[1], &group)
 				var thisUserInfo []interface{}
