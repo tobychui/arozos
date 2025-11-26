@@ -10,6 +10,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/oliamb/cutter"
+	"golang.org/x/image/webp"
 	"imuslab.com/arozos/mod/filesystem"
 )
 
@@ -27,25 +28,41 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 		//This file is too large to convert
 		return "", errors.New("image file too large")
 	}
-	if fsh.RequireBuffer {
-		//This fsh is remote. Buffer to RAM
+
+	if filepath.Ext(file) == ".webp" {
+		//Webp image format
 		imageBytes, err := fshAbs.ReadFile(file)
 		if err != nil {
 			return "", err
 		}
-		img, _, err = image.Decode(bytes.NewReader(imageBytes))
+		img, err = handleWebpDecoding(imageBytes)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		srcImage, err := fshAbs.OpenFile(file, os.O_RDONLY, 0775)
-		if err != nil {
-			return "", err
-		}
-		defer srcImage.Close()
-		img, _, err = image.Decode(srcImage)
-		if err != nil {
-			return "", err
+		//Other image formats
+		if fsh.RequireBuffer {
+			//This fsh is remote. Buffer to RAM
+			imageBytes, err := fshAbs.ReadFile(file)
+			if err != nil {
+				return "", err
+			}
+
+			img, _, err = image.Decode(bytes.NewReader(imageBytes))
+
+			if err != nil {
+				return "", err
+			}
+		} else {
+			srcImage, err := fshAbs.OpenFile(file, os.O_RDONLY, 0775)
+			if err != nil {
+				return "", err
+			}
+			defer srcImage.Close()
+			img, _, err = image.Decode(srcImage)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
@@ -69,6 +86,10 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 		Mode:   cutter.Centered,
 	})
 
+	if err != nil {
+		return "", err
+	}
+
 	//Create the thumbnail
 	out, err := fshAbs.Create(cacheFolder + filepath.Base(file) + ".jpg")
 	if err != nil {
@@ -86,4 +107,9 @@ func generateThumbnailForImage(fsh *filesystem.FileSystemHandler, cacheFolder st
 	} else {
 		return "", nil
 	}
+}
+
+func handleWebpDecoding(fileContent []byte) (image.Image, error) {
+	img, err := webp.Decode(bytes.NewReader(fileContent))
+	return img, err
 }

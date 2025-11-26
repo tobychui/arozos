@@ -2,7 +2,6 @@ package metadata
 
 import (
 	"encoding/binary"
-	"fmt"
 	"os"
 	"testing"
 )

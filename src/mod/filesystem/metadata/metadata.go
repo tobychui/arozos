@@ -161,7 +161,7 @@ func (rh *RenderHandler) generateCache(fsh *filesystem.FileSystemHandler, cacheF
 	}
 
 	//Generate resized image for images
-	imageFormats := []string{".png", ".jpeg", ".jpg"}
+	imageFormats := []string{".png", ".jpeg", ".jpg", ".webp"}
 	if utils.StringInArray(imageFormats, strings.ToLower(filepath.Ext(rpath))) {
 		img, err := generateThumbnailForImage(fsh, cacheFolder, rpath, generateOnly)
 		rh.renderingFiles.Delete(rpath)
