@@ -25,6 +25,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/oliamb/cutter v0.2.2
 	github.com/oov/psd v0.0.0-20220121172623-5db5eafcecbb
+	github.com/pin/tftp/v3 v3.1.0
 	github.com/pkg/sftp v1.13.9
 	github.com/robertkrimen/otto v0.5.1
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
@@ -34,7 +35,8 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/studio-b12/gowebdav v0.11.0
 	gitlab.com/NebulousLabs/go-upnp v0.0.0-20211002182029-11da932010b6
-	golang.org/x/crypto v0.45.0
+	golang.org/x/crypto v0.44.0
+	golang.org/x/image v0.33.0
 	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.18.0
 )
@@ -76,7 +78,6 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	gitlab.com/NebulousLabs/fastrand v0.0.0-20181126182046-603482d69e40 // indirect
-	golang.org/x/image v0.32.0 // indirect
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
