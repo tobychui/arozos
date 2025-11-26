@@ -1,0 +1,131 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "header/title": "個人網頁",
+                "header/subtitle": "在 ArozOS 上建立您的專屬網頁",
+                "info/header": "什麼是個人網頁？",
+                "info/point1": "您可以使用 ArozOS 來架設靜態網站",
+                "info/point2": "所有網站的原始碼皆可從您的檔案管理員存取，位於您的使用者檔案系統中",
+                "info/point3": "任何人都可以使用這個連結來訪問您的網頁：",
+                "toggle/title": "啟用個人網頁",
+                "toggle/label": "啟用個人網頁",
+                "toggle/success": "個人網頁狀態已更新",
+                "webroot/title": "選擇網頁根目錄位置",
+                "webroot/placeholder": "選擇位置",
+                "webroot/button": "開啟",
+                "webroot/warning": "位於網頁根目錄內的所有檔案都可以被網路上的任何人存取。",
+                "webroot/success": "網頁根目錄位置已更新",
+                "footer/note": "*所有變更都會在更新時自動儲存。",
+                "": ""
+            },
+            "placeholder": {
+                "": ""
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "header/title": "個人網頁",
+                "header/subtitle": "在 ArozOS 上建立您的專屬網頁",
+                "info/header": "什麼是個人網頁？",
+                "info/point1": "您可以使用 ArozOS 來架設靜態網站",
+                "info/point2": "所有網站的原始碼皆可從您的檔案管理員存取，位於您的使用者檔案系統中",
+                "info/point3": "任何人都可以使用這個連結來訪問您的網頁：",
+                "toggle/title": "啟用個人網頁",
+                "toggle/label": "啟用個人網頁",
+                "toggle/success": "個人網頁狀態已更新",
+                "webroot/title": "選擇網頁根目錄位置",
+                "webroot/placeholder": "選擇位置",
+                "webroot/button": "開啟",
+                "webroot/warning": "位於網頁根目錄內的所有檔案都可以被網路上的任何人存取。",
+                "webroot/success": "網頁根目錄位置已更新",
+                "footer/note": "*所有變更都會在更新時自動儲存。",
+                "": ""
+            },
+            "placeholder": {
+                "": ""
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fontFamily": "\"Microsoft YaHei\",\"SimHei\", \"STHeiti\"",
+            "strings": {
+                "header/title": "个人网页",
+                "header/subtitle": "在 ArozOS 上创建您的专属网页",
+                "info/header": "什么是个人网页？",
+                "info/point1": "您可以使用 ArozOS 来架设静态网站",
+                "info/point2": "所有网站的源代码均可从您的文件管理器访问，位于您的用户文件系统中",
+                "info/point3": "任何人都可以使用这个链接来访问您的网页：",
+                "toggle/title": "启用个人网页",
+                "toggle/label": "启用个人网页",
+                "toggle/success": "个人网页状态已更新",
+                "webroot/title": "选择网页根目录位置",
+                "webroot/placeholder": "选择位置",
+                "webroot/button": "打开",
+                "webroot/warning": "位于网页根目录内的所有文件都可以被网络上的任何人访问。",
+                "webroot/success": "网页根目录位置已更新",
+                "footer/note": "*所有更改都会在更新时自动保存。",
+                "": ""
+            },
+            "placeholder": {
+                "": ""
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "header/title": "個人ホームページ",
+                "header/subtitle": "ArozOS で独自のホームページを作成",
+                "info/header": "個人ホームページとは？",
+                "info/point1": "ArozOS を使用して静的ウェブサイトをホストできます",
+                "info/point2": "すべてのウェブサイトソースは、ユーザーファイルシステム内のファイルマネージャーからアクセスできます",
+                "info/point3": "誰でもこのリンクを使用してあなたのホームページにアクセスできます：",
+                "toggle/title": "個人ホームページの切り替え",
+                "toggle/label": "個人ホームページを有効にする",
+                "toggle/success": "ホームページのステータスが更新されました",
+                "webroot/title": "ウェブルートフォルダの場所を選択",
+                "webroot/placeholder": "場所を選択",
+                "webroot/button": "開く",
+                "webroot/warning": "ウェブルート内のすべてのファイルは、インターネット上の誰でもアクセスできます。",
+                "webroot/success": "ウェブルートの場所が更新されました",
+                "footer/note": "*すべての変更は更新時に自動的に保存されます。",
+                "": ""
+            },
+            "placeholder": {
+                "": ""
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "header/title": "개인 홈페이지",
+                "header/subtitle": "ArozOS에서 나만의 홈페이지 만들기",
+                "info/header": "개인 홈페이지란?",
+                "info/point1": "ArozOS를 사용하여 정적 웹사이트를 호스팅할 수 있습니다",
+                "info/point2": "모든 웹사이트 소스는 사용자 파일 시스템에 있는 파일 관리자에서 액세스할 수 있습니다",
+                "info/point3": "누구나 이 링크를 사용하여 홈페이지에 액세스할 수 있습니다:",
+                "toggle/title": "개인 홈페이지 전환",
+                "toggle/label": "개인 홈페이지 활성화",
+                "toggle/success": "홈페이지 상태가 업데이트되었습니다",
+                "webroot/title": "웹 루트 폴더 위치 선택",
+                "webroot/placeholder": "위치 선택",
+                "webroot/button": "열기",
+                "webroot/warning": "웹 루트 내의 모든 파일은 인터넷의 모든 사용자가 액세스할 수 있습니다.",
+                "webroot/success": "웹 루트 위치가 업데이트되었습니다",
+                "footer/note": "*모든 변경 사항은 업데이트 시 자동으로 저장됩니다.",
+                "": ""
+            },
+            "placeholder": {
+                "": ""
+            }
+        }
+    }
+}

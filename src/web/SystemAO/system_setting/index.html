@@ -87,40 +87,58 @@
               var currentSettingModuleList = [];
               var loadViaSystemSetting = true; //Check for this parameter to see if launching in Setting Interface
               var loadToPage = undefined; //Load setting page directly to the given tab, passed in via window hash
+              var pageStateRestored = false; //Flag to track if page state has been restored from hash
 
-              if (window.location.hash.length > 0){
-                var hashObject = window.location.hash.substr(1);
-                hashObject = JSON.parse(decodeURIComponent(hashObject));
-                if (typeof(hashObject.group) != 'undefined' && typeof(hashObject.name) != 'undefined'){
-                    loadToPage = hashObject;
+            function restorePageFromHash(){
+                if (pageStateRestored){
+                    return;
                 }
-              }
+                if (window.location.hash.length > 0){
+                    var hashObject = window.location.hash.substr(1);
+                    hashObject = JSON.parse(decodeURIComponent(hashObject));
+                    if (typeof(hashObject.group) != 'undefined' && typeof(hashObject.name) != 'undefined'){
+                        loadToPage = hashObject;
+                    }
 
-            applocale.init("../locale/system_settings.json", function(){
-                applocale.translate();
-                //Initiation Functions
-                initMainSideMenu();
-                hideToolBar();
+                    if (!loadToPage || loadToPage.group == "" || loadToPage.name == ""){
+                        //Invalid hash object
+                        initSettingGroup("Info");
+                        return;
+                    }
 
-                if (loadToPage == undefined){
-                    initSettingGroup("Info");
-                }else{
                     initSettingGroup(loadToPage.group, function(settingList){
                         let reversedList = JSON.parse(JSON.stringify(settingList)).reverse();
                         for (var i = 0; i < settingList.length; i++){
                             var settingTab = settingList[i];
+                            console.log(settingTab.Name, loadToPage.name, settingTab.Name == loadToPage.name, i);
                             if (settingTab.Name == loadToPage.name){
                                 //This is the tab we are looking for
-                                initSettingModules(i - 1);
+                                initSettingModules(settingList.length - i-1);
                             }
                         }
-                           
+                            
                     });
+
                 }
+                 pageStateRestored = true;
+            }
+
+            applocale.init("../locale/system_settings.json", function(){
+                applocale.translate();
+                //Initiation Functions
+                initMainSideMenu(function(){
+                    //Menu is now loaded
+                    hideToolBar();
+                     if (!pageStateRestored){
+                        restorePageFromHash();
+                    }else{
+                        initSettingGroup("Info");
+                    }
+                });
             });
  
             
-            function initMainSideMenu(){
+            function initMainSideMenu(callback){
                 $.get("../../system/setting/list",function(data){
                     for (var i =0; i < data.length; i++){
                         var settingGroupName = data[i].Name;
@@ -131,6 +149,11 @@
                         $("#mainSideMenu").append(`<a class="item" group="${groupUUID}" title="${toolTip}" style="padding:4px;" onclick="menuClicked(this);"><img class="ui middle aligned mini image" src="${iconPath}" style="padding: 2px;"></img> ${settingGroupName}</a>`);
                     }
                     applocale.translate();
+                    
+                    //Notify that menu is loaded
+                    if (callback){
+                        callback();
+                    }
                 });
             }
 
@@ -151,7 +174,12 @@
 
               function menuClicked(object){
                 var group=$(object).attr("group");
-                initSettingGroup(group);
+                initSettingGroup(group, function(settingList){
+                    //After loading group, update hash with first tab
+                    if (settingList.length > 0){
+                        updateWindowHash(settingList[0].Group, settingList[0].Name);
+                    }
+                });
                 hideToolBar();
               }
 
@@ -173,6 +201,9 @@
               }
 
               function initSettingModules(index){
+                if (index < 0){
+                    index = 0;
+                }
                 var targetObject = $(".settingTab")[index];
                 $(".settingTab.active").removeClass("active");
                 if (targetObject !== undefined){
@@ -199,11 +230,30 @@
                     //Load this object into the tab
                     var settingModuleInfo = JSON.parse(decodeURIComponent($(targetObject).attr("moduleInfo")));
                     var settingStartDir = settingModuleInfo.StartDir;
+                    
+                    //Update window hash with current tab
+                    updateWindowHash(settingModuleInfo.Group, settingModuleInfo.Name);
+                    
                     $("#settingContentLoader").html("");
                     $("#settingContentLoader").load("../../" + settingStartDir, function(){
                         injectIMEToLoadedConetentFrame();
                     });
                 }
+              }
+
+              function updateWindowHash(groupName, moduleName){
+                  //Update window hash to preserve tab state on refresh
+                  //Skip if in ao_window mode
+                  if (ao_module_windowID !== false){
+                      //Running in floatWindow mode, do not update hash
+                      return;
+                  }
+                  
+                  var hashObject = {
+                      group: groupName,
+                      name: moduleName
+                  };
+                  window.location.hash = encodeURIComponent(JSON.stringify(hashObject));
               }
 
               function injectIMEToLoadedConetentFrame(){

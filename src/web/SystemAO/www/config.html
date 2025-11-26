@@ -12,6 +12,7 @@
         <script src="../../../script/jquery.min.js"></script>
         <!-- <script src="../../../script/ao_module.js"></script> -->
         <script src="../../../script/semantic/semantic.min.js"></script>
+        <script type="text/javascript" src="../../../script/applocale.js"></script>
         <title>Personal Homepage</title>
         <style>
             body{
@@ -26,43 +27,50 @@
                 <h3 class="ui header">
                     <i class="home icon"></i>
                     <div class="content">
-                        Personal Home Page
-                        <div class="sub header">Create your own home page on ArozOS</div>
+                        <span locale="header/title">Personal Home Page</span>
+                        <div class="sub header" locale="header/subtitle">Create your own home page on ArozOS</div>
                     </div>
                 </h3>
             </div>
             <div class="ui divider"></div>
             <div class="ui message">
-                <div class="header">
+                <div class="header" locale="info/header">
                     What is Personal Home Page?
                 </div>
                 <ul class="list">
-                    <li>You can host a static website using ArozOS</li>
-                    <li>All website source are accessiable by your File Manager located inside your user file system</li>
-                    <li>Everyone can access your home page using <a id="homepageLink" target="_blank"><span class="protocol">http:</span>//<span class="hostname"></span><span class="port"></span>/www/<span class="username">{your_username}</span>/</a></li>
+                    <li locale="info/point1">You can host a static website using ArozOS</li>
+                    <li locale="info/point2">All website source are accessiable by your File Manager located inside your user file system</li>
+                    <li><span locale="info/point3">Everyone can access your home page using</span> <a id="homepageLink" target="_blank"><span class="protocol">http:</span>//<span class="hostname"></span><span class="port"></span>/www/<span class="username">{your_username}</span>/</a></li>
                 </ul>
             </div>
             <div class="ui container">
-                <h4>Toggle Personal Home Page</h4>
+                <h4 locale="toggle/title">Toggle Personal Home Page</h4>
                 <div class="ui toggle checkbox">
                     <input type="checkbox" id="enablehp" onchange="updateHomepageStatus(this.checked);">
-                    <label>Enable personal home page</label>
+                    <label locale="toggle/label">Enable personal home page</label>
                 </div>
-                <div id="updateSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i> Home Page Status Updated</div>
+                <div id="updateSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i> <span locale="toggle/success">Home Page Status Updated</span></div>
                 <br>
-                <h4>Select web root folder location</h4>
+                <h4 locale="webroot/title">Select web root folder location</h4>
                 <div class="ui action fluid input">
-                    <input id="webroot" type="text" placeholder="Select Location" readonly="true">
-                    <button class="ui black button" onclick="selectWebRootLocation();"><i class="folder open icon"></i> Open</button>
+                    <input id="webroot" type="text" placeholder="Select Location" readonly="true" locale-placeholder="webroot/placeholder">
+                    <button class="ui black button" onclick="selectWebRootLocation();"><i class="folder open icon"></i> <span locale="webroot/button">Open</span></button>
                 </div>
-                <div class="ui yellow message"><i class="warning icon"></i> All files located inside the web root will be accessiable by everyone on the internet.</div>
-                <div id="webrootSetSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i> Web Root Location Updated</div>
+                <div class="ui yellow message"><i class="warning icon"></i> <span locale="webroot/warning">All files located inside the web root will be accessiable by everyone on the internet.</span></div>
+                <div id="webrootSetSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i> <span locale="webroot/success">Web Root Location Updated</span></div>
                 <br>
-                <small>*All changes will be saved automatically upon updates.</small>
+                <small locale="footer/note">*All changes will be saved automatically upon updates.</small>
             </div>
             <br><br>
         </div>
         <script>
+            //Initialize applocale for translations
+            if (applocale) {
+                applocale.init("../locale/personal_homepage.json", function(){
+                    applocale.translate();
+                });
+            }
+
             var ignoreChange = true;
 
             //Update the user information
