@@ -11,6 +11,14 @@ let prePhoto = "";
 let nextPhoto = "";
 let currentModel = "";
 
+// Check if image should use compression (only JPG/PNG)
+function shouldUseCompression(filepath, filesize) {
+    const ext = filepath.split('.').pop().toLowerCase();
+    const isJpgOrPng = (ext === 'jpg' || ext === 'jpeg' || ext === 'png');
+    const COMPRESSION_THRESHOLD = 5 * 1024 * 1024; // 5MB
+    return isJpgOrPng && filesize && filesize > COMPRESSION_THRESHOLD;
+}
+
 // Get viewable image URL (handles RAW files)
 function getViewableImageUrl(filepath, callback) {
     // Both RAW and regular images now use backend rendering
@@ -212,6 +220,7 @@ function closeViewer(){
 
     setTimeout(function(){
         $("#fullImage").attr("src","img/loading.png");
+        $("#compressedImage").attr("src","").hide().removeClass('hidden');
         $("#bg-image").attr("src","");
         $("#info-filename").text("");
         $("#info-filepath").text("");
@@ -243,32 +252,82 @@ function showImage(object){
         resetZoom();
     }
 
+    if (!$(object).hasClass("imagecard")){
+        // Not an image card, do nothing
+        return;
+    }
     var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
-
-    // Update image dimensions and generate histogram when loaded
-    $("#fullImage").off("load").on('load', function() {
-        let width = this.naturalWidth;
-        let height = this.naturalHeight;
-        $("#info-dimensions").text(width + ' × ' + height + "px");
-
-        // Wait for image to be ready, then generate histogram
-        const canvas = document.getElementById('histogram-canvas');
-        if (canvas) {
-            generateHistogram(document.getElementById('fullImage'), canvas);
-        }
-    });
+    $("#info-dimensions").text("Calculating...");
+    // Check if we should use compression (only for JPG/PNG > 5MB)
+    const useCompression = shouldUseCompression(fd.filepath, fd.filesize);
 
     // Get image URL (backend handles RAW files automatically)
     getViewableImageUrl(fd.filepath, (imageUrl, isSupported, isBlob, method) => {
-        $("#fullImage").attr('src', imageUrl);
-        $("#bg-image").attr('src', imageUrl);
+        const compressedImg = document.getElementById('compressedImage');
+        const fullImg = document.getElementById('fullImage');
+        const bgImg = document.getElementById('bg-image');
+        
+        // Reset compressed image
+        compressedImg.style.display = 'none';
+        compressedImg.classList.remove('hidden');
+         
+        if (useCompression) {
+            // Use compressed version for large JPG/PNG files
+            console.log('Large JPG/PNG detected (' + (fd.filesize / 1024 / 1024).toFixed(2) + 'MB), loading compressed version first');
+
+            fetch(ao_root + "system/ajgi/interface?script=Photo/backend/getCompressedImg.js", {
+                method: 'POST',
+                cache: 'no-cache',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "filepath": fd.filepath
+                })
+            }).then(resp => {
+                resp.text().then(dataURL => {
+                    // Show compressed image
+                    compressedImg.src = dataURL;
+                    compressedImg.style.display = 'block';
+                    bgImg.src = dataURL;
+
+                    // Start loading full-size image in background
+                    loadFullSizeImageInBackground(imageUrl, fd);
+                });
+            }).catch(error => {
+                console.error('Failed to load compressed image:', error);
+                // Fall back to full size image
+                fullImg.src = imageUrl;
+                bgImg.src = imageUrl;
+            });
+        } else {
+            $("#compressedImage").hide();
+            // Use full image URL directly for RAW, WEBP, or small JPG/PNG files
+            if (method === 'backend_raw') {
+                console.log('RAW file: Rendered by backend');
+            }
+            fullImg.src = imageUrl;
+            bgImg.src = imageUrl;
+        }
+
+        // Update image dimensions and generate histogram when full image loads
+        $("#fullImage").off("load").on('load', function() {
+            let width = this.naturalWidth;
+            let height = this.naturalHeight;
+            $("#info-dimensions").text(width + ' × ' + height + "px");
+
+            // Hide the compressed image once full image is loaded
+            $("#compressedImage").hide();
+
+            // Wait for image to be ready, then generate histogram
+            const canvas = document.getElementById('histogram-canvas');
+            if (canvas) {
+                generateHistogram(this, canvas);
+            }
+        });
+
         $("#info-filename").text(fd.filename);
         $("#info-filepath").text(fd.filepath);
-
-        // Log the rendering method used
-        if (method === 'backend_raw') {
-            console.log('RAW file: Rendered by backend');
-        }
 
         var nextCard = $(object).next();
         var prevCard = $(object).prev();
@@ -282,6 +341,11 @@ function showImage(object){
             prePhoto = prevCard[0];
         }else{
             prePhoto = null;
+        }
+
+        // Update navigation buttons state
+        if (typeof updateNavigationButtons === 'function') {
+            updateNavigationButtons();
         }
 
         ao_module_setWindowTitle("Photo - " + fd.filename);
@@ -307,6 +371,111 @@ function showImage(object){
             formatExifData({}, fd); // Call with empty EXIF to show tone analysis
         });
     });
+}
+
+
+// Function to load full-size image in background with progress tracking
+function loadFullSizeImageInBackground(fullSizeUrl, fileData) {
+    console.log('Starting background download of full-size image...');
+    
+  
+
+    const loadingIndicator = document.getElementById('loading-progress');
+    const fullImage = document.getElementById('fullImage');
+    const compressedImage = document.getElementById('compressedImage');
+    const bgImage = document.getElementById('bg-image');
+    fullImage.src = fullSizeUrl;
+
+    return;
+    // Legacy blob loading method
+    // Show loading indicator
+    /*
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+        loadingIndicator.textContent = 'Loading 0%';
+    }
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', fullSizeUrl, true);
+    xhr.responseType = 'arraybuffer';
+    
+    // Track download progress
+    xhr.onprogress = function(event) {
+        if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 100;
+            console.log('Download progress: ' + percentComplete.toFixed(2) + '% (' + 
+                       (event.loaded / 1024 / 1024).toFixed(2) + 'MB / ' + 
+                       (event.total / 1024 / 1024).toFixed(2) + 'MB)');
+            
+            // Update loading indicator
+            if (loadingIndicator) {
+                loadingIndicator.textContent = 'Loading ' + Math.round(percentComplete) + '%';
+            }
+        } else {
+            console.log('Download progress: ' + (event.loaded / 1024 / 1024).toFixed(2) + 'MB downloaded');
+            
+            // Update loading indicator without percentage
+            if (loadingIndicator) {
+                loadingIndicator.textContent = 'Loading...';
+            }
+        }
+    };
+    
+    // Handle successful download
+    xhr.onload = function() {
+        // Hide loading indicator
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+        
+        if (xhr.status === 200) {
+            console.log('Full-size image downloaded successfully, swapping images...');
+            
+            // Set full image src directly (browser will cache it)
+            fullImage.onload = function() {
+                console.log('Full-size image loaded and cached');
+                
+                // Fade out compressed image
+                if (compressedImage.style.display !== 'none') {
+                    compressedImage.classList.add('hidden');
+                    setTimeout(() => {
+                        compressedImage.style.display = 'none';
+                    }, 300); // Match CSS transition duration
+                }
+                
+                // Update background
+                bgImage.src = fullSizeUrl;
+                
+                // Update dimensions with full-size image dimensions
+                $("#info-dimensions").text(fullImage.naturalWidth + ' × ' + fullImage.naturalHeight + "px");
+                
+                // Regenerate histogram with full-size image
+                const canvas = document.getElementById('histogram-canvas');
+                if (canvas) {
+                    generateHistogram(fullImage, canvas);
+                }
+            };
+            
+            // Set the source to trigger browser caching
+            fullImage.src = fullSizeUrl;
+        }
+    };
+    
+    // Handle errors
+    xhr.onerror = function() {
+        // Hide loading indicator
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+        console.error('Failed to download full-size image');
+        
+        // Try to load directly as fallback
+        fullImage.src = fullSizeUrl;
+    };
+    
+    // Start the download
+    xhr.send();
+    */
 }
 
 $(document).on("keydown", function(e){

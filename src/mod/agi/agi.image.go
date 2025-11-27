@@ -2,6 +2,7 @@ package agi
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -231,6 +232,92 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		}
 
 		return otto.TrueValue()
+	})
+
+	//Resize image and return as base64 data URL, require (filepath, width, height, format)
+	vm.Set("_imagelib_resizeImageBase64", func(call otto.FunctionCall) otto.Value {
+		vsrc, err := call.Argument(0).ToString()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		width, err := call.Argument(1).ToInteger()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		height, err := call.Argument(2).ToInteger()
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		format := "jpeg"
+		if !call.Argument(3).IsUndefined() {
+			format, err = call.Argument(3).ToString()
+			if err != nil {
+				format = "jpeg"
+			}
+		}
+
+		//Convert the virtual path to real path
+		srcfsh, rsrc, err := static.VirtualPathToRealPath(vsrc, u)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		resizeOpeningFile := rsrc
+		var srcFile arozfs.File
+		if srcfsh.RequireBuffer {
+			resizeOpeningFile, _, err = g.bufferRemoteResourcesToLocal(srcfsh, u, rsrc)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+
+			srcFile, err = os.Open(resizeOpeningFile)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+		} else {
+			srcFile, err = srcfsh.FileSystemAbstraction.Open(resizeOpeningFile)
+			if err != nil {
+				g.RaiseError(err)
+				return otto.FalseValue()
+			}
+		}
+		defer srcFile.Close()
+
+		//Decode and resize the image
+		src, err := imaging.Decode(srcFile)
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+		src = imaging.Resize(src, int(width), int(height), imaging.Lanczos)
+
+		//Encode to bytes buffer
+		var buf bytes.Buffer
+		if format == "png" {
+			err = png.Encode(&buf, src)
+		} else {
+			err = jpeg.Encode(&buf, src, &jpeg.Options{Quality: 85})
+		}
+		if err != nil {
+			g.RaiseError(err)
+			return otto.FalseValue()
+		}
+
+		//Convert to base64
+		imageBytes := buf.Bytes()
+		base64String := "data:image/" + format + ";base64," + base64.StdEncoding.EncodeToString(imageBytes)
+
+		result, _ := vm.ToValue(base64String)
+		return result
 	})
 
 	//Crop the given image, require (input, output, posx, posy, width, height)
@@ -516,6 +603,7 @@ func (g *Gateway) injectImageLibFunctions(payload *static.AgiLibInjectionPayload
 		var imagelib = {};
 		imagelib.getImageDimension = _imagelib_getImageDimension;
 		imagelib.resizeImage = _imagelib_resizeImage;
+		imagelib.resizeImageBase64 = _imagelib_resizeImageBase64;
 		imagelib.cropImage = _imagelib_cropImage;
 		imagelib.loadThumbString = _imagelib_loadThumbString;
 		imagelib.hasExif = _imagelib_hasExif;

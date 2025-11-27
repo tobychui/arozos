@@ -148,6 +148,7 @@
             padding: 20px;
             overflow: hidden;
             cursor: grab;
+            position: relative;
         }
 
         .viewer-left img {
@@ -157,6 +158,21 @@
             transition: transform 0.1s ease-out;
             cursor: auto;
             user-select: none;
+        }
+
+        #compressedImage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 1;
+            transition: opacity 0.3s ease-out;
+            z-index: 2;
+        }
+
+        #compressedImage.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         .viewer-left img.zoomed {
@@ -301,43 +317,117 @@
             }
         }
 
-        /* Zoom Snackbar Styles */
-        .zoom-snackbar {
+        /* Zoom Controls Styles */
+        .zoom-controls {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .zoom-btn {
+            background: rgba(0, 0, 0, 0.7);
             color: white;
-            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 40px;
+            height: 40px;
             border-radius: 4px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            font-family: Arial, sans-serif;
-            z-index: 1001;
+            justify-content: center;
             backdrop-filter: blur(4px);
         }
 
-        .zoom-reset-btn {
-            background: #f76c5d;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background-color 0.2s;
+        .zoom-btn:hover {
+            background: rgba(247, 108, 93, 0.9);
+            border-color: #f76c5d;
         }
 
-        .zoom-reset-btn:hover {
-            background: #e55a4f;
+        .zoom-btn:active {
+            transform: scale(0.95);
+        }
+
+        .zoom-level-indicator {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Navigation Controls Styles */
+        .nav-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .nav-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: rgba(247, 108, 93, 0.9);
+            border-color: #f76c5d;
+        }
+
+        .nav-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
         }
 
         @media (max-width: 768px) {
             .zoom-snackbar {
                 display: none !important;
             }
+        }
+
+        /* Loading Progress Indicator */
+        .loading-progress {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 10;
+            display: none;
         }
     </style>
 
@@ -410,21 +500,21 @@
             <div id="viewboxContainer">
                 <div x-show="viewMode === 'grid'" id="viewbox" class="ui six cards viewbox">
                     <template x-for="image in images">
-                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.split('/').pop(),'filepath':image}))">
+                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
                             <a class="image" x-init="updateImageSizes();">
-                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image">
+                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
                             </a>
                         </div>
                     </template>
                 </div>
                 <div x-show="viewMode === 'list'" class="ui relaxed divided inverted list">
                     <template x-for="image in images">
-                        <div class="item" style="cursor: pointer; padding-left: 10px; " x-on:click="showImage($el); ShowModal();" :filedata="encodeURIComponent(JSON.stringify({'filename':image.split('/').pop(),'filepath':image}))">
-                            <img class="ui small image" :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image"
+                        <div class="item" style="cursor: pointer; padding-left: 10px; " x-on:click="showImage($el); ShowModal();" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
+                            <img class="ui small image" :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath"
                                  style="width: 60px; height: 60px;">
                             <div class="content">
-                                <div class="header" x-text="image.split('/').pop()"></div>
-                                <div class="description" x-text="image"></div>
+                                <div class="header" x-text="image.filepath.split('/').pop()"></div>
+                                <div class="description" x-text="image.filepath"></div>
                             </div>
                         </div>
                     </template>
@@ -442,9 +532,26 @@
                 <img id="bg-image" src="" />
             </div>
             <div class="viewer-left">
+                <img id="compressedImage" src="" style="display: none;" />
                 <img id="fullImage" src="img/loading.png" />
                 <button class="close-btn" onclick="closeViewer()">×</button>
                 <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
+                
+                <!-- Loading Progress -->
+                <div id="loading-progress" class="loading-progress">Loading 0%</div>
+                
+                <!-- Zoom Controls -->
+                <div id="zoom-controls" class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+                    <div class="zoom-level-indicator" id="zoom-level-display">100%</div>
+                    <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+                </div>
+                
+                <!-- Navigation Controls -->
+                <div id="nav-controls" class="nav-controls">
+                    <button id="prev-btn" class="nav-btn" onclick="showPreviousImage()" title="Previous Photo">‹</button>
+                    <button id="next-btn" class="nav-btn" onclick="showNextImage()" title="Next Photo">›</button>
+                </div>
             </div>
             <div class="viewer-right">
                 <div>
@@ -590,12 +697,6 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Zoom Snackbar -->
-        <div id="zoom-snackbar" class="zoom-snackbar" style="display: none;">
-            <span id="zoom-level-display">x1.0</span>
-            <button id="zoom-reset-btn" class="zoom-reset-btn" onclick="resetZoom()">Reset</button>
-        </div>
     </div>
 
 </body>
@@ -622,6 +723,31 @@
         document.querySelector('.viewer-right').style.display = 'block';
     }
 
+    // Navigation functionality
+    function showPreviousImage() {
+        if (typeof prePhoto !== 'undefined' && prePhoto != null) {
+            showImage(prePhoto);
+        }
+    }
+
+    function showNextImage() {
+        if (typeof nextPhoto !== 'undefined' && nextPhoto != null) {
+            showImage(nextPhoto);
+        }
+    }
+
+    function updateNavigationButtons() {
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        
+        if (prevBtn) {
+            prevBtn.disabled = (typeof prePhoto === 'undefined' || prePhoto == null || !$(prePhoto).hasClass("imagecard"));
+        }
+        if (nextBtn) {
+            nextBtn.disabled = (typeof nextPhoto === 'undefined' || nextPhoto == null || !$(nextPhoto).hasClass("imagecard"));
+        }
+    }
+
     // Zoom and Pan functionality
     let zoomLevel = 1;
     let panX = 0;
@@ -642,25 +768,40 @@
 
     function updateImageTransform() {
         const img = document.getElementById('fullImage');
-        const snackbar = document.getElementById('zoom-snackbar');
+        const controls = document.getElementById('zoom-controls');
         const zoomDisplay = document.getElementById('zoom-level-display');
         
         if (zoomLevel > 1) {
             img.style.transform = `scale(${zoomLevel}) translate(${panX}px, ${panY}px)`;
             img.classList.add('zoomed');
-            
-            // Show zoom snackbar
-            zoomDisplay.textContent = 'x' + zoomLevel.toFixed(1);
-            snackbar.style.display = 'flex';
         } else {
             img.style.transform = 'none';
             img.classList.remove('zoomed');
             panX = 0;
             panY = 0;
-            
-            // Hide zoom snackbar
-            snackbar.style.display = 'none';
         }
+        
+        // Always show zoom controls and update display
+        zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+        controls.style.display = 'flex';
+    }
+
+    function zoomIn() {
+        const img = document.getElementById('fullImage');
+        const rect = img.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let newZoom = Math.min(3, zoomLevel + 0.2);
+        zoomAtPoint(newZoom, centerX, centerY);
+    }
+
+    function zoomOut() {
+        const img = document.getElementById('fullImage');
+        const rect = img.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let newZoom = Math.max(1, zoomLevel - 0.2);
+        zoomAtPoint(newZoom, centerX, centerY);
     }
 
     function zoomAtPoint(scale, centerX, centerY) {
@@ -706,26 +847,6 @@
         
         // Reset zoom state
         resetZoom();
-
-        // Define handler functions to allow removal and re-addition
-        let handleDblClick = function(e) {
-            console.log(e);
-            e.preventDefault();
-            if (zoomLevel > 1) {
-                resetZoom();
-            } else {
-                zoomAtPoint(2, e.clientX, e.clientY);
-            }
-        };
-
-        let handleWheel = function(e) {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            let actualZoomLevel = zoomLevel * delta;
-            if (actualZoomLevel < 1) actualZoomLevel = 1;
-            if (actualZoomLevel > 3.3) actualZoomLevel = 3.3;
-            zoomAtPoint(actualZoomLevel, e.clientX, e.clientY);
-        };
 
         let handleMouseDown = function(e) {
             if (zoomLevel > 1) {
@@ -830,8 +951,6 @@
         };
 
         // Remove existing listeners to prevent double triggering
-        img.removeEventListener('dblclick', handleDblClick);
-        img.removeEventListener('wheel', handleWheel);
         img.removeEventListener('mousedown', handleMouseDown);
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
@@ -840,8 +959,6 @@
         img.removeEventListener('touchend', handleTouchEnd);
 
         // Add listeners back
-        img.addEventListener('dblclick', handleDblClick);
-        img.addEventListener('wheel', handleWheel);
         img.addEventListener('mousedown', handleMouseDown);
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
@@ -849,26 +966,9 @@
         img.addEventListener('touchmove', handleTouchMove);
         img.addEventListener('touchend', handleTouchEnd);
         
-        // Double click to zoom
-        img.addEventListener('dblclick', function(e) {
-            console.log(e);
-            e.preventDefault();
-            if (zoomLevel > 1) {
-                resetZoom();
-            } else {
-                zoomAtPoint(2, e.clientX, e.clientY);
-            }
-        });
+        // Double-click zoom removed - use +/- buttons instead
         
-        // Mouse wheel zoom
-        img.addEventListener('wheel', function(e) {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            let actualZoomLevel = zoomLevel * delta;
-            if (actualZoomLevel < 1) actualZoomLevel = 1;
-            if (actualZoomLevel > 3.3) actualZoomLevel = 3.3;;
-            zoomAtPoint(actualZoomLevel, e.clientX, e.clientY);
-        });
+        // Mouse wheel zoom removed - use +/- buttons instead
         
         // Mouse drag pan
         img.addEventListener('mousedown', function(e) {

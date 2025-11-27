@@ -121,7 +121,18 @@ function main(){
     // Filter out JPG duplicates when RAW files exist
     files = filterDuplicates(files);
 
-    sendJSONResp(JSON.stringify([folders, files]));
+    // Add filesize information to each file
+    var filesWithSize = [];
+    for (var i = 0; i < files.length; i++){
+        var filepath = files[i];
+        var filesize = filelib.filesize(filepath);
+        filesWithSize.push({
+            filepath: filepath,
+            filesize: filesize
+        });
+    }
+
+    sendJSONResp(JSON.stringify([folders, filesWithSize]));
 }
 
 main();
