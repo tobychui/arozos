@@ -134,7 +134,7 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 		//also makr the login as fail.
 		if oh.reg.AllowRegistry {
 			oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "web")
-			http.Redirect(w, r, "/public/register/register.system?user="+username, http.StatusFound)
+			http.Redirect(w, r, "/public/register/register.html?user="+username, http.StatusFound)
 		} else {
 			oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "web")
 			w.Header().Set("Content-Type", "text/html")

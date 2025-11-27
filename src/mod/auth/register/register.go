@@ -97,12 +97,12 @@ func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http
 		//Load the vendor icon as base64
 		imagecontent, _ := readImageFileAsBase64(h.options.VendorIcon)
 
-		s, err := utils.Templateload("./system/auth/register.system", map[string]string{
+		s, err := utils.Templateload("./system/auth/register.html", map[string]string{
 			"host_name":   h.options.Hostname,
 			"vendor_logo": imagecontent,
 		})
 		if err != nil {
-			log.Println("Template not found: system/auth/register.system")
+			log.Println("Template not found: system/auth/register.html")
 			http.NotFound(w, r)
 			return
 		}

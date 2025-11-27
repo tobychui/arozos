@@ -4,7 +4,7 @@ package main
 	ArOZ Online System Main Request Router
 
 	This is used to check authentication before actually serving file to the target client
-	This function also handle the special page (login.system and user.system) delivery
+	This function also handle the special page (login.html and user.html) delivery
 */
 
 import (
@@ -27,7 +27,7 @@ func mrouter(h http.Handler) http.Handler {
 		if r.URL.Path == "/favicon.ico" || r.URL.Path == "/manifest.webmanifest" || r.URL.Path == "/robots.txt" || r.URL.Path == "/humans.txt" {
 			//Serving web specification files. Allow no auth access.
 			h.ServeHTTP(w, r)
-		} else if r.URL.Path == "/login.system" {
+		} else if r.URL.Path == "/login.html" {
 			//Login page. Require special treatment for template.
 			//Get the redirection address from the request URL
 			red, _ := utils.GetPara(r, "redirect")
@@ -38,7 +38,7 @@ func mrouter(h http.Handler) http.Handler {
 				imgsrc = "./web/img/public/auth_icon.png"
 			}
 			imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
-			parsedPage, err := utils.Templateload("web/login.system", map[string]string{
+			parsedPage, err := utils.Templateload("web/login.html", map[string]string{
 				"redirection_addr": red,
 				"usercount":        strconv.Itoa(authAgent.GetUserCounts()),
 				"service_logo":     imageBase64,
@@ -49,10 +49,10 @@ func mrouter(h http.Handler) http.Handler {
 			}
 			w.Header().Add("Content-Type", "text/html; charset=UTF-8")
 			w.Write([]byte(parsedPage))
-		} else if r.URL.Path == "/reset.system" && authAgent.GetUserCounts() > 0 {
+		} else if r.URL.Path == "/reset.html" && authAgent.GetUserCounts() > 0 {
 			//Password restart page. Allow access only when user number > 0
 			system_resetpw_handlePasswordReset(w, r)
-		} else if r.URL.Path == "/user.system" && authAgent.GetUserCounts() == 0 {
+		} else if r.URL.Path == "/user.html" && authAgent.GetUserCounts() == 0 {
 			//Serve user management page. This only allows serving of such page when the total usercount = 0 (aka System Initiation)
 			h.ServeHTTP(w, r)
 
@@ -102,7 +102,7 @@ func mrouter(h http.Handler) http.Handler {
 			} else {
 				interfaceModule := userinfo.GetInterfaceModules()
 				if len(interfaceModule) == 1 && interfaceModule[0] == "Desktop" {
-					http.Redirect(w, r, "./desktop.system", http.StatusTemporaryRedirect)
+					http.Redirect(w, r, "./desktop.html", http.StatusTemporaryRedirect)
 				} else if len(interfaceModule) == 1 {
 					//User with default interface module not desktop
 					modileInfo := moduleHandler.GetModuleInfoByID(interfaceModule[0])
@@ -120,7 +120,7 @@ func mrouter(h http.Handler) http.Handler {
 					http.Redirect(w, r, "./SystemAO/boot/no_interfaceing.html", http.StatusTemporaryRedirect)
 				} else {
 					//For unknown operations, send it to desktop
-					http.Redirect(w, r, "./desktop.system", http.StatusTemporaryRedirect)
+					http.Redirect(w, r, "./desktop.html", http.StatusTemporaryRedirect)
 				}
 			}
 		} else if ((len(r.URL.Path) >= 5 && r.URL.Path[:5] == "/www/") || r.URL.Path == "/www") && *allow_homepage {
@@ -184,7 +184,7 @@ func mrouter(h http.Handler) http.Handler {
 				//Other paths
 				//Rediect to login page
 				w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-				http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.String(), 307)
+				http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.html")+"?redirect="+r.URL.String(), 307)
 			}
 
 		}

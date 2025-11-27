@@ -44,6 +44,6 @@ func ldapInit() {
 	http.HandleFunc("/system/auth/ldap/login", ldapHandler.HandleLogin)
 	http.HandleFunc("/system/auth/ldap/setPassword", ldapHandler.HandleSetPassword)
 	http.HandleFunc("/system/auth/ldap/newPassword", ldapHandler.HandleNewPasswordPage)
-	http.HandleFunc("/ldapLogin.system", ldapHandler.HandleLoginPage)
+	http.HandleFunc("/ldapLogin.html", ldapHandler.HandleLoginPage)
 	http.HandleFunc("/system/auth/ldap/checkldap", ldapHandler.HandleCheckLDAP)
 }

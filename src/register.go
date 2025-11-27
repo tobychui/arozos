@@ -37,8 +37,8 @@ func RegisterSystemInit() {
 		registerHandler.AllowRegistry = false
 	}
 
-	http.HandleFunc("/public/register/register.system", registerHandler.HandleRegisterInterface)
-	http.HandleFunc("/public/register/handleRegister.system", registerHandler.HandleRegisterRequest)
+	http.HandleFunc("/public/register/register.html", registerHandler.HandleRegisterInterface)
+	http.HandleFunc("/public/register/handleRegister.html", registerHandler.HandleRegisterRequest)
 	http.HandleFunc("/public/register/checkPublicRegister", registerHandler.HandleRegisterCheck)
 
 	//General user functions

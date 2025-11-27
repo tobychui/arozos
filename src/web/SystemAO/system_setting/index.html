@@ -119,6 +119,9 @@
                             
                     });
 
+                }else{
+                    //No hash, load default Info page
+                    initSettingGroup("Info");
                 }
                  pageStateRestored = true;
             }
@@ -129,11 +132,12 @@
                 initMainSideMenu(function(){
                     //Menu is now loaded
                     hideToolBar();
-                     if (!pageStateRestored){
+                    if (!pageStateRestored){
                         restorePageFromHash();
-                    }else{
-                        initSettingGroup("Info");
+                        return;
                     }
+
+                    initSettingGroup("Info");
                 });
             });
  

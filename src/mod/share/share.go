@@ -390,7 +390,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.html")+"?redirect=/share/"+id, 307)
 				}
 				return
 			} else {
@@ -403,7 +403,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.html")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -443,7 +443,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.html")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -468,7 +468,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusUnauthorized)
 					w.Write([]byte("401 - Unauthorized"))
 				} else {
-					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect=/share/"+id, 307)
+					http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.html")+"?redirect=/share/"+id, 307)
 				}
 				return
 			}
@@ -1417,3 +1417,4 @@ func getPathHashFromUsernameAndVpath(userinfo *user.User, vpath string) (string,
 	}
 	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
 }
+

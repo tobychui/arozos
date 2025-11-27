@@ -26,7 +26,7 @@ func (ldap *ldapHandler) HandleLoginPage(w http.ResponseWriter, r *http.Request)
 		imgsrc = "./web/img/public/auth_icon.png"
 	}
 	imageBase64, _ := utils.LoadImageAsBase64(imgsrc)
-	parsedPage, err := utils.Templateload("web/login.system", map[string]string{
+	parsedPage, err := utils.Templateload("web/login.html", map[string]string{
 		"redirection_addr": red,
 		"usercount":        strconv.Itoa(ldap.ag.GetUserCounts()),
 		"service_logo":     imageBase64,

@@ -236,7 +236,7 @@
                             initContents();
                             $("#confirmUpdate").stop().finish().slideDown('fast').delay(3000).slideUp('fast');
                             console.log(data);
-                            $("#tmppw").val(location.protocol + '//' + location.host + "/reset.system?acc=" + username +  "&rkey=" + data);
+                            $("#tmppw").val(location.protocol + '//' + location.host + "/reset.html?acc=" + username +  "&rkey=" + data);
                             $("#tmppwui").slideDown('fast');
                         }
                     }

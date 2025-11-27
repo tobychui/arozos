@@ -450,7 +450,7 @@ func FileServerInit() {
 		ID:                "tftp",
 		Name:              "TFTP",
 		Desc:              "Trivial File Transfer Protocol Server",
-		IconPath:          "img/system/network-folder.svg",
+		IconPath:          "img/system/network-folder-black.svg",
 		DefaultPorts:      []int{69},
 		Ports:             []int{},
 		ForwardPortIfUpnp: false,

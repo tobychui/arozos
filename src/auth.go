@@ -32,9 +32,9 @@ func AuthInit() {
 
 	//Create an Authentication Agent
 	authAgent = auth.NewAuthenticationAgent("ao_auth", []byte(*session_key), sysdb, *allow_public_registry, func(w http.ResponseWriter, r *http.Request) {
-		//Login Redirection Handler, redirect it login.system
+		//Login Redirection Handler, redirect it login.html
 		w.Header().Set("Cache-Control", "no-cache, no-store, no-transform, must-revalidate, private, max-age=0")
-		http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.system")+"?redirect="+r.URL.Path, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, utils.ConstructRelativePathFromRequestURL(r.RequestURI, "login.html")+"?redirect="+r.URL.Path, http.StatusTemporaryRedirect)
 	})
 
 	if *allow_autologin {
