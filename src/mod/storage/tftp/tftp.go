@@ -65,12 +65,12 @@ func NewTFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, 
 func (h *Handler) Start() error {
 	if h.server != nil {
 		addr := ":" + strconv.Itoa(h.Port)
-		log.Println("TFTP Server Started, listening at: " + strconv.Itoa(h.Port))
+		log.Println("[TFTP] Server Started, listening at: " + strconv.Itoa(h.Port))
 
 		go func() {
 			err := h.server.ListenAndServe(addr)
 			if err != nil {
-				log.Println("TFTP Server error:", err)
+				log.Println("[TFTP] Server error:", err)
 			}
 		}()
 
@@ -117,7 +117,7 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 	// Open file for reading
 	file, err := afs.Open(filename)
 	if err != nil {
-		log.Printf("TFTP READ: Failed to open %s: %v", filename, err)
+		log.Printf("[TFTP] READ: Failed to open %s: %v", filename, err)
 		return err
 	}
 	defer file.Close()
@@ -136,11 +136,11 @@ func (d *tftpDriver) readHandler(filename string, rf io.ReaderFrom) error {
 
 	n, err := rf.ReadFrom(file)
 	if err != nil {
-		log.Printf("TFTP READ: Transfer error for %s: %v", filename, err)
+		log.Printf("[TFTP] READ: Transfer error for %s: %v", filename, err)
 		return err
 	}
 
-	log.Printf("TFTP READ: Sent %s (%d bytes)", filename, n)
+	log.Printf("[TFTP] READ: Sent %s (%d bytes)", filename, n)
 	return nil
 }
 
@@ -171,17 +171,17 @@ func (d *tftpDriver) writeHandler(filename string, wt io.WriterTo) error {
 	// Check if user can write
 	file, err := afs.Create(filename)
 	if err != nil {
-		log.Printf("TFTP WRITE: Failed to create %s: %v", filename, err)
+		log.Printf("[TFTP] WRITE: Failed to create %s: %v", filename, err)
 		return err
 	}
 	defer file.Close()
 
 	n, err := wt.WriteTo(file)
 	if err != nil {
-		log.Printf("TFTP WRITE: Transfer error for %s: %v", filename, err)
+		log.Printf("[TFTP] WRITE: Transfer error for %s: %v", filename, err)
 		return err
 	}
 
-	log.Printf("TFTP WRITE: Received %s (%d bytes)", filename, n)
+	log.Printf("[TFTP] WRITE: Received %s (%d bytes)", filename, n)
 	return nil
 }

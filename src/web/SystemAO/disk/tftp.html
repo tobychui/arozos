@@ -41,6 +41,9 @@
     <script>
         $(".ui.dropdown").dropdown();
         $(document).ready(function(){
+            //Load current TFTP server status including port
+            initTFTPServerStatus();
+            
             //Load user list for default user selection
             $.get("../../system/users/list?noicon=true", function(data){
                 if (data.error !== undefined){
