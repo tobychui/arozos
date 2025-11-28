@@ -245,6 +245,8 @@ function closeViewer(){
     }, 300);
 }
 
+let compressedImageLoaded = false;
+let fullsizeImageLoaded = false;
 
 function showImage(object){
     // Reset zoom level when switching photos
@@ -256,21 +258,31 @@ function showImage(object){
         // Not an image card, do nothing
         return;
     }
+    
+    // Reset loading flags
+    compressedImageLoaded = false;
+    fullsizeImageLoaded = false;
+    
     var fd = JSON.parse(decodeURIComponent($(object).attr("filedata")));
     $("#info-dimensions").text("Calculating...");
     // Check if we should use compression (only for JPG/PNG > 5MB)
     const useCompression = shouldUseCompression(fd.filepath, fd.filesize);
 
+    // Set thumbnail as placeholder for full image
+    const thumbnailUrl = $(object).find('img').attr('src');
+    $("#fullImage").attr("src", thumbnailUrl);
+    $("#fullImage").hide();
+    $("#compressedImage").show();
+    $("#compressedImage").attr("src", thumbnailUrl);
+    $("#bg-image").attr("src", thumbnailUrl);
+    
     // Get image URL (backend handles RAW files automatically)
     getViewableImageUrl(fd.filepath, (imageUrl, isSupported, isBlob, method) => {
+        $("#loading-progress").show();
         const compressedImg = document.getElementById('compressedImage');
         const fullImg = document.getElementById('fullImage');
         const bgImg = document.getElementById('bg-image');
-        
-        // Reset compressed image
-        compressedImg.style.display = 'none';
-        compressedImg.classList.remove('hidden');
-         
+        $("#loading-progress").html(`<i class="loading spinner icon"></i> Loading`);
         if (useCompression) {
             // Use compressed version for large JPG/PNG files
             console.log('Large JPG/PNG detected (' + (fd.filesize / 1024 / 1024).toFixed(2) + 'MB), loading compressed version first');
@@ -286,13 +298,17 @@ function showImage(object){
                 })
             }).then(resp => {
                 resp.text().then(dataURL => {
-                    // Show compressed image
-                    compressedImg.src = dataURL;
-                    compressedImg.style.display = 'block';
-                    bgImg.src = dataURL;
+                    $("#loading-progress").html(`<i class="loading spinner icon"></i> Optimizing Resolution`);
+                    compressedImageLoaded = true;
 
-                    // Start loading full-size image in background
-                    loadFullSizeImageInBackground(imageUrl, fd);
+                    // Only show compressed image if full-size hasn't loaded yet
+                    if (!fullsizeImageLoaded) {
+                        compressedImg.src = dataURL;
+                        compressedImg.style.display = 'block';
+                        bgImg.src = dataURL;
+                    } else {
+                        console.log('Full-size image already loaded, skipping compressed image display');
+                    }
                 });
             }).catch(error => {
                 console.error('Failed to load compressed image:', error);
@@ -300,8 +316,13 @@ function showImage(object){
                 fullImg.src = imageUrl;
                 bgImg.src = imageUrl;
             });
+
+            // Start loading full-size image in background
+            loadFullSizeImageInBackground(imageUrl, fd);
         } else {
             $("#compressedImage").hide();
+            $("#fullImage").show();
+            $("#loading-progress").hide();
             // Use full image URL directly for RAW, WEBP, or small JPG/PNG files
             if (method === 'backend_raw') {
                 console.log('RAW file: Rendered by backend');
@@ -312,14 +333,15 @@ function showImage(object){
 
         // Update image dimensions and generate histogram when full image loads
         $("#fullImage").off("load").on('load', function() {
+            fullsizeImageLoaded = true;
             let width = this.naturalWidth;
             let height = this.naturalHeight;
             $("#info-dimensions").text(width + ' × ' + height + "px");
 
             // Hide the compressed image once full image is loaded
             $("#compressedImage").hide();
-
-            // Wait for image to be ready, then generate histogram
+            $("#fullImage").show();
+            $("#loading-progress").hide();
             const canvas = document.getElementById('histogram-canvas');
             if (canvas) {
                 generateHistogram(this, canvas);
@@ -377,105 +399,8 @@ function showImage(object){
 // Function to load full-size image in background with progress tracking
 function loadFullSizeImageInBackground(fullSizeUrl, fileData) {
     console.log('Starting background download of full-size image...');
-    
-  
-
-    const loadingIndicator = document.getElementById('loading-progress');
     const fullImage = document.getElementById('fullImage');
-    const compressedImage = document.getElementById('compressedImage');
-    const bgImage = document.getElementById('bg-image');
     fullImage.src = fullSizeUrl;
-
-    return;
-    // Legacy blob loading method
-    // Show loading indicator
-    /*
-    if (loadingIndicator) {
-        loadingIndicator.style.display = 'block';
-        loadingIndicator.textContent = 'Loading 0%';
-    }
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', fullSizeUrl, true);
-    xhr.responseType = 'arraybuffer';
-    
-    // Track download progress
-    xhr.onprogress = function(event) {
-        if (event.lengthComputable) {
-            const percentComplete = (event.loaded / event.total) * 100;
-            console.log('Download progress: ' + percentComplete.toFixed(2) + '% (' + 
-                       (event.loaded / 1024 / 1024).toFixed(2) + 'MB / ' + 
-                       (event.total / 1024 / 1024).toFixed(2) + 'MB)');
-            
-            // Update loading indicator
-            if (loadingIndicator) {
-                loadingIndicator.textContent = 'Loading ' + Math.round(percentComplete) + '%';
-            }
-        } else {
-            console.log('Download progress: ' + (event.loaded / 1024 / 1024).toFixed(2) + 'MB downloaded');
-            
-            // Update loading indicator without percentage
-            if (loadingIndicator) {
-                loadingIndicator.textContent = 'Loading...';
-            }
-        }
-    };
-    
-    // Handle successful download
-    xhr.onload = function() {
-        // Hide loading indicator
-        if (loadingIndicator) {
-            loadingIndicator.style.display = 'none';
-        }
-        
-        if (xhr.status === 200) {
-            console.log('Full-size image downloaded successfully, swapping images...');
-            
-            // Set full image src directly (browser will cache it)
-            fullImage.onload = function() {
-                console.log('Full-size image loaded and cached');
-                
-                // Fade out compressed image
-                if (compressedImage.style.display !== 'none') {
-                    compressedImage.classList.add('hidden');
-                    setTimeout(() => {
-                        compressedImage.style.display = 'none';
-                    }, 300); // Match CSS transition duration
-                }
-                
-                // Update background
-                bgImage.src = fullSizeUrl;
-                
-                // Update dimensions with full-size image dimensions
-                $("#info-dimensions").text(fullImage.naturalWidth + ' × ' + fullImage.naturalHeight + "px");
-                
-                // Regenerate histogram with full-size image
-                const canvas = document.getElementById('histogram-canvas');
-                if (canvas) {
-                    generateHistogram(fullImage, canvas);
-                }
-            };
-            
-            // Set the source to trigger browser caching
-            fullImage.src = fullSizeUrl;
-        }
-    };
-    
-    // Handle errors
-    xhr.onerror = function() {
-        // Hide loading indicator
-        if (loadingIndicator) {
-            loadingIndicator.style.display = 'none';
-        }
-        console.error('Failed to download full-size image');
-        
-        // Try to load directly as fallback
-        fullImage.src = fullSizeUrl;
-    };
-    
-    // Start the download
-    xhr.send();
-    */
 }
 
 $(document).on("keydown", function(e){

@@ -5264,6 +5264,7 @@
                           
                             }else{
                                 addContextMenuItem($("#contextmenu"), lcontex('Open'), undefined, "openIconViaMenu", false);
+                                addContextMenuItem($("#contextmenu"), lcontex('Open in New Tab'), "<i class='external icon'></i>", "openURLShortcutInNewTab", false);
                                 addContextMenuItem($("#contextmenu"), lcontex('Delete'), "<i class='trash icon'></i>", "handleFileDelete", false);
                             }
                             
@@ -5393,6 +5394,17 @@
                         window.open(data.StartDir)
                     }
                 });
+            });
+
+            hideAllContextMenus();
+        }
+
+        function openURLShortcutInNewTab(target, event){
+            $(".launchIconWrapper.selected").each(function(){
+                var fd = JSON.parse(decodeURIComponent($(this).parent().attr("filedata")));
+                if (fd.ShortcutType == "url" && fd.ShortcutPath) {
+                    window.open(fd.ShortcutPath);
+                }
             });
 
             hideAllContextMenus();
