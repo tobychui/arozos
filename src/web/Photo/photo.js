@@ -10,6 +10,7 @@ let photoList = [];
 let prePhoto = "";
 let nextPhoto = "";
 let currentModel = "";
+let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // Check if image should use compression (only JPG/PNG)
 function shouldUseCompression(filepath, filesize) {

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=yes" />
     <meta name="theme-color" content="#f76c5d" />
     <meta name="description" content="ArozOS Photo" />
     <link rel="manifest" crossorigin="use-credentials" href="manifest.json">
@@ -410,6 +410,16 @@
         @media (max-width: 768px) {
             .zoom-snackbar {
                 display: none !important;
+            }
+            .zoom-controls {
+                display: none !important;
+            }
+            .viewer-left {
+                cursor: default;
+                touch-action: auto;
+            }
+            .viewer-left img {
+                cursor: default;
             }
         }
 
@@ -844,239 +854,56 @@
     function initZoomPan() {
         const img = document.getElementById('fullImage');
         const container = document.querySelector('.viewer-left');
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         // Reset zoom state
         resetZoom();
 
-        let handleMouseDown = function(e) {
-            if (zoomLevel > 1) {
-                e.preventDefault();
-                isDragging = true;
-                lastMouseX = e.clientX;
-                lastMouseY = e.clientY;
-                img.classList.add('dragging');
-            }
-        };
-
-        let handleMouseMove = function(e) {
-            if (isDragging && zoomLevel > 1) {
-                const deltaX = e.clientX - lastMouseX;
-                const deltaY = e.clientY - lastMouseY;
-                
-                panX += deltaX / zoomLevel;
-                panY += deltaY / zoomLevel;
-                
-                constrainPan();
-                updateImageTransform();
-                
-                lastMouseX = e.clientX;
-                lastMouseY = e.clientY;
-            }
-        };
-
-        let handleMouseUp = function() {
-            if (isDragging) {
-                isDragging = false;
-                img.classList.remove('dragging');
-            }
-        };
-
-        let handleTouchStart = function(e) {
-            if (e.touches.length === 1) {
-                // Single touch - prepare for pan
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
+        // Only enable custom zoom/pan on desktop
+        if (!isMobile) {
+            let handleMouseDown = function(e) {
                 if (zoomLevel > 1) {
+                    e.preventDefault();
                     isDragging = true;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
                     img.classList.add('dragging');
                 }
-            } else if (e.touches.length === 2) {
-                // Two touches - prepare for pinch zoom
-                e.preventDefault();
-                const touch1 = e.touches[0];
-                const touch2 = e.touches[1];
-                touchStartDistance = Math.sqrt(
-                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
-                    Math.pow(touch2.clientY - touch1.clientY, 2)
-                );
-                initialZoom = zoomLevel;
-                isDragging = false;
-            }
-        };
+            };
 
-        let handleTouchMove = function(e) {
-            e.preventDefault();
-            
-            if (e.touches.length === 1 && isDragging && zoomLevel > 1) {
-                // Single touch pan
-                const deltaX = e.touches[0].clientX - touchStartX;
-                const deltaY = e.touches[0].clientY - touchStartY;
-                
-                panX += deltaX / zoomLevel;
-                panY += deltaY / zoomLevel;
-                
-                constrainPan();
-                updateImageTransform();
-                
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-            } else if (e.touches.length === 2) {
-                // Two touches pinch zoom
-                const touch1 = e.touches[0];
-                const touch2 = e.touches[1];
-                const currentDistance = Math.sqrt(
-                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
-                    Math.pow(touch2.clientY - touch1.clientY, 2)
-                );
-                
-                if (touchStartDistance > 0) {
-                    const scale = currentDistance / touchStartDistance;
-                    const newZoom = Math.max(1, Math.min(5, initialZoom * scale));
+            let handleMouseMove = function(e) {
+                if (isDragging && zoomLevel > 1) {
+                    const deltaX = e.clientX - lastMouseX;
+                    const deltaY = e.clientY - lastMouseY;
                     
-                    if (newZoom !== zoomLevel) {
-                        // Zoom at center point between touches
-                        const centerX = (touch1.clientX + touch2.clientX) / 2;
-                        const centerY = (touch1.clientY + touch2.clientY) / 2;
-                        zoomAtPoint(newZoom, centerX, centerY);
-                    }
-                }
-            }
-        };
-
-        let handleTouchEnd = function(e) {
-            if (e.touches.length === 0) {
-                isDragging = false;
-                img.classList.remove('dragging');
-            }
-        };
-
-        // Remove existing listeners to prevent double triggering
-        img.removeEventListener('mousedown', handleMouseDown);
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        img.removeEventListener('touchstart', handleTouchStart);
-        img.removeEventListener('touchmove', handleTouchMove);
-        img.removeEventListener('touchend', handleTouchEnd);
-
-        // Add listeners back
-        img.addEventListener('mousedown', handleMouseDown);
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        img.addEventListener('touchstart', handleTouchStart);
-        img.addEventListener('touchmove', handleTouchMove);
-        img.addEventListener('touchend', handleTouchEnd);
-        
-        // Double-click zoom removed - use +/- buttons instead
-        
-        // Mouse wheel zoom removed - use +/- buttons instead
-        
-        // Mouse drag pan
-        img.addEventListener('mousedown', function(e) {
-            if (zoomLevel > 1) {
-                e.preventDefault();
-                isDragging = true;
-                lastMouseX = e.clientX;
-                lastMouseY = e.clientY;
-                img.classList.add('dragging');
-            }
-        });
-        
-        document.addEventListener('mousemove', function(e) {
-            if (isDragging && zoomLevel > 1) {
-                const deltaX = e.clientX - lastMouseX;
-                const deltaY = e.clientY - lastMouseY;
-                
-                panX += deltaX / zoomLevel;
-                panY += deltaY / zoomLevel;
-                
-                constrainPan();
-                updateImageTransform();
-                
-                lastMouseX = e.clientX;
-                lastMouseY = e.clientY;
-            }
-        });
-        
-        document.addEventListener('mouseup', function() {
-            if (isDragging) {
-                isDragging = false;
-                img.classList.remove('dragging');
-            }
-        });
-        
-        // Touch events for mobile
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchStartDistance = 0;
-        
-        img.addEventListener('touchstart', function(e) {
-            if (e.touches.length === 1) {
-                // Single touch - prepare for pan
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-                if (zoomLevel > 1) {
-                    isDragging = true;
-                    img.classList.add('dragging');
-                }
-            } else if (e.touches.length === 2) {
-                // Two touches - prepare for pinch zoom
-                e.preventDefault();
-                const touch1 = e.touches[0];
-                const touch2 = e.touches[1];
-                touchStartDistance = Math.sqrt(
-                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
-                    Math.pow(touch2.clientY - touch1.clientY, 2)
-                );
-                initialZoom = zoomLevel;
-                isDragging = false;
-            }
-        });
-        
-        img.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-            
-            if (e.touches.length === 1 && isDragging && zoomLevel > 1) {
-                // Single touch pan
-                const deltaX = e.touches[0].clientX - touchStartX;
-                const deltaY = e.touches[0].clientY - touchStartY;
-                
-                panX += deltaX / zoomLevel;
-                panY += deltaY / zoomLevel;
-                
-                constrainPan();
-                updateImageTransform();
-                
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-            } else if (e.touches.length === 2) {
-                // Two touches pinch zoom
-                const touch1 = e.touches[0];
-                const touch2 = e.touches[1];
-                const currentDistance = Math.sqrt(
-                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
-                    Math.pow(touch2.clientY - touch1.clientY, 2)
-                );
-                
-                if (touchStartDistance > 0) {
-                    const scale = currentDistance / touchStartDistance;
-                    const newZoom = Math.max(1, Math.min(5, initialZoom * scale));
+                    panX += deltaX / zoomLevel;
+                    panY += deltaY / zoomLevel;
                     
-                    if (newZoom !== zoomLevel) {
-                        // Zoom at center point between touches
-                        const centerX = (touch1.clientX + touch2.clientX) / 2;
-                        const centerY = (touch1.clientY + touch2.clientY) / 2;
-                        zoomAtPoint(newZoom, centerX, centerY);
-                    }
+                    constrainPan();
+                    updateImageTransform();
+                    
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
                 }
-            }
-        });
-        
-        img.addEventListener('touchend', function(e) {
-            if (e.touches.length === 0) {
-                isDragging = false;
-                img.classList.remove('dragging');
-            }
-        });
+            };
+
+            let handleMouseUp = function() {
+                if (isDragging) {
+                    isDragging = false;
+                    img.classList.remove('dragging');
+                }
+            };
+
+            // Remove existing listeners to prevent double triggering
+            img.removeEventListener('mousedown', handleMouseDown);
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+
+            // Add listeners back
+            img.addEventListener('mousedown', handleMouseDown);
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
     }
 
     // Initialize zoom and pan when modal is shown
