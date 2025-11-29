@@ -1,0 +1,22 @@
+/*
+	Clock Module Register Script
+*/
+
+//Setup the module information
+var moduleLaunchInfo = {
+    Name: "Clock",
+	Desc: "A date and time telling tool",
+	Group: "Utilities",
+	IconPath: "img/module_icon.png",
+	Version: "0.1.0",
+	StartDir: "index.html",
+	SupportFW: true,
+	LaunchFWDir: "index.html",
+	SupportEmb: false,
+	InitFWSize: [600, 400],
+	SupportedExt: []
+}
+
+//Register the module
+console.log("Registering clock module");
+registerModule(JSON.stringify(moduleLaunchInfo));
