@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -236,8 +237,47 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			reply, _ := vm.ToValue(false)
 			return reply
 		}
+
+		//Parse the module config JSON to convert relative paths to absolute paths
+		var moduleConfig map[string]interface{}
+		err = json.Unmarshal([]byte(jsonModuleConfig), &moduleConfig)
+		if err != nil {
+			g.RaiseError(err)
+			reply, _ := vm.ToValue(false)
+			return reply
+		}
+
+		//Get the module directory from the script file path
+		//For example: ./web/Label Maker/init.agi -> Label Maker
+		if scriptFile != "" && scriptScope != "" {
+			moduleDir := static.GetScriptRoot(scriptFile, scriptScope)
+
+			//Convert relative paths to absolute paths for IconPath, StartDir, and LaunchFWDir
+			pathFields := []string{"IconPath", "StartDir", "LaunchFWDir", "LaunchEmb"}
+			for _, field := range pathFields {
+				if value, exists := moduleConfig[field]; exists {
+					if strValue, ok := value.(string); ok && strValue != "" {
+						//Check if the path is relative (doesn't start with module name)
+						if !filepath.IsAbs(strValue) && !strings.HasPrefix(strValue, moduleDir+"/") {
+							//Convert relative path to absolute path
+							moduleConfig[field] = filepath.ToSlash(filepath.Join(moduleDir, strValue))
+						}
+					}
+				}
+			}
+
+			//Re-encode the modified config
+			modifiedJSON, err := json.Marshal(moduleConfig)
+			if err != nil {
+				g.RaiseError(err)
+				reply, _ := vm.ToValue(false)
+				return reply
+			}
+			jsonModuleConfig = string(modifiedJSON)
+		}
+
 		//Try to decode it to a module Info
-		g.Option.ModuleRegisterParser(jsonModuleConfig)
+		err = g.Option.ModuleRegisterParser(jsonModuleConfig)
 		if err != nil {
 			g.RaiseError(err)
 			reply, _ := vm.ToValue(false)
