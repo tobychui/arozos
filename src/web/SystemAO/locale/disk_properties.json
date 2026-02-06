@@ -3,129 +3,99 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fwtitle" : "磁碟概覽",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title/title":"磁碟概覽",
-                "title/desc":"關於此虛擬儲存裝置對應之磁碟機掛載點",
-
-                "diskinfo/physical":"物理磁碟機",
-                "diskinfo/hierarchy":"儲存裝置結構（格式）",
-
-                "hierarchy/User":"使用者分隔",
-                "hierarchy/Public":"共用磁碟區",
-                "hierarchy/Backup":"備份磁碟區",
-
-                "spaceinfo/totalUsed":"已使用磁碟空間",
-                "spaceinfo/userUsed":"使用者磁碟空間",
-                "spaceinfo/Usable":"可用磁碟空間",
-                "spaceinfo/Capacity":"磁碟容量",
-
-                "unit/bytes":" 個位元組",
+            "fwtitle": "磁碟概覽",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title": "磁碟概覽",
+                "title/desc": "關於此虛擬儲存裝置對應之磁碟機掛載點",
+                "diskinfo/physical": "物理磁碟機",
+                "diskinfo/hierarchy": "儲存裝置結構（格式）",
+                "hierarchy/User": "使用者分隔",
+                "hierarchy/Public": "共用磁碟區",
+                "hierarchy/Backup": "備份磁碟區",
+                "spaceinfo/totalUsed": "已使用磁碟空間",
+                "spaceinfo/userUsed": "使用者磁碟空間",
+                "spaceinfo/Usable": "可用磁碟空間",
+                "spaceinfo/Capacity": "磁碟容量",
+                "unit/bytes": " 個位元組",
                 "error/na": "【沒有資訊】",
-
-                "button/close":"確認",
-
-                "":""
+                "button/close": "確認",
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
-            "fwtitle" : "磁碟概覽",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title/title":"磁碟概覽",
-                "title/desc":"關於此虛擬儲存裝置對應之磁碟機掛載點",
-
-                "diskinfo/physical":"物理磁碟機",
-                "diskinfo/hierarchy":"儲存裝置結構（格式）",
-
-                "hierarchy/User":"使用者分隔",
-                "hierarchy/Public":"共用磁碟區",
-                "hierarchy/Backup":"備份磁碟區",
-
-                "spaceinfo/totalUsed":"已使用磁碟空間",
-                "spaceinfo/userUsed":"使用者磁碟空間",
-                "spaceinfo/Usable":"可用磁碟空間",
-                "spaceinfo/Capacity":"磁碟容量",
-
-                "unit/bytes":" 個位元組",
+            "fwtitle": "磁碟概覽",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title": "磁碟概覽",
+                "title/desc": "關於此虛擬儲存裝置對應之磁碟機掛載點",
+                "diskinfo/physical": "物理磁碟機",
+                "diskinfo/hierarchy": "儲存裝置結構（格式）",
+                "hierarchy/User": "使用者分隔",
+                "hierarchy/Public": "共用磁碟區",
+                "hierarchy/Backup": "備份磁碟區",
+                "spaceinfo/totalUsed": "已使用磁碟空間",
+                "spaceinfo/userUsed": "使用者磁碟空間",
+                "spaceinfo/Usable": "可用磁碟空間",
+                "spaceinfo/Capacity": "磁碟容量",
+                "unit/bytes": " 個位元組",
                 "error/na": "【無資料】",
-
-                "button/close":"確認",
-
-                "":""
+                "button/close": "確認",
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
-            "fwtitle" : "磁盘概览",
-            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
-            "strings":{
-                "title/title":"磁盘概览",
-                "title/desc":"关于此虚拟储存设备对应的磁盘挂载点",
-
-                "diskinfo/physical":"物理磁盘",
-                "diskinfo/hierarchy":"储存设备结构（格式）",
-
-                "hierarchy/User":"使用者分隔",
-                "hierarchy/Public":"共享磁盘",
-                "hierarchy/Backup":"备份磁盘",
-
-                "spaceinfo/totalUsed":"已使用磁盘空间",
-                "spaceinfo/userUsed":"使用者磁盘空间",
-                "spaceinfo/Usable":"可用磁盘空间",
-                "spaceinfo/Capacity":"磁盘容量",
-
-                "unit/bytes":" 字节",
+            "fwtitle": "磁盘概览",
+            "fontFamily": "\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
+            "strings": {
+                "title/title": "磁盘概览",
+                "title/desc": "关于此虚拟储存设备对应的磁盘挂载点",
+                "diskinfo/physical": "物理磁盘",
+                "diskinfo/hierarchy": "储存设备结构（格式）",
+                "hierarchy/User": "使用者分隔",
+                "hierarchy/Public": "共享磁盘",
+                "hierarchy/Backup": "备份磁盘",
+                "spaceinfo/totalUsed": "已使用磁盘空间",
+                "spaceinfo/userUsed": "使用者磁盘空间",
+                "spaceinfo/Usable": "可用磁盘空间",
+                "spaceinfo/Capacity": "磁盘容量",
+                "unit/bytes": " 字节",
                 "error/na": "【无效资料】",
-
-                "button/close":"确定",
-
-                "":""
+                "button/close": "确定",
+                "": ""
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
-        "en-us":{
+        "en-us": {
             "fwtitle": "Disk Overview",
             "strings": {
-            "title/title": "Disk Overview",
-            "title/desc": "Mounting point of the hard disk corresponding to this virtual storage device",
-            "diskinfo/physical": "Physical Hard Disk",
-            "diskinfo/hierarchy": "Storage Device Structure (Format)",
-            "hierarchy/User": "Storage Hierarchy",
-            "hierarchy/Public": "Shared Disk",
-            "hierarchy/Backup": "Backup Disk",
-            "spaceinfo/totalUsed": "Used Disk Space",
-            "spaceinfo/userUsed": "User Disk Space",
-            "spaceinfo/Usable": "Available Disk Space",
-            "spaceinfo/Capacity": "Disk Capacity",
-            "unit/bytes": " Bytes",
-            "error/na": "[Not Available]",
-            "button/close": "Confirm",
-            "": ""
+                "title/title": "Disk Overview",
+                "title/desc": "Mounting point of the hard disk corresponding to this virtual storage device",
+                "diskinfo/physical": "Physical Hard Disk",
+                "diskinfo/hierarchy": "Storage Device Structure (Format)",
+                "hierarchy/User": "Storage Hierarchy",
+                "hierarchy/Public": "Shared Disk",
+                "hierarchy/Backup": "Backup Disk",
+                "spaceinfo/totalUsed": "Used Disk Space",
+                "spaceinfo/userUsed": "User Disk Space",
+                "spaceinfo/Usable": "Available Disk Space",
+                "spaceinfo/Capacity": "Disk Capacity",
+                "unit/bytes": " Bytes",
+                "error/na": "[Not Available]",
+                "button/close": "Confirm",
+                "": ""
             },
             "titles": {},
             "placeholder": {}
         },
         "ja-jp": {
-            "name":"日本語",
-            "fontFamily":"\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
             "fwtitle": "ディスクの概要",
             "strings": {
                 "title/title": "ディスクの概要",
@@ -153,34 +123,44 @@
             "strings": {
                 "title/title": "디스크 개요",
                 "title/desc": "가상 저장 장치에 대응하는 디스크 드라이브 마운트 포인트에 관한 정보",
-        
                 "diskinfo/physical": "물리적 디스크 드라이브",
                 "diskinfo/hierarchy": "저장 장치 구조 (포맷)",
-        
                 "hierarchy/User": "사용자 구분",
                 "hierarchy/Public": "공유 디스크 영역",
                 "hierarchy/Backup": "백업 디스크 영역",
-        
                 "spaceinfo/totalUsed": "사용 중인 디스크 공간",
                 "spaceinfo/userUsed": "사용자 디스크 공간",
                 "spaceinfo/Usable": "사용 가능한 디스크 공간",
                 "spaceinfo/Capacity": "디스크 용량",
-        
                 "unit/bytes": " 바이트",
                 "error/na": "【정보 없음】",
-        
                 "button/close": "확인",
-        
                 "": ""
             },
-            "titles": {
-        
+            "titles": {},
+            "placeholder": {}
+        },
+        "ru-ru": {
+            "fwtitle": "Обзор диска",
+            "fontFamily": "Calibri Regular, Calibri Bold",
+            "strings": {
+                "title/title": "Обзор диска",
+                "title/desc": "Точка монтирования жесткого диска, соответствующего этому виртуальному устройству хранения",
+                "diskinfo/physical": "Физический жесткий диск",
+                "diskinfo/hierarchy": "Структура устройства хранения (Формат)",
+                "hierarchy/User": "Иерархия хранилища",
+                "hierarchy/Public": "Общий диск",
+                "hierarchy/Backup": "Диск резервного копирования",
+                "spaceinfo/totalUsed": "Использованное дисковое пространство",
+                "spaceinfo/userUsed": "Пользовательское дисковое пространство",
+                "spaceinfo/Usable": "Доступное дисковое пространство",
+                "spaceinfo/Capacity": "Объем диска",
+                "unit/bytes": " Байт",
+                "error/na": "[Недоступно]",
+                "button/close": "Подтвердить"
             },
-            "placeholder": {
-        
-            }
+            "titles": {},
+            "placeholder": {}
         }
-        
-        
     }
 }

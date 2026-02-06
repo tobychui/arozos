@@ -3,14 +3,12 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "topbar/welcome":"歡迎回來",
-                "topbar/arozos":"ArozOS 網頁桌面模式",
-
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "topbar/welcome": "歡迎回來",
+                "topbar/arozos": "ArozOS 網頁桌面模式",
                 "notification/clear": "全部清除",
-                "notification/nonotification":"沒有通知",
-
+                "notification/nonotification": "沒有通知",
                 "listmenu/catergory/searchResults": "搜尋結果",
                 "listmenu/catergory/all": "全部",
                 "listmenu/catergory/media": "媒體",
@@ -23,22 +21,19 @@
                 "listmenu/catergory/utils": "附屬程式",
                 "listmenu/catergory/other": "其他",
                 "listmenu/catergory/exit": "登出",
-
                 "error/connlost/title": "連線中斷",
-                "error/connlost":"與伺服器的連線中斷。請等待此警告牌消失再作進一步操作",
-                "error/connlost/recheck":"重試",
-                "error/connlost/wait":"等待",
-                "error/connlost/readonly":"[唯讀] 帳戶",
-                "error/connlost/readonl/infoy":"由於此帳戶被鎖定在唯讀狀態，因此你無法在桌面進行任何檔案操作。",
-
+                "error/connlost": "與伺服器的連線中斷。請等待此警告牌消失再作進一步操作",
+                "error/connlost/recheck": "重試",
+                "error/connlost/wait": "等待",
+                "error/connlost/readonly": "[唯讀] 帳戶",
+                "error/connlost/readonl/infoy": "由於此帳戶被鎖定在唯讀狀態，因此你無法在桌面進行任何檔案操作。",
                 "quickAccess/logout": "登出",
-                "quickAccess/sysvol":"系統音量",
-				"quickAccess/brightness":"亮度",
-                "quickAccess/settings":"系統設定",
-                "quickAccess/fullscreen":"切換全螢幕",
-                "quickAccess/restart":"重新啟動伺服器",
-                "quickAccess/poweroff":"關機伺服器",
-
+                "quickAccess/sysvol": "系統音量",
+                "quickAccess/brightness": "亮度",
+                "quickAccess/settings": "系統設定",
+                "quickAccess/fullscreen": "切換全螢幕",
+                "quickAccess/restart": "重新啟動伺服器",
+                "quickAccess/poweroff": "關機伺服器",
                 "quickAccess/overview/status/healthy": "良好",
                 "quickAccess/overview/status/healthy/desc": "伺服器看來運作良好喔！",
                 "quickAccess/overview/status/warning": "注意",
@@ -49,10 +44,8 @@
                 "quickAccess/overview/uptime": "運作時間",
                 "quickAccess/overview/model": "機器型號",
                 "quickAccess/overview/uuid": "裝置識別碼",
-
                 "backgroundTasks/noTasks": "沒有執行中之背景任務",
                 "backgroundTasks/refresh": "重新載入",
-
                 "contextmenu/New": "新增",
                 "contextmenu/Open": "開啟",
                 "contextmenu/Open With": "使用 … 開啟",
@@ -99,40 +92,33 @@
                 "contextmenu/Folder": "資料夾",
                 "contextmenu/Shortcut": "捷徑",
                 "contextmenu/Upload": "上載",
-
-                "power/shutdown/title":"關機 - 輸入密碼以作確認",
-                "power/shutdown/text":"關閉伺服器主機",
-                "power/shutdown/instruction":"請輸入你的管理員密碼以啟動關機程序",
-
-                "power/restart/title":"重新啟動 - 輸入密碼以作確認",
-                "power/restart/text":"重啟伺服器主機",
-                "power/restart/instruction":"請輸入你的管理員密碼以確認重啟伺服器",
-
-                "account/switch/logout/confirm":"確認登出所有其他儲存在本瀏覽器的帳戶？",
-                "account/switch/noAlternative":"此瀏覽器上沒有儲存其他帳戶",
-                "account/switch/sessionValid":"登錄狀態可用",
-                "account/switch/sessionExpired":"登錄狀態已過期",
-                "account/switch/addAccount":"新增本機帳戶",
-                "account/switch/signoutAll":"登出其他已儲存的帳戶",
-
+                "power/shutdown/title": "關機 - 輸入密碼以作確認",
+                "power/shutdown/text": "關閉伺服器主機",
+                "power/shutdown/instruction": "請輸入你的管理員密碼以啟動關機程序",
+                "power/restart/title": "重新啟動 - 輸入密碼以作確認",
+                "power/restart/text": "重啟伺服器主機",
+                "power/restart/instruction": "請輸入你的管理員密碼以確認重啟伺服器",
+                "account/switch/logout/confirm": "確認登出所有其他儲存在本瀏覽器的帳戶？",
+                "account/switch/noAlternative": "此瀏覽器上沒有儲存其他帳戶",
+                "account/switch/sessionValid": "登錄狀態可用",
+                "account/switch/sessionExpired": "登錄狀態已過期",
+                "account/switch/addAccount": "新增本機帳戶",
+                "account/switch/signoutAll": "登出其他已儲存的帳戶",
                 "upload/message/uploading": "上載中…",
                 "upload/message/failed": "上載失敗",
-
-                "":""
+                "": ""
             },
-            "placeholder":{
+            "placeholder": {
                 "Search": "搜尋"
             }
         },
         "zh-hk": {
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "topbar/welcome":"歡迎回來",
-                "topbar/arozos":"ArozOS 網頁桌面模式",
-
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "topbar/welcome": "歡迎回來",
+                "topbar/arozos": "ArozOS 網頁桌面模式",
                 "notification/clear": "全部清除",
-                "notification/nonotification":"無通知",
-
+                "notification/nonotification": "無通知",
                 "listmenu/catergory/searchResults": "搜尋結果",
                 "listmenu/catergory/all": "全部",
                 "listmenu/catergory/media": "媒體",
@@ -145,19 +131,17 @@
                 "listmenu/catergory/utils": "附屬程式",
                 "listmenu/catergory/other": "其他",
                 "listmenu/catergory/exit": "登出",
-
                 "error/connlost/title": "連線中斷",
-                "error/connlost":"與伺服器的連線中斷。請等待此警告牌消失再作進一步操作",
-                "error/connlost/recheck":"重試",
-                "error/connlost/wait":"等待",
-
+                "error/connlost": "與伺服器的連線中斷。請等待此警告牌消失再作進一步操作",
+                "error/connlost/recheck": "重試",
+                "error/connlost/wait": "等待",
                 "quickAccess/logout": "登出",
-                "quickAccess/sysvol":"系統音量",
-				"quickAccess/brightness":"亮度",
-                "quickAccess/settings":"系統設定",
-                "quickAccess/fullscreen":"切換全螢幕",
-                "quickAccess/restart":"重新啟動伺服器",
-                "quickAccess/poweroff":"關機伺服器",
+                "quickAccess/sysvol": "系統音量",
+                "quickAccess/brightness": "亮度",
+                "quickAccess/settings": "系統設定",
+                "quickAccess/fullscreen": "切換全螢幕",
+                "quickAccess/restart": "重新啟動伺服器",
+                "quickAccess/poweroff": "關機伺服器",
                 "quickAccess/overview/status/healthy": "良好",
                 "quickAccess/overview/status/healthy/desc": "伺服器睇落運作良好！",
                 "quickAccess/overview/status/warning": "注意",
@@ -168,10 +152,8 @@
                 "quickAccess/overview/uptime": "運作時間",
                 "quickAccess/overview/model": "機器型號",
                 "quickAccess/overview/uuid": "裝置識別碼",
-
                 "backgroundTasks/noTasks": "沒有執行中之背景任務",
                 "backgroundTasks/refresh": "重新載入",
-
                 "contextmenu/New": "新增",
                 "contextmenu/Open": "開啟",
                 "contextmenu/Open With": "使用 … 開啟",
@@ -218,39 +200,33 @@
                 "contextmenu/Folder": "資料夾",
                 "contextmenu/Shortcut": "捷徑",
                 "contextmenu/Upload": "上載",
-
-                "power/shutdown/title":"關機 - 輸入密碼以作確認",
-                "power/shutdown/text":"關閉伺服器主機",
-                "power/shutdown/instruction":"請輸入你的管理員密碼以啟動關機程序",
-
-                "power/restart/title":"重新啟動 - 輸入密碼以作確認",
-                "power/restart/text":"重啟伺服器主機",
-                "power/restart/instruction":"請輸入你的管理員密碼以確認重啟伺服器",
-                
-                "account/switch/logout/confirm":"確認登出所有其他儲存在本瀏覽器的帳戶？",
-                "account/switch/noAlternative":"此瀏覽器上沒有儲存其他帳戶",
-                "account/switch/sessionValid":"登錄狀態可用",
-                "account/switch/sessionExpired":"登錄狀態已過期",
-                "account/switch/addAccount":"新增本機帳戶",
-                "account/switch/signoutAll":"登出其他已儲存的帳戶",
-
+                "power/shutdown/title": "關機 - 輸入密碼以作確認",
+                "power/shutdown/text": "關閉伺服器主機",
+                "power/shutdown/instruction": "請輸入你的管理員密碼以啟動關機程序",
+                "power/restart/title": "重新啟動 - 輸入密碼以作確認",
+                "power/restart/text": "重啟伺服器主機",
+                "power/restart/instruction": "請輸入你的管理員密碼以確認重啟伺服器",
+                "account/switch/logout/confirm": "確認登出所有其他儲存在本瀏覽器的帳戶？",
+                "account/switch/noAlternative": "此瀏覽器上沒有儲存其他帳戶",
+                "account/switch/sessionValid": "登錄狀態可用",
+                "account/switch/sessionExpired": "登錄狀態已過期",
+                "account/switch/addAccount": "新增本機帳戶",
+                "account/switch/signoutAll": "登出其他已儲存的帳戶",
                 "upload/message/uploading": "上載中…",
                 "upload/message/failed": "上載失敗",
-                "":""
+                "": ""
             },
-            "placeholder":{
+            "placeholder": {
                 "Search": "搜尋"
             }
         },
         "zh-cn": {
-            "fontFamily":"\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
-            "strings":{
-                "topbar/welcome":"欢迎回来",
-                "topbar/arozos":"ArozOS 网页桌面模式",
-
+            "fontFamily": "\"Microsoft YaHei\",\"SimHei\", \"PingFangSC-Medium\", \"STHeiti\"",
+            "strings": {
+                "topbar/welcome": "欢迎回来",
+                "topbar/arozos": "ArozOS 网页桌面模式",
                 "notification/clear": "全部清除",
-                "notification/nonotification":"没有通知",
-
+                "notification/nonotification": "没有通知",
                 "listmenu/catergory/searchResults": "搜索结果",
                 "listmenu/catergory/all": "全部",
                 "listmenu/catergory/media": "媒体",
@@ -263,19 +239,17 @@
                 "listmenu/catergory/utils": "附属程序",
                 "listmenu/catergory/other": "其他",
                 "listmenu/catergory/exit": "退出",
-
                 "error/connlost/title": "连接中断",
-                "error/connlost":"与服务器的连接中断。请等待此警告牌消失再作进一步操作",
-                "error/connlost/recheck":"重试",
-                "error/connlost/wait":"等待",
-
+                "error/connlost": "与服务器的连接中断。请等待此警告牌消失再作进一步操作",
+                "error/connlost/recheck": "重试",
+                "error/connlost/wait": "等待",
                 "quickAccess/logout": "退出",
-                "quickAccess/sysvol":"系统音量",
-				"quickAccess/brightness":"亮度",
-                "quickAccess/settings":"系统设置",
-                "quickAccess/fullscreen":"切换全屏幕",
-                "quickAccess/restart":"服务器重启",
-                "quickAccess/poweroff":"服务器关机",
+                "quickAccess/sysvol": "系统音量",
+                "quickAccess/brightness": "亮度",
+                "quickAccess/settings": "系统设置",
+                "quickAccess/fullscreen": "切换全屏幕",
+                "quickAccess/restart": "服务器重启",
+                "quickAccess/poweroff": "服务器关机",
                 "quickAccess/overview/status/healthy": "良好",
                 "quickAccess/overview/status/healthy/desc": "服务器看来运作良好喔！",
                 "quickAccess/overview/status/warning": "注意",
@@ -286,11 +260,8 @@
                 "quickAccess/overview/uptime": "运作时间",
                 "quickAccess/overview/model": "机器型号",
                 "quickAccess/overview/uuid": "装置识别码",
-            
-
                 "backgroundTasks/noTasks": "没有执行中的背景任务",
                 "backgroundTasks/refresh": "重新加载",
-
                 "contextmenu/New": "新增",
                 "contextmenu/Open": "打开",
                 "contextmenu/Open With": "使用 … 打开",
@@ -337,39 +308,34 @@
                 "contextmenu/Folder": "文件夹",
                 "contextmenu/Shortcut": "快捷方式",
                 "contextmenu/Upload": "上传",
-
-                "power/shutdown/title":"关机-输入密码以作确认",
-                "power/shutdown/text":"服务器关机",
-                "power/shutdown/instruction":"请输入你的管理员密码以启动关机程序",
-
-                "power/restart/title":"重新启动-输入密码以作确认",
-                "power/restart/text":"服务器重启",
-                "power/restart/instruction":"请输入你的管理员密码以确认重启服务器",
-
+                "power/shutdown/title": "关机-输入密码以作确认",
+                "power/shutdown/text": "服务器关机",
+                "power/shutdown/instruction": "请输入你的管理员密码以启动关机程序",
+                "power/restart/title": "重新启动-输入密码以作确认",
+                "power/restart/text": "服务器重启",
+                "power/restart/instruction": "请输入你的管理员密码以确认重启服务器",
                 "account/switch/logout/confirm": "确认登出所有其他储存在本浏览器的帐户？",
                 "account/switch/noAlternative": "此浏览器上没有储存其他帐户",
                 "account/switch/sessionValid": "登录状态可用",
                 "account/switch/sessionExpired": "登录状态已过期",
                 "account/switch/addAccount": "新增本机帐户",
                 "account/switch/signoutAll": "登出其他已储存的帐户",
-
                 "upload/message/uploading": "上传中…",
                 "upload/message/failed": "上传失败",
-                "":""
+                "": ""
             },
-            "placeholder":{
+            "placeholder": {
                 "Search": "搜索"
             }
         },
         "en-us": {
             "name": "English (US)",
-            "fontFamily":"",
-            "strings":{
-                "topbar/welcome":"Welcome back",
-                "topbar/arozos":"ArozOS Web Desktop Mode",
+            "fontFamily": "",
+            "strings": {
+                "topbar/welcome": "Welcome back",
+                "topbar/arozos": "ArozOS Web Desktop Mode",
                 "notification/clear": "Clear all",
-                "notification/nonotification":"No notification",
-            
+                "notification/nonotification": "No notification",
                 "listmenu/catergory/searchResults": "Search Results",
                 "listmenu/catergory/all": "All",
                 "listmenu/catergory/media": "Media",
@@ -382,21 +348,19 @@
                 "listmenu/catergory/utils": "Utilities",
                 "listmenu/catergory/other": "Other",
                 "listmenu/catergory/exit": "Logout",
-            
                 "error/connlost/title": "Connection Lost",
-                "error/connlost":"The connection to the server has been lost. Please wait for this warning to disappear before taking any further action.",
-                "error/connlost/recheck":"Retry",
-                "error/connlost/wait":"Wait",
-                "error/connlost/readonly":"[Read Only] Account",
-                "error/connlost/readonl/infoy":"As this account is locked in read-only mode, you cannot perform any file operations on the desktop.",
-            
+                "error/connlost": "The connection to the server has been lost. Please wait for this warning to disappear before taking any further action.",
+                "error/connlost/recheck": "Retry",
+                "error/connlost/wait": "Wait",
+                "error/connlost/readonly": "[Read Only] Account",
+                "error/connlost/readonl/infoy": "As this account is locked in read-only mode, you cannot perform any file operations on the desktop.",
                 "quickAccess/logout": "Logout",
-                "quickAccess/sysvol":"System Volume",
-                "quickAccess/brightness":"Brightness",
-                "quickAccess/settings":"System Settings",
-                "quickAccess/fullscreen":"Toggle Full Screen",
-                "quickAccess/restart":"Restart Server",
-                "quickAccess/poweroff":"Shutdown Server",
+                "quickAccess/sysvol": "System Volume",
+                "quickAccess/brightness": "Brightness",
+                "quickAccess/settings": "System Settings",
+                "quickAccess/fullscreen": "Toggle Full Screen",
+                "quickAccess/restart": "Restart Server",
+                "quickAccess/poweroff": "Shutdown Server",
                 "quickAccess/overview/status/healthy": "Good",
                 "quickAccess/overview/status/healthy/desc": "Server seems to be operating well!",
                 "quickAccess/overview/status/warning": "Warning",
@@ -407,10 +371,8 @@
                 "quickAccess/overview/uptime": "Uptime",
                 "quickAccess/overview/model": "Model",
                 "quickAccess/overview/uuid": "Dev. UUID",
-
                 "backgroundTasks/noTasks": "No background tasks are currently running",
                 "backgroundTasks/refresh": "Refresh",
-            
                 "contextmenu/New": "New",
                 "contextmenu/Open": "Open",
                 "contextmenu/Open With": "Open with…",
@@ -457,38 +419,33 @@
                 "contextmenu/Folder": "Folder",
                 "contextmenu/Shortcut": "Shortcut",
                 "contextmenu/Upload": "Upload",
-                
                 "power/shutdown/title": "Shut Down - Enter Password to Confirm",
                 "power/shutdown/text": "Turn off server",
                 "power/shutdown/instruction": "Enter your admin password to continue shut down process.",
                 "power/restart/title": "Restart - Enter Password to Confirm",
                 "power/restart/text": "Restart server",
                 "power/restart/instruction": "Enter your admin password to continue server restart.",
-                
                 "account/switch/logout/confirm": "Confirm Logout from All Other Accounts Stored in this Browser?",
                 "account/switch/noAlternative": "No Other Logged-in Accounts Found on this Browser",
                 "account/switch/sessionValid": "Session Valid",
                 "account/switch/sessionExpired": "Session Expired",
                 "account/switch/addAccount": "Add another account",
                 "account/switch/signoutAll": "Sign-out all accounts",
-
                 "upload/message/uploading": "Uploading...",
-                "":""
+                "": ""
             },
-            "placeholder":{
+            "placeholder": {
                 "Search": "Search"
             }
-
         },
-        "ja-jp":{
-            "name":"日本語",
-            "fontFamily":"\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
-            "strings":{
-                "topbar/welcome":"お帰りなさい",
-                "topbar/arozos":"ArozOS Web デスクトップ モード",
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "topbar/welcome": "お帰りなさい",
+                "topbar/arozos": "ArozOS Web デスクトップ モード",
                 "notification/clear": "すべてクリア",
-                "notification/nonotification":"通知なし",
-
+                "notification/nonotification": "通知なし",
                 "listmenu/catergory/searchResults": "検索結果",
                 "listmenu/catergory/all": "すべて",
                 "listmenu/catergory/media": "メディア",
@@ -501,14 +458,12 @@
                 "listmenu/catergory/utils": "ユーティリティ",
                 "listmenu/catergory/other": "その他",
                 "listmenu/catergory/exit": "ログアウト",
-
                 "error/connlost/title": "接続が切断されました",
                 "error/connlost": "サーバーへの接続が切断されました。この警告が消えるまで、それ以上の操作を行わないでください。",
                 "error/connlost/recheck": "再試行",
                 "error/connlost/wait": "待機",
                 "error/connlost/readonly": "[読み取り専用] アカウント",
                 "error/connlost/readonl/infoy": "このアカウントが読み取り専用モードにロックされているため、デスクトップ上でファイル操作を実行することはできません。",
-                
                 "quickAccess/logout": "ログアウト",
                 "quickAccess/sysvol": "システムボリューム",
                 "quickAccess/brightness": "明るさ",
@@ -526,10 +481,8 @@
                 "quickAccess/overview/uptime": "稼働時間",
                 "quickAccess/overview/model": "機種",
                 "quickAccess/overview/uuid": "デバイス識別子",
-
                 "backgroundTasks/noTasks": "現在、バックグラウンドで実行中のタスクはありません",
                 "backgroundTasks/refresh": "更新",
-
                 "contextmenu/New": "新規作成",
                 "contextmenu/Open": "開く",
                 "contextmenu/Open With": "開く方法を選択…",
@@ -576,39 +529,33 @@
                 "contextmenu/Folder": "フォルダー",
                 "contextmenu/Shortcut": "ショートカット",
                 "contextmenu/Upload": "アップロード",
-
                 "power/shutdown/title": "シャットダウン - パスワードを入力して確認してください",
                 "power/shutdown/text": "サーバーをシャットダウンします",
                 "power/shutdown/instruction": "シャットダウンを開始するには、管理者パスワードを入力してください。",
                 "power/restart/title": "再起動 - パスワードを入力して確認してください",
                 "power/restart/text": "サーバーを再起動します",
                 "power/restart/instruction": "サーバーの再起動を確認するには、管理者パスワードを入力してください。",
-                
                 "account/switch/logout/confirm": "このブラウザに保存されている他のすべてのアカウントからログアウトしますか？",
                 "account/switch/noAlternative": "このブラウザで他のログイン中のアカウントは見つかりません",
                 "account/switch/sessionValid": "セッションが有効です",
                 "account/switch/sessionExpired": "セッションが期限切れです",
                 "account/switch/addAccount": "別のアカウントを追加",
                 "account/switch/signoutAll": "すべてのアカウントからサインアウト",
-
                 "upload/message/uploading": "アップロード中...",
-                "":""
-
+                "": ""
             },
-            "placeholder":{
+            "placeholder": {
                 "Search": "検索"
             }
         },
         "ko_kr": {
-            "name":"한국어",
+            "name": "한국어",
             "fontFamily": "",
             "strings": {
                 "topbar/welcome": "다시 오신 것을 환영합니다",
                 "topbar/arozos": "ArozOS 웹 데스크톱 모드",
-        
                 "notification/clear": "모두 지우기",
                 "notification/nonotification": "알림 없음",
-        
                 "listmenu/catergory/searchResults": "검색 결과",
                 "listmenu/catergory/all": "모두",
                 "listmenu/catergory/media": "미디어",
@@ -621,14 +568,12 @@
                 "listmenu/catergory/utils": "유틸리티",
                 "listmenu/catergory/other": "기타",
                 "listmenu/catergory/exit": "로그아웃",
-        
                 "error/connlost/title": "연결 끊김",
                 "error/connlost": "서버와의 연결이 끊겼습니다. 이 경고가 사라질 때까지 기다려 주세요.",
                 "error/connlost/recheck": "다시 시도",
                 "error/connlost/wait": "대기 중",
                 "error/connlost/readonly": "[읽기 전용] 계정",
                 "error/connlost/readonl/infoy": "이 계정이 읽기 전용 상태로 잠겨 있기 때문에 데스크톱에서 파일 작업을 할 수 없습니다.",
-        
                 "quickAccess/logout": "로그아웃",
                 "quickAccess/sysvol": "시스템 볼륨",
                 "quickAccess/brightness": "밝기",
@@ -636,7 +581,6 @@
                 "quickAccess/fullscreen": "전체 화면 전환",
                 "quickAccess/restart": "서버 재시작",
                 "quickAccess/poweroff": "서버 종료",
-        
                 "quickAccess/overview/status/healthy": "정상",
                 "quickAccess/overview/status/healthy/desc": "서버가 원활하게 작동 중입니다!",
                 "quickAccess/overview/status/warning": "경고",
@@ -647,10 +591,8 @@
                 "quickAccess/overview/uptime": "가동 시간",
                 "quickAccess/overview/model": "기계 모델",
                 "quickAccess/overview/uuid": "장치 식별자",
-        
                 "backgroundTasks/noTasks": "진행 중인 백그라운드 작업이 없습니다",
                 "backgroundTasks/refresh": "새로 고침",
-        
                 "contextmenu/New": "새로 만들기",
                 "contextmenu/Open": "열기",
                 "contextmenu/Open With": "다음으로 열기",
@@ -697,32 +639,134 @@
                 "contextmenu/Folder": "폴더",
                 "contextmenu/Shortcut": "바로 가기",
                 "contextmenu/Upload": "업로드",
-        
                 "power/shutdown/title": "종료 - 확인을 위해 암호 입력",
                 "power/shutdown/text": "서버를 종료합니다",
                 "power/shutdown/instruction": "서버 종료 절차를 시작하려면 관리자 암호를 입력하세요",
-        
                 "power/restart/title": "재시작 - 확인을 위해 암호 입력",
                 "power/restart/text": "서버를 재시작합니다",
                 "power/restart/instruction": "서버 재시작을 확인하려면 관리자 암호를 입력하세요",
-        
                 "account/switch/logout/confirm": "이 브라우저에 저장된 다른 모든 계정에서 로그아웃 하시겠습니까?",
                 "account/switch/noAlternative": "이 브라우저에는 다른 저장된 계정이 없습니다",
                 "account/switch/sessionValid": "로그인 세션이 유효합니다",
                 "account/switch/sessionExpired": "로그인 세션이 만료되었습니다",
                 "account/switch/addAccount": "로컬 계정 추가",
                 "account/switch/signoutAll": "저장된 다른 모든 계정 로그아웃",
-        
                 "upload/message/uploading": "업로드 중...",
                 "upload/message/failed": "업로드 실패",
-        
                 "": ""
             },
             "placeholder": {
                 "Search": "검색"
             }
+        },
+        "ru-ru": {
+            "name": "Russian (RU)",
+            "fontFamily": "Calibri Regular, Calibri Bold",
+            "strings": {
+                "topbar/welcome": "С возвращением",
+                "topbar/arozos": "ArozOS Веб-режим рабочего стола",
+                "notification/clear": "Очистить всё",
+                "notification/nonotification": "Нет уведомлений",
+                "listmenu/catergory/searchResults": "Результаты поиска",
+                "listmenu/catergory/all": "Все",
+                "listmenu/catergory/media": "Медиа",
+                "listmenu/catergory/office": "Офис",
+                "listmenu/catergory/download": "Загрузки",
+                "listmenu/catergory/files": "Файлы",
+                "listmenu/catergory/internet": "Интернет",
+                "listmenu/catergory/settings": "Настройки",
+                "listmenu/catergory/tools": "Системные инструменты",
+                "listmenu/catergory/utils": "Утилиты",
+                "listmenu/catergory/other": "Другое",
+                "listmenu/catergory/exit": "Выйти",
+                "error/connlost/title": "Соединение потеряно",
+                "error/connlost": "Соединение с сервером потеряно. Подождите, пока это предупреждение исчезнет, прежде чем предпринимать какие-либо действия.",
+                "error/connlost/recheck": "Повторить",
+                "error/connlost/wait": "Ждать",
+                "error/connlost/readonly": "[Только чтение] Аккаунт",
+                "error/connlost/readonl/infoy": "Поскольку этот аккаунт заблокирован в режиме только для чтения, вы не можете выполнять никаких операций с файлами на рабочем столе.",
+                "quickAccess/logout": "Выйти",
+                "quickAccess/sysvol": "Системный том",
+                "quickAccess/brightness": "Яркость",
+                "quickAccess/settings": "Системные настройки",
+                "quickAccess/fullscreen": "Переключить полноэкранный режим",
+                "quickAccess/restart": "Перезапустить сервер",
+                "quickAccess/poweroff": "Выключить сервер",
+                "quickAccess/overview/status/healthy": "Хорошо",
+                "quickAccess/overview/status/healthy/desc": "Сервер, похоже, работает нормально!",
+                "quickAccess/overview/status/warning": "Предупреждение",
+                "quickAccess/overview/status/warning/desc": "Похоже, есть некоторые незначительные проблемы",
+                "quickAccess/overview/status/screwed": "О нет!",
+                "quickAccess/overview/status/screwed/desc": "Похоже, что-то сломалось...",
+                "quickAccess/overview/hostname": "Имя хоста",
+                "quickAccess/overview/uptime": "Время работы",
+                "quickAccess/overview/model": "Модель",
+                "quickAccess/overview/uuid": "UUID разработчика",
+                "backgroundTasks/noTasks": "В настоящее время фоновые задачи не выполняются",
+                "backgroundTasks/refresh": "Обновить",
+                "contextmenu/New": "Новый",
+                "contextmenu/Open": "Открыть",
+                "contextmenu/Open With": "Открыть с помощью…",
+                "contextmenu/Download in Zip": "Сжать и скачать",
+                "contextmenu/Make a Copy": "Создать копию",
+                "contextmenu/Delete": "Удалить",
+                "contextmenu/Properties": "Свойства",
+                "contextmenu/Share": "Поделиться",
+                "contextmenu/Download": "Скачать",
+                "contextmenu/Copy": "Копировать",
+                "contextmenu/Cut": "Вырезать",
+                "contextmenu/Paste Here": "Вставить сюда",
+                "contextmenu/Rename": "Переименовать",
+                "contextmenu/Zip here": "Сжать здесь",
+                "contextmenu/Open in New Tab": "Открыть в новой вкладке",
+                "contextmenu/Download as Zip": "Сжать и скачать",
+                "contextmenu/Refresh": "Обновить",
+                "contextmenu/Open File Manager": "Открыть файловый менеджер",
+                "contextmenu/Open File Location": "Открыть расположение файла",
+                "contextmenu/Personalization": "Персонализация",
+                "contextmenu/Background": "Фон рабочего стола",
+                "contextmenu/Icon Size": "Размер значков",
+                "contextmenu/Exit": "Выйти",
+                "contextmenu/Toggle FullScreen": "Переключить полноэкранный режим",
+                "contextmenu/Minimize": "Свернуть",
+                "contextmenu/Restore": "Восстановить",
+                "contextmenu/Maximize": "Развернуть",
+                "contextmenu/Close": "Закрыть",
+                "contextmenu/Close All": "Закрыть всё",
+                "contextmenu/Select Other WebApps": "Выбрать приложение по умолчанию",
+                "contextmenu/Open Shared Link": "Открыть общую ссылку",
+                "contextmenu/Copy Link": "Копировать ссылку",
+                "contextmenu/Copied": "Скопировано",
+                "contextmenu/Change Share Settings": "Изменить настройки общего доступа",
+                "contextmenu/Share this File": "Поделиться этим файлом",
+                "contextmenu/share/link": "Любой, у кого есть ссылка",
+                "contextmenu/share/signedin": "Любой вошедший в систему",
+                "contextmenu/share/samegroup": "Та же группа пользователей",
+                "contextmenu/share/openshare": "Расширенные настройки общего доступа",
+                "contextmenu/Remove Share": "Удалить общий доступ к файлу",
+                "contextmenu/Small": "Маленький",
+                "contextmenu/Medium": "Средний",
+                "contextmenu/Big": "Большой",
+                "contextmenu/Folder": "Папка",
+                "contextmenu/Shortcut": "Ярлык",
+                "contextmenu/Upload": "Загрузить",
+                "power/shutdown/title": "Выключение - Введите пароль для подтверждения",
+                "power/shutdown/text": "Выключить сервер",
+                "power/shutdown/instruction": "Введите пароль администратора, чтобы продолжить процесс выключения.",
+                "power/restart/title": "Перезапуск - Введите пароль для подтверждения",
+                "power/restart/text": "Перезапустить сервер",
+                "power/restart/instruction": "Введите пароль администратора, чтобы продолжить перезапуск сервера.",
+                "account/switch/logout/confirm": "Подтвердить выход из всех других аккаунтов, сохранённых в этом браузере?",
+                "account/switch/noAlternative": "В этом браузере не найдено других вошедших в систему аккаунтов",
+                "account/switch/sessionValid": "Сессия действительна",
+                "account/switch/sessionExpired": "Сессия истекла",
+                "account/switch/addAccount": "Добавить другой аккаунт",
+                "account/switch/signoutAll": "Выйти из всех аккаунтов",
+                "upload/message/uploading": "Загрузка..."
+            },
+            "placeholder": {
+                "Search": "Поиск"
+            }
         }
-        
-
     }
 }

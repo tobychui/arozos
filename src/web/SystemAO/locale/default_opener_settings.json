@@ -79,6 +79,19 @@
                 "defaultOpener/CurrentDefault": "현재 기본값",
                 "defaultOpener/ModifyDefault": "기본값 수정(변경 시 저장)"
             }
+        },
+        "ru-ru": {
+            "name": "Russian (RU)",
+            "fontFamily": "Calibri Regular, Calibri Bold",
+            "strings": {
+                "defaultOpener/Title": "Модуль по умолчанию для открытия",
+                "defaultOpener/Subtitle": "Управление вашими модулями по умолчанию для открытия файлов с заданными расширениями",
+                "defaultOpener/Updated": "Модуль по умолчанию для открытия обновлён",
+                "defaultOpener/TryAgain": "Попробуйте снова открыть ваш файл и проверьте, работает ли это",
+                "defaultOpener/FileExtension": "Расширение файла",
+                "defaultOpener/CurrentDefault": "Текущий по умолчанию",
+                "defaultOpener/ModifyDefault": "Изменить значение по умолчанию (сохранить при изменении)"
+            }
         }
     }
 }

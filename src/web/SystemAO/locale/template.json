@@ -4,42 +4,32 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fwtitle" : "",
-            "strings":{
-
-            },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "fwtitle": "",
+            "strings": {},
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fwtitle" : "",
-            "strings":{
-
-            },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "fwtitle": "",
+            "strings": {},
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
             "name": "简体中文（简体）",
-            "fwtitle" : "",
-            "strings":{
-                
-            },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "fwtitle": "",
+            "strings": {},
+            "titles": {},
+            "placeholder": {}
+        },
+        "ru-ru": {
+            "name": "Русский（РУ）",
+            "fontFamily": "Calibri Regular, Calibri Bold",
+            "fwtitle": "",
+            "strings": {},
+            "titles": {},
+            "placeholder": {}
         }
     }
 }

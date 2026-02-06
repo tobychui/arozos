@@ -3,16 +3,15 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fwtitle" : "選擇檔案",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title":"選擇檔案",
-                "roots/user":"使用者",
-                "roots/storage":"虛擬儲存裝置",
-                "message/loading":"載入中…",
-                "message/waitingResp":"正在確認選擇…",
-                "message/nofile":"沒有檔案",
-
+            "fwtitle": "選擇檔案",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title": "選擇檔案",
+                "roots/user": "使用者",
+                "roots/storage": "虛擬儲存裝置",
+                "message/loading": "載入中…",
+                "message/waitingResp": "正在確認選擇…",
+                "message/nofile": "沒有檔案",
                 "sidebar/vroot/desktop": "桌面",
                 "sidebar/vroot/document": "文件",
                 "sidebar/vroot/music": "音樂",
@@ -23,32 +22,30 @@
                 "sidebar/vroot/web": "網頁",
                 "sidebar/vroot/model": "模型",
                 "sidebar/vroot/appdata": "程序數據",
-
-                "":""
+                "": ""
             },
-            "titles":{
-                "Back":"上一頁",
-                "Parent":"返回上層目錄",
-                "Refresh":"重新整理",
-                "Create Folder":"建立資料夾",
-                "New Folder":"新增資料夾"
+            "titles": {
+                "Back": "上一頁",
+                "Parent": "返回上層目錄",
+                "Refresh": "重新整理",
+                "Create Folder": "建立資料夾",
+                "New Folder": "新增資料夾"
             },
-            "placeholder":{
-                "New Filename":"新增檔案",
-                "New Folder":"新增資料夾"
+            "placeholder": {
+                "New Filename": "新增檔案",
+                "New Folder": "新增資料夾"
             }
         },
         "zh-hk": {
-            "fwtitle" : "選擇檔案",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title":"選擇檔案",
-                "roots/user":"使用者",
-                "roots/storage":"虛擬儲存裝置",
-                "message/loading":"載入中…",
-                "message/waitingResp":"正在確認選擇…",
-                "message/nofile":"沒有檔案",
-
+            "fwtitle": "選擇檔案",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title": "選擇檔案",
+                "roots/user": "使用者",
+                "roots/storage": "虛擬儲存裝置",
+                "message/loading": "載入中…",
+                "message/waitingResp": "正在確認選擇…",
+                "message/nofile": "沒有檔案",
                 "sidebar/vroot/desktop": "桌面",
                 "sidebar/vroot/document": "文件",
                 "sidebar/vroot/music": "音樂",
@@ -59,32 +56,30 @@
                 "sidebar/vroot/web": "網頁",
                 "sidebar/vroot/model": "模型",
                 "sidebar/vroot/appdata": "程序數據",
-                
-                "":""
+                "": ""
             },
-            "titles":{
-                "Back":"上一頁",
-                "Parent":"返回上層目錄",
-                "Refresh":"重新整理",
-                "Create Folder":"建立資料夾",
-                "New Folder":"新增資料夾"
+            "titles": {
+                "Back": "上一頁",
+                "Parent": "返回上層目錄",
+                "Refresh": "重新整理",
+                "Create Folder": "建立資料夾",
+                "New Folder": "新增資料夾"
             },
-            "placeholder":{
-                "New Filename":"新增檔案",
-                "New Folder":"新增資料夾"
+            "placeholder": {
+                "New Filename": "新增檔案",
+                "New Folder": "新增資料夾"
             }
         },
         "zh-cn": {
-            "fwtitle" : "选择文件",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
-                "title":"选择文件",
-                "roots/user":"使用者",
-                "roots/storage":"虚拟存储设备",
-                "message/loading":"载入中…",
-                "message/waitingResp":"正在确认选择…",
-                "message/nofile":"沒有文件",
-
+            "fwtitle": "选择文件",
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
+                "title": "选择文件",
+                "roots/user": "使用者",
+                "roots/storage": "虚拟存储设备",
+                "message/loading": "载入中…",
+                "message/waitingResp": "正在确认选择…",
+                "message/nofile": "沒有文件",
                 "sidebar/vroot/desktop": "桌面",
                 "sidebar/vroot/document": "文件",
                 "sidebar/vroot/music": "音乐",
@@ -95,20 +90,19 @@
                 "sidebar/vroot/web": "网页",
                 "sidebar/vroot/model": "模型",
                 "sidebar/vroot/appdata": "程序数据",
-                
-                "":""
+                "": ""
             },
-            "titles":{
-                "Back":"上一页",
-                "Parent":"返回上层目录",
-                "Refresh":"刷新",
-                "Create Folder":"创建文件夹",
-                "New Folder":"新增文件夹"
+            "titles": {
+                "Back": "上一页",
+                "Parent": "返回上层目录",
+                "Refresh": "刷新",
+                "Create Folder": "创建文件夹",
+                "New Folder": "新增文件夹"
             },
-            "placeholder":{
-                "New Filename":"新增文件",
-                "New Folder":"新增文件夹"
-            } 
+            "placeholder": {
+                "New Filename": "新增文件",
+                "New Folder": "新增文件夹"
+            }
         },
         "en-us": {
             "fwtitle": "Choose Files",
@@ -120,7 +114,6 @@
                 "message/loading": "Loading...",
                 "message/waitingResp": "Checking selection...",
                 "message/nofile": "No files",
-        
                 "sidebar/vroot/desktop": "Desktop",
                 "sidebar/vroot/document": "Documents",
                 "sidebar/vroot/music": "Music",
@@ -131,7 +124,6 @@
                 "sidebar/vroot/web": "Web",
                 "sidebar/vroot/model": "Models",
                 "sidebar/vroot/appdata": "App Data",
-        
                 "": ""
             },
             "titles": {
@@ -156,7 +148,6 @@
                 "message/loading": "読み込み中...",
                 "message/waitingResp": "選択の確認中...",
                 "message/nofile": "ファイルがありません",
-        
                 "sidebar/vroot/desktop": "デスクトップ",
                 "sidebar/vroot/document": "ドキュメント",
                 "sidebar/vroot/music": "音楽",
@@ -167,7 +158,6 @@
                 "sidebar/vroot/web": "ウェブ",
                 "sidebar/vroot/model": "モデル",
                 "sidebar/vroot/appdata": "アプリデータ",
-        
                 "": ""
             },
             "titles": {
@@ -192,7 +182,6 @@
                 "message/loading": "로딩 중...",
                 "message/waitingResp": "선택 확인 중...",
                 "message/nofile": "파일 없음",
-                
                 "sidebar/vroot/desktop": "바탕 화면",
                 "sidebar/vroot/document": "문서",
                 "sidebar/vroot/music": "음악",
@@ -203,7 +192,6 @@
                 "sidebar/vroot/web": "웹",
                 "sidebar/vroot/model": "모델",
                 "sidebar/vroot/appdata": "앱 데이터",
-                
                 "": ""
             },
             "titles": {
@@ -217,7 +205,41 @@
                 "New Filename": "새 파일",
                 "New Folder": "새 폴더"
             }
+        },
+        "ru-ru": {
+            "fwtitle": "Выберите файлы",
+            "fontFamily": "Calibri Regular, Calibri Bold",
+            "strings": {
+                "title": "Выберите файлы",
+                "roots/user": "Пользователь",
+                "roots/storage": "Хранилище",
+                "message/loading": "Загрузка...",
+                "message/waitingResp": "Проверка выбора...",
+                "message/nofile": "Нет файлов",
+                "sidebar/vroot/desktop": "Рабочий стол",
+                "sidebar/vroot/document": "Документы",
+                "sidebar/vroot/music": "Музыка",
+                "sidebar/vroot/photo": "Фото",
+                "sidebar/vroot/video": "Видео",
+                "sidebar/vroot/trash": "Корзина",
+                "sidebar/vroot/download": "Загрузки",
+                "sidebar/vroot/web": "Веб",
+                "sidebar/vroot/model": "Модели",
+                "sidebar/vroot/appdata": "Данные приложений",
+                "": ""
+            },
+            "titles": {
+                "Back": "Назад",
+                "Parent": "Родительский каталог",
+                "Refresh": "Обновить",
+                "Create Folder": "Создать папку",
+                "New Folder": "Новая папка"
+            },
+            "placeholder": {
+                "New Filename": "Новый файл",
+                "New Folder": "Новая папка"
+            }
         }
-        
     }
 }
+        

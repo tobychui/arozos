@@ -121,6 +121,26 @@
                 "subservices/ServiceName": "서비스 이름",
                 "subservices/Start": "시작"
             }
+        },
+        "ru-ru": {
+            "name": "Russian (RU)",
+            "fontFamily": "Calibri Regular, Calibri Bold",
+            "strings": {
+                "subservices/Title": "Управление подчинёнными службами",
+                "subservices/Subtitle": "Объединение служб с помощью подчинённых служб",
+                "subservices/WhatIs": "Что такое подчинённая служба?",
+                "subservices/Desc": "Подчинённая служба — это один из типов модулей ArOZ Online, который не встроен в ядро системы, но действует как встроенный. Она работает на основе обратного прокси, встроенного в ядро ArOZ Online, и может обслуживать веб-контент так же, как и встроенный модуль. В отличие от основных модулей, которые нельзя отключить, вы можете отключать подчинённые службы, чтобы экономить энергию при необходимости.",
+                "subservices/Running": "Запущенные службы",
+                "subservices/Module": "Соответствующий модуль",
+                "subservices/Port": "Порт",
+                "subservices/ProxyPath": "Путь обратного прокси",
+                "subservices/Executable": "Исполняемый файл (ID процесса)",
+                "subservices/Action": "Действие",
+                "subservices/Disable": "ОТКЛЮЧИТЬ",
+                "subservices/Disabled": "Отключённые службы",
+                "subservices/ServiceName": "Имя службы",
+                "subservices/Start": "Запустить"
+            }
         }
     }
 }
