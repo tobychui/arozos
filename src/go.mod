@@ -12,7 +12,7 @@ require (
 	github.com/fogleman/fauxgl v0.0.0-20250110135958-abf826acbbbd
 	github.com/gabriel-vasile/mimetype v1.4.10
 	github.com/go-git/go-billy/v5 v5.6.2
-	github.com/go-git/go-git/v5 v5.16.3
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/go-ldap/ldap v3.0.3+incompatible
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/gorilla/sessions v1.4.0
@@ -35,7 +35,7 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/studio-b12/gowebdav v0.11.0
 	gitlab.com/NebulousLabs/go-upnp v0.0.0-20211002182029-11da932010b6
-	golang.org/x/crypto v0.44.0
+	golang.org/x/crypto v0.45.0
 	golang.org/x/image v0.33.0
 	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.18.0
