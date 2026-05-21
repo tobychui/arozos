@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <!--
+        Backend AGI scripts (server-side, user:/Document/Notes/):
+          Notes/backend/init.agi    - init dir + return metadata
+          Notes/backend/read.agi    - read note content by ID
+          Notes/backend/write.agi   - write/create a note + update metadata
+          Notes/backend/delete.agi  - delete a note + update metadata
+          Notes/backend/savemeta.agi- persist theme preference only
+    -->
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        body.light-mode {
+            background: #f7f7f2;
+            color: #1c1c1e;
+        }
+
+        body.dark-mode {
+            background: #1c1c1e;
+            color: #ffffff;
+        }
+
+        /* ── Sidebar ──────────────────────────────────────────────────────── */
+        .sidebar {
+            width: 260px;
+            min-width: 260px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body.light-mode .sidebar {
+            background: #f2f2f7;
+            border-color: #d1d1d6;
+        }
+
+        body.dark-mode .sidebar {
+            background: #2c2c2e;
+            border-color: #38383a;
+        }
+
+        /* Sidebar header */
+        .sidebar-header {
+            padding: 14px 16px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid;
+            flex-shrink: 0;
+        }
+
+        body.light-mode .sidebar-header { border-color: #d1d1d6; }
+        body.dark-mode  .sidebar-header { border-color: #38383a; }
+
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .sidebar-header-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        /* Search */
+        .search-box {
+            padding: 8px 12px;
+            border-bottom: 1px solid;
+            flex-shrink: 0;
+        }
+
+        body.light-mode .search-box { border-color: #d1d1d6; }
+        body.dark-mode  .search-box { border-color: #38383a; }
+
+        .search-input {
+            width: 100%;
+            padding: 7px 10px;
+            border-radius: 9px;
+            border: none;
+            font-size: 13px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        body.light-mode .search-input {
+            background: #e5e5ea;
+            color: #1c1c1e;
+        }
+
+        body.dark-mode .search-input {
+            background: #3a3a3c;
+            color: #ffffff;
+        }
+
+        .search-input::placeholder { opacity: 0.45; }
+
+        /* Note list */
+        .note-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+
+        .note-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-radius: 11px;
+            margin: 2px 8px;
+            transition: background 0.12s ease;
+        }
+
+        body.light-mode .note-item:hover    { background: rgba(0, 0, 0, 0.05); }
+        body.dark-mode  .note-item:hover    { background: rgba(255, 255, 255, 0.06); }
+        body.light-mode .note-item.active   { background: #ffd60a; }
+        body.dark-mode  .note-item.active   { background: #3a3a3c; }
+
+        .note-item-title {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .note-item-meta {
+            font-size: 12px;
+            opacity: 0.5;
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .note-list-empty {
+            padding: 24px 16px;
+            text-align: center;
+            font-size: 13px;
+            opacity: 0.4;
+        }
+
+        /* New note bar */
+        .new-note-bar {
+            padding: 10px 14px;
+            border-top: 1px solid;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        body.light-mode .new-note-bar { border-color: #d1d1d6; }
+        body.dark-mode  .new-note-bar { border-color: #38383a; }
+
+        .new-note-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 28px;
+            line-height: 1;
+            color: #ffd60a;
+            padding: 0 2px;
+            transition: transform 0.12s ease, opacity 0.12s ease;
+        }
+
+        .new-note-btn:hover { transform: scale(1.18); }
+
+        /* ── Editor ──────────────────────────────────────────────────────── */
+        .editor {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Empty state */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            opacity: 0.3;
+        }
+
+        .empty-state-icon { font-size: 52px; }
+        .empty-state-text { font-size: 15px; }
+
+        /* Editor content */
+        .editor-content {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .editor-content.visible {
+            display: flex;
+        }
+
+        .editor-header {
+            padding: 13px 20px 11px;
+            border-bottom: 1px solid;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        body.light-mode .editor-header { border-color: #d1d1d6; }
+        body.dark-mode  .editor-header { border-color: #38383a; }
+
+        .editor-date {
+            font-size: 12px;
+            opacity: 0.42;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .editor-area {
+            flex: 1;
+            padding: 20px 28px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .note-textarea {
+            flex: 1;
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: inherit;
+            font-size: 15px;
+            line-height: 1.75;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            resize: none;
+            min-height: 100%;
+        }
+
+        /* ── Icon buttons ─────────────────────────────────────────────────── */
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: inherit;
+            transition: background 0.12s ease;
+        }
+
+        body.light-mode .icon-btn:hover { background: rgba(0, 0, 0, 0.07); }
+        body.dark-mode  .icon-btn:hover { background: rgba(255, 255, 255, 0.1); }
+
+        .delete-btn { color: #ff453a; }
+        body.light-mode .delete-btn:hover { background: rgba(255, 69, 58, 0.1) !important; }
+        body.dark-mode  .delete-btn:hover { background: rgba(255, 69, 58, 0.15) !important; }
+
+        /* ── Scrollbar ────────────────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        body.light-mode ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 4px; }
+        body.dark-mode  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-title">Notes</span>
+            <div class="sidebar-header-actions">
+                <button class="icon-btn" id="themeToggle" title="Toggle theme">◐</button>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <input class="search-input" id="searchInput" type="text" placeholder="&#128269; Search">
+        </div>
+
+        <div class="note-list" id="noteList"></div>
+
+        <div class="new-note-bar">
+            <button class="new-note-btn" id="newNoteBtn" title="New Note (Ctrl+N)">&#9998;</button>
+        </div>
+    </div>
+
+    <!-- ── Editor ───────────────────────────────────────────────────────────── -->
+    <div class="editor">
+
+        <!-- Shown when no note is selected -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-icon">&#128221;</div>
+            <div class="empty-state-text">Select a note or create a new one</div>
+        </div>
+
+        <!-- Shown when a note is active -->
+        <div class="editor-content" id="editorContent">
+            <div class="editor-header">
+                <span class="editor-date" id="editorDate"></span>
+                <div class="editor-actions">
+                    <button class="icon-btn delete-btn" id="deleteNoteBtn" title="Delete note">❌</button>
+                </div>
+            </div>
+            <div class="editor-area">
+                <textarea class="note-textarea" id="noteTextarea" placeholder="Start writing&#x2026;"></textarea>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ── State ──────────────────────────────────────────────────────────────
+        var notes       = [];       // [{id, title, updatedAt}] – no content in memory
+        var meta        = {};       // full metadata object from server
+        var activeId    = null;
+        var saveTimer   = null;
+        var systemTheme = 'dark';  // resolved from ao_module_getSystemThemeColor on boot
+
+        // ── Theme helpers ──────────────────────────────────────────────────────
+        // Apply theme to both app body and the float-window chrome
+        function applyTheme(theme) {
+            var isDark = (theme !== 'white');
+            document.body.classList.toggle('dark-mode',  isDark);
+            document.body.classList.toggle('light-mode', !isDark);
+        }
+
+        // ── AGI API wrappers ───────────────────────────────────────────────────
+        function apiInit(callback) {
+            ao_module_agirun('Notes/backend/init.agi', {}, function (data) {
+                try {
+                    var parsed = (typeof data === 'string') ? JSON.parse(data) : data;
+                    callback(parsed);
+                } catch (e) { callback({ lastOpened: '', theme: systemTheme, notes: [] }); }
+            }, function () {
+                callback({ lastOpened: '', theme: systemTheme, notes: [] });
+            });
+        }
+
+        function apiRead(noteId, callback) {
+            ao_module_agirun('Notes/backend/read.agi', { noteId: noteId }, function (data) {
+                try {
+                    var r = (typeof data === 'string') ? JSON.parse(data) : data;
+                    callback(r.error ? '' : (r.content || ''));
+                } catch (e) { callback(''); }
+            }, function () { callback(''); });
+        }
+
+        function apiWrite(noteId, content, updatedAt) {
+            ao_module_agirun('Notes/backend/write.agi', {
+                noteId:        noteId,
+                noteContent:   content,
+                noteUpdatedAt: updatedAt
+            }, function (data) {
+                // Server title extraction already done; re-render sidebar after save
+                renderNoteList();
+                var dateEl = document.getElementById('editorDate');
+                if (dateEl && activeId === noteId) {
+                    dateEl.textContent = formatDate(updatedAt);
+                }
+            }, null);
+        }
+
+        function apiDelete(noteId, callback) {
+            ao_module_agirun('Notes/backend/delete.agi', { noteId: noteId }, function (data) {
+                try {
+                    var parsed = (typeof data === 'string') ? JSON.parse(data) : data;
+                    callback(parsed);
+                } catch (e) { callback({ ok: false }); }
+            }, function () { callback({ ok: false }); });
+        }
+
+        function apiSaveTheme(theme) {
+            ao_module_agirun('Notes/backend/savemeta.agi', { newTheme: theme }, null, null);
+        }
+
+        // ── Helpers ────────────────────────────────────────────────────────────
+        function generateId() {
+            return 'note_' + Date.now().toString(36) +
+                   Math.random().toString(36).slice(2, 8);
+        }
+
+        function getTitle(content) {
+            var lines = (content || '').split('\n');
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (line.length > 0) return line;
+            }
+            return 'New Note';
+        }
+
+        function escHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function formatDate(ts) {
+            var d   = new Date(ts);
+            var now = new Date();
+            if (d.toDateString() === now.toDateString()) {
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else if (d.getFullYear() === now.getFullYear()) {
+                return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            } else {
+                return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+        }
+
+        function sortedNotes() {
+            return notes.slice().sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+        }
+
+        // ── Render note list ───────────────────────────────────────────────────
+        // Searches note titles (content not in memory – load all-content search would
+        // require reading every file, which is impractical for large collections).
+        function renderNoteList() {
+            var listEl  = document.getElementById('noteList');
+            var query   = document.getElementById('searchInput').value.toLowerCase().trim();
+            var visible = sortedNotes();
+
+            if (query) {
+                visible = visible.filter(function (n) {
+                    return (n.title || '').toLowerCase().indexOf(query) !== -1;
+                });
+            }
+
+            listEl.innerHTML = '';
+
+            if (visible.length === 0) {
+                var msg = document.createElement('div');
+                msg.className   = 'note-list-empty';
+                msg.textContent = query ? 'No results' : 'No notes yet';
+                listEl.appendChild(msg);
+                return;
+            }
+
+            visible.forEach(function (note) {
+                var item = document.createElement('div');
+                item.className  = 'note-item' + (note.id === activeId ? ' active' : '');
+                item.dataset.id = note.id;
+                item.innerHTML  =
+                    '<div class="note-item-title">' + escHtml(note.title || 'New Note') + '</div>' +
+                    '<div class="note-item-meta">'  + escHtml(formatDate(note.updatedAt)) + '</div>';
+                item.addEventListener('click', function () { selectNote(note.id); });
+                listEl.appendChild(item);
+            });
+        }
+
+        // ── Render editor panel ────────────────────────────────────────────────
+        // Call with no args to just toggle visibility; pass content string to populate.
+        function renderEditor(content) {
+            var emptyState    = document.getElementById('emptyState');
+            var editorContent = document.getElementById('editorContent');
+            var editorDate    = document.getElementById('editorDate');
+            var textarea      = document.getElementById('noteTextarea');
+
+            if (!activeId) {
+                emptyState.style.display = 'flex';
+                editorContent.classList.remove('visible');
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            editorContent.classList.add('visible');
+
+            var note = notes.find(function (n) { return n.id === activeId; });
+            if (note && editorDate) {
+                editorDate.textContent = formatDate(note.updatedAt);
+            }
+
+            if (content !== undefined && textarea) {
+                textarea.disabled     = false;
+                textarea.style.opacity = '1';
+                textarea.value        = content;
+                textarea.focus();
+            }
+        }
+
+        // ── Actions ────────────────────────────────────────────────────────────
+        function selectNote(id) {
+            activeId = id;
+            renderNoteList();
+
+            // Show editor shell immediately, then load content async
+            var textarea = document.getElementById('noteTextarea');
+            if (textarea) {
+                textarea.disabled      = true;
+                textarea.style.opacity = '0.4';
+                textarea.value         = '';
+                textarea.placeholder   = 'Loading\u2026';
+            }
+            renderEditor();
+
+            apiRead(id, function (content) {
+                if (activeId !== id) return; // user switched away
+                textarea.placeholder = 'Start writing\u2026';
+                renderEditor(content);
+            });
+        }
+
+        function createNote() {
+            var id   = generateId();
+            var ts   = Date.now();
+            var stub = { id: id, title: 'New Note', updatedAt: ts };
+            notes.unshift(stub);
+            activeId = id;
+            renderNoteList();
+            renderEditor('');
+            document.getElementById('noteTextarea').focus();
+
+            // Persist empty note on server
+            apiWrite(id, '', ts);
+        }
+
+        function deleteActiveNote() {
+            if (!activeId) return;
+            if (!confirm('Delete this note?')) return;
+
+            var deletedId = activeId;
+            notes = notes.filter(function (n) { return n.id !== deletedId; });
+            var remaining = sortedNotes();
+            activeId = remaining.length > 0 ? remaining[0].id : null;
+
+            renderNoteList();
+            if (activeId) {
+                selectNote(activeId);
+            } else {
+                renderEditor();
+            }
+
+            apiDelete(deletedId, function () { /* server already updated */ });
+        }
+
+        // ── Auto-save on input (debounced 400 ms) ──────────────────────────────
+        document.getElementById('noteTextarea').addEventListener('input', function () {
+            if (!activeId) return;
+            var capturedId      = activeId;
+            var capturedContent = this.value;
+            var capturedTs      = Date.now();
+
+            // Optimistic local update (title extracted client-side for snappy UI)
+            var note = notes.find(function (n) { return n.id === capturedId; });
+            if (note) {
+                note.title     = getTitle(capturedContent);
+                note.updatedAt = capturedTs;
+            }
+
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(function () {
+                apiWrite(capturedId, capturedContent, capturedTs);
+            }, 400);
+        });
+
+        // ── Toolbar buttons ────────────────────────────────────────────────────
+        document.getElementById('newNoteBtn').addEventListener('click', createNote);
+        document.getElementById('deleteNoteBtn').addEventListener('click', deleteActiveNote);
+
+        // ── Search ─────────────────────────────────────────────────────────────
+        document.getElementById('searchInput').addEventListener('input', function () {
+            renderNoteList();
+        });
+
+        // ── Theme toggle ───────────────────────────────────────────────────────
+        document.getElementById('themeToggle').addEventListener('click', function () {
+            var isDark   = document.body.classList.contains('dark-mode');
+            var newTheme = isDark ? 'white' : 'dark';
+            applyTheme(newTheme);
+            apiSaveTheme(newTheme);
+        });
+
+        // ── Keyboard shortcuts ─────────────────────────────────────────────────
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                e.preventDefault();
+                createNote();
+            }
+        });
+
+        // ── Boot ───────────────────────────────────────────────────────────────
+        (function init() {
+            // Step 1: query system theme from server so detection works in both
+            // virtual-desktop and standalone modes. "darkTheme" → dark, else white.
+            ao_module_getSystemThemeColor(function (themeColor) {
+                systemTheme = (themeColor === 'whiteTheme') ? 'white' : 'dark';
+                applyTheme(systemTheme);
+
+                // Step 2: load server-side metadata (notes list + saved theme pref)
+                apiInit(function (loadedMeta) {
+                    meta  = loadedMeta;
+                    notes = meta.notes || [];
+
+                    // Override with the user's saved per-app theme preference (if any)
+                    if (meta.theme) {
+                        applyTheme(meta.theme);
+                    }
+
+                    renderNoteList();
+
+                    // Auto-open the last viewed note
+                    if (meta.lastOpened) {
+                        selectNote(meta.lastOpened);
+                    }
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

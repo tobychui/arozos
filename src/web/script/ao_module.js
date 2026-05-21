@@ -175,7 +175,29 @@ function ao_module_setWindowTheme(newtheme="dark"){
         return;
     }
     parent.setFloatWindowTheme(ao_module_windowID, newtheme);
-}   
+}
+
+// ao_module_getSystemThemeColor(callback) => Get the global theme color of current system, and return the color value in callback function.
+function ao_module_getSystemThemeColor(callback){
+    $.get("../../system/file_system/preference?key=file_explorer/theme",function(data){
+            callback(data);
+    });
+}
+
+// ao_module_setSystemThemeColor(color, callback) => Set the global theme color of current system, and return the result in callback function if provided.
+function ao_module_setSystemThemeColor(color, callback=undefined){
+    $.ajax({
+        url:"../../system/file_system/preference?key=file_explorer/theme&value=" + color,
+        success: function(data){
+            if (data.error !== undefined){
+                console.log(data);
+            }
+            if (callback !== undefined){
+                callback(data);
+            }
+        }
+    });
+}
 
 //Check if there are any windows with the same path. 
 //If yes, replace its hash content and reload to the new one and close the current floatWindow
