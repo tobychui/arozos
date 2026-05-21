@@ -30,4 +30,5 @@ src/system/auth/authlog.db
 src/system/bridge.json
 src/system/cron.json
 src/system/smtp_conf.json
-/src/web/FFmpeg Factory
+*.exe~
+/src/tmp

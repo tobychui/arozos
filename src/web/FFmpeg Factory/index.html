@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/semantic/semantic.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <title>FFmpeg Factory</title>
+    <style>
+        /* ── Design tokens (Notes-inspired minimal gray) ── */
+        :root {
+            --bg:       #f7f7f2;
+            --surface:  #ffffff;
+            --surface2: #f2f2f7;
+            --border:   #d1d1d6;
+            --border-s: #e5e5ea;
+            --text:     #1c1c1e;
+            --text2:    #636366;
+            --text3:    #aeaeb2;
+            --accent:   #ffd60a;
+            --accent-h: #e6be00;
+            --btn-text: #1c1c1e;
+            --hover:    rgba(0,0,0,0.05);
+            --success:  #30b950;
+            --danger:   #ff3b30;
+            --warning:  #ff9500;
+            --shadow-s: 0 1px 3px rgba(0,0,0,0.08);
+            --r:        11px;
+            --r-sm:     9px;
+            --r-xs:     7px;
+        }
+        body.dark {
+            --bg:       #1c1c1e;
+            --surface:  #2c2c2e;
+            --surface2: #3a3a3c;
+            --border:   #38383a;
+            --border-s: #2c2c2e;
+            --text:     #f2f2f7;
+            --text2:    #aeaeb2;
+            --text3:    #48484a;
+            --accent:   #ffd60a;
+            --accent-h: #ffe040;
+            --btn-text: #1c1c1e;
+            --hover:    rgba(255,255,255,0.06);
+            --success:  #32d74b;
+            --danger:   #ff453a;
+            --warning:  #ffd60a;
+            --shadow-s: 0 1px 4px rgba(0,0,0,0.4);
+        }
+
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0; height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            font-size: 13px;
+            overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        /* thin scrollbars – like Notes */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 4px; }
+        body.dark  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+        #appWrapper {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Left panel ── */
+        #leftPanel {
+            width: 300px;
+            min-width: 260px;
+            max-width: 340px;
+            background: var(--surface2);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        #leftHeader {
+            padding: 13px 14px 11px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-shrink: 0;
+        }
+        #leftHeader .hdr-icon { color: var(--accent); font-size: 0.9em; }
+        #leftHeader .hdr-spacer { flex: 1; }
+        #themeToggleBtn {
+            width: 28px; height: 28px;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            color: var(--text3);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px;
+            transition: background 0.12s, color 0.12s;
+            flex-shrink: 0;
+        }
+        #themeToggleBtn:hover { background: var(--hover); color: var(--text2); }
+
+        #leftBody {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 12px 14px;
+        }
+
+        /* Drop zone */
+        #dropZone {
+            border: 1.5px dashed var(--border);
+            border-radius: var(--r);
+            padding: 22px 12px 18px;
+            text-align: center;
+            color: var(--text3);
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            margin-bottom: 8px;
+            user-select: none;
+            background: var(--surface);
+        }
+        #dropZone:hover, #dropZone.dragging {
+            border-color: var(--text2);
+            background: var(--surface);
+        }
+        #dropZone .dz-icon { font-size: 1.5em; display: block; margin-bottom: 7px; color: var(--accent); opacity: 0.85; }
+        #dropZone .dz-label { font-size: 0.86em; font-weight: 600; color: var(--text2); }
+        #dropZone .dz-sub { font-size: 0.75em; margin-top: 3px; color: var(--text3); }
+
+        /* Upload from computer button */
+        #uploadBtn {
+            width: 100%;
+            padding: 7px 12px;
+            background: transparent;
+            color: var(--text2);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            font-size: 0.84em;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 10px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: background 0.12s, color 0.12s;
+            font-family: inherit;
+        }
+        #uploadBtn:hover { background: var(--hover); color: var(--text); }
+
+        /* Selected file card */
+        #selectedFileInfo {
+            display: none;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: 9px 10px 9px 11px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        #selectedFileIcon {
+            font-size: 1.4em; float: left; margin-right: 9px;
+            color: var(--accent); line-height: 1;
+        }
+        #selectedFileName {
+            font-weight: 600; font-size: 0.87em; word-break: break-all;
+            padding-right: 20px; color: var(--text);
+        }
+        #selectedFileMeta { font-size: 0.74em; color: var(--text2); word-break: break-all; margin-top: 2px; }
+        #clearFileBtn {
+            position: absolute; top: 8px; right: 8px;
+            cursor: pointer; color: var(--text3); font-size: 0.9em;
+            line-height: 1; width: 16px; height: 16px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            transition: background 0.12s, color 0.12s;
+        }
+        #clearFileBtn:hover { color: var(--danger); background: var(--hover); }
+
+        /* Upload progress */
+        #uploadProgressWrap {
+            display: none;
+            margin-bottom: 8px;
+        }
+        #uploadProgressWrap .up-label {
+            font-size: 0.76em; color: var(--text2); margin-bottom: 4px;
+        }
+        .prog-track {
+            height: 3px; background: var(--border-s);
+            border-radius: 2px; overflow: hidden;
+        }
+        .prog-fill {
+            height: 100%; background: var(--accent); border-radius: 2px;
+            transition: width 0.2s ease;
+        }
+
+        /* Divider */
+        .ff-divider {
+            height: 1px; background: var(--border); margin: 10px 0;
+        }
+
+        /* Form */
+        .ff-label {
+            font-size: 0.72em;
+            font-weight: 600;
+            color: var(--accent);
+            display: block;
+            margin-bottom: 4px;
+            margin-top: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+        }
+        .ff-select, .ff-input {
+            width: 100%;
+            padding: 7px 9px;
+            border: 1px solid var(--border);
+            border-radius: var(--r-xs);
+            font-size: 0.86em;
+            background: var(--surface);
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.15s;
+            appearance: auto;
+            font-family: inherit;
+        }
+        .ff-select:focus, .ff-input:focus { border-color: var(--accent); }
+        .ff-range {
+            width: 100%; cursor: pointer;
+            accent-color: var(--accent);
+        }
+        .ff-range-val { font-size: 0.75em; color: var(--text2); float: right; }
+        .options-section { margin-top: 2px; }
+
+        #convertBtn {
+            width: 100%;
+            padding: 9px;
+            background: var(--accent);
+            color: var(--btn-text);
+            border: none;
+            border-radius: var(--r-sm);
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 14px;
+            transition: background 0.15s, opacity 0.15s;
+            letter-spacing: 0.01em;
+        }
+        #convertBtn:hover:not(:disabled) { background: var(--accent-h); }
+        #convertBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ── Right panel ── */
+        #rightPanel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg);
+        }
+        #rightHeader {
+            padding: 13px 18px 11px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-shrink: 0;
+            background: var(--surface2);
+        }
+        #rightHeader .hdr-icon { color: var(--accent); }
+        #taskCountBadge {
+            display: none;
+            background: var(--accent);
+            color: var(--btn-text);
+            font-size: 0.69em;
+            font-weight: 700;
+            padding: 1px 7px;
+            border-radius: 10px;
+        }
+        #taskListWrap {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 16px;
+        }
+
+        /* Empty state */
+        #emptyState {
+            text-align: center;
+            padding: 70px 20px;
+            pointer-events: none;
+        }
+        #emptyState .es-icon {
+            font-size: 3em; display: block; margin-bottom: 12px;
+            color: var(--accent);
+        }
+        #emptyState .es-title { font-size: 0.95em; font-weight: 600; color: var(--text3); }
+        #emptyState .es-sub { font-size: 0.81em; margin-top: 5px; color: var(--text3); }
+
+        /* Task card */
+        .task-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 12px 13px;
+            margin-bottom: 9px;
+            box-shadow: var(--shadow-s);
+            animation: slideIn 0.18s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .tc-row1 {
+            display: flex; align-items: flex-start; gap: 9px; margin-bottom: 9px;
+        }
+        .tc-icon { font-size: 1.2em; color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+        .tc-names { flex: 1; min-width: 0; }
+        .tc-input {
+            font-weight: 600; font-size: 0.87em;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            color: var(--text);
+        }
+        .tc-output {
+            font-size: 0.79em; color: var(--text2);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+        .tc-badge {
+            flex-shrink: 0; font-size: 0.68em; font-weight: 600;
+            padding: 2px 7px; border-radius: 5px; margin-top: 2px;
+            letter-spacing: 0.03em;
+        }
+        .badge-running { background: var(--surface2); color: var(--accent); }
+        .badge-done    { background: var(--surface2); color: var(--success); }
+        .badge-failed  { background: var(--surface2); color: var(--danger);  }
+        .badge-unknown { background: var(--surface2); color: var(--text2); }
+
+        /* Progress bar */
+        .tc-prog-wrap { margin-bottom: 7px; }
+        .tc-prog-track {
+            height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+        }
+        .tc-prog-fill {
+            height: 100%; background: var(--accent); border-radius: 2px;
+            transition: width 0.5s ease; min-width: 0;
+        }
+        .tc-prog-fill.done  { background: var(--success); }
+        .tc-prog-fill.error { background: var(--danger);  }
+        .tc-prog-label {
+            font-size: 0.72em; color: var(--text3); margin-top: 3px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* Stats row */
+        .tc-stats {
+            display: flex; gap: 12px; font-size: 0.74em; color: var(--text2); margin-bottom: 9px;
+        }
+        .tc-stats span { display: flex; align-items: center; gap: 3px; }
+
+        /* Action buttons */
+        .tc-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+        .tc-btn {
+            padding: 4px 10px; font-size: 0.76em; font-weight: 500;
+            border-radius: var(--r-xs);
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text2);
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+            display: flex; align-items: center; gap: 4px;
+            font-family: inherit;
+        }
+        .tc-btn:hover { background: var(--hover); color: var(--text); }
+        .tc-btn.primary {
+            background: var(--accent); color: var(--btn-text); border-color: var(--accent);
+        }
+        .tc-btn.primary:hover { background: var(--accent-h); border-color: var(--accent-h); }
+        .tc-btn.danger  { color: var(--danger); }
+        .tc-btn.danger:hover { background: var(--hover); }
+    </style>
+</head>
+<body class="light">
+<div id="appWrapper">
+
+    <!-- ════════════════ LEFT PANEL ════════════════ -->
+    <div id="leftPanel">
+        <div id="leftHeader">
+            <i class="film icon hdr-icon"></i>
+            <span>New Conversion</span>
+            <span class="hdr-spacer"></span>
+            <button id="themeToggleBtn" onclick="toggleTheme()" title="Toggle dark / light mode">
+                <i class="moon icon" id="themeIcon"></i>
+            </button>
+        </div>
+        <div id="leftBody">
+
+            <!-- Drop zone / system file browser -->
+            <div id="dropZone" onclick="openSystemFileSelector()">
+                <i class="cloud upload alternate icon dz-icon"></i>
+                <div class="dz-label">Click to browse system files</div>
+                <div class="dz-sub">or drag &amp; drop a file here</div>
+            </div>
+
+            <!-- Upload from local computer -->
+            <button id="uploadBtn" onclick="openLocalUploader()">
+                <i class="laptop icon"></i> Upload from Computer
+            </button>
+
+            <!-- Upload progress -->
+            <div id="uploadProgressWrap">
+                <div class="up-label">Uploading… <span id="uploadPct">0</span>%</div>
+                <div class="prog-track">
+                    <div class="prog-fill" id="uploadProgFill" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- Selected file info -->
+            <div id="selectedFileInfo">
+                <span id="clearFileBtn" onclick="clearSelectedFile()" title="Clear selection">&#10005;</span>
+                <div id="selectedFileIcon"><i class="file outline icon"></i></div>
+                <div>
+                    <div id="selectedFileName">file.mp4</div>
+                    <div id="selectedFileMeta">user:/path/to/file.mp4</div>
+                </div>
+                <div style="clear:both"></div>
+            </div>
+
+            <!-- Output format -->
+            <label class="ff-label">Output Format</label>
+            <select id="outputFormat" class="ff-select" onchange="onFormatChange()">
+                <option value="">— select a file first —</option>
+            </select>
+
+            <!-- Audio options -->
+            <div id="audioOptions" class="options-section" style="display:none">
+                <label class="ff-label">Sample Rate</label>
+                <select id="sampleRate" class="ff-select">
+                    <option value="0">Original (unchanged)</option>
+                    <option value="8000">8,000 Hz</option>
+                    <option value="16000">16,000 Hz</option>
+                    <option value="22050">22,050 Hz</option>
+                    <option value="44100">44,100 Hz — CD quality</option>
+                    <option value="48000">48,000 Hz — HD audio</option>
+                    <option value="96000">96,000 Hz — High-res</option>
+                </select>
+            </div>
+
+            <!-- Video options -->
+            <div id="videoOptions" class="options-section" style="display:none">
+                <label class="ff-label">Resolution</label>
+                <select id="videoResolution" class="ff-select">
+                    <option value="">Original (unchanged)</option>
+                    <option value="144p">144p — Low bandwidth</option>
+                    <option value="240p">240p — SD</option>
+                    <option value="360p">360p</option>
+                    <option value="480p">480p — SD</option>
+                    <option value="576p">576p — PAL</option>
+                    <option value="720p">720p — HD</option>
+                    <option value="1080p">1080p — Full HD</option>
+                    <option value="1440p">1440p — 2K</option>
+                    <option value="2160p">2160p — 4K Ultra HD</option>
+                </select>
+                <label class="ff-label">
+                    Compression (CRF)
+                    <span class="ff-range-val"><span id="videoCompressionVal">0</span>% &nbsp;<small style="color:#bbb">(0 = encoder default)</small></span>
+                </label>
+                <input type="range" class="ff-range" id="videoCompression" min="0" max="100" value="0"
+                       oninput="document.getElementById('videoCompressionVal').textContent=this.value">
+            </div>
+
+            <!-- Image options -->
+            <div id="imageOptions" class="options-section" style="display:none">
+                <label class="ff-label">Scale Factor <small style="color:#bbb; font-weight:400">(1.0 = original, 0.5 = half size)</small></label>
+                <input type="number" id="imageScale" class="ff-input" step="0.05" min="0.05" max="10" value="1.0">
+
+                <div id="imageCompressionSection">
+                    <label class="ff-label">
+                        Quality Loss
+                        <span class="ff-range-val"><span id="imageQualityVal">0</span>% &nbsp;<small style="color:#bbb">(0 = best, 100 = most compressed)</small></span>
+                    </label>
+                    <input type="range" class="ff-range" id="imageQuality" min="0" max="100" value="0"
+                           oninput="document.getElementById('imageQualityVal').textContent=this.value">
+                </div>
+            </div>
+
+            <button id="convertBtn" onclick="startConversion()" disabled>
+                <i class="play icon"></i> Convert
+            </button>
+        </div><!-- /leftBody -->
+    </div><!-- /leftPanel -->
+
+    <!-- ════════════════ RIGHT PANEL ════════════════ -->
+    <div id="rightPanel">
+        <div id="rightHeader">
+            <i class="list ul icon hdr-icon"></i>
+            Task Queue
+            <span id="taskCountBadge">0</span>
+        </div>
+        <div id="taskListWrap">
+            <div id="emptyState">
+                <i class="film icon es-icon"></i>
+                <div class="es-title">No conversions yet</div>
+                <div class="es-sub">Select or upload a file on the left to get started.</div>
+            </div>
+            <div id="taskList"></div>
+        </div>
+    </div>
+
+</div><!-- /appWrapper -->
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  FFmpeg Factory  –  frontend logic
+// ══════════════════════════════════════════════════════════════════
+
+// --- Extension groups ---
+var VIDEO_EXTS       = ["mp4","mkv","avi","mov","flv","webm"];
+var AUDIO_EXTS       = ["mp3","wav","aac","ogg","flac","m4a","opus"];
+var IMAGE_EXTS       = ["jpg","jpeg","png","gif","bmp","tiff","webp"];
+var LOSSY_IMAGE_EXTS = ["jpg","jpeg","webp"];
+
+// --- Global state ---
+var selectedFilePath   = null;
+var selectedFileUpload = false;
+var activeTasks        = {};   // taskId → { timer, data }
+
+// ──────────────────────────────────────────────
+// Theme  (preference key: ffmpeg_factory/theme)
+// ──────────────────────────────────────────────
+var PREF_KEY = "ffmpeg_factory/theme";
+
+function loadPref(key, cb) {
+    $.get("../../system/file_system/preference?key=" + encodeURIComponent(key), cb);
+}
+function savePref(key, value) {
+    $.get("../../system/file_system/preference?key=" + encodeURIComponent(key) + "&value=" + encodeURIComponent(value));
+}
+
+function applyTheme(isDark) {
+    if (isDark) {
+        $("body").removeClass("light").addClass("dark");
+        $("#themeIcon").attr("class", "sun icon");
+    } else {
+        $("body").removeClass("dark").addClass("light");
+        $("#themeIcon").attr("class", "moon icon");
+    }
+}
+
+function toggleTheme() {
+    var isDark = $("body").hasClass("dark");
+    applyTheme(!isDark);
+    savePref(PREF_KEY, isDark ? "light" : "dark");
+}
+
+function initTheme() {
+    // Step 1: apply system-wide theme immediately (same pattern as Notes app)
+    ao_module_getSystemThemeColor(function (sysTheme) {
+        applyTheme(sysTheme !== "whiteTheme");
+
+        // Step 2: check for a per-app manual override and apply it on top
+        loadPref(PREF_KEY, function (data) {
+            if (data && data !== "undefined" && data !== "" && !data.error) {
+                applyTheme(data === "dark");
+            }
+        });
+    });
+}
+
+// ──────────────────────────────────────────────
+// Safe JSON parse
+// jQuery auto-parses responses with Content-Type: application/json,
+// so the callback may already receive a JS object instead of a string.
+// ──────────────────────────────────────────────
+function safeJSON(data) {
+    if (data === null || data === undefined) return null;
+    if (typeof data === "object") return data;
+    if (typeof data === "string") {
+        try { return JSON.parse(data); } catch (e) { return null; }
+    }
+    return null;
+}
+
+// ──────────────────────────────────────────────
+// Initialisation
+// ──────────────────────────────────────────────
+$(document).ready(function () {
+    initTheme();
+
+    // Drag-and-drop onto drop zone
+    var dz = document.getElementById("dropZone");
+    dz.addEventListener("dragover", function (e) { e.preventDefault(); dz.classList.add("dragging"); });
+    dz.addEventListener("dragleave", function ()  { dz.classList.remove("dragging"); });
+    dz.addEventListener("drop", function (e) {
+        e.preventDefault();
+        dz.classList.remove("dragging");
+        var files = e.dataTransfer.files;
+        if (files.length > 0) handleLocalFile(files[0]);
+    });
+
+    // Load persisted tasks (session resume)
+    loadExistingTasks();
+
+    // File opened from the desktop file manager
+    var inputFiles = ao_module_loadInputFiles();
+    if (inputFiles && inputFiles.length > 0) {
+        var f = inputFiles[0];
+        var vpath = (typeof f === "string") ? f : (f.filepath || f.Filepath || "");
+        if (vpath) selectSourceFile(vpath, false);
+    }
+});
+
+// ──────────────────────────────────────────────
+// File selection
+// ──────────────────────────────────────────────
+function openSystemFileSelector() {
+    ao_module_openFileSelector(
+        handleFSSelection,
+        "user:/", "file", false,
+        { fnameOverride: "handleFSSelection" }
+    );
+}
+
+// Global callback for virtual-desktop mode (function name is looked up by the parent frame)
+function handleFSSelection(files) {
+    if (!files || files.length === 0) return;
+    var f = files[0];
+    var vpath = (typeof f === "string") ? f : (f.filepath || f.Filepath || "");
+    if (vpath) selectSourceFile(vpath, false);
+}
+
+function openLocalUploader() {
+    var input = document.createElement("input");
+    input.type = "file";
+    input.onchange = function (e) {
+        if (e.target.files.length > 0) handleLocalFile(e.target.files[0]);
+    };
+    input.click();
+}
+
+function handleLocalFile(file) {
+    // Ensure server-side upload directory exists, then upload
+    ao_module_agirun("FFmpeg Factory/agi/ensuredirs.agi", {}, function () {
+        $("#uploadProgressWrap").show();
+        $("#uploadProgFill").css("width", "0%");
+        $("#uploadPct").text("0");
+
+        ao_module_uploadFile(
+            file,
+            "tmp:/ffmpeg_factory/uploads/",
+            function () {
+                // Upload complete
+                $("#uploadProgressWrap").hide();
+                selectSourceFile("tmp:/ffmpeg_factory/uploads/" + file.name, true);
+            },
+            function (pct) {
+                var p = Math.round(pct);
+                $("#uploadProgFill").css("width", p + "%");
+                $("#uploadPct").text(p);
+            },
+            function (status) {
+                $("#uploadProgressWrap").hide();
+                alert("Upload failed (HTTP " + status + ").\nCheck that the file is not too large.");
+            }
+        );
+    });
+}
+
+function selectSourceFile(vpath, isUpload) {
+    selectedFilePath   = vpath;
+    selectedFileUpload = isUpload || false;
+
+    var parts    = vpath.split("/");
+    var filename = parts[parts.length - 1];
+    var ext      = filename.includes(".") ? filename.split(".").pop().toLowerCase() : "";
+
+    var icon = "file outline";
+    if (VIDEO_EXTS.includes(ext))  icon = "film";
+    else if (AUDIO_EXTS.includes(ext)) icon = "music";
+    else if (IMAGE_EXTS.includes(ext)) icon = "image";
+
+    $("#selectedFileIcon").html('<i class="' + icon + ' icon"></i>');
+    $("#selectedFileName").text(filename);
+    $("#selectedFileMeta").text(isUpload ? "Uploaded from this computer" : vpath);
+    $("#selectedFileInfo").show();
+
+    updateOutputFormats(ext);
+}
+
+function clearSelectedFile() {
+    selectedFilePath   = null;
+    selectedFileUpload = false;
+    $("#selectedFileInfo").hide();
+    $("#outputFormat").html('<option value="">— select a file first —</option>');
+    $("#audioOptions, #videoOptions, #imageOptions").hide();
+    $("#convertBtn").prop("disabled", true);
+}
+
+// ──────────────────────────────────────────────
+// Output format & options
+// ──────────────────────────────────────────────
+function updateOutputFormats(ext) {
+    var $fmt = $("#outputFormat").empty();
+
+    if (VIDEO_EXTS.includes(ext)) {
+        addOptGroup($fmt, "Video", [
+            ["mp4","MP4 (H.264)"], ["mkv","MKV (Matroska)"], ["avi","AVI"],
+            ["webm","WebM (VP9)"], ["mov","MOV (QuickTime)"]
+        ]);
+        addOptGroup($fmt, "Audio — extract from video", [
+            ["mp3","MP3"], ["aac","AAC"], ["wav","WAV (lossless)"],
+            ["flac","FLAC (lossless)"], ["ogg","OGG Vorbis"]
+        ]);
+        addOptGroup($fmt, "Animation", [["gif","GIF Animation"]]);
+
+    } else if (AUDIO_EXTS.includes(ext)) {
+        addOptGroup($fmt, "Audio", [
+            ["mp3","MP3"], ["aac","AAC"], ["wav","WAV (lossless)"],
+            ["flac","FLAC (lossless)"], ["ogg","OGG Vorbis"], ["opus","Opus"]
+        ]);
+
+    } else if (IMAGE_EXTS.includes(ext)) {
+        addOptGroup($fmt, "Image", [
+            ["jpg","JPEG (lossy)"], ["png","PNG (lossless)"],
+            ["webp","WebP"], ["bmp","BMP (lossless)"],
+            ["tiff","TIFF (lossless)"], ["gif","GIF"]
+        ]);
+
+    } else {
+        // Unknown type – offer common formats
+        addOptGroup($fmt, "Video",  [["mp4","MP4"], ["mkv","MKV"], ["avi","AVI"]]);
+        addOptGroup($fmt, "Audio",  [["mp3","MP3"], ["aac","AAC"], ["wav","WAV"]]);
+        addOptGroup($fmt, "Image",  [["jpg","JPEG"], ["png","PNG"]]);
+    }
+
+    onFormatChange();
+}
+
+function addOptGroup($sel, label, opts) {
+    var $g = $('<optgroup>').attr("label", label);
+    opts.forEach(function (o) { $g.append($('<option>').val(o[0]).text(o[1])); });
+    $sel.append($g);
+}
+
+function onFormatChange() {
+    var outputExt = $("#outputFormat").val() || "";
+    var inputExt  = selectedFilePath
+        ? selectedFilePath.split(".").pop().toLowerCase()
+        : "";
+    var convType  = getConvType(inputExt, outputExt);
+
+    $("#audioOptions").toggle(convType === "audio");
+    $("#videoOptions").toggle(convType === "video");
+
+    if (convType === "image") {
+        $("#imageOptions").show();
+        // Quality slider only useful for lossy formats
+        $("#imageCompressionSection").toggle(LOSSY_IMAGE_EXTS.includes(outputExt));
+    } else {
+        $("#imageOptions").hide();
+    }
+
+    $("#convertBtn").prop("disabled", !(selectedFilePath && outputExt));
+}
+
+function getConvType(inExt, outExt) {
+    if (IMAGE_EXTS.includes(inExt) && IMAGE_EXTS.includes(outExt)) return "image";
+    if ((VIDEO_EXTS.includes(inExt) || AUDIO_EXTS.includes(inExt)) && AUDIO_EXTS.includes(outExt)) return "audio";
+    if (VIDEO_EXTS.includes(inExt)  && VIDEO_EXTS.includes(outExt)) return "video";
+    return "generic";
+}
+
+// ──────────────────────────────────────────────
+// Start conversion
+// ──────────────────────────────────────────────
+function startConversion() {
+    if (!selectedFilePath) return;
+    var outputExt = $("#outputFormat").val();
+    if (!outputExt) return;
+
+    var inputExt = selectedFilePath.split(".").pop().toLowerCase();
+    var convType = getConvType(inputExt, outputExt);
+
+    // Collect format-specific options
+    var opts = {};
+    if (convType === "audio") {
+        opts.sample_rate = parseInt($("#sampleRate").val()) || 0;
+    } else if (convType === "video") {
+        opts.resolution  = $("#videoResolution").val() || "";
+        opts.compression = parseInt($("#videoCompression").val()) || 0;
+    } else if (convType === "image") {
+        opts.scale       = parseFloat($("#imageScale").val()) || 1.0;
+        if (LOSSY_IMAGE_EXTS.includes(outputExt)) {
+            opts.compression = parseInt($("#imageQuality").val()) || 0;
+        }
+    }
+
+    // Generate a unique task ID on the frontend so we can start polling immediately
+    var taskId = Date.now().toString(36) +
+                 Math.floor(Math.random() * 0x100000).toString(36);
+
+    // Compute the expected output path (same dir as source, new extension)
+    var lastSlash = selectedFilePath.lastIndexOf("/");
+    var inputDir  = selectedFilePath.substring(0, lastSlash);
+    var fname     = selectedFilePath.substring(lastSlash + 1);
+    var base      = fname.includes(".") ? fname.substring(0, fname.lastIndexOf(".")) : fname;
+    var outputVpath = inputDir + "/" + base + "." + outputExt;
+
+    // Build task data for the UI
+    var taskData = {
+        id:           taskId,
+        input_vpath:  selectedFilePath,
+        output_vpath: outputVpath,
+        conv_type:    convType,
+        options:      opts,
+        status:       "running",
+        created_at:   Date.now(),
+        isUpload:     selectedFileUpload
+    };
+
+    addTaskCard(taskData);
+    startPolling(taskId);
+    clearSelectedFile();
+
+    // Fire the long-running AGI request (no timeout → waits until ffmpeg finishes)
+    ao_module_agirun("FFmpeg Factory/agi/convert.agi", {
+        src:       taskData.input_vpath,
+        outputExt: outputExt,
+        convType:  convType,
+        taskId:    taskId,
+        options:   JSON.stringify(opts)
+    }, function (resp) {
+        stopPolling(taskId);
+        var result = safeJSON(resp);
+        if (result) {
+            if (result.success) {
+                finaliseTask(taskId, "completed", result.output, "");
+            } else {
+                finaliseTask(taskId, "failed", "", result.error || "Conversion failed");
+            }
+        } else {
+            // Response could not be parsed (e.g. server error page).
+            // Fallback: check the task file status – fast conversions may have
+            // already written "completed" before the first progress poll fires.
+            checkTaskFallback(taskId, outputVpath);
+        }
+    }, function () {
+        stopPolling(taskId);
+        finaliseTask(taskId, "failed", "", "Connection error or request timed out");
+    }, 0 /* no HTTP timeout */);
+}
+
+// ──────────────────────────────────────────────
+// Polling
+// ──────────────────────────────────────────────
+function startPolling(taskId) {
+    if (activeTasks[taskId] && activeTasks[taskId].timer) return;
+    if (!activeTasks[taskId]) activeTasks[taskId] = {};
+
+    activeTasks[taskId].timer = setInterval(function () {
+        ao_module_agirun("FFmpeg Factory/agi/progress.agi", { id: taskId }, function (resp) {
+            try {
+                var prog = JSON.parse(resp);
+                if (prog.error) return;          // file not yet created
+                renderProgress(taskId, prog);
+                if (prog.completed) {
+                    stopPolling(taskId);
+                    // progress shows done but the convert.agi AJAX may still be in-flight;
+                    // finaliseTask will be called again when it returns (idempotent)
+                    finaliseTask(taskId, "completed", activeTasks[taskId] && activeTasks[taskId].outputVpath || "", "");
+                }
+            } catch (e) {}
+        });
+    }, 1000);
+}
+
+function stopPolling(taskId) {
+    if (activeTasks[taskId] && activeTasks[taskId].timer) {
+        clearInterval(activeTasks[taskId].timer);
+        activeTasks[taskId].timer = null;
+    }
+}
+
+// ──────────────────────────────────────────────
+// Task card rendering
+// ──────────────────────────────────────────────
+function addTaskCard(task) {
+    $("#emptyState").hide();
+
+    var inFile  = task.input_vpath.split("/").pop();
+    var outFile = task.output_vpath.split("/").pop();
+    var icon    = convTypeIcon(task.conv_type);
+
+    var html =
+        '<div class="task-card" id="tc-' + task.id + '">' +
+
+          '<div class="tc-row1">' +
+            '<i class="' + icon + ' icon tc-icon"></i>' +
+            '<div class="tc-names">' +
+              '<div class="tc-input" title="' + esc(task.input_vpath) + '">' + esc(inFile) + '</div>' +
+              '<div class="tc-output">\u2192 ' + esc(outFile) + '</div>' +
+            '</div>' +
+            '<span class="tc-badge badge-running">Running</span>' +
+          '</div>' +
+
+          '<div class="tc-prog-wrap">' +
+            '<div class="tc-prog-track"><div class="tc-prog-fill" style="width:0%"></div></div>' +
+            '<div class="tc-prog-label">Waiting for ffmpeg\u2026</div>' +
+          '</div>' +
+
+          '<div class="tc-stats">' +
+            '<span title="Input size"><i class="arrow down icon"></i> <b class="stat-in">—</b></span>' +
+            '<span title="Output size"><i class="arrow up icon"></i> <b class="stat-out">—</b></span>' +
+            '<span title="Elapsed time"><i class="clock outline icon"></i> <b class="stat-time">0s</b></span>' +
+          '</div>' +
+
+          '<div class="tc-actions">' +
+            '<button class="tc-btn primary tc-action-open" style="display:none" ' +
+                    'onclick="openTaskOutput(\'' + task.id + '\')"><i class="folder open icon"></i> Open Location</button>' +
+            '<button class="tc-btn primary tc-action-download" style="display:none" ' +
+                    'onclick="downloadTaskOutput(\'' + task.id + '\')"><i class="download icon"></i> Download</button>' +
+            '<button class="tc-btn danger" ' +
+                    'onclick="dismissTask(\'' + task.id + '\')"><i class="times icon"></i> Dismiss</button>' +
+          '</div>' +
+
+        '</div>';
+
+    $("#taskList").prepend($(html));
+
+    if (!activeTasks[task.id]) activeTasks[task.id] = {};
+    activeTasks[task.id].data        = task;
+    activeTasks[task.id].outputVpath = task.output_vpath;
+    activeTasks[task.id].isUpload    = task.isUpload || false;
+
+    refreshTaskCount();
+}
+
+function renderProgress(taskId, prog) {
+    var $c = $("#tc-" + taskId);
+    if (!$c.length) return;
+
+    var pct = Math.max(0, Math.min(100, Math.round(prog.percentage || 0)));
+    $c.find(".tc-prog-fill").css("width", pct + "%");
+    $c.find(".tc-prog-label").text("Converting\u2026 " + pct + "%");
+
+    if (prog.input_size  > 0) $c.find(".stat-in").text(fmtBytes(prog.input_size));
+    if (prog.output_size > 0) $c.find(".stat-out").text(fmtBytes(prog.output_size));
+    $c.find(".stat-time").text(fmtTime(prog.conversion_time));
+}
+
+function finaliseTask(taskId, status, outputVpath, errMsg) {
+    var $c = $("#tc-" + taskId);
+    if (!$c.length) return;
+
+    // Idempotent guard – do not overwrite a "completed" card
+    if ($c.find(".tc-badge").hasClass("badge-done")) return;
+
+    stopPolling(taskId);
+
+    var $fill  = $c.find(".tc-prog-fill");
+    var $badge = $c.find(".tc-badge");
+    var $label = $c.find(".tc-prog-label");
+
+    if (status === "completed") {
+        $fill.css("width", "100%").addClass("done");
+        $badge.removeClass("badge-running badge-failed badge-unknown").addClass("badge-done").text("Done");
+        $label.text("Conversion complete.");
+
+        // Store output path for action buttons
+        if (activeTasks[taskId]) activeTasks[taskId].outputVpath = outputVpath || activeTasks[taskId].outputVpath;
+        var vpath = (activeTasks[taskId] && activeTasks[taskId].outputVpath) || outputVpath;
+
+        if (vpath) {
+            var isUp = activeTasks[taskId] && activeTasks[taskId].isUpload;
+            if (isUp) {
+                $c.find(".tc-action-download").attr("data-vpath", vpath).show();
+            } else {
+                $c.find(".tc-action-open").attr("data-vpath", vpath).show();
+            }
+        }
+    } else if (status === "failed") {
+        $fill.css("width", "100%").addClass("error");
+        $badge.removeClass("badge-running badge-done badge-unknown").addClass("badge-failed").text("Failed");
+        $label.text("Error: " + (errMsg || "unknown error"));
+    } else {
+        $fill.css("width", "0%");
+        $badge.removeClass("badge-running badge-done badge-failed").addClass("badge-unknown").text("Unknown");
+        $label.text(errMsg || "State unknown — may have finished while offline.");
+    }
+}
+
+function openTaskOutput(taskId) {
+    var vpath = $("#tc-" + taskId + " .tc-action-open").attr("data-vpath");
+    if (!vpath) return;
+    var dir   = vpath.substring(0, vpath.lastIndexOf("/"));
+    var fname = vpath.split("/").pop();
+    ao_module_openPath(dir, fname);
+}
+
+function downloadTaskOutput(taskId) {
+    var vpath = $("#tc-" + taskId + " .tc-action-download").attr("data-vpath");
+    if (!vpath) return;
+    window.open(ao_root + "media/download/?file=" + encodeURIComponent(vpath));
+}
+
+function dismissTask(taskId) {
+    stopPolling(taskId);
+    $("#tc-" + taskId).remove();
+    delete activeTasks[taskId];
+    ao_module_agirun("FFmpeg Factory/agi/dismiss.agi", { id: taskId }, function () {});
+    refreshTaskCount();
+    if ($("#taskList .task-card").length === 0) $("#emptyState").show();
+}
+
+function refreshTaskCount() {
+    var n = $("#taskList .task-card").length;
+    if (n > 0) { $("#taskCountBadge").text(n).show(); }
+    else        { $("#taskCountBadge").hide(); }
+}
+
+// ──────────────────────────────────────────────
+// Session resume
+// ──────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// Fallback: if convert.agi response can't be parsed (small/fast files finish
+// before the first progress poll) — query tasks.agi for the recorded status.
+// ──────────────────────────────────────────────
+function checkTaskFallback(taskId, outputVpath) {
+    ao_module_agirun("FFmpeg Factory/agi/tasks.agi", {}, function (resp) {
+        var tasks = safeJSON(resp);
+        if (Array.isArray(tasks)) {
+            for (var i = 0; i < tasks.length; i++) {
+                var t = tasks[i];
+                if (t.id === taskId || t.task_id === taskId) {
+                    if (t.status === "completed") {
+                        finaliseTask(taskId, "completed", t.output_vpath || outputVpath || "", "");
+                    } else {
+                        finaliseTask(taskId, "failed", "", t.error || "Conversion failed");
+                    }
+                    return;
+                }
+            }
+        }
+        // Task not found — the task object may have already been cleaned up
+        if (activeTasks[taskId]) {
+            finaliseTask(taskId, "failed", "", "Server response could not be parsed");
+        }
+    });
+}
+
+function loadExistingTasks() {
+    ao_module_agirun("FFmpeg Factory/agi/tasks.agi", {}, function (resp) {
+        var tasks = safeJSON(resp);
+        if (!Array.isArray(tasks) || tasks.length === 0) return;
+
+        tasks.forEach(function (task) {
+            task.isUpload = task.input_vpath &&
+                            task.input_vpath.indexOf("tmp:/ffmpeg_factory/uploads/") === 0;
+            addTaskCard(task);
+
+            // Check current progress file to determine real status
+            ao_module_agirun("FFmpeg Factory/agi/progress.agi", { id: task.id }, function (progResp) {
+                var prog = safeJSON(progResp);
+
+                if (task.status === "completed" || (prog && prog.completed)) {
+                    finaliseTask(task.id, "completed", task.output_vpath, "");
+
+                } else if (task.status === "failed") {
+                    finaliseTask(task.id, "failed", "", task.error || "");
+
+                } else if (task.status === "running" && prog && !prog.error) {
+                    // Still running on the server — resume live polling
+                    renderProgress(task.id, prog);
+                    startPolling(task.id);
+
+                } else {
+                    // No progress file or unknown state; the conversion may have ended
+                    // while the browser was closed. Mark as indeterminate.
+                    finaliseTask(task.id, "unknown", task.output_vpath,
+                        "Conversion state unknown — check if the output file exists.");
+                }
+            });
+        });
+    });
+}
+
+// ──────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────
+function convTypeIcon(t) {
+    switch (t) {
+        case "audio":   return "music";
+        case "video":   return "film";
+        case "image":   return "image outline";
+        default:        return "exchange alternate";
+    }
+}
+
+function fmtBytes(b) {
+    if (!b || b <= 0) return "0 B";
+    var u = ["B","KB","MB","GB"];
+    var i = Math.floor(Math.log(b) / Math.log(1024));
+    i = Math.min(i, u.length - 1);
+    return (b / Math.pow(1024, i)).toFixed(1) + "\u202f" + u[i];
+}
+
+function fmtTime(s) {
+    if (!s || s < 0) return "0s";
+    if (s < 60) return Math.round(s) + "s";
+    return Math.floor(s / 60) + "m\u202f" + (Math.round(s % 60)) + "s";
+}
+
+function esc(str) {
+    return String(str)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+</script>
+</body>
+</html>
