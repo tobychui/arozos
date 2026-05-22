@@ -27,14 +27,181 @@
             flex: 0 0 auto;
             width: 100%;
             height: auto;
+            margin-left: 0.4em;
+            margin-top: 0.4em;
         }
         
         #path-selector {
-            flex: 0 0 auto;
-            padding: 1em;
-            background: #2c2c2c;
-            border-bottom: 1px solid #444;
-            color: #ffffff;
+            display: none;
+        }
+
+        #content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            width: 210px;
+            min-width: 210px;
+            background: #1e1e1e;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            padding-top: 3em;
+        }
+
+        /* Hide the top menu bar on desktop — only needed for mobile toggle */
+        @media (min-width: 769px) {
+            #menu { 
+                display: none; 
+            }
+            #sidebar {
+                padding-top: 0.4em;
+            }
+        }
+
+        .sidebar-section {
+            padding: 0.75em 0.5em 0.4em 0.5em;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.68em;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #555;
+            padding: 0 0.4em;
+            margin-bottom: 0.4em;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 0.38em 0.6em;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #aaa;
+            font-size: 0.87em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            margin: 1px 0.3em;
+            user-select: none;
+        }
+
+        .sidebar-item:hover {
+            background: #2a2a2a;
+            color: #fff;
+        }
+
+        .sidebar-item.active {
+            color: #f76c5d;
+            background: rgba(247, 108, 93, 0.12);
+        }
+
+        .sidebar-item.disk-root {
+            color: #888;
+            cursor: default;
+        }
+
+        .sidebar-item i {
+            flex-shrink: 0;
+            margin-right: 0.6em;
+            margin-top: -8px;
+            width: 1em;
+            text-align: center;
+        }
+
+        .sidebar-banner {
+            margin-top: auto;
+            padding: 1em 0.8em;
+            border-top: 1px solid #2a2a2a;
+            flex-shrink: 0;
+        }
+
+        .sidebar-banner img {
+            max-width: 100%;
+            max-height: 42px;
+            opacity: 1;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: #2a2a2a;
+            margin: 0.3em 0.8em;
+        }
+
+        .sidebar-select {
+            width: 100%;
+            background: #252525;
+            color: #bbb;
+            border: 1px solid #3a3a3a;
+            border-radius: 5px;
+            padding: 0.45em 2em 0.45em 0.7em;
+            font-size: 0.87em;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23777' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.7em center;
+            background-size: 0.65em;
+            box-sizing: border-box;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .sidebar-select:hover,
+        .sidebar-select:focus {
+            border-color: #f76c5d;
+            color: #fff;
+            outline: none;
+        }
+
+        .sidebar-select option {
+            background: #252525;
+            color: #bbb;
+        }
+
+        #sidebar-overlay {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            /* Keep the top menu bar above the sidebar so the toggle button is always clickable */
+            #menu {
+                position: relative;
+                z-index: 201;
+            }
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                z-index: 200;
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+                box-shadow: 3px 0 12px rgba(0,0,0,0.6);
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            #sidebar-toggle-btn {
+                display: flex !important;
+            }
+            #sidebar-overlay {
+                position: fixed;
+                top: 0; left: 0;
+                width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 199;
+            }
         }
         
         #display {
@@ -42,6 +209,7 @@
             margin: 0;
             overflow: hidden;
             background: #1a1a1a;
+            min-width: 0;
         }
         
         body {
@@ -83,12 +251,6 @@
             height: 100%;
             background: rgba(20,20,20,0.8);
             backdrop-filter: blur(2px);
-        }
-
-        .subfolders-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5em;
         }
 
         #noimg {
@@ -445,95 +607,111 @@
 <body>
     <div id="main" x-data='photoListObject()' x-init="init()">
         <div class="ui inverted secondary small menu" id="menu">
-            <div class="item">
-                <img class="ui fluid image" src="img/banner.png" style="max-height: 40px;">
-            </div>
-            <div class="ui inverted dropdown item">
-                Disk <i class="dropdown icon"></i>
-                <div class="menu">
-                    <template x-for="vroot in vroots">
-                        <a class="item" :rootpath="vroot[1]" x-on:click="updateRenderingPath(vroot[2]);"><i class="ui disk icon"></i> <span x-text="vroot[0] + ' (' + vroot[1] + ')'"></span></a>
-                    </template>
-                    
-                </div>
-            </div>
-            <div class="ui inverted dropdown item">
-                Sort By <i class="dropdown icon"></i>
-                <div class="menu">
-                    <a class="item" x-on:click="changeSort('default');" :class="{ 'active': sortOrder === 'default' }"><i class="ui sort alphabet up icon"></i> Filename Ascending</a>
-                    <a class="item" x-on:click="changeSort('reverse');" :class="{ 'active': sortOrder === 'reverse' }"><i class="ui sort alphabet down icon"></i> Filename Descending</a>
-                    <a class="item" x-on:click="changeSort('smallToLarge');" :class="{ 'active': sortOrder === 'smallToLarge' }"><i class="ui sort amount up icon"></i> Size Small to Large</a>
-                    <a class="item" x-on:click="changeSort('largeToSmall');" :class="{ 'active': sortOrder === 'largeToSmall' }"><i class="ui sort amount down icon"></i> Size Large to Small</a>
-                    <a class="item" x-on:click="changeSort('mostRecent');" :class="{ 'active': sortOrder === 'mostRecent' }"><i class="ui calendar icon"></i> Newest First</a>
-                    <a class="item" x-on:click="changeSort('leastRecent');" :class="{ 'active': sortOrder === 'leastRecent' }"><i class="ui calendar outline icon"></i> Oldest First</a>
-                    <a class="item" x-on:click="changeSort('fileTypeAsce');" :class="{ 'active': sortOrder === 'fileTypeAsce' }"><i class="ui file alternate icon"></i> Extension Ascending</a>
-                    <a class="item" x-on:click="changeSort('fileTypeDesc');" :class="{ 'active': sortOrder === 'fileTypeDesc' }"><i class="ui file alternate outline icon"></i> Extension Descending</a>
-                    <a class="item" x-on:click="changeSort('smart');" :class="{ 'active': sortOrder === 'smart' }"><i class="ui magic icon"></i> Natural Order</a>
-                </div>
-            </div>
-            
-            <!-- Right floated menu -->
-            <a class="right floated icon item" x-on:click="toggleViewMode();">
-                <i x-show="viewMode === 'grid'" class="ui bars large icon"></i>
-                <i x-show="viewMode === 'list'" class="ui th large icon"></i>
+            <!-- Mobile sidebar toggle (hidden on desktop via CSS) -->
+            <a class="icon item" id="sidebar-toggle-btn" x-on:click="sidebarOpen = !sidebarOpen;" style="display:none;">
+                <i class="ui bars large icon"></i>
             </a>
-
         </div>
 
-        <div id="path-selector">
-            <div class="ui inverted breadcrumb">
-                <span x-text="currentPath"></span>
-            </div>
-            <div class="ui divider"></div>
-            <div >
-                <a id="parentFolderButton" class="ui basic inverted button" x-on:click="parentFolder();" style="display:none; margin-top: 0.6em;">
-                    <i class="reply icon"></i> Parent Folder
-                </a>
-                <div id="subfolders-buttons" class="subfolders-container" style="margin-top: 0.6em;">
-                    <div class="item" id="nosubfolder" style="display:none;"><!-- <i class="ui green circle check icon"></i> No Sub Folders --></div>
-                    <template x-for="folder in folders">
-                        <a class="ui basic small inverted button" x-on:click="updateRenderingPath(folder);"><i class="ui folder open icon"></i> <span x-text="extractFolderName(folder);"></span></a>
-                    </template>
-                </div>
-            </div>
-        </div>
+        <!-- Mobile sidebar overlay -->
+        <div id="sidebar-overlay" x-show="sidebarOpen" x-on:click="sidebarOpen = false;"></div>
 
-        <div id="display">
-            <div id="noimg" class="ui basic inverted segment" style="display:none;">
-                <h4 class="ui header">
-                    <div class="content">
-                        Empty Folder
-                        <div class="sub header">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
+        <div id="content-area">
+            <!-- Sidebar folder tree -->
+            <div id="sidebar" :class="{ 'open': sidebarOpen }">
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Sort By</div>
+                    <div style="padding: 0 0.4em;">
+                        <select class="sidebar-select" x-model="sortOrder" x-on:change="getFolderInfo();">
+                            <option value="smart">Natural Order</option>
+                            <option value="mostRecent">Newest First</option>
+                            <option value="leastRecent">Oldest First</option>
+                            <option value="default">Filename A→Z</option>
+                            <option value="reverse">Filename Z→A</option>
+                            <option value="smallToLarge">Size Small→Large</option>
+                            <option value="largeToSmall">Size Large→Small</option>
+                            <option value="fileTypeAsce">Extension A→Z</option>
+                            <option value="fileTypeDesc">Extension Z→A</option>
+                        </select>
                     </div>
-                </h4>
-            </div>
-            <div id="viewboxContainer">
-                <div x-show="viewMode === 'grid'" id="viewbox" class="ui six cards viewbox">
-                    <template x-for="image in images">
-                        <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
-                            <a class="image" x-init="updateImageSizes();">
-                                <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
-                            </a>
-                        </div>
-                    </template>
                 </div>
-                <div x-show="viewMode === 'list'" class="ui relaxed divided inverted list">
-                    <template x-for="image in images">
-                        <div class="item" style="cursor: pointer; padding-left: 10px; " x-on:click="showImage($el); ShowModal();" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
-                            <img class="ui small image" :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath"
-                                 style="width: 60px; height: 60px;">
-                            <div class="content">
-                                <div class="header" x-text="image.filepath.split('/').pop()"></div>
-                                <div class="description" x-text="image.filepath"></div>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </div>
-        </div>
 
-        
-    </div>
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Library</div>
+                    <template x-for="vroot in vroots">
+                        <a class="sidebar-item" x-on:click="updateRenderingPath(vroot[2]);">
+                            <i class="ui hdd outline icon"></i>
+                            <span x-text="vroot[0]"></span>
+                        </a>
+                    </template>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Current Path</div>
+                    <template x-for="(seg, idx) in getPathSegments()">
+                        <a class="sidebar-item"
+                           :class="{ 'active': seg.path === currentPath, 'disk-root': seg.isDiskRoot }"
+                           :style="{ paddingLeft: (0.6 + seg.depth * 0.75) + 'em' }"
+                           x-on:click="!seg.isDiskRoot && seg.path !== currentPath && updateRenderingPath(seg.path);">
+                            <i :class="seg.isDiskRoot ? 'ui hdd outline icon' : 'ui folder icon'"></i>
+                            <span x-text="seg.name"></span>
+                        </a>
+                    </template>
+                </div>
+
+                <div x-show="folders.length > 0">
+                    <div class="sidebar-divider"></div>
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Subfolders</div>
+                        <template x-for="folder in folders">
+                            <a class="sidebar-item" x-on:click="updateRenderingPath(folder);">
+                                <i class="ui folder open icon"></i>
+                                <span x-text="extractFolderName(folder)"></span>
+                            </a>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Banner pinned to bottom of sidebar -->
+                <div class="sidebar-banner">
+                    <img src="img/banner.png" alt="Photo">
+                </div>
+
+            </div><!-- /#sidebar -->
+
+            <div id="display">
+                <div id="noimg" class="ui basic inverted segment" style="display:none;">
+                    <h4 class="ui header">
+                        <div class="content">
+                            Empty Folder
+                            <div class="sub header">There are no photo stored in <span x-text="currentPath + '/'"></span></div>
+                        </div>
+                    </h4>
+                </div>
+                <div id="viewboxContainer">
+                    <div id="viewbox" class="ui six cards viewbox">
+                        <template x-for="image in images">
+                            <div class="imagecard" style="cursor: pointer;" x-on:click="showImage($el); ShowModal();" :style="{width: renderSize + 'px', height: renderSize + 'px'}" :filedata="encodeURIComponent(JSON.stringify({'filename':image.filepath.split('/').pop(),'filepath':image.filepath,'filesize':image.filesize}))">
+                                <a class="image" x-init="updateImageSizes();">
+                                    <img :src="'../system/file_system/loadThumbnail?bytes=true&vpath=' + image.filepath">
+                                </a>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- Infinite scroll sentinel -->
+                    <div id="load-more-indicator" style="text-align:center; padding: 1em; color: #aaa;" x-show="hasMoreImages">
+                        <i class="loading spinner icon"></i> Loading more photos...
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /#content-area -->
+    </div><!-- /#main -->
     <!-- Photo Viewer -->
     <div id="photo-viewer" class="photo-viewer">
         

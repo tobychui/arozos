@@ -6,6 +6,9 @@
 
 */
 
+// Number of photos to load per page (infinite scroll batch size)
+const PAGE_SIZE = 40; //large enough to fill the whole page on load, but small enough to keep initial load fast and responsive
+
 let photoList = [];
 let prePhoto = "";
 let nextPhoto = "";
@@ -27,30 +30,28 @@ function getViewableImageUrl(filepath, callback) {
     callback(imageUrl, true, false, isRawImage(filepath) ? 'backend_raw' : 'direct');
 }
 
-function scrollbarVisable(){
-    return $("body")[0].scrollHeight > $("body").height();
-}
-
 function getImageWidth(){
-    let boxCount = 4;
-    if (window.innerWidth < 500) {
+    // Use the actual viewbox container width so the sidebar and scrollbar are
+    // already subtracted — this prevents gaps when the window is resized.
+    const container = document.getElementById('viewboxContainer');
+    const containerWidth = container ? container.clientWidth : (window.innerWidth - 210);
+
+    let boxCount;
+    if (containerWidth < 400) {
+        boxCount = 2;
+    } else if (containerWidth < 600) {
         boxCount = 3;
-    } else if (window.innerWidth < 800) {
+    } else if (containerWidth < 900) {
         boxCount = 4;
-    } else if (window.innerWidth < 1200) {
+    } else if (containerWidth < 1100) {
         boxCount = 5;
-    }else if (window.innerWidth < 1600){
+    } else if (containerWidth < 1400) {
         boxCount = 6;
     } else {
         boxCount = 8;
     }
 
-    let offsets = 2;
-    if (scrollbarVisable()){
-        offsets = offsets * 1.2;
-    }
-
-    return window.innerWidth / boxCount - offsets;
+    return Math.floor(containerWidth / boxCount);
 }
 
 function updateImageSizes(){
@@ -97,12 +98,15 @@ function photoListObject() {
         currentPath: "user:/Photo",
         renderSize: 200,
         vroots: [],
-        images: [],
+        allImages: [],       // full list from server
+        images: [],           // currently displayed slice
         folders: [],
-        viewMode: 'grid', // 'grid' or 'list'
         sortOrder: 'smart',
         restored: false,
-        
+        hasMoreImages: false,
+        isLoadingMore: false, // guard: blocks new batch until DOM has updated
+        sidebarOpen: !isMobile,  // start hidden on mobile, visible on desktop
+
         // init
         init() {
             this.getFolderInfo();
@@ -110,27 +114,50 @@ function photoListObject() {
             this.renderSize = getImageWidth();
             updateImageSizes();
             this.restored = false;
+            this.$nextTick(() => { this.setupInfiniteScroll(); });
+
+            const MOBILE_BP = 768;
+            let _prevMobile = window.innerWidth <= MOBILE_BP;
+            let _resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(_resizeTimer);
+                _resizeTimer = setTimeout(() => {
+                    // Recalculate tile sizes
+                    this.renderSize = getImageWidth();
+                    updateImageSizes();
+
+                    // Auto-manage sidebar visibility on breakpoint crossing
+                    const nowMobile = window.innerWidth <= MOBILE_BP;
+                    if (nowMobile && !_prevMobile) {
+                        // Desktop → mobile: hide sidebar so it doesn't overlay content
+                        this.sidebarOpen = false;
+                    } else if (!nowMobile && _prevMobile) {
+                        // Mobile → desktop: sidebar is back in normal flow, keep state clean
+                        this.sidebarOpen = false;
+                    }
+                    _prevMobile = nowMobile;
+                }, 80);
+            });
         },
         
         updateRenderingPath(newPath, callback = null){
             this.currentPath = JSON.parse(JSON.stringify(newPath));
             this.pathWildcard = newPath + '/*';
-            if (this.pathWildcard.split("/").length == 3){
-                //Root path already
-                $("#parentFolderButton").hide();
-            }else{
-                $("#parentFolderButton").show();
-            }
             this.restored = false;
+            if (isMobile) this.sidebarOpen = false;
             this.getFolderInfo(callback);
         },
 
-        parentFolder(){
-            var parentPath = JSON.parse(JSON.stringify(this.currentPath));
-            parentPath = parentPath.split("/");
-            parentPath.pop();
-            this.currentPath = parentPath.join("/");
-            this.updateRenderingPath( this.currentPath);
+        // Returns path segments for the sidebar breadcrumb tree
+        getPathSegments() {
+            const parts = this.currentPath.split('/');
+            let segments = [];
+            let accumulated = '';
+            for (let i = 0; i < parts.length; i++) {
+                accumulated = i === 0 ? parts[0] : accumulated + '/' + parts[i];
+                segments.push({ name: parts[i], path: accumulated, depth: i, isDiskRoot: i === 0 });
+            }
+            return segments;
         },
 
         getFolderInfo(callback = null) {
@@ -148,19 +175,17 @@ function photoListObject() {
                 resp.json().then(data => {
                     console.log(data);
                     this.folders = data[0];
-                    this.images = data[1];
+                    this.allImages = data[1];
+                    this.images = this.allImages.slice(0, PAGE_SIZE);
+                    this.hasMoreImages = this.allImages.length > PAGE_SIZE;
+                    this.isLoadingMore = false;
 
-                    if (this.images.length == 0){
+                    if (this.allImages.length == 0){
                         $("#noimg").show();
                     }else{
                         $("#noimg").hide();
                     }
 
-                    if (this.folders.length == 0){
-                        $("#nosubfolder").show();
-                    }else{
-                        $("#nosubfolder").hide();
-                    }
                     console.log(this.folders);
 
                     if (!this.restored) { restoreFromHash(); this.restored = true; }
@@ -188,17 +213,35 @@ function photoListObject() {
             })
         },
 
-        toggleViewMode() {
-            this.viewMode = this.viewMode === 'grid' ? 'list' : 'grid';
-            if (this.viewMode === 'grid') {
-                this.renderSize = getImageWidth();
-                updateImageSizes();
-            }
-        },
-
         changeSort(newSort) {
             this.sortOrder = newSort;
             this.getFolderInfo();
+        },
+
+        // Load the next PAGE_SIZE images into the displayed list
+        loadMoreImages() {
+            if (this.isLoadingMore) return;
+            const current = this.images.length;
+            if (current >= this.allImages.length) return;
+            this.isLoadingMore = true;
+            const next = this.allImages.slice(current, current + PAGE_SIZE);
+            this.images = this.images.concat(next);
+            this.hasMoreImages = this.images.length < this.allImages.length;
+            // Release the guard only after Alpine has re-rendered and scrollHeight has grown
+            this.$nextTick(() => { this.isLoadingMore = false; });
+        },
+
+        // Attach a scroll listener to the viewbox container for infinite scroll
+        setupInfiniteScroll() {
+            const container = document.getElementById('viewboxContainer');
+            if (!container) return;
+            container.addEventListener('scroll', () => {
+                const { scrollTop, scrollHeight, clientHeight } = container;
+                // Trigger when within 300px of the bottom
+                if (scrollTop + clientHeight >= scrollHeight - 300) {
+                    this.loadMoreImages();
+                }
+            });
         }
     }
 }
