@@ -11,7 +11,7 @@
 var moduleLaunchInfo = {
     Name: "FFmpeg Factory",
 	Group: "Media",
-	IconPath: "FFmpeg Factory/img/small_icon.png",
+	IconPath: "FFmpeg Factory/img/module_icon.png",
 	Version: "3.0",
 	StartDir: "FFmpeg Factory/index.html",
 	SupportFW: true,
