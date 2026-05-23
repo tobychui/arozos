@@ -285,7 +285,31 @@
         .delete-btn { color: #ff453a; }
         body.light-mode .delete-btn:hover { background: rgba(255, 69, 58, 0.1) !important; }
         body.dark-mode  .delete-btn:hover { background: rgba(255, 69, 58, 0.15) !important; }
+        .icon-btn img { display: block; width: 18px; height: 18px; }
+        .new-note-btn img { display: block; width: 26px; height: 26px; }
 
+        /* ── Snackbar ─────────────────────────────────────────────────────────── */
+        #snackbar {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(12px);
+            padding: 9px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: inherit;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.22s ease, transform 0.22s ease;
+            z-index: 9999;
+            white-space: nowrap;
+        }
+        #snackbar.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        body.light-mode #snackbar { background: #1c1c1e; color: #ffffff; }
+        body.dark-mode  #snackbar { background: #f2f2f7; color: #1c1c1e; }
         /* ── Scrollbar ────────────────────────────────────────────────────── */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -300,7 +324,9 @@
         <div class="sidebar-header">
             <span class="sidebar-title">Notes</span>
             <div class="sidebar-header-actions">
-                <button class="icon-btn" id="themeToggle" title="Toggle theme">◐</button>
+                <button class="icon-btn" id="themeToggle" title="Toggle theme">
+                    <img id="themeIcon" src="img/theme_white.svg" alt="theme">
+                </button>
             </div>
         </div>
 
@@ -311,7 +337,9 @@
         <div class="note-list" id="noteList"></div>
 
         <div class="new-note-bar">
-            <button class="new-note-btn" id="newNoteBtn" title="New Note (Ctrl+N)">&#9998;</button>
+            <button class="new-note-btn" id="newNoteBtn" title="New Note (Ctrl+N)">
+                <img id="newNoteIcon" src="img/edit_white.svg" alt="new note">
+            </button>
         </div>
     </div>
 
@@ -329,7 +357,12 @@
             <div class="editor-header">
                 <span class="editor-date" id="editorDate"></span>
                 <div class="editor-actions">
-                    <button class="icon-btn delete-btn" id="deleteNoteBtn" title="Delete note">❌</button>
+                    <button class="icon-btn" id="downloadNoteBtn" title="Export as .txt">
+                        <img id="downloadIcon" src="img/download_white.svg" alt="download">
+                    </button>
+                    <button class="icon-btn delete-btn" id="deleteNoteBtn" title="Delete note">
+                        <img id="deleteIcon" src="img/delete_white.svg" alt="delete">
+                    </button>
                 </div>
             </div>
             <div class="editor-area">
@@ -338,6 +371,9 @@
         </div>
 
     </div>
+
+    <!-- Snackbar -->
+    <div id="snackbar"></div>
 
     <script>
         // ── State ──────────────────────────────────────────────────────────────
@@ -353,6 +389,18 @@
             var isDark = (theme !== 'white');
             document.body.classList.toggle('dark-mode',  isDark);
             document.body.classList.toggle('light-mode', !isDark);
+            // Swap SVG icons: dark UI → white icons; light UI → dark icons
+            var suffix = isDark ? 'white' : 'dark';
+            var iconMap = {
+                themeIcon:    'theme_',
+                newNoteIcon:  'edit_',
+                deleteIcon:   'delete_',
+                downloadIcon: 'download_'
+            };
+            Object.keys(iconMap).forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.src = 'img/' + iconMap[id] + suffix + '.svg';
+            });
         }
 
         // ── AGI API wrappers ───────────────────────────────────────────────────
@@ -584,9 +632,51 @@
             }, 400);
         });
 
+        // ── Snackbar ──────────────────────────────────────────────────────────
+        var _snackbarTimer = null;
+        function showSnackbar(msg) {
+            var sb = document.getElementById('snackbar');
+            if (!sb) return;
+            sb.textContent = msg;
+            sb.classList.add('show');
+            clearTimeout(_snackbarTimer);
+            _snackbarTimer = setTimeout(function () { sb.classList.remove('show'); }, 2200);
+        }
+
+        // ── Save now (used by Ctrl+S) ──────────────────────────────────────────
+        function saveNow() {
+            if (!activeId) return;
+            clearTimeout(saveTimer);
+            var content = document.getElementById('noteTextarea').value;
+            var ts = Date.now();
+            var note = notes.find(function (n) { return n.id === activeId; });
+            if (note) { note.title = getTitle(content); note.updatedAt = ts; }
+            apiWrite(activeId, content, ts);
+            showSnackbar('Note saved');
+        }
+
+        // ── Export / download current note as .txt ─────────────────────────────
+        function downloadActiveNote() {
+            if (!activeId) return;
+            var content = document.getElementById('noteTextarea').value;
+            var note = notes.find(function (n) { return n.id === activeId; });
+            var filename = ((note && note.title) ? note.title : 'note');
+            filename = filename.replace(/[\\\/:*?"<>|]/g, '_').trim() || 'note';
+            filename += '.txt';
+            var blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }
+
         // ── Toolbar buttons ────────────────────────────────────────────────────
         document.getElementById('newNoteBtn').addEventListener('click', createNote);
         document.getElementById('deleteNoteBtn').addEventListener('click', deleteActiveNote);
+        document.getElementById('downloadNoteBtn').addEventListener('click', downloadActiveNote);
 
         // ── Search ─────────────────────────────────────────────────────────────
         document.getElementById('searchInput').addEventListener('input', function () {
@@ -606,6 +696,10 @@
             if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
                 e.preventDefault();
                 createNote();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveNow();
             }
         });
 
