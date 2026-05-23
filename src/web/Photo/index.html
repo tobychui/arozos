@@ -912,13 +912,60 @@
     }
 
     // Navigation functionality
+
+    // Find a rendered .imagecard DOM element by its filepath
+    function findCardByFilepath(filepath) {
+        const cards = document.querySelectorAll('#viewbox .imagecard[filedata]');
+        for (const card of cards) {
+            try {
+                const fd = JSON.parse(decodeURIComponent(card.getAttribute('filedata')));
+                if (fd.filepath === filepath) return card;
+            } catch(e) {}
+        }
+        return null;
+    }
+
+    // Navigate to an image at a given index in allImages, loading more DOM cards if needed
+    function navigateToAllImagesIndex(app, idx) {
+        const imgData = app.allImages[idx];
+        const el = findCardByFilepath(imgData.filepath);
+        if (el) {
+            showImage(el);
+            return;
+        }
+        // The card is not yet in the DOM — extend the rendered slice to cover it
+        const newCount = Math.min(idx + 1 + PAGE_SIZE, app.allImages.length);
+        app.images = app.allImages.slice(0, newCount);
+        app.hasMoreImages = app.images.length < app.allImages.length;
+        app.isLoadingMore = false;
+        // Wait for Alpine to render the new cards, then show the target image
+        app.$nextTick(() => {
+            const el2 = findCardByFilepath(imgData.filepath);
+            if (el2) showImage(el2);
+        });
+    }
+
     function showPreviousImage() {
+        const appEl = document.querySelector('[x-data*="photoListObject"]');
+        if (appEl && appEl._x_dataStack && currentPhotoAllIndex > 0) {
+            navigateToAllImagesIndex(appEl._x_dataStack[0], currentPhotoAllIndex - 1);
+            return;
+        }
+        // Fallback to DOM-based navigation
         if (typeof prePhoto !== 'undefined' && prePhoto != null) {
             showImage(prePhoto);
         }
     }
 
     function showNextImage() {
+        const appEl = document.querySelector('[x-data*="photoListObject"]');
+        if (appEl && appEl._x_dataStack && currentPhotoAllIndex >= 0) {
+            const app = appEl._x_dataStack[0];
+            if (currentPhotoAllIndex + 1 >= app.allImages.length) return; // already at end
+            navigateToAllImagesIndex(app, currentPhotoAllIndex + 1);
+            return;
+        }
+        // Fallback to DOM-based navigation
         if (typeof nextPhoto !== 'undefined' && nextPhoto != null) {
             showImage(nextPhoto);
         }
@@ -927,7 +974,15 @@
     function updateNavigationButtons() {
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
-        
+
+        const appEl = document.querySelector('[x-data*="photoListObject"]');
+        if (appEl && appEl._x_dataStack && currentPhotoAllIndex >= 0) {
+            const app = appEl._x_dataStack[0];
+            if (prevBtn) prevBtn.disabled = (currentPhotoAllIndex <= 0);
+            if (nextBtn) nextBtn.disabled = (currentPhotoAllIndex >= app.allImages.length - 1);
+            return;
+        }
+        // Fallback
         if (prevBtn) {
             prevBtn.disabled = (typeof prePhoto === 'undefined' || prePhoto == null || !$(prePhoto).hasClass("imagecard"));
         }

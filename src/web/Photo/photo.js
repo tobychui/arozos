@@ -13,6 +13,7 @@ let photoList = [];
 let prePhoto = "";
 let nextPhoto = "";
 let currentModel = "";
+let currentPhotoAllIndex = -1; // index of current photo in allImages (full server list)
 let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // Check if image should use compression (only JPG/PNG)
@@ -259,7 +260,11 @@ function ShowModal(){
 
 function closeViewer(){
     $('#photo-viewer').hide();
-    window.location.hash = '';
+    if (!ao_module_virtualDesktop){
+        // Only update hash if not under WebDesktop mode 
+        // to prevent iframe refresh
+        window.location.hash = '';
+    }
     ao_module_setWindowTitle("Photo");
 
     setTimeout(function(){
@@ -409,15 +414,29 @@ function showImage(object){
             prePhoto = null;
         }
 
+        // Track position in the full allImages list for index-based navigation
+        const _appEl = document.querySelector('[x-data*="photoListObject"]');
+        if (_appEl && _appEl._x_dataStack) {
+            const _app = _appEl._x_dataStack[0];
+            currentPhotoAllIndex = _app.allImages.findIndex(img => img.filepath === fd.filepath);
+
+            // Proactively load next batch when within PAGE_SIZE of the end of rendered images
+            if (currentPhotoAllIndex >= 0 && _app.hasMoreImages &&
+                    currentPhotoAllIndex >= _app.images.length - PAGE_SIZE) {
+                _app.loadMoreImages();
+            }
+        }
+
         // Update navigation buttons state
         if (typeof updateNavigationButtons === 'function') {
             updateNavigationButtons();
         }
 
         ao_module_setWindowTitle("Photo - " + fd.filename);
-
-        window.location.hash = encodeURIComponent(JSON.stringify({filename: fd.filename, filepath: fd.filepath}));
-
+        if (!ao_module_virtualDesktop){
+            window.location.hash = encodeURIComponent(JSON.stringify({filename: fd.filename, filepath: fd.filepath}));
+        }
+        
         // Check for EXIF data
         fetch(ao_root + "system/ajgi/interface?script=Photo/backend/getExif.js", {
             method: 'POST',
@@ -454,13 +473,17 @@ $(document).on("keydown", function(e){
         }
     } else if (e.keyCode == 37){
         //Left
-        if (prePhoto != null){
+        if (typeof showPreviousImage === 'function') {
+            showPreviousImage();
+        } else if (prePhoto != null){
             showImage(prePhoto);
         }
        
     }else if (e.keyCode == 39){
         //Right
-        if (nextPhoto != null){
+        if (typeof showNextImage === 'function') {
+            showNextImage();
+        } else if (nextPhoto != null){
             showImage(nextPhoto);
         }
         
