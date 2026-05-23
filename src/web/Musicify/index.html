@@ -1,0 +1,1370 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" type="image/png" href="img/module_icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#a855f7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Musicify">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon-iphone-60x60.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="img/apple-touch-icon-ipad-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="img/apple-touch-icon-iphone-retina-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="img/apple-touch-icon-ipad-retina-152x152.png">
+    <meta name="description" content="Modern music player for ArozOS">
+    <title>Musicify</title>
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
+    <script src="../script/alpine.min.js" defer></script>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script src="musicify.js"></script>
+    <style>
+        /* ── Reset & Variables ─────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:         #111114;
+            --bg2:        #18181e;
+            --bg3:        #1e1e27;
+            --sidebar-bg: #0d0d11;
+            --player-bg:  #0d0d11;
+            --border:     #2a2a38;
+            --accent:     #a855f7;
+            --accent2:    #7c3aed;
+            --accent-glow:rgba(168,85,247,.18);
+            --text:       #f0f0f5;
+            --text2:      #9090a8;
+            --text3:      #55556a;
+            --hover:      rgba(255,255,255,.055);
+            --active-bg:  rgba(168,85,247,.13);
+            --player-h:   88px;
+            --sidebar-w:  240px;
+            --font:       -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        }
+
+        html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; }
+
+        /* ── App Layout ────────────────────────────────────────────────── */
+        #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        .app-body {
+            display: flex; flex: 1; min-height: 0; overflow: hidden;
+        }
+
+        /* ── Sidebar ────────────────────────────────────────────────────── */
+        .sidebar {
+            width: var(--sidebar-w); flex-shrink: 0;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            transition: transform .25s ease;
+            z-index: 100;
+        }
+
+        .sidebar-logo {
+            display: flex; align-items: center; gap: 10px;
+            padding: 18px 16px 14px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .sidebar-logo-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .sidebar-logo-text { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+
+        .sidebar-search {
+            padding: 10px 12px; flex-shrink: 0;
+        }
+        .sidebar-search input {
+            width: 100%; background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 20px; padding: 7px 14px; font-size: 13px;
+            color: var(--text); outline: none; transition: border-color .15s;
+        }
+        .sidebar-search input:focus { border-color: var(--accent); }
+        .sidebar-search input::placeholder { color: var(--text3); }
+
+        .sidebar-nav { flex: 1; overflow-y: auto; padding: 4px 8px; }
+        .sidebar-nav::-webkit-scrollbar { width: 4px; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .sidebar-section-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+            color: var(--text3); padding: 12px 8px 4px;
+        }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; border-radius: 7px; cursor: pointer;
+            color: var(--text2); font-size: 13.5px; font-weight: 500;
+            text-decoration: none; user-select: none;
+            transition: background .12s, color .12s;
+        }
+        .nav-item:hover  { background: var(--hover); color: var(--text); }
+        .nav-item.active { background: var(--active-bg); color: var(--accent); }
+        .nav-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; margin-bottom: 7px !important; }
+
+        .playlist-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 10px; border-radius: 6px; cursor: pointer;
+            color: var(--text2); font-size: 13px;
+            transition: background .12s, color .12s; user-select: none;
+        }
+        .playlist-item:hover  { background: var(--hover); color: var(--text); }
+        .playlist-item.active { color: var(--accent); }
+        .playlist-item .pl-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .playlist-item .pl-del {
+            opacity: 0; font-size: 11px; color: var(--text3); padding: 2px 4px;
+            border-radius: 3px; transition: opacity .12s;
+        }
+        .playlist-item:hover .pl-del { opacity: 1; }
+        .playlist-item .pl-del:hover { color: #f87171; }
+        .playlist-item i { margin-bottom: 5px !important; }
+        .new-playlist-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 10px; margin: 2px 0; border-radius: 6px;
+            cursor: pointer; color: var(--text3); font-size: 13px;
+            transition: color .12s;
+        }
+        .new-playlist-btn:hover { color: var(--accent); }
+
+        /* ── Mobile top bar ─────────────────────────────────────────────── */
+        .mobile-bar {
+            display: none; align-items: center; gap: 10px;
+            padding: 10px 14px; background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 110;
+            position: relative;
+        }
+        .mobile-bar-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--text); }
+
+        .sidebar-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.55); z-index: 99;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-bar { display: flex; }
+            .sidebar {
+                position: fixed; top: 0; left: 0; height: 100%;
+                transform: translateX(-100%); z-index: 200;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-overlay { display: block; }
+            .queue-panel{
+                bottom: calc(var(--player-h) - 2px) !important;
+            }
+        }
+
+        /* ── Main Content ────────────────────────────────────────────────── */
+        .main-content {
+            flex: 1; overflow-y: auto; background: var(--bg);
+            min-width: 0; display: flex; flex-direction: column;
+        }
+        .main-content::-webkit-scrollbar { width: 6px; }
+        .main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .content-header {
+            padding: 22px 24px 0; flex-shrink: 0;
+        }
+        .content-header h1 { font-size: 22px; font-weight: 800; color: var(--text); }
+        .content-header h2 { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .content-header p  { font-size: 13px; color: var(--text2); }
+
+        .content-body { padding: 14px 24px 20px; flex: 1; }
+
+        /* ── Breadcrumb ─────────────────────────────────────────────────── */
+        .breadcrumb {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+            font-size: 12px; color: var(--text3); margin-bottom: 12px;
+        }
+        .breadcrumb span { cursor: pointer; transition: color .12s; }
+        .breadcrumb span:hover { color: var(--accent); }
+        .breadcrumb .sep { color: var(--text3); }
+
+        /* ── Folder Grid ────────────────────────────────────────────────── */
+        .folder-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px; margin-bottom: 20px;
+        }
+        .folder-card {
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px;
+            transition: background .15s, border-color .15s;
+        }
+        .folder-card:hover { background: var(--bg2); border-color: var(--accent); }
+        .folder-card i { font-size: 18px; color: var(--accent); flex-shrink: 0; }
+        .folder-card span { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* ── Artist List ─────────────────────────────────────────────────── */
+        .artist-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            transition: background .12s; border-bottom: 1px solid var(--border);
+        }
+        .artist-row:last-child { border-bottom: none; }
+        .artist-row:hover { background: var(--hover); }
+        .artist-avatar {
+            width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--accent2), var(--accent));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: #fff; font-weight: 700; text-transform: uppercase;
+        }
+        .artist-info { flex: 1; min-width: 0; }
+        .artist-name { font-size: 14px; font-weight: 600; color: var(--text); }
+        .artist-count { font-size: 12px; color: var(--text2); }
+        .artist-expand { color: var(--text3); transition: transform .2s; }
+        .artist-expand.open { transform: rotate(90deg); }
+
+        /* ── Song List ──────────────────────────────────────────────────── */
+        .song-list { width: 100%; }
+        .song-row {
+            display: grid;
+            grid-template-columns: 28px 36px 1fr auto 80px 28px;
+            gap: 10px; align-items: center;
+            padding: 7px 10px; border-radius: 7px; cursor: pointer;
+            transition: background .1s;
+            color: var(--text2);
+        }
+        .song-row:hover  { background: var(--hover); color: var(--text); }
+        .song-row.active { background: var(--active-bg); color: var(--accent); }
+        .song-row.active .song-name { color: var(--accent); }
+
+        .song-idx  { font-size: 12px; color: var(--text3); text-align: right; }
+        .song-play { display: none; font-size: 14px; color: var(--accent); text-align: center; }
+        .song-row:hover .song-idx  { display: none; }
+        .song-row:hover .song-play { display: block; }
+        .song-row.active .song-idx  { display: none; }
+        .song-row.active .song-play { display: block; }
+
+        .song-cover {
+            width: 36px; height: 36px; border-radius: 4px; object-fit: cover;
+            background: var(--bg3);
+        }
+        .song-cover-placeholder {
+            width: 36px; height: 36px; border-radius: 4px;
+            background: linear-gradient(135deg, var(--bg3), var(--bg2));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0; overflow: hidden;
+        }
+        .song-cover-placeholder img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; display: block; }
+        .song-info { min-width: 0; }
+        .song-name  { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+        .song-artist{ font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .song-size  { font-size: 12px; color: var(--text3); text-align: right; white-space: nowrap; }
+        .song-menu  { font-size: 16px; color: var(--text3); text-align: center; opacity: 0; transition: opacity .12s; position: relative; }
+        .song-row:hover .song-menu { opacity: 1; }
+
+        @media (max-width: 768px) {
+            .song-row,
+            .song-list-header { grid-template-columns: 28px 36px 1fr 28px; }
+            .song-size { display: none; }
+            .song-menu { opacity: 1; }
+            .song-list-size-col { display: none !important; }
+        }
+
+        .song-list-header {
+            display: grid;
+            grid-template-columns: 28px 36px 1fr auto 80px 28px;
+            gap: 10px; padding: 6px 10px;
+            font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+            color: var(--text3); border-bottom: 1px solid var(--border); margin-bottom: 4px;
+        }
+
+        /* ── Home Page ──────────────────────────────────────────────────── */
+        .section-title {
+            font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 12px;
+        }
+        .quick-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px; margin-bottom: 28px;
+        }
+        .quick-card {
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px 16px; cursor: pointer;
+            display: flex; align-items: center; gap: 12px;
+            transition: background .15s, transform .15s;
+        }
+        .quick-card:hover { background: var(--bg2); transform: translateY(-1px); }
+        .quick-card-icon { font-size: 22px; }
+        .quick-card-label { font-size: 14px; font-weight: 600; color: var(--text); }
+
+        .recent-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px; margin-bottom: 28px;
+        }
+        .recent-card {
+            background: var(--bg3); border-radius: 10px; overflow: hidden;
+            cursor: pointer; transition: transform .15s, background .15s;
+            border: 1px solid var(--border);
+        }
+        .recent-card:hover { transform: translateY(-2px); background: var(--bg2); }
+        .recent-card-cover {
+            width: 100%; aspect-ratio: 1; object-fit: cover;
+            background: linear-gradient(135deg, var(--bg2), var(--bg3));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px;
+        }
+        .recent-card-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .recent-card-info { padding: 8px 10px 10px; }
+        .recent-card-name  { font-size: 12.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .recent-card-artist{ font-size: 11px; color: var(--text2); }
+
+        .playlist-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+        .playlist-card {
+            background: var(--bg3); border-radius: 10px; overflow: hidden;
+            cursor: pointer; transition: background .15s, transform .15s;
+            border: 1px solid var(--border); padding: 16px;
+        }
+        .playlist-card:hover { background: var(--bg2); transform: translateY(-1px); }
+        .playlist-card-icon { font-size: 32px; margin-bottom: 10px; }
+        .playlist-card-name  { font-size: 13px; font-weight: 700; color: var(--text); }
+        .playlist-card-count { font-size: 11.5px; color: var(--text2); margin-top: 2px; }
+
+        /* ── Queue Panel ─────────────────────────────────────────────────── */
+        .queue-panel {
+            width: 280px; flex-shrink: 0;
+            background: var(--bg2); border-left: 1px solid var(--border);
+            overflow-y: auto; display: flex; flex-direction: column;
+        }
+        .queue-panel::-webkit-scrollbar { width: 4px; }
+        .queue-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .queue-header {
+            padding: 16px 16px 10px; font-size: 14px; font-weight: 700;
+            color: var(--text); border-bottom: 1px solid var(--border); flex-shrink: 0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .queue-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; cursor: pointer; transition: background .1s;
+            border-bottom: 1px solid var(--border);
+        }
+        .queue-item:hover { background: var(--hover); }
+        .queue-item.active { background: var(--active-bg); }
+        .queue-item-num  { font-size: 11px; color: var(--text3); width: 18px; text-align: right; flex-shrink: 0; }
+        .queue-item-info { flex: 1; min-width: 0; }
+        .queue-item-name { font-size: 12.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+        .queue-item-artist{ font-size: 11px; color: var(--text2); }
+        .queue-item-del { opacity: 0; font-size: 12px; color: var(--text3); transition: opacity .12s; flex-shrink: 0; cursor: pointer; }
+        .queue-item:hover .queue-item-del { opacity: 1; }
+        .queue-item-del:hover { color: #f87171; }
+
+        @media (max-width: 900px) {
+            .queue-panel {
+                position: fixed;
+                right: 0; bottom: var(--player-h);
+                width: min(320px, 100vw);
+                height: 60vh;
+                z-index: 150;
+                border-left: none;
+                border-top: 1px solid var(--border);
+                border-radius: 12px 12px 0 0;
+                box-shadow: 0 -4px 32px rgba(0,0,0,.6);
+            }
+        }
+
+        /* ── Player Bar ─────────────────────────────────────────────────── */
+        .player-bar {
+            height: var(--player-h); background: var(--player-bg);
+            border-top: 1px solid var(--border);
+            display: flex; align-items: center; gap: 0;
+            padding: 0 16px; flex-shrink: 0; z-index: 50;
+        }
+
+        /* Left: track info */
+        .player-track {
+            display: flex; align-items: center; gap: 12px;
+            width: var(--sidebar-w); flex-shrink: 0; min-width: 0;
+        }
+        .player-cover {
+            width: 50px; height: 50px; border-radius: 6px; overflow: hidden;
+            flex-shrink: 0; background: var(--bg3);
+        }
+        .player-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .player-track-info { min-width: 0; }
+        .player-track-name   { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .player-track-artist { font-size: 11.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Center: controls */
+        .player-controls {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; gap: 6px; min-width: 0;
+        }
+        .player-btns { display: flex; align-items: center; gap: 6px; }
+
+        .ctrl-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--text2); font-size: 15px;
+            width: 34px; height: 34px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+            transition: color .12s, background .12s;
+        }
+        .ctrl-btn:hover { color: var(--text); background: var(--hover); }
+        .ctrl-btn.active { color: var(--accent); }
+        .ctrl-btn.active:hover { color: var(--accent); }
+        .ctrl-btn.play-btn {
+            background: var(--accent); color: #fff;
+            width: 38px; height: 38px; font-size: 16px;
+            transition: background .15s, transform .12s;
+        }
+        .ctrl-btn.play-btn:hover { background: var(--accent2); transform: scale(1.05); }
+
+        .seek-row {
+            display: flex; align-items: center; gap: 8px;
+            width: 100%; max-width: 480px;
+        }
+        .seek-time { font-size: 11px; color: var(--text3); white-space: nowrap; min-width: 32px; }
+        .seek-time.right { text-align: right; }
+
+        .seek-bar, .volume-bar {
+            -webkit-appearance: none; appearance: none;
+            height: 4px; border-radius: 2px; outline: none; cursor: pointer;
+            background: var(--border);
+        }
+        .seek-bar { flex: 1; }
+        .volume-bar { width: 80px; }
+        .seek-bar::-webkit-slider-thumb,
+        .volume-bar::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 12px; height: 12px;
+            border-radius: 50%; background: var(--accent); cursor: pointer;
+            transition: transform .1s;
+        }
+        .seek-bar:hover::-webkit-slider-thumb,
+        .volume-bar:hover::-webkit-slider-thumb { transform: scale(1.3); }
+
+        /* Filled portion via background gradient */
+        .seek-bar { background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--progress, 0%), var(--border) var(--progress, 0%), var(--border) 100%); }
+        .volume-bar { background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--vol-pct, 80%), var(--border) var(--vol-pct, 80%), var(--border) 100%); }
+
+        /* Right: extras */
+        .player-extras {
+            display: flex; align-items: center; gap: 4px;
+            width: 220px; justify-content: flex-end; flex-shrink: 0;
+        }
+        .sleep-indicator {
+            font-size: 11px; color: var(--accent); background: var(--accent-glow);
+            border-radius: 10px; padding: 2px 8px; cursor: pointer; white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .player-bar { height: 86px; padding: 8px 10px 0; flex-wrap: wrap; align-items: flex-start; gap: 0 10px; }
+            .player-track { width: auto; flex: 1; align-self: center; }
+            .player-controls { display: none; }
+            .player-extras { width: auto; gap: 2px; align-self: center; }
+            .player-cover { width: 40px; height: 40px; }
+            .player-track-name { font-size: 12px; }
+            .mobile-seek-row { display: flex !important; margin-left: 2em; margin-right: 2em; }
+            /* Show minimal mobile controls */
+            .mobile-player-controls {
+                display: flex !important; align-items: center; gap: 4px;
+            }
+            .content-body { padding: 14px 12px 12px}
+            .track-info-overlay {
+                height: calc(100vh - var(--player-h) - 52px) !important;  /* compensate for mobile bar */
+            }
+        }
+        .mobile-player-controls { display: none; }
+        .mobile-seek-row { display: none; width: 100%; align-items: center; gap: 6px; padding: 2px 0 8px; }
+
+        /* ── Loading overlay ─────────────────────────────────────────────── */
+        .loading-overlay {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 14px; padding: 60px 0;
+            color: var(--text2);
+        }
+        .loading-spinner {
+            width: 36px; height: 36px; border-radius: 50%;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Empty state ─────────────────────────────────────────────────── */
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 12px; padding: 60px 0; color: var(--text3); text-align: center;
+        }
+        .empty-state i { font-size: 42px; color: var(--text3); }
+        .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text2); }
+        .empty-state p  { font-size: 13px; max-width: 280px; }
+
+        /* ── Modals ──────────────────────────────────────────────────────── */
+        .modal-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 500; padding: 16px;
+        }
+        .modal-box {
+            background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 14px; padding: 24px; width: 100%; max-width: 380px;
+        }
+        .modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+        .modal-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+        .modal-input {
+            width: 100%; background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 8px; padding: 9px 12px; font-size: 14px;
+            color: var(--text); outline: none; transition: border-color .15s;
+        }
+        .modal-input:focus { border-color: var(--accent); }
+        .modal-row { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+
+        .btn {
+            padding: 8px 18px; border-radius: 7px; font-size: 13px;
+            font-weight: 600; cursor: pointer; border: none; transition: background .15s;
+        }
+        .btn-primary   { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent2); }
+        .btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--hover); color: var(--text); }
+        .btn-danger    { background: rgba(239,68,68,.15); color: #f87171; border: 1px solid rgba(239,68,68,.25); }
+        .btn-danger:hover { background: rgba(239,68,68,.25); }
+
+        /* Sleep timer options */
+        .sleep-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+        .sleep-opt {
+            padding: 9px; border-radius: 7px; border: 1px solid var(--border);
+            background: var(--bg3); cursor: pointer; text-align: center;
+            font-size: 13px; color: var(--text2); transition: all .15s;
+        }
+        .sleep-opt:hover, .sleep-opt.selected { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+        .sleep-custom { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+        .sleep-custom input { flex: 1; }
+
+        /* Playlist picker */
+        .pl-picker-list { max-height: 200px; overflow-y: auto; margin-bottom: 12px; }
+        .pl-picker-item {
+            padding: 9px 12px; border-radius: 7px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px;
+            transition: background .12s; color: var(--text2);
+        }
+        .pl-picker-item:hover { background: var(--hover); color: var(--text); }
+        .pl-picker-item i { color: var(--accent); margin-bottom: 6px !important;}
+
+        /* ── Toast ───────────────────────────────────────────────────────── */
+        .toast {
+            position: fixed; bottom: calc(var(--player-h) + 12px); left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 8px; padding: 9px 18px; font-size: 13px;
+            color: var(--text); box-shadow: 0 4px 20px rgba(0,0,0,.5);
+            z-index: 999; opacity: 0; transition: opacity .2s, transform .2s;
+            pointer-events: none; white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast.error { border-color: rgba(239,68,68,.4); color: #f87171; }
+
+        /* ── Search results bar ──────────────────────────────────────────── */
+        .search-results-label {
+            font-size: 13px; color: var(--text2); margin-bottom: 12px;
+        }
+
+        /* ── Drag‑style progress bar update (JS-driven CSS var) ─────────── */
+        input[type=range] { cursor: pointer; }
+
+        /* ── Track Info Overlay ──────────────────────────────────────────── */
+        .main-content { position: relative; }
+        .track-info-overlay {
+            position: absolute; inset: 0;
+            background: var(--bg); z-index: 80;
+            overflow-y: auto; display: flex; flex-direction: column;
+            height: calc(100vh - var(--player-h)); /* prevent overlay from covering player bar */
+        }
+        .track-info-overlay::-webkit-scrollbar { width: 6px; }
+        .track-info-overlay::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .track-info-header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 20px; border-bottom: 1px solid var(--border);
+            flex-shrink: 0; position: sticky; top: 0;
+            background: var(--bg); z-index: 1;
+        }
+        .track-info-header-title { font-size: 15px; font-weight: 700; color: var(--text); }
+        .track-info-body {
+            padding: 28px 24px 48px; display: flex;
+            flex-direction: column; align-items: center;
+            max-width: 520px; margin: 0 auto; width: 100%;
+        }
+        .track-info-cover-wrap {
+            width: min(240px, 70vw); height: min(240px, 70vw);
+            border-radius: 16px; overflow: hidden;
+            box-shadow: 0 8px 40px rgba(0,0,0,.55);
+            background: var(--bg3); margin-bottom: 22px; flex-shrink: 0;
+        }
+        .track-info-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .track-info-name {
+            font-size: 20px; font-weight: 800; color: var(--text);
+            text-align: center; margin-bottom: 4px; line-height: 1.3;
+        }
+        .track-info-artist {
+            font-size: 14px; color: var(--text2); text-align: center; margin-bottom: 22px;
+        }
+        .track-info-meta {
+            width: 100%; background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 10px; overflow: hidden; margin-bottom: 20px;
+        }
+        .track-meta-row {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 10px 14px; border-bottom: 1px solid var(--border);
+        }
+        .track-meta-row:last-child { border-bottom: none; }
+        .track-meta-label {
+            font-size: 11px; color: var(--text3); text-transform: uppercase;
+            letter-spacing: .07em; min-width: 56px; flex-shrink: 0; padding-top: 2px;
+        }
+        .track-meta-value { font-size: 13px; color: var(--text); word-break: break-all; }
+        .track-meta-path { font-family: monospace; font-size: 11.5px; color: var(--text2); }
+        .track-info-divider { width: 100%; height: 1px; background: var(--border); margin-bottom: 16px; }
+        .track-info-actions { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+        .track-action-btn {
+            display: flex; align-items: center; gap: 14px; width: 100%;
+            padding: 13px 16px; background: var(--bg2); border: 1px solid var(--border);
+            border-radius: 10px; cursor: pointer; color: var(--text);
+            font-size: 14px; font-weight: 500; text-align: left;
+            transition: background .12s, border-color .12s, color .12s;
+        }
+        .track-action-btn:hover { background: var(--bg3); border-color: var(--accent); color: var(--accent); }
+        .track-action-btn i { font-size: 16px; color: var(--accent); width: 20px; text-align: center; margin: 0 !important; flex-shrink: 0; }
+        .track-action-btn:hover i { color: var(--accent); }
+    </style>
+    <script>
+        // ─── Global helpers (must be defined before Alpine evaluates templates) ───────
+        function isSidebarDesktop() { return window.innerWidth > 768; }
+    </script>
+</head>
+<body>
+<div id="app" x-data="musicifyApp()" x-init="init()">
+
+    <!-- Hidden audio element -->
+    <audio id="musicPlayer" preload="metadata"></audio>
+
+    <!-- Mobile top bar -->
+    <div class="mobile-bar">
+        <button class="ctrl-btn" x-on:click="sidebarOpen = !sidebarOpen" style="width:32px;height:32px;">
+            <i class="ui bars icon" style="margin:0;"></i>
+        </button>
+        <span class="mobile-bar-title">Musicify</span>
+        <div class="mobile-player-controls">
+            <button class="ctrl-btn" :class="{active: shuffle}" x-on:click="toggleShuffle()" x-show="currentTrack" title="Shuffle" style="width:30px;height:30px;font-size:13px;">
+                <i class="ui random icon" style="margin:0;"></i>
+            </button>
+            <button class="ctrl-btn" x-on:click="prevTrack()" x-show="currentTrack">
+                <i class="ui step backward icon" style="margin:0;"></i>
+            </button>
+            <button class="ctrl-btn play-btn" x-on:click="togglePlay()" x-show="currentTrack" style="width:32px;height:32px;font-size:14px;">
+                <i :class="isPlaying ? 'pause' : 'play'" class="ui icon" style="margin:0;"></i>
+            </button>
+            <button class="ctrl-btn" x-on:click="nextTrack()" x-show="currentTrack">
+                <i class="ui step forward icon" style="margin:0;"></i>
+            </button>
+            <button class="ctrl-btn" :class="{active: repeat !== 'none'}" x-on:click="cycleRepeat()" x-show="currentTrack" :title="repeatTitle()" style="width:30px;height:30px;font-size:13px;">
+                <i :class="repeatIcon()" class="ui icon" style="margin:0;"></i>
+                <span x-show="repeat==='one'" style="position:absolute;font-size:8px;font-weight:900;line-height:1;bottom:2px;right:2px;color:var(--accent);">1</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Sidebar overlay (mobile) -->
+    <div class="sidebar-overlay" x-show="sidebarOpen && !isSidebarDesktop()" x-on:click="sidebarOpen = false" style="display:none;"></div>
+
+    <div class="app-body">
+
+        <!-- ═══ SIDEBAR ═══════════════════════════════════════════════════ -->
+        <nav class="sidebar" :class="{ 'open': sidebarOpen }">
+            <!-- 
+            <div class="sidebar-logo">
+                <div class="sidebar-logo-icon"><img src="img/music.svg" style="width:18px;height:18px;"></div>
+                <span class="sidebar-logo-text">Musicify</span>
+            </div>
+            -->
+            <div class="sidebar-search" style="margin-top: 1em;">
+                <input type="search" placeholder="Search music…"
+                    x-model="searchQuery"
+                    x-on:input="doSearch()"
+                    x-on:keydown.enter="if(searchQuery) { view = 'search'; if(window.innerWidth<=768) sidebarOpen=false; }">
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="sidebar-section-label">Library</div>
+                <a class="nav-item" :class="{active: view==='home'}"    x-on:click="navigateTo('home')">
+                    <i class="ui home icon"></i> Home
+                </a>
+                <a class="nav-item" :class="{active: view==='folders'}" x-on:click="navigateTo('folders')">
+                    <i class="ui folder open icon"></i> Folders
+                </a>
+                <a class="nav-item" :class="{active: view==='artists'}" x-on:click="navigateTo('artists')">
+                    <i class="ui user icon"></i> Artists
+                </a>
+                <a class="nav-item" :class="{active: view==='recent'}"  x-on:click="navigateTo('recent')">
+                    <i class="ui history icon"></i> Recently Added
+                </a>
+
+                <div class="sidebar-section-label" style="margin-top:8px;">Playlists</div>
+
+                <template x-for="pl in playlists" :key="pl.name">
+                    <div class="playlist-item" :class="{active: currentPlaylistName===pl.name && view==='playlist'}"
+                         x-on:click="openPlaylistView(pl.name)">
+                        <i class="ui list ul icon" style="flex-shrink:0;"></i>
+                        <span class="pl-name" x-text="pl.name"></span>
+                        <span class="pl-del" x-on:click.stop="deletePlaylist(pl.name)">✕</span>
+                    </div>
+                </template>
+
+                <div class="new-playlist-btn" x-on:click="showNewPlaylistModal = true">
+                    <i class="ui plus circle icon"></i>
+                    <span>New Playlist</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ═══ MAIN CONTENT ═══════════════════════════════════════════════ -->
+        <main class="main-content" id="mainContent">
+
+            <!-- Loading overlay -->
+            <div x-show="loading" class="loading-overlay">
+                <div class="loading-spinner"></div>
+                <span x-text="loadingMsg || 'Loading…'" style="color:var(--text2);font-size:13px;"></span>
+            </div>
+
+            <!-- ── HOME ─────────────────────────────────────────────────── -->
+            <div x-show="view === 'home' && !loading">
+                <div class="content-header"><h1>Music & Playlist</h1></div>
+                <div class="content-body">
+
+                    <!-- Quick access -->
+                    <div class="section-title">Jump back in</div>
+                    <div class="quick-grid">
+                        <div class="quick-card" x-on:click="navigateTo('folders')">
+                            <span class="quick-card-icon"><img src="img/folder.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
+                            <span class="quick-card-label">Browse Folders</span>
+                        </div>
+                        <div class="quick-card" x-on:click="navigateTo('artists')">
+                            <span class="quick-card-icon"><img src="img/artist.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
+                            <span class="quick-card-label">Artists</span>
+                        </div>
+                        <div class="quick-card" x-on:click="navigateTo('recent')">
+                            <span class="quick-card-icon"><img src="img/history.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
+                            <span class="quick-card-label">Recently Added</span>
+                        </div>
+                        <div class="quick-card" x-on:click="showNewPlaylistModal = true">
+                            <span class="quick-card-icon"><img src="img/playlist_add.svg" style="width:22px;height:22px;vertical-align:middle;"></span>
+                            <span class="quick-card-label">New Playlist</span>
+                        </div>
+                    </div>
+
+                    <!-- Recently played -->
+                    <template x-if="recentlyPlayed.length > 0">
+                        <div>
+                            <div class="section-title">Recently Played</div>
+                            <div class="recent-grid">
+                                <template x-for="song in recentlyPlayed" :key="song.filepath">
+                                    <div class="recent-card" x-on:click="playSong(song, recentlyPlayed)">
+                                        <div class="recent-card-cover">
+                                            <img :src="getCoverUrl(song)" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null" loading="lazy">
+                                        </div>
+                                        <div class="recent-card-info">
+                                            <div class="recent-card-name"  x-text="song.name"></div>
+                                            <div class="recent-card-artist" x-text="getArtistLabel(song)"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Playlists -->
+                    <template x-if="playlists.length > 0">
+                        <div>
+                            <div class="section-title">Your Playlists</div>
+                            <div class="playlist-grid">
+                                <template x-for="pl in playlists" :key="pl.name">
+                                    <div class="playlist-card" x-on:click="openPlaylistView(pl.name)">
+                                        <div class="playlist-card-icon"><img src="img/headphones.svg" style="width:32px;height:32px;"></div>
+                                        <div class="playlist-card-name"  x-text="pl.name"></div>
+                                        <div class="playlist-card-count" x-text="pl.count + ' tracks'"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                </div>
+            </div>
+
+            <!-- ── SEARCH ────────────────────────────────────────────────── -->
+            <div x-show="view === 'search' && !loading">
+                <div class="content-header">
+                    <h2>Search results for "<span x-text="searchQuery"></span>"</h2>
+                </div>
+                <div class="content-body">
+                    <template x-if="searchResults.length === 0">
+                        <div class="empty-state">
+                            <i class="ui search icon"></i>
+                            <h3>No results found</h3>
+                            <p>Try a different search term, or browse folders to load more music.</p>
+                        </div>
+                    </template>
+                    <template x-if="searchResults.length > 0">
+                        <div>
+                            <p class="search-results-label" x-text="searchResults.length + ' result(s)'"></p>
+                            <div class="song-list">
+                                <div class="song-list-header">
+                                    <span></span><span></span><span>Title</span><span>Artist</span><span class="song-list-size-col">Size</span><span></span>
+                                </div>
+                                <template x-for="(song, idx) in searchResults" :key="song.filepath">
+                                    <div class="song-row" :class="{active: isCurrentTrack(song)}"
+                                         x-on:click="playSong(song, searchResults, $event)">
+                                        <span class="song-idx"  x-text="idx + 1"></span>
+                                        <span class="song-play"><i class="ui play icon" style="margin:0;"></i></span>
+                                        <div class="song-cover-placeholder"><img :src="getCoverUrl(song)" loading="lazy" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"></div>
+                                        <div class="song-info">
+                                            <div class="song-name"   x-text="song.name"></div>
+                                            <div class="song-artist" x-text="getArtistLabel(song)"></div>
+                                        </div>
+                                        <span class="song-size"  x-text="song.hsize"></span>
+                                        <span class="song-menu" x-on:click.stop="promptAddToPlaylist(song, $event)">
+                                            <i class="ui ellipsis vertical icon" style="margin:0;font-size:14px;"></i>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ── FOLDERS ───────────────────────────────────────────────── -->
+            <div x-show="view === 'folders' && !loading">
+                <div class="content-header">
+                    <h2>Folders</h2>
+                    <!-- Breadcrumb -->
+                    <div class="breadcrumb" style="margin-top:8px;">
+                        <template x-for="(crumb, ci) in getFolderBreadcrumbs()" :key="crumb.path">
+                            <span>
+                                <span x-text="crumb.name" x-on:click="folderStack=folderStack.slice(0,ci); loadFolder(crumb.path);"></span>
+                                <span class="sep" x-show="ci < getFolderBreadcrumbs().length - 1"> / </span>
+                            </span>
+                        </template>
+                    </div>
+                </div>
+                <div class="content-body">
+                    <!-- Back button -->
+                    <template x-if="folderStack.length > 0">
+                        <div style="margin-bottom:12px;">
+                            <button class="btn btn-secondary" x-on:click="folderBack()">
+                                <i class="ui arrow left icon"></i> Back
+                            </button>
+                        </div>
+                    </template>
+
+                    <!-- Subfolders -->
+                    <template x-if="folderContents.folders && folderContents.folders.length > 0">
+                        <div>
+                            <div class="section-title" style="font-size:13px;margin-bottom:8px;">Folders</div>
+                            <div class="folder-grid">
+                                <template x-for="folder in folderContents.folders" :key="folder">
+                                    <div class="folder-card" x-on:click="folderNavigate(folder)">
+                                        <i class="ui folder icon"></i>
+                                        <span x-text="folder.split('/').pop()"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Songs -->
+                    <template x-if="folderContents.songs && folderContents.songs.length > 0">
+                        <div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                <div class="section-title" style="font-size:13px;margin-bottom:0;">
+                                    <span x-text="folderContents.songs.length"></span> tracks
+                                </div>
+                                <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;"
+                                    x-on:click="playList(folderContents.songs, 0)">
+                                    <i class="ui play icon"></i> Play all
+                                </button>
+                            </div>
+                            <div class="song-list">
+                                <div class="song-list-header">
+                                    <span>#</span><span></span><span>Title</span><span></span><span class="song-list-size-col">Size</span><span></span>
+                                </div>
+                                <template x-for="(song, idx) in folderContents.songs" :key="song.filepath">
+                                    <div class="song-row" :class="{active: isCurrentTrack(song)}"
+                                         x-on:click="playSong(song, folderContents.songs, $event)">
+                                        <span class="song-idx"  x-text="idx + 1"></span>
+                                        <span class="song-play"><i class="ui play icon" style="margin:0;"></i></span>
+                                        <div class="song-cover-placeholder"><img :src="getCoverUrl(song)" loading="lazy" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"></div>
+                                        <div class="song-info">
+                                            <div class="song-name"   x-text="song.name"></div>
+                                            <div class="song-artist" x-text="song.ext.toUpperCase()"></div>
+                                        </div>
+                                        <span class="song-size"  x-text="song.hsize"></span>
+                                        <span class="song-menu" x-on:click.stop="promptAddToPlaylist(song, $event)">
+                                            <i class="ui ellipsis vertical icon" style="margin:0;font-size:14px;"></i>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="(!folderContents.songs || folderContents.songs.length === 0) && (!folderContents.folders || folderContents.folders.length === 0)">
+                        <div class="empty-state">
+                            <i class="ui folder open icon"></i>
+                            <h3>Empty folder</h3>
+                            <p>No music files found. Add .mp3, .flac, or other audio files to your Music folder.</p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ── ARTISTS ───────────────────────────────────────────────── -->
+            <div x-show="view === 'artists' && !loading">
+                <div class="content-header"><h2>Artists</h2></div>
+                <div class="content-body">
+                    <template x-if="artists.length === 0">
+                        <div class="empty-state">
+                            <i class="ui user icon"></i>
+                            <h3>No artists found</h3>
+                            <p>Organise your music into sub-folders under your Music directory to see artists here.</p>
+                        </div>
+                    </template>
+                    <template x-for="artist in artists" :key="artist.name">
+                        <div>
+                            <div class="artist-row" x-on:click="selectArtist(artist)">
+                                <div class="artist-avatar" x-text="artist.name.charAt(0)"></div>
+                                <div class="artist-info">
+                                    <div class="artist-name"  x-text="artist.name"></div>
+                                    <div class="artist-count" x-text="artist.songCount + ' tracks'"></div>
+                                </div>
+                                <button class="ctrl-btn" style="margin-right:4px;" x-on:click.stop="playList(artist.songs, 0)">
+                                    <i class="ui play icon" style="margin:0;"></i>
+                                </button>
+                                <i class="ui chevron right icon artist-expand"
+                                   :class="{open: selectedArtist && selectedArtist.name === artist.name}"
+                                   style="margin:0;"></i>
+                            </div>
+                            <!-- Expanded song list -->
+                            <div x-show="selectedArtist && selectedArtist.name === artist.name"
+                                 style="background:var(--bg2);border-radius:0 0 8px 8px;margin-bottom:4px;">
+                                <template x-for="(song, idx) in artist.songs" :key="song.filepath">
+                                    <div class="song-row" :class="{active: isCurrentTrack(song)}"
+                                         style="grid-template-columns: 28px 36px 1fr 80px 28px;"
+                                         x-on:click="playSong(song, artist.songs, $event)">
+                                        <span class="song-idx"  x-text="idx + 1"></span>
+                                        <span class="song-play"><i class="ui play icon" style="margin:0;"></i></span>
+                                        <div class="song-cover-placeholder"><img :src="getCoverUrl(song)" loading="lazy" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"></div>
+                                        <div class="song-info">
+                                            <div class="song-name" x-text="song.name"></div>
+                                        </div>
+                                        <span class="song-size" x-text="song.hsize"></span>
+                                        <span class="song-menu" x-on:click.stop="promptAddToPlaylist(song, $event)">
+                                            <i class="ui ellipsis vertical icon" style="margin:0;font-size:14px;"></i>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ── RECENT ────────────────────────────────────────────────── -->
+            <div x-show="view === 'recent' && !loading">
+                <div class="content-header"><h2>Recently Added</h2></div>
+                <div class="content-body">
+                    <template x-if="recentSongs.length === 0">
+                        <div class="empty-state">
+                            <i class="ui history icon"></i>
+                            <h3>Nothing here yet</h3>
+                        </div>
+                    </template>
+                    <template x-if="recentSongs.length > 0">
+                        <div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                                <span style="color:var(--text2);font-size:13px;" x-text="recentSongs.length + ' tracks'"></span>
+                                <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;"
+                                    x-on:click="playList(recentSongs, 0)">
+                                    <i class="ui play icon"></i> Play all
+                                </button>
+                            </div>
+                            <div class="song-list">
+                                <div class="song-list-header">
+                                    <span>#</span><span></span><span>Title</span><span>Artist</span><span class="song-list-size-col">Size</span><span></span>
+                                </div>
+                                <template x-for="(song, idx) in recentSongs" :key="song.filepath">
+                                    <div class="song-row" :class="{active: isCurrentTrack(song)}"
+                                         x-on:click="playSong(song, recentSongs, $event)">
+                                        <span class="song-idx"  x-text="idx + 1"></span>
+                                        <span class="song-play"><i class="ui play icon" style="margin:0;"></i></span>
+                                        <div class="song-cover-placeholder"><img :src="getCoverUrl(song)" loading="lazy" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"></div>
+                                        <div class="song-info">
+                                            <div class="song-name"   x-text="song.name"></div>
+                                            <div class="song-artist" x-text="getArtistLabel(song)"></div>
+                                        </div>
+                                        <span class="song-size"  x-text="song.hsize"></span>
+                                        <span class="song-menu" x-on:click.stop="promptAddToPlaylist(song, $event)">
+                                            <i class="ui ellipsis vertical icon" style="margin:0;font-size:14px;"></i>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ── PLAYLIST ──────────────────────────────────────────────── -->
+            <div x-show="view === 'playlist' && !loading">
+                <div class="content-header">
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        <div style="width:64px;height:64px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><img src="img/headphones.svg" style="width:34px;height:34px;"></div>
+                        <div>
+                            <h2 x-text="currentPlaylistName"></h2>
+                            <p x-text="currentPlaylistSongs.length + ' tracks'"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="content-body">
+                    <template x-if="currentPlaylistSongs.length === 0">
+                        <div class="empty-state">
+                            <i class="ui music icon"></i>
+                            <h3>Playlist is empty</h3>
+                            <p>Browse your music and click ⋮ on any track to add it here.</p>
+                        </div>
+                    </template>
+                    <template x-if="currentPlaylistSongs.length > 0">
+                        <div>
+                            <div style="display:flex;gap:10px;margin-bottom:16px;">
+                                <button class="btn btn-primary" x-on:click="playList(currentPlaylistSongs, 0)">
+                                    <i class="ui play icon"></i> Play all
+                                </button>
+                                <button class="btn btn-secondary" x-on:click="shuffle=true;playList(currentPlaylistSongs,0)">
+                                    <i class="ui random icon"></i> Shuffle
+                                </button>
+                            </div>
+                            <div class="song-list">
+                                <div class="song-list-header">
+                                    <span>#</span><span></span><span>Title</span><span>Artist</span><span class="song-list-size-col">Size</span><span></span>
+                                </div>
+                                <template x-for="(song, idx) in currentPlaylistSongs" :key="song.filepath + idx">
+                                    <div class="song-row" :class="{active: isCurrentTrack(song)}"
+                                         x-on:click="playSong(song, currentPlaylistSongs, $event)">
+                                        <span class="song-idx"  x-text="idx + 1"></span>
+                                        <span class="song-play"><i class="ui play icon" style="margin:0;"></i></span>
+                                        <div class="song-cover-placeholder"><img :src="getCoverUrl(song)" loading="lazy" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"></div>
+                                        <div class="song-info">
+                                            <div class="song-name"   x-text="song.name"></div>
+                                            <div class="song-artist" x-text="getArtistLabel(song)"></div>
+                                        </div>
+                                        <span class="song-size"  x-text="song.hsize"></span>
+                                        <span class="song-menu" x-on:click.stop="removeFromCurrentPlaylist(idx, $event)"
+                                              title="Remove from playlist">
+                                            <i class="ui trash alternate icon" style="margin:0;font-size:13px;color:#f87171;"></i>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ── TRACK INFO OVERLAY ───────────────────────────────────────── -->
+            <div x-show="showTrackInfo && trackInfoSong" class="track-info-overlay">
+                <!-- Sticky back header -->
+                <div class="track-info-header">
+                    <button class="ctrl-btn" x-on:click="closeTrackInfo()" style="width:32px;height:32px;" title="Back">
+                        <i class="ui arrow left icon" style="margin:0;"></i>
+                    </button>
+                    <span class="track-info-header-title">Song Info</span>
+                </div>
+                <!-- Body -->
+                <div class="track-info-body">
+                    <!-- Large cover art -->
+                    <div class="track-info-cover-wrap">
+                        <img class="track-info-cover"
+                             :src="trackInfoSong ? getCoverUrl(trackInfoSong) : 'img/placeholder.png'"
+                             x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"
+                             alt="Cover">
+                    </div>
+                    <!-- Song title & artist -->
+                    <div class="track-info-name"   x-text="trackInfoSong ? trackInfoSong.name : ''"></div>
+                    <div class="track-info-artist" x-text="trackInfoSong ? getArtistLabel(trackInfoSong) : ''"></div>
+                    <!-- Metadata table -->
+                    <div class="track-info-meta">
+                        <div class="track-meta-row">
+                            <span class="track-meta-label">Format</span>
+                            <span class="track-meta-value" x-text="trackInfoSong && trackInfoSong.ext ? trackInfoSong.ext.toUpperCase() : '—'"></span>
+                        </div>
+                        <div class="track-meta-row">
+                            <span class="track-meta-label">Size</span>
+                            <span class="track-meta-value" x-text="trackInfoSong ? trackInfoSong.hsize : '—'"></span>
+                        </div>
+                        <div class="track-meta-row">
+                            <span class="track-meta-label">Path</span>
+                            <span class="track-meta-value track-meta-path" x-text="trackInfoSong ? trackInfoSong.filepath : ''"></span>
+                        </div>
+                    </div>
+                    <!-- Divider -->
+                    <div class="track-info-divider"></div>
+                    <!-- Action buttons -->
+                    <div class="track-info-actions">
+                        <button class="track-action-btn" x-on:click="downloadSong(trackInfoSong)">
+                            <i class="ui download icon"></i>
+                            <span>Download to Local Device</span>
+                        </button>
+                        <button class="track-action-btn" x-on:click="searchOnYoutube(trackInfoSong)">
+                            <i class="ui youtube icon"></i>
+                            <span>Search on YouTube</span>
+                        </button>
+                        <button class="track-action-btn" x-on:click="copyTrackTitle(trackInfoSong)">
+                            <i class="ui copy outline icon"></i>
+                            <span>Copy Song Title</span>
+                        </button>
+                        <button class="track-action-btn" x-on:click="openInFileManager(trackInfoSong)">
+                            <i class="ui folder open icon"></i>
+                            <span>Open in File Manager</span>
+                        </button>
+                        <button id="open-in-embedded" class="track-action-btn" x-on:click="openInEmbedded(trackInfoSong)">
+                            <i class="ui compress alternate icon"></i>
+                            <span>Open in Player View</span>
+                        </button>
+                    </div>
+                </div>
+                <br><br><br>
+            </div>
+
+        </main><!-- /.main-content -->
+
+        <!-- ═══ QUEUE PANEL ════════════════════════════════════════════════ -->
+        <aside class="queue-panel" x-show="showQueue">
+            <div class="queue-header">
+                <span>Queue <span style="color:var(--text3);font-size:12px;" x-text="'(' + queue.length + ')'"></span></span>
+                <button class="ctrl-btn" style="width:26px;height:26px;font-size:13px;" x-on:click="showQueue=false">
+                    <i class="ui times icon" style="margin:0;"></i>
+                </button>
+            </div>
+            <template x-if="queue.length === 0">
+                <div class="empty-state" style="padding:30px 0;">
+                    <i class="ui music icon" style="font-size:28px;"></i>
+                    <p>Queue is empty</p>
+                </div>
+            </template>
+            <template x-for="(song, idx) in queue" :key="song.filepath + idx">
+                <div class="queue-item" :class="{active: isCurrentQueueItem(idx)}"
+                     x-on:click="queueIndex = idx; _loadTrack(queue[idx])">
+                    <span class="queue-item-num" x-text="idx + 1"></span>
+                    <div class="queue-item-info">
+                        <div class="queue-item-name"   x-text="song.name"></div>
+                        <div class="queue-item-artist" x-text="getArtistLabel(song)"></div>
+                    </div>
+                    <span class="queue-item-del" x-on:click.stop="removeFromQueue(idx, $event)">
+                        <i class="ui times icon" style="margin:0;"></i>
+                    </span>
+                </div>
+            </template>
+        </aside>
+
+    </div><!-- /.app-body -->
+
+    <!-- ═══ PLAYER BAR ════════════════════════════════════════════════════ -->
+    <div class="player-bar">
+
+        <!-- Left: Track info -->
+        <div class="player-track">
+            <div class="player-cover"
+                 x-on:click="currentTrack && openTrackInfo(currentTrack, $event)"
+                 :style="currentTrack ? 'cursor:pointer;' : ''">
+                <img :src="currentTrack ? getCoverUrl(currentTrack) : 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='"
+                     x-on:error="handleCoverError($event)" alt="Cover">
+            </div>
+            <div class="player-track-info" x-show="currentTrack"
+                 x-on:click="openTrackInfo(currentTrack, $event)"
+                 style="cursor:pointer;" title="Song info">
+                <div class="player-track-name"   x-text="currentTrack ? currentTrack.name : ''"></div>
+                <div class="player-track-artist" x-text="currentTrack ? getArtistLabel(currentTrack) : ''"></div>
+            </div>
+            <div x-show="!currentTrack" style="color:var(--text3);font-size:13px;">No track playing</div>
+        </div>
+
+        <!-- Center: Controls + seek -->
+        <div class="player-controls">
+            <div class="player-btns">
+                <!-- Shuffle -->
+                <button class="ctrl-btn" :class="{active: shuffle}" x-on:click="toggleShuffle()" title="Shuffle">
+                    <i class="ui random icon" style="margin:0;"></i>
+                </button>
+                <!-- Prev -->
+                <button class="ctrl-btn" x-on:click="prevTrack()" title="Previous">
+                    <i class="ui step backward icon" style="margin:0;"></i>
+                </button>
+                <!-- Play / Pause -->
+                <button class="ctrl-btn play-btn" x-on:click="togglePlay()" :title="isPlaying ? 'Pause' : 'Play'">
+                    <i :class="isPlaying ? 'pause' : 'play'" class="ui icon" style="margin:0;"></i>
+                </button>
+                <!-- Next -->
+                <button class="ctrl-btn" x-on:click="nextTrack()" title="Next">
+                    <i class="ui step forward icon" style="margin:0;"></i>
+                </button>
+                <!-- Repeat -->
+                <button class="ctrl-btn" :class="{active: repeat !== 'none'}" x-on:click="cycleRepeat()" :title="repeatTitle()">
+                    <i :class="repeatIcon()" class="ui icon" style="margin:0;"></i>
+                    <span x-show="repeat==='one'" style="position:absolute;font-size:9px;font-weight:900;line-height:1;bottom:3px;right:3px;color:var(--accent);">1</span>
+                </button>
+            </div>
+            <!-- Seek bar -->
+            <div class="seek-row">
+                <span class="seek-time" x-text="formatTime(currentTime)"></span>
+                <input type="range" class="seek-bar" min="0" :max="Math.floor(duration) || 100"
+                    :value="Math.floor(currentTime)"
+                    :style="'--progress:' + progressPercent() + '%'"
+                    x-on:mousedown="beginSeek()"
+                    x-on:touchstart="beginSeek()"
+                    x-on:change="endSeek($event.target.value)"
+                    x-on:input="currentTime = parseFloat($event.target.value)">
+                <span class="seek-time right" x-text="formatTime(duration)"></span>
+            </div>
+        </div>
+
+        <!-- Right: extras -->
+        <div class="player-extras">
+            <!-- Sleep timer badge -->
+            <span class="sleep-indicator" x-show="sleepActive" x-on:click="showSleepModal = true"
+                  x-text="'⏱ ' + sleepCountdown" title="Sleep timer active – click to cancel"></span>
+
+            <!-- Sleep timer button -->
+            <button class="ctrl-btn" x-on:click="showSleepModal = true" title="Sleep timer"
+                    :class="{active: sleepActive}">
+                <i class="ui clock icon" style="margin:0;"></i>
+            </button>
+
+            <!-- Volume -->
+            <button class="ctrl-btn" x-on:click="toggleMute()" :title="isMuted ? 'Unmute' : 'Mute'">
+                <i :class="volumeIcon()" class="ui icon" style="margin:0;"></i>
+            </button>
+            <input type="range" class="volume-bar" min="0" max="100"
+                :value="isMuted ? 0 : volume"
+                :style="'--vol-pct:' + (isMuted ? 0 : volume) + '%'"
+                x-on:input="setVolume($event.target.value)">
+
+            <!-- Queue toggle -->
+            <button class="ctrl-btn" :class="{active: showQueue}" x-on:click="showQueue = !showQueue" title="Queue">
+                <i class="ui list icon" style="margin:0;"></i>
+            </button>
+        </div>
+
+        <!-- Mobile: seek bar -->
+        <div class="mobile-seek-row">
+            <span class="seek-time" x-text="formatTime(currentTime)"></span>
+            <input type="range" class="seek-bar" min="0" :max="Math.floor(duration) || 100"
+                :value="Math.floor(currentTime)"
+                :style="'--progress:' + progressPercent() + '%'"
+                x-on:mousedown="beginSeek()"
+                x-on:touchstart="beginSeek()"
+                x-on:change="endSeek($event.target.value)"
+                x-on:input="currentTime = parseFloat($event.target.value)">
+            <span class="seek-time right" x-text="formatTime(duration)"></span>
+        </div>
+
+    </div><!-- /.player-bar -->
+
+    <!-- ═══ MODAL: New Playlist ══════════════════════════════════════════ -->
+    <div class="modal-backdrop" x-show="showNewPlaylistModal" x-on:click.self="showNewPlaylistModal=false">
+        <div class="modal-box">
+            <div class="modal-title">New Playlist</div>
+            <div class="modal-label">Playlist name</div>
+            <input class="modal-input" type="text" placeholder="e.g. Workout Mix"
+                x-model="newPlaylistName"
+                x-on:keydown.enter="createPlaylist()"
+                autofocus>
+            <div class="modal-row">
+                <button class="btn btn-secondary" x-on:click="showNewPlaylistModal=false">Cancel</button>
+                <button class="btn btn-primary"   x-on:click="createPlaylist()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL: Add to Playlist ═══════════════════════════════════════ -->
+    <div class="modal-backdrop" x-show="showAddToPlaylistModal && addToPlaylistSong" x-on:click.self="showAddToPlaylistModal=false;addToPlaylistSong=null">
+        <div class="modal-box">
+            <div class="modal-title">Add to Playlist</div>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px;" x-text="addToPlaylistSong ? addToPlaylistSong.name : ''"></p>
+            <div class="pl-picker-list">
+                <template x-if="playlists.length === 0">
+                    <p style="color:var(--text3);font-size:13px;padding:12px 0;">No playlists yet. Create one first.</p>
+                </template>
+                <template x-for="pl in playlists" :key="pl.name">
+                    <div class="pl-picker-item" x-on:click="addSongToPlaylist(pl.name)">
+                        <i class="ui list ul icon"></i>
+                        <span x-text="pl.name"></span>
+                        <span style="margin-left:auto;color:var(--text3);font-size:11px;" x-text="pl.count + ' tracks'"></span>
+                    </div>
+                </template>
+            </div>
+            <div class="modal-row">
+                <button class="btn btn-secondary" x-on:click="showAddToPlaylistModal=false;addToPlaylistSong=null">Cancel</button>
+                <button class="btn btn-secondary" x-on:click="showNewPlaylistModal=true;showAddToPlaylistModal=false">
+                    <i class="ui plus icon"></i> New playlist
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL: Sleep Timer ════════════════════════════════════════════ -->
+    <div class="modal-backdrop" x-show="showSleepModal" x-on:click.self="showSleepModal=false">
+        <div class="modal-box">
+            <div class="modal-title">⏱ Sleep Timer</div>
+            <template x-if="sleepActive">
+                <div style="background:var(--accent-glow);border-radius:8px;padding:12px;margin-bottom:16px;text-align:center;">
+                    <div style="font-size:28px;font-weight:800;color:var(--accent);" x-text="sleepCountdown"></div>
+                    <div style="font-size:12px;color:var(--text2);">Music will stop when timer ends</div>
+                </div>
+            </template>
+            <div class="sleep-options">
+                <div class="sleep-opt" :class="{selected: sleepMinutes===15}" x-on:click="sleepMinutes=15">15 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===30}" x-on:click="sleepMinutes=30">30 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===45}" x-on:click="sleepMinutes=45">45 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===60}" x-on:click="sleepMinutes=60">1 hour</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===90}" x-on:click="sleepMinutes=90">90 min</div>
+                <div class="sleep-opt" :class="{selected: sleepMinutes===120}" x-on:click="sleepMinutes=120">2 hours</div>
+            </div>
+            <div class="sleep-custom">
+                <div class="modal-label" style="margin:0;white-space:nowrap;">Custom (min):</div>
+                <input class="modal-input" type="number" min="1" max="480" x-model="sleepMinutes" style="width:80px;">
+            </div>
+            <div class="modal-row">
+                <button class="btn btn-secondary" x-on:click="showSleepModal=false">Close</button>
+                <template x-if="sleepActive">
+                    <button class="btn btn-danger" x-on:click="cancelSleepTimer();showSleepModal=false">Cancel timer</button>
+                </template>
+                <button class="btn btn-primary" x-on:click="startSleepTimer()">
+                    <i class="ui clock icon"></i> Start timer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" :class="{show: showToast, error: toastType==='error'}" x-text="toastMsg"></div>
+
+</div><!-- /#app -->
+
+<script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(function(){});
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+/*
+    Musicify - Modern Music Player for ArozOS
+    Module Registration Script
+*/
+var rootdir = "Musicify";
+var moduleLaunchInfo = {
+    Name: "Musicify",
+    Desc: "Modern music player with playlists, sleep timer and offline PWA support",
+    Group: "Media",
+    IconPath: rootdir + "/img/module_icon.png",
+    Version: "1.0.0",
+    StartDir: rootdir + "/index.html",
+    SupportFW: true,
+    LaunchFWDir: rootdir + "/index.html",
+    SupportEmb: true,
+    LaunchEmb: rootdir + "/embedded.html",
+    InitFWSize: [1100, 720],
+    InitEmbSize: [360, 254],
+    SupportedExt: [".mp3",".flac",".wav",".ogg",".aac",".webm",".m4a",".opus",".wma"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));
