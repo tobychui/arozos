@@ -22,6 +22,7 @@ function musicifyApp() {
         folderPath: 'user:/Music',
         folderStack: [],        // stack of previous paths for back navigation
         folderContents: { folders: [], songs: [] },
+        musicLibraries: [],     // [ { label, root } ] from listRoots.js
 
         // ── Artists ─────────────────────────────────────────────────────────
         artists: [],
@@ -127,6 +128,9 @@ function musicifyApp() {
             // Load playlists for sidebar
             this._loadPlaylists();
 
+            // Pre-load available music library roots for the folder-view switcher
+            this._loadMusicLibraries();
+
             // Register service worker
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js').catch(function(){});
@@ -161,8 +165,11 @@ function musicifyApp() {
             this.searchQuery = '';
             if (window.innerWidth <= 768) this.sidebarOpen = false;
 
-            if (v === 'folders' && this.folderContents.songs.length === 0 && this.folderContents.folders.length === 0) {
-                this.loadFolder(this.folderRoot);
+            if (v === 'folders') {
+                if (this.musicLibraries.length === 0) this._loadMusicLibraries();
+                if (this.folderContents.songs.length === 0 && this.folderContents.folders.length === 0) {
+                    this.loadFolder(this.folderRoot);
+                }
             } else if (v === 'artists' && this.artists.length === 0) {
                 this._loadArtists();
             } else if (v === 'recent' && this.recentSongs.length === 0) {
@@ -178,22 +185,56 @@ function musicifyApp() {
         },
 
         // ════════════════════════════════════════════════════════════════════
+        //  LIBRARY ROOTS
+        // ════════════════════════════════════════════════════════════════════
+        _loadMusicLibraries() {
+            const self = this;
+            fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/listRoots.js', {
+                method: 'POST', cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            }).then(r => r.json()).then(data => {
+                // Remove tmp:/ and trash:/ from the array 
+                data = Array.isArray(data) ? data.map(d => {
+                    if (d.root.startsWith('tmp:/') || d.root.startsWith('trash:/')) {
+                        return null;
+                    }
+                    return d;
+                }) : [];
+                self.musicLibraries = Array.isArray(data) ? data : [];
+            }).catch(() => {});
+        },
+
+        switchLibrary(root) {
+            this.folderRoot = root;
+            this.folderStack = [];
+            this.folderContents = { folders: [], songs: [] };
+            this.loadFolder(root, false);
+        },
+
+        // ════════════════════════════════════════════════════════════════════
         //  FOLDER BROWSER
         // ════════════════════════════════════════════════════════════════════
-        loadFolder(path) {
-            this.loading = true;
-            this.loadingMsg = 'Loading folder…';
+        loadFolder(path, showLoading = true) {
+            if (showLoading) {
+                this.loadingMsg = 'Loading folder…';
+                this.loading = true;
+            }
             const self = this;
             fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/listFolder.js', {
                 method: 'POST', cache: 'no-cache',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ folder: path })
             }).then(r => r.json()).then(data => {
-                if (data.error) { self._showToast(data.error, 'error'); self.loading = false; return; }
+                if (data.error) { self._showToast(data.error, 'error'); if (showLoading) self.loading = false; return; }
                 self.folderContents = data;
                 self.folderPath = path;
-                self.loading = false;
-            }).catch(() => { self.loading = false; });
+                if (showLoading) {
+                    setTimeout(() => { self.loading = false; }, 100); // slight delay for smoother UX
+                };
+            }).catch(() => { if (showLoading){
+                setTimeout(() => { self.loading = false; }, 100); // slight delay for smoother UX
+            } });
         },
 
         folderNavigate(path) {

@@ -1,6 +1,9 @@
 /*
     Musicify - List Artists
-    Groups all music files by top-level folder under each root's Music/ directory.
+    Recursively walks each root's Music/ directory and groups music files by their
+    immediate parent folder — so nested structures like Music/Genre/Artist/track.mp3
+    correctly surface "Artist" as the artist, not "Genre".
+    Files sitting directly in Music/ are grouped under "Unknown Artist".
     Returns: [ { name, path, songCount, songs: [{...}] } ]
 */
 includes("common.js");
@@ -8,41 +11,42 @@ requirelib("filelib");
 
 function main() {
     var musicRoots = getMusicRoots();
+    // Key: full parent-folder path (guarantees uniqueness across roots/nesting levels)
     var artistMap = {};
 
     for (var r = 0; r < musicRoots.length; r++) {
-        var musicRoot = musicRoots[r];
-        var topEntries = filelib.aglob(musicRoot + "*", "default");
+        var musicRoot = musicRoots[r]; // e.g. "user:/Music/"
 
-        // Songs directly in Music/ root belong to "Unknown Artist"
-        for (var i = 0; i < topEntries.length; i++) {
-            var entry = topEntries[i];
-            if (isHiddenFile(entry)) continue;
-            if (!filelib.isDir(entry) && isMusicFile(entry)) {
-                if (!artistMap["__unknown__"]) {
-                    artistMap["__unknown__"] = { name: "Unknown Artist", path: musicRoot, songs: [] };
-                }
-                artistMap["__unknown__"].songs.push(buildSongEntry(entry));
+        // Walk ALL files under the music root recursively
+        var allFiles = filelib.walk(musicRoot, "file");
+
+        for (var i = 0; i < allFiles.length; i++) {
+            var f = allFiles[i];
+            if (!isMusicFile(f) || isHiddenFile(f)) continue;
+
+            // Derive the immediate parent folder path
+            var parts = f.split("/");
+            parts.pop(); // remove filename
+            var parentPath = parts.join("/") + "/";
+
+            var artistKey, artistName, artistPath;
+
+            if (parentPath === musicRoot) {
+                // File lives directly inside Music/ → Unknown Artist
+                artistKey  = musicRoot + "__unknown__";
+                artistName = "Unknown Artist";
+                artistPath = musicRoot;
+            } else {
+                // Use the full parent path as the unique key
+                artistKey  = parentPath;
+                artistName = parts[parts.length - 1]; // last path component
+                artistPath = parentPath;
             }
-        }
 
-        // Each subdirectory is an artist
-        for (var i = 0; i < topEntries.length; i++) {
-            var artistDir = topEntries[i];
-            if (!filelib.isDir(artistDir) || isHiddenFile(artistDir)) continue;
-
-            var artistName = artistDir.split("/").pop();
-            if (!artistMap[artistName]) {
-                artistMap[artistName] = { name: artistName, path: artistDir, songs: [] };
+            if (!artistMap[artistKey]) {
+                artistMap[artistKey] = { name: artistName, path: artistPath, songs: [] };
             }
-
-            var songFiles = filelib.walk(artistDir, "file");
-            for (var j = 0; j < songFiles.length; j++) {
-                var f = songFiles[j];
-                if (isMusicFile(f) && !isHiddenFile(f)) {
-                    artistMap[artistName].songs.push(buildSongEntry(f));
-                }
-            }
+            artistMap[artistKey].songs.push(buildSongEntry(f));
         }
     }
 

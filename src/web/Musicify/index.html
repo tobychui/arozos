@@ -846,7 +846,23 @@
             <!-- ── FOLDERS ───────────────────────────────────────────────── -->
             <div x-show="view === 'folders' && !loading">
                 <div class="content-header">
-                    <h2>Folders</h2>
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;min-height:28px;">
+                        <h2 style="margin:0;">Folders</h2>
+                        <!-- Library source picker (only shown when multiple storage roots exist) -->
+                        <template x-if="musicLibraries.length > 1">
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span style="font-size:12px;color:var(--text2);">Library:</span>
+                                <select style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;outline:none;cursor:pointer;transition:border-color .15s;"
+                                        x-on:focus="$event.target.style.borderColor='var(--accent)'"
+                                        x-on:blur="$event.target.style.borderColor='var(--border)'"
+                                        x-on:change="switchLibrary($event.target.value)">
+                                    <template x-for="lib in musicLibraries" :key="lib.root">
+                                        <option :value="lib.root" :selected="folderRoot === lib.root" x-text="lib.label"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </template>
+                    </div>
                     <!-- Breadcrumb -->
                     <div class="breadcrumb" style="margin-top:8px;">
                         <template x-for="(crumb, ci) in getFolderBreadcrumbs()" :key="crumb.path">
