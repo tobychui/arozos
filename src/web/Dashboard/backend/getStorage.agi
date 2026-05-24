@@ -1,0 +1,7 @@
+/*
+    Dashboard - Get Storage Info
+    Returns disk usage for all logical volumes using the sysinfo library.
+    No POST parameters required.
+*/
+requirelib("sysinfo");
+sendJSONResp(sysinfo.getDiskInfo());

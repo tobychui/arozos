@@ -20,6 +20,7 @@ func AGIInit() {
 		LoadedModule:         moduleHandler.GetModuleNameList(),
 		ReservedTables:       []string{"auth", "permisson", "register", "desktop"},
 		ModuleRegisterParser: moduleHandler.RegisterModuleFromAGI,
+		ModuleListProvider:   moduleHandler.GetModuleListJSONForUser,
 		PackageManager:       packageManager,
 		UserHandler:          userHandler,
 		StartupRoot:          "./web",

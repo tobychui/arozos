@@ -57,6 +57,7 @@ type AgiSysInfo struct {
 	ReservedTables       []string
 	PackageManager       *apt.AptPackageManager
 	ModuleRegisterParser func(string) error
+	ModuleListProvider   func(username string) string //Returns JSON of accessible modules for a user
 	FileSystemRender     *metadata.RenderHandler
 	IotManager           *iot.Manager
 	ShareManager         *share.Manager

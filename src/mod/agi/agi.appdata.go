@@ -34,6 +34,7 @@ func (g *Gateway) AppdataLibRegister() {
 
 func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPayload) {
 	vm := payload.VM
+	u := payload.User
 
 	vm.Set("_appdata_readfile", func(call otto.FunctionCall) otto.Value {
 		relpath, err := call.Argument(0).ToString()
@@ -124,10 +125,25 @@ func (g *Gateway) injectAppdataLibFunctions(payload *static.AgiLibInjectionPaylo
 		}
 	})
 
+	vm.Set("_appdata_getmodulelist", func(call otto.FunctionCall) otto.Value {
+		if g.Option.ModuleListProvider == nil {
+			result, _ := vm.ToValue("[]")
+			return result
+		}
+		jsonStr := g.Option.ModuleListProvider(u.Username)
+		result, _ := vm.ToValue(jsonStr)
+		return result
+	})
+
 	//Wrap all the native code function into an imagelib class
 	vm.Run(`
 		var appdata = {};
 		appdata.readFile = _appdata_readfile;
 		appdata.listDir = _appdata_listdir;
+		appdata.getModuleList = function() {
+			var raw = _appdata_getmodulelist();
+			if (!raw) return [];
+			try { return JSON.parse(raw); } catch(e) { return []; }
+		};
 	`)
 }

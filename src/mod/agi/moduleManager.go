@@ -52,6 +52,7 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.ShareLibRegister()
 	g.IoTLibRegister()
 	g.AppdataLibRegister()
+	g.SysinfoLibRegister()
 	//g.AudioLibRegister() //work in progress
 	g.ZipLibRegister()
 

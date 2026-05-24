@@ -108,6 +108,22 @@ func (m *ModuleHandler) GetModuleNameList() []string {
 	return result
 }
 
+// GetModuleListJSONForUser returns a JSON string of all modules the given username can access
+func (m *ModuleHandler) GetModuleListJSONForUser(username string) string {
+	userinfo, err := m.userHandler.GetUserInfoFromUsername(username)
+	if err != nil {
+		return "[]"
+	}
+	accessable := []*ModuleInfo{}
+	for _, mod := range m.LoadedModule {
+		if userinfo.GetModuleAccessPermission(mod.Name) {
+			accessable = append(accessable, mod)
+		}
+	}
+	js, _ := json.Marshal(accessable)
+	return string(js)
+}
+
 //Handle Default Launcher
 func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Request) {
 	username, _ := m.userHandler.GetAuthAgent().GetUserName(w, r)
@@ -118,7 +134,8 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 	ext = strings.ToLower(ext)
 
 	//Check if the default folder exists.
-	if opr == "get" {
+	switch opr {
+	case "get":
 		//Get the opener for this file type
 		value := ""
 		err := m.userHandler.GetDatabase().Read("module", "default/"+username+"/"+ext, &value)
@@ -129,7 +146,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 		js, _ := json.Marshal(value)
 		utils.SendJSONResponse(w, string(js))
 		return
-	} else if opr == "launch" {
+	case "launch":
 		//Get launch paramter for this extension
 		value := ""
 		err := m.userHandler.GetDatabase().Read("module", "default/"+username+"/"+ext, &value)
@@ -157,7 +174,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 			utils.SendJSONResponse(w, string(jsonString))
 		}
 
-	} else if opr == "set" {
+	case "set":
 		//Set the opener for this filetype
 		if moduleName == "" {
 			utils.SendErrorResponse(w, "Missing paratmer 'module'")
@@ -178,7 +195,7 @@ func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Req
 			utils.SendErrorResponse(w, "Given module not exists.")
 		}
 
-	} else if opr == "list" {
+	case "list":
 		//List all the values that belongs to default opener
 		dbDump, _ := m.userHandler.GetDatabase().ListTable("module")
 		results := [][]string{}

@@ -1,0 +1,24 @@
+/*
+	ArozOS Dashboard
+	
+	This is a dashboard type interface module for those
+	who aren't used to Web desktop enviroment for their homelab
+*/
+
+
+//Define the launchInfo for the module
+var root = "Dashboard/";
+var moduleLaunchInfo = {
+	Name: "Dashboard",
+	Desc: "Dashboard for launching all other services in ArozOS",
+	Group: "Interface Module",
+	IconPath: root +"img/module_icon.png",
+	Version: "1.0",
+	StartDir: root + "index.html",
+	SupportFW: true,
+	LaunchFWDir: root + "index.html",
+	InitFWSize: [1080, 580],
+}
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));
