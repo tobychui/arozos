@@ -949,7 +949,7 @@
                             <p>Organise your music into sub-folders under your Music directory to see artists here.</p>
                         </div>
                     </template>
-                    <template x-for="artist in artists" :key="artist.name">
+                    <template x-for="artist in artists" :key="artist.path">
                         <div>
                             <div class="artist-row" x-on:click="selectArtist(artist)">
                                 <div class="artist-avatar" x-text="artist.name.charAt(0)"></div>
@@ -961,11 +961,11 @@
                                     <i class="ui play icon" style="margin:0;"></i>
                                 </button>
                                 <i class="ui chevron right icon artist-expand"
-                                   :class="{open: selectedArtist && selectedArtist.name === artist.name}"
+                                   :class="{open: selectedArtist && selectedArtist.path === artist.path}"
                                    style="margin:0;"></i>
                             </div>
                             <!-- Expanded song list -->
-                            <div x-show="selectedArtist && selectedArtist.name === artist.name"
+                            <div x-show="selectedArtist && selectedArtist.path === artist.path"
                                  style="background:var(--bg2);border-radius:0 0 8px 8px;margin-bottom:4px;">
                                 <template x-for="(song, idx) in artist.songs" :key="song.filepath">
                                     <div class="song-row" :class="{active: isCurrentTrack(song)}"

@@ -32,3 +32,4 @@ src/system/cron.json
 src/system/smtp_conf.json
 *.exe~
 /src/tmp
+/src/test

@@ -278,7 +278,7 @@ function musicifyApp() {
         },
 
         selectArtist(artist) {
-            this.selectedArtist = (this.selectedArtist && this.selectedArtist.name === artist.name) ? null : artist;
+            this.selectedArtist = (this.selectedArtist && this.selectedArtist.path === artist.path) ? null : artist;
         },
 
         // ════════════════════════════════════════════════════════════════════

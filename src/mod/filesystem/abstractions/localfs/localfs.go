@@ -129,7 +129,28 @@ func (l LocalFileSystemAbstraction) IsDir(realpath string) bool {
 }
 
 func (l LocalFileSystemAbstraction) Glob(realpathWildcard string) ([]string, error) {
-	return filepath.Glob(realpathWildcard)
+	files, err := filepath.Glob(realpathWildcard)
+	if err != nil {
+		return files, err
+	}
+
+	// filepath.Glob treats [ and ] as character class syntax, so folder names containing
+	// brackets (e.g. "[Hi-Res][FLAC]") return no results. Fall back to a ?-wildcard scan
+	// and then verify matches against the original path to filter out false positives.
+	if (strings.Contains(realpathWildcard, "[") || strings.Contains(realpathWildcard, "]")) && len(files) == 0 {
+		newSearchPath := strings.ReplaceAll(realpathWildcard, "[", "?")
+		newSearchPath = strings.ReplaceAll(newSearchPath, "]", "?")
+		tmpFilelist, _ := filepath.Glob(newSearchPath)
+		dirPath := filepath.ToSlash(filepath.Dir(realpathWildcard))
+		for _, file := range tmpFilelist {
+			file = filepath.ToSlash(file)
+			if strings.Contains(file, dirPath) {
+				files = append(files, file)
+			}
+		}
+	}
+
+	return files, err
 }
 
 func (l LocalFileSystemAbstraction) GetFileSize(realpath string) int64 {

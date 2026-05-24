@@ -14,12 +14,10 @@ function main() {
 
     var decodedFolder = decodeURIComponent(folder);
     // Remove trailing wildcard/slash if present
-    decodedFolder = decodedFolder.replace(/\/\*$/, "").replace(/\/$/, "");
-
+    decodedFolder = decodedFolder.replace(/\/\*$/, "").replace(/\/$/, ""); // I tried to comment this but not working
     var results = filelib.aglob(decodedFolder + "/*", "user");
     var subfolders = [];
     var songs = [];
-
     for (var i = 0; i < results.length; i++) {
         var f = results[i];
         if (isHiddenFile(f)) continue;
