@@ -40,6 +40,7 @@ function getMusicRoots() {
     var musicRoots = [];
     for (var i = 0; i < roots.length; i++) {
         var musicPath = roots[i] + "Music/";
+        if ( roots[i] == "tmp:/" ||  roots[i] == "trash:/") continue; // skip tmp:/ and trash:/
         if (!filelib.fileExists(musicPath)) {
             filelib.mkdir(musicPath);
         }
