@@ -1,0 +1,21 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "user/title":         "新增用戶",
+                "user/subtitle":      "填寫以下資訊以建立帳號。",
+                "user/username":      "用戶名稱",
+                "user/password":      "密碼",
+                "user/confirm-pw":    "確認密碼",
+                "user/group":         "用戶群組",
+                "user/loading":       "載入中…",
+                "user/required-note": "此欄位為必填",
+                "user/create":        "建立",
+                "user/cancel":        "取消"
+            }
+        }
+    }
+}

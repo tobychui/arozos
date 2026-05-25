@@ -1,0 +1,78 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
+            "strings": {
+                "quota/title":          "磁碟配額",
+                "quota/dist_title":      "檔案類型分佈",
+                "quota/loading":         "計算中…",
+                "quota/no_data":         "無可用資料",
+                "quota/unlimited":       "無限制",
+                "quota/readonly":        "唯讀帳戶",
+                "quota/table_title":     "檔案明細",
+                "quota/table_category": "類別",
+                "quota/table_files":     "檔案數",
+                "quota/table_size":      "大小",
+                "quota/finder_title":    "大型檔案",
+                "quota/finder_open":     "開啟位置",
+                "quota/finder_delete":   "刪除",
+                "quota/finder_load_more": "載入更多",
+                "quota/finder_confirm":  "確認刪除",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
+            "strings": {
+                "quota/title":          "磁碟配額",
+                "quota/dist_title":      "檔案類型分佈",
+                "quota/loading":         "計算中…",
+                "quota/no_data":         "無可用資料",
+                "quota/unlimited":       "無限制",
+                "quota/readonly":        "唯讀帳戶",
+                "quota/table_title":     "檔案明細",
+                "quota/table_category": "類別",
+                "quota/table_files":     "檔案數",
+                "quota/table_size":      "大小",
+                "quota/finder_title":    "大型檔案",
+                "quota/finder_open":     "開啟位置",
+                "quota/finder_delete":   "刪除",
+                "quota/finder_load_more": "載入更多",
+                "quota/finder_confirm":  "確認刪除",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "fontFamily": "\"Microsoft YaHei\", \"SimHei\", \"STHeiti\", sans-serif",
+            "strings": {
+                "quota/title":          "磁盘配额",
+                "quota/dist_title":      "文件类型分布",
+                "quota/loading":         "计算中…",
+                "quota/no_data":         "暂无数据",
+                "quota/unlimited":       "无限制",
+                "quota/readonly":        "只读账户",
+                "quota/table_title":     "文件明细",
+                "quota/table_category": "类别",
+                "quota/table_files":     "文件数",
+                "quota/table_size":      "大小",
+                "quota/finder_title":    "大文件",
+                "quota/finder_open":     "打开位置",
+                "quota/finder_delete":   "删除",
+                "quota/finder_load_more": "加载更多",
+                "quota/finder_confirm":  "确认删除",
+                "": ""
+            },
+            "titles": {},
+            "placeholder": {}
+        }
+    }
+}

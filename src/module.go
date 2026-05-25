@@ -84,6 +84,20 @@ func ModuleServiceInit() {
 
 	})
 
+	// Handle direct zip file upload for module installation (admin only)
+	http.HandleFunc("/system/modules/uploadAndInstall", func(w http.ResponseWriter, r *http.Request) {
+		userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
+		if err != nil {
+			utils.SendErrorResponse(w, "User not logged in")
+			return
+		}
+		if !userinfo.IsAdmin() {
+			utils.SendErrorResponse(w, "Permission Denied")
+			return
+		}
+		moduleHandler.HandleUploadAndInstall(w, r, AGIGateway)
+	})
+
 	//Register setting interface for module configuration
 	registerSetting(settingModule{
 		Name:     "Module List",

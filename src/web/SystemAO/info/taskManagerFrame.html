@@ -1,4 +1,4 @@
-<iframe id="managerFrame" src="../info/taskManager.html" style="border: 0px solid transparent;">
+<iframe id="managerFrame" src="../info/taskManager.html" style="border: 0px solid transparent; display: block; width: 100%;">
 
 </iframe>
 <script>
@@ -9,8 +9,8 @@
     })
     function resizeIframe(){
         $("#managerFrame").css({
-            "width": window.innerWidth - 14 * 2 + "px",
-            "height": window.innerHeight - 100
+            "width": "100%",
+            "height": "100vh", 
         });
     }
   

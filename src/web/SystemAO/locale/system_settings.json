@@ -38,6 +38,7 @@
 
                 "tab/device/Client Device":"客戶端",
                 "tab/device/Audio Testing":"喇叭測試",
+                "tab/device/Device Testing":"裝置測試",
                 "tab/device/Display Testing":"顯示測試",
                 "tab/device/Language":"裝置語言",
                 "tab/device/IoT Hub":"物聯網驅動",
@@ -175,6 +176,7 @@
 
                 "tab/device/Client Device":"客戶端",
                 "tab/device/Audio Testing":"喇叭測試",
+                "tab/device/Device Testing":"裝置測試",
                 "tab/device/Display Testing":"顯示測試",
                 "tab/device/Language":"裝置語言",
                 "tab/device/IoT Hub":"物聯網驅動",
@@ -311,6 +313,7 @@
 
                 "tab/device/Client Device":"客户端",
                 "tab/device/Audio Testing":"扬声器测试",
+                "tab/device/Device Testing":"设备测试",
                 "tab/device/Display Testing":"显示测试",
                 "tab/device/Language":"语言",
                 "tab/device/IoT Hub":"物联网驱动",
@@ -449,6 +452,7 @@
                 
                 "tab/device/Client Device": "Client Device",
                 "tab/device/Audio Testing": "Speaker Testing",
+                "tab/device/Device Testing": "Device Testing",
                 "tab/device/Display Testing": "Display Testing",
                 "tab/device/Language": "Device Language",
                 "tab/device/IoT Hub": "IoT Driver",

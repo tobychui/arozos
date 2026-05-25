@@ -83,16 +83,6 @@ func DiskServiceInit() {
 	lfs := sortfile.NewLargeFileScanner(userHandler)
 	router.HandleFunc("/system/disk/space/largeFiles", lfs.HandleLargeFileList)
 
-	//Register settings
-	registerSetting(settingModule{
-		Name:         "Space Finder",
-		Desc:         "Reclaim Storage Space on Disks",
-		IconPath:     "SystemAO/disk/space/img/small_icon.png",
-		Group:        "Disk",
-		StartDir:     "SystemAO/disk/space/finder.html",
-		RequireAdmin: false,
-	})
-
 	if *allow_hardware_management {
 		//Displaying remaining space on disk, only enabled when allow hardware is true
 		registerSetting(settingModule{

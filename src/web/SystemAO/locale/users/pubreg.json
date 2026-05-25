@@ -1,0 +1,31 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "pubreg/title":            "公開註冊",
+                "pubreg/subtitle":         "允許公眾在此系統上註冊帳號",
+                "pubreg/settings_title":   "註冊設定",
+                "pubreg/enable_label":     "啟用公開帳號註冊",
+                "pubreg/group_label":      "新用戶預設權限群組",
+                "pubreg/group_placeholder":"選擇權限群組",
+                "pubreg/save":             "儲存設定",
+                "pubreg/saved":            "設定已儲存",
+                "pubreg/users_title":      "已註冊用戶",
+                "pubreg/csv":              "匯出 CSV",
+                "pubreg/users_desc":       "已註冊用戶清單。即使帳號已取消，其註冊資訊仍會保留。狀態欄反映目前帳號狀態。",
+                "pubreg/col_user":         "用戶名稱",
+                "pubreg/col_email":        "電子郵件",
+                "pubreg/col_status":       "狀態",
+                "pubreg/refresh":          "重新整理",
+                "pubreg/clear_unreg":      "清除已取消用戶",
+                "pubreg/no_records":       "找不到任何註冊紀錄。",
+                "pubreg/status_active":    "使用中",
+                "pubreg/status_dereg":     "已取消",
+                "pubreg/confirm_clear":    "確定要移除所有已取消用戶的資料嗎？"
+            }
+        }
+    }
+}

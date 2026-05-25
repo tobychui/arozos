@@ -1,82 +1,753 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type='text/javascript' src="../../script/semantic/semantic.min.js"></script>
-    <script src="../../../script/jquery.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title locale="clientinfo/client-information-title">Client Information</title>
+    <script src="../../script/jquery.min.js"></script>
     <script src="/SystemAO/info/js/ua-parser.min.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
-    <title locale="clientinfo/client-information-title">Client Information</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+/* ─── Scoped to #ci-root to avoid conflicts with parent page CSS ─── */
+#ci-root {
+    --ci-text:        #1d1d1f;
+    --ci-dim:         #6e6e73;
+    --ci-muted:       #98989d;
+    --ci-divider:     #d2d2d7;
+    --ci-hover:       rgba(0,0,0,0.045);
+    --ci-active:      rgba(0,0,0,0.09);
+    --ci-accent:      #0071e3;
+    --ci-soft:        #f5f5f7;
+    --ci-bg:          #ffffff;
+    --ci-card-bg:     #f5f5f7;
+    --ci-card-border: #e5e5ea;
+    --ci-shadow:      rgba(0,0,0,0.10);
+    --ci-nav-strip:   rgba(0,0,0,0.022);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ci-text);
+    background: var(--ci-bg);
+    border-radius: 0.6em;
+}
+
+#ci-root.dark {
+    --ci-text:        #f0f0f0;
+    --ci-dim:         #a0a0a5;
+    --ci-muted:       #636368;
+    --ci-divider:     #3a3a3c;
+    --ci-hover:       rgba(255,255,255,0.06);
+    --ci-active:      rgba(255,255,255,0.12);
+    --ci-accent:      #2997ff;
+    --ci-soft:        #1c1c1e;
+    --ci-bg:          #2b2b2b;
+    --ci-card-bg:     #3a3a3c;
+    --ci-card-border: #48484a;
+    --ci-shadow:      rgba(0,0,0,0.45);
+    --ci-nav-strip:   rgba(255,255,255,0.03);
+}
+
+/* Hero */
+#ci-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 16px 18px;
+}
+#ci-browser-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    margin-bottom: 14px;
+    background: var(--ci-card-bg);
+    border: 1px solid var(--ci-card-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 14px var(--ci-shadow);
+    user-select: none;
+    overflow: hidden;
+    padding: 10px;
+    box-sizing: border-box;
+}
+#ci-browser-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+#ci-hero-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--ci-text);
+    margin-bottom: 4px;
+    text-align: center;
+}
+#ci-hero-sub {
+    font-size: 12px;
+    color: var(--ci-dim);
+    text-align: center;
+    max-width: 340px;
+    line-height: 1.5;
+}
+
+/* Section labels */
+.ci-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ci-muted);
+    padding: 0 16px;
+    margin: 18px 0 6px;
+}
+
+/* Info list — macOS Settings style */
+.ci-list {
+    border: 1px solid var(--ci-divider);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 12px 6px;
+    background: var(--ci-bg);
+}
+.ci-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--ci-divider);
+    gap: 12px;
+}
+.ci-row:last-child { border-bottom: none; }
+.ci-row-label {
+    font-size: 13px;
+    color: var(--ci-text);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.ci-row-value {
+    font-size: 13px;
+    color: var(--ci-dim);
+    text-align: right;
+    word-break: break-all;
+    min-width: 0;
+}
+.ci-row-value.mono {
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 11px;
+    color: var(--ci-muted);
+}
+
+/* Status badges */
+.ci-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+.ci-badge.green { background: rgba(52,199,89,0.13);  color: #248a3d; }
+.ci-badge.red   { background: rgba(255,59,48,0.13);  color: #c0392b; }
+.ci-badge.blue  { background: rgba(0,113,227,0.11);  color: #0071e3; }
+.ci-badge.gray  { background: rgba(150,150,150,0.11);color: var(--ci-dim); }
+#ci-root.dark .ci-badge.green { color: #30d158; }
+#ci-root.dark .ci-badge.red   { color: #ff453a; }
+#ci-root.dark .ci-badge.blue  { color: #2997ff; }
+
+/* Show More button */
+#ci-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 10px 12px 4px;
+    padding: 9px 14px;
+    background: var(--ci-card-bg);
+    border: 1px solid var(--ci-card-border);
+    border-radius: 10px;
+    color: var(--ci-accent);
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    width: calc(100% - 24px);
+    box-sizing: border-box;
+    transition: background 0.12s;
+    outline: none;
+}
+#ci-more-btn:hover { background: var(--ci-hover); }
+
+#ci-btn-chevron {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.2s ease;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+#ci-btn-chevron.flipped { transform: rotate(180deg); }
+
+/* Developer panel */
+#ci-dev-panel {
+    display: none;
+    margin: 0 12px 16px;
+    border: 1px solid var(--ci-divider);
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 500px;
+}
+#ci-dev-panel.open { display: flex; }
+
+/* Left nav */
+#ci-dev-nav {
+    width: 148px;
+    min-width: 148px;
+    padding: 10px 6px;
+    border-right: 1px solid var(--ci-divider);
+    background: var(--ci-nav-strip);
+    flex-shrink: 0;
+}
+.ci-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--ci-text);
+    user-select: none;
+    transition: background 0.08s;
+    margin-bottom: 2px;
+}
+.ci-nav-item:hover  { background: var(--ci-hover); }
+.ci-nav-item.active { background: var(--ci-active); font-weight: 600; }
+.ci-nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.ci-nav-icon img { width: 16px; height: 16px; display: block; }
+/* Theme-aware icon variants */
+.ci-icon-dark { display: none !important; }
+#ci-root.dark .ci-icon-light { display: none  !important;; }
+#ci-root.dark .ci-icon-dark  { display: block  !important;; }
+
+/* Detail pane */
+#ci-dev-content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 320px;
+    max-height: 480px;
+}
+.ci-dev-page { display: none; padding: 10px 12px; }
+.ci-dev-page.active { display: block; }
+
+/* Developer tables */
+.ci-dev-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.ci-dev-table tr { border-bottom: 1px solid var(--ci-divider); }
+.ci-dev-table tr:last-child { border-bottom: none; }
+.ci-dev-table td { padding: 7px 6px; vertical-align: top; }
+.ci-dev-table td:first-child {
+    color: var(--ci-muted);
+    white-space: nowrap;
+    width: 170px;
+    font-weight: 500;
+}
+.ci-dev-table td:last-child {
+    color: var(--ci-text);
+    word-break: break-all;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 11.5px;
+}
+
+/* API availability grid */
+.ci-api-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+    gap: 5px;
+    padding: 2px 0;
+}
+.ci-api-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 7px;
+    font-size: 11.5px;
+    font-weight: 500;
+    border: 1px solid var(--ci-divider);
+    background: var(--ci-card-bg);
+}
+.ci-api-chip .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.ci-api-chip.yes .dot { background: #34c759; }
+.ci-api-chip.no  .dot { background: #ff3b30; }
+#ci-root.dark .ci-api-chip.yes .dot { background: #30d158; }
+#ci-root.dark .ci-api-chip.no  .dot { background: #ff453a; }
+
+/* Responsive */
+@media (max-width: 500px) {
+    #ci-dev-nav { display: none; }
+    #ci-dev-panel.open { display: block; }
+    #ci-dev-content { max-height: none; }
+}
+    </style>
 </head>
 
-<body style="background-color:#f9f9f9;">
-    <div class="ui container">
-        <div class="ui basic segment">
-            <div class="ui header">
-                <span locale="clientinfo/client-device-information">Client Device Information</span>
-                <div class="sub header" locale="clientinfo/client-device-information-subheader">These are the information that your browser is telling the ArozOS.</div>
+<body style="background:transparent; margin:0; padding:0;">
+<div id="ci-root">
+
+    <!-- Hero -->
+    <div id="ci-hero">
+        <div id="ci-browser-icon"><img id="ci-browser-img" src="img/browsers/unknown_browser.svg" alt="browser icon"></div>
+        <div id="ci-hero-title" locale="clientinfo/client-device-information">Client Device Information</div>
+        <div id="ci-hero-sub" locale="clientinfo/client-device-information-subheader">These are the information that your browser is telling the ArozOS.</div>
+    </div>
+
+    <!-- Browser section -->
+    <div class="ci-section-label" locale="clientinfo/browser-information">Browser</div>
+    <div class="ci-list">
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/application-name">Browser</span>
+            <span class="ci-row-value" id="ci-browser-name">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/browser-version">Version</span>
+            <span class="ci-row-value" id="ci-browser-version">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/browser-engine">Engine</span>
+            <span class="ci-row-value" id="ci-engine">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/cookie-enabled">Cookies</span>
+            <span class="ci-row-value" id="ci-cookie">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/network-status">Network</span>
+            <span class="ci-row-value" id="ci-network">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/user-agent">User Agent</span>
+            <span class="ci-row-value mono" id="ci-ua">-</span>
+        </div>
+    </div>
+
+    <!-- System section -->
+    <div class="ci-section-label" locale="clientinfo/system-information">System &amp; Display</div>
+    <div class="ci-list">
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/operation-system">OS</span>
+            <span class="ci-row-value" id="ci-os">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/device-type">Device Type</span>
+            <span class="ci-row-value" id="ci-device-type">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/platform">Platform</span>
+            <span class="ci-row-value" id="ci-platform">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/language">Language</span>
+            <span class="ci-row-value" id="ci-lang">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/timezone">Timezone</span>
+            <span class="ci-row-value" id="ci-tz">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/screen-resolution">Screen</span>
+            <span class="ci-row-value" id="ci-screen">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/pixel-ratio">Pixel Ratio</span>
+            <span class="ci-row-value" id="ci-dpr">-</span>
+        </div>
+        <div class="ci-row">
+            <span class="ci-row-label" locale="clientinfo/color-depth">Color Depth</span>
+            <span class="ci-row-value" id="ci-color-depth">-</span>
+        </div>
+    </div>
+
+    <!-- Show More toggle -->
+    <button id="ci-more-btn" onclick="ciToggleMore()">
+        <svg id="ci-btn-chevron" viewBox="0 0 14 14">
+            <polyline points="2,4 7,10 12,4"/>
+        </svg>
+        <span id="ci-more-label" locale="clientinfo/show-more">Show Developer Insights</span>
+    </button>
+
+    <!-- Developer Insights panel -->
+    <div id="ci-dev-panel">
+        <div id="ci-dev-nav">
+            <div class="ci-nav-item active" data-page="hw"      onclick="ciNavTo('hw')">
+                <span class="ci-nav-icon"><img class="ci-icon-light" src="../info/img/browsers/icons/hardware_black.svg" alt=""><img class="ci-icon-dark" src="../info/img/browsers/icons/hardware_white.svg" alt=""></span>
+                <span locale="clientinfo/hardware">Hardware</span>
+            </div>
+            <div class="ci-nav-item"        data-page="apis"    onclick="ciNavTo('apis')">
+                <span class="ci-nav-icon"><img class="ci-icon-light" src="../info/img/browsers/icons/api_black.svg" alt=""><img class="ci-icon-dark" src="../info/img/browsers/icons/api_white.svg" alt=""></span>
+                <span locale="clientinfo/javascript-apis">JS APIs</span>
+            </div>
+            <div class="ci-nav-item"        data-page="storage" onclick="ciNavTo('storage')">
+                <span class="ci-nav-icon"><img class="ci-icon-light" src="../info/img/browsers/icons/storage_black.svg" alt=""><img class="ci-icon-dark" src="../info/img/browsers/icons/storage_white.svg" alt=""></span>
+                <span locale="clientinfo/storage">Storage</span>
+            </div>
+            <div class="ci-nav-item"        data-page="network" onclick="ciNavTo('network')">
+                <span class="ci-nav-icon"><img class="ci-icon-light" src="../info/img/browsers/icons/network_black.svg" alt=""><img class="ci-icon-dark" src="../info/img/browsers/icons/network_white.svg" alt=""></span>
+                <span locale="clientinfo/network">Network</span>
+            </div>
+            <div class="ci-nav-item"        data-page="perf"    onclick="ciNavTo('perf')">
+                <span class="ci-nav-icon"><img class="ci-icon-light" src="../info/img/browsers/icons/performance_black.svg" alt=""><img class="ci-icon-dark" src="../info/img/browsers/icons/performance_white.svg" alt=""></span>
+                <span locale="clientinfo/performance">Performance</span>
+            </div>
+            <div class="ci-nav-item"        data-page="caps"    onclick="ciNavTo('caps')">
+                <span class="ci-nav-icon"><img class="ci-icon-light" src="../info/img/browsers/icons/media_black.svg" alt=""><img class="ci-icon-dark" src="../info/img/browsers/icons/media_white.svg" alt=""></span>
+                <span locale="clientinfo/capabilities">Media &amp; Caps</span>
             </div>
         </div>
-     
-        <table class="ui celled striped table">
-            <thead>
-                <tr>
-                    <th colspan="3">
-                        <span locale="clientinfo/browser-information">Browser Information</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="collapsing">
-                        <i class="sticky note icon"></i> <span locale="clientinfo/cookie-enabled">Cookie Enabled</span>
-                    </td>
-                    <td id="cke"></td>
-                </tr>
-                <tr>
-                    <td class="collapsing">
-                        <i class="hashtag icon"></i> <span locale="clientinfo/operation-system">Operation System</span>
-                    </td>
-                    <td id="os"></td>
-                </tr>
-                <tr>
-                    <td class="collapsing">
-                        <i class="hashtag icon"></i> <span locale="clientinfo/application-name">Application Name</span>
-                    </td>
-                    <td id="appname"></td>
-                </tr>
-                <tr>
-                    <td class="collapsing">
-                        <i class="browser icon"></i> <span locale="clientinfo/browser-engine">Browser Engine</span>
-                    </td>
-                    <td id="be"></td>
-                </tr>
-                <tr>
-                    <td class="collapsing">
-                        <i class="user circle icon"></i> <span locale="clientinfo/user-agent">User Agent</span>
-                    </td>
-                    <td id="ua"></td>
-                </tr>
-            </tbody>
-        </table>
+        <div id="ci-dev-content">
+            <div class="ci-dev-page active" id="ci-page-hw"><table class="ci-dev-table" id="ci-hw-table"></table></div>
+            <div class="ci-dev-page"        id="ci-page-apis"><div class="ci-api-grid" id="ci-api-grid"></div></div>
+            <div class="ci-dev-page"        id="ci-page-storage"><table class="ci-dev-table" id="ci-storage-table"></table></div>
+            <div class="ci-dev-page"        id="ci-page-network"><table class="ci-dev-table" id="ci-network-table"></table></div>
+            <div class="ci-dev-page"        id="ci-page-perf"><table class="ci-dev-table" id="ci-perf-table"></table></div>
+            <div class="ci-dev-page"        id="ci-page-caps"><table class="ci-dev-table" id="ci-caps-table"></table></div>
+        </div>
     </div>
-    <br><br><br><br>
-    </div>
-    <script>
-        var infoLocale = NewAppLocale();
-        infoLocale.init("../locale/system_settings/clientinfo.json", function(){
-            infoLocale.translate();
-        });
+    <br><br>
+</div>
+<script>
+    /* ── Locale ── */
+    var ciLocale = NewAppLocale();
+    ciLocale.init("../locale/system_settings/clientinfo.json", function() {
+        ciLocale.translate();
+    });
 
-        $("#cke").html(navigator.cookieEnabled);
-        $("#os").html($.ua.os.name);
-        $("#appname").html($.ua.browser.name);
-        $("#be").html($.ua.engine.name);
-        $("#ua").html(navigator.userAgent);
-    </script>
+    /* ── Theme ── */
+    (function() {
+        if (typeof(preferredTheme) != "undefined" && preferredTheme === "dark") {
+            // Ajax loaded into System Settings, use already known theme if possible to avoid flash
+            document.getElementById('ci-root').classList.add('dark');
+            return;
+        }
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    document.getElementById('ci-root').classList.toggle('dark', c !== 'whiteTheme');
+                });
+            } else if (typeof preferredTheme !== 'undefined') {
+                document.getElementById('ci-root').classList.toggle('dark',
+                    preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+            }
+        } catch(e) {}
+    })();
+
+    /* ── UA Parsing ── */
+    var ciUA = {};
+    try {
+        if (typeof UAParser === 'function') {
+            ciUA = new UAParser().getResult();
+        } else if (typeof $.ua !== 'undefined') {
+            ciUA = { browser: $.ua.browser, engine: $.ua.engine, os: $.ua.os, device: $.ua.device };
+        }
+    } catch(e) {}
+
+    /* ── Helpers ── */
+    function ciSafe(fn, fallback) {
+        try { var v = fn(); return (v !== undefined && v !== null && v !== '') ? v : (fallback || '-'); }
+        catch(e) { return fallback || '-'; }
+    }
+    function ciBool(fn) { try { return !!fn(); } catch(e) { return false; } }
+    function ciRow(label, value) {
+        return '<tr><td>' + label + '</td><td>' + (value !== undefined && value !== null ? value : '-') + '</td></tr>';
+    }
+    function ciChip(name, supported) {
+        return '<div class="ci-api-chip ' + (supported ? 'yes' : 'no') + '">' +
+            '<span class="dot"></span><span>' + name + '</span></div>';
+    }
+    function ciBytes(b) {
+        if (!b || b === 0) return '0 B';
+        var s = ['B','KB','MB','GB','TB'], i = Math.floor(Math.log(b) / Math.log(1024));
+        return (b / Math.pow(1024, i)).toFixed(2) + ' ' + s[i];
+    }
+
+    /* ── Basic Info ── */
+    function ciInit() {
+        var browserName    = ciSafe(function(){ return ciUA.browser.name; });
+        var browserVersion = ciSafe(function(){ return ciUA.browser.version; });
+        var engineStr      = ciSafe(function(){ return ciUA.engine.name + (ciUA.engine.version ? ' ' + ciUA.engine.version : ''); });
+        var osStr          = ciSafe(function(){ return ciUA.os.name + (ciUA.os.version ? ' ' + ciUA.os.version : ''); }, navigator.platform);
+        var deviceType     = ciSafe(function(){ return ciUA.device.type; }, 'Desktop');
+        deviceType = deviceType.charAt(0).toUpperCase() + deviceType.slice(1);
+
+        $('#ci-browser-name').text(browserName);
+        $('#ci-browser-version').text(browserVersion);
+        $('#ci-engine').text(engineStr);
+        $('#ci-ua').text(navigator.userAgent);
+        $('#ci-os').text(osStr);
+        $('#ci-device-type').text(deviceType);
+        $('#ci-platform').text(navigator.platform || '-');
+        $('#ci-lang').text((navigator.languages && navigator.languages.join(', ')) || navigator.language || '-');
+        $('#ci-tz').text(ciSafe(function(){ return Intl.DateTimeFormat().resolvedOptions().timeZone; }));
+        $('#ci-screen').text(screen.width + ' × ' + screen.height + '  (viewport ' + window.innerWidth + ' × ' + window.innerHeight + ')');
+        $('#ci-dpr').text(window.devicePixelRatio ? window.devicePixelRatio + 'x' : '-');
+        $('#ci-color-depth').text(screen.colorDepth ? screen.colorDepth + '-bit' : '-');
+
+        // Cookie badge
+        $('#ci-cookie').html('<span class="ci-badge ' + (navigator.cookieEnabled ? 'green' : 'red') + '">' +
+            (navigator.cookieEnabled ? '✓ Enabled' : '✗ Disabled') + '</span>');
+        // Network badge
+        $('#ci-network').html('<span class="ci-badge ' + (navigator.onLine ? 'green' : 'red') + '">' +
+            (navigator.onLine ? '● Online' : '○ Offline') + '</span>');
+
+        // Browser icon
+        var bn = browserName.toLowerCase();
+        var iconFile = 'unknown_browser.svg';
+        if (bn.includes('brave'))                          iconFile = 'brave.svg';
+        else if (bn.includes('firefox'))                   iconFile = 'firefox.svg';
+        else if (bn.includes('edge') || bn.includes('edg')) iconFile = 'edge.svg';
+        else if (bn.includes('opera') || bn.includes('opr')) iconFile = 'opera.svg';
+        else if (bn.includes('chromium'))                  iconFile = 'chromium.svg';
+        else if (bn.includes('chrome'))                    iconFile = 'chrome.svg';
+        else if (bn.includes('safari'))                    iconFile = 'safari.svg';
+        $('#ci-browser-img').attr('src', '../info/img/browsers/' + iconFile);
+    }
+
+    /* ── Developer panel population (lazy) ── */
+    function ciPopulateDev() {
+        /* Hardware */
+        var hw = '';
+        hw += ciRow('CPU Cores',          navigator.hardwareConcurrency || '-');
+        hw += ciRow('Device Memory',       navigator.deviceMemory ? navigator.deviceMemory + ' GB' : '-');
+        hw += ciRow('Max Touch Points',    navigator.maxTouchPoints !== undefined ? navigator.maxTouchPoints : '-');
+        hw += ciRow('Platform',            navigator.platform || '-');
+        hw += ciRow('Vendor',              navigator.vendor || '-');
+        hw += ciRow('Product',             navigator.product || '-');
+        hw += ciRow('Product Sub',         navigator.productSub || '-');
+        hw += ciRow('App Version',         navigator.appVersion || '-');
+        hw += ciRow('Screen (px)',         screen.width + ' × ' + screen.height);
+        hw += ciRow('Avail Screen',        screen.availWidth + ' × ' + screen.availHeight);
+        hw += ciRow('Color Depth',         screen.colorDepth + '-bit');
+        hw += ciRow('Pixel Depth',         screen.pixelDepth + '-bit');
+        hw += ciRow('Device Pixel Ratio',  window.devicePixelRatio);
+        hw += ciRow('Screen Orientation',  ciSafe(function(){ return screen.orientation.type; }));
+        hw += ciRow('Languages',           (navigator.languages || [navigator.language]).join(', '));
+        hw += ciRow('Timezone',            ciSafe(function(){ return Intl.DateTimeFormat().resolvedOptions().timeZone; }));
+        hw += ciRow('Timezone Offset',     new Date().getTimezoneOffset() + ' min');
+        hw += ciRow('Locale',              ciSafe(function(){ return Intl.DateTimeFormat().resolvedOptions().locale; }));
+        $('#ci-hw-table').html(hw);
+
+        /* JS API support chips */
+        var apis = [
+            ['WebGL',               ciBool(function(){ return document.createElement('canvas').getContext('webgl'); })],
+            ['WebGL2',              ciBool(function(){ return document.createElement('canvas').getContext('webgl2'); })],
+            ['WebRTC',              ciBool(function(){ return window.RTCPeerConnection; })],
+            ['Service Worker',      ciBool(function(){ return 'serviceWorker' in navigator; })],
+            ['Web Workers',         ciBool(function(){ return typeof Worker !== 'undefined'; })],
+            ['Shared Worker',       ciBool(function(){ return typeof SharedWorker !== 'undefined'; })],
+            ['WebAssembly',         ciBool(function(){ return typeof WebAssembly !== 'undefined'; })],
+            ['Geolocation',         ciBool(function(){ return 'geolocation' in navigator; })],
+            ['Notifications',       ciBool(function(){ return 'Notification' in window; })],
+            ['Push API',            ciBool(function(){ return 'PushManager' in window; })],
+            ['Clipboard API',       ciBool(function(){ return 'clipboard' in navigator; })],
+            ['Web Share',           ciBool(function(){ return 'share' in navigator; })],
+            ['Battery API',         ciBool(function(){ return 'getBattery' in navigator; })],
+            ['Bluetooth API',       ciBool(function(){ return 'bluetooth' in navigator; })],
+            ['USB API',             ciBool(function(){ return 'usb' in navigator; })],
+            ['Serial API',          ciBool(function(){ return 'serial' in navigator; })],
+            ['Payment Request',     ciBool(function(){ return 'PaymentRequest' in window; })],
+            ['WebSockets',          ciBool(function(){ return typeof WebSocket !== 'undefined'; })],
+            ['WebAudio',            ciBool(function(){ return typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined'; })],
+            ['Web MIDI',            ciBool(function(){ return 'requestMIDIAccess' in navigator; })],
+            ['Media Devices',       ciBool(function(){ return 'mediaDevices' in navigator; })],
+            ['Screen Capture',      ciBool(function(){ return 'getDisplayMedia' in (navigator.mediaDevices || {}); })],
+            ['Pointer Events',      ciBool(function(){ return 'PointerEvent' in window; })],
+            ['Touch Events',        ciBool(function(){ return 'TouchEvent' in window; })],
+            ['Gamepad API',         ciBool(function(){ return 'getGamepads' in navigator; })],
+            ['Fullscreen API',      ciBool(function(){ return document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen; })],
+            ['Credential Mgmt',     ciBool(function(){ return 'credentials' in navigator; })],
+            ['Broadcast Channel',   ciBool(function(){ return typeof BroadcastChannel !== 'undefined'; })],
+            ['SubtleCrypto',        ciBool(function(){ return window.crypto && window.crypto.subtle; })],
+            ['Intersection Observer',ciBool(function(){ return typeof IntersectionObserver !== 'undefined'; })],
+            ['Resize Observer',     ciBool(function(){ return typeof ResizeObserver !== 'undefined'; })],
+            ['Mutation Observer',   ciBool(function(){ return typeof MutationObserver !== 'undefined'; })],
+            ['Performance Observer',ciBool(function(){ return typeof PerformanceObserver !== 'undefined'; })],
+            ['requestIdleCallback', ciBool(function(){ return typeof requestIdleCallback !== 'undefined'; })],
+            ['requestAnimFrame',    ciBool(function(){ return typeof requestAnimationFrame !== 'undefined'; })],
+            ['CSS.supports()',      ciBool(function(){ return typeof CSS !== 'undefined' && CSS.supports; })],
+            ['CSS Grid',            ciBool(function(){ return CSS.supports('display','grid'); })],
+            ['CSS Flex',            ciBool(function(){ return CSS.supports('display','flex'); })],
+            ['CSS Custom Props',    ciBool(function(){ return CSS.supports('color','var(--x)'); })],
+            ['CSS Container Q.',    ciBool(function(){ return CSS.supports('container-type','inline-size'); })],
+            ['CSS :has()',          ciBool(function(){ return CSS.supports('selector(:has(a))'); })],
+            ['Fetch API',           ciBool(function(){ return typeof fetch !== 'undefined'; })],
+            ['AbortController',     ciBool(function(){ return typeof AbortController !== 'undefined'; })],
+            ['FormData',            ciBool(function(){ return typeof FormData !== 'undefined'; })],
+            ['Streams API',         ciBool(function(){ return typeof ReadableStream !== 'undefined'; })],
+            ['Web Locks',           ciBool(function(){ return 'locks' in navigator; })],
+            ['WebXR',               ciBool(function(){ return 'xr' in navigator; })],
+        ];
+        var grid = '';
+        apis.forEach(function(a) { grid += ciChip(a[0], a[1]); });
+        $('#ci-api-grid').html(grid);
+
+        /* Storage */
+        var st = '';
+        st += ciRow('localStorage',     ciBool(function(){ return typeof localStorage !== 'undefined'; }) ? 'Supported' : 'Not supported');
+        st += ciRow('sessionStorage',   ciBool(function(){ return typeof sessionStorage !== 'undefined'; }) ? 'Supported' : 'Not supported');
+        st += ciRow('IndexedDB',        ciBool(function(){ return typeof indexedDB !== 'undefined'; }) ? 'Supported' : 'Not supported');
+        st += ciRow('Cache API',        ciBool(function(){ return typeof caches !== 'undefined'; }) ? 'Supported' : 'Not supported');
+        st += ciRow('Cookie Count',     document.cookie.split(';').filter(function(c){ return c.trim().length > 0; }).length);
+        st += ciRow('localStorage Keys', ciSafe(function(){ return localStorage.length; }));
+        st += ciRow('sessionStorage Keys', ciSafe(function(){ return sessionStorage.length; }));
+        st += ciRow('Storage Estimate (used)', '<span id="ci-s-used">…</span>');
+        st += ciRow('Storage Estimate (quota)', '<span id="ci-s-quota">…</span>');
+        st += ciRow('Storage Persistence', '<span id="ci-s-persist">…</span>');
+        $('#ci-storage-table').html(st);
+
+        if (navigator.storage) {
+            if (navigator.storage.estimate) {
+                navigator.storage.estimate().then(function(e) {
+                    $('#ci-s-used').text(e.usage !== undefined ? ciBytes(e.usage) : '-');
+                    $('#ci-s-quota').text(e.quota !== undefined ? ciBytes(e.quota) : '-');
+                }).catch(function(){ $('#ci-s-used, #ci-s-quota').text('blocked'); });
+            }
+            if (navigator.storage.persisted) {
+                navigator.storage.persisted().then(function(p) {
+                    $('#ci-s-persist').text(p ? 'Persistent' : 'Best-effort');
+                }).catch(function(){ $('#ci-s-persist').text('-'); });
+            }
+        } else {
+            $('#ci-s-used, #ci-s-quota, #ci-s-persist').text('Not supported');
+        }
+
+        /* Network */
+        var net = '';
+        net += ciRow('Online',          navigator.onLine ? 'Yes' : 'No');
+        net += ciRow('Do Not Track',    navigator.doNotTrack !== null ? navigator.doNotTrack : '-');
+        net += ciRow('Referrer',        document.referrer || '(none)');
+        var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn) {
+            net += ciRow('Type',            conn.type || '-');
+            net += ciRow('Effective Type',  conn.effectiveType || '-');
+            net += ciRow('Downlink',        conn.downlink !== undefined ? conn.downlink + ' Mbps' : '-');
+            net += ciRow('Downlink Max',    conn.downlinkMax !== undefined ? conn.downlinkMax + ' Mbps' : '-');
+            net += ciRow('RTT',             conn.rtt !== undefined ? conn.rtt + ' ms' : '-');
+            net += ciRow('Save Data',       conn.saveData !== undefined ? String(conn.saveData) : '-');
+        } else {
+            net += ciRow('Network Info API', 'Not supported');
+        }
+        net += ciRow('Location Origin',     location.origin);
+        net += ciRow('Location Protocol',   location.protocol);
+        net += ciRow('Location Host',       location.host);
+        $('#ci-network-table').html(net);
+
+        /* Performance */
+        var pf = '';
+        if (window.performance) {
+            var nav = performance.navigation || {};
+            var navTypes = ['navigate','reload','back/forward','prerender'];
+            pf += ciRow('Navigation Type',  navTypes[nav.type] !== undefined ? navTypes[nav.type] : (nav.type !== undefined ? nav.type : '-'));
+            pf += ciRow('Redirect Count',   nav.redirectCount !== undefined ? nav.redirectCount : '-');
+
+            if (performance.getEntriesByType) {
+                var navE = performance.getEntriesByType('navigation');
+                if (navE.length) {
+                    var e = navE[0];
+                    pf += ciRow('DNS Lookup',       e.domainLookupEnd && e.domainLookupStart ? Math.round(e.domainLookupEnd - e.domainLookupStart) + ' ms' : '-');
+                    pf += ciRow('TCP Connect',      e.connectEnd && e.connectStart ? Math.round(e.connectEnd - e.connectStart) + ' ms' : '-');
+                    pf += ciRow('TLS Handshake',    e.secureConnectionStart > 0 ? Math.round(e.connectEnd - e.secureConnectionStart) + ' ms' : '-');
+                    pf += ciRow('Request Time',     e.responseStart && e.requestStart ? Math.round(e.responseStart - e.requestStart) + ' ms' : '-');
+                    pf += ciRow('Response Time',    e.responseEnd && e.responseStart ? Math.round(e.responseEnd - e.responseStart) + ' ms' : '-');
+                    pf += ciRow('DOM Interactive',  e.domInteractive ? Math.round(e.domInteractive) + ' ms' : '-');
+                    pf += ciRow('DOM Complete',     e.domComplete ? Math.round(e.domComplete) + ' ms' : '-');
+                    pf += ciRow('Load Event End',   e.loadEventEnd ? Math.round(e.loadEventEnd) + ' ms' : '-');
+                    pf += ciRow('Transfer Size',    e.transferSize !== undefined ? ciBytes(e.transferSize) : '-');
+                    pf += ciRow('Encoded Body',     e.encodedBodySize !== undefined ? ciBytes(e.encodedBodySize) : '-');
+                    pf += ciRow('Decoded Body',     e.decodedBodySize !== undefined ? ciBytes(e.decodedBodySize) : '-');
+                }
+            }
+            if (performance.memory) {
+                pf += ciRow('JS Heap Limit',  ciBytes(performance.memory.jsHeapSizeLimit));
+                pf += ciRow('JS Heap Total',  ciBytes(performance.memory.totalJSHeapSize));
+                pf += ciRow('JS Heap Used',   ciBytes(performance.memory.usedJSHeapSize));
+            }
+            pf += ciRow('Time Origin',      performance.timeOrigin ? new Date(performance.timeOrigin).toISOString() : '-');
+        } else {
+            pf += ciRow('Performance API', 'Not supported');
+        }
+        $('#ci-perf-table').html(pf);
+
+        /* Capabilities */
+        var caps = '';
+        caps += ciRow('Canvas 2D',          ciBool(function(){ return document.createElement('canvas').getContext('2d'); }) ? 'Supported' : 'Not supported');
+        caps += ciRow('WebGL Renderer',     ciSafe(function(){
+            var gl = document.createElement('canvas').getContext('webgl');
+            var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+            return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null;
+        }));
+        caps += ciRow('WebGL Vendor',       ciSafe(function(){
+            var gl = document.createElement('canvas').getContext('webgl');
+            var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+            return dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null;
+        }));
+        caps += ciRow('WebP Support',       (function(){
+            var c = document.createElement('canvas');
+            return c.toDataURL('image/webp').indexOf('data:image/webp') === 0 ? 'Yes' : 'No';
+        })());
+        caps += ciRow('Picture-in-Picture', ciBool(function(){ return 'exitPictureInPicture' in document; }) ? 'Supported' : 'Not supported');
+        caps += ciRow('Web Speech',         ciBool(function(){ return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window; }) ? 'Supported' : 'Not supported');
+        caps += ciRow('Speech Synthesis',   ciBool(function(){ return 'speechSynthesis' in window; }) ? 'Supported' : 'Not supported');
+        caps += ciRow('Media Source Ext.',  ciBool(function(){ return 'MediaSource' in window; }) ? 'Supported' : 'Not supported');
+        caps += ciRow('Encrypted Media',    ciBool(function(){ return 'requestMediaKeySystemAccess' in navigator; }) ? 'Supported' : 'Not supported');
+        caps += ciRow('CSS Subgrid',        ciBool(function(){ return CSS.supports('grid-template-rows','subgrid'); }) ? 'Supported' : 'Not supported');
+        caps += ciRow('Pointer Type',       window.matchMedia ? (window.matchMedia('(pointer:coarse)').matches ? 'Coarse (touch)' : 'Fine (mouse/pen)') : '-');
+        caps += ciRow('Prefers Dark Mode',  window.matchMedia ? (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'Dark' : 'Light') : '-');
+        caps += ciRow('Reduced Motion',     window.matchMedia ? (window.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'Yes' : 'No') : '-');
+        caps += ciRow('HDR Support',        window.matchMedia ? (window.matchMedia('(dynamic-range:high)').matches ? 'Yes' : 'No') : '-');
+        caps += ciRow('P3 Color Gamut',     window.matchMedia ? (window.matchMedia('(color-gamut:p3)').matches ? 'Yes' : 'No') : '-');
+        caps += ciRow('Hover Capable',      window.matchMedia ? (window.matchMedia('(hover:hover)').matches ? 'Yes' : 'No') : '-');
+        caps += ciRow('Forced Colors',      window.matchMedia ? (window.matchMedia('(forced-colors:active)').matches ? 'Active' : 'None') : '-');
+        $('#ci-caps-table').html(caps);
+    }
+
+    /* ── Nav ── */
+    function ciNavTo(page) {
+        $('.ci-nav-item').removeClass('active');
+        $('[data-page="' + page + '"]').addClass('active');
+        $('.ci-dev-page').removeClass('active');
+        $('#ci-page-' + page).addClass('active');
+    }
+
+    /* ── Toggle ── */
+    var ciOpen = false, ciReady = false;
+    function ciToggleMore() {
+        ciOpen = !ciOpen;
+        if (ciOpen) {
+            if (!ciReady) { ciPopulateDev(); ciReady = true; }
+            $('#ci-dev-panel').addClass('open');
+            $('#ci-btn-chevron').addClass('flipped');
+            $('#ci-more-label').text(ciLocale.getString('clientinfo/show-less', 'Hide Developer Insights'));
+        } else {
+            $('#ci-dev-panel').removeClass('open');
+            $('#ci-btn-chevron').removeClass('flipped');
+            $('#ci-more-label').text(ciLocale.getString('clientinfo/show-more', 'Show Developer Insights'));
+        }
+    }
+
+    ciInit();
+</script>
 </body>
-
 </html>

@@ -1,205 +1,860 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
-    <head>
-        <title>User Account</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    </head>
-    <body>
-        <div class="ui container">
-            <div class="ui basic segment">
-                <div class="ui header">
-                    <i class="user circle icon"></i>
-                        <div class="content">
-                        My Account
-                        <div class="sub header">Manage your account information and password</div>
-                    </div>
-                </div>
-            </div>
-            <div class="ui stackable grid">
-                <div class="six wide column">
-                    <div class="ui card">
-                        <div class="image">
-                            <img id="profileIcon" src="../users/img/user.svg">
-                        </div>
-                        <div class="content">
-                            <a id="username" class="header"></a>
-                            <div class="meta">
-                                <p><i class="ui envelope icon"></i><span id="email" class="date"></span><br>
-                                <i class="ui user circle icon"></i><span id="usergroup" class="date"></span></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="ten wide column">
-                    <h4 class="ui header">
-                        Change Profile Picture
-                    </h4>
-                    <button class="ui blue button" onclick="handleProfilePic();">Upload</button>
-                    <div class="ui divider"></div>
-                    <h4 class="ui header">
-                        Change Contact Email
-                    </h4>
-                    <form class="ui form" onsubmit="handleEmailChange(event);">
-                        <div class="field">
-                            <label>New Email</label>
-                            <input id="newemail" type="text"  placeholder="New Email">
-                        </div>
-                        <button class="ui blue button" type="submit">Update</button>
-                    </form>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>User Account</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-                    <div class="ui divider"></div>
-                    <h4 class="ui header">
-                        Change Password
-                    </h4>
-                    <form class="ui form" onsubmit="handleSubmit(event);">
-                        <div class="field">
-                            <label>Old Password</label>
-                            <input id="opw" type="password"  placeholder="Old Password">
-                        </div>
-                        <div class="field">
-                            <label>New password</label>
-                            <input id="npw" type="password" placeholder="New Password">
-                        </div>
-                        <div class="field">
-                            <label>Confirm New Password</label>
-                            <input id="cpw" type="password" placeholder="Confirm New Password">
-                        </div>
-                        <button class="ui blue button" type="submit">Update</button>
-                    </form>
-                    <div id="msgbox" class="ui green message" style="display:none;">
-                        <i class="close icon"></i>
-                        <div class="header">
-                            Welcome back!
-                        </div>
-                        <p class="message">This is a special notification which you can dismiss if you're bored with it.</p>
-                    </div>
+    body { background: transparent; overflow-x: hidden; }
+
+    #ua-root {
+        --ua-bg:      #f3f3f3;
+        --ua-card:    #ffffff;
+        --ua-border:  #e0e0e0;
+        --ua-text:    #1b1b1b;
+        --ua-dim:     #5a5a5a;
+        --ua-muted:   #8a8a8a;
+        --ua-accent:  #0067c0;
+        --ua-accentH: #1475c8;
+        --ua-danger:  #c42b1c;
+        --ua-shadow:  0 1px 4px rgba(0,0,0,0.08);
+        --ua-radius:  6px;
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--ua-text);
+        background: var(--ua-bg);
+        min-height: 100vh;
+        padding-bottom: 32px;
+    }
+
+    #ua-root.dark {
+        --ua-bg:      #202020;
+        --ua-card:    #2d2d2d;
+        --ua-border:  #404040;
+        --ua-text:    #e8e8e8;
+        --ua-dim:     #aaaaaa;
+        --ua-muted:   #666666;
+        --ua-accent:  #60cdff;
+        --ua-accentH: #8cd9ff;
+        --ua-danger:  #ff7070;
+        --ua-shadow:  0 1px 6px rgba(0,0,0,0.4);
+    }
+
+    /* -- Hero bar ---------------------------------------------------------------- */
+    #ua-hero {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 22px 20px 18px;
+    }
+
+    #ua-hero-avatar {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 2px solid var(--ua-border);
+        background: var(--ua-border);
+    }
+
+    #ua-hero-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    #ua-hero-info { flex: 1; min-width: 0; }
+
+    #ua-hero-name {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--ua-text);
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #ua-hero-group {
+        font-size: 13px;
+        color: var(--ua-dim);
+    }
+
+    /* -- Section cards ----------------------------------------------------------- */
+    .ua-section {
+        background: var(--ua-card);
+        border: 1px solid var(--ua-border);
+        border-radius: var(--ua-radius);
+        margin: 0 12px 10px;
+        box-shadow: var(--ua-shadow);
+        overflow: hidden;
+    }
+
+    .ua-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 18px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.1s;
+    }
+
+    .ua-section-header:hover { background: rgba(0,0,0,0.035); }
+    #ua-root.dark .ua-section-header:hover { background: rgba(255,255,255,0.05); }
+
+    .ua-section-icon { color: var(--ua-dim); flex-shrink: 0; }
+
+    .ua-section-title {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ua-text);
+    }
+
+    .ua-chevron {
+        width: 14px;
+        height: 14px;
+        color: var(--ua-muted);
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .ua-chevron.open { transform: rotate(180deg); }
+
+    .ua-section-body {
+        display: none;
+        padding: 4px 18px 18px;
+        border-top: 1px solid var(--ua-border);
+    }
+
+    .ua-section-body.open { display: block; }
+
+    /* -- Form elements ----------------------------------------------------------- */
+    .ua-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ua-dim);
+        margin-bottom: 5px;
+        margin-top: 14px;
+    }
+
+    .ua-input {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid var(--ua-border);
+        border-radius: 4px;
+        background: var(--ua-card);
+        color: var(--ua-text);
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+
+    .ua-input:focus { border-color: var(--ua-accent); }
+    .ua-input.error { border-color: var(--ua-danger) !important; }
+
+    .ua-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.1s;
+        outline: none;
+    }
+
+    .ua-btn-primary {
+        background: var(--ua-accent);
+        color: #fff;
+        border-color: var(--ua-accent);
+    }
+    .ua-btn-primary:hover { background: var(--ua-accentH); border-color: var(--ua-accentH); }
+
+    .ua-btn-secondary {
+        background: transparent;
+        color: var(--ua-text);
+        border-color: var(--ua-border);
+    }
+    .ua-btn-secondary:hover { background: rgba(0,0,0,0.05); }
+    #ua-root.dark .ua-btn-secondary:hover { background: rgba(255,255,255,0.07); }
+
+    .ua-actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* -- Profile picture section ------------------------------------------------- */
+    #pic-preview-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 14px;
+        margin-bottom: 4px;
+    }
+
+    #pic-preview {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 2px solid var(--ua-border);
+        flex-shrink: 0;
+        background: var(--ua-border);
+    }
+
+    #pic-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .pic-btn-col { display: flex; flex-direction: column; gap: 8px; }
+
+    /* -- Crop modal -------------------------------------------------------------- */
+    #ua-crop-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9000;
+        background: rgba(0,0,0,0.6);
+        align-items: center;
+        justify-content: center;
+    }
+
+    #ua-crop-overlay.open { display: flex; }
+
+    #ua-crop-dialog {
+        background: #fff;
+        border-radius: 10px;
+        padding: 22px;
+        width: 340px;
+        max-width: 95vw;
+        box-shadow: 0 12px 50px rgba(0,0,0,0.4);
+    }
+
+    #ua-crop-overlay.dark #ua-crop-dialog { background: #2d2d2d; }
+
+    #ua-crop-dialog-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1b1b1b;
+        margin-bottom: 14px;
+    }
+
+    #ua-crop-overlay.dark #ua-crop-dialog-title { color: #e8e8e8; }
+
+    #ua-crop-stage {
+        width: 280px;
+        height: 280px;
+        margin: 0 auto 14px;
+        border-radius: 50%;
+        overflow: hidden;
+        position: relative;
+        border: 2px solid #0067c0;
+        cursor: grab;
+        user-select: none;
+        background: #111;
+        touch-action: none;
+    }
+
+    #ua-crop-overlay.dark #ua-crop-stage { border-color: #60cdff; }
+    #ua-crop-stage:active { cursor: grabbing; }
+
+    #ua-crop-img {
+        position: absolute;
+        pointer-events: none;
+        transform-origin: top left;
+    }
+
+    #ua-zoom-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .ua-zoom-label {
+        font-size: 12px;
+        color: #5a5a5a;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    #ua-crop-overlay.dark .ua-zoom-label { color: #aaa; }
+
+    #ua-crop-zoom {
+        flex: 1;
+        accent-color: #0067c0;
+    }
+
+    #ua-crop-overlay.dark #ua-crop-zoom { accent-color: #60cdff; }
+
+    .ua-crop-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    .ua-crop-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 16px;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+    }
+
+    .ua-crop-btn-cancel {
+        background: transparent;
+        color: #1b1b1b;
+        border-color: #e0e0e0;
+    }
+    #ua-crop-overlay.dark .ua-crop-btn-cancel { color: #e8e8e8; border-color: #404040; }
+
+    .ua-crop-btn-apply {
+        background: #0067c0;
+        color: #fff;
+        border-color: #0067c0;
+    }
+    #ua-crop-overlay.dark .ua-crop-btn-apply { background: #60cdff; border-color: #60cdff; color: #1b1b1b; }
+
+    /* -- Toast ------------------------------------------------------------------- */
+    #ua-toast {
+        display: none;
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        z-index: 9100;
+        background: #1f1f1f;
+        border: none;
+        border-radius: 12px;
+        padding: 10px 14px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+        max-width: min(340px, calc(100vw - 24px));
+        min-width: 180px;
+        text-align: center;
+    }
+
+    #ua-toast.dark { background: #2d2d2d; }
+    #ua-toast.error { background: #c42b1c; }
+    #ua-toast.dark.error { background: #ff7070; }
+
+    #ua-toast-title {
+        font-weight: 600;
+        font-size: 13px;
+        color: #ffffff;
+        margin-bottom: 2px;
+    }
+
+    #ua-toast.dark #ua-toast-title { color: #e8e8e8; }
+    #ua-toast.error #ua-toast-title,
+    #ua-toast.dark.error #ua-toast-title { color: #ffffff; }
+
+    #ua-toast-msg {
+        font-size: 12px;
+        color: rgba(255,255,255,0.9);
+    }
+
+    #ua-toast.dark #ua-toast-msg { color: #aaa; }
+    #ua-toast.error #ua-toast-msg,
+    #ua-toast.dark.error #ua-toast-msg { color: rgba(255,255,255,0.94); }
+
+    /* -- Misc -------------------------------------------------------------------- */
+    #ua-current-email {
+        font-size: 13px;
+        color: var(--ua-dim);
+        margin-top: 12px;
+        margin-bottom: 2px;
+    }
+    </style>
+</head>
+<body>
+
+<!-- Hidden file input -->
+<input type="file" id="ua-file-input" accept="image/*" style="display:none">
+
+<!-- Crop modal (outside #ua-root so overlay covers full viewport) -->
+<div id="ua-crop-overlay">
+    <div id="ua-crop-dialog">
+        <div id="ua-crop-dialog-title" locale="account/crop_title">Crop Profile Picture</div>
+        <div id="ua-crop-stage">
+            <img id="ua-crop-img" src="" alt="" draggable="false">
+        </div>
+        <div id="ua-zoom-row">
+            <span class="ua-zoom-label" locale="account/crop_zoom">Zoom</span>
+            <input type="range" id="ua-crop-zoom" min="50" max="300" value="100" step="1">
+        </div>
+        <div class="ua-crop-actions">
+            <button class="ua-crop-btn ua-crop-btn-cancel" onclick="closeCropModal()" locale="account/cancel">Cancel</button>
+            <button class="ua-crop-btn ua-crop-btn-apply" onclick="applyCrop()" locale="account/apply">Apply</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div id="ua-toast">
+    <div id="ua-toast-title"></div>
+    <div id="ua-toast-msg"></div>
+</div>
+
+<!-- Main panel -->
+<div id="ua-root">
+
+    <!-- Hero: avatar + name + group -->
+    <div id="ua-hero">
+        <div id="ua-hero-avatar">
+            <img id="heroAvatar" src="../users/img/noprofileicon.svg" alt="">
+        </div>
+        <div id="ua-hero-info">
+            <div id="ua-hero-name">&mdash;</div>
+            <div id="ua-hero-group">&mdash;</div>
+        </div>
+    </div>
+
+    <!-- Profile Picture -->
+    <div class="ua-section">
+        <div class="ua-section-header" onclick="uaToggle(this)">
+            <svg class="ua-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="5.5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M2 14c0-3.31 2.686-5.5 6-5.5s6 2.19 6 5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="ua-section-title" locale="account/pic_title">Profile Picture</span>
+            <svg class="ua-chevron" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="ua-section-body">
+            <div id="pic-preview-row">
+                <div id="pic-preview">
+                    <img id="picPreview" src="../users/img/noprofileicon.svg" alt="">
+                </div>
+                <div class="pic-btn-col">
+                    <button class="ua-btn ua-btn-secondary" onclick="triggerLocalUpload()">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 11V3M5 6l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <span locale="account/upload_local">Upload from Device</span>
+                    </button>
+                    <button class="ua-btn ua-btn-secondary" onclick="triggerServerPick()">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                            <path d="M2 4.5h12M2 8h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                            <rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                            <circle cx="12" cy="12" r="3" fill="currentColor" fill-opacity=".15" stroke="currentColor" stroke-width="1.1"/>
+                            <path d="M11 12h2M12 11v2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                        </svg>
+                        <span locale="account/upload_server">Pick from Files</span>
+                    </button>
                 </div>
             </div>
         </div>
-        <script>
-            //Initiate user information
-            $.get("../../system/users/userinfo",function(data){
-                if (data.error !== undefined){
-                    //Not logged in?
+    </div>
 
-                }else{
-                    if (data.Icondata == ""){
-                        $("#profileIcon").attr('src', "../users/img/noprofileicon.svg");
-                    }else{
-                        $("#profileIcon").attr('src', data.Icondata);
-                    }
-                    
-                    $("#username").text(data.Username);
-                    console.log(data.Usergroup);
-                    $("#usergroup").text(data.Usergroup.join(" / "));
-                }
-                
-            });
+    <!-- Account (Password) -->
+    <div class="ua-section">
+        <div class="ua-section-header" onclick="uaToggle(this)">
+            <svg class="ua-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="4" y="7" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="ua-section-title" locale="account/pw_title">Account</span>
+            <svg class="ua-chevron" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="ua-section-body">
+            <form onsubmit="handlePasswordChange(event)">
+                <label class="ua-label" locale="account/old_pw">Old Password</label>
+                <input class="ua-input" id="opw" type="password" placeholder="Old Password">
+                <label class="ua-label" locale="account/new_pw">New Password</label>
+                <input class="ua-input" id="npw" type="password" placeholder="New Password">
+                <label class="ua-label" locale="account/confirm_pw">Confirm New Password</label>
+                <input class="ua-input" id="cpw" type="password" placeholder="Confirm New Password">
+                <div class="ua-actions">
+                    <button class="ua-btn ua-btn-primary" type="submit" locale="account/save">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-            function initUserEmail(){
-                $.get("../../system/register/email", function(data){
-                    if (data == ""){
-                        //Not set
-                        $("#email").text("( Not Configured )");
-                    }else{
-                        $("#email").text(data);
-                    }
-                });
+    <!-- Email -->
+    <div class="ua-section">
+        <div class="ua-section-header" onclick="uaToggle(this)">
+            <svg class="ua-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M2 7l6 3.5L14 7" stroke="currentColor" stroke-width="1.3"/>
+            </svg>
+            <span class="ua-section-title" locale="account/email_title">Email</span>
+            <svg class="ua-chevron" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="ua-section-body">
+            <div id="ua-current-email"></div>
+            <form onsubmit="handleEmailChange(event)">
+                <label class="ua-label" locale="account/new_email">New Email</label>
+                <input class="ua-input" id="newemail" type="email" placeholder="New Email">
+                <div class="ua-actions">
+                    <button class="ua-btn ua-btn-primary" type="submit" locale="account/save">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/* ================================================================
+   Theme
+   ================================================================ */
+var _isDark = false;
+var userInfoApplocale = null;
+
+function applyTheme(dark) {
+    _isDark = dark;
+    document.getElementById('ua-root').classList.toggle('dark', dark);
+    document.getElementById('ua-crop-overlay').classList.toggle('dark', dark);
+    document.getElementById('ua-toast').classList.toggle('dark', dark);
+}
+
+try {
+    if (preferredTheme || parent.preferredTheme){
+        var theme = preferredTheme || parent.preferredTheme;
+        var _pt = (theme === 'dark' || theme === 'darkTheme') ? 'dark' : 'white';
+        if (_pt) {
+            applyTheme(_pt !== 'white');
+        } 
+    }else {
+        ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); });
+    }
+} catch(e) {
+    ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); });
+}
+
+/* ================================================================
+   Applocale + init
+   ================================================================ */
+function initPage() {
+    loadUserInfo();
+    loadEmail();
+}
+
+$(document).ready(function() {
+    if (typeof applocale !== 'undefined') {
+        userInfoApplocale = NewAppLocale();
+        userInfoApplocale.init('../locale/users/account.json', function() {
+            userInfoApplocale.translate();
+            initPage();
+        });
+    } else {
+        initPage();
+    }
+});
+
+/* ================================================================
+   Section accordion
+   ================================================================ */
+function uaToggle(header) {
+    var body    = header.nextElementSibling;
+    var chevron = header.querySelector('.ua-chevron');
+    var isOpen  = body.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+}
+
+/* ================================================================
+   User info
+   ================================================================ */
+function loadUserInfo() {
+    $.get('../../system/users/userinfo', function(data) {
+        if (data.error !== undefined) return;
+        var src = (data.Icondata && data.Icondata !== '')
+            ? data.Icondata
+            : '../users/img/noprofileicon.svg';
+        $('#heroAvatar, #picPreview').attr('src', src);
+        $('#ua-hero-name').text(data.Username);
+        var group = (data.Usergroup && data.Usergroup.length)
+            ? data.Usergroup.join(' / ')
+            : '';
+        $('#ua-hero-group').text(group);
+    });
+}
+
+function loadEmail() {
+    $.get('../../system/register/email', function(data) {
+        var notSet = (typeof userInfoApplocale !== 'undefined') ? userInfoApplocale.getString('account/email_not_set', 'Not Configured') : 'Not Configured';
+        var label  = (typeof userInfoApplocale !== 'undefined') ? userInfoApplocale.getString('account/current_email_label', 'Current Email:') : 'Current Email:';
+        $('#ua-current-email').text(
+            (data && data !== '') ? label + ' ' + data : '( ' + notSet + ' )'
+        );
+    });
+}
+
+/* ================================================================
+   Password change
+   ================================================================ */
+function handlePasswordChange(event) {
+    event.preventDefault();
+    var oldPw  = $('#opw').val();
+    var newPw  = $('#npw').val();
+    var confPw = $('#cpw').val();
+
+    $('#cpw').removeClass('error');
+
+    if (newPw !== confPw) {
+        $('#cpw').addClass('error');
+        toast('error',
+            _s('account/pw_mismatch_title', 'Password Mismatch'),
+            _s('account/pw_mismatch_msg',   'New passwords do not match.')
+        );
+        return;
+    }
+
+    $.ajax({
+        url:    '../../system/users/userinfo',
+        method: 'POST',
+        data:   { opr: 'changepw', oldpw: oldPw, newpw: newPw },
+        success: function(data) {
+            if (data.error !== undefined) {
+                toast('error', _s('account/update_failed', 'Update Failed'), data.error);
+            } else {
+                toast('ok',
+                    _s('account/update_ok',  'Updated'),
+                    _s('account/pw_updated', 'Your password has been updated.')
+                );
+                $('#opw, #npw, #cpw').val('');
             }
-            initUserEmail();
-           
+        }
+    });
+}
 
-            //Handle change password form submit
-            function handleSubmit(event){
-                event.preventDefault();
-                //Check if new password and confirm matches
-                var oldPassword = $("#opw").val();
-                var newPassword = $("#npw").val();
-                var confirmPassword = $("#cpw").val();
-                if (newPassword != confirmPassword){
-                    $("#cpw").parent().addClass("error");
-                    return;
-                }else{
-                    $("#cpw").parent().removeClass("error");
-                }
-
-                //OK to proceed.
-                $.ajax({
-                    url: "../../system/users/userinfo",
-                    method: "POST",
-                    data: {opr: "changepw", oldpw: oldPassword, newpw: newPassword},
-                    success: function(data){
-                        if (data.error != undefined){
-                            msgbox("Update Failed", data.error);
-                        }else{
-                            //Updated suceed.
-                            msgbox("Update Succeed", "Your password has been updated.");
-                        }
-                    }
-                });
-
+/* ================================================================
+   Email change
+   ================================================================ */
+function handleEmailChange(event) {
+    event.preventDefault();
+    var newEmail = $('#newemail').val();
+    $.ajax({
+        url:  '../../system/register/email',
+        data: { email: newEmail },
+        success: function(data) {
+            if (data.error !== undefined) {
+                toast('error', _s('account/update_failed', 'Update Failed'), data.error);
+            } else {
+                toast('ok',
+                    _s('account/update_ok',     'Updated'),
+                    _s('account/email_updated', 'Your email has been updated.')
+                );
+                $('#newemail').val('');
+                loadEmail();
             }
+        }
+    });
+}
 
-            function handleEmailChange(e){
-                e.preventDefault();
-                var newEmail = $("#newemail").val();
-                $.ajax({
-                    url: "../../system/register/email",
-                    data: {email: newEmail},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            msgbox("Update Succeed", "Your email has been updated.");
-                            initUserEmail();
-                        }
-                       
-                    }
-                });
+/* ================================================================
+   Profile picture
+   ================================================================ */
+function triggerLocalUpload() {
+    document.getElementById('ua-file-input').click();
+}
+
+document.getElementById('ua-file-input').addEventListener('change', function() {
+    var file = this.files[0];
+    if (!file) return;
+    this.value = '';
+    var reader = new FileReader();
+    reader.onload = function(e) { openCropModal(e.target.result); };
+    reader.readAsDataURL(file);
+});
+
+function triggerServerPick() {
+    // Use a named callback to support virtual desktop callback routing.
+    ao_module_openFileSelector(serverFileSelected, 'user:/', 'file', false);
+}
+
+function serverFileSelected(files) {
+    if (!files || !files.length) return;
+    var vpath = files[0].filepath;
+    fetch('../../media/?file=' + encodeURIComponent(vpath))
+        .then(function(r) {
+            if (!r.ok) throw new Error('fetch failed');
+            return r.blob();
+        })
+        .then(function(blob) {
+            var reader = new FileReader();
+            reader.onload = function(e) { openCropModal(e.target.result); };
+            reader.readAsDataURL(blob);
+        })
+        .catch(function() {
+            toast('error',
+                _s('account/update_failed',  'Load Failed'),
+                _s('account/file_load_error', 'Could not load the selected image.')
+            );
+        });
+}
+
+function uploadProfilePic(dataURL) {
+    $.ajax({
+        url:    '../../system/users/userinfo',
+        method: 'POST',
+        data:   { opr: 'changeprofilepic', picdata: dataURL },
+        success: function(data) {
+            if (data.error !== undefined) {
+                toast('error', _s('account/update_failed', 'Update Failed'), data.error);
+            } else {
+                $('#heroAvatar, #picPreview').attr('src', dataURL);
+                toast('ok',
+                    _s('account/update_ok',   'Updated'),
+                    _s('account/pic_updated', 'Profile picture has been updated.')
+                );
             }
+        }
+    });
+}
 
-            function handleProfilePic(){
-                ao_module_selectFiles(function(files){
-                    if (FileReader && files && files.length) {
-                        var fr = new FileReader();
-                        fr.onload = function () {
-                            //Update the database for the new image
-                            var fullImageDatapath = fr.result;
-                            $.ajax({
-                                url: "../../system/users/userinfo",
-                                method: "POST",
-                                data: {opr: "changeprofilepic", picdata: fullImageDatapath},
-                                success: function(data){
-                                    if (data.error !== undefined){
-                                        console.log(data.error);
-                                    }else{
-                                        //Load the image into the src div
-                                        document.getElementById("profileIcon").src = fullImageDatapath;
-                                    }
-                                    
-                                }
-                            })
-                        }
-                        fr.readAsDataURL(files[0]);
-                    }
-                },"file", ".png",false);
-            }
+/* ================================================================
+   Crop modal
+   ================================================================ */
+var STAGE = 280;
+var crop  = { x: 0, y: 0, scale: 1, drag: false, ox: 0, oy: 0, imgW: 0, imgH: 0 };
 
-            function msgbox(header, message){
-                $("#msgbox").fadeIn('fast');
-                $("#msgbox").find(".header").text(header);
-                $("#msgbox").find(".message").text(message);
-            }
+function openCropModal(dataURL) {
+    var img = document.getElementById('ua-crop-img');
+    crop = { x: 0, y: 0, scale: 1, drag: false, ox: 0, oy: 0, imgW: 0, imgH: 0 };
 
-            //Hook close msgbox event
-            $('.message .close')
-            .on('click', function() {
-                $(this).parent().fadeOut('fast');
-            });
-        </script>
-    </body>
+    img.onload = function() {
+        crop.imgW = img.naturalWidth;
+        crop.imgH = img.naturalHeight;
+        var fit = STAGE / Math.min(crop.imgW, crop.imgH);
+        crop.scale = fit;
+        var zs = document.getElementById('ua-crop-zoom');
+        zs.min   = Math.max(10, Math.round(fit * 100));
+        zs.max   = Math.round(fit * 500);
+        zs.value = Math.round(fit * 100);
+        cropCenter();
+    };
+
+    img.src = dataURL;
+    document.getElementById('ua-crop-overlay').classList.add('open');
+}
+
+function closeCropModal() {
+    document.getElementById('ua-crop-overlay').classList.remove('open');
+    document.getElementById('ua-crop-img').src = '';
+}
+
+function cropCenter() {
+    crop.x = (STAGE - crop.imgW * crop.scale) / 2;
+    crop.y = (STAGE - crop.imgH * crop.scale) / 2;
+    cropRender();
+}
+
+function cropRender() {
+    var img = document.getElementById('ua-crop-img');
+    img.style.width  = (crop.imgW * crop.scale) + 'px';
+    img.style.height = (crop.imgH * crop.scale) + 'px';
+    img.style.left   = crop.x + 'px';
+    img.style.top    = crop.y + 'px';
+}
+
+document.getElementById('ua-crop-zoom').addEventListener('input', function() {
+    var ns = parseInt(this.value, 10) / 100;
+    var r  = ns / crop.scale;
+    var cx = STAGE / 2, cy = STAGE / 2;
+    crop.x = cx - (cx - crop.x) * r;
+    crop.y = cy - (cy - crop.y) * r;
+    crop.scale = ns;
+    cropRender();
+});
+
+var stageEl = document.getElementById('ua-crop-stage');
+
+stageEl.addEventListener('mousedown', function(e) {
+    crop.drag = true;
+    crop.ox = e.clientX - crop.x;
+    crop.oy = e.clientY - crop.y;
+    e.preventDefault();
+});
+
+document.addEventListener('mousemove', function(e) {
+    if (!crop.drag) return;
+    crop.x = e.clientX - crop.ox;
+    crop.y = e.clientY - crop.oy;
+    cropRender();
+});
+
+document.addEventListener('mouseup', function() { crop.drag = false; });
+
+stageEl.addEventListener('touchstart', function(e) {
+    var t = e.touches[0];
+    crop.drag = true;
+    crop.ox = t.clientX - crop.x;
+    crop.oy = t.clientY - crop.y;
+    e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('touchmove', function(e) {
+    if (!crop.drag) return;
+    var t = e.touches[0];
+    crop.x = t.clientX - crop.ox;
+    crop.y = t.clientY - crop.oy;
+    cropRender();
+}, { passive: false });
+
+document.addEventListener('touchend', function() { crop.drag = false; });
+
+function applyCrop() {
+    var srcImg = document.getElementById('ua-crop-img');
+    var canvas = document.createElement('canvas');
+    canvas.width  = STAGE;
+    canvas.height = STAGE;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(srcImg,
+        -crop.x / crop.scale, -crop.y / crop.scale,
+         STAGE   / crop.scale,  STAGE  / crop.scale,
+        0, 0, STAGE, STAGE
+    );
+    var dataURL = canvas.toDataURL('image/jpeg', 0.92);
+    closeCropModal();
+    uploadProfilePic(dataURL);
+}
+
+/* ================================================================
+   Toast
+   ================================================================ */
+var _toastTimer = null;
+
+function toast(type, title, message) {
+    var el = document.getElementById('ua-toast');
+    el.className = (_isDark ? 'dark' : '') + (type === 'error' ? ' error' : '');
+    document.getElementById('ua-toast-title').textContent = title;
+    document.getElementById('ua-toast-msg').textContent   = message;
+    el.style.display = 'block';
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function() { el.style.display = 'none'; }, 3500);
+}
+
+/* ================================================================
+   Locale helper
+   ================================================================ */
+function _s(key, def) {
+    return (typeof userInfoApplocale !== 'undefined') ? userInfoApplocale.getString(key, def) : def;
+}
+</script>
+</body>
 </html>

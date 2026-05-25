@@ -1,191 +1,323 @@
-<!DOCTYPE html>
-<html ng-app="App">
-<head>
-    <title>System Overview</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-    <script type="text/javascript" src="../../script/applocale.js"></script>
-</head>
+<style>
+#ov-root {
+    --ov-bg: #ffffff;
+    --ov-border: #e5e5e5;
+    --ov-text: #1f1f1f;
+    --ov-dim: #676767;
+    --ov-soft: #f5f5f5;
+    --ov-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    background: var(--ov-bg);
+    border: 1px solid var(--ov-border);
+    border-radius: 12px;
+    box-shadow: var(--ov-shadow);
+    color: var(--ov-text);
+    padding: 14px;
+    margin-bottom: 4px;
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
-<body>
-    <div class="ui container">
-        <br>
-        <div class="ui stackable grid">
-            <div class="six wide column">
-                <div class="ui fluid card">
-                    <div class="image">
-                        <img id="avator" src="../../SystemAO/users/img/user.svg">
-                    </div>
-                    <div class="content">
-                        <a id="username" class="header"><span>USER</span></a>
-                        <div class="meta">
-                            <span id="usergroup" class="date"><span>@usergroup</span></span>
-                        </div>
-                    </div>
-                    <div class="extra content">
-                        <a href="#" onclick="parent.logout();">
-                            <i class="logout icon"></i>
-                            <span locale="overview/logout">Logout</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="ten wide column">
-                <div class="ui segment">
-                    <h3 class="ui header"><i style="display: inline;" class="yellow folder icon"></i> <span locale="overview/storage">Storage</span></h3>
-                    <div class="ui divider"></div>
-                    <div class="ui grid">
-                        <div class="six wide column">
-                            <span locale="overview/used_space">Used Space</span>
-                        </div>
-                        <div class="ten wide column" id="usedStorage">
-                            Loading...
-                        </div>
-                        <div class="six wide column">
-                            <span locale="overview/total_space">Total Space</span>
-                        </div>
-                        <div class="ten wide column" id="totalStorage">
-                            Loading...
-                        </div>
-                    </div>
-                </div>
-                <div class="ui segment">
-                    <h3 class="ui header"><i  style="display: inline;" class="blue globe icon"></i> <span locale="overview/personal_homepage">Personal Homepage</span></h3>
-                    <div class="ui divider"></div>
-                    <div class="ui grid">
-                        <div class="six wide column">
-                            <span locale="overview/status">Status:</span>
-                        </div>
-                        <div class="ten wide column" id="homepageStatus">
-                            Loading...
-                        </div>
-                    </div>
-                </div>
-                <div class="ui segment">
-                    <h3 class="ui header"><i  style="display: inline;" class="teal clock icon"></i> <span locale="overview/operation_time">Operation Time</span></h3>
-                    <div class="ui divider"></div>
-                    <div class="ui grid">
-                        <div class="six wide column">
-                            <span locale="overview/online_since">Online Since:</span>
-                        </div>
-                        <div class="ten wide column" id="startup">
-                            Loading...
-                        </div>
-                        <div class="six wide column">
-                            <span locale="overview/up_time">Up Time :</span>
-                        </div>
-                        <div class="ten wide column" id="operation">
-                            Loading...
-                        </div>
-                    </div>
-                </div>
+#ov-root.dark {
+    --ov-bg: #2b2b2b;
+    --ov-border: #3b3b3b;
+    --ov-text: #ececec;
+    --ov-dim: #aaaaaa;
+    --ov-soft: #343434;
+    --ov-shadow: 0 8px 22px rgba(0,0,0,0.3);
+}
+
+#ov-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+#ov-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+#ov-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--ov-border);
+    background: var(--ov-soft);
+}
+
+#ov-user-meta { min-width: 0; }
+#ov-username {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#ov-usergroup {
+    margin-top: 1px;
+    font-size: 12px;
+    color: var(--ov-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#ov-actions { display: flex; align-items: center; gap: 8px; }
+
+#ov-logout {
+    border: 1px solid var(--ov-border);
+    background: var(--ov-soft);
+    color: var(--ov-text);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+#ov-host {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    background: var(--ov-soft);
+    border: 1px solid var(--ov-border);
+}
+
+#ov-host-icon-wrapper{
+    width: 100%;
+    display: flex;
+    justify-content: end;
+}
+#ov-host-icon {
+    width: 100px;
+    height: auto;
+    border-radius: 5px;
+    object-fit: cover;
+    background: var(--ov-bg);
+    margin-top: 1em;
+}
+
+#ov-host-text {
+    min-width: 0;
+    font-size: 12px;
+    color: var(--ov-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#ov-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.ov-card {
+    border: 1px solid var(--ov-border);
+    border-radius: 10px;
+    background: var(--ov-soft);
+    padding: 10px;
+}
+
+.ov-label {
+    font-size: 11px;
+    color: var(--ov-dim);
+    margin-bottom: 4px;
+}
+
+.ov-value {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+#ov-home-status { display: inline-flex; align-items: center; gap: 6px; }
+#ov-home-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c42b1c;
+}
+#ov-home-dot.online { background: #107c10; }
+
+@media (max-width: 920px) {
+    #ov-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+}
+
+@media (max-width: 620px) {
+    #ov-root { padding: 10px; }
+    #ov-grid { grid-template-columns: 1fr; }
+    #ov-top { flex-wrap: wrap; }
+}
+</style>
+
+<div id="ov-root">
+    <div id="ov-top">
+        <div id="ov-user">
+            <img id="ov-avatar" src="../../SystemAO/users/img/user.svg" alt="">
+            <div id="ov-user-meta">
+                <div id="ov-username">USER</div>
+                <div id="ov-usergroup">@usergroup</div>
             </div>
         </div>
+        <div id="ov-actions">
+            <button id="ov-logout" onclick="ovLogout()" locale="overview/logout">Logout</button>
+        </div>
     </div>
-    
-    <div class="ui divider"></div>
-    <div style="float: right; text-align: right; color: #9c9c9c; margin-right: 1.5em;" >
-        <p><span id="hostname"></span><br>
-        <span id="version"></span></p>
+
+    <div id="ov-host"> 
+        <div id="ov-host-text"><span id="ov-hostname">-</span> · <span id="ov-version">-</span></div>
     </div>
-    <img class="ui small image" id="icon"></img>
-    
-    <br>
-</body>
+
+    <div id="ov-grid">
+        <div class="ov-card">
+            <div class="ov-label" locale="overview/used_space">Used Space</div>
+            <div class="ov-value" id="ov-used">-</div>
+        </div>
+        <div class="ov-card">
+            <div class="ov-label" locale="overview/total_space">Total Space</div>
+            <div class="ov-value" id="ov-total">-</div>
+        </div>
+        <div class="ov-card">
+            <div class="ov-label" locale="overview/personal_homepage">Homepage</div>
+            <div class="ov-value" id="ov-home-status"><span id="ov-home-dot"></span><span id="ov-home-text">-</span></div>
+        </div>
+        <div class="ov-card">
+            <div class="ov-label" locale="overview/up_time">Up Time</div>
+            <div class="ov-value" id="ov-operation" startunix="0">-</div>
+        </div>
+    </div>
+    <div id="ov-host-icon-wrapper">
+        <img id="ov-host-icon" alt="" src="../../SystemAO/img/failed.png">
+    </div>
+</div>
+
 <script>
+(function () {
     var overviewLocale = NewAppLocale();
-    
-    $(document).ready(function() {
-        overviewLocale.init("../locale/system_settings/overview.json", function(){
-            overviewLocale.translate();
-            $.getJSON("../../system/info/getRuntimeInfo", function(data){
-                $("#startup").text(ao_module_utils.timeConverter(data.StartupTime));
-                $("#operation").text(ao_module_utils.durationConverter(data.ContinuesRuntime));
-                $("#operation").attr("startunix", data.StartupTime);
+
+    function applyTheme() {
+        var isDark = false;
+        try {
+            if (typeof preferredTheme !== 'undefined') {
+                isDark = (preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+            } else {
+                ao_module_getSystemThemeColor(function (c) {
+                    document.getElementById('ov-root').classList.toggle('dark', c !== 'whiteTheme');
+                });
+                return;
+            }
+        } catch (e) {}
+        document.getElementById('ov-root').classList.toggle('dark', isDark);
+    }
+
+    function ovS(key, fallback) {
+        return overviewLocale ? overviewLocale.getString(key, fallback) : fallback;
+    }
+
+    function initHostInfo() {
+        $.get('../../system/info/getArOZInfo?icon=true', function (data) {
+            if (data && data.VendorIcon) {
+                $('#ov-host-icon').attr('src', 'data:image/png;base64,' + data.VendorIcon);
+            }
+            $('#ov-hostname').text((data && data.HostName) ? data.HostName : '-');
+            $('#ov-version').text((data && data.BuildVersion) ? data.BuildVersion : '-');
+        });
+    }
+
+    function initUserInfo() {
+        $.get('../../system/users/userinfo', function (data) {
+            if (!data || data.error !== undefined) return;
+            $('#ov-username').text(data.Username || 'USER');
+            if (data.Usergroup && data.Usergroup.length) {
+                $('#ov-usergroup').text('@' + data.Usergroup.join(','));
+            }
+            if (data.Icondata) {
+                $('#ov-avatar').attr('src', data.Icondata);
+            }
+        });
+    }
+
+    function initStorageInfo() {
+        $.get('../../system/disk/quota/quotaInfo', function (data) {
+            if (!data || data.error !== undefined) return;
+            var percentageText = '0%';
+            if (data.Total === -1) {
+                $('#ov-total').text(ovS('overview/info/unlimited', 'Unlimited'));
+            } else if (data.Total === 0) {
+                $('#ov-total').text(ovS('overview/info/readonly', 'Read Only'));
+                percentageText = '100%';
+            } else {
+                $('#ov-total').text(ao_module_utils.formatBytes(data.Total, 2));
+                percentageText = parseFloat((data.Used / data.Total) * 100).toFixed(2) + '%';
+            }
+            $('#ov-used').text(ao_module_utils.formatBytes(data.Used, 2) + ' (' + percentageText + ')');
+        });
+    }
+
+    function initHomepageState() {
+        $.get('../../system/network/www/toggle', function (data) {
+            var online = (data === true);
+            $('#ov-home-dot').toggleClass('online', online);
+            $('#ov-home-text').text(
+                online
+                    ? ovS('overview/status/online', 'Online')
+                    : ovS('overview/status/offline', 'Offline')
+            );
+        });
+    }
+
+    function initRuntimeInfo() {
+        $.getJSON('../../system/info/getRuntimeInfo', function (data) {
+            if (!data || data.error !== undefined) return;
+            $('#ov-operation').text(ao_module_utils.durationConverter(data.ContinuesRuntime));
+            $('#ov-operation').attr('startunix', data.StartupTime);
+            accumulateOperationTime();
+        });
+    }
+
+    function accumulateOperationTime() {
+        setTimeout(function () {
+            if ($('#ov-operation').length === 0) return;
+            var startUnix = parseInt($('#ov-operation').attr('startunix'), 10);
+            if (isNaN(startUnix) || startUnix <= 0) {
                 accumulateOperationTime();
-            });
-
-            initHostInfo();
-            initUserInfo();
-            initStorageInfo();
-            initHomepageState();
-        });
-    });
-
-    function initHostInfo(){
-        $.get("../../system/info/getArOZInfo?icon=true", function(data){
-            $("#icon").attr('src', 'data:image/png;base64,' + data.VendorIcon);
-            $("#hostname").text(data.HostName);
-            $("#version").text(data.BuildVersion);
-        });
-    }
-
-    function initUserInfo(){
-        $.get("../../system/users/userinfo", function(data){
-            $("#username").text(data.Username);
-            $("#usergroup").text("@" + data.Usergroup.join(","));
-            if (data.Icondata != ""){
-                $("#avator").attr("src", data.Icondata);
+                return;
             }
-        });
-    }
-
-    function initStorageInfo(){
-        $.get("../../system/disk/quota/quotaInfo", function(data){
-            let percentageText = "0%";
-            if (data.Total == -1){
-                $("#totalStorage").text(overviewLocale.getString("overview/info/unlimited", "Unlimited"));
-            }else if (data.Total == 0){
-                $("#totalStorage").text(overviewLocale.getString("overview/info/readonly", "Read Only"));
-                percentageText = "100%";
-            }else{
-                $("#totalStorage").text(ao_module_utils.formatBytes(data.Total, 2));
-                percentageText = parseInt((data.Used / data.Total) * 100).toFixed(2) + "%";
-            }
-            $("#usedStorage").text(ao_module_utils.formatBytes(data.Used, 2) + ` ( ${percentageText} )`);
-        });
-    }
-
-    function initHomepageState(){
-        $.get("../../system/network/www/toggle", function(data){
-            if (data == true){
-                $("#homepageStatus").html(`<h5><i class="green circle icon"></i> ${overviewLocale.getString("overview/status/online", "Online")}</h5>`);
-            }else{
-                $("#homepageStatus").html(`<h5><i class="red circle icon"></i> ${overviewLocale.getString("overview/status/offline", "Offline")}</h5>`);
-            }
-           
-        });
-    }
-
-    function accumulateOperationTime(){
-        setTimeout(function(){
-            if ($("#operation").length > 0){
-                var startUnix = $("#operation").attr("startunix");
-                startUnix = parseInt(startUnix);
-                var newOprTime = parseInt(Date.now()/1000) - startUnix
-                $("#operation").text(ao_module_utils.durationConverter(newOprTime));
-                accumulateOperationTime();
-            }
+            var newOprTime = parseInt(Date.now() / 1000, 10) - startUnix;
+            $('#ov-operation').text(ao_module_utils.durationConverter(newOprTime));
+            accumulateOperationTime();
         }, 1000);
     }
 
-    //https://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable-string/10420404
-    function humanFileSize(bytes, si) {
-        var thresh = si ? 1000 : 1024;
-        if (Math.abs(bytes) < thresh) {
-            return bytes + ' B';
+    window.ovLogout = function () {
+        if (window.parent && typeof window.parent.logout === 'function') {
+            window.parent.logout();
+            return;
         }
-        var units = si ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
-        var u = -1;
-        do {
-            bytes /= thresh;
-            ++u;
-        } while (Math.abs(bytes) >= thresh && u < units.length - 1);
-        return bytes.toFixed(1) + ' ' + units[u];
-    }
-</script>
+        if (typeof logout === 'function') {
+            logout();
+        }
+    };
 
-</html>
+    applyTheme();
+    overviewLocale.init('../locale/system_settings/overview.json', function () {
+        overviewLocale.translate();
+        initHostInfo();
+        initUserInfo();
+        initStorageInfo();
+        initHomepageState();
+        initRuntimeInfo();
+    });
+})();
+</script>

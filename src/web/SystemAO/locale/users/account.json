@@ -1,0 +1,93 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "account/pic_title":           "個人圖片",
+                "account/upload_local":        "從裝置上傳",
+                "account/upload_server":       "從檔案選取",
+                "account/pw_title":            "帳號",
+                "account/old_pw":              "舊密碼",
+                "account/new_pw":              "新密碼",
+                "account/confirm_pw":          "確認新密碼",
+                "account/email_title":         "電子郵件",
+                "account/current_email_label": "目前電子郵件：",
+                "account/email_not_set":       "尚未設定",
+                "account/new_email":           "新電子郵件",
+                "account/save":                "儲存變更",
+                "account/cancel":              "取消",
+                "account/apply":               "套用",
+                "account/crop_title":          "裁切個人圖片",
+                "account/crop_zoom":           "縮放",
+                "account/update_ok":           "已更新",
+                "account/update_failed":       "更新失敗",
+                "account/pw_mismatch_title":   "密碼不相符",
+                "account/pw_mismatch_msg":     "兩次輸入的新密碼不一致。",
+                "account/pw_updated":          "您的密碼已更新。",
+                "account/email_updated":       "您的電子郵件已更新。",
+                "account/pic_updated":         "個人圖片已更新。",
+                "account/file_load_error":     "無法載入所選圖片。"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "strings": {
+                "account/pic_title":           "個人圖片",
+                "account/upload_local":        "從裝置上傳",
+                "account/upload_server":       "從檔案選取",
+                "account/pw_title":            "帳號",
+                "account/old_pw":              "舊密碼",
+                "account/new_pw":              "新密碼",
+                "account/confirm_pw":          "確認新密碼",
+                "account/email_title":         "電子郵件",
+                "account/current_email_label": "目前電子郵件：",
+                "account/email_not_set":       "尚未設定",
+                "account/new_email":           "新電子郵件",
+                "account/save":                "儲存變更",
+                "account/cancel":              "取消",
+                "account/apply":               "套用",
+                "account/crop_title":          "裁切個人圖片",
+                "account/crop_zoom":           "縮放",
+                "account/update_ok":           "已更新",
+                "account/update_failed":       "更新失敗",
+                "account/pw_mismatch_title":   "密碼不相符",
+                "account/pw_mismatch_msg":     "兩次輸入的新密碼不一致。",
+                "account/pw_updated":          "您的密碼已更新。",
+                "account/email_updated":       "您的電子郵件已更新。",
+                "account/pic_updated":         "個人圖片已更新。",
+                "account/file_load_error":     "無法載入所選圖片。"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文（简体）",
+            "strings": {
+                "account/pic_title":           "个人头像",
+                "account/upload_local":        "从设备上传",
+                "account/upload_server":       "从文件选取",
+                "account/pw_title":            "账号",
+                "account/old_pw":              "旧密码",
+                "account/new_pw":              "新密码",
+                "account/confirm_pw":          "确认新密码",
+                "account/email_title":         "电子邮件",
+                "account/current_email_label": "当前电子邮件：",
+                "account/email_not_set":       "尚未设置",
+                "account/new_email":           "新电子邮件",
+                "account/save":                "保存更改",
+                "account/cancel":              "取消",
+                "account/apply":               "应用",
+                "account/crop_title":          "裁剪头像",
+                "account/crop_zoom":           "缩放",
+                "account/update_ok":           "已更新",
+                "account/update_failed":       "更新失败",
+                "account/pw_mismatch_title":   "密码不一致",
+                "account/pw_mismatch_msg":     "两次输入的新密码不一致。",
+                "account/pw_updated":          "您的密码已更新。",
+                "account/email_updated":       "您的电子邮件已更新。",
+                "account/pic_updated":         "头像已更新。",
+                "account/file_load_error":     "无法加载所选图片。"
+            }
+        }
+    }
+}

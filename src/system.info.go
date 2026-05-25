@@ -52,15 +52,6 @@ func SystemInfoInit() {
 	//Create Info Server Object
 	var infoServer *info.Server = nil
 
-	//Overview of account and system information
-	registerSetting(settingModule{
-		Name:     "Overview",
-		Desc:     "Overview for user information",
-		IconPath: "SystemAO/info/img/small_icon.png",
-		Group:    "Info",
-		StartDir: "SystemAO/info/overview.html",
-	})
-
 	//Load the vendor icon
 	vendorIconSrc := filepath.Join(vendorResRoot, "vendor_icon.png")
 	if !fs.FileExists(vendorIconSrc) {
@@ -91,7 +82,7 @@ func SystemInfoInit() {
 		registerSetting(settingModule{
 			Name:     "Host Info",
 			Desc:     "System Information",
-			IconPath: "SystemAO/info/img/small_icon.png",
+			IconPath: "SystemAO/info/img/host.png",
 			Group:    "Info",
 			StartDir: "SystemAO/info/index.html",
 		})
@@ -104,7 +95,7 @@ func SystemInfoInit() {
 		registerSetting(settingModule{
 			Name:     "Performance",
 			Desc:     "System CPU and RAM usage",
-			IconPath: "SystemAO/info/img/small_icon.png",
+			IconPath: "SystemAO/info/img/performance.png",
 			Group:    "Info",
 			StartDir: "SystemAO/info/taskManagerFrame.html",
 		})
@@ -127,6 +118,7 @@ func SystemInfoInit() {
 
 	//Register endpoints that do not involve hardware management
 	authRouter.HandleFunc("/system/info/getRuntimeInfo", InfoHandleGetRuntimeInfo)
+	authRouter.HandleFunc("/system/info/getLocaleInfo", InfoHandleGetLocaleInfo)
 
 	//ArOZ Info do not need permission router
 	http.HandleFunc("/system/info/getArOZInfo", infoServer.GetArOZInfo)

@@ -1,0 +1,31 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "strings": {
+                "group/section-groups":   "權限群組",
+                "group/col-name":         "群組",
+                "group/col-access":       "模組存取",
+                "group/col-admin":        "管理員",
+                "group/col-quota":        "配額",
+                "group/loading":          "載入中…",
+                "group/empty":            "找不到任何群組",
+                "group/access-all":       "所有模組",
+                "group/access-none":      "無存取權限",
+                "group/admin-yes":        "是",
+                "group/admin-no":         "否",
+                "group/quota-readonly":   "唯讀",
+                "group/quota-unlimited":  "無限制",
+                "group/new":              "新增群組",
+                "group/edit":             "編輯",
+                "group/remove":           "移除",
+                "group/new-title":        "建立用戶群組",
+                "group/edit-title":       "編輯用戶群組",
+                "group/confirm-remove":   "確定要移除群組：",
+                "group/no-remove-admin":  "無法移除管理員群組"
+            }
+        }
+    }
+}

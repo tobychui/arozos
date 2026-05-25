@@ -1,197 +1,470 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Group List</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
-        <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
-    </head>
-    <body>
-        <div class="ui container">
-            <div class="ui basic segment">
-                <div class="ui header">
-                    <i class="users icon"></i>
-                        <div class="content">
-                        Group Permissions
-                        <div class="sub header">Manage group permission and access right</div>
-                    </div>
-                </div>
-                <button class="ui primary small button" onclick="newgroupInterface();">
-                    <i class="add icon"></i>New Group
-                </button>
-                <button id="editGroupButton" class="ui small disabled button" onclick="openEditWindow();">
-                    Edit
-                </button>
-                <button id="removeGroupButton" class="ui small negative disabled right floated button" onclick="removeGroup();">
-                    Remove
-                </button>
-            </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Group List</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: transparent; }
 
-            <table class="ui very basic celled table">
-                <thead>
-                    <tr>
-                        <th>Group Name</th>
-                        <th>Access Permission</th>
-                        <th>Admin Privileges</th>
-                        <th>Default Storage Quota</th>
-                        <th>Select</th>
-                    </tr>
-                </thead>
-                <tbody id="groupList" >
-                    <tr>
-                        <td>administrator</td>
-                        <td>All Modules (Administrator)</td>
-                        <td>
-                            <div class="ui checkbox">
-                                <input type="radio" name="selectUser" onchange="enableEdit(this);">
-                                <label></label>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-              </table>
+    #gr-root {
+        --gr-text:        #1d1d1f;
+        --gr-dim:         #6e6e73;
+        --gr-muted:       #98989d;
+        --gr-divider:     #d2d2d7;
+        --gr-hover:       rgba(0,0,0,0.045);
+        --gr-active:      rgba(0,0,0,0.09);
+        --gr-selected:    rgba(0,113,227,0.08);
+        --gr-accent:      #0071e3;
+        --gr-danger:      #ff3b30;
+        --gr-success:     #34c759;
+        --gr-bg:          #ffffff;
+        --gr-card-bg:     #f5f5f7;
+        --gr-card-border: #e5e5ea;
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        color: var(--gr-text);
+        background: var(--gr-bg);
+        border-radius: 0.6em;
+    }
+
+    #gr-root.dark {
+        --gr-text:        #f0f0f0;
+        --gr-dim:         #a0a0a5;
+        --gr-muted:       #ececee;
+        --gr-divider:     #3a3a3c;
+        --gr-hover:       rgba(255,255,255,0.06);
+        --gr-active:      rgba(255,255,255,0.12);
+        --gr-selected:    rgba(41,151,255,0.12);
+        --gr-accent:      #2997ff;
+        --gr-danger:      #ff453a;
+        --gr-success:     #30d158;
+        --gr-bg:          #2b2b2b;
+        --gr-card-bg:     #3a3a3c;
+        --gr-card-border: #48484a;
+    }
+
+    #gr-page { padding: 16px 0 24px; }
+
+    /* ── Section label ── */
+    .gr-section-label {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 0 16px;
+        margin: 12px 0 6px;
+    }
+
+    /* ── Toolbar ── */
+    #gr-toolbar { padding: 4px 12px 10px; }
+    #gr-btn-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    /* ── Buttons ── */
+    .gr-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 13px;
+        border-radius: 6px;
+        border: 1px solid var(--gr-card-border);
+        font-family: inherit;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.1s, opacity 0.1s;
+        outline: none;
+        background: var(--gr-card-bg);
+        color: var(--gr-text);
+        white-space: nowrap;
+        text-decoration: none;
+    }
+    .gr-btn:hover  { background: var(--gr-hover); }
+    .gr-btn:active { background: var(--gr-active); }
+    .gr-btn.primary { background: var(--gr-accent); color: #fff; border-color: var(--gr-accent); }
+    .gr-btn.primary:hover { opacity: 0.85; }
+    .gr-btn.danger  { color: var(--gr-danger); border-color: var(--gr-danger); background: transparent; }
+    .gr-btn.danger:hover { background: rgba(255,59,48,0.08); }
+    #gr-root.dark .gr-btn.danger:hover { background: rgba(255,69,58,0.13); }
+    .gr-btn.disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+    /* ── List card ── */
+    .gr-list {
+        border: 1px solid var(--gr-divider);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 0 12px 6px;
+        background: var(--gr-bg);
+    }
+
+    /* ── Column header ── */
+    #gr-col-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        background: var(--gr-card-bg);
+        border-bottom: 1px solid var(--gr-divider);
+    }
+    .gr-col-name   { flex: 0 0 140px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gr-muted); }
+    .gr-col-access { flex: 1; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gr-muted); }
+    .gr-col-admin  { flex: 0 0 80px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gr-muted); text-align: center; }
+    .gr-col-quota  { flex: 0 0 110px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gr-muted); text-align: right; }
+
+    /* ── Group rows ── */
+    .gr-group-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--gr-divider);
+        cursor: pointer;
+        transition: background 0.08s;
+        user-select: none;
+    }
+    .gr-group-row:last-child { border-bottom: none; }
+    .gr-group-row:hover { background: var(--gr-hover); }
+    .gr-group-row.selected { background: var(--gr-selected); }
+
+    .gr-group-name {
+        flex: 0 0 140px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--gr-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .gr-group-access {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        align-items: center;
+    }
+    .gr-group-admin {
+        flex: 0 0 80px;
+        text-align: center;
+        font-size: 12px;
+    }
+    .gr-group-quota {
+        flex: 0 0 110px;
+        text-align: right;
+        font-size: 12.5px;
+        color: var(--gr-dim);
+    }
+
+    /* ── Badges ── */
+    .gr-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 10.5px;
+        padding: 2px 7px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    .gr-badge.admin  { background: rgba(52,199,89,0.13);  color: var(--gr-success); }
+    .gr-badge.module { background: rgba(0,113,227,0.10);  color: var(--gr-accent); }
+    .gr-badge.all    { background: rgba(52,199,89,0.13);  color: var(--gr-success); }
+    .gr-badge.none   { background: rgba(155,155,160,0.12); color: var(--gr-muted); }
+    .gr-badge.noadmin{ background: rgba(155,155,160,0.12); color: var(--gr-muted); }
+    #gr-root.dark .gr-badge.admin  { background: rgba(48,209,88,0.15); }
+    #gr-root.dark .gr-badge.all    { background: rgba(48,209,88,0.15); }
+    #gr-root.dark .gr-badge.module { background: rgba(41,151,255,0.15); }
+
+    /* ── Empty / loading ── */
+    .gr-empty {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--gr-muted);
+        font-size: 13px;
+    }
+
+    /* ── Toast ── */
+    #gr-toast {
+        display: none;
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        z-index: 9100;
+        background: #1f1f1f;
+        border-radius: 10px;
+        padding: 10px 16px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+        max-width: min(340px, calc(100vw - 24px));
+        min-width: 160px;
+        text-align: center;
+        pointer-events: none;
+    }
+    #gr-toast.dark { background: #2d2d2d; }
+    #gr-toast.err  { background: #c42b1c; }
+    #gr-toast-msg  { font-size: 13px; font-weight: 500; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div id="gr-toast"><div id="gr-toast-msg"></div></div>
+
+<div id="gr-root">
+<div id="gr-page">
+
+    <div class="gr-section-label" locale="group/section-groups">Permission Groups</div>
+
+    <div class="gr-list">
+        <div id="gr-col-header">
+            <div class="gr-col-name"  locale="group/col-name">Group</div>
+            <div class="gr-col-access" locale="group/col-access">Module Access</div>
+            <div class="gr-col-admin"  locale="group/col-admin">Admin</div>
+            <div class="gr-col-quota"  locale="group/col-quota">Quota</div>
         </div>
-        <script>
-            var groupPermissionInfo = [];
-            var currentSelectedGroup = "";
+        <div id="groupList">
+            <div class="gr-empty" locale="group/loading">Loading&#8230;</div>
+        </div>
+    </div>
 
+    <div id="gr-toolbar">
+        <div id="gr-btn-row">
+            <button class="gr-btn primary" onclick="newgroupInterface()">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                <span locale="group/new">New Group</span>
+            </button>
+            <button id="editGroupButton" class="gr-btn disabled" onclick="openEditWindow()">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span locale="group/edit">Edit</span>
+            </button>
+            <button id="removeGroupButton" class="gr-btn danger disabled" onclick="removeGroup()" style="margin-left:auto;">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 3h10M4 3V2h4v1M5 6v3M7 6v3M2 3l.8 8h6.4L10 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span locale="group/remove">Remove</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+/* ── Theme ── */
+function grApplyTheme(dark) {
+    document.getElementById('gr-root').classList.toggle('dark', dark);
+    document.getElementById('gr-toast').classList.toggle('dark', dark);
+}
+
+(function() {
+    if (typeof(preferredTheme) !== 'undefined' && preferredTheme){
+        grApplyTheme(preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+        return;
+    }
+    try {
+        if (typeof ao_module_getSystemThemeColor === 'function') {
+            ao_module_getSystemThemeColor(function(c) { grApplyTheme(c !== 'whiteTheme'); });
+        } else {
+            var t = (typeof preferredTheme !== 'undefined' ? preferredTheme : null) ||
+                    (parent && typeof parent.preferredTheme !== 'undefined' ? parent.preferredTheme : null);
+            if (t) grApplyTheme(t === 'dark' || t === 'darkTheme');
+        }
+    } catch(e) {}
+})();
+
+/* ── Locale ── */
+var grLocale = null;
+var groupPermissionInfo = {};
+var currentSelectedGroup = "";
+
+$(document).ready(function() {
+    if (typeof applocale !== 'undefined' && applocale) {
+        grLocale = NewAppLocale();
+        grLocale.init('../locale/users/group.json', function() {
+            grLocale.translate();
             loadGroupList();
-            function loadGroupList(){
-                $.get("../../system/permission/listgroup?showper=true",function(data){
-                   $("#groupList").html("");
-                   $("#editGroupButton").addClass("disabled");
-                   $("#removeGroupButton").addClass('disabled');
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        for (const [key, value] of Object.entries(data)) {
-                            //Check for module list
-                            var accessPermission = "No Module Accessible";
-                            if (value[0].includes("*")){
-                                accessPermission = "All Modules (Administrator)";
-                            }else{
-                                accessPermission = '<div class="ui bulleted list">';
-                                for (var i =0; i < value[0].length; i++){
-                                    accessPermission += '<div class="item">' + value[0][i] + '</div>';
-                                }
-                                accessPermission += '</div>'
-                            }
+        });
+    } else {
+        loadGroupList();
+    }
+});
 
-                            //Check for admin permission
-                            var isAdminIcon = "<i class='red remove icon'></i>"
-                            if (value[1] == true){
-                                isAdminIcon = "<i class='green checkmark icon'></i>"
-                            }
+/* ── Load group list ── */
+function loadGroupList() {
+    var loadingText = grLocale ? grLocale.getString('group/loading', 'Loading\u2026') : 'Loading\u2026';
+    $('#groupList').html('<div class="gr-empty">' + loadingText + '</div>');
+    currentSelectedGroup = "";
+    $('#editGroupButton').addClass('disabled');
+    $('#removeGroupButton').addClass('disabled');
 
-                            //Check for storage quota
-                            var quota = bytesToSize(value[2]);
-                            if (value[2] == 0){
-                                quota = "Read Only";
-                            }else if (value[2] == -1){
-                                quota = "Unlimited";
-                            }
+    $.get('../../system/permission/listgroup?showper=true', function(data) {
+        if (data.error !== undefined) { showGrToast(data.error, true); return; }
 
-                            $("#groupList").append(`
-                            <tr>
-                                <td>${key}</td>
-                                <td>${accessPermission}</td>
-                                <td>${isAdminIcon}</td>
-                                <td>${quota}</td>
-                                <td>
-                                    <div class="ui checkbox">
-                                        <input type="radio" name="selectUser" value="${key}" onchange="enableEdit(this);">
-                                        <label></label>
-                                    </div>
-                                </td>
-                            </tr>
-                            `);
-                        }
-                        groupPermissionInfo = data;
-                    }
+        var keys = Object.keys(data);
+        if (keys.length === 0) {
+            var emptyText = grLocale ? grLocale.getString('group/empty', 'No groups found') : 'No groups found';
+            $('#groupList').html('<div class="gr-empty">' + emptyText + '</div>');
+            return;
+        }
 
-                    
-                });
-            }
+        groupPermissionInfo = data;
+        $('#groupList').empty();
 
-            function openEditWindow(){
-                ao_module_newfw({
-                    url: "SystemAO/users/editgroup.html#" + encodeURIComponent(JSON.stringify(currentSelectedGroup)),
-                    width: 560,
-                    height: 768,
-                    appicon: "SystemAO/users/img/users-white.svg",
-                    title: "Edit User Group",
-                    parent: ao_module_windowID,
-                    callback: "confirmCreateHandler"
-                });
-            }
+        keys.forEach(function(key) {
+            var value = data[key];
+            var moduleList = value[0];
+            var isAdmin    = value[1];
+            var quotaBytes = value[2];
 
-            function bytesToSize(bytes) {
-                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-                if (bytes == 0) return '0 Byte';
-                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-                return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
-            }
-
-
-            function enableEdit(obj){
-                //console.log($(obj).val());
-                $("#editGroupButton").removeClass('disabled');
-                if ($(obj).val() != "administrator"){
-                    $("#removeGroupButton").removeClass('disabled');
-                }else{
-                    $("#removeGroupButton").addClass('disabled');
+            /* Access badge(s) */
+            var accessHtml;
+            if (moduleList.includes('*')) {
+                var allLabel = grLocale ? grLocale.getString('group/access-all', 'All Modules') : 'All Modules';
+                accessHtml = '<span class="gr-badge all">' + allLabel + '</span>';
+            } else if (!moduleList || moduleList.length === 0) {
+                var noneLabel = grLocale ? grLocale.getString('group/access-none', 'No Access') : 'No Access';
+                accessHtml = '<span class="gr-badge none">' + noneLabel + '</span>';
+            } else {
+                accessHtml = moduleList.slice(0, 4).map(function(m) {
+                    return '<span class="gr-badge module">' + escHtml(m) + '</span>';
+                }).join('');
+                if (moduleList.length > 4) {
+                    accessHtml += '<span class="gr-badge none">+' + (moduleList.length - 4) + '</span>';
                 }
-                currentSelectedGroup = $(obj).val();
-                
             }
 
-            function newgroupInterface(){
-                ao_module_newfw({
-                    url: "SystemAO/users/newgroup.html",
-                    width: 560,
-                    height: 768,
-                    appicon: "SystemAO/users/img/users-white.svg",
-                    title: "Create User Group",
-                    parent: ao_module_windowID,
-                    callback: "confirmCreateHandler"
-                });
+            /* Admin badge */
+            var adminHtml;
+            if (isAdmin) {
+                var yesLabel = grLocale ? grLocale.getString('group/admin-yes', 'Yes') : 'Yes';
+                adminHtml = '<span class="gr-badge admin">' + yesLabel + '</span>';
+            } else {
+                var noLabel = grLocale ? grLocale.getString('group/admin-no', 'No') : 'No';
+                adminHtml = '<span class="gr-badge noadmin">' + noLabel + '</span>';
             }
 
-            //Finished adding group. Update grouplist
-            function confirmCreateHandler(data){
-                if (data){
+            /* Quota */
+            var quotaLabel;
+            if (quotaBytes === 0) {
+                quotaLabel = grLocale ? grLocale.getString('group/quota-readonly', 'Read Only') : 'Read Only';
+            } else if (quotaBytes === -1) {
+                quotaLabel = grLocale ? grLocale.getString('group/quota-unlimited', 'Unlimited') : 'Unlimited';
+            } else {
+                quotaLabel = bytesToSize(quotaBytes);
+            }
+
+            var keyEsc = escHtml(key);
+            var keyJs  = key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            $('#groupList').append(
+                '<div class="gr-group-row" onclick="selectGroup(\'' + keyJs + '\', this)">' +
+                    '<div class="gr-group-name">' + keyEsc + '</div>' +
+                    '<div class="gr-group-access">' + accessHtml + '</div>' +
+                    '<div class="gr-group-admin">' + adminHtml + '</div>' +
+                    '<div class="gr-group-quota">' + escHtml(quotaLabel) + '</div>' +
+                '</div>'
+            );
+        });
+    });
+}
+
+/* ── Row selection ── */
+function selectGroup(groupName, rowEl) {
+    $('.gr-group-row').removeClass('selected');
+    $(rowEl).addClass('selected');
+    currentSelectedGroup = groupName;
+
+    $('#editGroupButton').removeClass('disabled');
+    if (groupName === 'administrator') {
+        $('#removeGroupButton').addClass('disabled');
+    } else {
+        $('#removeGroupButton').removeClass('disabled');
+    }
+}
+
+/* ── Open edit window ── */
+function openEditWindow() {
+    ao_module_newfw({
+        url: 'SystemAO/users/editgroup.html#' + encodeURIComponent(JSON.stringify(currentSelectedGroup)),
+        width: 560,
+        height: 768,
+        appicon: 'SystemAO/users/img/users-white.svg',
+        title: grLocale ? grLocale.getString('group/edit-title', 'Edit User Group') : 'Edit User Group',
+        parent: ao_module_windowID,
+        callback: 'confirmCreateHandler'
+    });
+}
+
+/* ── New group ── */
+function newgroupInterface() {
+    ao_module_newfw({
+        url: 'SystemAO/users/newgroup.html',
+        width: 560,
+        height: 768,
+        appicon: 'SystemAO/users/img/users-white.svg',
+        title: grLocale ? grLocale.getString('group/new-title', 'Create User Group') : 'Create User Group',
+        parent: ao_module_windowID,
+        callback: 'confirmCreateHandler'
+    });
+}
+
+function confirmCreateHandler(data) {
+    if (data) loadGroupList();
+}
+
+/* ── Remove group ── */
+function removeGroup() {
+    if (currentSelectedGroup === 'administrator') {
+        showGrToast(grLocale ? grLocale.getString('group/no-remove-admin', 'Cannot remove the administrator group') : 'Cannot remove the administrator group', true);
+        return;
+    }
+    var msg = grLocale
+        ? grLocale.getString('group/confirm-remove', 'Remove group: ') + currentSelectedGroup + '?'
+        : 'Confirm removing group: ' + currentSelectedGroup + '?';
+    if (confirm(msg)) {
+        $.ajax({
+            url: '../../system/permission/delgroup',
+            data: { groupname: currentSelectedGroup },
+            method: 'GET',
+            success: function(data) {
+                if (data.error !== undefined) {
+                    showGrToast(data.error, true);
+                } else {
                     loadGroupList();
                 }
+            },
+            error: function() {
+                showGrToast('Server communication error', true);
             }
+        });
+    }
+}
 
-            //Remove the selected group
-            function removeGroup(){
-                if (currentSelectedGroup == "administrator"){
-                    //This group cannot be removed
-                    alert("You cannot remove the administrator group.")
-                }else{
-                    //Remove the selected group
-                    if (confirm("Confirm removing group: " + currentSelectedGroup + " ?")){
-                        $.ajax({
-                            url: "../../system/permission/delgroup",
-                            data: {groupname: currentSelectedGroup},
-                            method: "GET",
-                            success: function(data){
-                                if (data.error !== undefined){
-                                    alert(data.error);
-                                }else{
-                                    //Remove succeed. refresh list
-                                    loadGroupList();
-                                }
-                            }
+/* ── Helpers ── */
+function bytesToSize(bytes) {
+    var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes === 0) return '0 Byte';
+    var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+    return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+}
 
-                        })
-                    }
-                }
-            }
-        </script>
-    </body>
+function showGrToast(msg, isErr) {
+    $('#gr-toast').toggleClass('err', !!isErr);
+    $('#gr-toast-msg').text(isErr ? '\u2715 ' + msg : '\u2713 ' + msg);
+    $('#gr-toast').stop(true, true).fadeIn(160).delay(2800).fadeOut(380);
+}
+
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
 </html>

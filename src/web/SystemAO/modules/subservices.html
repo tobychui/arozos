@@ -152,15 +152,17 @@
                 });
             }
 
+            var subserviceApplocale = null;
             $(document).ready(function(){
                 if (applocale){
                     //Applocale found. Do localization
-                    applocale.init("../locale/subservices_setting.json", function(){
-                        applocale.translate();
+                    subserviceApplocale = NewAppLocale();
+                    subserviceApplocale.init("../locale/subservices_setting.json", function(){
+                        subserviceApplocale.translate();
                     });
                 }else{
                     //App locale not found. Is this a trim down version of ArozOS?
-                    applocale = {
+                    subserviceApplocale = {
                         getString: function(key, original){
                             return original;
                         }

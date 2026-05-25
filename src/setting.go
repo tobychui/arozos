@@ -42,7 +42,7 @@ func SystemSettingInit() {
 		Version:     "1.0",
 		StartDir:    "SystemAO/system_setting/index.html",
 		SupportFW:   true,
-		InitFWSize:  []int{1080, 580},
+		InitFWSize:  []int{1200, 580},
 		LaunchFWDir: "SystemAO/system_setting/index.html",
 		SupportEmb:  false,
 	})

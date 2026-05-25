@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title locale="devtest/title">Device Test</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script type="text/javascript" src="../../script/applocale.js"></script>
+</head>
+<body style="margin:0;padding:0;background:transparent;">
+<style>
+#dt-root {
+    --dt-bg:          #ffffff;
+    --dt-bg2:         #f5f5f7;
+    --dt-border:      #d2d2d7;
+    --dt-text:        #1d1d1f;
+    --dt-dim:         #6e6e73;
+    --dt-muted:       #98989d;
+    --dt-accent:      #0071e3;
+    --dt-accent-bg:   rgba(0,113,227,0.09);
+    --dt-success:     #28a745;
+    --dt-card:        #ffffff;
+    --dt-card-border: #e5e5ea;
+    --dt-shadow:      0 2px 10px rgba(0,0,0,0.07);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--dt-text);
+    background: var(--dt-bg);
+    border-radius: 0.6em;
+}
+
+#dt-root.dark {
+    --dt-bg:          #1c1c1e;
+    --dt-bg2:         #2c2c2e;
+    --dt-border:      #3a3a3c;
+    --dt-text:        #f2f2f7;
+    --dt-dim:         #aeaeb2;
+    --dt-muted:       #636366;
+    --dt-accent:      #2997ff;
+    --dt-accent-bg:   rgba(41,151,255,0.12);
+    --dt-success:     #34c759;
+    --dt-card:        #2c2c2e;
+    --dt-card-border: #3a3a3c;
+    --dt-shadow:      0 2px 16px rgba(0,0,0,0.3);
+}
+
+/* ── Tab bar ── */
+#dt-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--dt-border);
+    padding: 0 4px;
+    gap: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+#dt-tabs::-webkit-scrollbar { display: none; }
+
+.dt-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 13px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dt-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    user-select: none;
+    margin-bottom: -1px;
+    transition: color 0.12s;
+}
+.dt-tab:hover  { color: var(--dt-text); }
+.dt-tab.active { color: var(--dt-accent); border-bottom-color: var(--dt-accent); }
+.dt-tab-icon   { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ── Sections ── */
+#dt-content      { padding: 18px 18px 24px; }
+.dt-section      { display: none; }
+.dt-section.active { display: block; }
+
+.dt-section-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    margin: 0 0 3px;
+}
+.dt-section-sub {
+    font-size: 12.5px;
+    color: var(--dt-dim);
+    margin: 0 0 16px;
+}
+
+/* ── Cards ── */
+.dt-card {
+    background: var(--dt-bg2);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+}
+.dt-card-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--dt-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 12px;
+}
+
+/* ── Audio – speaker grid ── */
+.dt-speaker-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+.dt-speaker-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 14px 8px;
+    background: var(--dt-card);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dt-text);
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+    user-select: none;
+    outline: none;
+}
+.dt-speaker-btn:hover  { background: var(--dt-accent-bg); border-color: var(--dt-accent); color: var(--dt-accent); }
+.dt-speaker-btn.active { background: var(--dt-accent-bg); border-color: var(--dt-accent); color: var(--dt-accent); }
+
+/* ── Volume slider ── */
+.dt-vol-row { display: flex; align-items: center; gap: 10px; }
+.dt-vol-icon { color: var(--dt-dim); flex-shrink: 0; }
+.dt-vol-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--dt-border);
+    outline: none;
+    cursor: pointer;
+}
+.dt-vol-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    background: var(--dt-accent);
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.dt-vol-row input[type=range]::-moz-range-thumb {
+    width: 17px; height: 17px;
+    border: none;
+    border-radius: 50%;
+    background: var(--dt-accent);
+    cursor: pointer;
+}
+.dt-vol-label { font-size: 12.5px; color: var(--dt-dim); min-width: 36px; text-align: right; }
+.dt-note { font-size: 11.5px; color: var(--dt-muted); margin-top: 10px; line-height: 1.55; }
+
+/* ── Display – color swatches ── */
+.dt-swatch-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+.dt-swatch {
+    width: 34px; height: 34px;
+    border-radius: 7px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.12s, transform 0.1s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.dt-swatch:hover { border-color: var(--dt-accent); transform: scale(1.1); }
+.dt-swatch.white-swatch { border-color: var(--dt-border); }
+.dt-swatch.white-swatch:hover { border-color: var(--dt-accent); }
+
+.dt-fs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 15px;
+    background: var(--dt-accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: opacity 0.1s;
+}
+.dt-fs-btn:hover { opacity: 0.86; }
+
+/* ── Fullscreen popup mode ── */
+#dt-fs-page {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+}
+#dt-fs-page.active { display: flex; }
+#dt-fs-page-hint {
+    color: rgba(255,255,255,0.3);
+    font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* ── Keyboard ── */
+#dt-kb-wrap {
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+}
+.dt-kb-row { display: flex; gap: 3px; margin-bottom: 3px; }
+.dt-key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    min-width: 36px;
+    padding: 0 6px;
+    background: var(--dt-card);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 5px;
+    box-shadow: 0 1px 0 var(--dt-border), 0 1px 3px rgba(0,0,0,0.06);
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--dt-text);
+    user-select: none;
+    cursor: default;
+    flex-shrink: 0;
+    transition: background 0.04s, color 0.04s, border-color 0.04s;
+    white-space: nowrap;
+}
+.dt-key.pressed {
+    background: var(--dt-accent);
+    color: #fff;
+    border-color: var(--dt-accent);
+    box-shadow: 0 1px 0 rgba(0,80,180,0.4);
+}
+.dt-key.tested {
+    background: var(--dt-accent-bg);
+    color: var(--dt-accent);
+    border-color: var(--dt-accent);
+}
+.dt-kb-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+.dt-kb-counter { font-size: 12px; color: var(--dt-dim); }
+.dt-kb-reset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    background: var(--dt-bg2);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--dt-dim);
+    cursor: pointer;
+    outline: none;
+}
+.dt-kb-reset-btn:hover { color: var(--dt-text); border-color: var(--dt-border); }
+
+/* ── Mouse ── */
+#dt-mouse-area {
+    width: 100%;
+    height: 180px;
+    background: var(--dt-card);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    cursor: crosshair;
+    margin-bottom: 12px;
+}
+#dt-mouse-cursor {
+    position: absolute;
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: var(--dt-accent);
+    box-shadow: 0 0 0 4px var(--dt-accent-bg);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: none;
+}
+#dt-mouse-cursor.clicking {
+    background: #ff3b30;
+    box-shadow: 0 0 0 4px rgba(255,59,48,0.15);
+}
+#dt-mouse-area-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--dt-muted);
+    pointer-events: none;
+    gap: 6px;
+}
+.dt-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+}
+.dt-stat-cell {
+    background: var(--dt-card);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 9px;
+    padding: 9px 11px;
+}
+.dt-stat-label { font-size: 11px; color: var(--dt-dim); margin-bottom: 3px; }
+.dt-stat-value { font-size: 13px; font-weight: 600; color: var(--dt-text); }
+.dt-stat-value.ok { color: var(--dt-success); }
+
+/* ── Touch ── */
+#dt-touch-area {
+    width: 100%;
+    height: 240px;
+    background: var(--dt-card);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+    touch-action: none;
+    margin-bottom: 12px;
+}
+#dt-touch-area-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--dt-muted);
+    pointer-events: none;
+}
+.dt-touch-dot {
+    position: absolute;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--dt-accent-bg);
+    border: 2px solid var(--dt-accent);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dt-accent);
+}
+.dt-touch-stats {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--dt-dim);
+}
+.dt-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px; height: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: var(--dt-accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+.dt-no-touch {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 15px;
+    background: var(--dt-bg2);
+    border: 1px solid var(--dt-card-border);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--dt-dim);
+}
+
+@media (max-width: 580px) {
+    .dt-speaker-grid { grid-template-columns: 1fr; }
+    .dt-stat-grid    { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<div id="dt-root">
+
+    <!-- Tab bar -->
+    <div id="dt-tabs">
+        <div class="dt-tab active" data-sec="dt-audio" onclick="dtTab(this)">
+            <svg class="dt-tab-icon" viewBox="0 0 16 16" fill="none">
+                <path d="M3 6.5v3M6 4v8M9 5.5v5M12 7v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span locale="devtest/audio-tab">Audio</span>
+        </div>
+        <div class="dt-tab" data-sec="dt-display" onclick="dtTab(this)">
+            <svg class="dt-tab-icon" viewBox="0 0 16 16" fill="none">
+                <rect x="1.5" y="2.5" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M5.5 13.5h5M8 11.5v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span locale="devtest/display-tab">Display</span>
+        </div>
+        <div class="dt-tab" data-sec="dt-keyboard" onclick="dtTab(this)">
+            <svg class="dt-tab-icon" viewBox="0 0 16 16" fill="none">
+                <rect x="1" y="4" width="14" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M4 7.5h.01M7 7.5h.01M10 7.5h.01M5.5 9.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span locale="devtest/keyboard-tab">Keyboard</span>
+        </div>
+        <div class="dt-tab" data-sec="dt-mouse" onclick="dtTab(this)">
+            <svg class="dt-tab-icon" viewBox="0 0 16 16" fill="none">
+                <rect x="5" y="1.5" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M8 1.5v4.5M5 6h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span locale="devtest/mouse-tab">Mouse</span>
+        </div>
+        <div class="dt-tab" data-sec="dt-touch" onclick="dtTab(this)">
+            <svg class="dt-tab-icon" viewBox="0 0 16 16" fill="none">
+                <path d="M6.5 2a1.5 1.5 0 0 1 3 0v5.5l2 1.5a2.5 2.5 0 0 1-5 0V2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span locale="devtest/touch-tab">Touch</span>
+        </div>
+    </div>
+
+    <div id="dt-content">
+
+        <!-- ═══ AUDIO ═══ -->
+        <div class="dt-section active" id="dt-audio">
+            <div class="dt-section-title" locale="devtest/audio-title">Audio Test</div>
+            <div class="dt-section-sub" locale="devtest/audio-subtitle">Test your speakers and adjust the master volume</div>
+
+            <div class="dt-card">
+                <div class="dt-card-label" locale="devtest/speaker-test-title">Speaker Test</div>
+                <div class="dt-speaker-grid">
+                    <button class="dt-speaker-btn" id="dt-btn-left" onclick="dtPlaySound('left')">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 9v6h4l5 5V4L7 9H3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                            <path d="M16.5 7.5a6 6 0 0 1 0 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                        <span locale="devtest/left-speaker">Left</span>
+                    </button>
+                    <button class="dt-speaker-btn" id="dt-btn-both" onclick="dtPlaySound('both')">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 9v6h4l5 5V4L7 9H3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                            <path d="M16.5 7.5a6 6 0 0 1 0 9M19.5 4.5a11 11 0 0 1 0 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                        <span locale="devtest/both-speaker">Both</span>
+                    </button>
+                    <button class="dt-speaker-btn" id="dt-btn-right" onclick="dtPlaySound('right')">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="transform:scaleX(-1)">
+                            <path d="M3 9v6h4l5 5V4L7 9H3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                            <path d="M16.5 7.5a6 6 0 0 1 0 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                        <span locale="devtest/right-speaker">Right</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="dt-card">
+                <div class="dt-card-label" locale="devtest/master-volume-title">Master Volume</div>
+                <div class="dt-vol-row">
+                    <svg class="dt-vol-icon" width="15" height="15" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 9v6h4l5 5V4L7 9H3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                    </svg>
+                    <input type="range" id="dt-vol-slider" min="0" max="100" value="0">
+                    <svg class="dt-vol-icon" width="15" height="15" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 9v6h4l5 5V4L7 9H3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                        <path d="M16.5 7.5a6 6 0 0 1 0 9M19.5 4.5a11 11 0 0 1 0 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                    </svg>
+                    <span class="dt-vol-label" id="dt-vol-label">0%</span>
+                </div>
+                <div class="dt-note" locale="devtest/volume-note">Some modules use stand-alone volume management. Master volume may not control all audio output.</div>
+            </div>
+
+            <div style="display:none;">
+                <audio id="dt-audio-both"><source src="../info/track/both.mp3" type="audio/mp3"></audio>
+                <audio id="dt-audio-left"><source src="../info/track/left.mp3" type="audio/mp3"></audio>
+                <audio id="dt-audio-right"><source src="../info/track/right.mp3" type="audio/mp3"></audio>
+            </div>
+        </div>
+
+        <!-- ═══ DISPLAY ═══ -->
+        <div class="dt-section" id="dt-display">
+            <div class="dt-section-title" locale="devtest/display-title">Display Test</div>
+            <div class="dt-section-sub" locale="devtest/display-subtitle">Check for dead pixels and screen uniformity</div>
+
+            <div class="dt-card">
+                <div class="dt-card-label" locale="devtest/dead-pixel-title">Dead Pixel Test</div>
+                <p style="font-size:13px;color:var(--dt-dim);margin:0 0 13px;line-height:1.6;" locale="devtest/dead-pixel-desc">Opens a new window filled with solid colors to detect dead or stuck pixels. Click any swatch to start at that color, or use the button below. Click the window to advance colors; press ESC to close.</p>
+                <div class="dt-swatch-row" id="dt-swatches"></div>
+                <button class="dt-fs-btn" onclick="dtStartFs()">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span locale="devtest/start-fullscreen">Start Fullscreen Test</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ═══ KEYBOARD ═══ -->
+        <div class="dt-section" id="dt-keyboard">
+            <div class="dt-section-title" locale="devtest/keyboard-title">Keyboard Test</div>
+            <div class="dt-section-sub" locale="devtest/keyboard-subtitle">Press any key — it will highlight on the layout below</div>
+
+            <div class="dt-card">
+                <div id="dt-kb-wrap">
+                    <div id="dt-kb-layout"></div>
+                </div>
+                <div class="dt-kb-footer">
+                    <span class="dt-kb-counter"><span id="dt-kb-count">0</span> <span locale="devtest/keys-tested">keys tested</span></span>
+                    <button class="dt-kb-reset-btn" onclick="dtResetKb()">
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                            <path d="M2 8a6 6 0 1 1 1.5 3.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            <path d="M2 12V8h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span locale="devtest/reset-keyboard">Reset</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ MOUSE ═══ -->
+        <div class="dt-section" id="dt-mouse">
+            <div class="dt-section-title" locale="devtest/mouse-title">Mouse Test</div>
+            <div class="dt-section-sub" locale="devtest/mouse-subtitle">Test mouse buttons, movement, scroll, and drag</div>
+
+            <div class="dt-card">
+                <div class="dt-card-label" locale="devtest/mouse-area-title">Move &amp; Click Area</div>
+                <div id="dt-mouse-area">
+                    <div id="dt-mouse-cursor"></div>
+                    <div id="dt-mouse-area-hint">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <rect x="5" y="1.5" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.3"/>
+                            <path d="M8 1.5v4.5M5 6h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                        </svg>
+                        <span locale="devtest/mouse-area-hint">Move the mouse here to begin</span>
+                    </div>
+                </div>
+                <div class="dt-stat-grid">
+                    <div class="dt-stat-cell">
+                        <div class="dt-stat-label" locale="devtest/mouse-left">Left Button</div>
+                        <div class="dt-stat-value" id="stat-left">—</div>
+                    </div>
+                    <div class="dt-stat-cell">
+                        <div class="dt-stat-label" locale="devtest/mouse-right">Right Button</div>
+                        <div class="dt-stat-value" id="stat-right">—</div>
+                    </div>
+                    <div class="dt-stat-cell">
+                        <div class="dt-stat-label" locale="devtest/mouse-middle">Middle Button</div>
+                        <div class="dt-stat-value" id="stat-middle">—</div>
+                    </div>
+                    <div class="dt-stat-cell">
+                        <div class="dt-stat-label" locale="devtest/mouse-move">Position</div>
+                        <div class="dt-stat-value" id="stat-move">—</div>
+                    </div>
+                    <div class="dt-stat-cell">
+                        <div class="dt-stat-label" locale="devtest/mouse-scroll">Scroll</div>
+                        <div class="dt-stat-value" id="stat-scroll">—</div>
+                    </div>
+                    <div class="dt-stat-cell">
+                        <div class="dt-stat-label" locale="devtest/mouse-drag">Drag</div>
+                        <div class="dt-stat-value" id="stat-drag">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ TOUCH ═══ -->
+        <div class="dt-section" id="dt-touch">
+            <div class="dt-section-title" locale="devtest/touch-title">Touch Test</div>
+            <div class="dt-section-sub" locale="devtest/touch-subtitle">Test touchscreen input and multi-touch support</div>
+            <div id="dt-touch-content"></div>
+        </div>
+
+    </div><!-- #dt-content -->
+</div><!-- #dt-root -->
+
+<!-- Fullscreen popup mode (activated by #fstest hash when opened in a new window) -->
+<div id="dt-fs-page" onclick="dtFsNext()">
+    <div id="dt-fs-page-hint" locale="devtest/fs-hint">Click to change color · ESC to close</div>
+</div>
+
+<script>
+(function () {
+
+    /* ── Fullscreen popup mode (hash: #fstest or #fstest<N>) ── */
+    var fsHash = window.location.hash;
+
+    if (fsHash.indexOf('fstest') !== -1) {
+        var FS_COLORS_POP = ['#000000','#ff0000','#00cc00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff'];
+        var fsIdx = parseInt(fsHash.replace(/[^0-9]/g, ''), 10);
+        if (isNaN(fsIdx) || fsIdx < 0 || fsIdx >= FS_COLORS_POP.length) fsIdx = 0;
+        var fsPage = document.getElementById('dt-fs-page');
+        var dtRoot = document.getElementById('dt-root');
+        if (dtRoot) dtRoot.style.display = 'none';
+        fsPage.style.background = FS_COLORS_POP[fsIdx];
+        fsPage.classList.add('active');
+
+        // Show overlay if not fullscreen
+        var hint = document.getElementById('dt-fs-page-hint');
+        function isFs() {
+            return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+        }
+        function updateHint() {
+            if (!isFs()) {
+                hint.textContent = 'Click to enter fullscreen';
+                hint.style.opacity = '1';
+            } else {
+                hint.setAttribute('locale', 'devtest/fs-hint');
+                hint.textContent = 'Click to change color · ESC to close';
+                hint.style.opacity = '1';
+                setTimeout(function(){ hint.style.opacity = '0.3'; }, 1200);
+            }
+        }
+        updateHint();
+
+        var firstClick = true;
+        window.dtFsNext = function () {
+            if (!isFs()) {
+                var rq = fsPage.requestFullscreen || fsPage.webkitRequestFullscreen || fsPage.mozRequestFullScreen;
+                if (rq) { try { rq.call(fsPage); } catch (ex) {} }
+                setTimeout(updateHint, 200);
+                return;
+            }
+            fsIdx = (fsIdx + 1) % FS_COLORS_POP.length;
+            fsPage.style.background = FS_COLORS_POP[fsIdx];
+            updateHint();
+        };
+        fsPage.onclick = window.dtFsNext;
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') window.close();
+        });
+        document.addEventListener('fullscreenchange', updateHint);
+        document.addEventListener('webkitfullscreenchange', updateHint);
+        document.addEventListener('mozfullscreenchange', updateHint);
+        return; // skip rest of init
+    }
+
+    /* ── Locale ── */
+    var dtLocale = NewAppLocale();
+    dtLocale.init('../locale/system_settings/devtest.json', function () {
+        dtLocale.translate();
+    });
+
+    /* ── Theme ── */
+    try {
+        if (typeof(preferredTheme) != "undefined" && preferredTheme === "dark") {
+            // Ajax loaded into System Settings, use already known theme if possible to avoid flash
+            document.getElementById('dt-root').classList.toggle('dark',  true);
+        }else if (typeof ao_module_getSystemThemeColor === 'function') {
+            ao_module_getSystemThemeColor(function (c) {
+                document.getElementById('dt-root').classList.toggle('dark', c !== 'whiteTheme');
+            });
+        }
+    } catch (e) {}
+
+    /* ── Tab switching ── */
+    window.dtTab = function (el) {
+        document.querySelectorAll('.dt-tab').forEach(function (t) { t.classList.remove('active'); });
+        document.querySelectorAll('.dt-section').forEach(function (s) { s.classList.remove('active'); });
+        el.classList.add('active');
+        document.getElementById(el.getAttribute('data-sec')).classList.add('active');
+    };
+
+    /* ════════════════════════════════════
+       AUDIO
+    ════════════════════════════════════ */
+    var dtAudioActive = null;
+
+    function dtLoadVol() {
+        var v = parseFloat(localStorage.getItem('global_volume') || '0');
+        var pct = Math.round(v * 100);
+        document.getElementById('dt-vol-slider').value = pct;
+        document.getElementById('dt-vol-label').textContent = pct + '%';
+        document.querySelectorAll('#dt-audio-both,#dt-audio-left,#dt-audio-right').forEach(function (a) { a.volume = v; });
+    }
+    dtLoadVol();
+
+    document.getElementById('dt-vol-slider').addEventListener('input', function () {
+        var pct = parseInt(this.value, 10);
+        document.getElementById('dt-vol-label').textContent = pct + '%';
+        var v = (pct / 100).toFixed(2);
+        localStorage.setItem('global_volume', v);
+        document.querySelectorAll('#dt-audio-both,#dt-audio-left,#dt-audio-right').forEach(function (a) { a.volume = parseFloat(v); });
+    });
+
+    window.dtPlaySound = function (which) {
+        ['both', 'left', 'right'].forEach(function (id) {
+            var a = document.getElementById('dt-audio-' + id);
+            a.pause(); a.currentTime = 0;
+            document.getElementById('dt-btn-' + id).classList.remove('active');
+        });
+        if (dtAudioActive === which) { dtAudioActive = null; return; }
+        var a = document.getElementById('dt-audio-' + which);
+        a.play();
+        document.getElementById('dt-btn-' + which).classList.add('active');
+        dtAudioActive = which;
+        a.onended = function () {
+            document.getElementById('dt-btn-' + which).classList.remove('active');
+            dtAudioActive = null;
+        };
+    };
+
+    /* ════════════════════════════════════
+       DISPLAY
+    ════════════════════════════════════ */
+    var FS_COLORS = [
+        { hex: '#000000', name: 'Black'   },
+        { hex: '#ff0000', name: 'Red'     },
+        { hex: '#00cc00', name: 'Green'   },
+        { hex: '#0000ff', name: 'Blue'    },
+        { hex: '#ffff00', name: 'Yellow'  },
+        { hex: '#ff00ff', name: 'Magenta' },
+        { hex: '#00ffff', name: 'Cyan'    },
+        { hex: '#ffffff', name: 'White'   },
+    ];
+    var fsCurrent = 0;
+
+    // Build swatches
+    var swatchRow = document.getElementById('dt-swatches');
+    FS_COLORS.forEach(function (c, i) {
+        var el = document.createElement('div');
+        el.className = 'dt-swatch' + (c.hex === '#ffffff' ? ' white-swatch' : '');
+        el.style.background = c.hex;
+        el.title = c.name;
+        el.addEventListener('click', function () { dtStartFs(i); });
+        swatchRow.appendChild(el);
+    });
+
+    window.dtStartFs = function (startIdx) {
+        var idx = (startIdx !== undefined) ? startIdx : 0;
+        window.open(
+            '/SystemAO/info/display.html#fstest' + idx,
+            'dt_fstest',
+            'width=' + screen.width + ',height=' + screen.height + ',left=0,top=0,toolbar=no,menubar=no,scrollbars=no,resizable=yes'
+        );
+    };
+
+    /* ════════════════════════════════════
+       KEYBOARD
+    ════════════════════════════════════ */
+    // unit = 34px, gap = 3px
+    var U = 34, G = 3;
+    var KB = [
+        /* fn row */
+        [
+            {l:'Esc',    c:'Escape',      w:1.0},
+            {spacer:true, w:0.5},
+            {l:'F1',     c:'F1',          w:1.0},{l:'F2',  c:'F2',  w:1.0},{l:'F3', c:'F3', w:1.0},{l:'F4', c:'F4', w:1.0},
+            {spacer:true, w:0.35},
+            {l:'F5',     c:'F5',          w:1.0},{l:'F6',  c:'F6',  w:1.0},{l:'F7', c:'F7', w:1.0},{l:'F8', c:'F8', w:1.0},
+            {spacer:true, w:0.35},
+            {l:'F9',     c:'F9',          w:1.0},{l:'F10', c:'F10', w:1.0},{l:'F11',c:'F11',w:1.0},{l:'F12',c:'F12',w:1.0},
+        ],
+        /* number row */
+        [
+            {l:'`',  c:'Backquote', w:1.0},{l:'1',c:'Digit1',w:1.0},{l:'2',c:'Digit2',w:1.0},
+            {l:'3',  c:'Digit3',   w:1.0},{l:'4',c:'Digit4',w:1.0},{l:'5',c:'Digit5',w:1.0},
+            {l:'6',  c:'Digit6',   w:1.0},{l:'7',c:'Digit7',w:1.0},{l:'8',c:'Digit8',w:1.0},
+            {l:'9',  c:'Digit9',   w:1.0},{l:'0',c:'Digit0',w:1.0},{l:'-',c:'Minus', w:1.0},
+            {l:'=',  c:'Equal',    w:1.0},{l:'⌫',c:'Backspace',w:2.0},
+        ],
+        /* QWERTY */
+        [
+            {l:'Tab',c:'Tab',w:1.5},{l:'Q',c:'KeyQ',w:1.0},{l:'W',c:'KeyW',w:1.0},{l:'E',c:'KeyE',w:1.0},
+            {l:'R',  c:'KeyR',w:1.0},{l:'T',c:'KeyT',w:1.0},{l:'Y',c:'KeyY',w:1.0},{l:'U',c:'KeyU',w:1.0},
+            {l:'I',  c:'KeyI',w:1.0},{l:'O',c:'KeyO',w:1.0},{l:'P',c:'KeyP',w:1.0},{l:'[',c:'BracketLeft',w:1.0},
+            {l:']',  c:'BracketRight',w:1.0},{l:'\\',c:'Backslash',w:1.5},
+        ],
+        /* ASDF */
+        [
+            {l:'Caps',c:'CapsLock',w:1.75},{l:'A',c:'KeyA',w:1.0},{l:'S',c:'KeyS',w:1.0},{l:'D',c:'KeyD',w:1.0},
+            {l:'F',   c:'KeyF',   w:1.0},{l:'G',c:'KeyG',w:1.0},{l:'H',c:'KeyH',w:1.0},{l:'J',c:'KeyJ',w:1.0},
+            {l:'K',   c:'KeyK',   w:1.0},{l:'L',c:'KeyL',w:1.0},{l:';',c:'Semicolon',w:1.0},{l:"'",c:'Quote',w:1.0},
+            {l:'Enter',c:'Enter', w:2.25},
+        ],
+        /* ZXCV */
+        [
+            {l:'Shift',c:'ShiftLeft',w:2.25},{l:'Z',c:'KeyZ',w:1.0},{l:'X',c:'KeyX',w:1.0},{l:'C',c:'KeyC',w:1.0},
+            {l:'V',    c:'KeyV',   w:1.0},{l:'B',c:'KeyB',w:1.0},{l:'N',c:'KeyN',w:1.0},{l:'M',c:'KeyM',w:1.0},
+            {l:',',    c:'Comma',  w:1.0},{l:'.',c:'Period',w:1.0},{l:'/',c:'Slash',w:1.0},
+            {l:'Shift',c:'ShiftRight',w:2.75},
+        ],
+        /* bottom */
+        [
+            {l:'Ctrl', c:'ControlLeft', w:1.25},{l:'⊞',c:'MetaLeft',w:1.25},{l:'Alt',c:'AltLeft',w:1.25},
+            {l:'',     c:'Space',       w:6.25},
+            {l:'Alt',  c:'AltRight',    w:1.25},{l:'⊞',c:'MetaRight',w:1.25},{l:'☰',c:'ContextMenu',w:1.25},
+            {l:'Ctrl', c:'ControlRight',w:1.25},
+        ],
+    ];
+
+    var kbEls = {};
+    var kbTested = new Set();
+
+    (function buildKb() {
+        var wrap = document.getElementById('dt-kb-layout');
+        KB.forEach(function (row) {
+            var rowEl = document.createElement('div');
+            rowEl.className = 'dt-kb-row';
+            row.forEach(function (k) {
+                if (k.spacer) {
+                    var sp = document.createElement('div');
+                    sp.style.cssText = 'width:' + Math.round(k.w * U) + 'px;flex-shrink:0';
+                    rowEl.appendChild(sp);
+                    return;
+                }
+                var el = document.createElement('div');
+                el.className = 'dt-key';
+                el.style.width = Math.round(k.w * U + (k.w - 1) * G) + 'px';
+                el.textContent = k.l;
+                el.dataset.code = k.c;
+                if (k.c) kbEls[k.c] = el;
+                rowEl.appendChild(el);
+            });
+            wrap.appendChild(rowEl);
+        });
+    })();
+
+    document.addEventListener('keydown', function (e) {
+        var el = kbEls[e.code];
+        if (!el) return;
+        el.classList.add('pressed');
+        if (!kbTested.has(e.code)) {
+            kbTested.add(e.code);
+            document.getElementById('dt-kb-count').textContent = kbTested.size;
+        }
+    });
+
+    document.addEventListener('keyup', function (e) {
+        var el = kbEls[e.code];
+        if (!el) return;
+        el.classList.remove('pressed');
+        el.classList.add('tested');
+    });
+
+    window.dtResetKb = function () {
+        kbTested.clear();
+        document.getElementById('dt-kb-count').textContent = '0';
+        Object.values(kbEls).forEach(function (el) { el.classList.remove('pressed', 'tested'); });
+    };
+
+    /* ════════════════════════════════════
+       MOUSE
+    ════════════════════════════════════ */
+    var mouseArea    = document.getElementById('dt-mouse-area');
+    var mouseCursor  = document.getElementById('dt-mouse-cursor');
+    var mouseHint    = document.getElementById('dt-mouse-area-hint');
+    var clicks       = {0: 0, 1: 0, 2: 0};
+    var scrollCount  = 0;
+    var isDragging   = false;
+    var mouseInArea  = false;
+
+    function setStat(id, val, ok) {
+        var el = document.getElementById('stat-' + id);
+        el.textContent = val;
+        el.className = 'dt-stat-value' + (ok ? ' ok' : '');
+    }
+
+    mouseArea.addEventListener('mouseenter', function () {
+        mouseInArea = true;
+        mouseCursor.style.display = 'block';
+        mouseHint.style.display = 'none';
+    });
+    mouseArea.addEventListener('mouseleave', function () {
+        mouseInArea = false;
+        mouseCursor.style.display = 'none';
+        mouseCursor.classList.remove('clicking');
+        isDragging = false;
+    });
+    mouseArea.addEventListener('mousemove', function (e) {
+        var r = mouseArea.getBoundingClientRect();
+        var x = Math.round(e.clientX - r.left), y = Math.round(e.clientY - r.top);
+        mouseCursor.style.left = x + 'px';
+        mouseCursor.style.top  = y + 'px';
+        setStat('move', x + ', ' + y, true);
+        if (e.buttons > 0) { isDragging = true; setStat('drag', '✓', true); }
+    });
+    mouseArea.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        isDragging = false;
+        mouseCursor.classList.add('clicking');
+        var b = e.button;
+        clicks[b] = (clicks[b] || 0) + 1;
+        if (b === 0) setStat('left',   '✓ ×' + clicks[0], true);
+        if (b === 2) setStat('right',  '✓ ×' + clicks[2], true);
+        if (b === 1) setStat('middle', '✓ ×' + clicks[1], true);
+    });
+    mouseArea.addEventListener('mouseup',      function () { mouseCursor.classList.remove('clicking'); });
+    mouseArea.addEventListener('contextmenu',  function (e) { e.preventDefault(); });
+    mouseArea.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        scrollCount++;
+        setStat('scroll', (e.deltaY > 0 ? '↓' : '↑') + ' ×' + scrollCount, true);
+    }, { passive: false });
+
+    /* ════════════════════════════════════
+       TOUCH
+    ════════════════════════════════════ */
+    var hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    var tcontent = document.getElementById('dt-touch-content');
+
+    if (hasTouch) {
+        tcontent.innerHTML =
+            '<div class="dt-card">' +
+                '<div class="dt-card-label" locale="devtest/touch-area-title">Touch Area</div>' +
+                '<div id="dt-touch-area">' +
+                    '<div id="dt-touch-area-hint">' +
+                        '<svg width="28" height="28" viewBox="0 0 24 24" fill="none">' +
+                            '<path d="M9 3a3 3 0 0 1 6 0v8l2.5 2a2.5 2.5 0 0 1-5 1.6A2.5 2.5 0 0 1 7 13V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+                        '</svg>' +
+                        '<span locale="devtest/touch-hint">Touch the screen with one or more fingers</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="dt-touch-stats" style="margin-top:11px;">' +
+                    '<span locale="devtest/touch-active">Active</span><span class="dt-badge" id="dt-tc-active">0</span>' +
+                    '<span style="margin-left:6px;" locale="devtest/touch-max">Max simultaneous</span><span class="dt-badge" id="dt-tc-max">0</span>' +
+                '</div>' +
+            '</div>';
+
+        dtLocale.translate();
+
+        var ta = document.getElementById('dt-touch-area');
+        var tPoints = {};
+        var tMax = 0;
+
+        function posTa(touch) {
+            var r = ta.getBoundingClientRect();
+            return { x: touch.clientX - r.left, y: touch.clientY - r.top };
+        }
+
+        function syncTouches(e) {
+            e.preventDefault();
+            var hint = document.getElementById('dt-touch-area-hint');
+            if (hint) hint.style.display = 'none';
+
+            var liveIds = Array.from(e.touches).map(function (t) { return String(t.identifier); });
+            // Remove lifted
+            Object.keys(tPoints).forEach(function (id) {
+                if (liveIds.indexOf(id) === -1) {
+                    if (tPoints[id].parentNode) tPoints[id].parentNode.removeChild(tPoints[id]);
+                    delete tPoints[id];
+                }
+            });
+            // Create/update
+            Array.from(e.touches).forEach(function (touch, idx) {
+                var id  = String(touch.identifier);
+                var pos = posTa(touch);
+                var dot = tPoints[id];
+                if (!dot) {
+                    dot = document.createElement('div');
+                    dot.className = 'dt-touch-dot';
+                    ta.appendChild(dot);
+                    tPoints[id] = dot;
+                }
+                dot.style.left = pos.x + 'px';
+                dot.style.top  = pos.y + 'px';
+                dot.textContent = idx + 1;
+            });
+            var cnt = e.touches.length;
+            if (cnt > tMax) { tMax = cnt; document.getElementById('dt-tc-max').textContent = tMax; }
+            document.getElementById('dt-tc-active').textContent = cnt;
+        }
+
+        ta.addEventListener('touchstart',  syncTouches, { passive: false });
+        ta.addEventListener('touchmove',   syncTouches, { passive: false });
+        ta.addEventListener('touchend',    syncTouches, { passive: false });
+        ta.addEventListener('touchcancel', syncTouches, { passive: false });
+
+    } else {
+        tcontent.innerHTML =
+            '<div class="dt-no-touch">' +
+                '<svg width="17" height="17" viewBox="0 0 24 24" fill="none">' +
+                    '<circle cx="12" cy="12" r="9.5" stroke="currentColor" stroke-width="1.5"/>' +
+                    '<path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+                '</svg>' +
+                '<span locale="devtest/touch-not-supported">Touch input is not supported on this device.</span>' +
+            '</div>';
+        dtLocale.translate();
+    }
+
+})();
+</script>
+</body>
+</html>

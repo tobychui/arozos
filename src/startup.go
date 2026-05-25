@@ -92,8 +92,8 @@ func RunStartup() {
 	DiskQuotaInit()           //Disk Quota Management
 	DiskServiceInit()         //Start Disk Services
 	DeviceServiceInit()       //Client Device Management
-	SystemInfoInit()          //System Information UI
 	SystemIDInit()            //System UUID Manager
+	SystemInfoInit()          //System Information UI
 	AuthSettingsInit()        //Authentication Settings Handler, must be start after user Handler
 	AdvanceSettingInit()      //System Advance Settings
 	StartupFlagsInit()        //System BootFlag settibg

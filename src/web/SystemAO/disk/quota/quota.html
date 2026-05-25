@@ -1,127 +1,683 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Disk Quota</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
-        <link rel="stylesheet" href="../disk/quota/script/Chart.min.css">
-        <script type="text/javascript" src="../../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
-        <script src="../disk/quota/script/Chart.min.js"></script>
-        <style>
+<style>
+#quota-root {
+    --q-bg:      #ffffff;
+    --q-border:  #e5e5e5;
+    --q-text:    #1d1d1f;
+    --q-dim:     #6e6e73;
+    --q-muted:   #98989d;
+    --q-soft:    #f5f5f7;
+    --q-shadow:  0 4px 20px rgba(0,0,0,0.08);
+    --q-accent:  #0071e3;
+    --q-track:   #e0e0e0;
+    --q-divider: #e0e0e0;
 
-        </style>
-    </head>
-    <body>
-        <div class="ui container">
-            <p>System Storage Space Quota</p>
-            <h1 class="ui header">
-                <span id="usedSpace">Loading</span>
-                <div class="sub header">Total used of <span id="remaining">N/A</span></div>
-            </h1>
-            <div class="ui divider"></div>
-            <p id="loadWarning"><i class="ui loading spinner icon"></i> File Category Graph might take some time to load...</p>
-            <div id="canvas-holder">
-                <canvas id="chart-area"></canvas>
-            </div>
-            <br>
-            <div class="ui divider"></div>
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--q-text);
+    background: var(--q-bg);
+    border: 1px solid var(--q-border);
+    border-radius: 12px;
+    /* box-shadow: var(--q-shadow); */
+    padding: 20px;
+    margin-bottom: 4px;
+}
+
+#quota-root.dark {
+    --q-bg:      #2b2b2b;
+    --q-border:  #3b3b3b;
+    --q-text:    #ececec;
+    --q-dim:     #aaaaaa;
+    --q-muted:   #636368;
+    --q-soft:    #343434;
+    --q-shadow:  0 8px 22px rgba(0,0,0,0.3);
+    --q-accent:  #2997ff;
+    --q-track:   #4a4a4a;
+    --q-divider: #3b3b3b;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+#quota-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+#quota-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.15px;
+    color: var(--q-text);
+}
+
+#quota-summary {
+    font-size: 12px;
+    color: var(--q-dim);
+    white-space: nowrap;
+}
+
+/* ── Quota usage bar ─────────────────────────────────────── */
+#quota-bar-track {
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--q-track);
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+#quota-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    background: var(--q-accent);
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    width: 0%;
+}
+
+#quota-bar-fill.quota-warn     { background: #ff9f0a; }
+#quota-bar-fill.quota-critical { background: #ff3b30; }
+
+#quota-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--q-muted);
+    margin-bottom: 18px;
+}
+
+/* ── Divider ─────────────────────────────────────────────── */
+#quota-divider {
+    height: 1px;
+    background: var(--q-divider);
+    margin: 2px 0 16px;
+}
+
+/* ── Distribution section ────────────────────────────────── */
+#quota-dist-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--q-muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+#quota-dist-bar {
+    width: 100%;
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+    display: flex;
+    background: var(--q-track);
+    margin-bottom: 14px;
+    gap: 1px;
+}
+
+.quota-seg {
+    height: 100%;
+    min-width: 3px;
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    flex-shrink: 0;
+}
+
+/* ── Legend grid ─────────────────────────────────────────── */
+#quota-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 6px 14px;
+}
+
+.quota-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    min-width: 0;
+}
+
+.quota-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.quota-legend-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--q-text);
+}
+
+.quota-legend-size {
+    color: var(--q-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Skeleton / loading states ───────────────────────────── */
+#quota-dist-loading {
+    font-size: 12px;
+    color: var(--q-muted);
+    padding: 4px 0 2px;
+}
+
+/* ── Detail table ────────────────────────────────────────── */
+#quota-table-wrap {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--q-divider);
+    display: none;
+}
+
+#quota-table-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--q-muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+#quota-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#quota-table thead th {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--q-muted);
+    text-align: left;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--q-divider);
+}
+
+#quota-table thead th:not(:first-child) { text-align: right; }
+
+#quota-table tbody tr { border-bottom: 1px solid var(--q-divider); }
+#quota-table tbody tr:last-child { border-bottom: none; }
+
+#quota-table tbody td {
+    padding: 8px 0;
+    font-size: 12.5px;
+    vertical-align: middle;
+    color: var(--q-dim);
+    white-space: nowrap;
+    padding-left: 12px;
+}
+
+#quota-table tbody td:first-child {
+    padding-left: 0;
+    width: 100%;
+}
+
+#quota-table tbody td:not(:first-child) { text-align: right; }
+
+.quota-table-type {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--q-text);
+    min-width: 0;
+}
+
+.quota-table-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+/* ── Space finder ──────────────────────────────────────────── */
+#quota-finder-wrap {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--q-divider);
+}
+
+#quota-finder-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--q-muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.quota-finder-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--q-divider);
+    min-width: 0;
+}
+
+.quota-finder-row:last-child { border-bottom: none; }
+
+.quota-finder-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.quota-finder-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--q-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.quota-finder-path {
+    font-size: 11px;
+    color: var(--q-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+.quota-finder-size {
+    font-size: 12px;
+    color: var(--q-dim);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.quota-finder-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid var(--q-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    color: var(--q-dim);
+    font-size: 11px;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.quota-finder-btn:hover {
+    background: var(--q-soft);
+    color: var(--q-text);
+}
+
+.quota-finder-btn.quota-finder-del:hover {
+    background: rgba(255, 59, 48, 0.08);
+    color: #ff3b30;
+    border-color: rgba(255, 59, 48, 0.4);
+}
+
+#quota-finder-more {
+    margin-top: 12px;
+}
+
+#quota-finder-more-btn {
+    background: none;
+    border: 1px solid var(--q-border);
+    border-radius: 8px;
+    padding: 7px 0;
+    cursor: pointer;
+    color: var(--q-accent);
+    font-size: 12px;
+    font-family: inherit;
+    width: 100%;
+    transition: background 0.1s;
+}
+
+#quota-finder-more-btn:hover { background: var(--q-soft); }
+
+@media (max-width: 480px) {
+    #quota-root    { padding: 14px; }
+    #quota-legend  { grid-template-columns: 1fr; }
+}
+</style>
+
+<div id="quota-root">
+
+    <!-- Header -->
+    <div id="quota-header">
+        <span id="quota-title" locale="quota/title">Storage Quota</span>
+        <span id="quota-summary">-</span>
+    </div>
+
+    <!-- Main quota bar -->
+    <div id="quota-bar-track">
+        <div id="quota-bar-fill"></div>
+    </div>
+    <div id="quota-bar-labels">
+        <span id="quota-used-lbl">-</span>
+        <span id="quota-total-lbl">-</span>
+    </div>
+
+    <div id="quota-divider"></div>
+
+    <!-- File-type distribution -->
+    <div id="quota-dist-label" locale="quota/dist_title">File Type Distribution</div>
+    <div id="quota-dist-bar"><!-- filled by JS --></div>
+    <div id="quota-legend">
+        <div id="quota-dist-loading"><span locale="quota/loading">Calculating…</span></div>
+    </div>
+
+    <!-- Detail table -->
+    <div id="quota-table-wrap">
+        <div id="quota-table-label" locale="quota/table_title">File Details</div>
+        <table id="quota-table">
+            <thead>
+                <tr>
+                    <th locale="quota/table_category">Category</th>
+                    <th locale="quota/table_files">Files</th>
+                    <th locale="quota/table_size">Size</th>
+                </tr>
+            </thead>
+            <tbody id="quota-table-body"></tbody>
+        </table>
+    </div>
+
+
+    <!-- Space Finder -->
+    <div id="quota-finder-wrap" style="display:none">
+        <div id="quota-finder-label" locale="quota/finder_title">Largest Files</div>
+        <div id="quota-finder-list"></div>
+        <div id="quota-finder-more" style="display:none">
+            <button id="quota-finder-more-btn" onclick="quotaFinderLoadMore()">
+                <span id="quota-finder-more-lbl"></span>
+            </button>
         </div>
-        <script>
-            var c = document.getElementById("chart-area");
-            var ctx = c.getContext("2d");
-            var accurateUsedSpace = 0;
+    </div>
+</div>
 
-            initQuotaInfo();
-            initFileTypeDistribution();
-            
-            function initQuotaInfo(){
-                //This will initalize the accumulative update quota information (Not accuratem, just estimation)
-                $.get("../../../system/disk/quota/quotaInfo",function(data){
-                    if (data.error !== undefined){
+<script>
+(function () {
+    var quotaLocale = NewAppLocale();
 
-                    }else{
-                        var used = ao_module_utils.formatBytes(data.Used);
-                        var total = "Unlimited";
-                        if (data.Total > 0){
-                            total = ao_module_utils.formatBytes(data.Total);
-                        }else if (data.Total == 0){
-                            total = "Read Only";
-                        }
+    /* macOS-style colour palette */
+    var QUOTA_COLORS = [
+        '#5ac8fa', '#007aff', '#34c759', '#ff9f0a',
+        '#ff3b30', '#af52de', '#ff2d55', '#5856d6',
+        '#30b0c7', '#a2845e', '#8e8e93', '#636366'
+    ];
 
-                        $("#usedSpace").html(used + ` <i style="color: #dedede;" class="tiny info circle icon" title="Cumulative Estimation"></i>`);
-                        $("#remaining").text(total);
-                    }
-                }); 
+    function quotaColor(i) {
+        return QUOTA_COLORS[i % QUOTA_COLORS.length];
+    }
+
+    function quotaStr(key, fallback) {
+        return (quotaLocale && quotaLocale.getString) ? quotaLocale.getString(key, fallback) : fallback;
+    }
+
+    /* ── Theme ── */
+    function quotaApplyTheme() {
+        var root = document.getElementById('quota-root');
+        if (!root) return;
+        try {
+            if (typeof preferredTheme !== 'undefined') {
+                root.classList.toggle('dark', preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+            } else {
+                ao_module_getSystemThemeColor(function (c) {
+                    root.classList.toggle('dark', c !== 'whiteTheme');
+                });
+            }
+        } catch (e) {}
+    }
+
+    /* ── Quota bar ── */
+    function quotaInitBar() {
+        $.get('../../../system/disk/quota/quotaInfo', function (data) {
+            if (!data || data.error !== undefined) return;
+
+            var used  = data.Used;
+            var total = data.Total;
+            var usedFmt  = ao_module_utils.formatBytes(used, 2);
+            var totalFmt, pct = 0;
+
+            if (total < 0) {
+                totalFmt = quotaStr('quota/unlimited', 'Unlimited');
+                pct = 0;
+            } else if (total === 0) {
+                totalFmt = quotaStr('quota/readonly', 'Read Only');
+                pct = 100;
+            } else {
+                totalFmt = ao_module_utils.formatBytes(total, 2);
+                pct = Math.min((used / total) * 100, 100);
             }
 
-            function initFileTypeDistribution(){
-                var dynamicColors = function() {
-                    var r = Math.floor(Math.random() * 180 + 75);
-                    var g = Math.floor(Math.random() * 180 + 75);
-                    var b = Math.floor(Math.random() * 180 + 75);
-                    return "rgb(" + r + "," + g + "," + b + ")";
-                };
-                $.get("../../../system/disk/quota/quotaDist",function(list){
-                    accurateUsedSpace = 0;
-                    if (list == null){
+            var pctLabel = (total > 0 && total !== -1) ? ' · ' + pct.toFixed(1) + '%' : '';
+            $('#quota-used-lbl').text(usedFmt + pctLabel);
+            $('#quota-total-lbl').text(totalFmt);
+            $('#quota-summary').text(usedFmt + ' / ' + totalFmt);
+
+            var fill = document.getElementById('quota-bar-fill');
+            fill.style.width = pct + '%';
+            fill.className = 'quota-bar-fill' +
+                (pct >= 90 ? ' quota-critical' : pct >= 75 ? ' quota-warn' : '');
+        });
+    }
+
+    /* ── Distribution bar ── */
+    function quotaInitDist() {
+        $.get('../../../system/disk/quota/quotaDist', function (list) {
+            var loadingEl  = document.getElementById('quota-dist-loading');
+            var barEl      = document.getElementById('quota-dist-bar');
+            var legendEl   = document.getElementById('quota-legend');
+            var tableWrap  = document.getElementById('quota-table-wrap');
+            var tableBody  = document.getElementById('quota-table-body');
+
+            if (!list || list.length === 0) {
+                if (loadingEl) loadingEl.innerHTML =
+                    '<span>' + quotaStr('quota/no_data', 'No data available') + '</span>';
+                return;
+            }
+
+            var totalBytes = list.reduce(function (s, item) { return s + item.Size; }, 0);
+
+            /* Accurate used-space update */
+            var accurateFmt = ao_module_utils.formatBytes(totalBytes, 2);
+            var prevLabel = $('#quota-used-lbl').text();
+            var dotIdx = prevLabel.indexOf(' · ');
+            $('#quota-used-lbl').text(accurateFmt + (dotIdx >= 0 ? prevLabel.slice(dotIdx) : ''));
+            $('#quota-summary').text(function (_, old) {
+                return accurateFmt + old.slice(old.indexOf(' / '));
+            });
+
+            /* Build distribution bar, legend, and table */
+            barEl.innerHTML   = '';
+            legendEl.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            list.forEach(function (item, i) {
+                var color = quotaColor(i);
+                var pct   = totalBytes > 0 ? (item.Size / totalBytes) * 100 : 0;
+
+                /* Bar segment */
+                var seg = document.createElement('div');
+                seg.className = 'quota-seg';
+                seg.style.cssText = 'width:' + pct + '%;background:' + color;
+                seg.title = quotaEsc(item.Mime) + ': ' + ao_module_utils.formatBytes(item.Size, 2);
+                barEl.appendChild(seg);
+
+                /* Legend row */
+                var row = document.createElement('div');
+                row.className = 'quota-legend-row';
+                row.innerHTML =
+                    '<span class="quota-legend-dot" style="background:' + color + '"></span>' +
+                    '<span class="quota-legend-name">' + quotaEsc(item.Mime) + '</span>' +
+                    '<span class="quota-legend-size">' + ao_module_utils.formatBytes(item.Size, 2) + '</span>';
+                legendEl.appendChild(row);
+
+                /* Table row */
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td><div class="quota-table-type">' +
+                        '<span class="quota-table-dot" style="background:' + color + '"></span>' +
+                        quotaEsc(item.Mime) +
+                    '</div></td>' +
+                    '<td>' + (item.Count || 0) + '</td>' +
+                    '<td>' + ao_module_utils.formatBytes(item.Size, 2) + '</td>';
+                tableBody.appendChild(tr);
+            });
+
+            tableWrap.style.display = '';
+        });
+    }
+
+    function quotaEsc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* ── Space finder ── */
+    var quotaFinderAll    = [];
+    var quotaFinderShown  = 0;
+    var QUOTA_FINDER_STEPS = [20, 50, 100];
+
+    function quotaInitFinder() {
+        $.get('../../../system/disk/space/largeFiles?number=100', function (data) {
+            if (!data || data.length === 0) return;
+            quotaFinderAll   = data;
+            quotaFinderShown = 0;
+            document.getElementById('quota-finder-list').innerHTML = '';
+            document.getElementById('quota-finder-wrap').style.display = '';
+            quotaFinderRender(Math.min(QUOTA_FINDER_STEPS[0], data.length));
+        });
+    }
+
+    function quotaFinderRender(upTo) {
+        var listEl = document.getElementById('quota-finder-list');
+        var limit  = Math.min(upTo, quotaFinderAll.length);
+        for (var i = quotaFinderShown; i < limit; i++) {
+            var file  = quotaFinderAll[i];
+            var parts = file.Filepath.split('/');
+            parts.pop();
+            var dir  = parts.join('/');
+            var row  = document.createElement('div');
+            row.className = 'quota-finder-row';
+            row.setAttribute('data-filepath', file.Filepath);
+            row.innerHTML =
+                '<div class="quota-finder-info">' +
+                    '<div class="quota-finder-name">' + quotaEsc(file.Filename) + '</div>' +
+                    '<div class="quota-finder-path">' + quotaEsc(dir + '/') + '</div>' +
+                '</div>' +
+                '<span class="quota-finder-size">' + ao_module_utils.formatBytes(file.Size, 2) + '</span>' +
+                '<button class="quota-finder-btn" onclick="quotaFinderOpenBtn(this)" title="' + quotaStr('quota/finder_open', 'Open in File Manager') + '">' +
+                    '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 5.5a1 1 0 011-1h3.086a1 1 0 01.707.293L7.207 5.707A1 1 0 007.914 6H13.5a1 1 0 011 1v6.5a1 1 0 01-1 1h-11a1 1 0 01-1-1V5.5z" stroke="currentColor" stroke-width="1.3"/></svg>' +
+                    ' ' + quotaStr('quota/finder_open', 'Open') +
+                '</button>' +
+                '<button class="quota-finder-btn quota-finder-del" onclick="quotaFinderDeleteBtn(this)" title="' + quotaStr('quota/finder_delete', 'Delete') + '">' +
+                    '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 4h12M6 4V2.5h4V4M3.5 4l1 8.5a1 1 0 001 1h5a1 1 0 001-1l1-8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+                    ' ' + quotaStr('quota/finder_delete', 'Delete') +
+                '</button>';
+            listEl.appendChild(row);
+        }
+        quotaFinderShown = limit;
+        quotaFinderUpdateMore();
+    }
+
+    function quotaFinderUpdateMore() {
+        var moreDiv = document.getElementById('quota-finder-more');
+        var moreLbl = document.getElementById('quota-finder-more-lbl');
+        var nextStep = null;
+        for (var i = 0; i < QUOTA_FINDER_STEPS.length; i++) {
+            if (QUOTA_FINDER_STEPS[i] > quotaFinderShown) {
+                nextStep = Math.min(QUOTA_FINDER_STEPS[i], quotaFinderAll.length);
+                break;
+            }
+        }
+        if (nextStep !== null && nextStep > quotaFinderShown) {
+            moreDiv.style.display = '';
+            moreLbl.textContent = quotaStr('quota/finder_load_more', 'Load More') +
+                ' (' + quotaFinderShown + ' / ' + quotaFinderAll.length + ')';
+        } else {
+            moreDiv.style.display = 'none';
+        }
+    }
+
+    function quotaFinderLoadMore() {
+        var nextStep = null;
+        for (var i = 0; i < QUOTA_FINDER_STEPS.length; i++) {
+            if (QUOTA_FINDER_STEPS[i] > quotaFinderShown) {
+                nextStep = Math.min(QUOTA_FINDER_STEPS[i], quotaFinderAll.length);
+                break;
+            }
+        }
+        if (nextStep === null) nextStep = quotaFinderAll.length;
+        quotaFinderRender(nextStep);
+    }
+
+    function quotaFinderGetRow(btn) {
+        var el = btn;
+        while (el && !(el.className && el.className.indexOf('quota-finder-row') >= 0)) {
+            el = el.parentNode;
+        }
+        return el;
+    }
+
+    function quotaFinderOpenBtn(btn) {
+        var row = quotaFinderGetRow(btn);
+        if (!row) return;
+        var fp    = row.getAttribute('data-filepath');
+        var parts = fp.split('/');
+        parts.pop();
+        ao_module_openPath(parts.join('/'));
+    }
+
+    function quotaFinderDeleteBtn(btn) {
+        var row = quotaFinderGetRow(btn);
+        if (!row) return;
+        var fp       = row.getAttribute('data-filepath');
+        var filename = fp.split('/').pop();
+        if (!confirm(quotaStr('quota/finder_confirm', 'Confirm delete') + ': ' + filename)) return;
+
+        btn.disabled = true;
+        $.get('../../../system/csrf/new', function (token) {
+            $.ajax({
+                url:    '../../../system/file_system/fileOpr',
+                method: 'POST',
+                data:   { opr: 'delete', src: JSON.stringify([fp]), csrft: token },
+                success: function (data) {
+                    if (data.error !== undefined) {
+                        alert(data.error);
+                        btn.disabled = false;
                         return;
                     }
-                    //Create the corret data structure for the pie chart
-                    data = {};
-                    var dataset = [];
-                    var labels = [];
-                    var colors = [];
-                    var stopping = list.length;
-                    for (var i = 0; i < stopping; i++){
-                        labels.push(list[i].Mime);
-                        dataset.push(list[i].Size);
-                        accurateUsedSpace += list[i].Size;
-                        colors.push(dynamicColors());
-                    }
-
-                    //Update the actual used spaces
-                    var actualSpaceUsed = ao_module_utils.formatBytes(accurateUsedSpace);
-                    $("#usedSpace").text(actualSpaceUsed);
-                
-                   
-                    data["datasets"] = [{
-                        data: dataset, 
-                        backgroundColor: colors
-                    }];
-                    data["labels"] = labels;
-                    var fileDistChart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: data,
-                        options: {
-                            responsive: true,
-                            tooltips: {
-                                callbacks: {
-                                    label: function(tooltipItem, data){
-                                        var partitionsize = (data.datasets[0].data[tooltipItem.index]);
-                                        var labeltext = data.labels[tooltipItem.index];
-                                        var label = labeltext + ": " +ao_module_utils.formatBytes(partitionsize, 2);
-                                        return label;
-                                    }
-                                },
-                            },
-                            legend: {
-                                position: 'right',
-                                labels: {
-                                    boxWidth: 20,
-                                    padding: 20
-                                }
-                            }
+                    for (var i = 0; i < quotaFinderAll.length; i++) {
+                        if (quotaFinderAll[i].Filepath === fp) {
+                            quotaFinderAll.splice(i, 1);
+                            break;
                         }
-                    });
+                    }
+                    quotaFinderShown = Math.max(0, quotaFinderShown - 1);
+                    row.remove();
+                    quotaFinderUpdateMore();
+                }
+            });
+        });
+    }
 
-                    $("#loadWarning").hide();
-                });
-               
-            }
+    /* expose to onclick attributes */
+    window.quotaFinderLoadMore   = quotaFinderLoadMore;
+    window.quotaFinderOpenBtn    = quotaFinderOpenBtn;
+    window.quotaFinderDeleteBtn  = quotaFinderDeleteBtn;
 
-        </script>
-   
-    </body>
-</html>
+    /* ── Boot ── */
+    quotaApplyTheme();
+    quotaLocale.init('../locale/users/quota.json', function () {
+        quotaLocale.translate();
+        quotaInitBar();
+        quotaInitDist();
+        quotaInitFinder();
+    });
+})();
+</script>

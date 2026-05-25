@@ -9,19 +9,56 @@
     <script type="text/javascript" src="../../script/ao_module.js"></script>
     <script type="text/javascript" src="../info/js/chart/Chart.min.js"></script>
     <script type="text/javascript" src="../../script/applocale.js"></script>
+    <style>
+        body{
+            background-color: #f3f3f3;
+        }
+        /* ── Task Manager dark theme ── */
+        body.dark {
+            background: #1f1f1f !important;
+            color: #e3e3e3 !important;
+        }
+
+        body.dark .ui.container {
+            color: #e3e3e3 !important;
+        }
+
+        body.dark .ui.header {
+            color: #e3e3e3 !important;
+        }
+
+        body.dark .ui.header .sub.header {
+            color: #aaa !important;
+        }
+
+        body.dark .ui.grid .column,
+        body.dark .ui.stackable.grid .column {
+            color: #e3e3e3 !important;
+        }
+
+        body.dark span,
+        body.dark p {
+            color: #e3e3e3 !important;
+        }
+
+        body.dark canvas {
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 
 <body>
     <br>
-    <div class="ui container">
+    <div class="ui narrow container">
         <div id="cpuChartContainer" style="position: relative;">
-            <h2 class="ui header">
+            <h3 class="ui header">
                 <span locale="taskManager/cpu">CPU</span>
                 <div class="sub header" locale="taskManager/cpu_description">CPU Usage (%) in the previous 60 seconds</div>
-            </h2>
+            </h3>
             <p id="CPUname" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/cpu_info">Generic Processor</p>
             <canvas id="cpuChart" width="1200" height="300"></canvas>
-            <div class="ui stackable grid">
+            <div class="ui stackable grid" style="margin-top:0;">
                 <div class="four wide column">
                     <div class="ui header">
                         <span id="cpuUsage">0%</span>
@@ -37,15 +74,17 @@
             </div>
         </div>
         <br>
+        <div class="ui divider"></div>
+
         <div id="ramChartContainer" style="position: relative;">
-            <h2 class="ui header">
+            <h3 class="ui header">
                 <span locale="taskManager/memory">Memory</span>
                 <div class="sub header" locale="taskManager/memory_description">RAM Usage</div>
-            </h2>
+            </h3>
             <p id="RAMInfo" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/memory_info"></p>
             <canvas id="ramChart" width="1200" height="300"></canvas>
             <br>
-            <div class="ui stackable grid">
+            <div class="ui stackable grid" style="margin-top:-1em !important;">
                 <div class="four wide column">
                     <div class="ui header">
                         <span id="ramUsed">Loading</span>
@@ -66,14 +105,16 @@
                 </div>
             </div>
         </div>
+        <br>
+        <div class="ui divider"></div>
         <div id="netChartContainer" style="position: relative; margin-top: 1.2em;">
-            <h2 class="ui header">
+            <h3 class="ui header">
                 <span locale="taskManager/network">Network</span>
                 <div class="sub header" locale="taskManager/network_description">Network usage in the previous 60 seconds</div>
-            </h2>
+            </h3>
             <p id="netGraphScale" style="position: absolute; top: 1em; right: 0.3em; font-size: 16px;" locale="taskManager/network_scale">100 kbps</p>
             <canvas id="netChart" width="1200" height="300"></canvas>
-            <div class="ui stackable grid">
+            <div class="ui stackable grid" style="margin-top:0;">
                 <div class="four wide column">
                     <div class="ui header" style="border-left: 2px solid #bc793f; padding-left: 1em;">
                         <span id="rx">Loading</span>
@@ -89,15 +130,22 @@
             </div>
         </div>
     </div>
-    
-
-        <br><br>
-    </div>
+    <div style="height: 84px;"></div>
     <script>
         var cpuChart;
         var ramChart;
         var netChart;
         var previousNetData = [0, 0];
+        var isDarkMode = false;
+
+        // Detect theme before charts are initialised
+        ao_module_getSystemThemeColor(function(color) {
+            isDarkMode = (color !== 'whiteTheme');
+            document.body.classList.toggle('dark', isDarkMode);
+            if (isDarkMode) {
+                applyDarkChartColors();
+            }
+        });
 
         var performanceLocale = NewAppLocale();
         performanceLocale.init("../locale/system_settings/spec.json", function(){
@@ -368,6 +416,49 @@
         function resizeCharts(){
             $("#cpuChart").width($("#cpuChartContainer").width());
             $("#ramChart").width($("#ramChartContainer").width());
+        }
+
+        // Apply dark colour palette to all three charts
+        function applyDarkChartColors() {
+            var darkGridColor = "rgba(255, 255, 255, 0.08)";
+            var darkTickColor = "#888";
+
+            // Update chart option objects so newly created charts use dark colors
+            [options, ramOptions, netOptions].forEach(function(opt) {
+                if (opt.scales && opt.scales.x) {
+                    opt.scales.x.grid = opt.scales.x.grid || {};
+                    opt.scales.x.grid.color = darkGridColor;
+                    opt.scales.x.ticks = opt.scales.x.ticks || {};
+                    opt.scales.x.ticks.color = darkTickColor;
+                }
+                if (opt.scales && opt.scales.y) {
+                    opt.scales.y.grid = opt.scales.y.grid || {};
+                    opt.scales.y.grid.color = darkGridColor;
+                    opt.scales.y.ticks = opt.scales.y.ticks || {};
+                    opt.scales.y.ticks.color = darkTickColor;
+                }
+            });
+
+            // If charts are already created, patch them live
+            if (cpuChart) {
+                cpuChart.data.datasets[0].backgroundColor = "rgba(76, 157, 203, 0.15)";
+                cpuChart.options.scales.x.grid.color = darkGridColor;
+                cpuChart.options.scales.y.grid.color = darkGridColor;
+                cpuChart.update();
+            }
+            if (ramChart) {
+                ramChart.data.datasets[0].backgroundColor = "rgba(149, 40, 180, 0.15)";
+                ramChart.options.scales.x.grid.color = darkGridColor;
+                ramChart.options.scales.y.grid.color = darkGridColor;
+                ramChart.update();
+            }
+            if (netChart) {
+                netChart.data.datasets[0].backgroundColor = "rgba(167, 79, 1, 0.15)";
+                netChart.data.datasets[1].backgroundColor = "rgba(167, 79, 1, 0.08)";
+                netChart.options.scales.x.grid.color = darkGridColor;
+                netChart.options.scales.y.grid.color = darkGridColor;
+                netChart.update();
+            }
         }
 
         updateData();

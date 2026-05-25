@@ -1,0 +1,618 @@
+/* system_setting/main.css */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── Light theme (default) ── */
+:root {
+    --bg:                   #f3f3f3;
+    --sidebar-bg:           #ebebeb;
+    --sidebar-border:       #dcdcdc;
+    --text:                 #202020;
+    --text-dim:             #555;
+    --text-muted:           #888;
+    --text-desc:            #666;
+    --title-color:          #1a1a1a;
+    --nav-hover:            rgba(0, 0, 0, 0.055);
+    --nav-active:           rgba(0, 0, 0, 0.09);
+    --card-bg:              #ffffff;
+    --card-border:          #e5e5e5;
+    --card-hover-bg:        #fafafa;
+    --card-hover-border:    #d0d0d0;
+    --card-active-bg:       #f2f2f2;
+    --scrollbar-thumb:      #c8c8c8;
+    --msgbox-bg:            #ffffff;
+    --msgbox-border:        #e0e0e0;
+    --icon-opacity:         0.68;
+    --card-icon-opacity:    0.72;
+}
+
+/* ── Dark theme overrides ── */
+body.dark {
+    --bg:                   #1f1f1f;
+    --sidebar-bg:           #282828;
+    --sidebar-border:       #363636;
+    --text:                 #e3e3e3;
+    --text-dim:             #999;
+    --text-muted:           #666;
+    --text-desc:            #aaa;
+    --title-color:          #f0f0f0;
+    --nav-hover:            rgba(255, 255, 255, 0.06);
+    --nav-active:           rgba(255, 255, 255, 0.1);
+    --card-bg:              #2d2d2d;
+    --card-border:          #3a3a3a;
+    --card-hover-bg:        #333333;
+    --card-hover-border:    #4a4a4a;
+    --card-active-bg:       #383838;
+    --scrollbar-thumb:      #555555;
+    --msgbox-bg:            #2d2d2d;
+    --msgbox-border:        #444444;
+    --icon-opacity:         0.78;
+    --card-icon-opacity:    0.84;
+}
+
+/* ── Base ── */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    transition: background 0.15s, color 0.15s;
+}
+
+/* ── App shell ── */
+#app {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+    width: 252px;
+    min-width: 252px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+#sidebar-title {
+    padding: 20px 16px 10px 18px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+    flex-shrink: 0;
+    color: var(--title-color);
+}
+
+#sidebar-title img {
+    width: 22px;
+    height: 22px;
+    opacity: var(--icon-opacity);
+    flex-shrink: 0;
+}
+
+#back-row {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    padding: 0 12px 8px 16px;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+#back-row:hover .back-label { text-decoration: underline; }
+
+.back-chevron {
+    width: 15px;
+    height: 15px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+}
+
+.back-label {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+#group-label {
+    display: none;
+    padding: 4px 12px 6px 18px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    user-select: none;
+    flex-shrink: 0;
+}
+
+#sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 10px 8px;
+}
+
+#sidebar-nav::-webkit-scrollbar { width: 3px; }
+#sidebar-nav::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.08s;
+    font-size: 13.5px;
+    color: var(--text);
+    margin-bottom: 1px;
+}
+
+.nav-item:hover  { background: var(--nav-hover); }
+.nav-item.active { background: var(--nav-active); font-weight: 500; }
+
+.nav-item img {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: var(--icon-opacity);
+}
+
+.nav-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Main content area ── */
+#main {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    transition: background 0.15s;
+}
+
+/* ── Overview panel (card grid) ── */
+/* Scrollbar sits flush at the right window edge; padding lives inside the inner wrapper */
+#overview {
+    flex: 1;
+    overflow-y: auto;
+}
+
+#overview::-webkit-scrollbar { width: 6px; }
+#overview::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+#overview-inner {
+    padding: 28px 32px;
+}
+
+#overview-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--title-color);
+    margin-bottom: 18px;
+}
+
+#info-banner {
+    display: none;
+    margin-bottom: 12px;
+}
+
+#info-banner.active {
+    display: block;
+}
+
+#card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+    gap: 8px;
+}
+
+.setting-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: background 0.08s, border-color 0.08s;
+    user-select: none;
+}
+
+.setting-card:hover  { background: var(--card-hover-bg); border-color: var(--card-hover-border); }
+.setting-card:active { background: var(--card-active-bg); }
+
+.setting-card img {
+    width: 26px;
+    height: 26px;
+    opacity: var(--card-icon-opacity);
+    flex-shrink: 0;
+}
+
+.card-text { min-width: 0; }
+
+.card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-desc {
+    font-size: 11.5px;
+    color: var(--text-desc);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+/* ── Detail panel ── */
+/* overflow-y on #detail → scrollbar flush to right edge; padding lives in #detail-inner */
+#detail {
+    flex: 1;
+    overflow-y: auto;
+    display: none;
+}
+
+#detail::-webkit-scrollbar { width: 6px; }
+#detail::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+#detail-inner {
+    padding: 20px 24px;
+    min-height: 100%;
+}
+
+/* ── Toast notification ── */
+#msgbox {
+    position: fixed;
+    bottom: 14px;
+    right: 18px;
+    background: var(--msgbox-bg);
+    border: 1px solid var(--msgbox-border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    max-width: 300px;
+    color: var(--text);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+/* ══════════════════════════════════════════════
+   Dark-mode overrides for Semantic UI elements
+   loaded into the detail panel
+   ══════════════════════════════════════════════ */
+
+body.dark .ui.segment,
+body.dark .ui.card,
+body.dark .ui.cards > .card {
+    background: #2d2d2d !important;
+    color: #e3e3e3 !important;
+    border-color: #3a3a3a !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+}
+
+body.dark .ui.header,
+body.dark .ui.header .sub.header {
+    color: #e3e3e3 !important;
+}
+
+body.dark h1, body.dark h2, body.dark h3,
+body.dark h4, body.dark h5, body.dark h6 {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.table {
+    background: #2d2d2d !important;
+    color: #e3e3e3 !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.table thead th {
+    background: #383838 !important;
+    color: #ddd !important;
+    border-color: #444 !important;
+}
+
+body.dark .ui.table td,
+body.dark .ui.table tr {
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.table tr:hover td {
+    background: #333 !important;
+}
+
+body.dark .ui.input > input,
+body.dark .ui.form input[type="text"],
+body.dark .ui.form input[type="number"],
+body.dark .ui.form input[type="email"],
+body.dark .ui.form input[type="password"],
+body.dark .ui.form input[type="url"],
+body.dark .ui.form input[type="search"],
+body.dark .ui.form textarea,
+body.dark .ui.form select,
+body.dark .ui.selection.dropdown {
+    background: #333 !important;
+    color: #e3e3e3 !important;
+    border-color: #4a4a4a !important;
+}
+
+body.dark .ui.selection.dropdown .menu {
+    background: #2d2d2d !important;
+    border-color: #4a4a4a !important;
+}
+
+body.dark .ui.selection.dropdown .menu > .item {
+    color: #e3e3e3 !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.selection.dropdown .menu > .item:hover {
+    background: #383838 !important;
+}
+
+body.dark .ui.button:not(.primary):not(.secondary):not(.positive):not(.negative) {
+    background: #3a3a3a !important;
+    color: #e3e3e3 !important;
+    border-color: #505050 !important;
+}
+
+body.dark .ui.button:not(.primary):not(.secondary):not(.positive):not(.negative):hover {
+    background: #454545 !important;
+}
+
+body.dark .ui.divider {
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.list > .item,
+body.dark .ui.list .list > .item {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.menu {
+    background: #2d2d2d !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.menu .item {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.menu .active.item {
+    background: #383838 !important;
+    color: #fff !important;
+}
+
+body.dark .ui.message {
+    background: #2d2d2d !important;
+    color: #e3e3e3 !important;
+    box-shadow: 0 0 0 1px #3a3a3a inset !important;
+}
+
+body.dark .ui.label {
+    background: #3a3a3a !important;
+    color: #e3e3e3 !important;
+    border-color: #4a4a4a !important;
+}
+
+body.dark .ui.statistic > .value,
+body.dark .ui.statistic > .label {
+    color: #e3e3e3 !important;
+}
+
+body.dark a:not(.ui.button) { color: #5db3ff !important; }
+body.dark a:not(.ui.button):hover { color: #7ec9ff !important; }
+
+body.dark p, body.dark span, body.dark td, body.dark li, body.dark label {
+    color: #e3e3e3 !important;
+}
+
+/* ── Additional Semantic UI specificity fixes ── */
+body.dark .ui.form label,
+body.dark .ui.checkbox label,
+body.dark .ui.radio.checkbox label {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.dropdown > .text,
+body.dark .ui.selection.dropdown > .text {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.dropdown .menu > .item > .text,
+body.dark .ui.dropdown .menu > .item > span {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.input input::placeholder,
+body.dark .ui.form input::placeholder,
+body.dark .ui.form textarea::placeholder {
+    color: #666 !important;
+}
+
+body.dark .ui.accordion .title {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.accordion .title:not(.ui) {
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.steps .step .title,
+body.dark .ui.steps .step .description {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.steps .step {
+    background: #2d2d2d !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.tabular.menu .active.item,
+body.dark .ui.tabular.menu .item {
+    background: transparent !important;
+    border-color: #3a3a3a !important;
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.tabular.menu .active.item {
+    background: #2d2d2d !important;
+    color: #fff !important;
+}
+
+body.dark .ui.secondary.segment {
+    background: #383838 !important;
+    border-color: #444 !important;
+}
+
+body.dark .ui.popup {
+    background: #2d2d2d !important;
+    border-color: #3a3a3a !important;
+    color: #e3e3e3 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+
+body.dark .ui.popup > .header {
+    color: #f0f0f0 !important;
+}
+
+body.dark .ui.progress .bar {
+    background: #4c9dcb !important;
+}
+
+body.dark .ui.progress {
+    background: #383838 !important;
+}
+
+body.dark .ui.progress .label {
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.modal {
+    background: #2d2d2d !important;
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.modal > .header {
+    background: #2d2d2d !important;
+    color: #e3e3e3 !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.modal > .content {
+    background: #2d2d2d !important;
+    color: #e3e3e3 !important;
+}
+
+body.dark .ui.modal > .actions {
+    background: #383838 !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark .ui.dimmer {
+    background: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ══════════════════════════════════════════════
+   Mobile menu toggle button
+   ══════════════════════════════════════════════ */
+
+#menu-toggle {
+    display: none;
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    z-index: 200;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 7px 9px;
+    cursor: pointer;
+    color: var(--text);
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.10);
+    transition: background 0.08s, border-color 0.08s;
+}
+
+#menu-toggle:hover {
+    background: var(--card-hover-bg);
+    border-color: var(--card-hover-border);
+}
+
+#menu-toggle svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+}
+
+/* Dim overlay shown behind the sidebar on mobile */
+#sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 99;
+}
+
+/* ══════════════════════════════════════════════
+   Responsive / narrow-screen layout
+   ══════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Show the hamburger button */
+    #menu-toggle {
+        display: flex;
+    }
+
+    /* Pull sidebar out of normal flow; hide off-screen to the left */
+    #sidebar {
+        position: fixed;
+        top: 0;
+        left: -260px;
+        height: 100vh;
+        z-index: 100;
+        /* Layer the left-slide on top of the existing bg/border transitions */
+        transition: background 0.15s, border-color 0.15s, left 0.22s ease;
+        box-shadow: 2px 0 12px rgba(0, 0, 0, 0.18);
+    }
+
+    /* Sidebar visible state (toggled by JS) */
+    #sidebar.open {
+        left: 0;
+    }
+
+    /* Show overlay when sidebar is open */
+    body.sidebar-open #sidebar-overlay {
+        display: block;
+    }
+
+    /* Main content fills the whole width on mobile */
+    #main {
+        width: 100%;
+    }
+}
