@@ -1,60 +1,247 @@
 <!DOCTYPE HTML>
 <html>
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>{{hostname}} File Share</title>
-    <link rel="stylesheet" href="../../script/skeleton/offline.css">
-    <link rel="stylesheet" href="../../script/skeleton/normalize.css">
-    <link rel="stylesheet" href="../../script/skeleton/skeleton.css">
-    <script type="application/javascript" src="../../script/jquery.min.js"></script>
-    <style>
-        .bar{
-            height: 12px;
-            background-color: #1a1a1a;
-            width: 100%;
-        }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>{{hostname}} File Share</title>
+  <script type="application/javascript" src="../../script/jquery.min.js"></script>
+  <link rel="icon" type="image/png" href="../../img/public/share/share.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .footer{
-            position: fixed;
-            left: 0px;
-            bottom: 0px;
-            height: 100px;
-            width: 100%;
-            background-color: #1a1a1a;
-            padding: 20px;
-            color: white;
-        }
-    </style>
-    </head>
-    <body>
-        <div class="bar"></div>
-        <br>
-        <div class="container" style="padding-bottom: 150px;">
-            <div class="row">
-                <div class="one-half column">
-                    <h5>{{hostname}} File Sharing</h5>
-                    <h3>File Not Found</h3>
-                    <p>The file you are looking for not exists or no longer exists on the current system. Please check if your link to the share file is valid.</p>
-                    <p>Request File ID: {{reqid}}</p>
-                    <p>Request Timestamp: {{reqtime}}</p>
-                </div>
-                <div class="one-half column">
-                    <img style="pointer-events: none; width: 100%;" src="../../img/public/share/notfound.png">
-                </div>
-            </div>
-           
-        </div>
-        <div class="footer">
-            <div class="container">
-                Cloud File Sharing Interface, <br>Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
-            </div>
-        </div>
-      
+    :root {
+      --bg:        #f0f2f5;
+      --surface:   #ffffff;
+      --surface2:  #f7f8fa;
+      --border:    #e4e6ea;
+      --text:      #1a1a2e;
+      --muted:     #6b7280;
+      --accent:    #d4920d;
+      --accent-h:  #b87c09;
+      --accent-fg: #1a1a1a;
+      --shadow:    none;
+      --radius:    16px;
+      --trans:     0.2s ease;
+    }
 
-        
-    <script>
-     
-    </script>
-    </body>
+    [data-theme="dark"] {
+      --bg:        #0f0f12;
+      --surface:   #1c1c22;
+      --surface2:  #26262f;
+      --border:    #32323c;
+      --text:      #e8e8f0;
+      --muted:     #888899;
+      --accent:    #fbbf24;
+      --accent-h:  #f59e0b;
+      --shadow:    none;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg:        #0f0f12;
+        --surface:   #1c1c22;
+        --surface2:  #26262f;
+        --border:    #32323c;
+        --text:      #e8e8f0;
+        --muted:     #888899;
+        --accent:    #fbbf24;
+        --accent-h:  #f59e0b;
+        --shadow:    none;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column;
+      transition: background var(--trans), color var(--trans);
+    }
+
+    .icon {
+      width: 16px; height: 16px; display: inline-block; vertical-align: middle;
+      fill: none; stroke: currentColor; stroke-width: 1.9;
+      stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
+    }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 28px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-brand {
+      font-size: 0.95rem; font-weight: 700;
+      color: var(--accent); letter-spacing: 0.5px; text-decoration: none;
+    }
+    .topbar-brand span { color: var(--text); font-weight: 400; }
+
+    .theme-toggle {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 50px; cursor: pointer; padding: 6px 14px;
+      font-size: 0.82rem; color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+      transition: border-color var(--trans), color var(--trans);
+    }
+    #themeIcon { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+
+    .page-wrap {
+      flex: 1; display: flex; align-items: flex-start;
+      justify-content: center; padding: 40px 20px 100px;
+    }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      width: 100%; max-width: 560px; overflow: hidden;
+    }
+
+    .card-hero {
+      padding: 36px 36px 28px;
+      display: flex; align-items: flex-start; gap: 28px;
+    }
+
+    .file-icon-wrap {
+      flex-shrink: 0; width: 80px; height: 80px; border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface2); border: 1px solid var(--border);
+    }
+    .file-icon-wrap svg {
+      width: 40px; height: 40px; display: block;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .hero-info { flex: 1; min-width: 0; }
+    .hero-tag {
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 1.2px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 6px;
+    }
+    .hero-filename {
+      font-size: 1.45rem; font-weight: 700;
+      word-break: break-word; line-height: 1.25; margin-bottom: 8px;
+    }
+    .hero-host { font-size: 0.82rem; color: var(--muted); }
+
+    .divider { height: 1px; background: var(--border); margin: 0 36px; }
+
+    .meta-grid {
+      padding: 24px 36px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .meta-item { display: flex; flex-direction: column; gap: 4px; }
+    .meta-label {
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .meta-value { font-size: 0.9rem; font-weight: 500; word-break: break-all; }
+
+    .card-footer {
+      padding: 14px 36px; background: var(--surface2);
+      border-top: 1px solid var(--border);
+      display: flex; gap: 24px; flex-wrap: wrap;
+    }
+    .card-footer-item { font-size: 0.75rem; color: var(--muted); }
+    .card-footer-item strong { color: var(--text); }
+
+    .page-footer {
+      text-align: center; padding: 16px;
+      font-size: 0.75rem; color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+    .page-footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 580px) {
+      .card-hero { padding: 24px 20px 18px; gap: 16px; }
+      .meta-grid { padding: 18px 20px; }
+      .card-footer { padding: 12px 20px; }
+      .divider { margin: 0 20px; }
+      .file-icon-wrap { width: 62px; height: 62px; border-radius: 14px; }
+      .hero-filename { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <a class="topbar-brand" href="#">AROZ <span>File Share</span></a>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+      <span id="themeIcon"></span>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </header>
+
+  <main class="page-wrap">
+    <div class="card">
+      <div class="card-hero">
+        <div class="file-icon-wrap">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </div>
+        <div class="hero-info">
+          <div class="hero-tag">Not Found</div>
+          <div class="hero-filename">File Not Found</div>
+          <div class="hero-host">Shared from <strong>{{hostname}}</strong></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="meta-grid">
+        <div class="meta-item" style="grid-column: 1 / -1;">
+          <span class="meta-label">Details</span>
+          <span class="meta-value" style="font-weight: 400; color: var(--muted);">The file you are looking for does not exist or is no longer available on this system. Please check that your share link is valid.</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Request File ID</span>
+          <span class="meta-value">{{reqid}}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Timestamp</span>
+          <span class="meta-value">{{reqtime}}</span>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <span class="card-footer-item">ID: <strong>{{reqid}}</strong></span>
+        <span class="card-footer-item">Timestamp: <strong>{{reqtime}}</strong></span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="page-footer">
+    Cloud File Sharing Interface - Powered by <a href="http://arozos.com">arozos</a>
+  </footer>
+
+  <script>
+    var ICONS = {
+      moon: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>',
+      sun:  '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"></line><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"></line><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"></line></svg>'
+    };
+
+    (function() {
+      var saved = localStorage.getItem('shareTheme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var isDark = saved ? saved === 'dark' : prefersDark;
+      if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+      updateThemeBtn(isDark);
+    })();
+
+    function updateThemeBtn(isDark) {
+      document.getElementById('themeIcon').innerHTML = isDark ? ICONS.sun : ICONS.moon;
+      document.getElementById('themeLabel').textContent = isDark ? 'Light' : 'Dark';
+    }
+
+    function toggleTheme() {
+      var root = document.documentElement;
+      var isDark = root.getAttribute('data-theme') === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      localStorage.setItem('shareTheme', isDark ? 'light' : 'dark');
+      updateThemeBtn(!isDark);
+    }
+  </script>
+</body>
 </html>

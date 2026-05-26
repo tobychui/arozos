@@ -67,8 +67,8 @@
 <div class="ued-page">
 
     <!-- Feedback banners -->
-    <div id="eg-success" class="ued-banner success" style="display:none;" locale="editgroup/msg-updated">Group permissions updated</div>
-    <div id="eg-error"   class="ued-banner error"   style="display:none;"><span id="eg-err-msg"></span></div>
+    <div id="eg-success" class="ued-banner success" locale="editgroup/msg-updated">Group permissions updated</div>
+    <div id="eg-error"   class="ued-banner error"><span id="eg-err-msg"></span></div>
 
     <!-- Group Info -->
     <div class="ued-section-label" locale="editgroup/section-info">Group Information</div>
@@ -225,19 +225,17 @@
     /* ── Feedback helpers ── */
     function egShowSuccess() {
         var el = document.getElementById('eg-success');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 3000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 3000);
     }
 
     function egShowError(msg) {
         document.getElementById('eg-err-msg').textContent = msg || '';
         var el = document.getElementById('eg-error');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 5000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 5000);
     }
 
     /* ── Close (public-safe) ── */

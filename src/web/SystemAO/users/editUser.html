@@ -79,8 +79,8 @@
 <div class="ued-page">
 
     <!-- Feedback banners -->
-    <div id="eu-success" class="ued-banner success" style="display:none;" locale="edituser/msg-updated">Profile updated</div>
-    <div id="eu-error"   class="ued-banner error"   style="display:none;"><span id="eu-err-msg"></span></div>
+    <div id="eu-success" class="ued-banner success" locale="edituser/msg-updated">Profile updated</div>
+    <div id="eu-error"   class="ued-banner error"><span id="eu-err-msg"></span></div>
 
     <!-- Profile & Permissions -->
     <div class="ued-section-label" locale="edituser/section-profile">Profile &amp; Permissions</div>
@@ -223,19 +223,17 @@
     /* ── Feedback helpers ── */
     function euShowSuccess() {
         var el = document.getElementById('eu-success');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 3000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 3000);
     }
 
     function euShowError(msg) {
         document.getElementById('eu-err-msg').textContent = msg || '';
         var el = document.getElementById('eu-error');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 5000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 5000);
     }
 
     /* ── Close window (public-safe) ── */

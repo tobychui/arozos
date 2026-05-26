@@ -298,6 +298,25 @@
         margin-top: 8px;
         display: none;
     }
+
+    /* ── Self-membership warning ── */
+    #gr-self-warn {
+        display: none;
+        font-size: 12px;
+        font-weight: 500;
+        color: #92400e;
+        background: rgba(146,64,14,0.07);
+        border: 1px solid rgba(146,64,14,0.22);
+        border-radius: 6px;
+        padding: 7px 10px;
+        margin-top: 10px;
+        line-height: 1.5;
+    }
+    #gr-root.dark #gr-self-warn {
+        color: #fbbf24;
+        background: rgba(251,191,36,0.08);
+        border-color: rgba(251,191,36,0.22);
+    }
     .gr-del-confirm-row {
         display: flex;
         align-items: center;
@@ -434,6 +453,8 @@
                     Warning: Some users are only in this group and will lose their interface module after removal.
                 </div>
             </div>
+
+            <div id="gr-self-warn"></div>
 
             <div class="gr-del-confirm-row">
                 <span class="gr-del-hint" locale="group/del-confirm-hint">This action cannot be undone.</span>
@@ -615,6 +636,13 @@ function confirmCreateHandler(data) {
 /* ── Delete panel ── */
 var grDeletePreviewLoaded = false;
 var grAffectedUsers = [];
+var grCurrentUsername = "";
+
+// Fetch the current logged-in username once so we can warn if the admin is
+// about to delete a group they themselves belong to.
+$.get('../../system/desktop/user', function(data) {
+    if (data && data.Username) { grCurrentUsername = data.Username; }
+});
 
 function openDeletePanel() {
     if (!currentSelectedGroup || currentSelectedGroup === 'administrator') return;
@@ -625,6 +653,7 @@ function openDeletePanel() {
     document.getElementById('gr-radio-reassign').checked = true;
     document.getElementById('gr-reassign-extra').style.display = 'block';
     document.getElementById('gr-single-group-warn').style.display = 'none';
+    document.getElementById('gr-self-warn').style.display = 'none';
     document.getElementById('gr-affected-list').innerHTML =
         '<div class="gr-empty" style="padding:12px;">' +
         (grLocale ? grLocale.getString('group/del-loading', 'Loading\u2026') : 'Loading\u2026') + '</div>';
@@ -649,6 +678,8 @@ function grOnActionChange() {
     } else {
         warn.style.display = 'none';
     }
+
+    if (grDeletePreviewLoaded) { grUpdateSelfWarn(); }
 }
 
 function grLoadDeletePreview() {
@@ -693,6 +724,29 @@ function grLoadDeletePreview() {
             '<div class="gr-empty" style="padding:12px;color:var(--gr-danger);">' +
             (grLocale ? grLocale.getString('group/del-load-error', 'Failed to load users.') : 'Failed to load users.') + '</div>';
     });
+}
+
+/* ── Self-membership warning helper ── */
+function grUpdateSelfWarn() {
+    var el = document.getElementById('gr-self-warn');
+    if (!el || !grCurrentUsername) return;
+
+    var isSelf = grAffectedUsers.some(function(u) { return u.username === grCurrentUsername; });
+    if (!isSelf) { el.style.display = 'none'; return; }
+
+    var action = document.querySelector('input[name="gr-del-action"]:checked');
+    var val = action ? action.value : '';
+    if (val === 'deleteusers') {
+        el.textContent = '\u26a0\ufe0f ' + (grLocale
+            ? grLocale.getString('group/del-self-warn-deleteusers',
+                'You are in this group. Your account will not be deleted \u2014 only your group membership will be removed.')
+            : 'You are in this group. Your account will not be deleted \u2014 only your group membership will be removed.');
+    } else {
+        el.textContent = '\u26a0\ufe0f ' + (grLocale
+            ? grLocale.getString('group/del-self-warn-general', 'You are a member of this group.')
+            : 'You are a member of this group.');
+    }
+    el.style.display = 'block';
 }
 
 function grConfirmDelete(btn) {

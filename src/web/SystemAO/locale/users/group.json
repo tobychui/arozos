@@ -44,7 +44,9 @@
                 "group/del-success":            "群組已成功刪除。",
                 "group/del-error":              "刪除群組失敗。",
                 "group/del-forbidden":          "存取被拒。",
-                "group/del-load-error":         "無法載入使用者資料。"
+                "group/del-load-error":         "無法載入使用者資料。",
+                "group/del-self-warn-general":  "您是此群組的成員。",
+                "group/del-self-warn-deleteusers": "您屬於此群組。您的帳號不會被刪除——僅會移除您的群組成員資格。"
             }
         }
     }

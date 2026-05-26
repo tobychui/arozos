@@ -104,12 +104,30 @@ func handleGroupDeleteWithUserHandling(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "deleteusers":
+		// Identify the caller so we never delete the account making this request.
+		// If the admin is in the target group, we remove the group from their account
+		// instead of deleting it — preventing an immediate session/system crash.
+		callerUsername, _ := authAgent.GetUserName(w, r)
+
 		for _, username := range allUsernames {
 			userinfo, err := userHandler.GetUserInfoFromUsername(username)
 			if err != nil {
 				continue
 			}
 			if !userinfo.UserIsInOneOfTheGroupOf([]string{groupname}) {
+				continue
+			}
+			if username == callerUsername {
+				// Safety: only remove the group from the caller's own account.
+				currentGroups := userinfo.GetUserPermissionGroupNames()
+				newGroups := []string{}
+				for _, g := range currentGroups {
+					if g != groupname {
+						newGroups = append(newGroups, g)
+					}
+				}
+				newPermGroups := permissionHandler.GetPermissionGroupByNameList(newGroups)
+				userinfo.SetUserPermissionGroup(newPermGroups)
 				continue
 			}
 			userinfo.RemoveUser()

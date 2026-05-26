@@ -3,13 +3,10 @@ package network
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 
 	"gitlab.com/NebulousLabs/go-upnp"
@@ -36,61 +33,12 @@ type NICS struct {
 	Type      string // "ethernet" / "wifi" / "loopback" / "vpn" / "virtual" / "unknown"
 }
 
-// readSysNet reads a sysfs network attribute for the given interface.
-// Returns "" on any error — absent on non-Linux or minimal embedded systems
-// (busybox, Yocto builds without sysfs, etc.).
-func readSysNet(ifaceName, attr string) string {
-	data, err := os.ReadFile("/sys/class/net/" + ifaceName + "/" + attr)
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(data))
-}
-
-// nicOperState returns the operational state of the interface.
-// Reads /sys/class/net/<iface>/operstate; falls back to net.FlagUp.
-func nicOperState(iface net.Interface) string {
-	if s := readSysNet(iface.Name, "operstate"); s != "" {
-		return s
-	}
-	if iface.Flags&net.FlagUp != 0 {
-		return "up"
-	}
-	return "down"
-}
-
-// nicSpeed reads /sys/class/net/<iface>/speed (Mbps integer) and formats it.
-// Returns "N/A" on embedded platforms or interfaces that don't expose speed.
-func nicSpeed(ifaceName string) string {
-	raw := readSysNet(ifaceName, "speed")
-	if raw == "" {
-		return "N/A"
-	}
-	mbps, err := strconv.Atoi(raw)
-	if err != nil || mbps <= 0 {
-		// -1 is common for WiFi / virtual interfaces
-		return "N/A"
-	}
-	if mbps >= 1000 {
-		if mbps%1000 == 0 {
-			return fmt.Sprintf("%d Gbps", mbps/1000)
-		}
-		return fmt.Sprintf("%.1f Gbps", float64(mbps)/1000.0)
-	}
-	return fmt.Sprintf("%d Mbps", mbps)
-}
-
-// nicDuplex reads /sys/class/net/<iface>/duplex.
-// Returns "N/A" when not available (common on Wi-Fi, loopback, virtual).
-func nicDuplex(ifaceName string) string {
-	switch strings.ToLower(readSysNet(ifaceName, "duplex")) {
-	case "full":
-		return "Full"
-	case "half":
-		return "Half"
-	default:
-		return "N/A"
-	}
+// nicExtraInfo holds the platform-specific enhanced details for a NIC.
+// Populated by the per-platform nicExtraAll() implementation.
+type nicExtraInfo struct {
+	OperState string // "up" / "down" / "dormant" / "unknown"
+	Speed     string // "1 Gbps", "100 Mbps", "N/A"
+	Duplex    string // "Full" / "Half" / "N/A"
 }
 
 // nicType classifies the interface as ethernet / wifi / loopback / vpn / virtual / unknown.
@@ -135,6 +83,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var NICList []NICS
+	extras := nicExtraAll(interfaces)
 	for _, iface := range interfaces {
 		ipv4Addr := ""
 		ipv4Mask := ""
@@ -206,6 +155,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 			ipv6First = ipv6Addrs[0]
 		}
 
+		extra := extras[iface.Name]
 		n := NICS{
 			Name:               iface.Name,
 			Index:              iface.Index,
@@ -218,9 +168,9 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 			IPv6Addrs:          ipv6Addrs,
 			IPv4MulticastAddrs: ipv4McastAddr,
 			IPv6MulticastAddrs: ipv6McastAddr,
-			OperState:          nicOperState(iface),
-			Speed:              nicSpeed(iface.Name),
-			Duplex:             nicDuplex(iface.Name),
+			OperState:          extra.OperState,
+			Speed:              extra.Speed,
+			Duplex:             extra.Duplex,
 			Type:               nicType(iface),
 		}
 		NICList = append(NICList, n)
