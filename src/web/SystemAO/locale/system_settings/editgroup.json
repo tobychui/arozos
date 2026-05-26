@@ -108,10 +108,10 @@
                 "editgroup/field-interface": "Module",
                 "editgroup/hint-admin": "Grant administrator privileges to this group",
                 "editgroup/hint-interface": "The module loaded when users in this group log in.",
-                "editgroup/quota-hint": "Set to 0 for read-only, \u22121 for unlimited",
+                "editgroup/quota-hint": "Set to 0 for read-only, −1 for unlimited",
                 "editgroup/col-module": "Module Name",
                 "editgroup/msg-updated": "Group permissions updated",
-                "editgroup/loading": "Loading\u2026",
+                "editgroup/loading": "Loading…",
                 "editgroup/no-modules": "No modules available",
                 "editgroup/no-modules-selected": "No modules selected",
                 "editgroup/access-all": "This group has access to all modules.",
@@ -149,6 +149,36 @@
                 "editgroup/save-error": "保存に失敗しました。",
                 "editgroup/err-forbidden": "アクセスが拒否されました。",
                 "editgroup/err-not-found": "グループが見つかりません。"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "editgroup/btn-update": "업데이트",
+                "editgroup/btn-close": "닫기",
+                "editgroup/section-info": "그룹 정보",
+                "editgroup/section-quota": "기본 저장소 할당량",
+                "editgroup/section-interface": "기본 인터페이스 모듈",
+                "editgroup/section-access": "접근 가능한 모듈",
+                "editgroup/section-preview": "선택된 모듈",
+                "editgroup/field-groupname": "그룹 이름",
+                "editgroup/field-admin": "권한",
+                "editgroup/field-quota": "할당량",
+                "editgroup/field-interface": "모듈",
+                "editgroup/hint-admin": "이 그룹에 관리자 권한 부여",
+                "editgroup/hint-interface": "이 그룹의 사용자가 로그인 시 로드되는 모듈.",
+                "editgroup/quota-hint": "0은 읽기 전용, −1은 무제한",
+                "editgroup/col-module": "모듈 이름",
+                "editgroup/msg-updated": "그룹 권한이 업데이트되었습니다",
+                "editgroup/loading": "로딩 중⋯",
+                "editgroup/no-modules": "사용 가능한 모듈이 없습니다",
+                "editgroup/no-modules-selected": "선택된 모듈이 없습니다",
+                "editgroup/access-all": "이 그룹은 모든 모듈에 접근할 수 있습니다.",
+                "editgroup/load-error": "그룹 데이터를 불러오지 못했습니다.",
+                "editgroup/save-error": "저장에 실패했습니다.",
+                "editgroup/err-forbidden": "접근이 거부되었습니다.",
+                "editgroup/err-not-found": "그룹을 찾을 수 없습니다."
             }
         }
     }

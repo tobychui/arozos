@@ -4,8 +4,8 @@
     "keys": {
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "clientinfo/client-information-title": "客戶端資訊",
                 "clientinfo/client-device-information": "客戶端設備資訊",
                 "clientinfo/client-device-information-subheader": "這些是您的瀏覽器提供給 ArozOS 的資訊。",
@@ -34,13 +34,13 @@
                 "clientinfo/performance": "效能",
                 "clientinfo/capabilities": "媒體與功能"
             },
-            "titles":{},
-            "placeholder":{}
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
             "name": "繁體中文（香港）",
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "strings": {
                 "clientinfo/client-information-title": "客戶端資訊",
                 "clientinfo/client-device-information": "客戶端設備資訊",
                 "clientinfo/client-device-information-subheader": "這些是您的瀏覽器提供給 ArozOS 的資訊。",
@@ -69,12 +69,12 @@
                 "clientinfo/performance": "效能",
                 "clientinfo/capabilities": "媒體與功能"
             },
-            "titles":{},
-            "placeholder":{}
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
             "name": "简体中文（简体）",
-            "strings":{
+            "strings": {
                 "clientinfo/client-information-title": "客户端信息",
                 "clientinfo/client-device-information": "客户端设备信息",
                 "clientinfo/client-device-information-subheader": "这些是您的浏览器提供给 ArozOS 的信息。",
@@ -103,12 +103,12 @@
                 "clientinfo/performance": "性能",
                 "clientinfo/capabilities": "媒体与功能"
             },
-            "titles":{},
-            "placeholder":{}
+            "titles": {},
+            "placeholder": {}
         },
         "en-US": {
             "name": "English (US)",
-            "fontFamily" : "Arial, Helvetica, sans-serif",
+            "fontFamily": "Arial, Helvetica, sans-serif",
             "fwtitle": "",
             "strings": {
                 "clientinfo/client-information-title": "Client Device Information",
@@ -138,6 +138,112 @@
                 "clientinfo/network": "Network",
                 "clientinfo/performance": "Performance",
                 "clientinfo/capabilities": "Media & Caps"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "en-us": {
+            "name": "English (US)",
+            "fontFamily": "Arial, Helvetica, sans-serif",
+            "fwtitle": "",
+            "strings": {
+                "clientinfo/client-information-title": "Client Device Information",
+                "clientinfo/client-device-information": "Client Device Information",
+                "clientinfo/client-device-information-subheader": "These are the information that your browser is telling the ArozOS.",
+                "clientinfo/browser-information": "Browser",
+                "clientinfo/cookie-enabled": "Cookies",
+                "clientinfo/operation-system": "OS",
+                "clientinfo/application-name": "Browser",
+                "clientinfo/browser-version": "Version",
+                "clientinfo/browser-engine": "Engine",
+                "clientinfo/user-agent": "User Agent",
+                "clientinfo/network-status": "Network",
+                "clientinfo/system-information": "System & Display",
+                "clientinfo/device-type": "Device Type",
+                "clientinfo/platform": "Platform",
+                "clientinfo/language": "Language",
+                "clientinfo/timezone": "Timezone",
+                "clientinfo/screen-resolution": "Screen",
+                "clientinfo/pixel-ratio": "Pixel Ratio",
+                "clientinfo/color-depth": "Color Depth",
+                "clientinfo/show-more": "Show Developer Insights",
+                "clientinfo/show-less": "Hide Developer Insights",
+                "clientinfo/hardware": "Hardware",
+                "clientinfo/javascript-apis": "JS APIs",
+                "clientinfo/storage": "Storage",
+                "clientinfo/network": "Network",
+                "clientinfo/performance": "Performance",
+                "clientinfo/capabilities": "Media & Caps"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Meiryo UI\", \"Arial Unicode MS\", \"Hiragino Kaku Gothic Pro\"",
+            "strings": {
+                "clientinfo/client-information-title": "クライアント情報",
+                "clientinfo/client-device-information": "クライアントデバイス情報",
+                "clientinfo/client-device-information-subheader": "これはブラウザがArozOSに提供している情報です。",
+                "clientinfo/browser-information": "ブラウザ",
+                "clientinfo/cookie-enabled": "Cookie",
+                "clientinfo/operation-system": "OS",
+                "clientinfo/application-name": "ブラウザ名",
+                "clientinfo/browser-version": "バージョン",
+                "clientinfo/browser-engine": "エンジン",
+                "clientinfo/user-agent": "ユーザーエージェント",
+                "clientinfo/network-status": "ネットワーク",
+                "clientinfo/system-information": "システムとディスプレイ",
+                "clientinfo/device-type": "デバイスタイプ",
+                "clientinfo/platform": "プラットフォーム",
+                "clientinfo/language": "言語",
+                "clientinfo/timezone": "タイムゾーン",
+                "clientinfo/screen-resolution": "画面",
+                "clientinfo/pixel-ratio": "ピクセル比",
+                "clientinfo/color-depth": "色深度",
+                "clientinfo/show-more": "開発者情報を表示",
+                "clientinfo/show-less": "開発者情報を非表示",
+                "clientinfo/hardware": "ハードウェア",
+                "clientinfo/javascript-apis": "JS API",
+                "clientinfo/storage": "ストレージ",
+                "clientinfo/network": "ネットワーク",
+                "clientinfo/performance": "パフォーマンス",
+                "clientinfo/capabilities": "メディアと機能"
+            },
+            "titles": {},
+            "placeholder": {}
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\"",
+            "strings": {
+                "clientinfo/client-information-title": "클라이언트 정보",
+                "clientinfo/client-device-information": "클라이언트 장치 정보",
+                "clientinfo/client-device-information-subheader": "브라우저가 ArozOS에 제공하는 정보입니다.",
+                "clientinfo/browser-information": "브라우저",
+                "clientinfo/cookie-enabled": "Cookie",
+                "clientinfo/operation-system": "OS",
+                "clientinfo/application-name": "브라우저 이름",
+                "clientinfo/browser-version": "버전",
+                "clientinfo/browser-engine": "엔진",
+                "clientinfo/user-agent": "사용자 에이전트",
+                "clientinfo/network-status": "네트워크",
+                "clientinfo/system-information": "시스템 및 디스플레이",
+                "clientinfo/device-type": "장치 유형",
+                "clientinfo/platform": "플랫폼",
+                "clientinfo/language": "언어",
+                "clientinfo/timezone": "시간대",
+                "clientinfo/screen-resolution": "화면",
+                "clientinfo/pixel-ratio": "픽셀 비율",
+                "clientinfo/color-depth": "색상 깊이",
+                "clientinfo/show-more": "개발자 정보 표시",
+                "clientinfo/show-less": "개발자 정보 숨기기",
+                "clientinfo/hardware": "하드웨어",
+                "clientinfo/javascript-apis": "JS API",
+                "clientinfo/storage": "저장소",
+                "clientinfo/network": "네트워크",
+                "clientinfo/performance": "성능",
+                "clientinfo/capabilities": "미디어 및 기능"
             },
             "titles": {},
             "placeholder": {}
