@@ -25,6 +25,9 @@ type OauthHandler struct {
 	coredb            *db.Database
 }
 
+// Config holds the persisted OAuth2 settings.
+// Extra fields (AuthURL, TokenURL, UserInfoURL, UserField, CustomScope) are only
+// used when IDP == "Custom".
 type Config struct {
 	Enabled      bool   `json:"enabled"`
 	AutoRedirect bool   `json:"auto_redirect"`
@@ -33,9 +36,15 @@ type Config struct {
 	ServerURL    string `json:"server_url"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
+	// Custom provider fields
+	AuthURL     string `json:"auth_url"`
+	TokenURL    string `json:"token_url"`
+	UserInfoURL string `json:"userinfo_url"`
+	UserField   string `json:"user_field"`
+	CustomScope string `json:"custom_scope"`
 }
 
-// NewOauthHandler xxx
+// NewOauthHandler creates and initialises the OAuth2 handler.
 func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database) *OauthHandler {
 	err := coreDb.NewTable("oauth")
 	if err != nil {
@@ -60,37 +69,33 @@ func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, c
 	return &NewlyCreatedOauthHandler
 }
 
-// HandleOauthLogin xxx
+// HandleLogin initiates the OAuth2 login flow.
 func (oh *OauthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	enabled := oh.readSingleConfig("enabled")
 	if enabled == "" || enabled == "false" {
 		utils.SendTextResponse(w, "OAuth disabled")
 		return
 	}
-	//add cookies
 	redirect, err := utils.GetPara(r, "redirect")
-	//store the redirect url to the sync map
 	uuid := ""
 	if err != nil {
 		uuid = oh.syncDb.Store("/")
 	} else {
 		uuid = oh.syncDb.Store(redirect)
 	}
-	//store the key to client
 	oh.addCookie(w, "uuid_login", uuid, 30*time.Minute)
-	//handle redirect
 	url := oh.googleOauthConfig.AuthCodeURL(uuid)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-// OauthAuthorize xxx
+// HandleAuthorize processes the OAuth2 callback from the provider.
 func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	enabled := oh.readSingleConfig("enabled")
 	if enabled == "" || enabled == "false" {
 		utils.SendTextResponse(w, "OAuth disabled")
 		return
 	}
-	//read the uuid(aka the state parameter)
+
 	uuid, err := r.Cookie("uuid_login")
 	if err != nil {
 		utils.SendTextResponse(w, "Invalid redirect URI.")
@@ -113,14 +118,12 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	//exchange the infromation to get code
 	token, err := oh.googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		utils.SendTextResponse(w, "Code exchange failed.")
 		return
 	}
 
-	//get user info
 	username, err := getUserInfo(token.AccessToken, oh.coredb)
 	if err != nil {
 		oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "web")
@@ -129,9 +132,6 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if !oh.ag.UserExists(username) {
-		//register user if not already exists
-		//if registration is closed, return error message.
-		//also makr the login as fail.
 		if oh.reg.AllowRegistry {
 			oh.ag.Logger.LogAuthByRequestInfo(username, r.RemoteAddr, time.Now().Unix(), false, "web")
 			http.Redirect(w, r, "/public/register/register.html?user="+username, http.StatusFound)
@@ -143,38 +143,29 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 	} else {
 		log.Println(username + " logged in via OAuth.")
 		oh.ag.LoginUserByRequest(w, r, username, true)
-		//handling the reverse proxy remote IP issue
 		remoteIP := r.Header.Get("X-FORWARDED-FOR")
 		if remoteIP != "" {
-			//grab the last known remote IP from header
 			remoteIPs := strings.Split(remoteIP, ", ")
 			remoteIP = remoteIPs[len(remoteIPs)-1]
 		} else {
-			//if there is no X-FORWARDED-FOR, use default remote IP
 			remoteIP = r.RemoteAddr
 		}
 		oh.ag.Logger.LogAuthByRequestInfo(username, remoteIP, time.Now().Unix(), true, "web")
-		//clear the cooke
 		oh.addCookie(w, "uuid_login", "-invaild-", -1)
-		//read the value from db and delete it from db
 		url := oh.syncDb.Read(uuid.Value)
 		oh.syncDb.Delete(uuid.Value)
-		//redirect to the desired page
 		http.Redirect(w, r, url, http.StatusFound)
 	}
 }
 
-// CheckOAuth check if oauth is enabled
+// CheckOAuth reports whether OAuth is enabled and if auto-redirect is active.
 func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
 	enabledB := false
-	enabled := oh.readSingleConfig("enabled")
-	if enabled == "true" {
+	if oh.readSingleConfig("enabled") == "true" {
 		enabledB = true
 	}
-
 	autoredirectB := false
-	autoredirect := oh.readSingleConfig("autoredirect")
-	if autoredirect == "true" {
+	if oh.readSingleConfig("autoredirect") == "true" {
 		autoredirectB = true
 	}
 
@@ -182,62 +173,59 @@ func (oh *OauthHandler) CheckOAuth(w http.ResponseWriter, r *http.Request) {
 		Enabled      bool `json:"enabled"`
 		AutoRedirect bool `json:"auto_redirect"`
 	}
-	json, err := json.Marshal(returnFormat{Enabled: enabledB, AutoRedirect: autoredirectB})
+	j, err := json.Marshal(returnFormat{Enabled: enabledB, AutoRedirect: autoredirectB})
 	if err != nil {
 		utils.SendErrorResponse(w, "Error occurred while marshalling JSON response")
 	}
-	utils.SendJSONResponse(w, string(json))
+	utils.SendJSONResponse(w, string(j))
 }
 
-// https://golangcode.com/add-a-http-cookie/
-func (oh *OauthHandler) addCookie(w http.ResponseWriter, name, value string, ttl time.Duration) {
-	expire := time.Now().Add(ttl)
-	cookie := http.Cookie{
-		Name:    name,
-		Value:   value,
-		Expires: expire,
+// ListProviders returns the supported OAuth2 provider names as a JSON array.
+func (oh *OauthHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
+	providers := GetProviders()
+	j, err := json.Marshal(providers)
+	if err != nil {
+		utils.SendErrorResponse(w, "Error while marshalling providers list")
+		return
 	}
-	http.SetCookie(w, &cookie)
+	utils.SendJSONResponse(w, string(j))
 }
 
+// ReadConfig returns the full OAuth2 configuration as JSON.
 func (oh *OauthHandler) ReadConfig(w http.ResponseWriter, r *http.Request) {
 	enabled, err := strconv.ParseBool(oh.readSingleConfig("enabled"))
 	if err != nil {
-		utils.SendTextResponse(w, "Invalid config value [key=enabled].")
-		return
+		// Default to false when the key has never been written.
+		enabled = false
 	}
 	autoredirect, err := strconv.ParseBool(oh.readSingleConfig("autoredirect"))
 	if err != nil {
-		utils.SendTextResponse(w, "Invalid config value [key=autoredirect].")
-		return
+		autoredirect = false
 	}
-	idp := oh.readSingleConfig("idp")
-	redirecturl := oh.readSingleConfig("redirecturl")
-	serverurl := oh.readSingleConfig("serverurl")
-	clientid := oh.readSingleConfig("clientid")
-	clientsecret := oh.readSingleConfig("clientsecret")
 
 	config, err := json.Marshal(Config{
 		Enabled:      enabled,
 		AutoRedirect: autoredirect,
-		IDP:          idp,
-		ServerURL:    serverurl,
-		RedirectURL:  redirecturl,
-		ClientID:     clientid,
-		ClientSecret: clientsecret,
+		IDP:          oh.readSingleConfig("idp"),
+		ServerURL:    oh.readSingleConfig("serverurl"),
+		RedirectURL:  oh.readSingleConfig("redirecturl"),
+		ClientID:     oh.readSingleConfig("clientid"),
+		ClientSecret: oh.readSingleConfig("clientsecret"),
+		AuthURL:      oh.readSingleConfig("authurl"),
+		TokenURL:     oh.readSingleConfig("tokenurl"),
+		UserInfoURL:  oh.readSingleConfig("userinfourl"),
+		UserField:    oh.readSingleConfig("userfield"),
+		CustomScope:  oh.readSingleConfig("customscope"),
 	})
 	if err != nil {
-		empty, err := json.Marshal(Config{})
-		if err != nil {
-			utils.SendErrorResponse(w, "Error while marshalling config")
-			return
-		}
+		empty, _ := json.Marshal(Config{})
 		utils.SendJSONResponse(w, string(empty))
 		return
 	}
 	utils.SendJSONResponse(w, string(config))
 }
 
+// WriteConfig persists the OAuth2 configuration and re-initialises the handler.
 func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	enabled, err := utils.PostPara(r, "enabled")
 	if err != nil {
@@ -246,59 +234,66 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	autoredirect, err := utils.PostPara(r, "autoredirect")
 	if err != nil {
-		utils.SendErrorResponse(w, "enabled field can't be empty")
+		utils.SendErrorResponse(w, "autoredirect field can't be empty")
 		return
 	}
 
-	showError := true
-	if enabled != "true" {
-		showError = false
-	}
+	// Only validate required fields when OAuth is being enabled.
+	requireFields := enabled == "true"
 
 	idp, err := utils.PostPara(r, "idp")
-	if err != nil {
-		if showError {
-			utils.SendErrorResponse(w, "idp field can't be empty")
-			return
-		}
+	if err != nil && requireFields {
+		utils.SendErrorResponse(w, "idp field can't be empty")
+		return
 	}
+
 	redirecturl, err := utils.PostPara(r, "redirecturl")
-	if err != nil {
-		if showError {
-			utils.SendErrorResponse(w, "redirecturl field can't be empty")
-			return
-		}
+	if err != nil && requireFields {
+		utils.SendErrorResponse(w, "redirecturl field can't be empty")
+		return
 	}
-	serverurl, err := utils.PostPara(r, "serverurl")
-	if err != nil {
-		if showError {
-			if idp != "Gitlab" {
-				serverurl = ""
-			} else {
-				utils.SendErrorResponse(w, "serverurl field can't be empty")
-				return
-			}
-		}
+
+	clientid, err := utils.PostPara(r, "clientid")
+	if err != nil && requireFields {
+		utils.SendErrorResponse(w, "clientid field can't be empty")
+		return
 	}
+
+	clientsecret, err := utils.PostPara(r, "clientsecret")
+	if err != nil && requireFields {
+		utils.SendErrorResponse(w, "clientsecret field can't be empty")
+		return
+	}
+
+	// Provider-specific fields.
+	serverurl, _ := utils.PostPara(r, "serverurl")
 	if idp != "Gitlab" {
 		serverurl = ""
 	}
 
-	clientid, err := utils.PostPara(r, "clientid")
-	if err != nil {
-		if showError {
-			utils.SendErrorResponse(w, "clientid field can't be empty")
+	// Custom-provider fields (ignored for built-in providers).
+	authurl, _ := utils.PostPara(r, "authurl")
+	tokenurl, _ := utils.PostPara(r, "tokenurl")
+	userinfourl, _ := utils.PostPara(r, "userinfourl")
+	userfield, _ := utils.PostPara(r, "userfield")
+	customscope, _ := utils.PostPara(r, "customscope")
+
+	if idp == "Custom" && requireFields {
+		if authurl == "" {
+			utils.SendErrorResponse(w, "authurl field can't be empty for Custom provider")
 			return
 		}
-	}
-	clientsecret, err := utils.PostPara(r, "clientsecret")
-	if err != nil {
-		if showError {
-			utils.SendErrorResponse(w, "clientsecret field can't be empty")
+		if tokenurl == "" {
+			utils.SendErrorResponse(w, "tokenurl field can't be empty for Custom provider")
+			return
+		}
+		if userinfourl == "" {
+			utils.SendErrorResponse(w, "userinfourl field can't be empty for Custom provider")
 			return
 		}
 	}
 
+	// Persist all fields.
 	oh.coredb.Write("oauth", "enabled", enabled)
 	oh.coredb.Write("oauth", "autoredirect", autoredirect)
 	oh.coredb.Write("oauth", "idp", idp)
@@ -306,8 +301,13 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	oh.coredb.Write("oauth", "serverurl", serverurl)
 	oh.coredb.Write("oauth", "clientid", clientid)
 	oh.coredb.Write("oauth", "clientsecret", clientsecret)
+	oh.coredb.Write("oauth", "authurl", authurl)
+	oh.coredb.Write("oauth", "tokenurl", tokenurl)
+	oh.coredb.Write("oauth", "userinfourl", userinfourl)
+	oh.coredb.Write("oauth", "userfield", userfield)
+	oh.coredb.Write("oauth", "customscope", customscope)
 
-	//update the information inside the oauth class
+	// Re-initialise the in-memory oauth2.Config with the new values.
 	oh.googleOauthConfig = &oauth2.Config{
 		RedirectURL:  oh.readSingleConfig("redirecturl") + "/system/auth/oauth/authorize",
 		ClientID:     oh.readSingleConfig("clientid"),
@@ -317,6 +317,17 @@ func (oh *OauthHandler) WriteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.SendOK(w)
+}
+
+// addCookie sets an HTTP cookie on the response.
+func (oh *OauthHandler) addCookie(w http.ResponseWriter, name, value string, ttl time.Duration) {
+	expire := time.Now().Add(ttl)
+	cookie := http.Cookie{
+		Name:    name,
+		Value:   value,
+		Expires: expire,
+	}
+	http.SetCookie(w, &cookie)
 }
 
 func (oh *OauthHandler) readSingleConfig(key string) string {

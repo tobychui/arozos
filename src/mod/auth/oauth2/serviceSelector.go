@@ -7,47 +7,74 @@ import (
 	db "imuslab.com/arozos/mod/database"
 )
 
-//getScope use to select the correct scope
+// GetProviders returns the ordered list of supported OAuth2 providers.
+// "Custom" lets administrators configure any OIDC-compatible provider.
+func GetProviders() []string {
+	return []string{"Google", "Microsoft", "Github", "Gitlab", "Custom"}
+}
+
+// getScope returns the OAuth2 scopes for the currently configured provider.
 func getScope(coredb *db.Database) []string {
 	idp := readSingleConfig("idp", coredb)
-	if idp == "Google" {
+	switch idp {
+	case "Google":
 		return googleScope()
-	} else if idp == "Github" {
+	case "Github":
 		return githubScope()
-	} else if idp == "Microsoft" {
+	case "Microsoft":
 		return microsoftScope()
-	} else if idp == "Gitlab" {
+	case "Gitlab":
 		return gitlabScope()
+	case "Custom":
+		// Custom scope stored by the administrator; fall back to a sensible default.
+		scope := readSingleConfig("customscope", coredb)
+		if scope == "" {
+			scope = "openid email profile"
+		}
+		return []string{scope}
 	}
 	return []string{}
 }
 
-//getEndpoint use to select the correct endpoint
+// getEndpoint returns the OAuth2 endpoints for the currently configured provider.
 func getEndpoint(coredb *db.Database) oauth2.Endpoint {
 	idp := readSingleConfig("idp", coredb)
-	if idp == "Google" {
+	switch idp {
+	case "Google":
 		return googleEndpoint()
-	} else if idp == "Github" {
+	case "Github":
 		return githubEndpoint()
-	} else if idp == "Microsoft" {
+	case "Microsoft":
 		return microsoftEndpoint()
-	} else if idp == "Gitlab" {
+	case "Gitlab":
 		return gitlabEndpoint(readSingleConfig("serverurl", coredb))
+	case "Custom":
+		return oauth2.Endpoint{
+			AuthURL:  readSingleConfig("authurl", coredb),
+			TokenURL: readSingleConfig("tokenurl", coredb),
+		}
 	}
 	return oauth2.Endpoint{}
 }
 
-//getUserinfo use to select the correct way to retrieve userinfo
+// getUserInfo retrieves the username/email from the provider using the access token.
 func getUserInfo(accessToken string, coredb *db.Database) (string, error) {
 	idp := readSingleConfig("idp", coredb)
-	if idp == "Google" {
+	switch idp {
+	case "Google":
 		return googleUserInfo(accessToken)
-	} else if idp == "Github" {
+	case "Github":
 		return githubUserInfo(accessToken)
-	} else if idp == "Microsoft" {
+	case "Microsoft":
 		return microsoftUserInfo(accessToken)
-	} else if idp == "Gitlab" {
+	case "Gitlab":
 		return gitlabUserInfo(accessToken, readSingleConfig("serverurl", coredb))
+	case "Custom":
+		return customUserInfo(
+			accessToken,
+			readSingleConfig("userinfourl", coredb),
+			readSingleConfig("userfield", coredb),
+		)
 	}
 	return "", errors.New("Unauthorized")
 }

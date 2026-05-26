@@ -1,211 +1,578 @@
+<!DOCTYPE html>
 <html>
-
 <head>
-    <title>OAuth Login</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.css">
-    <script type="application/javascript" src="../../script/jquery.min.js"></script>
-    <script type="application/javascript" src="../../script/clipboard.min.js"></script>
-    <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>OAuth Login</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
     <style>
-        /* Tooltip container */
-        
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            border-bottom: 1px dotted black;
-            /* If you want dots under the hoverable text */
-        }
-        /* Tooltip text */
-        
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 120px;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            padding: 5px 0;
-            border-radius: 6px;
-            /* Position the tooltip text */
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -60px;
-            /* Fade in tooltip */
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        /* Tooltip arrow */
-        
-        .tooltip .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #555 transparent transparent transparent;
-        }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: transparent; overflow-x: hidden; }
+
+    #oa-root {
+        --oa-bg:      #f3f3f3;
+        --oa-card:    #ffffff;
+        --oa-border:  #e0e0e0;
+        --oa-text:    #1b1b1b;
+        --oa-dim:     #5a5a5a;
+        --oa-muted:   #8a8a8a;
+        --oa-accent:  #0067c0;
+        --oa-accentH: #1475c8;
+        --oa-danger:  #c42b1c;
+        --oa-ok:      #107c10;
+        --oa-shadow:  0 1px 4px rgba(0,0,0,0.08);
+        --oa-radius:  6px;
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--oa-text);
+        background: var(--oa-bg);
+        min-height: 100vh;
+        padding-bottom: 32px;
+    }
+
+    #oa-root.dark {
+        --oa-bg:      #202020;
+        --oa-card:    #2d2d2d;
+        --oa-border:  #404040;
+        --oa-text:    #e8e8e8;
+        --oa-dim:     #aaaaaa;
+        --oa-muted:   #666666;
+        --oa-accent:  #60cdff;
+        --oa-accentH: #8cd9ff;
+        --oa-danger:  #ff7070;
+        --oa-ok:      #6ccb5f;
+        --oa-shadow:  0 1px 6px rgba(0,0,0,0.4);
+    }
+
+    /* ── Hero bar ── */
+    #oa-hero {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 20px 20px 16px;
+    }
+
+    #oa-hero-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: var(--oa-accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        opacity: 0.9;
+    }
+
+    #oa-hero-icon svg { color: #fff; }
+
+    #oa-hero-title {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--oa-text);
+        margin-bottom: 3px;
+    }
+
+    #oa-hero-sub {
+        font-size: 12.5px;
+        color: var(--oa-dim);
+    }
+
+    /* ── Section cards ── */
+    .oa-section {
+        background: var(--oa-card);
+        border: 1px solid var(--oa-border);
+        border-radius: var(--oa-radius);
+        margin: 0 12px 10px;
+        box-shadow: var(--oa-shadow);
+        overflow: hidden;
+    }
+
+    .oa-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 18px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.1s;
+    }
+
+    .oa-section-header:hover { background: rgba(0,0,0,0.035); }
+    #oa-root.dark .oa-section-header:hover { background: rgba(255,255,255,0.05); }
+
+    .oa-section-icon { color: var(--oa-dim); flex-shrink: 0; }
+    .oa-section-title { flex: 1; font-size: 14px; font-weight: 600; color: var(--oa-text); }
+
+    .oa-chevron {
+        width: 14px; height: 14px;
+        color: var(--oa-muted);
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+    }
+    .oa-chevron.open { transform: rotate(180deg); }
+
+    .oa-section-body {
+        display: none;
+        padding: 4px 18px 18px;
+        border-top: 1px solid var(--oa-border);
+    }
+    .oa-section-body.open { display: block; }
+
+    /* ── Form elements ── */
+    .oa-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--oa-dim);
+        margin-bottom: 5px;
+        margin-top: 14px;
+    }
+
+    .oa-label-hint {
+        font-size: 11px;
+        color: var(--oa-muted);
+        font-weight: 400;
+        margin-top: 2px;
+        margin-bottom: 6px;
+    }
+
+    .oa-input {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid var(--oa-border);
+        border-radius: 4px;
+        background: var(--oa-card);
+        color: var(--oa-text);
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .oa-input:focus { border-color: var(--oa-accent); }
+    .oa-input::placeholder { color: var(--oa-muted); }
+
+    /* Toggle switch */
+    .oa-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .oa-toggle-label { font-size: 13px; color: var(--oa-text); cursor: pointer; user-select: none; }
+
+    .oa-toggle {
+        position: relative;
+        display: inline-block;
+        width: 36px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+    .oa-toggle input { opacity: 0; width: 0; height: 0; }
+    .oa-slider {
+        position: absolute;
+        inset: 0;
+        background: var(--oa-border);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .oa-slider::before {
+        content: '';
+        position: absolute;
+        width: 14px; height: 14px;
+        left: 3px; top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.2s;
+    }
+    .oa-toggle input:checked + .oa-slider { background: var(--oa-accent); }
+    .oa-toggle input:checked + .oa-slider::before { transform: translateX(16px); }
+
+    /* Select / dropdown */
+    .oa-select {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid var(--oa-border);
+        border-radius: 4px;
+        background: var(--oa-card);
+        color: var(--oa-text);
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 28px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .oa-select:focus { border-color: var(--oa-accent); }
+
+    /* Redirect URL display */
+    #oa-redirect-display {
+        font-size: 12px;
+        color: var(--oa-dim);
+        background: var(--oa-bg);
+        border: 1px solid var(--oa-border);
+        border-radius: 4px;
+        padding: 6px 10px;
+        margin-top: 6px;
+        word-break: break-all;
+        font-family: 'Courier New', monospace;
+    }
+
+    /* Buttons */
+    .oa-actions { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .oa-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 16px;
+        border-radius: 4px;
+        border: 1px solid transparent;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.1s;
+        outline: none;
+    }
+
+    .oa-btn-primary {
+        background: var(--oa-accent);
+        color: #fff;
+        border-color: var(--oa-accent);
+    }
+    .oa-btn-primary:hover { background: var(--oa-accentH); border-color: var(--oa-accentH); }
+    .oa-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .oa-btn-secondary {
+        background: transparent;
+        color: var(--oa-text);
+        border-color: var(--oa-border);
+    }
+    .oa-btn-secondary:hover { background: rgba(0,0,0,0.05); }
+    #oa-root.dark .oa-btn-secondary:hover { background: rgba(255,255,255,0.07); }
+
+    /* Info / warning callout */
+    .oa-callout {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 4px;
+        font-size: 12.5px;
+        margin-top: 14px;
+        line-height: 1.5;
+    }
+    .oa-callout-info {
+        background: rgba(0, 103, 192, 0.08);
+        border: 1px solid rgba(0, 103, 192, 0.2);
+        color: var(--oa-dim);
+    }
+    #oa-root.dark .oa-callout-info {
+        background: rgba(96, 205, 255, 0.07);
+        border-color: rgba(96, 205, 255, 0.18);
+    }
+    .oa-callout svg { flex-shrink: 0; margin-top: 1px; color: var(--oa-accent); }
+
+    /* Hidden helper */
+    .oa-hidden { display: none !important; }
     </style>
 </head>
-
 <body>
-    <div class="ui container">
-        <div class="ui basic segment">
-            <div class="ui header">
-                <i class="key icon"></i>
-                <div class="content">
-                    OAuth Access
-                    <div class="sub header">Allow external account to access ArozOS with OAuth 2.0</div>
-                </div>
-            </div>
-        </div>
-        <div class="ui divider"></div>
-        <div class="ui green inverted segment" style="display:none;" id="updateSet">
-            <h5 class="ui header">
-                <i class="checkmark icon"></i>
-                <div class="content">
-                    Setting Updated
-                </div>
-            </h5>
-        </div>
-        <div class="ui form">
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input type="checkbox" id="enable" name="public">
-                    <label>Enable OAuth</label>
-                </div>
-            </div>
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input type="checkbox" id="autoredirect" name="autoredirect">
-                    <label>Auto redirect</label>
-                </div>
-            </div>
-            <div class="field">
-                <label>Select OAuth IdP (aka Service provider)</label>
-                <div class="ui selection fluid dropdown" autocomplete="false">
-                    <input type="hidden" id="idp" name="idp" autocomplete="false">
-                    <i class="dropdown icon"></i>
-                    <div class="default text">Select service provider</div>
-                    <div id="idplist" class="menu">
 
-                    </div>
-                </div>
-            </div>
-            <div class="field">
-                <label>Redirect URL (you have to provide <span id="redirectspan">https://YOUR_DOMAIN/system/auth/oauth/authorize</span> at the 3rd auth rely)</label>
-                <div class="ui fluid input">
-                    <input type="text" id="redirecturl" placeholder="https://YOUR_DOMAIN/">
-                </div>
-            </div>
-            <div class="field" id="server" style="display: none;">
-                <label>Server URL</label>
-                <div class="ui fluid input">
-                    <input type="text" id="serverurl" placeholder="http://YOUR_DOMAIN/">
-                </div>
-            </div>
-            <div class="field">
-                <label>Client ID</label>
-                <div class="ui fluid input">
-                    <input type="text" id="clientid" placeholder="Client ID">
-                </div>
-            </div>
-            <div class="field">
-                <label>Client Secret</label>
-                <div class="ui fluid input">
-                    <input type="text" id="clientsecret" placeholder="Client Secret">
-                </div>
-            </div>
-            <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
+<div id="oa-root">
+
+    <!-- Hero -->
+    <div id="oa-hero">
+        <div id="oa-hero-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z" fill="currentColor" opacity=".2"/>
+                <path d="M12 1C7.58 1 4 4.58 4 9c0 2.67 1.31 5.04 3.33 6.54L7 17.5c0 .83.67 1.5 1.5 1.5h7c.83 0 1.5-.67 1.5-1.5l-.33-1.96C18.69 14.04 20 11.67 20 9c0-4.42-3.58-8-8-8zm2.5 14.5h-5v-1h5v1zm.5-3H9l.33-2H9c-.55 0-1-.45-1-1s.45-1 1-1h6c.55 0 1 .45 1 1s-.45 1-1 1h-.33L15.5 12.5z" fill="currentColor" opacity=".0"/>
+                <circle cx="12" cy="9" r="3.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                <path d="M12 13.5V21M9 18h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
         </div>
-        <div class="ui divider"></div>
-        <br><br>
+        <div>
+            <div id="oa-hero-title">OAuth 2.0</div>
+            <div id="oa-hero-sub">Allow external accounts to access ArozOS via OAuth 2.0</div>
+        </div>
     </div>
 
+    <!-- General Settings -->
+    <div class="oa-section">
+        <div class="oa-section-header" onclick="oaToggle(this)">
+            <svg class="oa-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M8 5v3.5l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="oa-section-title">General</span>
+            <svg class="oa-chevron" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="oa-section-body open">
+            <label class="oa-label">Provider (IdP)</label>
+            <select class="oa-select" id="oa-idp">
+                <option value="">Loading…</option>
+            </select>
 
-    <script>
-        $(document).ready(function() {
-            loadIdpList();
-            read();
-            initPlaceholder();
+            <div class="oa-toggle-row" style="margin-top:16px;">
+                <label class="oa-toggle" for="oa-enable">
+                    <input type="checkbox" id="oa-enable">
+                    <span class="oa-slider"></span>
+                </label>
+                <label class="oa-toggle-label" for="oa-enable">Enable OAuth</label>
+            </div>
+
+            <div class="oa-toggle-row">
+                <label class="oa-toggle" for="oa-autoredirect">
+                    <input type="checkbox" id="oa-autoredirect">
+                    <span class="oa-slider"></span>
+                </label>
+                <label class="oa-toggle-label" for="oa-autoredirect">Auto redirect to provider on login</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider Settings -->
+    <div class="oa-section">
+        <div class="oa-section-header" onclick="oaToggle(this)">
+            <svg class="oa-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M5 7h6M5 10h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="oa-section-title">Provider Configuration</span>
+            <svg class="oa-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="oa-section-body open">
+            <!-- Redirect URL -->
+            <label class="oa-label">Your Server Base URL</label>
+            <div class="oa-label-hint">Leave blank to use the current origin. Used to build the callback URL.</div>
+            <input class="oa-input" type="url" id="oa-redirecturl" placeholder="">
+            <div class="oa-callout oa-callout-info" style="margin-top:10px;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M8 7v5M8 5.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span>Register this callback URL with your provider:&nbsp;<strong id="oa-callback-display"></strong></span>
+            </div>
+
+            <!-- Gitlab server URL (shown only for Gitlab) -->
+            <div id="oa-server-row" class="oa-hidden">
+                <label class="oa-label">GitLab Server URL</label>
+                <input class="oa-input" type="url" id="oa-serverurl" placeholder="https://gitlab.com">
+            </div>
+
+            <!-- Custom provider endpoints (shown only for Custom) -->
+            <div id="oa-custom-rows" class="oa-hidden">
+                <label class="oa-label">Authorization Endpoint URL</label>
+                <input class="oa-input" type="url" id="oa-authurl" placeholder="https://provider.example/oauth/authorize">
+
+                <label class="oa-label">Token Endpoint URL</label>
+                <input class="oa-input" type="url" id="oa-tokenurl" placeholder="https://provider.example/oauth/token">
+
+                <label class="oa-label">User Info Endpoint URL</label>
+                <input class="oa-input" type="url" id="oa-userinfourl" placeholder="https://provider.example/oauth/userinfo">
+
+                <label class="oa-label">Username Field</label>
+                <div class="oa-label-hint">JSON field in the userinfo response to use as the ArozOS username (e.g. <code>email</code>, <code>preferred_username</code>).</div>
+                <input class="oa-input" type="text" id="oa-userfield" placeholder="email">
+
+                <label class="oa-label">Scope (space-separated)</label>
+                <input class="oa-input" type="text" id="oa-customscope" placeholder="openid email profile">
+            </div>
+
+            <!-- Credentials -->
+            <label class="oa-label">Client ID</label>
+            <input class="oa-input" type="text" id="oa-clientid" placeholder="Client ID" autocomplete="off">
+
+            <label class="oa-label">Client Secret</label>
+            <input class="oa-input" type="password" id="oa-clientsecret" placeholder="Client Secret" autocomplete="new-password">
+
+            <div class="oa-actions">
+                <button class="oa-btn oa-btn-primary" id="oa-save-btn" onclick="oaSave()">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <path d="M2 8.5L6 12.5L14 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/* ── Theme ── */
+var _oaDark = false;
+
+function oaApplyTheme(dark) {
+    _oaDark = dark;
+    document.getElementById('oa-root').classList.toggle('dark', dark);
+}
+
+try {
+    var _pt = (typeof preferredTheme !== 'undefined' ? preferredTheme : null)
+           || (typeof parent !== 'undefined' && parent.preferredTheme ? parent.preferredTheme : null);
+    if (_pt) {
+        oaApplyTheme(_pt === 'dark' || _pt === 'darkTheme');
+    } else {
+        ao_module_getSystemThemeColor(function(c) { oaApplyTheme(c !== 'whiteTheme'); });
+    }
+} catch(e) {
+    ao_module_getSystemThemeColor(function(c) { oaApplyTheme(c !== 'whiteTheme'); });
+}
+
+/* ── Section accordion ── */
+function oaToggle(header) {
+    var body    = header.nextElementSibling;
+    var chevron = header.querySelector('.oa-chevron');
+    var isOpen  = body.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+}
+
+/* ── Provider-dependent field visibility ── */
+function oaUpdateProviderFields() {
+    var idp = document.getElementById('oa-idp').value;
+    var serverRow  = document.getElementById('oa-server-row');
+    var customRows = document.getElementById('oa-custom-rows');
+
+    if (idp === 'Gitlab') {
+        serverRow.classList.remove('oa-hidden');
+        customRows.classList.add('oa-hidden');
+    } else if (idp === 'Custom') {
+        serverRow.classList.add('oa-hidden');
+        customRows.classList.remove('oa-hidden');
+    } else {
+        serverRow.classList.add('oa-hidden');
+        customRows.classList.add('oa-hidden');
+    }
+}
+
+/* ── Callback URL display ── */
+function oaUpdateCallbackDisplay() {
+    var base = document.getElementById('oa-redirecturl').value.trim();
+    if (!base) base = window.location.origin;
+    // Remove trailing slash
+    base = base.replace(/\/+$/, '');
+    document.getElementById('oa-callback-display').textContent = base + '/system/auth/oauth/authorize';
+}
+
+/* ── Init ── */
+$(document).ready(function() {
+    oaLoadProviders();
+    oaUpdateCallbackDisplay();
+
+    document.getElementById('oa-redirecturl').addEventListener('input', oaUpdateCallbackDisplay);
+    document.getElementById('oa-idp').addEventListener('change', function() {
+        oaUpdateProviderFields();
+        oaUpdateCallbackDisplay();
+    });
+});
+
+function oaLoadProviders() {
+    $.getJSON('../../system/auth/oauth/config/providers', function(data) {
+        var sel = document.getElementById('oa-idp');
+        sel.innerHTML = '<option value="">— Select provider —</option>';
+        data.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            sel.appendChild(opt);
         });
-
-        $("#idp").change(function() {
-            if ($("#idp").val() == "Gitlab") {
-                $("#server").removeAttr("style");
-            } else {
-                $("#server").attr("style", "display:none;");
-            }
+        // After populating, load saved config.
+        oaRead();
+    }).fail(function() {
+        // Fallback static list
+        var providers = ['Google', 'Microsoft', 'Github', 'Gitlab', 'Custom'];
+        var sel = document.getElementById('oa-idp');
+        sel.innerHTML = '<option value="">— Select provider —</option>';
+        providers.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            sel.appendChild(opt);
         });
+        oaRead();
+    });
+}
 
-        $("#redirecturl").on('input propertychange', function() {
-            if ($("#redirecturl").val() == "") {
-                $("#redirectspan").text(window.location.origin + "/system/auth/oauth/authorize");
-            } else {
-                $("#redirectspan").text($("#redirecturl").val() + "/system/auth/oauth/authorize");
-            }
-        });
+function oaRead() {
+    $.getJSON('../../system/auth/oauth/config/read', function(data) {
+        document.getElementById('oa-enable').checked       = !!data.enabled;
+        document.getElementById('oa-autoredirect').checked = !!data.auto_redirect;
+        document.getElementById('oa-idp').value            = data.idp || '';
+        document.getElementById('oa-redirecturl').value    = data.redirect_url || '';
+        document.getElementById('oa-serverurl').value      = data.server_url || '';
+        document.getElementById('oa-clientid').value       = data.client_id || '';
+        document.getElementById('oa-clientsecret').value   = data.client_secret || '';
+        document.getElementById('oa-authurl').value        = data.auth_url || '';
+        document.getElementById('oa-tokenurl').value       = data.token_url || '';
+        document.getElementById('oa-userinfourl').value    = data.userinfo_url || '';
+        document.getElementById('oa-userfield').value      = data.user_field || '';
+        document.getElementById('oa-customscope').value    = data.custom_scope || '';
 
-        function read() {
-            $.getJSON("../../system/auth/oauth/config/read", function(data) {
-                if (data.enabled) {
-                    $("#enable").parent().checkbox("check")
-                }
-                if (data.autoredirect) {
-                    $("#autoredirect").parent().checkbox("check")
-                }
-                $("#idp").parent().dropdown("set selected", data.idp);
-                $("#serverurl").val(data.server_url);
-                $("#redirecturl").val(data.redirect_url);
-                $("#clientid").val(data.client_id);
-                $("#clientsecret").val(data.client_secret);
-            });
+        oaUpdateProviderFields();
+        oaUpdateCallbackDisplay();
+    });
+}
+
+function oaSave() {
+    var btn = document.getElementById('oa-save-btn');
+    btn.disabled = true;
+    btn.querySelector('span') && (btn.querySelector('span').textContent = 'Saving…');
+
+    $.post('../../system/auth/oauth/config/write', {
+        enabled:     document.getElementById('oa-enable').checked ? 'true' : 'false',
+        autoredirect: document.getElementById('oa-autoredirect').checked ? 'true' : 'false',
+        idp:         document.getElementById('oa-idp').value,
+        redirecturl: document.getElementById('oa-redirecturl').value,
+        serverurl:   document.getElementById('oa-serverurl').value,
+        clientid:    document.getElementById('oa-clientid').value,
+        clientsecret: document.getElementById('oa-clientsecret').value,
+        authurl:     document.getElementById('oa-authurl').value,
+        tokenurl:    document.getElementById('oa-tokenurl').value,
+        userinfourl: document.getElementById('oa-userinfourl').value,
+        userfield:   document.getElementById('oa-userfield').value,
+        customscope: document.getElementById('oa-customscope').value
+    }).done(function(data) {
+        btn.disabled = false;
+        if (data.error !== undefined) {
+            oaToast(data.error, false);
+        } else {
+            oaToast('Settings saved successfully', true);
         }
+    }).fail(function() {
+        btn.disabled = false;
+        oaToast('Request failed. Please try again.', false);
+    });
+}
 
-        function update() {
-            $.post("../../system/auth/oauth/config/write", {
-                    enabled: $("#enable").parent().checkbox("is checked"),
-                    autoredirect: $("#autoredirect").parent().checkbox("is checked"),
-                    idp: $("#idp").val(),
-                    redirecturl: $("#redirecturl").val(),
-                    clientid: $("#clientid").val(),
-                    clientsecret: $("#clientsecret").val(),
-                    serverurl: $("#serverurl").val()
-                })
-                .done(function(data) {
-                    if (data.error != undefined) {
-                        alert(data.error);
-                    } else {
-                        //OK!
-                        $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
-                    }
-                });
+/* ── Toast (uses parent msgbox if available, else falls back) ── */
+function oaToast(msg, ok) {
+    try {
+        if (typeof parent !== 'undefined' && typeof parent.msgbox === 'function') {
+            parent.msgbox(msg, ok);
+            return;
         }
-
-        function loadIdpList() {
-            $("#idplist").html("");
-            var data = ["Google", "Microsoft", "Github", "Gitlab"];
-            if (data.error !== undefined) {
-                alert(data.error);
-            } else {
-                for (var i = 0; i < data.length; i++) {
-                    let idpinfo = data[i];
-                    $("#idplist").append(`<div class="item" data-value="${idpinfo}">${idpinfo}</div>`);
-                }
-            }
-            $("#idplist").parent().dropdown();
+        if (typeof msgbox === 'function') {
+            msgbox(msg, ok);
+            return;
         }
-
-        function initPlaceholder() {
-            $("#redirectspan").text(window.location.origin + "/system/auth/oauth/authorize");
-            $("#redirecturl").attr("placeholder", window.location.origin);
-            $("#serverurl").attr("placeholder", "https://gitlab.com");
-        }
-    </script>
+    } catch(e) {}
+    alert(msg);
+}
+</script>
 </body>
-
 </html>

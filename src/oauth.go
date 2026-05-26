@@ -24,6 +24,7 @@ func OAuthInit() {
 	http.HandleFunc("/system/auth/oauth/checkoauth", oAuthHandler.CheckOAuth)
 	adminRouter.HandleFunc("/system/auth/oauth/config/read", oAuthHandler.ReadConfig)
 	adminRouter.HandleFunc("/system/auth/oauth/config/write", oAuthHandler.WriteConfig)
+	adminRouter.HandleFunc("/system/auth/oauth/config/providers", oAuthHandler.ListProviders)
 
 	registerSetting(settingModule{
 		Name:         "OAuth",
