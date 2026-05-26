@@ -1,211 +1,557 @@
+<!DOCTYPE html>
 <html>
-
 <head>
-    <title>OAuth Login</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-    <link rel="stylesheet" href="../../script/semantic/semantic.css">
-    <script type="application/javascript" src="../../script/jquery.min.js"></script>
-    <script type="application/javascript" src="../../script/clipboard.min.js"></script>
-    <script type="application/javascript" src="../../script/semantic/semantic.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>OAuth / OIDC</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
     <style>
-        /* Tooltip container */
-        
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            border-bottom: 1px dotted black;
-            /* If you want dots under the hoverable text */
-        }
-        /* Tooltip text */
-        
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 120px;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            padding: 5px 0;
-            border-radius: 6px;
-            /* Position the tooltip text */
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -60px;
-            /* Fade in tooltip */
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        /* Tooltip arrow */
-        
-        .tooltip .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #555 transparent transparent transparent;
-        }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: transparent; overflow-x: hidden; }
+
+    #oa-root {
+        --oa-bg:       #f3f3f3;
+        --oa-card:     #ffffff;
+        --oa-border:   #e0e0e0;
+        --oa-text:     #1b1b1b;
+        --oa-dim:      #5a5a5a;
+        --oa-muted:    #8a8a8a;
+        --oa-accent:   #0067c0;
+        --oa-accentH:  #1475c8;
+        --oa-ok:       #107c10;
+        --oa-warn-bg:  rgba(0,103,192,0.07);
+        --oa-warn-bdr: rgba(0,103,192,0.22);
+        --oa-shadow:   0 1px 4px rgba(0,0,0,0.08);
+        --oa-radius:   6px;
+
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        color: var(--oa-text);
+        background: var(--oa-bg);
+        min-height: 100vh;
+        padding-bottom: 32px;
+    }
+
+    #oa-root.dark {
+        --oa-bg:       #202020;
+        --oa-card:     #2d2d2d;
+        --oa-border:   #404040;
+        --oa-text:     #e8e8e8;
+        --oa-dim:      #aaaaaa;
+        --oa-muted:    #666666;
+        --oa-accent:   #60cdff;
+        --oa-accentH:  #8cd9ff;
+        --oa-ok:       #6ccb5f;
+        --oa-warn-bg:  rgba(96,205,255,0.07);
+        --oa-warn-bdr: rgba(96,205,255,0.18);
+        --oa-shadow:   0 1px 6px rgba(0,0,0,0.4);
+    }
+
+    /* ── Hero ── */
+    #oa-hero { display:flex; align-items:center; gap:14px; padding:20px 20px 16px; }
+    #oa-hero-icon {
+        width:44px; height:44px; border-radius:10px; background:var(--oa-accent);
+        display:flex; align-items:center; justify-content:center; flex-shrink:0; opacity:.9;
+    }
+    #oa-hero-icon svg { color:#fff; }
+    #oa-hero-title  { font-size:17px; font-weight:600; color:var(--oa-text); margin-bottom:3px; }
+    #oa-hero-sub    { font-size:12.5px; color:var(--oa-dim); }
+
+    /* ── Cards ── */
+    .oa-section {
+        background:var(--oa-card); border:1px solid var(--oa-border);
+        border-radius:var(--oa-radius); margin:0 12px 10px;
+        box-shadow:var(--oa-shadow); overflow:hidden;
+    }
+    .oa-section-header {
+        display:flex; align-items:center; gap:10px; padding:14px 18px;
+        cursor:pointer; user-select:none; transition:background .1s;
+    }
+    .oa-section-header:hover { background:rgba(0,0,0,.035); }
+    #oa-root.dark .oa-section-header:hover { background:rgba(255,255,255,.05); }
+    .oa-section-icon  { color:var(--oa-dim); flex-shrink:0; }
+    .oa-section-title { flex:1; font-size:14px; font-weight:600; color:var(--oa-text); }
+    .oa-chevron { width:14px; height:14px; color:var(--oa-muted); transition:transform .2s ease; flex-shrink:0; }
+    .oa-chevron.open { transform:rotate(180deg); }
+    .oa-section-body { display:none; padding:4px 18px 18px; border-top:1px solid var(--oa-border); }
+    .oa-section-body.open { display:block; }
+
+    /* ── Form elements ── */
+    .oa-label {
+        display:block; font-size:12px; font-weight:500; color:var(--oa-dim);
+        margin-bottom:5px; margin-top:14px;
+    }
+    .oa-hint { font-size:11px; color:var(--oa-muted); margin-top:2px; margin-bottom:6px; }
+    .oa-input {
+        width:100%; padding:7px 10px; border:1px solid var(--oa-border); border-radius:4px;
+        background:var(--oa-card); color:var(--oa-text); font-family:inherit; font-size:13px;
+        outline:none; transition:border-color .15s;
+    }
+    .oa-input:focus { border-color:var(--oa-accent); }
+    .oa-input::placeholder { color:var(--oa-muted); }
+    .oa-input[readonly] { background:var(--oa-bg); color:var(--oa-dim); cursor:default; }
+    .oa-input-row { display:flex; gap:8px; }
+    .oa-input-row .oa-input { flex:1; }
+
+    /* Toggle */
+    .oa-toggle-row { display:flex; align-items:center; gap:10px; margin-top:14px; }
+    .oa-toggle-label { font-size:13px; color:var(--oa-text); cursor:pointer; user-select:none; }
+    .oa-toggle { position:relative; display:inline-block; width:36px; height:20px; flex-shrink:0; }
+    .oa-toggle input { opacity:0; width:0; height:0; }
+    .oa-slider { position:absolute; inset:0; background:var(--oa-border); border-radius:20px; cursor:pointer; transition:background .2s; }
+    .oa-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform .2s; }
+    .oa-toggle input:checked + .oa-slider { background:var(--oa-accent); }
+    .oa-toggle input:checked + .oa-slider::before { transform:translateX(16px); }
+
+    /* Buttons */
+    .oa-actions { margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .oa-btn {
+        display:inline-flex; align-items:center; gap:6px; padding:7px 16px;
+        border-radius:4px; border:1px solid transparent; font-family:inherit;
+        font-size:13px; font-weight:500; cursor:pointer; transition:background .1s; outline:none;
+    }
+    .oa-btn-primary { background:var(--oa-accent); color:#fff; border-color:var(--oa-accent); }
+    .oa-btn-primary:hover { background:var(--oa-accentH); border-color:var(--oa-accentH); }
+    .oa-btn-primary:disabled { opacity:.6; cursor:not-allowed; }
+    .oa-btn-secondary { background:transparent; color:var(--oa-text); border-color:var(--oa-border); }
+    .oa-btn-secondary:hover { background:rgba(0,0,0,.05); }
+    #oa-root.dark .oa-btn-secondary:hover { background:rgba(255,255,255,.07); }
+    .oa-btn-secondary:disabled { opacity:.5; cursor:not-allowed; }
+
+    /* Callout */
+    .oa-callout {
+        display:flex; align-items:flex-start; gap:8px; padding:10px 12px;
+        border-radius:4px; font-size:12.5px; margin-top:12px; line-height:1.6;
+    }
+    .oa-callout-info { background:var(--oa-warn-bg); border:1px solid var(--oa-warn-bdr); color:var(--oa-dim); }
+    .oa-callout svg { flex-shrink:0; margin-top:1px; color:var(--oa-accent); }
+
+    /* Callback URL display */
+    #oa-callback-url {
+        font-size:12px; color:var(--oa-dim); background:var(--oa-bg); border:1px solid var(--oa-border);
+        border-radius:4px; padding:6px 10px; margin-top:6px; word-break:break-all;
+        font-family:'Courier New',monospace;
+    }
+
+    /* Discovered endpoints accordion */
+    #oa-discovered-wrap {
+        margin-top:14px; border:1px solid var(--oa-border); border-radius:4px; overflow:hidden;
+    }
+    #oa-discovered-header {
+        display:flex; align-items:center; gap:8px; padding:9px 12px;
+        cursor:pointer; user-select:none; background:var(--oa-bg);
+        font-size:12.5px; font-weight:500; color:var(--oa-dim);
+        transition:background .1s;
+    }
+    #oa-discovered-header:hover { background:var(--oa-border); }
+    #oa-discovered-body { display:none; padding:4px 12px 12px; }
+    #oa-discovered-body.open { display:block; }
+    #oa-ep-chevron { width:12px; height:12px; color:var(--oa-muted); transition:transform .2s; margin-left:auto; }
+    #oa-ep-chevron.open { transform:rotate(180deg); }
+
+    /* Spinner */
+    .oa-spin {
+        display:inline-block; width:13px; height:13px;
+        border:2px solid rgba(255,255,255,.4); border-top-color:#fff;
+        border-radius:50%; animation:spin .6s linear infinite;
+    }
+    #oa-root.dark .oa-spin { border-color:rgba(0,0,0,.3); border-top-color:var(--oa-text); }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Helper */
+    .oa-hidden { display:none !important; }
     </style>
 </head>
-
 <body>
-    <div class="ui container">
-        <div class="ui basic segment">
-            <div class="ui header">
-                <i class="key icon"></i>
-                <div class="content">
-                    OAuth Access
-                    <div class="sub header">Allow external account to access ArozOS with OAuth 2.0</div>
-                </div>
-            </div>
-        </div>
-        <div class="ui divider"></div>
-        <div class="ui green inverted segment" style="display:none;" id="updateSet">
-            <h5 class="ui header">
-                <i class="checkmark icon"></i>
-                <div class="content">
-                    Setting Updated
-                </div>
-            </h5>
-        </div>
-        <div class="ui form">
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input type="checkbox" id="enable" name="public">
-                    <label>Enable OAuth</label>
-                </div>
-            </div>
-            <div class="field">
-                <div class="ui toggle checkbox">
-                    <input type="checkbox" id="autoredirect" name="autoredirect">
-                    <label>Auto redirect</label>
-                </div>
-            </div>
-            <div class="field">
-                <label>Select OAuth IdP (aka Service provider)</label>
-                <div class="ui selection fluid dropdown" autocomplete="false">
-                    <input type="hidden" id="idp" name="idp" autocomplete="false">
-                    <i class="dropdown icon"></i>
-                    <div class="default text">Select service provider</div>
-                    <div id="idplist" class="menu">
+<div id="oa-root">
 
-                    </div>
-                </div>
-            </div>
-            <div class="field">
-                <label>Redirect URL (you have to provide <span id="redirectspan">https://YOUR_DOMAIN/system/auth/oauth/authorize</span> at the 3rd auth rely)</label>
-                <div class="ui fluid input">
-                    <input type="text" id="redirecturl" placeholder="https://YOUR_DOMAIN/">
-                </div>
-            </div>
-            <div class="field" id="server" style="display: none;">
-                <label>Server URL</label>
-                <div class="ui fluid input">
-                    <input type="text" id="serverurl" placeholder="http://YOUR_DOMAIN/">
-                </div>
-            </div>
-            <div class="field">
-                <label>Client ID</label>
-                <div class="ui fluid input">
-                    <input type="text" id="clientid" placeholder="Client ID">
-                </div>
-            </div>
-            <div class="field">
-                <label>Client Secret</label>
-                <div class="ui fluid input">
-                    <input type="text" id="clientsecret" placeholder="Client Secret">
-                </div>
-            </div>
-            <button id="ntb" onclick="update();" class="ui green button" type="submit">Update</button>
+    <!-- Hero -->
+    <div id="oa-hero">
+        <div id="oa-hero-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="9" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M12 13.5V21M9 18h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M4 20c1.2-3.6 4.3-6 8-6s6.8 2.4 8 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2 2"/>
+            </svg>
         </div>
-        <div class="ui divider"></div>
-        <br><br>
+        <div>
+            <div id="oa-hero-title">OAuth 2.0 / OIDC</div>
+            <div id="oa-hero-sub">Sign in with any OpenID Connect-compatible identity provider</div>
+        </div>
     </div>
 
+    <!-- ── Section 1: General toggles ── -->
+    <div class="oa-section">
+        <div class="oa-section-header" onclick="oaToggle(this)">
+            <svg class="oa-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 8h3l2-5 2 10 2-5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="oa-section-title">General</span>
+            <svg class="oa-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="oa-section-body open">
+            <div class="oa-toggle-row">
+                <label class="oa-toggle" for="oa-enable">
+                    <input type="checkbox" id="oa-enable">
+                    <span class="oa-slider"></span>
+                </label>
+                <label class="oa-toggle-label" for="oa-enable">Enable OAuth / OIDC login</label>
+            </div>
+            <div class="oa-toggle-row">
+                <label class="oa-toggle" for="oa-autoredirect">
+                    <input type="checkbox" id="oa-autoredirect">
+                    <span class="oa-slider"></span>
+                </label>
+                <label class="oa-toggle-label" for="oa-autoredirect">Auto-redirect to provider on login page</label>
+            </div>
+        </div>
+    </div>
 
-    <script>
-        $(document).ready(function() {
-            loadIdpList();
-            read();
-            initPlaceholder();
-        });
+    <!-- ── Section 2: Provider discovery ── -->
+    <div class="oa-section">
+        <div class="oa-section-header" onclick="oaToggle(this)">
+            <svg class="oa-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="7" r="4.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span class="oa-section-title">Provider Discovery</span>
+            <svg class="oa-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="oa-section-body open">
 
-        $("#idp").change(function() {
-            if ($("#idp").val() == "Gitlab") {
-                $("#server").removeAttr("style");
-            } else {
-                $("#server").attr("style", "display:none;");
+            <label class="oa-label">Issuer URL</label>
+            <div class="oa-hint">The base URL of your identity provider (e.g. <code>https://accounts.google.com</code>, <code>https://login.microsoftonline.com/{tenant}/v2.0</code>, <code>https://your-keycloak/realms/myrealm</code>). ArozOS will fetch <code>/.well-known/openid-configuration</code> automatically.</div>
+            <div class="oa-input-row">
+                <input class="oa-input" type="url" id="oa-issuer" placeholder="https://idp.example.com">
+                <button class="oa-btn oa-btn-secondary" id="oa-discover-btn" onclick="oaDiscover()">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="7" r="4" stroke="currentColor" stroke-width="1.3"/>
+                        <path d="M10.5 10.5l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Discover
+                </button>
+            </div>
+
+            <!-- Discovered endpoints (collapsed by default, auto-expands after discovery) -->
+            <div id="oa-discovered-wrap" class="oa-hidden">
+                <div id="oa-discovered-header" onclick="oaToggleEp()">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="color:var(--oa-ok)">
+                        <path d="M2 8.5L6 12.5L14 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Endpoints discovered — click to review or override
+                    <svg id="oa-ep-chevron" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div id="oa-discovered-body">
+                    <label class="oa-label">Authorization Endpoint</label>
+                    <input class="oa-input" type="url" id="oa-auth-ep" placeholder="https://idp.example.com/oauth2/authorize">
+                    <label class="oa-label">Token Endpoint</label>
+                    <input class="oa-input" type="url" id="oa-token-ep" placeholder="https://idp.example.com/oauth2/token">
+                    <label class="oa-label">UserInfo Endpoint</label>
+                    <input class="oa-input" type="url" id="oa-userinfo-ep" placeholder="https://idp.example.com/oauth2/userinfo">
+                </div>
+            </div>
+
+            <!-- Manual entry when no discovery was run -->
+            <div id="oa-manual-wrap">
+                <div class="oa-callout oa-callout-info" style="margin-top:10px;">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+                        <path d="M8 7v5M8 5.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                    <span>Click <strong>Discover</strong> to auto-fill endpoints from your provider. You can also enter them manually below if your provider does not publish a discovery document.</span>
+                </div>
+                <label class="oa-label">Authorization Endpoint <span style="color:var(--oa-muted);font-weight:400">(manual, overrides discovery)</span></label>
+                <input class="oa-input" type="url" id="oa-auth-ep-manual" placeholder="https://idp.example.com/oauth2/authorize">
+                <label class="oa-label">Token Endpoint <span style="color:var(--oa-muted);font-weight:400">(manual)</span></label>
+                <input class="oa-input" type="url" id="oa-token-ep-manual" placeholder="https://idp.example.com/oauth2/token">
+                <label class="oa-label">UserInfo Endpoint <span style="color:var(--oa-muted);font-weight:400">(manual)</span></label>
+                <input class="oa-input" type="url" id="oa-userinfo-ep-manual" placeholder="https://idp.example.com/oauth2/userinfo">
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Section 3: Credentials ── -->
+    <div class="oa-section">
+        <div class="oa-section-header" onclick="oaToggle(this)">
+            <svg class="oa-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="4" y="7" width="8" height="7" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="oa-section-title">Application Credentials</span>
+            <svg class="oa-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="oa-section-body open">
+            <label class="oa-label">Client ID</label>
+            <input class="oa-input" type="text" id="oa-clientid" placeholder="Client ID" autocomplete="off">
+            <label class="oa-label">Client Secret</label>
+            <input class="oa-input" type="password" id="oa-clientsecret" placeholder="Client Secret" autocomplete="new-password">
+        </div>
+    </div>
+
+    <!-- ── Section 4: ArozOS server & callback ── -->
+    <div class="oa-section">
+        <div class="oa-section-header" onclick="oaToggle(this)">
+            <svg class="oa-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M5 8h3l2-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="oa-section-title">Server &amp; Callback</span>
+            <svg class="oa-chevron open" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="oa-section-body open">
+            <label class="oa-label">ArozOS Server Base URL</label>
+            <div class="oa-hint">Leave empty to use the current origin. Used to build the redirect/callback URL.</div>
+            <input class="oa-input" type="url" id="oa-redirecturl" placeholder="https://your.arozos.server">
+            <div class="oa-callout oa-callout-info" style="margin-top:10px;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M8 7v5M8 5.5v.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span>Register this as the allowed redirect URI in your provider's application settings:<br><strong id="oa-callback-url" style="font-family:'Courier New',monospace;font-size:11.5px;"></strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Section 5: Advanced (scope + username field) ── -->
+    <div class="oa-section">
+        <div class="oa-section-header" onclick="oaToggle(this)">
+            <svg class="oa-section-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 4h10M3 8h6M3 12h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.2"/>
+                <path d="M14 14l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            <span class="oa-section-title">Advanced Options</span>
+            <svg class="oa-chevron" viewBox="0 0 16 16" fill="none">
+                <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="oa-section-body">
+            <label class="oa-label">Scope</label>
+            <div class="oa-hint">Space-separated OAuth2 scopes. Default: <code>openid email profile</code></div>
+            <input class="oa-input" type="text" id="oa-scope" placeholder="openid email profile">
+
+            <label class="oa-label">Username Field</label>
+            <div class="oa-hint">The JSON field from the userinfo response to use as the ArozOS username. Default: <code>email</code>. Other common values: <code>preferred_username</code>, <code>sub</code>, <code>login</code>.</div>
+            <input class="oa-input" type="text" id="oa-usernamefield" placeholder="email">
+        </div>
+    </div>
+
+    <!-- ── Save button ── -->
+    <div style="padding:0 12px;">
+        <div class="oa-actions">
+            <button class="oa-btn oa-btn-primary" id="oa-save-btn" onclick="oaSave()">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 8.5L6 12.5L14 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+</div><!-- #oa-root -->
+
+<script>
+/* ── Theme ── */
+(function() {
+    function apply(dark) { document.getElementById('oa-root').classList.toggle('dark', dark); }
+    try {
+        var t = (typeof preferredTheme !== 'undefined' ? preferredTheme : null)
+              || (typeof parent !== 'undefined' ? parent.preferredTheme : null);
+        if (t) { apply(t === 'dark' || t === 'darkTheme'); return; }
+    } catch(e) {}
+    try { ao_module_getSystemThemeColor(function(c) { apply(c !== 'whiteTheme'); }); } catch(e) {}
+})();
+
+/* ── Accordion ── */
+function oaToggle(hdr) {
+    var body = hdr.nextElementSibling;
+    var chev = hdr.querySelector('.oa-chevron');
+    var open = body.classList.toggle('open');
+    chev.classList.toggle('open', open);
+}
+
+function oaToggleEp() {
+    var body = document.getElementById('oa-discovered-body');
+    var chev = document.getElementById('oa-ep-chevron');
+    var open = body.classList.toggle('open');
+    chev.classList.toggle('open', open);
+}
+
+/* ── Callback URL preview ── */
+function oaUpdateCallback() {
+    var base = (document.getElementById('oa-redirecturl').value || '').trim().replace(/\/+$/, '')
+            || window.location.origin;
+    document.getElementById('oa-callback-url').textContent = base + '/system/auth/oauth/authorize';
+}
+
+/* ── OIDC Discovery ── */
+function oaDiscover() {
+    var issuer = document.getElementById('oa-issuer').value.trim();
+    if (!issuer) { oaToast('Please enter an Issuer URL first.', false); return; }
+
+    var btn = document.getElementById('oa-discover-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="oa-spin"></span> Discovering…';
+
+    $.get('../../system/auth/oauth/config/discover', { issuerurl: issuer })
+        .done(function(data) {
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Discover';
+
+            if (data.error) { oaToast('Discovery failed: ' + data.error, false); return; }
+
+            /* Fill discovered endpoint inputs */
+            document.getElementById('oa-auth-ep').value     = data.auth_endpoint     || '';
+            document.getElementById('oa-token-ep').value    = data.token_endpoint    || '';
+            document.getElementById('oa-userinfo-ep').value = data.userinfo_endpoint || '';
+
+            /* Auto-fill manual inputs too (so save works either way) */
+            document.getElementById('oa-auth-ep-manual').value     = data.auth_endpoint     || '';
+            document.getElementById('oa-token-ep-manual').value    = data.token_endpoint    || '';
+            document.getElementById('oa-userinfo-ep-manual').value = data.userinfo_endpoint || '';
+
+            /* Show the discovered panel, hide manual-only callout */
+            document.getElementById('oa-discovered-wrap').classList.remove('oa-hidden');
+            document.getElementById('oa-discovered-body').classList.add('open');
+            document.getElementById('oa-ep-chevron').classList.add('open');
+            document.getElementById('oa-manual-wrap').classList.add('oa-hidden');
+
+            /* Suggest scope if not already set */
+            var scopeEl = document.getElementById('oa-scope');
+            if (!scopeEl.value && data.scopes_supported && data.scopes_supported.length) {
+                var hasOIDC = data.scopes_supported.indexOf('openid') !== -1;
+                scopeEl.value = hasOIDC
+                    ? ['openid','email','profile'].filter(function(s) {
+                        return data.scopes_supported.indexOf(s) !== -1;
+                      }).join(' ')
+                    : data.scopes_supported.slice(0, 3).join(' ');
             }
-        });
 
-        $("#redirecturl").on('input propertychange', function() {
-            if ($("#redirecturl").val() == "") {
-                $("#redirectspan").text(window.location.origin + "/system/auth/oauth/authorize");
-            } else {
-                $("#redirectspan").text($("#redirecturl").val() + "/system/auth/oauth/authorize");
-            }
-        });
-
-        function read() {
-            $.getJSON("../../system/auth/oauth/config/read", function(data) {
-                if (data.enabled) {
-                    $("#enable").parent().checkbox("check")
-                }
-                if (data.autoredirect) {
-                    $("#autoredirect").parent().checkbox("check")
-                }
-                $("#idp").parent().dropdown("set selected", data.idp);
-                $("#serverurl").val(data.server_url);
-                $("#redirecturl").val(data.redirect_url);
-                $("#clientid").val(data.client_id);
-                $("#clientsecret").val(data.client_secret);
-            });
-        }
-
-        function update() {
-            $.post("../../system/auth/oauth/config/write", {
-                    enabled: $("#enable").parent().checkbox("is checked"),
-                    autoredirect: $("#autoredirect").parent().checkbox("is checked"),
-                    idp: $("#idp").val(),
-                    redirecturl: $("#redirecturl").val(),
-                    clientid: $("#clientid").val(),
-                    clientsecret: $("#clientsecret").val(),
-                    serverurl: $("#serverurl").val()
-                })
-                .done(function(data) {
-                    if (data.error != undefined) {
-                        alert(data.error);
-                    } else {
-                        //OK!
-                        $("#updateSet").stop().finish().slideDown("fast").delay(3000).slideUp('fast');
+            /* Suggest username field from supported claims */
+            var ufEl = document.getElementById('oa-usernamefield');
+            if (!ufEl.value && data.claims_supported && data.claims_supported.length) {
+                var preferred = ['email','preferred_username','sub'];
+                for (var i = 0; i < preferred.length; i++) {
+                    if (data.claims_supported.indexOf(preferred[i]) !== -1) {
+                        ufEl.value = preferred[i];
+                        break;
                     }
-                });
-        }
-
-        function loadIdpList() {
-            $("#idplist").html("");
-            var data = ["Google", "Microsoft", "Github", "Gitlab"];
-            if (data.error !== undefined) {
-                alert(data.error);
-            } else {
-                for (var i = 0; i < data.length; i++) {
-                    let idpinfo = data[i];
-                    $("#idplist").append(`<div class="item" data-value="${idpinfo}">${idpinfo}</div>`);
                 }
             }
-            $("#idplist").parent().dropdown();
+
+            oaToast('Provider discovered successfully', true);
+        })
+        .fail(function(xhr) {
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Discover';
+            var msg = 'Discovery request failed.';
+            try { var r = JSON.parse(xhr.responseText); if (r.error) msg = r.error; } catch(e) {}
+            oaToast(msg, false);
+        });
+}
+
+/* ── Load saved config ── */
+function oaRead() {
+    $.getJSON('../../system/auth/oauth/config/read', function(d) {
+        document.getElementById('oa-enable').checked       = !!d.enabled;
+        document.getElementById('oa-autoredirect').checked = !!d.auto_redirect;
+        document.getElementById('oa-issuer').value         = d.issuer_url    || '';
+        document.getElementById('oa-redirecturl').value    = d.redirect_url  || '';
+        document.getElementById('oa-clientid').value       = d.client_id     || '';
+        document.getElementById('oa-clientsecret').value   = d.client_secret || '';
+        document.getElementById('oa-scope').value          = d.scope         || '';
+        document.getElementById('oa-usernamefield').value  = d.username_field || '';
+
+        var hasEp = d.auth_endpoint || d.token_endpoint || d.userinfo_endpoint;
+        if (hasEp) {
+            document.getElementById('oa-auth-ep').value     = d.auth_endpoint     || '';
+            document.getElementById('oa-token-ep').value    = d.token_endpoint    || '';
+            document.getElementById('oa-userinfo-ep').value = d.userinfo_endpoint || '';
+
+            document.getElementById('oa-auth-ep-manual').value     = d.auth_endpoint     || '';
+            document.getElementById('oa-token-ep-manual').value    = d.token_endpoint    || '';
+            document.getElementById('oa-userinfo-ep-manual').value = d.userinfo_endpoint || '';
+
+            document.getElementById('oa-discovered-wrap').classList.remove('oa-hidden');
+            document.getElementById('oa-manual-wrap').classList.add('oa-hidden');
         }
 
-        function initPlaceholder() {
-            $("#redirectspan").text(window.location.origin + "/system/auth/oauth/authorize");
-            $("#redirecturl").attr("placeholder", window.location.origin);
-            $("#serverurl").attr("placeholder", "https://gitlab.com");
-        }
-    </script>
+        oaUpdateCallback();
+    });
+}
+
+/* ── Resolve effective endpoints ── */
+function oaGetEndpoints() {
+    /* Prefer discovered/reviewed fields; fall back to manual inputs */
+    var wrap = document.getElementById('oa-discovered-wrap');
+    if (!wrap.classList.contains('oa-hidden')) {
+        return {
+            auth:     document.getElementById('oa-auth-ep').value.trim(),
+            token:    document.getElementById('oa-token-ep').value.trim(),
+            userinfo: document.getElementById('oa-userinfo-ep').value.trim()
+        };
+    }
+    return {
+        auth:     document.getElementById('oa-auth-ep-manual').value.trim(),
+        token:    document.getElementById('oa-token-ep-manual').value.trim(),
+        userinfo: document.getElementById('oa-userinfo-ep-manual').value.trim()
+    };
+}
+
+/* ── Save ── */
+function oaSave() {
+    var btn = document.getElementById('oa-save-btn');
+    btn.disabled = true;
+
+    var ep = oaGetEndpoints();
+
+    $.post('../../system/auth/oauth/config/write', {
+        enabled:          document.getElementById('oa-enable').checked      ? 'true' : 'false',
+        autoredirect:     document.getElementById('oa-autoredirect').checked ? 'true' : 'false',
+        issuerurl:        document.getElementById('oa-issuer').value.trim(),
+        clientid:         document.getElementById('oa-clientid').value.trim(),
+        clientsecret:     document.getElementById('oa-clientsecret').value,
+        redirecturl:      document.getElementById('oa-redirecturl').value.trim(),
+        scope:            document.getElementById('oa-scope').value.trim(),
+        usernamefield:    document.getElementById('oa-usernamefield').value.trim(),
+        authendpoint:     ep.auth,
+        tokenendpoint:    ep.token,
+        userinfoendpoint: ep.userinfo
+    }).done(function(data) {
+        btn.disabled = false;
+        if (data.error) { oaToast(data.error, false); }
+        else            { oaToast('Settings saved', true); }
+    }).fail(function() {
+        btn.disabled = false;
+        oaToast('Save request failed. Please try again.', false);
+    });
+}
+
+/* ── Toast helper ── */
+function oaToast(msg, ok) {
+    try {
+        if (typeof parent !== 'undefined' && typeof parent.msgbox === 'function') { parent.msgbox(msg, ok); return; }
+        if (typeof msgbox === 'function') { msgbox(msg, ok); return; }
+    } catch(e) {}
+    alert(msg);
+}
+
+/* ── Init ── */
+$(document).ready(function() {
+    oaRead();
+    document.getElementById('oa-redirecturl').addEventListener('input', oaUpdateCallback);
+});
+</script>
 </body>
-
 </html>
