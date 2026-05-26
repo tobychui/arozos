@@ -42,6 +42,7 @@ if (requirelib("filelib") == true) {
 - `USERQUOTA_USED`: User's used storage quota
 - `USER_VROOTS`: User's accessible virtual root paths
 - `USER_MODULES`: User's accessible modules
+- `EXECUTION_ID`: UUIDv4 that uniquely identifies this script invocation — useful for correlating log lines across concurrent executions
 
 ## Core Functions
 
@@ -749,6 +750,86 @@ try {
 - External HTTP requests should be validated
 - File uploads should check size limits and types
 
+## Scheduler Library (`scheduler`)
+
+Load with: `requirelib("scheduler")`
+
+Lets a webapp register, check, and remove background scheduled tasks on behalf of the signed-in user. Tasks call a script that lives inside the webapp's own folder — **not** in user virtual storage.
+
+> **Prerequisite** — the user must have granted cron-job permission to this app first. The recommended flow is:
+> 1. Check `scheduler.hasPermission()` in a backend `.agi` script.
+> 2. If false, return a signal to the frontend so it can call `ao_module_requestSchedulerPermission()` to show the permission dialog.
+> 3. After permission is granted, register the task from the backend.
+
+### Scheduler Functions
+
+#### `scheduler.hasPermission()` → `bool`
+
+Returns `true` when the current user is allowed to create scheduled tasks.
+
+```javascript
+requirelib("scheduler");
+if (!scheduler.hasPermission()) {
+    sendResp("no_permission");
+}
+```
+
+#### `scheduler.registered(taskName, appName)` → `bool`
+
+Returns `true` when a task with the given name is already registered for this user+app combination.
+
+```javascript
+requirelib("scheduler");
+if (scheduler.registered("MyApp_DailySync", "MyApp")) {
+    sendResp("already_registered");
+}
+```
+
+#### `scheduler.register(taskName, appName, intervalSecs [, description [, scriptName]])` → `bool`
+
+Registers a new background task. Returns `true` on success.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `taskName` | string | Unique task identifier (max 32 chars) |
+| `appName` | string | Module folder name (must match `./web/<appName>/`) |
+| `intervalSecs` | number | Execution interval in seconds |
+| `description` | string | Optional human-readable description |
+| `scriptName` | string | Script filename inside the app folder (default: `"cron.agi"`) |
+
+```javascript
+requirelib("scheduler");
+var ok = scheduler.register("MyApp_DailySync", "MyApp", 86400, "Daily maintenance", "cron.agi");
+if (!ok) {
+    sendResp("register_failed");
+}
+```
+
+#### `scheduler.unregister(taskName)` → `bool`
+
+Removes a previously registered task. Returns `true` on success.
+
+```javascript
+requirelib("scheduler");
+scheduler.unregister("MyApp_DailySync");
+```
+
+### Script Location
+
+The cron script must reside inside the webapp's own web folder, **not** in user virtual storage:
+
+```
+./web/MyApp/
+    init.agi          ← module registration
+    index.html
+    backend.agi       ← called by the frontend to register/query scheduler
+    cron.agi          ← executed by the scheduler at each interval
+```
+
+The scheduler calls `cron.agi` with the permissions of the user who approved it, so all file-system and database operations are scoped to that user.
+
+---
+
 ## Examples
 
 ### Complete File Upload Handler
@@ -817,6 +898,109 @@ if (action === "get") {
 } else {
     sendJSONResp({error: "Invalid action"});
 }
+```
+
+### Background Scheduler (webapp backend)
+
+A typical webapp has three files that work together to set up a background task.
+
+**`./web/MyApp/backend.agi`** — called from the frontend via `ao_module_agirun`:
+
+```javascript
+requirelib("scheduler");
+
+var APP  = "MyApp";           // matches ./web/MyApp/
+var TASK = "MyApp_HourlySync";
+
+var action = getPara("action");
+
+if (action === "status") {
+    // Report current scheduler state and persisted stats
+    var TABLE = "MyApp/" + USERNAME;
+    newDBTableIfNotExists(TABLE);
+    var lastRun  = readDBItem(TABLE, "lastRun");
+    var runCount = parseInt(readDBItem(TABLE, "runCount") || "0", 10);
+    sendJSONResp({
+        hasPermission: scheduler.hasPermission(),
+        registered:    scheduler.registered(TASK, APP),
+        lastRun:       lastRun  || null,
+        runCount:      runCount
+    });
+
+} else if (action === "register") {
+    if (!scheduler.hasPermission()) {
+        sendResp("no_permission");
+    } else if (scheduler.registered(TASK, APP)) {
+        sendResp("already_registered");
+    } else {
+        var ok = scheduler.register(TASK, APP, 3600, "Hourly sync for MyApp");
+        sendResp(ok ? "ok" : "error");
+    }
+
+} else if (action === "unregister") {
+    scheduler.unregister(TASK);
+    sendOK();
+
+} else {
+    sendJSONResp({error: "unknown action"});
+}
+```
+
+**`./web/MyApp/cron.agi`** — executed by the scheduler at each interval:
+
+```javascript
+// Runs with the permissions of the user who approved the task.
+// USERNAME, EXECUTION_ID and all standard globals are available.
+
+var TABLE = "MyApp/" + USERNAME;
+newDBTableIfNotExists(TABLE);
+
+// Persist a timestamp and run counter for the frontend to display
+writeDBItem(TABLE, "lastRun", new Date().toISOString());
+var count = parseInt(readDBItem(TABLE, "runCount") || "0", 10);
+writeDBItem(TABLE, "runCount", String(count + 1));
+
+// EXECUTION_ID is a UUIDv4 unique to this invocation — appears in scheduler logs
+console.log("MyApp tick [" + EXECUTION_ID + "] user=" + USERNAME + " run=" + (count + 1));
+
+sendOK();
+```
+
+**`./web/MyApp/index.html`** — frontend snippet that requests permission and polls stats:
+
+```html
+<script src="../script/ao_module.js"></script>
+<script>
+var APP  = "MyApp";
+var TASK = "MyApp_HourlySync";
+
+function checkStatus() {
+    ao_module_agirun("MyApp/backend.agi", {action: "status"}, function(data) {
+        document.getElementById('last-run').textContent =
+            data.lastRun ? new Date(data.lastRun).toLocaleString() : "Never";
+        document.getElementById('run-count').textContent = data.runCount;
+        if (!data.registered && data.hasPermission) {
+            document.getElementById('btn-enable').style.display = '';
+        }
+    });
+}
+
+function enableScheduler() {
+    ao_module_requestSchedulerPermission({
+        appName:     APP,
+        appIcon:     APP + "/img/icon.png",
+        taskName:    TASK,
+        scriptName:  "cron.agi",   // filename inside ./web/MyApp/
+        interval:    3600,         // seconds
+        description: "Hourly sync for MyApp."
+    }, function(result) {
+        if (result && result.allowed) checkStatus();
+    });
+}
+
+checkStatus();
+setInterval(checkStatus, 30000);
+</script>
 ```
 
 This documentation covers all available AGI APIs with practical examples. For more advanced usage, refer to the existing module implementations in the system.

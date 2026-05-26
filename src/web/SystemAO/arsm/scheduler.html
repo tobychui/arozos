@@ -1,609 +1,742 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
     <meta charset="UTF-8">
-    <title>System Task Scheduler</title>
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Task Scheduler</title>
     <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
     <script src="../../script/ao_module.js"></script>
     <script src="js/moment.min.js"></script>
     <style>
-        body{
-            margin-top: 12px; 
-            padding-right: 15px;
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* ── Palette — matches system_setting/main.css ── */
+        :root {
+            --bg:              #f3f3f3;
+            --sidebar-bg:      #ebebeb;
+            --sidebar-border:  #dcdcdc;
+            --text:            #202020;
+            --text-dim:        #555;
+            --text-muted:      #888;
+            --text-desc:       #666;
+            --nav-hover:       rgba(0,0,0,0.055);
+            --nav-active:      rgba(0,0,0,0.09);
+            --card-bg:         #ffffff;
+            --card-border:     #e5e5e5;
+            --card-hover-bg:   #fafafa;
+            --accent:          #0071e3;
+            --danger:          #ff3b30;
+            --success:         #34c759;
+            --warning:         #ff9f0a;
+            --divider:         #e0e0e0;
+            --scrollbar:       #c8c8c8;
         }
-        .hidden{
-            display:none;
+        body.dark {
+            --bg:              #1f1f1f;
+            --sidebar-bg:      #282828;
+            --sidebar-border:  #363636;
+            --text:            #e3e3e3;
+            --text-dim:        #999;
+            --text-muted:      #666;
+            --text-desc:       #aaa;
+            --nav-hover:       rgba(255,255,255,0.06);
+            --nav-active:      rgba(255,255,255,0.10);
+            --card-bg:         #2d2d2d;
+            --card-border:     #3a3a3a;
+            --card-hover-bg:   #333;
+            --accent:          #2997ff;
+            --danger:          #ff453a;
+            --success:         #30d158;
+            --warning:         #ffd60a;
+            --divider:         #3a3a3a;
+            --scrollbar:       #555;
         }
 
-        .compulsory{
-            color: red;
-            font-weight: bold;
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            transition: background 0.15s, color 0.15s;
         }
 
-        #main{
-            overflow-y:auto;
-        }
+        /* ── Layout shell ── */
+        #app { display: flex; height: 100vh; overflow: hidden; }
 
-        #logPreview{
+        /* ── Sidebar ── */
+        #sidebar {
+            width: 220px;
+            min-width: 220px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        #sidebar-title {
+            padding: 18px 16px 10px;
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.1px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            user-select: none;
+            flex-shrink: 0;
+            color: var(--text);
+        }
+        #sidebar-title img { width: 20px; height: 20px; opacity: 0.7; }
+
+        #sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 8px 10px;
+        }
+        #sidebar-nav::-webkit-scrollbar { width: 3px; }
+        #sidebar-nav::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.08s;
+            font-size: 13.5px;
+            color: var(--text);
+            margin-bottom: 1px;
+        }
+        .nav-item:hover  { background: var(--nav-hover); }
+        .nav-item.active { background: var(--nav-active); font-weight: 500; }
+        .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.72; display: flex; align-items: center; }
+        .nav-icon svg { width: 16px; height: 16px; }
+
+        /* Filter box */
+        #sidebar-filter {
+            padding: 0 10px 10px;
+            flex-shrink: 0;
+        }
+        #filter-input {
             width: 100%;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            background: var(--card-bg);
+            color: var(--text);
+            font-size: 12.5px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.1s;
+        }
+        #filter-input:focus { border-color: var(--accent); }
+        body.dark #filter-input { background: #333; border-color: #444; }
+
+        /* ── Main content ── */
+        #main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            background: var(--bg);
+        }
+        #main::-webkit-scrollbar { width: 6px; }
+        #main::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* ── Section heading ── */
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            color: var(--text);
+        }
+
+        /* ── Card / list ── */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        /* ── Task list rows ── */
+        .task-row {
+            display: grid;
+            grid-template-columns: minmax(120px,1.8fr) minmax(0,2fr) 90px 100px;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--divider);
+            gap: 10px;
+            font-size: 13px;
+            transition: background 0.08s;
+        }
+        .task-row:last-child { border-bottom: none; }
+        .task-row.header {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            padding: 8px 14px;
+            background: var(--bg);
+            cursor: default;
+        }
+        body.dark .task-row.header { background: #282828; }
+        .task-row:not(.header):hover { background: var(--card-hover-bg); }
+
+        /* Admin "all tasks" has an extra Creator column */
+        .task-row.all-cols {
+            grid-template-columns: minmax(100px,1.4fr) minmax(80px,1.2fr) minmax(0,2fr) 80px 90px 100px;
+        }
+        /* Remove view has action button column */
+        .task-row.remove-cols {
+            grid-template-columns: minmax(100px,1.4fr) minmax(80px,1.2fr) minmax(0,2fr) 80px 90px 80px;
+        }
+
+        .task-name { font-weight: 500; color: var(--text); }
+        .task-script { color: var(--text-dim); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .task-interval { color: var(--text-desc); font-size: 12.5px; }
+        .task-basetime { color: var(--text-desc); font-size: 11.5px; }
+
+        .app-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+            background: rgba(0,113,227,0.10);
+            color: var(--accent);
+            white-space: nowrap;
+            max-width: 88px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        body.dark .app-badge { background: rgba(41,151,255,0.15); }
+
+        /* Empty state */
+        .empty-state {
+            padding: 32px 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13.5px;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+            background: var(--card-bg);
+            color: var(--text);
+            transition: background 0.08s, opacity 0.12s;
+            white-space: nowrap;
+        }
+        .btn:hover { background: var(--card-hover-bg); }
+        .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .btn.primary:hover { opacity: 0.85; }
+        .btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+        .btn.danger:hover { opacity: 0.85; }
+        .btn.sm { padding: 4px 10px; font-size: 12px; }
+        .btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+        /* ── New Task form ── */
+        .form-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+        }
+        .form-row { margin-bottom: 14px; }
+        .form-label {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 500;
+            color: var(--text-dim);
+            margin-bottom: 5px;
+        }
+        .form-req { color: var(--danger); }
+        .form-input {
+            width: 100%;
+            padding: 7px 11px;
+            border-radius: 7px;
+            border: 1px solid var(--card-border);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13.5px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.12s;
+        }
+        body.dark .form-input { background: #333; border-color: #444; }
+        .form-input:focus { border-color: var(--accent); }
+        .form-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+        .form-row-inline { display: flex; gap: 8px; align-items: flex-start; }
+        .form-row-inline .form-input { flex: 1; }
+        select.form-input { cursor: pointer; }
+
+        .input-with-btn { display: flex; gap: 6px; }
+        .input-with-btn .form-input { flex: 1; }
+
+        /* Permission denied banner */
+        #noPermMessage {
+            background: rgba(255,159,10,0.10);
+            border: 1px solid rgba(255,159,10,0.28);
+            border-radius: 8px;
+            padding: 11px 14px;
+            font-size: 13px;
+            color: var(--warning);
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        /* ── Toast ── */
+        #toast {
+            position: fixed;
+            bottom: 16px;
+            right: 18px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 9px 15px;
+            font-size: 13px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+            display: none;
+            z-index: 9999;
+            color: var(--text);
+        }
+
+        /* ── Warning bar ── */
+        .warn-bar {
+            background: rgba(255,159,10,0.10);
+            border: 1px solid rgba(255,159,10,0.25);
+            border-radius: 7px;
+            padding: 8px 12px;
+            font-size: 12.5px;
+            color: var(--warning);
+            margin-top: 6px;
+            display: none;
+        }
+
+        /* ── Remove view danger header ── */
+        .danger-header {
+            background: rgba(255,59,48,0.08);
+            border-bottom: 1px solid rgba(255,59,48,0.18);
+            padding: 10px 14px;
+            font-size: 12.5px;
+            color: var(--danger);
+            font-weight: 500;
+        }
+        body.dark .danger-header { background: rgba(255,69,58,0.12); }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            #sidebar { display: none; }
+            #main { padding: 14px 12px; }
         }
     </style>
 </head>
 <body>
-    <div>
-        <div class="ui stackable grid">
-            <div class="four wide column" >
-                <div class="ui vertical fluid menu">
-                    <div class="item">
-                        <img class="ui image" src="img/banner.png">
-                    </div>
-                    <a id="stb" class="active teal item functBtn" onclick="scheduleList(this);">
-                        User's Scheduled Tasks
-                    </a>
-                    <a id="asb" class="teal item functBtn" onclick="scheduleListAll(this);">
-                        All Scheduled Tasks
-                    </a>
-                    <a id="nsb" class="item functBtn" onclick="newTaskUI(this);">
-                        <i class="add icon"></i> New Scheduled Task
-                    </a>
-                    <a id="rsb" class="item functBtn" onclick="showRemoveSchedule(this);">
-                        <i class="remove icon"></i> Remove Scheduled Task
-                    </a>
-                    <div class="item">
-                        <div class="ui transparent icon input">
-                        <input type="text" id="filter" placeholder="Filter" onkeydown="handleFilterEnterKeydown(event);">
-                        <i class="search icon"></i>
-                        </div>
-                    </div>
-                    <a class="item" onclick="applyFilter();">
-                        <i class="filter icon"></i> Apply Filter
-                    </a>
-                    <a id="log" class="teal item functBtn" onclick="showLogInfo(this);">
-                        Show Logs
-                    </a>
-                </div>  
+<div id="app">
+
+    <!-- ── Sidebar ────────────────────────────────────────── -->
+    <div id="sidebar">
+        <div id="sidebar-title">
+            <img src="img/small_icon.png" onerror="this.style.display='none'">
+            Scheduler
+        </div>
+        <div id="sidebar-nav">
+            <div class="nav-item active" id="nav-mine"  onclick="showView('mine')">
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M5 4h7M5 8h7M5 12h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="2.5" cy="4" r="0.75" fill="currentColor"/><circle cx="2.5" cy="8" r="0.75" fill="currentColor"/><circle cx="2.5" cy="12" r="0.75" fill="currentColor"/></svg></span> My Tasks
             </div>
-            <div id="main" class="twelve wide column">
-                <div class="ui container">
-                    <br>
-                    <!-- Scheduled Task view-->
-                    <div id="scheduleView" class="view">
-                        <table class="ui celled striped table">
-                            <thead>
-                                <tr>
-                                    <th colspan="4">
-                                        Scheduled Tasks
-                                    </th>
-                                </tr>
-                                <tr>
-                                    <th>
-                                        Script
-                                    </th>
-                                    <th>
-                                        Location
-                                    </th>
-                                    <th>
-                                        Interval
-                                    </th>
-                                    <th>
-                                        Base Time
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="scheduleList">
-                            
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="nav-item" id="nav-all"   onclick="showView('all')">
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg></span> All Tasks
+            </div>
+            <div class="nav-item" id="nav-new"   onclick="showView('new')">
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span> New Task
+            </div>
+            <div class="nav-item" id="nav-remove" onclick="showView('remove')">
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6 5V4h4v1M6.5 8v4M9.5 8v4M4 5l.9 9h6.2L12 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Remove Task
+            </div>
+        </div>
+        <div id="sidebar-filter">
+            <input id="filter-input" type="text" placeholder="Filter tasks…"
+                   oninput="applyFilter()" onkeydown="if(event.key==='Enter')applyFilter()">
+        </div>
+    </div>
 
-                     <!-- All Scheudle List-->
-                     <div id="scheudleListAll" class="view" style="display:none;">
-                        <table class="ui celled striped table">
-                            <thead>
-                                <tr>
-                                    <th colspan="5">
-                                        System Wide Scheduled Tasks
-                                    </th>
-                                </tr>
-                                <tr>
-                                    <th>
-                                        Task Name (Creator)
-                                    </th>
-                                    <th>
-                                        Script Location
-                                    </th>
-                                    <th>
-                                        Description
-                                    </th>
-                                    <th>
-                                        Interval
-                                    </th>
-                                    <th>
-                                        Base Time
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="scheduleListAllContent">
-                            
-                            </tbody>
-                        </table>
-                    </div>
+    <!-- ── Main ──────────────────────────────────────────── -->
+    <div id="main">
 
-                    <!-- New Scheduule view-->
-                    <div id="newTask" class="view hidden" >
-                        <div class="ui message">
-                            <div class="header">
-                                New Scheduled Task
-                            </div>
-                            <ul class="list">
-                                <li>Add an agi script (.agi / .js) from one of your directories by selecting below</li>
-                            </ul>
-                            </div>
-                        <form class="ui form" onsubmit="handleTaskSubmition(event);">
-                            <div class="field">
-                            <label>Task Name (Max: 32 chars) <span class="compulsory">*</span></label>
-                            <input type="text" id="tasknanme" name="tasknanme" placeholder="New Task" maxlength="16" autocomplete="off">
-                            </div>
-                            <div class="field">
-                            <label>Description</label>
-                            <input type="text" id="desc" name="desc" placeholder="Description goes here"  autocomplete="off">
-                            </div>
-                            <div class="field">
-                                <label>Script Path <span class="compulsory">*</span></label>
-                                <div class="ui icon fluid input">
-                                    <input id="scriptpath" type="text" placeholder="Virtual path to the script file" autocomplete="off">
-                                    <i onclick="openFileSelector();" class="inverted circular search link icon"></i>
-                                </div>
-                                <div id="extensionWarning" style="display:none;" class="ui yellow small message">This extension is not supported by the scheduler. Please continue with your own risk.</div>
-                            </div>
-                            <div class="field">
-                                <label>Execution Interval <span class="compulsory">*</span></label>
-                                <div>
-                                    <div class="ui input" style="width: 200px;">
-                                        <input id="intervalvalue" type="number" placeholder="1" value="1">
-                                    </div>
-                                    <div class="ui selection dropdown">
-                                        <input type="hidden" id="intervalunit" name="intervalunit" value="60">
-                                        <i class="dropdown icon"></i>
-                                        <div class="default text">Unit</div>
-                                        <div class="menu">
-                                            <div class="item" data-value="60">Minutes</div>
-                                            <div class="item" data-value="3600">Hours</div>
-                                            <div class="item" data-value="86400">Days</div>
-                                            <div class="item" data-value="2628333">Months (approximate)</div>
-                                        </div>
-                                    </div>
-                                    <br>
-                                    <small>Execute the script above ever x unit. Month (Unit) is approximated as 2628333 seconds</small>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label>Execution Base <span class="compulsory">*</span></label>
-                                <div class="ui selection dropdown">
-                                    <input type="hidden" id="intervalbase" name="intervalbase" value="now">
-                                    <i class="dropdown icon"></i>
-                                    <div class="default text">Base Timeframe</div>
-                                    <div class="menu">
-                                        <div class="item" data-value="now">Now</div>
-                                        <div class="item" data-value="hour">Start of the Hour</div>
-                                        <div class="item" data-value="day">Start of the Day</div>
-                                        <div class="item" data-value="month">Start of the Month</div>
-                                        <div class="item" data-value="year">Start of the Year</div>
-                                        <div class="item" data-value="mon">Monday Mid-night</div>
-                                        <div class="item" data-value="tue">Tuesday Mid-night</div>
-                                        <div class="item" data-value="wed">Wednesday Mid-night</div>
-                                        <div class="item" data-value="thu">Thursday Mid-night</div>
-                                        <div class="item" data-value="fri">Friday Mid-night</div>
-                                        <div class="item" data-value="sat">Saturday Mid-night</div>
-                                        <div class="item" data-value="sun">Sunday Mid-night</div>
-                                    </div>
-                                </div>
-                                <small>The base day helps you to offset the interval for weekly / monthly based schedules.</small>
-                            </div>
-                            <button class="ui button" type="submit">Submit</button>
-                            <br> <br>
-                            <small>Fields with <span class="compulsory">*</span> are compulsory</small>
-                        </form>
-                        <br><br>
-                    </div>
+        <!-- My Tasks -->
+        <div id="view-mine" class="view active">
+            <div class="section-title">My Scheduled Tasks</div>
+            <div class="card" id="card-mine">
+                <div class="task-row header">
+                    <span>Task / Script</span>
+                    <span>Path</span>
+                    <span>App</span>
+                    <span>Interval</span>
+                </div>
+                <div id="list-mine"><div class="empty-state">Loading…</div></div>
+            </div>
+        </div>
 
-                    <!-- Remove Scheduule view-->
-                    <div id="removeShedule" class="view hidden" >
-                        <table class="ui celled striped table">
-                            <thead>
-                                <tr>
-                                    <th class="ui red message" colspan="5">
-                                        <i class="remove icon"></i> Remove Scheduled Tasks<br>
-                                        <small>WARNING! All operations are not reversible.</small>
-                                    </th>
-                                </tr>
-                                <tr>
-                                    <th>
-                                        Task Name (Creator)
-                                    </th>
-                                    <th>
-                                        Script Location
-                                    </th>
-                                    <th>
-                                        Description
-                                    </th>
-                                    <th>
-                                        Interval
-                                    </th>
-                                    <th>
-                                        Action
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody id="removeScheduleList">
-                            
-                            </tbody>
-                        </table>
-                    </div>
+        <!-- All Tasks (admin) -->
+        <div id="view-all" class="view">
+            <div class="section-title">All Scheduled Tasks</div>
+            <div class="card">
+                <div class="task-row all-cols header">
+                    <span>Task Name</span>
+                    <span>Creator</span>
+                    <span>Script Path</span>
+                    <span>App</span>
+                    <span>Interval</span>
+                    <span>Base Time</span>
+                </div>
+                <div id="list-all"><div class="empty-state">Loading…</div></div>
+            </div>
+        </div>
 
-                     <!-- Scheduler Log view-->
-                     <div id="listLog" class="view hidden" >
-                        <p>Select a log file to preview</p>
-                        <select id="logIndex" class="ui search fluid dropdown" onchange="loadLogFile(this.value);">
-                            <option value="">Date (DD-MM-YYYY)</option>
-                            <option value="AL">Alabama</option>
-                        </select>
-                        <div class="ui segment form">
-                            <div class="field">
-                                <textarea id="logPreview" rows="10"></textarea>
-                            </div>
+        <!-- New Task -->
+        <div id="view-new" class="view">
+            <div class="section-title">New Scheduled Task</div>
+            <div id="noPermMessage">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-right:6px;vertical-align:-2px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>
+                Your account does not have permission to create scheduled tasks.
+                Ask an administrator to grant cron job access via <strong>System Settings &rarr; Tasks Scheduler</strong>.
+            </div>
+            <div id="newTaskForm">
+                <div class="form-card">
+                    <div class="form-row">
+                        <label class="form-label">Task Name <span class="form-req">*</span></label>
+                        <input class="form-input" id="taskname" type="text"
+                               placeholder="My Daily Task" maxlength="32" autocomplete="off">
+                        <div class="form-hint">Max 32 characters, must be unique.</div>
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Description</label>
+                        <input class="form-input" id="desc" type="text"
+                               placeholder="What does this task do?" autocomplete="off">
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Script Path <span class="form-req">*</span></label>
+                        <div class="input-with-btn">
+                            <input class="form-input" id="scriptpath" type="text"
+                                   placeholder="user:/path/to/script.agi" autocomplete="off"
+                                   oninput="checkExt(this.value)">
+                            <button class="btn" onclick="openFileSelector()">Browse…</button>
+                        </div>
+                        <div class="warn-bar" id="extWarn">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;vertical-align:-2px;margin-right:4px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>
+                            This file extension may not be supported. Only .agi and .js files are executed.
                         </div>
                     </div>
+                    <div class="form-row">
+                        <label class="form-label">Run Every <span class="form-req">*</span></label>
+                        <div class="form-row-inline">
+                            <input class="form-input" id="intervalvalue" type="number"
+                                   value="1" min="1" style="max-width:90px;">
+                            <select class="form-input" id="intervalunit" style="max-width:160px;">
+                                <option value="60">Minutes</option>
+                                <option value="3600">Hours</option>
+                                <option value="86400" selected>Days</option>
+                                <option value="2628333">Months (approx.)</option>
+                            </select>
+                        </div>
+                        <div class="form-hint">Month is approximated as 2 628 333 seconds.</div>
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Align to <span class="form-req">*</span></label>
+                        <select class="form-input" id="intervalbase">
+                            <option value="now">Now (current minute)</option>
+                            <option value="hour">Start of the Hour</option>
+                            <option value="day">Start of the Day</option>
+                            <option value="month">Start of the Month</option>
+                            <option value="year">Start of the Year</option>
+                            <option value="mon">Monday midnight</option>
+                            <option value="tue">Tuesday midnight</option>
+                            <option value="wed">Wednesday midnight</option>
+                            <option value="thu">Thursday midnight</option>
+                            <option value="fri">Friday midnight</option>
+                            <option value="sat">Saturday midnight</option>
+                            <option value="sun">Sunday midnight</option>
+                        </select>
+                        <div class="form-hint">Sets the reference point for interval alignment (useful for weekly/monthly schedules).</div>
+                    </div>
+                    <button class="btn primary" onclick="submitNewTask()">Create Task</button>
+                    <span style="margin-left:10px; font-size:12px; color:var(--text-muted);">
+                        Fields with <span class="form-req">*</span> are required.
+                    </span>
                 </div>
             </div>
         </div>
-    </div>
- 
-    <script>
-        $(".ui.dropdown").dropdown();
-        initScheduleList();
-        function initScheduleList(){
-            $.ajax({
-                url: "../../system/arsm/aecron/list",
-                data: {},
-                success: function(data){
-                    $("#scheduleList").html("");
-                    if (data.length == 0){
-                        $("#scheduleList").append(`<tr>
-                            <td colspan="4">
-                                No registered schedule.
-                            </td>
-                        </tr>`);
-                    }else{
-                        data.forEach(task => {
-                            var filter = $("#filter").val().trim();
-                            if (filter != ""){
-                                //Apply filter to the results
-                                if (task.Creator.includes(filter) || task.Name.includes(filter) || task.Description.includes(filter)){
-                                    //Matching
-                                }else{
-                                    //Not matching
-                                    return
-                                }
-                            }
-                            var scriptName = task.ScriptVpath.split("/").pop();
-                            $("#scheduleList").append(`<tr>
-                                <td class="collapsing">
-                                    <i class="code file outline icon"></i> ${scriptName}
-                                </td>
-                                <td>${task.ScriptVpath}</td>
-                                <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
-                                <td class="right aligned collapsing">${moment.unix(task.BaseTime).format('LLL')}</td>
-                            </tr>`);
-                        });
-                    }
-                }
-            });
-        }
 
-        function initScheduleFullList(){
-            $.ajax({
-                url: "../../system/arsm/aecron/list?listall=true",
-                data: {},
-                success: function(data){
-                    $("#scheduleListAllContent").html("");
-                    if (data.length == 0){
-                        $("#scheduleListAllContent").append(`<tr>
-                            <td colspan="4">
-                                No registered schedule.
-                            </td>
-                        </tr>`);
-                    }else{
-                        data.forEach(task => {
-                            var filter = $("#filter").val().trim();
-                            if (filter != ""){
-                                //Apply filter to the results
-                                if (task.Creator.includes(filter) || task.Name.includes(filter) || task.Description.includes(filter)){
-                                    //Matching
-                                }else{
-                                    //Not matching
-                                    return
-                                }
-                            }
+        <!-- Remove Task -->
+        <div id="view-remove" class="view">
+            <div class="section-title">Remove Scheduled Tasks</div>
+            <div class="card">
+                <div class="danger-header"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;vertical-align:-2px;margin-right:5px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>Removal is permanent and cannot be undone.</div>
+                <div class="task-row remove-cols header">
+                    <span>Task Name</span>
+                    <span>Creator</span>
+                    <span>Script Path</span>
+                    <span>App</span>
+                    <span>Interval</span>
+                    <span>Action</span>
+                </div>
+                <div id="list-remove"><div class="empty-state">Loading…</div></div>
+            </div>
+        </div>
 
-                            var scriptLocation = task.ScriptVpath;
-                            $("#scheduleListAllContent").append(`<tr>
-                                <td class="collapsing">
-                                    <i class="user icon"></i> ${task.Name} (${task.Creator})
-                                </td>
-                                <td>${scriptLocation}</td>
-                                <td>${task.Description}</td>
-                                <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
-                                <td class="right aligned collapsing">${moment.unix(task.BaseTime).format('LLL')}</td>
-                            </tr>`);
-                        });
-                    }
-                }
-            });
-        }
+    </div><!-- /#main -->
+</div>
 
-        function parseSecondsToHumanReadableFormat(seconds){
-            seconds = Number(seconds);
-            var d = Math.floor(seconds / (3600*24));
-            var h = Math.floor(seconds % (3600*24) / 3600);
-            var m = Math.floor(seconds % 3600 / 60);
-            var s = Math.floor(seconds % 60);
+<div id="toast"></div>
 
-            var dDisplay = d > 0 ? d + (d == 1 ? " day " : " days ") : "";
-            var hDisplay = h > 0 ? h + (h == 1 ? " hour " : " hours ") : "";
-            var mDisplay = m > 0 ? m + (m == 1 ? " minute " : " minutes ") : "";
-            var sDisplay = s > 0 ? s + (s == 1 ? " second" : " seconds") : "";
-            return dDisplay + hDisplay + mDisplay + sDisplay;
-        }
+<script>
+    /* ── Theme ── */
+    ao_module_getSystemThemeColor(function(c) {
+        document.body.classList.toggle('dark', c !== 'whiteTheme');
+    });
 
-        $(".functBtn").on("click", function(data){
-            $(".functBtn.active").removeClass("active");
-            $(this).addClass("active");
+    /* ── Navigation ── */
+    var currentView = 'mine';
+    function showView(name) {
+        document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
+        document.querySelectorAll('.nav-item').forEach(function(el) { el.classList.remove('active'); });
+        document.getElementById('view-' + name).classList.add('active');
+        document.getElementById('nav-' + name).classList.add('active');
+        currentView = name;
+        if (name === 'mine')   loadMine();
+        if (name === 'all')    loadAll();
+        if (name === 'new')    initNewTaskView();
+        if (name === 'remove') loadRemove();
+    }
+
+    /* ── Helpers ── */
+    function fmtInterval(s) {
+        s = Number(s);
+        var d = Math.floor(s / 86400),
+            h = Math.floor(s % 86400 / 3600),
+            m = Math.floor(s % 3600 / 60),
+            sec = s % 60;
+        var parts = [];
+        if (d)   parts.push(d   + (d   === 1 ? 'd' : 'd'));
+        if (h)   parts.push(h   + 'h');
+        if (m)   parts.push(m   + 'min');
+        if (sec) parts.push(sec + 's');
+        return parts.length ? parts.join(' ') : s + 's';
+    }
+
+    function fmtTime(unix) {
+        if (!unix) return '—';
+        return moment.unix(unix).format('MMM D, YYYY HH:mm');
+    }
+
+    function appBadge(name) {
+        if (!name) return '<span style="color:var(--text-muted)">—</span>';
+        return '<span class="app-badge" title="' + esc(name) + '">' + esc(name) + '</span>';
+    }
+
+    function esc(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function filter() { return $('#filter-input').val().trim().toLowerCase(); }
+
+    function matchFilter(task) {
+        var f = filter();
+        if (!f) return true;
+        return (task.Name       || '').toLowerCase().includes(f)
+            || (task.Creator    || '').toLowerCase().includes(f)
+            || (task.ScriptVpath|| '').toLowerCase().includes(f)
+            || (task.Description|| '').toLowerCase().includes(f)
+            || (task.AppName    || '').toLowerCase().includes(f);
+    }
+
+    function applyFilter() {
+        if (currentView === 'mine')   loadMine();
+        if (currentView === 'all')    loadAll();
+        if (currentView === 'remove') loadRemove();
+    }
+
+    function toast(msg) {
+        var el = document.getElementById('toast');
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(function() { el.style.display = 'none'; }, 2500);
+    }
+
+    /* ── My Tasks ── */
+    function loadMine() {
+        $.getJSON('../../system/arsm/aecron/list', function(data) {
+            var el = document.getElementById('list-mine');
+            var rows = (data || []).filter(matchFilter);
+            if (!rows.length) {
+                el.innerHTML = '<div class="empty-state">No scheduled tasks found.</div>';
+                return;
+            }
+            el.innerHTML = rows.map(function(t) {
+                var script = (t.ScriptVpath || '').split('/').pop();
+                return '<div class="task-row">'
+                    + '<span class="task-name" title="' + esc(t.Name) + '">' + esc(t.Name)
+                    + (t.Description ? '<br><small style="color:var(--text-muted);font-weight:400">' + esc(t.Description) + '</small>' : '')
+                    + '</span>'
+                    + '<span class="task-script" title="' + esc(t.ScriptVpath) + '">' + esc(t.ScriptVpath) + '</span>'
+                    + '<span>' + appBadge(t.AppName) + '</span>'
+                    + '<span class="task-interval">Every ' + fmtInterval(t.ExecutionInterval) + '</span>'
+                    + '</div>';
+            }).join('');
         });
+    }
 
-        handleWindowResize();
-        $(window).on("resize", function(){
-            handleWindowResize();
+    /* ── All Tasks ── */
+    function loadAll() {
+        $.getJSON('../../system/arsm/aecron/list?listall=true', function(data) {
+            var el = document.getElementById('list-all');
+            var rows = (data || []).filter(matchFilter);
+            if (!rows.length) {
+                el.innerHTML = '<div class="empty-state">No scheduled tasks found.</div>';
+                return;
+            }
+            el.innerHTML = rows.map(function(t) {
+                return '<div class="task-row all-cols">'
+                    + '<span class="task-name" title="' + esc(t.Name) + '">' + esc(t.Name) + '</span>'
+                    + '<span style="color:var(--text-dim);font-size:12.5px">' + esc(t.Creator) + '</span>'
+                    + '<span class="task-script" title="' + esc(t.ScriptVpath) + '">' + esc(t.ScriptVpath) + '</span>'
+                    + '<span>' + appBadge(t.AppName) + '</span>'
+                    + '<span class="task-interval">Every ' + fmtInterval(t.ExecutionInterval) + '</span>'
+                    + '<span class="task-basetime">' + fmtTime(t.BaseTime) + '</span>'
+                    + '</div>';
+            }).join('');
         });
-        function handleWindowResize(){
-            $("#main").css({
-                height: window.innerHeight + "px"
-            });
-        }
+    }
 
-        function removeTask(object){
-            var taskName = $(object).attr("name");
-            if (confirm("Removing " + taskName + ". Confirm?")){
-                $.ajax({
-                    url: "../../system/arsm/aecron/remove",
-                    data: {name: taskName},
-                    success: function(data){
-                        console.log(data);
-                        showRemoveSchedule();
-                    }
-                })
+    /* ── Remove ── */
+    function loadRemove() {
+        $.getJSON('../../system/arsm/aecron/list?listall=true', function(data) {
+            var el = document.getElementById('list-remove');
+            var rows = (data || []).filter(matchFilter);
+            if (!rows.length) {
+                el.innerHTML = '<div class="empty-state">No scheduled tasks.</div>';
+                return;
             }
-        }
+            el.innerHTML = rows.map(function(t) {
+                return '<div class="task-row remove-cols">'
+                    + '<span class="task-name" title="' + esc(t.Name) + '">' + esc(t.Name) + '</span>'
+                    + '<span style="color:var(--text-dim);font-size:12.5px">' + esc(t.Creator) + '</span>'
+                    + '<span class="task-script" title="' + esc(t.ScriptVpath) + '">' + esc(t.ScriptVpath) + '</span>'
+                    + '<span>' + appBadge(t.AppName) + '</span>'
+                    + '<span class="task-interval">Every ' + fmtInterval(t.ExecutionInterval) + '</span>'
+                    + '<span><button class="btn danger sm" onclick="removeTask(' + JSON.stringify(esc(t.Name)) + ')">Remove</button></span>'
+                    + '</div>';
+            }).join('');
+        });
+    }
 
-        function newTaskUI(btn){
-            $(".view").hide();
-            $(".functBtn.active").removeClass("active");
-            $("#nsb").addClass("active");
-            $("#newTask").show();
-        }
+    function removeTask(name) {
+        if (!confirm('Remove task "' + name + '"? This cannot be undone.')) return;
+        $.post('../../system/arsm/aecron/remove', { name: name }, function(data) {
+            if (data && data.error) { alert(data.error); return; }
+            toast('Task removed.');
+            loadRemove();
+        });
+    }
 
-        function scheduleListAll(btn){
-            $(".view").hide();
-            $("#scheudleListAll").show();
-            $(".functBtn.active").removeClass("active");
-            $("#asb").addClass("active");
-            initScheduleFullList();
-        }
-
-        function showLogInfo(btn){
-            $(".view").hide();
-            $("#listLog").show();
-            $(".functBtn.active").removeClass("active");
-            $("#log").addClass("active");
-            initLogIndex();
-        }
-
-        function scheduleList(btn){
-            $(".view").hide();
-            $(".functBtn.active").removeClass("active");
-            $("#stb").addClass("active");
-            $("#scheduleView").show();
-            initScheduleList();
-        }
-
-        function showRemoveSchedule(btn){
-            $(".view").hide();
-            $(".functBtn.active").removeClass("active");
-            $("#rsb").addClass("active");
-            $("#removeShedule").show();
-            initRemoveScheduleList();
-        }
-
-        function initLogIndex(){
-            $("#logIndex").html("");
-            $.get("../../system/arsm/aecron/listlog", function(data){
-                if (data.error !== undefined){
-                    alert(data.error);
-                }else{
-                    $("#logIndex").append(`<option value="">Date (DD-MM-YYYY)</option>`);
-                    data.forEach(logFile => {
-                        var filename = logFile.split("/").pop();
-                        $("#logIndex").append(`<option value="${filename}">${filename}</option>`);
-                    });
-
-                }
-            })
-        }
-
-        function initRemoveScheduleList(){
-            $.ajax({
-                url: "../../system/arsm/aecron/list?listall=true",
-                data: {},
-                success: function(data){
-                    $("#removeScheduleList").html("");
-                    if (data.length == 0){
-                        $("#removeScheduleList").append(`<tr>
-                            <td colspan="4">
-                                No registered schedule.
-                            </td>
-                        </tr>`);
-                    }else{
-                        data.forEach(task => {
-                            var filter = $("#filter").val().trim();
-                            if (filter != ""){
-                                //Apply filter to the results
-                                if (task.Creator.includes(filter) || task.Name.includes(filter) || task.Description.includes(filter)){
-                                    //Matching
-                                }else{
-                                    //Not matching
-                                    return
-                                }
-                            }
-
-                            var scriptLocation = task.ScriptVpath;
-                            var removebutton = `<button class="ui negative mini button" name="${task.Name}" onclick="removeTask(this);">Remove</button>`;
-                            
-                            $("#removeScheduleList").append(`<tr>
-                                <td class="collapsing">
-                                    <i class="user icon"></i> ${task.Name} (${task.Creator})
-                                </td>
-                                <td>${scriptLocation}</td>
-                                <td>${task.Description}</td>
-                                <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
-                                <td class="right aligned collapsing">
-                                    ${removebutton}
-                                </td>
-                            </tr>`);
-                        });
-                    }
-                }
-            });
-        }
-
-        //Handle task creation
-        function handleTaskSubmition(e){
-            e.preventDefault();
-            var taskName = $("#tasknanme").val();
-            var desc = $("#desc").val();
-            var scriptPath = $("#scriptpath").val();
-            var interval = parseFloat($("#intervalvalue").val()) * parseFloat($("#intervalunit").val());
-            var baseunix = Date.now();
-            var baseTimeframe = $("#intervalbase").val();
-            switch (baseTimeframe){
-                case "now":
-                    //Round off to the nearest minute
-                    baseunix = moment().startOf('minute').unix()
-                    break;
-                case "hour":
-                    baseunix = moment().startOf('hour').unix()
-                    break;
-                case "day":
-                    baseunix = moment().startOf('day').unix()
-                    break;
-                case "month":
-                    baseunix = moment().startOf('month').unix()
-                    break;
-                 case "year":
-                    baseunix = moment().startOf('year').unix()
-                    break;
-                case "mon":
-                    baseunix = moment().startOf('week').add(1,'days').unix(); 
-                    break;
-                case "tue":
-                    baseunix = moment().startOf('week').add(2,'days').unix(); 
-                    break;
-                case "wed":
-                    baseunix = moment().startOf('week').add(3,'days').unix(); 
-                    break;
-                case "thu":
-                    baseunix = moment().startOf('week').add(4,'days').unix(); 
-                    break;
-                case "fri":
-                    baseunix = moment().startOf('week').add(5,'days').unix(); 
-                    break;
-                case "sat":
-                    baseunix = moment().startOf('week').add(6,'days').unix(); 
-                    break;
-                case "sun":
-                    baseunix = moment().startOf('week').unix(); 
-                    break;
+    /* ── New Task ── */
+    function initNewTaskView() {
+        $.getJSON('../../system/arsm/aecron/permission', function(data) {
+            if (!data || !data.CanCreate) {
+                document.getElementById('noPermMessage').style.display = 'block';
+                document.getElementById('newTaskForm').style.display  = 'none';
+            } else {
+                document.getElementById('noPermMessage').style.display = 'none';
+                document.getElementById('newTaskForm').style.display  = 'block';
             }
+        });
+    }
 
-            //Create ajax request
-            $.ajax({
-                url: "../../system/arsm/aecron/add",
-                method: "POST",
-                data: {
-                    "name":taskName,
-                    "interval": interval,
-                    "base": baseunix,
-                    "desc": desc,
-                    "path": scriptPath
-                },
-                success: function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{ 
-                        //Clear all inputs
-                        $("#tasknanme").val("");
-                        $("#desc").val("");
-                        $("#scriptpath").val("");
+    function checkExt(val) {
+        var ext = (val.split('.').pop() || '').toLowerCase();
+        var warn = document.getElementById('extWarn');
+        warn.style.display = (ext === 'agi' || ext === 'js' || val === '') ? 'none' : 'block';
+    }
 
-                        //Update the list and show it
-                        scheduleList();
-                    }
-                }
-            })
-            
+    // ao_module_openFileSelector requires a named function — it passes callback.name
+    // as a string to the parent window. An anonymous function has name="" and fails.
+    function scriptSelected(files) {
+        if (!files || !files.length) return;
+        var fp = files[0].filepath;
+        document.getElementById('scriptpath').value = fp;
+        checkExt(fp);
+    }
+
+    function openFileSelector() {
+        ao_module_openFileSelector(scriptSelected, 'user:/', 'file', false);
+    }
+
+    function baseUnix(base) {
+        switch (base) {
+            case 'now':   return moment().startOf('minute').unix();
+            case 'hour':  return moment().startOf('hour').unix();
+            case 'day':   return moment().startOf('day').unix();
+            case 'month': return moment().startOf('month').unix();
+            case 'year':  return moment().startOf('year').unix();
+            case 'mon':   return moment().startOf('week').add(1,'days').unix();
+            case 'tue':   return moment().startOf('week').add(2,'days').unix();
+            case 'wed':   return moment().startOf('week').add(3,'days').unix();
+            case 'thu':   return moment().startOf('week').add(4,'days').unix();
+            case 'fri':   return moment().startOf('week').add(5,'days').unix();
+            case 'sat':   return moment().startOf('week').add(6,'days').unix();
+            case 'sun':   return moment().startOf('week').unix();
+            default:      return moment().startOf('minute').unix();
         }
+    }
 
-        function applyFilter(){
-            initScheduleFullList();
-            initScheduleList();
-            initRemoveScheduleList();
-        }
+    function submitNewTask() {
+        var name       = $('#taskname').val().trim();
+        var desc       = $('#desc').val().trim();
+        var scriptPath = $('#scriptpath').val().trim();
+        var interval   = parseFloat($('#intervalvalue').val()) * parseFloat($('#intervalunit').val());
+        var base       = baseUnix($('#intervalbase').val());
 
-        function loadLogFile(filename){
-            $.get("../../system/arsm/aecron/listlog?filename=" + filename, function(data){
-                $("#logPreview").text(data);
-            })
-        }
+        if (!name) { alert('Task name is required.'); return; }
+        if (!scriptPath) { alert('Script path is required.'); return; }
+        if (!interval || interval < 60) { alert('Interval must be at least 1 minute.'); return; }
 
-        function handleFilterEnterKeydown(event){
-            if (event.which == 13){
-                event.preventDefault();
-                applyFilter();
-            }
-        }
+        $.post('../../system/arsm/aecron/add', {
+            name: name, desc: desc, path: scriptPath,
+            interval: interval, base: base
+        }, function(data) {
+            if (data && data.error) { alert(data.error); return; }
+            $('#taskname').val('');
+            $('#desc').val('');
+            $('#scriptpath').val('');
+            toast('Task created!');
+            showView('mine');
+        });
+    }
 
-        function openFileSelector(){
-            ao_module_openFileSelector(scriptSelected, "user:/", "file", false);
-        }
-
-        function scriptSelected(filedata){
-            for (var i=0; i < filedata.length; i++){
-                var filename = filedata[i].filename;
-                var filepath = filedata[i].filepath;
-                $("#scriptpath").val(filepath);
-
-                //See if the filepath end with valid extension
-                var ext = filepath.split(".").pop();
-                if (ext == "js" || ext == "agi" || ext == "sh" || ext == "bat"){
-                    $("#extensionWarning").hide();
-                }else{
-                    $("#extensionWarning").show();
-                }
-            }
-        }
-    </script>
+    /* ── Init ── */
+    loadMine();
+</script>
 </body>
 </html>
