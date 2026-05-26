@@ -11,113 +11,103 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     #uu-root {
-        --uu-text:         #1d1d1f;
-        --uu-dim:          #6e6e73;
-        --uu-muted:        #98989d;
-        --uu-divider:      #d2d2d7;
-        --uu-bg:           #f2f2f7;
+        --uu-text:         #202124;
+        --uu-body:         #3c4043;
+        --uu-dim:          #5f6368;
+        --uu-muted:        #9aa0a6;
+        --uu-sep:          #dadce0;
+        --uu-bg:           #f8f9fa;
         --uu-card-bg:      #ffffff;
-        --uu-card-border:  #e5e5ea;
-        --uu-input-bg:     #f5f5f7;
-        --uu-input-border: #d2d2d7;
-        --uu-input-focus:  rgba(0,113,227,0.22);
-        --uu-accent:       #0071e3;
-        --uu-danger:       #ff3b30;
-        --uu-hero-bg:      #0071e3;
-        --uu-shadow:       0 4px 24px rgba(0,0,0,0.08);
+        --uu-input-border: #dadce0;
+        --uu-input-focus:  #1967d2;
+        --uu-accent:       #1a73e8;
+        --uu-accent-press: #1558b0;
+        --uu-danger:       #d93025;
 
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
         font-size: 14px;
         -webkit-font-smoothing: antialiased;
-        color: var(--uu-text);
+        color: var(--uu-body);
         background: var(--uu-bg);
         min-height: 100vh;
     }
 
     #uu-root.dark {
-        --uu-text:         #f0f0f0;
-        --uu-dim:          #a0a0a5;
-        --uu-muted:        #636368;
-        --uu-divider:      #3a3a3c;
-        --uu-bg:           #1c1c1e;
-        --uu-card-bg:      #2c2c2e;
-        --uu-card-border:  #3a3a3c;
-        --uu-input-bg:     #3a3a3c;
-        --uu-input-border: #48484a;
-        --uu-input-focus:  rgba(41,151,255,0.28);
-        --uu-accent:       #2997ff;
-        --uu-danger:       #ff453a;
-        --uu-hero-bg:      #0a3464;
-        --uu-shadow:       0 4px 24px rgba(0,0,0,0.36);
+        --uu-text:         #e8eaed;
+        --uu-body:         #bdc1c6;
+        --uu-dim:          #9aa0a6;
+        --uu-muted:        #5f6368;
+        --uu-sep:          #3c4043;
+        --uu-bg:           #202124;
+        --uu-card-bg:      #292a2d;
+        --uu-input-border: #5f6368;
+        --uu-input-focus:  #8ab4f8;
+        --uu-accent:       #8ab4f8;
+        --uu-accent-press: #aecbfa;
+        --uu-danger:       #f28b82;
     }
 
     body { background: var(--uu-bg); }
 
-    /* ── Outer centering wrapper ── */
+    /* ── Layout ── */
     #uu-outer {
         min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 28px 16px;
+        padding: 24px 16px;
     }
 
     /* ── Card ── */
     #uu-card {
         width: 100%;
-        max-width: 440px;
+        max-width: 450px;
         background: var(--uu-card-bg);
-        border: 1px solid var(--uu-card-border);
-        border-radius: 14px;
-        box-shadow: var(--uu-shadow);
+        border-radius: 8px;
+        border: 1px solid var(--uu-sep);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
         overflow: hidden;
     }
 
-    /* ── Hero ── */
-    #uu-hero {
-        background: var(--uu-hero-bg);
-        padding: 22px 26px 18px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
+    #uu-root.dark #uu-card {
+        box-shadow: 0 1px 4px rgba(0,0,0,0.40);
     }
 
-    #uu-hero-icon {
-        width: 42px;
-        height: 42px;
-        background: rgba(255,255,255,0.18);
-        border-radius: 11px;
+    /* ── Header ── */
+    #uu-hero {
+        padding: 32px 40px 22px;
         display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--uu-sep);
     }
+
+    #uu-hero-icon { display: none; }
 
     #uu-hero-title {
-        font-size: 17px;
-        font-weight: 600;
-        color: #fff;
+        font-size: 24px;
+        font-weight: 400;
+        color: var(--uu-text);
         line-height: 1.25;
+        letter-spacing: 0;
     }
 
     #uu-hero-sub {
-        font-size: 12px;
-        color: rgba(255,255,255,0.7);
-        margin-top: 3px;
-        line-height: 1.4;
+        font-size: 13px;
+        color: var(--uu-dim);
+        margin-top: 8px;
+        line-height: 1.5;
     }
 
     /* ── Form body ── */
-    #uu-body { padding: 22px 26px 24px; }
+    #uu-body { padding: 24px 40px 32px; }
 
-    .uu-field { margin-bottom: 15px; }
+    .uu-field { margin-bottom: 20px; }
 
     .uu-label {
         display: block;
-        font-size: 11.5px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        font-size: 13px;
+        font-weight: 400;
         color: var(--uu-dim);
         margin-bottom: 6px;
     }
@@ -127,9 +117,9 @@
     .uu-input {
         width: 100%;
         padding: 9px 12px;
-        border-radius: 8px;
+        border-radius: 4px;
         border: 1px solid var(--uu-input-border);
-        background: var(--uu-input-bg);
+        background: transparent;
         color: var(--uu-text);
         font-family: inherit;
         font-size: 14px;
@@ -139,22 +129,21 @@
         -webkit-appearance: none;
     }
 
+    .uu-input::placeholder { color: var(--uu-muted); }
+
     .uu-input:focus {
-        border-color: var(--uu-accent);
-        box-shadow: 0 0 0 3px var(--uu-input-focus);
+        border-color: var(--uu-input-focus);
+        box-shadow: 0 0 0 1px var(--uu-input-focus);
     }
 
     .uu-input.error {
         border-color: var(--uu-danger);
-        box-shadow: 0 0 0 3px rgba(255,59,48,0.16);
-    }
-
-    #uu-root.dark .uu-input.error {
-        box-shadow: 0 0 0 3px rgba(255,69,58,0.2);
+        box-shadow: 0 0 0 1px var(--uu-danger);
     }
 
     select.uu-input {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2398989d' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-color: var(--uu-card-bg);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235f6368' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 12px center;
         padding-right: 32px;
@@ -164,70 +153,77 @@
     /* ── Error alert ── */
     #uu-err {
         display: none;
-        background: rgba(255,59,48,0.07);
-        border: 1px solid rgba(255,59,48,0.22);
-        border-radius: 8px;
+        background: rgba(217,48,37,0.06);
+        border: 1px solid rgba(217,48,37,0.20);
+        border-radius: 4px;
         padding: 10px 12px;
-        margin-bottom: 14px;
+        margin-bottom: 16px;
         font-size: 13px;
         color: var(--uu-danger);
     }
 
-    #uu-root.dark #uu-err { background: rgba(255,69,58,0.1); }
+    #uu-root.dark #uu-err {
+        background: rgba(242,139,130,0.08);
+        border-color: rgba(242,139,130,0.28);
+    }
 
     /* ── Required note ── */
     #uu-note {
-        font-size: 11.5px;
+        font-size: 12px;
         color: var(--uu-muted);
-        margin-bottom: 16px;
+        margin-bottom: 20px;
     }
 
     /* ── Divider ── */
     .uu-divider {
         height: 1px;
-        background: var(--uu-divider);
-        margin-bottom: 16px;
+        background: var(--uu-sep);
+        margin-bottom: 20px;
     }
 
     /* ── Actions ── */
     #uu-actions {
         display: flex;
         justify-content: flex-end;
+        align-items: center;
         gap: 8px;
     }
 
     .uu-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 5px;
-        padding: 8px 18px;
-        border-radius: 8px;
-        border: 1px solid var(--uu-card-border);
+        padding: 9px 24px;
+        border-radius: 4px;
+        border: none;
         font-family: inherit;
-        font-size: 13.5px;
+        font-size: 14px;
         font-weight: 500;
         cursor: pointer;
         outline: none;
-        background: var(--uu-input-bg);
-        color: var(--uu-text);
-        transition: background 0.1s, opacity 0.1s;
+        background: transparent;
+        color: var(--uu-accent);
+        transition: background 0.12s;
         white-space: nowrap;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
     }
 
-    .uu-btn:hover  { background: rgba(0,0,0,0.05); }
-    .uu-btn:active { background: rgba(0,0,0,0.09); }
+    .uu-btn:hover  { background: rgba(26,115,232,0.08); }
+    .uu-btn:active { background: rgba(26,115,232,0.14); }
 
-    #uu-root.dark .uu-btn:hover  { background: rgba(255,255,255,0.07); }
-    #uu-root.dark .uu-btn:active { background: rgba(255,255,255,0.12); }
+    #uu-root.dark .uu-btn:hover  { background: rgba(138,180,248,0.10); }
+    #uu-root.dark .uu-btn:active { background: rgba(138,180,248,0.16); }
 
     .uu-btn.primary {
         background: var(--uu-accent);
-        color: #fff;
-        border-color: var(--uu-accent);
+        color: #ffffff;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.10);
     }
 
-    .uu-btn.primary:hover  { opacity: 0.86; background: var(--uu-accent); }
-    .uu-btn.primary:active { opacity: 0.72; }
+    .uu-btn.primary:hover  { background: var(--uu-accent-press); }
+    .uu-btn.primary:active { opacity: 0.88; }
     </style>
 </head>
 <body>
@@ -239,8 +235,8 @@
     <div id="uu-hero">
         <div id="uu-hero-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="8" r="4" stroke="white" stroke-width="1.6"/>
-                <path d="M4 20c0-3.314 3.582-6 8-6s8 2.686 8 6" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M4 20c0-3.314 3.582-6 8-6s8 2.686 8 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
             </svg>
         </div>
         <div>

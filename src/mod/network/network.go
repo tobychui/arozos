@@ -3,10 +3,13 @@ package network
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 
 	"gitlab.com/NebulousLabs/go-upnp"
@@ -14,103 +17,220 @@ import (
 )
 
 type NICS struct {
+	Name               string
+	Index              int
 	Flags              string
 	HardwareAddr       string
-	Index              int
 	MTU                int
 	IPv4Addr           string
-	IPv6Addr           string
+	IPv4Mask           string   // subnet mask e.g. "255.255.255.0"
+	IPv6Addr           string   // first IPv6 addr (kept for compatibility)
+	IPv6Addrs          []string // all unicast IPv6 addresses
 	IPv4MulticastAddrs string
 	IPv6MulticastAddrs string
-	Name               string
+	// Enhanced details — populated from /sys/class/net/ on Linux;
+	// gracefully falls back to "N/A" on embedded / non-Linux platforms.
+	OperState string // "up" / "down" / "dormant" / "unknown"
+	Speed     string // "1 Gbps", "100 Mbps", "N/A"
+	Duplex    string // "Full" / "Half" / "N/A"
+	Type      string // "ethernet" / "wifi" / "loopback" / "vpn" / "virtual" / "unknown"
+}
+
+// readSysNet reads a sysfs network attribute for the given interface.
+// Returns "" on any error — absent on non-Linux or minimal embedded systems
+// (busybox, Yocto builds without sysfs, etc.).
+func readSysNet(ifaceName, attr string) string {
+	data, err := os.ReadFile("/sys/class/net/" + ifaceName + "/" + attr)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// nicOperState returns the operational state of the interface.
+// Reads /sys/class/net/<iface>/operstate; falls back to net.FlagUp.
+func nicOperState(iface net.Interface) string {
+	if s := readSysNet(iface.Name, "operstate"); s != "" {
+		return s
+	}
+	if iface.Flags&net.FlagUp != 0 {
+		return "up"
+	}
+	return "down"
+}
+
+// nicSpeed reads /sys/class/net/<iface>/speed (Mbps integer) and formats it.
+// Returns "N/A" on embedded platforms or interfaces that don't expose speed.
+func nicSpeed(ifaceName string) string {
+	raw := readSysNet(ifaceName, "speed")
+	if raw == "" {
+		return "N/A"
+	}
+	mbps, err := strconv.Atoi(raw)
+	if err != nil || mbps <= 0 {
+		// -1 is common for WiFi / virtual interfaces
+		return "N/A"
+	}
+	if mbps >= 1000 {
+		if mbps%1000 == 0 {
+			return fmt.Sprintf("%d Gbps", mbps/1000)
+		}
+		return fmt.Sprintf("%.1f Gbps", float64(mbps)/1000.0)
+	}
+	return fmt.Sprintf("%d Mbps", mbps)
+}
+
+// nicDuplex reads /sys/class/net/<iface>/duplex.
+// Returns "N/A" when not available (common on Wi-Fi, loopback, virtual).
+func nicDuplex(ifaceName string) string {
+	switch strings.ToLower(readSysNet(ifaceName, "duplex")) {
+	case "full":
+		return "Full"
+	case "half":
+		return "Half"
+	default:
+		return "N/A"
+	}
+}
+
+// nicType classifies the interface as ethernet / wifi / loopback / vpn / virtual / unknown.
+func nicType(iface net.Interface) string {
+	name := strings.ToLower(iface.Name)
+	if iface.Flags&net.FlagLoopback != 0 {
+		return "loopback"
+	}
+	for _, p := range []string{"wlan", "wlp", "wl"} {
+		if strings.HasPrefix(name, p) {
+			return "wifi"
+		}
+	}
+	for _, p := range []string{"eth", "enp", "eno", "ens", "en"} {
+		if strings.HasPrefix(name, p) {
+			return "ethernet"
+		}
+	}
+	for _, p := range []string{"tun", "tap"} {
+		if strings.HasPrefix(name, p) {
+			return "vpn"
+		}
+	}
+	for _, kw := range []string{"vpn", "zerotier", "zt", "hamachi", "openvpn"} {
+		if strings.Contains(name, kw) {
+			return "vpn"
+		}
+	}
+	for _, kw := range []string{"docker", "veth", "br-", "virbr", "vmnet", "vbox", "hyperv"} {
+		if strings.HasPrefix(name, kw) || strings.Contains(name, kw) {
+			return "virtual"
+		}
+	}
+	return "unknown"
 }
 
 func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		utils.SendJSONResponse(w, err.Error())
+		utils.SendErrorResponse(w, err.Error())
+		return
 	}
+
 	var NICList []NICS
-	for _, i := range interfaces {
-		InterfaceName := i.Name
-		InterfaceIPv4 := ""
-		InterfaceIPv6 := ""
-		Flags := i.Flags.String()
-		HardwareAddr := i.HardwareAddr.String()
-		Index := i.Index
-		MTU := i.MTU
-		IPv4MulticastAddr := ""
-		IPv6MulticastAddr := ""
+	for _, iface := range interfaces {
+		ipv4Addr := ""
+		ipv4Mask := ""
+		var ipv6Addrs []string
 
-		if HardwareAddr == "" {
-			HardwareAddr = "N/A"
-		}
-
-		Addrs, _ := i.Addrs()
-		for _, addr := range Addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			ip = ip.To4()
-			if ip != nil {
-				InterfaceIPv4 = ip.String()
-			} else {
-				InterfaceIPv6 = ip.String()
+		if addrs, aerr := iface.Addrs(); aerr == nil {
+			for _, addr := range addrs {
+				switch v := addr.(type) {
+				case *net.IPNet:
+					if v.IP.To4() != nil {
+						ipv4Addr = v.IP.String()
+						ipv4Mask = net.IP(v.Mask).String()
+					} else {
+						ipv6Addrs = append(ipv6Addrs, v.IP.String())
+					}
+				case *net.IPAddr:
+					if v.IP.To4() != nil {
+						ipv4Addr = v.IP.String()
+					} else {
+						ipv6Addrs = append(ipv6Addrs, v.IP.String())
+					}
+				}
 			}
 		}
-		if InterfaceIPv4 == "" || InterfaceIPv4 == "<nil>" {
-			InterfaceIPv4 = "N/A"
+		if ipv4Addr == "" {
+			ipv4Addr = "N/A"
 		}
-		if InterfaceIPv6 == "" || InterfaceIPv6 == "<nil>" {
-			InterfaceIPv6 = "N/A"
+		if ipv4Mask == "" {
+			ipv4Mask = "N/A"
+		}
+		if ipv6Addrs == nil {
+			ipv6Addrs = []string{}
 		}
 
-		MultiAddrs, _ := i.MulticastAddrs()
-		for _, addr := range MultiAddrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			ip = ip.To4()
-			if ip != nil {
-				IPv4MulticastAddr = ip.String()
-			} else {
-				IPv6MulticastAddr = ip.String()
+		ipv4McastAddr := ""
+		ipv6McastAddr := ""
+		if maddrs, merr := iface.MulticastAddrs(); merr == nil {
+			for _, addr := range maddrs {
+				var ip net.IP
+				switch v := addr.(type) {
+				case *net.IPNet:
+					ip = v.IP
+				case *net.IPAddr:
+					ip = v.IP
+				}
+				if ip != nil {
+					if ip.To4() != nil {
+						ipv4McastAddr = ip.String()
+					} else {
+						ipv6McastAddr = ip.String()
+					}
+				}
 			}
 		}
-		if IPv4MulticastAddr == "" || IPv4MulticastAddr == "<nil>" {
-			IPv4MulticastAddr = "N/A"
+		if ipv4McastAddr == "" {
+			ipv4McastAddr = "N/A"
 		}
-		if IPv6MulticastAddr == "" || IPv6MulticastAddr == "<nil>" {
-			IPv6MulticastAddr = "N/A"
+		if ipv6McastAddr == "" {
+			ipv6McastAddr = "N/A"
+		}
+
+		hwAddr := iface.HardwareAddr.String()
+		if hwAddr == "" {
+			hwAddr = "N/A"
+		}
+
+		ipv6First := "N/A"
+		if len(ipv6Addrs) > 0 {
+			ipv6First = ipv6Addrs[0]
 		}
 
 		n := NICS{
-			Flags:              Flags,
-			HardwareAddr:       HardwareAddr,
-			Index:              Index,
-			MTU:                MTU,
-			IPv4Addr:           InterfaceIPv4,
-			IPv6Addr:           InterfaceIPv6,
-			IPv4MulticastAddrs: IPv4MulticastAddr,
-			IPv6MulticastAddrs: IPv6MulticastAddr,
-			Name:               InterfaceName,
+			Name:               iface.Name,
+			Index:              iface.Index,
+			Flags:              iface.Flags.String(),
+			HardwareAddr:       hwAddr,
+			MTU:                iface.MTU,
+			IPv4Addr:           ipv4Addr,
+			IPv4Mask:           ipv4Mask,
+			IPv6Addr:           ipv6First,
+			IPv6Addrs:          ipv6Addrs,
+			IPv4MulticastAddrs: ipv4McastAddr,
+			IPv6MulticastAddrs: ipv6McastAddr,
+			OperState:          nicOperState(iface),
+			Speed:              nicSpeed(iface.Name),
+			Duplex:             nicDuplex(iface.Name),
+			Type:               nicType(iface),
 		}
-
 		NICList = append(NICList, n)
 	}
 
-	var jsonData []byte
-	jsonData, err = json.Marshal(NICList)
+	jsonData, err := json.Marshal(NICList)
 	if err != nil {
 		log.Println(err)
+		utils.SendErrorResponse(w, "Failed to encode NIC data")
+		return
 	}
 	utils.SendJSONResponse(w, string(jsonData))
 }

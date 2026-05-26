@@ -182,19 +182,7 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	//Migrated the creation process to a seperated function
 	h.NewPermissionGroup(groupname, isAdmin == "true", int64(quotaInt), permissionSlice, interfaceModule)
-
-	/*
-		//OK. Write the results into database
-		h.database.Write("permission", "group/" + groupname, permission)
-		h.database.Write("permission", "isadmin/" + groupname, isAdmin)
-		h.database.Write("permission", "quota/" + groupname, int64(quotaInt))
-		h.database.Write("permission", "interfaceModule/" + groupname, interfaceModule)
-
-		//Update the current cached permission group table
-		h.LoadPermissionGroupsFromDatabase()
-	*/
 
 	utils.SendOK(w)
 	log.Println("Creating New Permission Group:", groupname, permission, isAdmin, quota)

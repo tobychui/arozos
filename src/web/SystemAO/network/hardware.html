@@ -1,56 +1,358 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
-    <script type="text/javascript" src="../../script/jquery.min.js"></script>
-    <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Network Interfaces</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <style>
-        .ts.items>.item>.image:not(.ts):not(.flexible) {
-            width: 60px;
-        }
-    </style>
+    <script src="../../script/jquery.min.js"></script>
 </head>
-
-
 <body>
-    <br>
-    <div class="ui container">
-        <div class="ui divided items" id="nics">
-        </div>
+<!-- NOTE: <style> is intentionally in <body> so it is injected correctly
+     when this page is loaded via jQuery .load() into system settings.    -->
+<style>
+/* ── Network Interfaces ── */
+#ni-root {
+    --ni-card-bg:     #ffffff;
+    --ni-card-border: rgba(0,0,0,0.07);
+    --ni-card-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 0 1px rgba(0,0,0,0.04);
+    --ni-text:        #1a1a1a;
+    --ni-dim:         #5a5a5a;
+    --ni-muted:       #9a9a9a;
+    --ni-up-bg:       #e6f4ea;
+    --ni-up-fg:       #0f7b0f;
+    --ni-down-bg:     #f0f0f0;
+    --ni-down-fg:     #767676;
+    --ni-chip-bg:     #f0f0f0;
+    --ni-chip-fg:     #444444;
+    --ni-sep:         rgba(0,0,0,0.07);
+    --ni-icon-bg:     #eff6fc;
+
+    font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ni-text);
+    padding: 4px 0 28px;
+}
+
+/* Dark-mode: parent body gets .dark from system settings shell */
+body.dark #ni-root {
+    --ni-card-bg:     #2d2d2d;
+    --ni-card-border: rgba(255,255,255,0.08);
+    --ni-card-shadow: 0 2px 10px rgba(0,0,0,0.3), 0 0 1px rgba(0,0,0,0.5);
+    --ni-text:        #f0f0f0;
+    --ni-dim:         #b0b0b0;
+    --ni-muted:       #808080;
+    --ni-up-bg:       rgba(16,123,16,0.18);
+    --ni-up-fg:       #6ccb6c;
+    --ni-down-bg:     rgba(255,255,255,0.06);
+    --ni-down-fg:     #9a9a9a;
+    --ni-chip-bg:     rgba(255,255,255,0.08);
+    --ni-chip-fg:     #c0c0c0;
+    --ni-sep:         rgba(255,255,255,0.07);
+    --ni-icon-bg:     rgba(96,180,244,0.12);
+}
+
+#ni-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 12px;
+    padding: 8px 16px;
+}
+
+/* ── Card ── */
+.ni-card {
+    background: var(--ni-card-bg);
+    border: 1px solid var(--ni-card-border);
+    border-radius: 12px;
+    box-shadow: var(--ni-card-shadow);
+    overflow: hidden;
+}
+
+/* ── Card header ── */
+.ni-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px 13px;
+}
+
+.ni-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    background: var(--ni-icon-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ni-icon img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.ni-title { flex: 1; min-width: 0; }
+
+.ni-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ni-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ni-type {
+    font-size: 12px;
+    color: var(--ni-dim);
+    margin-top: 2px;
+}
+
+.ni-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px 3px 8px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 500;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.ni-badge.up      { background: var(--ni-up-bg);   color: var(--ni-up-fg); }
+.ni-badge.down,
+.ni-badge.dormant,
+.ni-badge.unknown { background: var(--ni-down-bg);  color: var(--ni-down-fg); }
+
+.ni-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+/* ── Properties grid ──
+   Gap shows the container background as a visual separator.     */
+.ni-props {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--ni-sep);
+    border-top: 1px solid var(--ni-sep);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ni-prop {
+    background: var(--ni-card-bg);
+    padding: 9px 14px;
+}
+
+.ni-prop.full { grid-column: 1 / -1; }
+
+.ni-prop dt {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ni-muted);
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.ni-prop dd {
+    font-size: 12.5px;
+    color: var(--ni-text);
+    font-family: 'Cascadia Mono', 'Consolas', 'Menlo', monospace;
+    word-break: break-all;
+    margin: 0;
+}
+
+.ni-prop dd.na {
+    color: var(--ni-muted);
+    font-family: inherit;
+    font-style: italic;
+    font-size: 12px;
+}
+
+.ni-ipv6-list { display: flex; flex-direction: column; gap: 2px; }
+
+/* ── Flag chips ── */
+.ni-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 10px 14px 12px;
+    border-top: 1px solid var(--ni-sep);
+}
+
+.ni-chip {
+    background: var(--ni-chip-bg);
+    color: var(--ni-chip-fg);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* ── Empty / error state ── */
+.ni-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 24px;
+    gap: 12px;
+    color: var(--ni-dim);
+    text-align: center;
+}
+
+.ni-state svg { opacity: 0.3; }
+.ni-state-msg { font-size: 13px; }
+</style>
+
+<div id="ni-root">
+    <div id="ni-grid" class="ni-grid">
+        <!-- cards populated by JS -->
     </div>
+</div>
 
-    <script>
-        var template = '<div class="item"><div class="image"><img style="height:64px;width:auto" src="/SystemAO/network/img/%image%"></div><div class="content"><p class="header">%interfacename%</p><div class="description">%data%</div></div></div>';
+<script>
+(function () {
+    /* ── Helpers ── */
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
 
-        $.getJSON("../../system/network/getNICinfo", function(result) {
-            $.each(result, function(i, field) {
-                var image = getImageFromName(field.Name);
-                $("#nics").append(template.replace("%image%", image).replace("%interfacename%", field["Name"]).replace("%data%", "MAC Address : " + field["HardwareAddr"] + "<br>IPv4 Address : " + field["IPv4Addr"] + "<br>IPv6 Address : " + field["IPv6Addr"]));
-            });
-        });
+    function typeLabel(t) {
+        return ({ ethernet: 'Ethernet', wifi: 'Wi-Fi', loopback: 'Loopback',
+                  vpn: 'VPN / Tunnel', virtual: 'Virtual / Bridge' }[t] || 'Network Adapter');
+    }
 
-        function getImageFromName(nicname){
-            nicname = nicname.toLowerCase().trim();
-            if (nicname.includes("loopback") || nicname == "lo"){
-                return "loopback.svg"
-            }else if (nicname.substr(0,3) == "enp" || nicname.substr(0,3) == "eth"){
-                return "ethernet.svg";
-            }else if (nicname.substr(0,3) == "wlp" || nicname.substr(0,4) == "wlan"){
-                return "wifi.svg";
-            }else if (nicname.includes("isatap")){
-                return "isatap.svg";
-            }else if (nicname.includes("hamachi") || nicname.includes("zerotier") || nicname.includes("openvpn")){
-                return "vpn.svg";
-            }else if (nicname.includes("hyper-v") || nicname.includes("virtualbox")){
-                return "virtualize.svg";
+    function imageForType(type, name) {
+        if (type === 'loopback') return 'loopback.svg';
+        if (type === 'wifi')     return 'wifi.svg';
+        if (type === 'vpn')      return 'vpn.svg';
+        if (type === 'virtual')  return 'virtualize.svg';
+        if (type === 'ethernet') return 'ethernet.svg';
+        var n = (name || '').toLowerCase();
+        if (n.includes('isatap'))                               return 'isatap.svg';
+        if (n.includes('hyper-v') || n.includes('virtualbox')) return 'virtualize.svg';
+        return 'Unknown.png';
+    }
+
+    function prop(label, value, full) {
+        var isNA = (value === '' || value === 'N/A' || value == null);
+        return '<div class="ni-prop' + (full ? ' full' : '') + '">' +
+               '<dt>' + label + '</dt>' +
+               '<dd class="' + (isNA ? 'na' : '') + '">' +
+               (isNA ? '&mdash;' : esc(String(value))) +
+               '</dd></div>';
+    }
+
+    /* ── Card builder ── */
+    function buildCard(nic) {
+        var img      = imageForType(nic.Type, nic.Name);
+        var tlabel   = typeLabel(nic.Type);
+        var state    = (nic.OperState || 'unknown').toLowerCase();
+        var stateStr = state.charAt(0).toUpperCase() + state.slice(1);
+        var badge    = ({ up:'up', down:'down', dormant:'dormant' }[state] || 'unknown');
+
+        var header =
+            '<div class="ni-header">' +
+              '<div class="ni-icon">' +
+                '<img src="/SystemAO/network/img/' + esc(img) + '" alt="" ' +
+                     'onerror="this.style.display=\'none\'">' +
+              '</div>' +
+              '<div class="ni-title">' +
+                '<div class="ni-name">' + esc(nic.Name) + '</div>' +
+                '<div class="ni-type">'  + esc(tlabel)  + '</div>' +
+              '</div>' +
+              '<div class="ni-badge ' + badge + '">' +
+                '<span class="ni-dot"></span>' + esc(stateStr) +
+              '</div>' +
+            '</div>';
+
+        /* IPv6 */
+        var v6list = Array.isArray(nic.IPv6Addrs) && nic.IPv6Addrs.length > 0
+            ? nic.IPv6Addrs
+            : (nic.IPv6Addr && nic.IPv6Addr !== 'N/A' ? [nic.IPv6Addr] : []);
+
+        var ipv6Html = (v6list.length === 0)
+            ? prop('IPv6 Address', null, true)
+            : '<div class="ni-prop full"><dt>IPv6 Address' + (v6list.length > 1 ? 'es' : '') + '</dt>' +
+              '<dd><div class="ni-ipv6-list">' +
+              v6list.map(function(a){ return '<div>' + esc(a) + '</div>'; }).join('') +
+              '</div></dd></div>';
+
+        var props =
+            '<dl class="ni-props">' +
+              prop('IPv4 Address', nic.IPv4Addr) +
+              prop('Subnet Mask',  nic.IPv4Mask) +
+              prop('Link Speed',   nic.Speed) +
+              prop('Duplex',       nic.Duplex) +
+              prop('MAC Address',  nic.HardwareAddr) +
+              prop('MTU',          nic.MTU ? String(nic.MTU) : null) +
+              ipv6Html +
+            '</dl>';
+
+        var flags = (nic.Flags || '').split('|').map(function(f){ return f.trim(); }).filter(Boolean);
+        var chips = flags.length
+            ? '<div class="ni-chips">' +
+              flags.map(function(f){ return '<span class="ni-chip">' + esc(f) + '</span>'; }).join('') +
+              '</div>'
+            : '';
+
+        return '<div class="ni-card">' + header + props + chips + '</div>';
+    }
+
+    /* ── Error state ── */
+    function showError(msg) {
+        $('#ni-grid').html(
+            '<div class="ni-state">' +
+            '<svg width="52" height="52" viewBox="0 0 52 52" fill="none">' +
+            '<circle cx="26" cy="26" r="22" stroke="currentColor" stroke-width="2"/>' +
+            '<path d="M26 16v11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>' +
+            '<circle cx="26" cy="34" r="1.5" fill="currentColor"/>' +
+            '</svg>' +
+            '<div class="ni-state-msg">' + esc(msg) + '</div>' +
+            '</div>'
+        );
+    }
+
+    /* ── Fetch ── */
+    $.ajax({
+        url: '../../system/network/getNICinfo',
+        method: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            if (!Array.isArray(data) || data.length === 0) {
+                showError('No network interfaces found.');
+                return;
             }
-            return "Unknown.png"
+            var html = '';
+            data.forEach(function(nic) { html += buildCard(nic); });
+            $('#ni-grid').html(html);
+        },
+        error: function(xhr) {
+            var msg = 'Failed to load network interface data.';
+            try {
+                var j = JSON.parse(xhr.responseText);
+                if (j && j.error) msg = j.error;
+            } catch (e) { /* ignore */ }
+            showError(msg);
         }
-    </script>
+    });
+}());
+</script>
 </body>
-
 </html>
