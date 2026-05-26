@@ -19,16 +19,19 @@ func OAuthInit() {
 		},
 	})
 
+	// Public endpoints (called before the user is authenticated)
 	http.HandleFunc("/system/auth/oauth/login", oAuthHandler.HandleLogin)
 	http.HandleFunc("/system/auth/oauth/authorize", oAuthHandler.HandleAuthorize)
 	http.HandleFunc("/system/auth/oauth/checkoauth", oAuthHandler.CheckOAuth)
+
+	// Admin-only configuration endpoints
 	adminRouter.HandleFunc("/system/auth/oauth/config/read", oAuthHandler.ReadConfig)
 	adminRouter.HandleFunc("/system/auth/oauth/config/write", oAuthHandler.WriteConfig)
-	adminRouter.HandleFunc("/system/auth/oauth/config/providers", oAuthHandler.ListProviders)
+	adminRouter.HandleFunc("/system/auth/oauth/config/discover", oAuthHandler.HandleDiscover)
 
 	registerSetting(settingModule{
 		Name:         "OAuth",
-		Desc:         "Allows external account access to system",
+		Desc:         "Sign in with any OIDC-compatible identity provider",
 		IconPath:     "SystemAO/advance/img/small_icon.png",
 		Group:        "Security",
 		StartDir:     "SystemAO/advance/oauth.html",
