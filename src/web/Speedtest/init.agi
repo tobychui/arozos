@@ -9,7 +9,7 @@ var moduleLaunchInfo = {
 	SupportFW: true,
 	LaunchFWDir: "Speedtest/index.html",
 	SupportEmb: false,
-	InitFWSize: [600, 220]
+	InitFWSize: [460, 430]
 }
 
 //Register the module

@@ -27,6 +27,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/filesystem/abstractions/ftpfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
+	"imuslab.com/arozos/mod/filesystem/abstractions/s3fs"
 	sftpfs "imuslab.com/arozos/mod/filesystem/abstractions/sftpfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/smbfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/webdavfs"
@@ -303,6 +304,68 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			HierarchyConfig:       nil,
 			InitiationTime:        time.Now().Unix(),
 			FileSystemAbstraction: ftpfs,
+			Filesystem:            fstype,
+			StartOptions:          option,
+			Closed:                false,
+		}, nil
+
+	} else if fstype == "s3" {
+		// S3-compatible object storage (AWS S3, MinIO, Wasabi, Backblaze B2, Cloudflare R2, …)
+		//
+		// Path format: "[http://]<endpoint>[:<port>]/<bucket>[/<prefix>]"
+		//   Username  = Access Key ID
+		//   Password  = Secret Access Key
+		//
+		// SSL is enabled by default.  Prefix the endpoint with "http://" to
+		// force plain HTTP (e.g. for local MinIO in development).
+
+		rawPath := option.Path
+		useSSL := true
+
+		if strings.HasPrefix(rawPath, "http://") {
+			useSSL = false
+			rawPath = strings.TrimPrefix(rawPath, "http://")
+		} else if strings.HasPrefix(rawPath, "https://") {
+			rawPath = strings.TrimPrefix(rawPath, "https://")
+		}
+
+		// Split into endpoint / bucket / optional prefix
+		pathChunks := strings.SplitN(rawPath, "/", 3)
+		if len(pathChunks) < 2 {
+			return nil, errors.New("invalid S3 path format; expected: [http://]<endpoint>/<bucket>[/<prefix>]")
+		}
+
+		endpoint := pathChunks[0]
+		bucket := pathChunks[1]
+		prefix := ""
+		if len(pathChunks) == 3 {
+			prefix = strings.Trim(pathChunks[2], "/")
+		}
+
+		s3fsh, err := s3fs.NewS3FSAbstraction(
+			option.Uuid,
+			option.Hierarchy,
+			endpoint,
+			bucket,
+			prefix,
+			option.Username,
+			option.Password,
+			useSSL,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		return &FileSystemHandler{
+			Name:                  option.Name,
+			UUID:                  option.Uuid,
+			Path:                  option.Path,
+			ReadOnly:              option.Access == arozfs.FsReadOnly,
+			RequireBuffer:         true, // S3 uses streaming only; no file-handle semantics
+			Hierarchy:             option.Hierarchy,
+			HierarchyConfig:       nil,
+			InitiationTime:        time.Now().Unix(),
+			FileSystemAbstraction: s3fsh,
 			Filesystem:            fstype,
 			StartOptions:          option,
 			Closed:                false,

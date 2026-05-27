@@ -276,6 +276,11 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 
 		m.LoadedModule = newLoadedModuleList
 
+		// Fire the uninstall hook so subsystems can clean up (e.g. remove cron jobs)
+		if m.OnModuleUninstall != nil {
+			m.OnModuleUninstall(moduleName)
+		}
+
 	} else {
 		return errors.New("Module not exists")
 	}

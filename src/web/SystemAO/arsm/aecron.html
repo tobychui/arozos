@@ -1,134 +1,447 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title>Tasks Scheduler</title>
     <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
     <script src="../arsm/js/moment.min.js"></script>
     <style>
-        .hidden{
-            display:none;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            background: #fff;
+            color: #1d1d1f;
         }
+        body.dark { background: #2b2b2b; color: #f0f0f0; }
+
+        #ae-root {
+            --ae-accent:       #0071e3;
+            --ae-danger:       #ff3b30;
+            --ae-success:      #34c759;
+            --ae-divider:      #d2d2d7;
+            --ae-hover:        rgba(0,0,0,0.04);
+            --ae-card-bg:      #f5f5f7;
+            --ae-card-border:  #e5e5ea;
+            --ae-muted:        #6e6e73;
+            --ae-badge-bg:     rgba(0,113,227,0.10);
+            --ae-badge-color:  #0071e3;
+        }
+        #ae-root.dark {
+            --ae-accent:       #2997ff;
+            --ae-danger:       #ff453a;
+            --ae-success:      #30d158;
+            --ae-divider:      #3a3a3c;
+            --ae-hover:        rgba(255,255,255,0.06);
+            --ae-card-bg:      #3a3a3c;
+            --ae-card-border:  #48484a;
+            --ae-muted:        #a0a0a5;
+            --ae-badge-bg:     rgba(41,151,255,0.15);
+            --ae-badge-color:  #2997ff;
+        }
+
+        #ae-root {
+            padding: 16px 16px 24px;
+            max-width: 900px;
+        }
+
+        /* ── Page header ── */
+        #ae-page-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #ae-page-header img {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        #ae-page-header .ae-title { font-size: 18px; font-weight: 700; }
+        #ae-page-header .ae-subtitle { font-size: 12px; color: var(--ae-muted); margin-top: 1px; }
+
+        /* ── Section labels ── */
+        .ae-section-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--ae-muted);
+            margin: 16px 0 6px;
+        }
+
+        /* ── Cards / table containers ── */
+        .ae-card {
+            border: 1px solid var(--ae-card-border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+            margin-bottom: 12px;
+        }
+        body.dark .ae-card { background: #2b2b2b; }
+
+        /* ── Status banner ── */
+        #ae-status-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--ae-card-border);
+            background: var(--ae-card-bg);
+            margin-bottom: 12px;
+        }
+        #ae-status-icon { font-size: 22px; flex-shrink: 0; }
+        #ae-status-text .ae-status-title { font-size: 13px; font-weight: 600; }
+        #ae-status-text .ae-status-desc  { font-size: 12px; color: var(--ae-muted); margin-top: 2px; }
+        #ae-status-banner.permitted { border-color: rgba(52,199,89,0.4); background: rgba(52,199,89,0.08); }
+        #ae-status-banner.denied    { border-color: rgba(255,59,48,0.4); background: rgba(255,59,48,0.08); }
+        #ae-root.dark #ae-status-banner.permitted { border-color: rgba(48,209,88,0.4);  background: rgba(48,209,88,0.1);  }
+        #ae-root.dark #ae-status-banner.denied    { border-color: rgba(255,69,58,0.4);  background: rgba(255,69,58,0.1);  }
+
+        /* ── Open Scheduler button ── */
+        #ae-open-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 7px;
+            border: 1px solid var(--ae-card-border);
+            background: var(--ae-card-bg);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            color: inherit;
+            margin-bottom: 12px;
+            transition: background 0.1s;
+        }
+        #ae-open-btn:hover { background: var(--ae-hover); }
+        #ae-open-btn.primary { background: var(--ae-accent); color: #fff; border-color: var(--ae-accent); }
+        #ae-open-btn.primary:hover { opacity: 0.85; }
+
+        /* ── Table ── */
+        .ae-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ae-table th {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--ae-muted);
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--ae-card-border);
+            background: var(--ae-card-bg);
+        }
+        .ae-table td {
+            padding: 9px 14px;
+            border-bottom: 1px solid var(--ae-card-border);
+            vertical-align: middle;
+        }
+        .ae-table tbody tr:last-child td { border-bottom: none; }
+        .ae-table tbody tr:hover { background: var(--ae-hover); }
+        .ae-table .ae-empty td { text-align: center; color: var(--ae-muted); font-size: 13px; padding: 18px; }
+
+        .ae-app-badge {
+            display: inline-block;
+            background: var(--ae-badge-bg);
+            color: var(--ae-badge-color);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 6px;
+        }
+
+        /* ── Toggle switch ── */
+        .ae-toggle-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .ae-toggle-label input[type="checkbox"] { display: none; }
+        .ae-toggle-track {
+            width: 34px;
+            height: 20px;
+            border-radius: 10px;
+            background: var(--ae-card-border);
+            position: relative;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .ae-toggle-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: left 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .ae-toggle-label input:checked + .ae-toggle-track { background: var(--ae-success); }
+        .ae-toggle-label input:checked + .ae-toggle-track .ae-toggle-thumb { left: 16px; }
+        .ae-toggle-label.admin-locked { opacity: 0.5; cursor: default; pointer-events: none; }
+        .ae-group-name { font-size: 13px; font-weight: 500; }
+        .ae-group-admin-note { font-size: 11px; color: var(--ae-muted); margin-top: 1px; }
     </style>
 </head>
 <body>
-    <div class="ui container">
-        <div class="ui basic segment">
-            <div class="ui header">
-                <i class="calendar alternate outline icon"></i>
-                <div class="content">
-                    System Schedular
-                    <div class="sub header">Schedule tasks to run while you are offline</div>
-                </div>
-            </div>
+<div id="ae-root">
+    <div id="ae-page-header">
+        <img src="img/scheduler.png" onerror="this.style.display='none';">
+        <div>
+            <div class="ae-title">Tasks Scheduler</div>
+            <div class="ae-subtitle">Schedule tasks to run while you are offline</div>
         </div>
-       
-        <div class="ui divider"></div>
-        <table class="ui celled striped table">
+    </div>
+
+    <!-- Your permission status -->
+    <div id="ae-status-banner">
+        <div id="ae-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div id="ae-status-text">
+            <div class="ae-status-title">Checking permission…</div>
+            <div class="ae-status-desc">Please wait</div>
+        </div>
+    </div>
+
+    <button id="ae-open-btn" style="display:none;" onclick="openSystemScheduler()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-1px;margin-right:5px"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.6 3.6l.7.7M11.7 11.7l.7.7M3.6 12.4l.7-.7M11.7 4.3l.7-.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Open System Scheduler
+    </button>
+
+    <!-- User's scheduled tasks -->
+    <div class="ae-section-label">Your Scheduled Tasks</div>
+    <div class="ae-card">
+        <table class="ae-table">
             <thead>
                 <tr>
-                    <th colspan="4">
-                        Scheduled Tasks
-                    </th>
-                </tr>
-                <tr>
-                    <th>
-                        Script
-                    </th>
-                    <th>
-                        Location
-                    </th>
-                    <th>
-                        Interval
-                    </th>
-                    <th>
-                        Base Time
-                    </th>
+                    <th>Task / App</th>
+                    <th>Script</th>
+                    <th>Interval</th>
+                    <th>Base Time</th>
                 </tr>
             </thead>
-            <tbody id="scheduleList">
-               
+            <tbody id="ae-task-list">
+                <tr class="ae-empty"><td colspan="4">Loading…</td></tr>
             </tbody>
-          </table>
-          <button id="schedulerButton" class="ui button" onclick="openSystemScheudler();">Open System Scheduler</button>
+        </table>
     </div>
-    <script>
-        initScheduleList();
-        function initScheduleList(){
-            $.ajax({
-                url: "../../system/arsm/aecron/list",
-                data: {},
-                success: function(data){
-                    $("#scheduleList").html("");
-                    if (data.length == 0){
-                        $("#scheduleList").append(`<tr>
-                            <td colspan="4">
-                                No registered schedule.
-                            </td>
-                        </tr>`);
-                    }else{
-                        data.forEach(task => {
-                            var scriptName = task.ScriptFile.split("/").pop();
-                            $("#scheduleList").append(`<tr>
-                                <td class="collapsing">
-                                    <i class="code file outline icon"></i> ${scriptName}
-                                </td>
-                                <td>${task.ScriptFile}</td>
-                                <td class="right aligned collapsing">Every ${parseSecondsToHumanReadableFormat(task.ExecutionInterval)}</td>
-                                <td class="right aligned collapsing">${moment.unix(task.BaseTime).format('LLL')}</td>
-                            </tr>`);
-                        });
-                    }
-                }
-            });
-        }
 
-        function parseSecondsToHumanReadableFormat(seconds){
-            seconds = Number(seconds);
-            var d = Math.floor(seconds / (3600*24));
-            var h = Math.floor(seconds % (3600*24) / 3600);
-            var m = Math.floor(seconds % 3600 / 60);
-            var s = Math.floor(seconds % 60);
+    <!-- Admin: Group cron permissions (only shown to admins) -->
+    <div id="ae-admin-section" style="display:none;">
+        <div class="ae-section-label">Group Cron Job Permissions</div>
+        <div class="ae-card">
+            <table class="ae-table">
+                <thead>
+                    <tr>
+                        <th>Permission Group</th>
+                        <th style="width:160px;">Can Create Cron Jobs</th>
+                    </tr>
+                </thead>
+                <tbody id="ae-group-perm-list">
+                    <tr class="ae-empty"><td colspan="2">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="font-size:12px;color:var(--ae-muted);margin-top:4px;">
+            Administrator groups always have cron creation permission and cannot be restricted.
+        </p>
+    </div>
+</div>
 
-            var dDisplay = d > 0 ? d + (d == 1 ? " day " : " days ") : "";
-            var hDisplay = h > 0 ? h + (h == 1 ? " hour " : " hours ") : "";
-            var mDisplay = m > 0 ? m + (m == 1 ? " minute " : " minutes ") : "";
-            var sDisplay = s > 0 ? s + (s == 1 ? " second" : " seconds") : "";
-            return dDisplay + hDisplay + mDisplay + sDisplay;
-        }
-
-
-        //Check if the user has access right to the scheduler
-        $.ajax({
-            url : "../../system/modules/list",
-            data: {},
-            success: function(data){
-                var allowAccess = false;
-                data.forEach(moduleInfo => {
-                    if (moduleInfo.Name == "Tasks Scheduler"){
-                        //This user has access to task scheduler
-                        allowAccess = true;
-                    }
+<script>
+    /* ── Theme detection ── */
+    (function() {
+        var root = document.getElementById('ae-root');
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    var isDark = c !== 'whiteTheme';
+                    root.classList.toggle('dark', isDark);
+                    document.body.classList.toggle('dark', isDark);
                 });
-
-                if (!allowAccess){
-                    $("#schedulerButton").hide();
-                }
+                return;
             }
-        })
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined') t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) {
+                var isDark = t === 'dark' || t === 'darkTheme';
+                root.classList.toggle('dark', isDark);
+                document.body.classList.toggle('dark', isDark);
+            }
+        } catch(e) {}
+    })();
 
-        function openSystemScheudler(){
-            ao_module_newfw({
-                url: "SystemAO/arsm/scheduler.html",
-                appicon: "SystemAO/arsm/img/scheduler.png",
-                title: "Task Scheduler"
-            });
+    function parseSecondsToHuman(s) {
+        s = Number(s);
+        var d = Math.floor(s / 86400);
+        var h = Math.floor((s % 86400) / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var parts = [];
+        if (d) parts.push(d + (d === 1 ? " day" : " days"));
+        if (h) parts.push(h + (h === 1 ? " hour" : " hours"));
+        if (m) parts.push(m + (m === 1 ? " minute" : " minutes"));
+        return parts.length ? parts.join(" ") : s + " sec";
+    }
+
+    /* ── Check user cron permission ── */
+    $.ajax({
+        url: "../../system/arsm/aecron/permission",
+        success: function(data) {
+            var banner = document.getElementById('ae-status-banner');
+            var icon   = document.getElementById('ae-status-icon');
+            var title  = banner.querySelector('.ae-status-title');
+            var desc   = banner.querySelector('.ae-status-desc');
+            if (data.CanCreate) {
+                banner.classList.add('permitted');
+                icon.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M7 12.5l3.5 3.5 6.5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                title.textContent = 'Cron Job Creation Enabled';
+                desc.textContent  = 'You are allowed to create and manage scheduled tasks.';
+            } else {
+                banner.classList.add('denied');
+                icon.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="11" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V7.5a4 4 0 018 0V11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+                title.textContent = 'Cron Job Creation Disabled';
+                desc.textContent  = 'Your account does not have permission to create scheduled tasks. Contact an administrator.';
+            }
         }
+    });
 
+    /* ── Check if user has access to Task Scheduler module (show Open button) ── */
+    $.ajax({
+        url: "../../system/modules/list",
+        success: function(data) {
+            var hasAccess = false;
+            if (Array.isArray(data)) {
+                data.forEach(function(m) {
+                    if (m.Name === "Tasks Scheduler") hasAccess = true;
+                });
+            }
+            if (hasAccess) {
+                document.getElementById('ae-open-btn').style.display = 'inline-flex';
+            }
+        }
+    });
 
-    </script>
+    /* ── Load user's task list ── */
+    function loadTaskList() {
+        $.ajax({
+            url: "../../system/arsm/aecron/list",
+            success: function(data) {
+                var tbody = document.getElementById('ae-task-list');
+                tbody.innerHTML = "";
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr class="ae-empty"><td colspan="4">No scheduled tasks registered.</td></tr>';
+                    return;
+                }
+                data.forEach(function(task) {
+                    var scriptName = (task.ScriptVpath || "").split("/").pop();
+                    var appBadge   = task.AppName ? '<span class="ae-app-badge">' + escapeHtml(task.AppName) + '</span>' : '';
+                    var nameCell   = escapeHtml(task.Name) + appBadge;
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td><span title="' + escapeHtml(task.ScriptVpath || "") + '">' + escapeHtml(scriptName) + '</span>' + appBadge + '</td>' +
+                        '<td style="color:var(--ae-muted);font-size:12px;">' + escapeHtml(task.ScriptVpath || "") + '</td>' +
+                        '<td>Every ' + parseSecondsToHuman(task.ExecutionInterval) + '</td>' +
+                        '<td style="font-size:12px;">' + moment.unix(task.BaseTime).format('lll') + '</td>';
+                    tbody.appendChild(tr);
+                });
+            },
+            error: function() {
+                document.getElementById('ae-task-list').innerHTML =
+                    '<tr class="ae-empty"><td colspan="4">Unable to load task list.</td></tr>';
+            }
+        });
+    }
+
+    /* ── Admin: Load and manage group permissions ── */
+    function loadGroupPermissions() {
+        $.ajax({
+            url: "../../system/arsm/aecron/groupperm/list",
+            success: function(data) {
+                document.getElementById('ae-admin-section').style.display = 'block';
+                var tbody = document.getElementById('ae-group-perm-list');
+                tbody.innerHTML = "";
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr class="ae-empty"><td colspan="2">No permission groups found.</td></tr>';
+                    return;
+                }
+                data.forEach(function(entry) {
+                    var isAdmin = entry.IsAdmin;
+                    var checked = entry.CanCreateCronJob ? ' checked' : '';
+                    var lockClass = isAdmin ? ' admin-locked' : '';
+                    var adminNote = isAdmin
+                        ? '<div class="ae-group-admin-note">Administrator group — always enabled</div>'
+                        : '';
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' +
+                            '<div class="ae-group-name">' + escapeHtml(entry.GroupName) + '</div>' +
+                            adminNote +
+                        '</td>' +
+                        '<td>' +
+                            '<label class="ae-toggle-label' + lockClass + '">' +
+                                '<input type="checkbox" data-group="' + escapeHtml(entry.GroupName) + '"' +
+                                    (isAdmin ? ' disabled' : ' onchange="toggleGroupPerm(this)"') +
+                                    checked + '>' +
+                                '<span class="ae-toggle-track"><span class="ae-toggle-thumb"></span></span>' +
+                            '</label>' +
+                        '</td>';
+                    tbody.appendChild(tr);
+                });
+            },
+            error: function(xhr) {
+                // Not admin or endpoint not available – silently skip
+            }
+        });
+    }
+
+    function toggleGroupPerm(checkbox) {
+        var groupName = checkbox.getAttribute('data-group');
+        var allow = checkbox.checked;
+        $.ajax({
+            url: "../../system/arsm/aecron/groupperm/set",
+            method: "POST",
+            data: { group: groupName, allow: allow ? "true" : "false" },
+            error: function() {
+                // Revert on failure
+                checkbox.checked = !allow;
+                alert("Failed to update group permission.");
+            }
+        });
+    }
+
+    function openSystemScheduler() {
+        ao_module_newfw({
+            url: "SystemAO/arsm/scheduler.html",
+            appicon: "SystemAO/arsm/img/scheduler.png",
+            title: "Task Scheduler"
+        });
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    // Init
+    loadTaskList();
+    loadGroupPermissions();
+</script>
 </body>
 </html>

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -75,16 +76,18 @@ type Gateway struct {
 	//AllowAccessPkgs  map[string][]AgiPackage
 	LoadedAGILibrary map[string]AgiLibInjectionIntergface
 	Option           *AgiSysInfo
+	endpointStats    map[string]*EndpointStats // per-UUID execution statistics (in-memory)
+	statsMux         sync.RWMutex              // guards endpointStats
 }
 
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Handle startup registration of ajgi modules
 	gatewayObject := Gateway{
-		ReservedTables: option.ReservedTables,
-		NightlyScripts: []string{},
-		//AllowAccessPkgs:  map[string][]AgiPackage{},
+		ReservedTables:   option.ReservedTables,
+		NightlyScripts:   []string{},
 		LoadedAGILibrary: map[string]AgiLibInjectionIntergface{},
 		Option:           &option,
+		endpointStats:    make(map[string]*EndpointStats),
 	}
 
 	//Start all WebApps Registration
@@ -163,6 +166,9 @@ func (g *Gateway) RunScript(script string) error {
 }
 
 func (g *Gateway) RaiseError(err error) {
+	if err == nil {
+		return
+	}
 	log.Println("[AGI] Runtime Error " + err.Error())
 
 	//To be implemented
@@ -337,11 +343,14 @@ Execute AGI script with given user information
 scriptFile must be realpath resolved by fsa VirtualPathToRealPath function
 Pass in http.Request pointer to enable serverless GET / POST request
 */
-func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, error) {
+// ExecuteAGIScriptAsUser runs an AGI script on behalf of targetUser.
+// Returns (execID, output, error) where execID matches the EXECUTION_ID
+// constant injected into the script's VM environment.
+func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scriptFile string, targetUser *user.User, w http.ResponseWriter, r *http.Request) (string, string, error) {
 	//Create a new vm for this request
 	vm := otto.New()
-	//Inject standard libs into the vm
-	g.injectStandardLibs(vm, scriptFile, "")
+	//Inject standard libs into the vm; capture the execution ID for log correlation.
+	execID := g.injectStandardLibs(vm, scriptFile, "")
 	g.injectUserFunctions(vm, fsh, scriptFile, "", targetUser, w, r)
 
 	if r != nil {
@@ -378,21 +387,28 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 		}
 	}()
 
-	//Try to read the script content
-	scriptContent, err := fsh.FileSystemAbstraction.ReadFile(scriptFile)
+	//Try to read the script content.
+	// When fsh is nil (e.g. app-root scripts), fall back to reading from the OS filesystem.
+	var scriptContent []byte
+	var err error
+	if fsh != nil {
+		scriptContent, err = fsh.FileSystemAbstraction.ReadFile(scriptFile)
+	} else {
+		scriptContent, err = os.ReadFile(scriptFile)
+	}
 	if err != nil {
-		return "", err
+		return execID, "", err
 	}
 
 	_, err = vm.Run(scriptContent)
 	if err != nil {
-		return "", err
+		return execID, "", err
 	}
 
 	//Get the return value from the script
 	value, err := vm.Get("HTTP_RESP")
 	if err != nil {
-		return "", err
+		return execID, "", err
 	}
 
 	if w != nil {
@@ -406,9 +422,9 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 
 	valueString, err := value.ToString()
 	if err != nil {
-		return "", err
+		return execID, "", err
 	}
-	return valueString, nil
+	return execID, valueString, nil
 }
 
 /*

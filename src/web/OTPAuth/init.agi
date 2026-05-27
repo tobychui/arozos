@@ -1,0 +1,21 @@
+/*
+    OTP Authenticator
+
+    A two-factor authentication code manager for ArozOS.
+    Supports TOTP with QR code scanning and secure local storage.
+*/
+
+var moduleLaunchInfo = {
+    Name: "OTP Authenticator",
+    Desc: "Manage two-factor authentication codes with QR code scanning",
+    Group: "Utilities",
+    IconPath: "OTPAuth/img/small_icon.svg",
+    Version: "1.0.0",
+    StartDir: "OTPAuth/index.html",
+    SupportFW: true,
+    LaunchFWDir: "OTPAuth/index.html",
+    SupportEmb: false,
+    InitFWSize: [980, 620]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));

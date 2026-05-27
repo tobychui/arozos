@@ -597,13 +597,27 @@ function safeJSON(data) {
 $(document).ready(function () {
     initTheme();
 
-    // Drag-and-drop onto drop zone
+    // Drag-and-drop onto drop zone (local OS files + arozos file manager)
     var dz = document.getElementById("dropZone");
     dz.addEventListener("dragover", function (e) { e.preventDefault(); dz.classList.add("dragging"); });
     dz.addEventListener("dragleave", function ()  { dz.classList.remove("dragging"); });
     dz.addEventListener("drop", function (e) {
         e.preventDefault();
         dz.classList.remove("dragging");
+
+        // Check for arozos file manager drag (sets "filedata" on the dataTransfer)
+        var filedata = e.dataTransfer.getData("filedata");
+        if (filedata) {
+            try {
+                var fmFiles = JSON.parse(filedata);
+                if (fmFiles && fmFiles.length > 0) {
+                    var vpath = fmFiles[0].filepath || fmFiles[0].Filepath || "";
+                    if (vpath) { selectSourceFile(vpath, false); return; }
+                }
+            } catch (ex) {}
+        }
+
+        // Fallback: local OS file drop
         var files = e.dataTransfer.files;
         if (files.length > 0) handleLocalFile(files[0]);
     });

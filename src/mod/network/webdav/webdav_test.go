@@ -35,6 +35,16 @@ func TestPrefix(t *testing.T) {
 		</D:lockinfo>
 	`
 
+	// isRedirect returns true for any redirect status code (301, 307, 308).
+	// Go's ServeMux changed from 301 (MovedPermanently) to 308/307
+	// (PermanentRedirect/TemporaryRedirect) for non-GET path redirects in
+	// Go 1.22+, and the exact code can differ across platforms.
+	isRedirect := func(code int) bool {
+		return code == http.StatusMovedPermanently ||
+			code == http.StatusTemporaryRedirect ||
+			code == http.StatusPermanentRedirect
+	}
+
 	do := func(method, urlStr string, body string, wantStatusCode int, headers ...string) (http.Header, error) {
 		var bodyReader io.Reader
 		if body != "" {
@@ -53,8 +63,12 @@ func TestPrefix(t *testing.T) {
 			return nil, err
 		}
 		defer res.Body.Close()
+		// Accept any redirect status when the expected code is a redirect code,
+		// because Go's ServeMux redirect code varies across versions/platforms.
 		if res.StatusCode != wantStatusCode {
-			return nil, fmt.Errorf("got status code %d, want %d", res.StatusCode, wantStatusCode)
+			if !(isRedirect(wantStatusCode) && isRedirect(res.StatusCode)) {
+				return nil, fmt.Errorf("got status code %d, want %d", res.StatusCode, wantStatusCode)
+			}
 		}
 		return res.Header, nil
 	}

@@ -215,6 +215,20 @@ func (u *User) UserIsInOneOfTheGroupOf(groupnames []string) bool {
 	return false
 }
 
+// CanCreateCronJob returns true if the user is allowed to create cron jobs.
+// Admin users always have this permission; others need it explicitly granted on their group.
+func (u *User) CanCreateCronJob() bool {
+	if u.IsAdmin() {
+		return true
+	}
+	for _, pg := range u.PermissionGroup {
+		if pg.GetCronJobPermission() {
+			return true
+		}
+	}
+	return false
+}
+
 func (u *User) SetUserPermissionGroup(groups []*permission.PermissionGroup) {
 	groupIds := []string{}
 	for _, gp := range groups {

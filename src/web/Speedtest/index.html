@@ -1,250 +1,634 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" />
     <meta charset="UTF-8">
     <meta name="theme-color" content="#4b75ff">
-    <link rel="stylesheet" href="../script/semantic/semantic.min.css">
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
-    <script src="../script/semantic/semantic.min.js"></script>
-    <title>WebSocket Test</title>
+    <title>Speed Test</title>
+    <style>
+        /* ── Reset & theme tokens (mirrors system_settings design language) ── */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        :root {
+            --bg:              #f3f3f3;
+            --text:            #202020;
+            --text-dim:        #555;
+            --text-muted:      #888;
+            --card-bg:         #ffffff;
+            --card-border:     #e5e5e5;
+            --progress-bg:     #e0e0e0;
+            --gauge-track:     #e0e0e0;
+            --btn-bg:          #4b75ff;
+            --btn-hover:       #3b65ef;
+            --btn-text:        #ffffff;
+            --btn-disabled:    rgba(75, 117, 255, 0.45);
+            --scrollbar-thumb: #c8c8c8;
+        }
+
+        body.dark {
+            --bg:              #1f1f1f;
+            --text:            #e3e3e3;
+            --text-dim:        #999;
+            --text-muted:      #666;
+            --card-bg:         #2d2d2d;
+            --card-border:     #3a3a3a;
+            --progress-bg:     #383838;
+            --gauge-track:     #383838;
+            --btn-bg:          #5b85ff;
+            --btn-hover:       #4b75ef;
+            --btn-text:        #ffffff;
+            --btn-disabled:    rgba(91, 133, 255, 0.40);
+            --scrollbar-thumb: #555555;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px;
+            color: var(--text);
+            transition: background 0.15s, color 0.15s;
+            overflow: hidden;
+        }
+
+        /* ── Outer shell ── */
+        .st-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px 16px;
+            gap: 18px;
+        }
+
+        /* ── Gauge ── */
+        .gauge-wrap {
+            position: relative;
+            width: 172px;
+            height: 172px;
+            flex-shrink: 0;
+        }
+
+        .gauge-wrap svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .gauge-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .gauge-val {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text);
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .gauge-unit {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+            min-height: 14px;
+        }
+
+        .gauge-phase {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-top: 7px;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+        }
+
+        /* ── Result cards ── */
+        .result-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .rc {
+            flex: 1;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .rc-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 3px;
+        }
+
+        .rc-icon svg { width: 14px; height: 14px; }
+
+        .rc-dl   .rc-icon { background: rgba(75,  117, 255, 0.12); color: #4b75ff; }
+        .rc-ul   .rc-icon { background: rgba(34,  197,  94, 0.12); color: #22c55e; }
+        .rc-ping .rc-icon { background: rgba(245, 158,  11, 0.12); color: #f59e0b; }
+
+        .rc-value {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.2px;
+            line-height: 1;
+        }
+
+        .rc-label {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            letter-spacing: 0.2px;
+            text-align: center;
+        }
+
+        /* ── Slim progress bar ── */
+        .progress-track {
+            width: 100%;
+            max-width: 400px;
+            height: 3px;
+            background: var(--progress-bg);
+            border-radius: 2px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .progress-track.visible { opacity: 1; }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 2px;
+            background: #4b75ff;
+            transition: width 0.25s ease, background 0.2s;
+        }
+
+        /* ── Button ── */
+        .st-btn {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 0;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            letter-spacing: 0.1px;
+            transition: background 0.1s, transform 0.08s;
+            flex-shrink: 0;
+        }
+
+        .st-btn:hover:not(:disabled)  { background: var(--btn-hover); }
+        .st-btn:active:not(:disabled) { transform: scale(0.98); }
+        .st-btn:disabled {
+            background: var(--btn-disabled);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Small screens ── */
+        @media (max-width: 360px) {
+            .gauge-wrap  { width: 144px; height: 144px; }
+            .gauge-val   { font-size: 26px; }
+            .rc-value    { font-size: 14px; }
+        }
+    </style>
 </head>
 
 <body>
-    <br><br>
-    <div class="ui container">
-        <div class="ui three statistics" id="stat">
-            <div class="statistic">
-                <div class="value" id="dl" style="padding: 5px;">
-                    -
-                </div>
-                <div class="label" id="dll">
-                    Download
-                </div>
-            </div>
-            <div class="statistic">
-                <div class="value" id="ul" style="padding: 5px;">
-                    -
-                </div>
-                <div class="label" id="ull">
-                    Upload
-                </div>
-            </div>
-            <div class="statistic">
-                <div class="value" id="ping" style="padding: 5px;">
-                    -
-                </div>
-                <div class="label" id="pingl">
-                    Ping
-                </div>
-            </div>
-        </div>
-        <br>
-        <div>
-            <div class="ui top attached teal progress" id="progressbar" style="display: none">
-                <div class="bar">
-                    <div class="progress"></div>
-                </div>
-            </div>
-            <button class="ui fluid button" onclick="startBench();" id="startbtn">Test</button>
+<div class="st-wrap">
+
+    <!-- ── Central speedometer gauge ── -->
+    <!--
+        SVG geometry:
+          viewBox 0 0 160 160, circle cx=80 cy=80 r=64
+          C = 2π×64 ≈ 402.12
+          270° arc (3/4 of C) ≈ 301.59  |  90° gap ≈ 100.53
+          rotate(225, 80, 80) places the arc start at the lower-left (≈7 o'clock),
+          going clockwise through top, ending at lower-right (≈5 o'clock).
+    -->
+    <div class="gauge-wrap">
+        <svg viewBox="0 0 160 160">
+            <circle id="gaugeTrack"
+                cx="80" cy="80" r="64"
+                fill="none"
+                stroke="var(--gauge-track)"
+                stroke-width="9"
+                stroke-linecap="round"
+                stroke-dasharray="301.59 100.53"
+                transform="rotate(225, 80, 80)"
+                style="transition: stroke 0.15s;"
+            />
+            <circle id="gaugeFill"
+                cx="80" cy="80" r="64"
+                fill="none"
+                stroke="#4b75ff"
+                stroke-width="9"
+                stroke-linecap="round"
+                stroke-dasharray="0 402.12"
+                transform="rotate(225, 80, 80)"
+                style="transition: stroke-dasharray 0.25s ease, stroke 0.2s ease;"
+            />
+        </svg>
+        <div class="gauge-center">
+            <div class="gauge-val"   id="gaugeVal">—</div>
+            <div class="gauge-unit"  id="gaugeUnit"></div>
+            <div class="gauge-phase" id="gaugePhase">Ready</div>
         </div>
     </div>
 
-</body>
+    <!-- ── Result cards ── -->
+    <div class="result-row">
+
+        <div class="rc rc-dl">
+            <div class="rc-icon">
+                <!-- download arrow -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="3"  x2="12" y2="15"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="5"  y1="21" x2="19" y2="21"/>
+                </svg>
+            </div>
+            <div class="rc-value" id="dl">—</div>
+            <div class="rc-label" id="dll">Download</div>
+        </div>
+
+        <div class="rc rc-ul">
+            <div class="rc-icon">
+                <!-- upload arrow -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="21" x2="12" y2="9"/>
+                    <polyline points="7 14 12 9 17 14"/>
+                    <line x1="5"  y1="3"  x2="19" y2="3"/>
+                </svg>
+            </div>
+            <div class="rc-value" id="ul">—</div>
+            <div class="rc-label" id="ull">Upload</div>
+        </div>
+
+        <div class="rc rc-ping">
+            <div class="rc-icon">
+                <!-- wifi / signal icon -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                    <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                    <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/>
+                </svg>
+            </div>
+            <div class="rc-value" id="ping">—</div>
+            <div class="rc-label" id="pingl">Ping</div>
+        </div>
+
+    </div>
+
+    <!-- ── Slim progress bar ── -->
+    <div class="progress-track" id="progressTrack">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <!-- ── Action button ── -->
+    <button class="st-btn" id="startbtn" onclick="startBench()">Start Test</button>
+
+</div><!-- /.st-wrap -->
+
 <script>
     ao_module_setFixedWindowSize();
-    autoResize();
-    $('#progressbar').progress({
-        label: 'ratio',
-        text: {
-            ratio: ''
-        },
-        total: 100,
-        percent: 0
+
+    /* ── Theme ── */
+    ao_module_getSystemThemeColor(function(color) {
+        document.body.classList.toggle('dark', color !== 'whiteTheme');
     });
 
-    $(window).on('resize', function() {
-        autoResize();
-    });
+    /* ── Gauge constants ──────────────────────────────────────────────────
+       Circle r=64, circumference C = 2π×64 ≈ 402.12
+       270° arc = 0.75 × C ≈ 301.59   90° gap = 0.25 × C ≈ 100.53
+       ──────────────────────────────────────────────────────────────────── */
+    var GAUGE_C   = 2 * Math.PI * 64;   // ≈ 402.12
+    var GAUGE_ARC = GAUGE_C * 0.75;     // ≈ 301.59  (the visible 270° track)
 
-    function autoResize() {
-        if ($(window).width() < 550) {
-            $("#stat").attr("class", "ui three horizontal statistics");
-        } else {
-            $("#stat").attr("class", "ui three statistics");
-        }
+    var _gaugePct = 0;
+
+    /** Set gauge fill (0–100) and the slim progress bar simultaneously. */
+    function setProgress(pct) {
+        _gaugePct = Math.max(0, Math.min(100, pct));
+        var fill = (GAUGE_ARC * _gaugePct / 100).toFixed(2);
+        var rest = (GAUGE_C - GAUGE_ARC * _gaugePct / 100).toFixed(2);
+        document.getElementById('gaugeFill').setAttribute('stroke-dasharray', fill + ' ' + rest);
+        document.getElementById('progressFill').style.width = _gaugePct + '%';
     }
 
+    /** Tint the gauge fill and the progress bar. */
+    function setColor(hex) {
+        document.getElementById('gaugeFill').style.stroke = hex;
+        document.getElementById('progressFill').style.background = hex;
+    }
+
+    /** Update the three text lines inside the gauge. */
+    function setLabel(val, unit, phase) {
+        document.getElementById('gaugeVal').textContent   = val   === undefined ? '—' : val;
+        document.getElementById('gaugeUnit').textContent  = unit  || '';
+        document.getElementById('gaugePhase').textContent = phase || '';
+    }
+
+    function showBar() { document.getElementById('progressTrack').classList.add('visible'); }
+    function hideBar() { document.getElementById('progressTrack').classList.remove('visible'); }
+
+    /* ── Test orchestration ───────────────────────────────────────────── */
+
     function startBench() {
-        $('#progressbar').removeAttr('style');
-        $('#progressbar').progress('set progress', 0);
-        $("#startbtn").attr('disabled', 'disabled');
-        $("#startbtn").html('Testing...');
+        // Reset display
+        ['dl', 'ul', 'ping'].forEach(function(id) {
+            document.getElementById(id).textContent = '—';
+        });
+        document.getElementById('dll').textContent  = 'Download';
+        document.getElementById('ull').textContent  = 'Upload';
+        document.getElementById('pingl').textContent = 'Ping';
+
+        setColor('#4b75ff');
+        setProgress(0);
+        setLabel('—', '', 'Starting…');
+        showBar();
+
+        var btn = document.getElementById('startbtn');
+        btn.disabled    = true;
+        btn.textContent = 'Testing…';
+
         downloadBench();
     }
 
+    /* ── Download ─────────────────────────────────────────────────────── */
+
     function downloadBench() {
-        $("#dl").text("⏱️");
-        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+        setColor('#4b75ff');
+        setLabel('—', '', 'Download');
+        setProgress(0);
 
-        socket.onopen = function(e) {
-            $("#dl").text("⌛");
-            socket.send("DWL");
-            $('#progressbar').progress('set progress', 0);
-        };
+        var dlBytes = 0;        // bytes received from DATA: frames
+        var dlStart = null;     // set on first DATA: frame for live-speed accuracy
 
-        socket.onmessage = function(event) {
-            if (event.data.indexOf("DATA:") == -1) {
-                if (event.data.indexOf("TTL_BANDWIDTH") != -1) {
-                    let bandwidth = event.data.split("=")[1].split(" ");
-                    $("#dl").text(bandwidth[0]);
-                    $("#dll").text("Download (" + bandwidth[1] + ")");
-                    uploadBench();
+        var socket = new WebSocket(wsEndpoint() +
+            '/system/ajgi/interface?script=Speedtest/special/wspeedtest.js');
+
+        socket.onopen = function() { socket.send('DWL'); };
+
+        socket.onmessage = function(ev) {
+            /* ── Live speed: count raw bytes from each DATA frame ── */
+            if (ev.data.indexOf('DATA:') === 0) {
+                if (dlStart === null) dlStart = performance.now();
+                dlBytes += ev.data.length;   // ASCII payload ≈ byte count
+                var elapsed = (performance.now() - dlStart) / 1000;
+                if (elapsed > 0.3) {
+                    var sp = bytesToSpeed(dlBytes / elapsed).split(' ');
+                    setLabel(sp[0], sp[1], 'Download');
                 }
-                if (event.data.indexOf("TIME_DIFF") != -1) {
-                    let timediff = parseInt(event.data.split("=")[1]);
-                    $('#progressbar').progress('increment', timediff / 5 * 100);
-                }
+                return; // skip further processing for data frames
+            }
+
+            /* ── TIME_DIFF: server reports elapsed time for the last batch.
+               We SET (not increment) the gauge so it never overshoots.    ── */
+            if (ev.data.indexOf('TIME_DIFF=') === 0) {
+                var td = parseFloat(ev.data.split('=')[1]);
+                // The test runs until a batch takes ≥5 s; cap live progress at 96%.
+                setProgress(Math.min(td / 5 * 100, 96));
+                return;
+            }
+
+            /* ── Final result ── */
+            if (ev.data.indexOf('TTL_BANDWIDTH=') === 0) {
+                var parts = ev.data.split('=')[1].split(' ');
+                document.getElementById('dl').textContent  = parts[0];
+                document.getElementById('dll').textContent = 'Download (' + parts[1] + ')';
+                setLabel(parts[0], parts[1], 'Download');
+                setProgress(100);
+                setTimeout(uploadBench, 350);
             }
         };
 
-        socket.onerror = function(error) {
-            if ($("#dl").text() != "⌛") {
-                $("#dl").text("❌");
-            }
+        socket.onerror = function() {
+            setLabel('Error', '', 'Download');
+            document.getElementById('dl').textContent = 'Error';
         };
     }
+
+    /* ── Upload ───────────────────────────────────────────────────────── */
 
     function uploadBench() {
-        $("#ul").text("⏱️");
-        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+        setColor('#22c55e');
+        setLabel('—', '', 'Upload');
+        setProgress(0);
 
-        socket.onopen = function(e) {
-            $("#ul").text("⌛");
-            socket.send("UPL");
-            setTimeout(executeULTest, 1000, socket);
+        var socket = new WebSocket(wsEndpoint() +
+            '/system/ajgi/interface?script=Speedtest/special/wspeedtest.js');
+
+        socket.onopen = function() {
+            socket.send('UPL');
+            setTimeout(function() { runUpload(socket); }, 800);
         };
 
-        socket.onerror = function(error) {
-            if ($("#ul").text() != "⌛") {
-                $("#ul").text("❌");
-            }
+        socket.onerror = function() {
+            setLabel('Error', '', 'Upload');
+            document.getElementById('ul').textContent = 'Error';
         };
     }
 
-    function executeULTest(socket) {
-        $('#progressbar').progress('set progress', 0);
-        let CurrentMB = 0;
-        let start = new Date();
-        while (socket.bufferedAmount < 10485760 * 10) {
-            socket.send(new ArrayBuffer(32768));
-            CurrentMB += 32768;
+    function runUpload(socket) {
+        var CHUNK   = 32768;
+        var MAX_BUF = 10485760 * 10; // 100 MB ceiling (matches server limit)
+        var bytesSent = 0;
+        var start  = performance.now();
+
+        /* Fill the send buffer up to MAX_BUF */
+        while (socket.bufferedAmount < MAX_BUF) {
+            socket.send(new ArrayBuffer(CHUNK));
+            bytesSent += CHUNK;
         }
-        let checker = setInterval(function() {
-            if (socket.bufferedAmount == 0) {
-                let end = new Date();
-                CurrentDif = (end.getTime() - start.getTime()) / 1000;
-                socket.send("stop");
-                let bandwidth = bytesToSpeed(CurrentMB / CurrentDif).split(" ");
-                $("#ul").text(bandwidth[0]);
-                $("#ull").text("Upload (" + bandwidth[1] + ")");
-                $('#progressbar').progress('set progress', 0);
+
+        /* Snapshot the initial buffer size as the 100%-reference for progress.
+           This is accurate regardless of how full the buffer actually got.  */
+        var initialBuf = socket.bufferedAmount;
+
+        var checker = setInterval(function() {
+            var remaining = socket.bufferedAmount;
+
+            if (remaining === 0) {
                 clearInterval(checker);
-                pingTest();
+                socket.send('stop');
+
+                var elapsed = (performance.now() - start) / 1000;
+                var sp = bytesToSpeed(bytesSent / elapsed).split(' ');
+                document.getElementById('ul').textContent  = sp[0];
+                document.getElementById('ull').textContent = 'Upload (' + sp[1] + ')';
+                setLabel(sp[0], sp[1], 'Upload');
+                setProgress(100);
+                setTimeout(pingTest, 350);
+
             } else {
-                //(1 - (socket.bufferedAmount / (10485760 * 10))) * 100
-                $('#progressbar').progress('set progress', 100 - (socket.bufferedAmount / 1048576));
+                /* Accurate progress: fraction of the initial buffer that has drained */
+                setProgress((1 - remaining / initialBuf) * 100);
+
+                /* Live speed: bytes actually on the wire ÷ elapsed time */
+                var sent    = bytesSent - remaining;
+                var elapsed = (performance.now() - start) / 1000;
+                if (elapsed > 0.2 && sent > 0) {
+                    var sp = bytesToSpeed(sent / elapsed).split(' ');
+                    setLabel(sp[0], sp[1], 'Upload');
+                }
             }
         }, 100);
     }
 
+    /* ── Ping ─────────────────────────────────────────────────────────── */
+
     function pingTest() {
-        $('#progressbar').progress('set progress', 0);
-        let clientSendTimeStamp = [];
-        let serverResponseTimeStamp = [];
-        let clientReceiveTimeStamp = [];
-        $("#ping").text("⏱️");
-        let socket = new WebSocket(getWSEndpoint() + "/system/ajgi/interface?script=Speedtest/special/wspeedtest.js");
+        setColor('#f59e0b');
+        setLabel('—', '', 'Ping');
+        setProgress(0);
 
-        socket.onopen = function(e) {
-            $("#ping").text("⌛");
-            socket.send("PING");
-            setTimeout(executePingTest, 500, socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, 0);
+        /*
+         * Timeline of WebSocket messages (5 total received by client):
+         *   [0] "DWL/UPL?"  – server handshake on open
+         *   [1] "UPL"       – sent by server's pingTest() before the loop
+         *   [2-4] "rcv,snd" – one per client ping (3 × server echo)
+         *
+         * clientSend[0..2] aligns with serverResp[2..4] after discarding
+         * the two handshake messages.
+         */
+        var clientSend = [];   // performance.now() when each ping was sent
+        var serverResp = [];   // raw server echo strings
+        var clientRecv = [];   // performance.now() when each message arrived
+
+        var socket = new WebSocket(wsEndpoint() +
+            '/system/ajgi/interface?script=Speedtest/special/wspeedtest.js');
+
+        socket.onopen = function() {
+            socket.send('PING');
+            // Stagger pings by 500 ms after the open to let the handshake settle
+            setTimeout(function() { doPing(socket, clientSend, 0); }, 500);
         };
 
-        socket.onmessage = function(event) {
-            clientReceiveTimeStamp.push(new Date().getTime());
-            serverResponseTimeStamp.push(event.data);
-            if (clientReceiveTimeStamp.length == 5) {
-                setTimeout(showPingResult, 2000, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp);
+        socket.onmessage = function(ev) {
+            clientRecv.push(performance.now());
+            serverResp.push(ev.data);
+
+            var n = clientRecv.length;
+            // Messages 1-2 are handshake; show progress only for ping replies (3-5)
+            if (n >= 3) {
+                setProgress(Math.min((n - 2) / 3 * 100, 96));
             }
-            $('#progressbar').progress('increment', 16.67);
+            if (n === 5) {
+                setTimeout(function() {
+                    showPingResult(clientSend, serverResp, clientRecv);
+                }, 600);
+            }
         };
 
-        socket.onerror = function(error) {
-            if ($("#ping").text() != "⌛") {
-                $("#ping").text("❌");
-            }
+        socket.onerror = function() {
+            setLabel('Error', '', 'Ping');
+            document.getElementById('ping').textContent = 'Error';
         };
     }
 
-    function executePingTest(socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, count) {
-        let clientTime = new Date();
-        socket.send(clientTime);
-        clientSendTimeStamp.push(clientTime.getTime());
+    function doPing(socket, clientSend, count) {
+        clientSend.push(performance.now());
+        socket.send(String(Date.now()));
         count++;
-        $('#progressbar').progress('increment', 16.67);
         if (count < 3) {
-            setTimeout(executePingTest, 1000, socket, clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp, count);
+            setTimeout(function() { doPing(socket, clientSend, count); }, 1000);
         }
     }
 
-    function showPingResult(clientSendTimeStamp, serverResponseTimeStamp, clientReceiveTimeStamp) {
-        serverResponseTimeStamp.shift();
-        serverResponseTimeStamp.shift();
-        clientReceiveTimeStamp.shift();
-        clientReceiveTimeStamp.shift();
-        let diff = 0;
-        for (let i = 0; i < clientSendTimeStamp.length; i++) {
-            diff += (clientReceiveTimeStamp[i] - clientSendTimeStamp[i]) - (serverResponseTimeStamp[i].split(",")[1] - serverResponseTimeStamp[i].split(",")[0]);
+    function showPingResult(clientSend, serverResp, clientRecv) {
+        /*
+         * Discard the 2 handshake entries from the receive arrays so that
+         * index i in clientSend, clientRecv, serverResp all refer to the
+         * same ping round-trip.
+         *
+         * RTT formula (per sample):
+         *   rtt             = clientRecv[i] – clientSend[i]       (ms, high-res)
+         *   srvProcessTime  = srvSendTime  – srvRecvTime           (ms, approx 0)
+         *   networkRTT      = rtt – srvProcessTime
+         */
+        serverResp.splice(0, 2);
+        clientRecv.splice(0, 2);
+
+        var total = 0;
+        var n = Math.min(clientSend.length, clientRecv.length, serverResp.length);
+
+        for (var i = 0; i < n; i++) {
+            var rtt      = clientRecv[i] - clientSend[i];
+            var parts    = (serverResp[i] || '').split(',');
+            var srvProc  = (parts.length === 2)
+                ? (parseFloat(parts[1]) - parseFloat(parts[0]))
+                : 0;
+            total += Math.max(0, rtt - srvProc);
         }
-        $("#ping").text(Math.round((diff / clientSendTimeStamp.length) * 100) / 100);
-        $("#pingl").text("Ping (ms)");
-        //restart the test
-        $('#progressbar').attr('style', 'display: none');
-        $("#startbtn").html('Re-Test');
-        $("#startbtn").attr('onclick', 'location.reload();');
-        $("#startbtn").removeAttr('disabled');
+
+        var avgMs = n > 0 ? (Math.round(total / n * 100) / 100) : 0;
+
+        document.getElementById('ping').textContent  = avgMs.toFixed(2);
+        document.getElementById('pingl').textContent = 'Ping (ms)';
+        setLabel(avgMs.toFixed(2), 'ms', 'Done');
+        setProgress(100);
+
+        setTimeout(function() {
+            hideBar();
+            setColor('#22c55e');   // green = complete
+            var btn = document.getElementById('startbtn');
+            btn.textContent = 'Re-Test';
+            btn.disabled    = false;
+            btn.onclick     = function() { location.reload(); };
+        }, 500);
     }
 
-    function getWSEndpoint() {
-        //Open opeartion in websocket
-        let protocol = "wss://";
-        if (location.protocol !== 'https:') {
-            protocol = "ws://";
-        }
-        wsControlEndpoint = (protocol + window.location.hostname + ":" + window.location.port);
-        return wsControlEndpoint;
+    /* ── Shared helpers ───────────────────────────────────────────────── */
+
+    function wsEndpoint() {
+        var proto = (location.protocol === 'https:') ? 'wss://' : 'ws://';
+        return proto + location.hostname + ':' + location.port;
     }
 
-    //https://stackoverflow.com/questions/15900485/correct-way-to-convert-size-in-bytes-to-kb-mb-gb-in-javascript
-    function bytesToSize(bytes) {
-        let sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        if (bytes == 0) return '0 Byte';
-        let i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-        return Math.round((bytes / Math.pow(1024, i)) * 100, 3) / 100 + ' ' + sizes[i];
-    }
-
-    function bytesToSpeed(bytes) {
-        bytes = bytes * 8;
-        let sizes = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
-        if (bytes == 0) return '0 Byte';
-        let i = parseInt(Math.floor(Math.log(bytes) / Math.log(1000)));
-        return Math.round((bytes / Math.pow(1000, i)) * 100, 3) / 100 + ' ' + sizes[i];
+    function bytesToSpeed(bytesPerSec) {
+        var bps   = bytesPerSec * 8;
+        var units = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
+        if (bps === 0) return '0 bps';
+        var i = Math.floor(Math.log(bps) / Math.log(1000));
+        return (Math.round(bps / Math.pow(1000, i) * 100) / 100) + ' ' + units[i];
     }
 </script>
 
+</body>
 </html>

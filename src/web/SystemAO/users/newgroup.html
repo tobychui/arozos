@@ -1,254 +1,372 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Create Group</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../script/semantic/semantic.css">
-        <link rel="stylesheet" href="../../script/ao.css">
-        <script type="text/javascript" src="../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../script/semantic/semantic.js"></script>
-        <script type="text/javascript" src="../../script/ao_module.js"></script>
-        <style>
-            body{
-                background-color:white;
-            }
-            .themebackground{
-                background-color:#588ce0 !important;
-                color:white !important;
-                background-image: url("/img/public/slate.png") !important;
-                background-repeat: no-repeat !important;
-                background-attachment: fixed !important;
-            }
-            .ui.padded.slate{
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                padding: 4em;
-            }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>New Group</title>
+    <script src="../../script/jquery.min.js"></script>
+    <script src="../../script/applocale.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <link rel="stylesheet" href="ueditor.css">
+    <style>
+    /* ── Module checkbox list ── */
+    .ng-mod-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--ued-divider);
+        cursor: pointer;
+        transition: background 0.08s;
+        user-select: none;
+    }
+    .ng-mod-item:last-child { border-bottom: none; }
+    .ng-mod-item:hover { background: var(--ued-hover); }
+    .ng-mod-cb {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--ued-accent);
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+    .ng-mod-icon {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        flex-shrink: 0;
+        border-radius: 3px;
+    }
+    .ng-mod-name { font-size: 13px; font-weight: 500; color: var(--ued-text); }
 
-            .ui.heading.slate{
-                align-items: flex-start;
-            }
+    /* ── Module preview table ── */
+    .ng-preview-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .ng-preview-table th {
+        text-align: left;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--ued-muted);
+        padding: 7px 14px;
+        border-bottom: 1px solid var(--ued-divider);
+        background: var(--ued-card-bg);
+    }
+    .ng-preview-table td {
+        padding: 7px 14px;
+        border-bottom: 1px solid var(--ued-divider);
+        color: var(--ued-text);
+        vertical-align: middle;
+    }
+    .ng-preview-table tbody tr:last-child td { border-bottom: none; }
+    .ng-preview-table .ng-mod-icon { width: 18px; height: 18px; }
+    </style>
+</head>
+<body>
+<div id="ng-root" class="ued-root">
+<div class="ued-topbar"></div>
+<div class="ued-page">
 
-            .ui.slate .header:not(.ui):not(.sub):not(.item){
-                font-size: 1.6em;
-                line-height: 1.42857em;
-                font-weight: 500;
-                display: block;
-            }
+    <!-- Feedback banner -->
+    <div id="ng-error" class="ued-banner error" style="display:none;"><span id="ng-err-msg"></span></div>
 
-            .required{
-                color:red;
-            }
-            .actionbtns{
-                text-align:right;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="ui heading fluid padded slate themebackground" >
-            <span class="header">
-            <i class="users icon"></i> Create Users Group</span>
-            <span class="description">Fill in the following group information to proceed.</span>
-        </div>
-        <br>
-        <div class="ui container">
-            <div class="ui horizontal form">
-                <div class="field">
-                    <label>Group Name <span class="required">*</span></label>
-                    <input id="groupname" type="text">
-                </div>
-                <div class="two fields">
-                    <div class="field">
-                        <label>Default Storage Quota <span class="required">*</span></label>
-                        <input id="quota" type="text" value="15">
-                    </div>
-                    <div class="field">
-                        <label>Unit <span class="required">*</span></label>
-                        <select class="ui fluid search dropdown" id="unit">
-                            <option value="1">Bytes</option>
-                            <option value="1024">KB</option>
-                            <option value="1048576">MB</option>
-                            <option value="1073741824">GB</option>
-                            <option value="1099511627776">TB</option>
-                            <option value="1125899906842624">PB</option>
-                          </select>
-                    </div>
-                  </div>
-                <div class="field">
-                    <label>Default Interface Module <span class="required">*</span></label>
-                    <div class="ui fluid selection dropdown">
-                        <input type="hidden" name="dim">
-                        <i class="dropdown icon"></i>
-                        <div class="default text">Select Interface Module</div>
-                        <div class="menu" id="interfaceModuleList">
-                            
-                        </div>
-                      </div>
-                    <small>The module that the user land once they logged in. Default Desktop</small>
-                </div>
-                <div class="field">
-                    <label>Allow Access <span class="required">*</span></label>
-                    <select id="allowAccessList" multiple="" class="ui fluid dropdown">
-                        
-                    </select>
-                    <small>Allow this user group to access the selected modules and their APIs.</small>
-                </div>
-                <div class="field">
-                    <div class="ui checkbox">
-                        <input id="setAsAdmin" type="checkbox" tabindex="0" class="">
-                        <label>Assign Administrator Privileges to Group</label>
-                    </div>
-                </div>
-                <div class="ui divider"></div>
-                <table class="ui celled striped compact unstackable table">
-                    <thead>
-                        <tr>
-                            <th >#</th>
-                            <th>Module Name</th>
-                        </tr>
-                    </thead>
-                    <tbody id="selectedModuleList">
-                       
-                    </tbody>
-                </table>
-                <div class="ui divider"></div>
-                <div align="right">
-                    <button class="ui primary button" onclick="createGroup();">Create</button>
-                    <button id="cancelbtn" class="ui button" onclick="cancel();">Cancel</button>
-                </div>
-                <div id="errorbox" class="ui inverted red segment" style="display:none;">
-                    <p><i class="remove icon"></i><span class="errormessage"></span></p>
-                </div>
+    <!-- Group Information -->
+    <div class="ued-section-label" locale="newgroup/section-info">Group Information</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="newgroup/field-groupname">Group Name</div>
+            <div class="ued-field-body">
+                <input id="ng-groupname" class="ued-input" type="text" autocomplete="off">
             </div>
-            <br><br>
         </div>
-        <script>
-            var selectedModules = [];
-            var moduleList = [];
-            //Init functions
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="newgroup/field-admin">Privileges</div>
+            <div class="ued-field-body">
+                <label class="ued-toggle-row">
+                    <input type="checkbox" id="ng-isadmin" class="ued-cb">
+                    <span class="ued-toggle-label" locale="newgroup/hint-admin">Grant administrator privileges to this group</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Default Storage Quota -->
+    <div class="ued-section-label" locale="newgroup/section-quota">Default Storage Quota</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="newgroup/field-quota">Quota</div>
+            <div class="ued-field-body">
+                <div class="ued-quota-row">
+                    <input id="ng-quota" class="ued-input" type="number" value="15">
+                    <select id="ng-unit" class="ued-select">
+                        <option value="1">Bytes</option>
+                        <option value="1024">KB</option>
+                        <option value="1048576">MB</option>
+                        <option value="1073741824" selected>GB</option>
+                        <option value="1099511627776">TB</option>
+                        <option value="1125899906842624">PB</option>
+                    </select>
+                </div>
+                <div class="ued-input-hint" locale="newgroup/quota-hint">Set to 0 for read-only, &minus;1 for unlimited</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Default Interface Module -->
+    <div class="ued-section-label" locale="newgroup/section-interface">Default Interface Module</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="newgroup/field-interface">Module</div>
+            <div class="ued-field-body">
+                <select id="ng-interface" class="ued-select" style="width:100%;"></select>
+                <div class="ued-input-hint" locale="newgroup/hint-interface">The module loaded when users in this group log in.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accessible Modules -->
+    <div class="ued-section-label" locale="newgroup/section-access">Accessible Modules</div>
+    <div class="ued-card">
+        <div id="ng-module-list">
+            <div class="ued-empty" locale="newgroup/loading">Loading&hellip;</div>
+        </div>
+    </div>
+
+    <!-- Selected Modules Preview -->
+    <div class="ued-section-label" locale="newgroup/section-preview">Selected Modules</div>
+    <div class="ued-card" style="overflow-x:auto;">
+        <table class="ng-preview-table">
+            <thead><tr>
+                <th style="width:34px;"></th>
+                <th locale="newgroup/col-module">Module Name</th>
+            </tr></thead>
+            <tbody id="ng-mod-tbody">
+                <tr><td colspan="2" class="ued-empty" locale="newgroup/no-modules-selected">No modules selected</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="ued-toolbar">
+        <div class="ued-btn-row">
+            <button class="ued-btn" onclick="ngCancel()">
+                <span locale="newgroup/btn-cancel">Cancel</span>
+            </button>
+            <button class="ued-btn primary" onclick="ngCreate(this)">
+                <span locale="newgroup/btn-create">Create Group</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+    /* ── Locale ── */
+    var ngLocale = NewAppLocale();
+    var ngLocaleReady = false;
+    if (ngLocale) {
+        ngLocale.init('../locale/users/newgroup.json', function() {
+            ngLocaleReady = true;
+            ngLocale.translate();
             initModuleList();
-            $(".ui.dropdown").dropdown();
-            $("#unit").dropdown("set selected","GB");
-            function createGroup(){
-                var groupname = $("#groupname").val();
-                if (groupname == ""){
-                    $("#groupname").parent().removeClass("success").addClass("error");
-                    return
-                }else{
-                    $("#groupname").parent().removeClass("error").addClass("success");
-                }
+        });
+    }
+    setTimeout(function() {
+        if (!ngLocaleReady) { initModuleList(); }
+    }, 2000);
 
-                //Continue to create usergroup
-                targetModuleList = [];
-                for (var i =0; i < selectedModules.length; i++){
-                    targetModuleList.push(selectedModules[i].Name);
-                }
-
-                var defaultStorageSize = parseFloat($("#quota").val()) * $("#unit").val();
-                if (isNaN(defaultStorageSize)){
-                    $("#quota").parent().addClass("error");
-                    return
-                }else{
-                    $("#quota").parent().removeClass("error");
-                }
-
-                var interfaceModule = $("#interfaceModuleList").parent().dropdown("get value");
-                if (interfaceModule == ""){
-                    interfaceModule = "Desktop";
-                }
-                //Send Request to server side
-                $.ajax({
-                    url: "../../system/permission/newgroup",
-                    data: {
-                        "groupname": groupname, 
-                        "permission": JSON.stringify(targetModuleList),
-                        "isAdmin": $("#setAsAdmin").is(":checked"),
-                        "defaultQuota": defaultStorageSize,
-                        "interfaceModule": interfaceModule,
-                    },
-                    traditional: true,
-                    method: "POST",
-                    success: function(data){
-                        if (data.error !== undefined){
-                            $("#errorbox").slideDown("fast");
-                            $("#errorbox").find(".errormessage").text(data.error);
-                        }else{
-                            ao_module_parentCallback(true);
-                            ao_module_close();
-                        }
-                    }
-                })
-            }
-
-            function initModuleList(){
-                $("#interfaceModuleList").html("");
-                var firstInterfaceModule = null;
-                $.get("../../system/modules/list",function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        for (var i =0; i < data.length; i++){
-                            if (data[i].StartDir !== ""  && data[i].Group != "Interface Module"){
-                                $("#allowAccessList").append(`<option value="${data[i].Name}" icon="${data[i].IconPath}">${data[i].Name}</option>`);
-                            }else if (data[i].Group == "Interface Module"){
-                                //Add to interface module list
-                                $("#interfaceModuleList").append(`
-                                <div class="item" data-value="${data[i].Name}">
-                                    <img class="ui mini avatar image" style="border-radius: 0px !important;" src="../../${data[i].IconPath}">
-                                    ${data[i].Name}
-                                </div>
-                                `);
-
-                                if (firstInterfaceModule == null){
-                                    firstInterfaceModule = data[i].Name;
-                                }
-                            }else{
-                                //Utlities modules. Always allow access
-
-                            }
-                        }
-                        //Select the first interface modules
-                        $("#interfaceModuleList").parent().dropdown();
-                        $("#interfaceModuleList").parent().dropdown("set selected",firstInterfaceModule);
-                        moduleList = data;
-                    }
+    /* ── Theme detection ── */
+    (function() {
+        var root = document.getElementById('ng-root');
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    var isDark = c !== 'whiteTheme';
+                    root.classList.toggle('dark', isDark);
+                    document.body.classList.toggle('dark', isDark);
                 });
-
-                $("#allowAccessList").on("change", function(e){
-                    var currentSelected = $(this).val();
-                    selectedModules = [];
-                    moduleList.forEach(mod => {
-                        if (currentSelected.includes(mod.Name)){
-                            selectedModules.push(mod);
-                        }
-                    });
-                    renderSelectedModuleList();
-                });
+                return;
             }
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined')                       t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) {
+                var isDark = t === 'dark' || t === 'darkTheme';
+                root.classList.toggle('dark', isDark);
+                document.body.classList.toggle('dark', isDark);
+            }
+        } catch(e) {}
+    })();
 
-            renderSelectedModuleList();
-            function renderSelectedModuleList(){
-                $("#selectedModuleList").html("");
-                for (var i = 0; i < selectedModules.length; i++){
-                    $("#selectedModuleList").append(`<tr>
-                            <td class="collapsing"><img class="ui mini image" src="../../${selectedModules[i].IconPath}"/></td>
-                            <td>${selectedModules[i].Name}</td>
-                        </tr>`);
+    /* ── State ── */
+    var selectedModules = [];
+    var moduleList      = [];
+
+    /* ── Feedback helper ── */
+    function ngShowError(msg) {
+        document.getElementById('ng-err-msg').textContent = msg || '';
+        var el = document.getElementById('ng-error');
+        el.style.display = 'block';
+        clearTimeout(el._t);
+        el._t = setTimeout(function() { el.style.display = 'none'; }, 5000);
+        try { window.scrollTo(0, 0); } catch(e) {}
+    }
+
+    /* ── Render module checkbox list ── */
+    function renderModuleList() {
+        var container = document.getElementById('ng-module-list');
+        var accessibles = moduleList.filter(function(m) {
+            return m.StartDir !== '' && m.Group !== 'Interface Module';
+        });
+        if (accessibles.length === 0) {
+            container.innerHTML = '<div class="ued-empty">' +
+                ngLocale.getString('newgroup/no-modules', 'No modules available') + '</div>';
+            return;
+        }
+        container.innerHTML = '';
+        accessibles.forEach(function(mod) {
+            var safeName = $('<span>').text(mod.Name).html();
+            var item = document.createElement('div');
+            item.className = 'ng-mod-item';
+            item.innerHTML =
+                '<input type="checkbox" class="ng-mod-cb" value="' + safeName + '"' +
+                ' onchange="onModuleCheckChange();" onclick="event.stopPropagation();">' +
+                '<img class="ng-mod-icon" src="../../' + mod.IconPath + '" onerror="this.style.visibility=\'hidden\'">' +
+                '<span class="ng-mod-name">' + safeName + '</span>';
+            item.addEventListener('click', function(e) {
+                if (e.target.type === 'checkbox') return;
+                var cb = item.querySelector('.ng-mod-cb');
+                cb.checked = !cb.checked;
+                onModuleCheckChange();
+            });
+            container.appendChild(item);
+        });
+    }
+
+    /* ── Sync selectedModules from checkboxes ── */
+    function onModuleCheckChange() {
+        var checked = [];
+        document.querySelectorAll('.ng-mod-cb:checked').forEach(function(cb) { checked.push(cb.value); });
+        selectedModules = moduleList.filter(function(m) { return checked.indexOf(m.Name) !== -1; });
+        renderModulePreview();
+    }
+
+    /* ── Render selected modules preview ── */
+    function renderModulePreview() {
+        var tbody = document.getElementById('ng-mod-tbody');
+        if (selectedModules.length === 0) {
+            var msg = ngLocale.getString('newgroup/no-modules-selected', 'No modules selected');
+            tbody.innerHTML = '<tr><td colspan="2" class="ued-empty">' + msg + '</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        selectedModules.forEach(function(mod) {
+            var safeName = $('<span>').text(mod.Name).html();
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td><img class="ng-mod-icon" src="../../' + mod.IconPath + '" onerror="this.style.visibility=\'hidden\'"></td>' +
+                '<td>' + safeName + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    /* ── Load module list ── */
+    function initModuleList() {
+        $.get('../../system/modules/list', function(data) {
+            if (!data || data.error !== undefined) {
+                ngShowError(ngLocale.getString('newgroup/err-load-modules', 'Failed to load modules.'));
+                return;
+            }
+            moduleList = data;
+            var interfaceSel = document.getElementById('ng-interface');
+            interfaceSel.innerHTML = '';
+            data.forEach(function(mod) {
+                if (mod.Group === 'Interface Module') {
+                    var opt = document.createElement('option');
+                    opt.value = mod.Name;
+                    opt.textContent = mod.Name;
+                    interfaceSel.appendChild(opt);
                 }
-                if (selectedModules.length == 0){
-                    $("#selectedModuleList").append(`<tr>
-                        <td class="collapsing"><img class="ui mini image" src="img/nomodule.png"></img></td>
-                        <td>No Module Selected</td>
-                       </tr>`);
-                }
-            }
+            });
+            renderModuleList();
+            renderModulePreview();
+        }).fail(function(xhr) {
+            var msg = xhr.status === 403
+                ? ngLocale.getString('newgroup/err-forbidden',    'Access denied.')
+                : ngLocale.getString('newgroup/err-load-modules', 'Failed to load modules.');
+            ngShowError(msg);
+        });
+    }
 
-            function cancel(){
-                ao_module_close();
+    /* ── Create group ── */
+    function ngCreate(btn) {
+        var groupname = document.getElementById('ng-groupname').value.trim();
+        var groupnameInput = document.getElementById('ng-groupname');
+        var quotaInput = document.getElementById('ng-quota');
+
+        groupnameInput.classList.remove('error');
+        quotaInput.classList.remove('error');
+
+        if (groupname === '') {
+            groupnameInput.classList.add('error');
+            groupnameInput.focus();
+            ngShowError(ngLocale.getString('newgroup/err-name-required', 'Group name is required.'));
+            return;
+        }
+
+        var quotaRaw = parseFloat(quotaInput.value);
+        var unitVal  = parseInt(document.getElementById('ng-unit').value, 10);
+        if (isNaN(quotaRaw)) {
+            quotaInput.classList.add('error');
+            quotaInput.focus();
+            ngShowError(ngLocale.getString('newgroup/err-quota-invalid', 'Please enter a valid quota.'));
+            return;
+        }
+        var quota = (quotaRaw === -1) ? -1 : quotaRaw * unitVal;
+
+        var targetModuleList = selectedModules.map(function(m) { return m.Name; });
+        var interfaceModule  = document.getElementById('ng-interface').value || 'Desktop';
+
+        $(btn).addClass('loading');
+        $.ajax({
+            url: '../../system/permission/newgroup',
+            data: {
+                groupname:       groupname,
+                permission:      JSON.stringify(targetModuleList),
+                isAdmin:         document.getElementById('ng-isadmin').checked,
+                defaultQuota:    quota,
+                interfaceModule: interfaceModule
+            },
+            traditional: true,
+            method: 'POST',
+            success: function(data) {
+                $(btn).removeClass('loading');
+                if (data && data.error !== undefined) {
+                    ngShowError(data.error);
+                } else {
+                    try { ao_module_parentCallback(true); } catch(e) {}
+                    try { ao_module_close(); } catch(e) {}
+                }
+            },
+            error: function(xhr) {
+                $(btn).removeClass('loading');
+                var msg = xhr.status === 403
+                    ? ngLocale.getString('newgroup/err-forbidden',       'Access denied.')
+                    : ngLocale.getString('newgroup/err-request-failed',  'Request failed. Please try again.');
+                ngShowError(msg);
             }
-            
-        </script>
-    </body>
+        });
+    }
+
+    function ngCancel() {
+        try { ao_module_close(); } catch(e) { try { window.close(); } catch(e2) {} }
+    }
+
+    /* ── Bootstrap ── */
+    // initModuleList() is called from the locale init callback above (or the timeout fallback).
+</script>
+</body>
 </html>

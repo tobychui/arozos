@@ -772,15 +772,11 @@
             cursor:pointer;
         }
 
-        .notification.object:hover{
-            /*
-                border-left: 3px solid #83D8FF;
-            */
-        }
-
         .blured{
             filter: blur(2px);
         }
+
+        /* Quick access panel css */
 
         #quickAccessPanel{
             background-color:var(--body_background);
@@ -833,6 +829,22 @@
            background-color:var(--body_background_active);
         }
 
+        /* Fix for user icon */
+        .usericon-wrapper{
+            width: 50px !important;
+        }
+
+        #quickAccessPanel .item.profile-row{
+            display: flex;
+            align-items: center;
+        }
+
+        #quickAccessPanel .item.profile-row .content{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
         /*
             Handle dark theme for the quick access panel
         */
@@ -873,6 +885,71 @@
 
         body.darkTheme #quickAccessPanel .ui.basic.button{
             color: var(--text_color_secondary) !important;
+        }
+
+        /* Quick action grid */
+        #quickAccessPanel .qap-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            padding: 4px 12px 10px 12px;
+        }
+
+        #quickAccessPanel .qap-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 10px 10px 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            background-color: var(--body_background_secondary);
+            min-height: 58px;
+            transition: background-color 0.12s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #quickAccessPanel .qap-btn:hover {
+            background-color: var(--body_background_active);
+        }
+
+        #quickAccessPanel .qap-btn i.icon {
+            font-size: 1.15em;
+            margin: 0 0 5px 0;
+            color: var(--text_color);
+        }
+
+        #quickAccessPanel .qap-btn .qap-label {
+            font-size: 0.76em;
+            color: var(--text_color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            line-height: 1.3;
+        }
+
+        #quickAccessPanel .qap-btn.active {
+            background-color: var(--theme_color, #52C9FF);
+        }
+
+        #quickAccessPanel .qap-btn.active i.icon,
+        #quickAccessPanel .qap-btn.active .qap-label {
+            color: white;
+        }
+
+        #quickAccessPanel .qap-btn#poweroffBtn i.icon,
+        #quickAccessPanel .qap-btn#poweroffBtn .qap-label {
+            color: #cf2828;
+        }
+
+        body.darkTheme #quickAccessPanel .qap-btn {
+            background-color: var(--body_background_secondary);
+        }
+
+        body.darkTheme #quickAccessPanel .qap-btn:hover {
+            background-color: var(--body_background_active);
         }
 
         .item.module{
@@ -1263,19 +1340,14 @@
         <div class="ui grid">
             <div class="seven wide column mxmenu">
                 <div class="ui small items" style="margin-bottom: 0;">
-                    <div class="item">
-                        <div class="ui mini image">
+                    <div class="item profile-row">
+                        <div class="ui mini circular image usericon-wrapper">
                             <img class="usericon" src="img/desktop/system_icon/user.svg">
                         </div>
                         <div class="content" style="padding-left: 1em;">
                             <div id="username" class="header" style="font-weight: 600; font-size: 1.22em;">User</div>
                             <div class="meta" style="margin-top: 0.15em;">
                                 <div id="usergroups">@Users</div>
-                            </div>
-                        </div>
-                        <div class="actions">
-                            <div class="ui small button" onclick="logout(); hideToolPanel();">
-                                <i class="log out icon"></i> <span locale="quickAccess/logout">Logout</span>
                             </div>
                         </div>
                     </div>
@@ -1304,19 +1376,43 @@
                         <div id="brightnessbar" class="bar" style="width: 100%; min-width: 0px; background-color:#52C9FF;  cursor:pointer;"></div>
                     </div>
                 </div>
-                <div class="item" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
-                    <i class="setting icon"></i> <span locale="quickAccess/settings">System Settings</span>
-                    <!-- <div style="float:right;"><i class="caret right icon"></i></div> -->
-                </div>
-                <div class="item" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
-                    <i class="expand icon"></i> <span locale="quickAccess/fullscreen">Toggle Fullscreen</span>
-                </div>
                 <div class="ui divider" style="margin: 0.4em;"></div>
-                <div class="item powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
-                    <i class="repeat icon"></i> <span locale="quickAccess/restart">Restart</span>
-                </div>
-                <div class="item powerman" style="color:#b51d1d;"  onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
-                    <i class="power icon"></i> <span locale="quickAccess/poweroff">Power Off</span>
+                <!-- Win11-style quick action grid -->
+                <div class="qap-grid">
+                    <div class="qap-btn" id="settingButton" onclick="showSystemSettings(); hideToolPanel();" ontouchend="showSystemSettings(); hideToolPanel();">
+                        <i class="setting icon"></i>
+                        <span class="qap-label" locale="quickAccess/settings">System Settings</span>
+                    </div>
+                    <div class="qap-btn" onclick="fullscreen(); hideToolPanel();" ontouchend="fullscreen(); hideToolPanel();">
+                        <i class="expand icon"></i>
+                        <span class="qap-label" locale="quickAccess/fullscreen">Fullscreen</span>
+                    </div>
+                    <div class="qap-btn" id="themeToggleBtn" onclick="toggleDesktopTheme();" ontouchend="toggleDesktopTheme();">
+                        <i class="sun icon"></i>
+                        <span class="qap-label">Light Mode</span>
+                    </div>
+                    <!-- 
+                    <div class="qap-btn" onclick="openModule('File Manager'); hideToolPanel();" ontouchend="openModule('File Manager'); hideToolPanel();">
+                        <i class="folder open icon"></i>
+                        <span class="qap-label">File Manager</span>
+                    </div>
+                    <div class="qap-btn" onclick="openModule('Serverless'); hideToolPanel();" ontouchend="openModule('Serverless'); hideToolPanel();">
+                        <i class="code icon"></i>
+                        <span class="qap-label">Serverless</span>
+                    </div>
+                    -->
+                    <div class="qap-btn" id="logoutBtn" onclick="logout(); hideToolPanel();" ontouchend="logout(); hideToolPanel();">
+                        <i class="log out icon"></i>
+                        <span class="qap-label" locale="quickAccess/logout">Logout</span>
+                    </div>
+                    <div class="qap-btn powerman" onclick="restart(); hideToolPanel();" ontouchend="restart(); hideToolPanel();">
+                        <i class="repeat icon"></i>
+                        <span class="qap-label" locale="quickAccess/restart">Restart</span>
+                    </div>
+                    <div class="qap-btn powerman" id="poweroffBtn" onclick="shutdown(); hideToolPanel();" ontouchend="shutdown(); hideToolPanel();">
+                        <i class="power icon"></i>
+                        <span class="qap-label" locale="quickAccess/poweroff">Power Off</span>
+                    </div>
                 </div>
                 <div class="ui container" style="padding-left: 1em; color: rgb(199, 199, 199);">
                     <small id="sysinfo"></small>
@@ -1723,6 +1819,7 @@
             if (listMenuShown = true){
                 hideListMenu();
             }
+            updateThemeToggleBtn();
             $("#quickAccessPanel").fadeToggle("fast");
         }
         function hideToolPanel(){
@@ -1823,7 +1920,7 @@
                     powerman = true;
                 }else{
                     //Hardware management mode is off
-                    $(".item.powerman").remove();
+                    $(".item.powerman, .qap-btn.powerman").remove();
                     powerman = false;
                 }   
             });
@@ -7005,11 +7102,37 @@
         function setDarkTheme(){
             $("body").removeClass("whiteTheme").addClass("darkTheme");
             $("#powerIcon").attr("src","img/system/power-white.svg");
+            updateThemeToggleBtn();
         }
 
         function setWhiteTheme(){
             $("body").removeClass("darkTheme").addClass("whiteTheme");
             $("#powerIcon").attr("src","img/system/power.svg");
+            updateThemeToggleBtn();
+        }
+
+        function toggleDesktopTheme(){
+            if ($("body").hasClass("darkTheme")){
+                setWhiteTheme();
+                $.get("system/file_system/preference?key=file_explorer/theme&value=whiteTheme");
+            }else{
+                setDarkTheme();
+                $.get("system/file_system/preference?key=file_explorer/theme&value=darkTheme");
+            }
+        }
+
+        function updateThemeToggleBtn(){
+            var isDark = $("body").hasClass("darkTheme");
+            var btn = $("#themeToggleBtn");
+            if (isDark){
+                btn.addClass("active");
+                btn.find("i").removeClass("sun").addClass("moon");
+                btn.find(".qap-label").text("Dark Mode");
+            }else{
+                btn.removeClass("active");
+                btn.find("i").removeClass("moon").addClass("sun");
+                btn.find(".qap-label").text("Light Mode");
+            }
         }
 
         function hexToRgbA(hex, transparent=1){

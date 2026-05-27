@@ -1,431 +1,1095 @@
 <!DOCTYPE HTML>
 <html>
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>{{filename}} - {{hostname}} File Share</title>
-    <meta name="description" content="Folder shared from  {{hostname}}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>{{filename}} - {{hostname}} File Share</title>
+  <meta name="description" content="Folder shared from {{hostname}}">
+  <meta property="og:url" content="{{requri}}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{filename}}">
+  <meta property="og:description" content="File shared from {{hostname}}">
+  <meta property="og:image" content="{{opg_image}}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="twitter:domain" content="{{host}}">
+  <meta property="twitter:url" content="{{requri}}">
+  <meta name="twitter:title" content="{{filename}}">
+  <meta name="twitter:description" content="File shared from {{hostname}}">
+  <meta name="twitter:image" content="{{opg_image}}">
 
-      <!-- Facebook Meta Tags -->
-      <meta property="og:url" content="{{requri}}">
-      <meta property="og:type" content="website">
-      <meta property="og:title" content="{{filename}}">
-      <meta property="og:description" content="File shared from {{hostname}}">
-      <meta property="og:image" content="{{opg_image}}">
-    
-      <!-- Twitter Meta Tags -->
-      <meta name="twitter:card" content="summary_large_image">
-      <meta property="twitter:domain" content="{{host}}">
-      <meta property="twitter:url" content="{{requri}}">
-      <meta name="twitter:title" content="{{filename}}">
-      <meta name="twitter:description" content="File shared from {{hostname}}">
-      <meta name="twitter:image" content="{{opg_image}}">
-      
-    <link rel="stylesheet" href="../../script/skeleton/offline.css">
-    <link rel="stylesheet" href="../../script/skeleton/normalize.css">
-    <link rel="stylesheet" href="../../script/skeleton/skeleton.css">
-    <script type="application/javascript" src="../../script/jquery.min.js"></script>
-    <link rel="icon" type="image/png" href="../../img/public/share/share.png" />
-    <style>
+  <script type="application/javascript" src="../../script/jquery.min.js"></script>
+  <link rel="icon" type="image/png" href="../../img/public/share/share.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body{
-            padding-bottom: 100px;
-        }
-        .bar{
-            height: 12px;
-            background-color: #1a1a1a;
-            width: 100%;
-        }
+    :root {
+      --bg: #f0f2f5;
+      --surface: #ffffff;
+      --surface2: #f7f8fa;
+      --border: #e4e6ea;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --accent:    #d4920d;
+      --accent-h:  #b87c09;
+      --accent-fg: #ffffff;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+      --radius: 16px;
+      --trans: 0.2s ease;
+      --row-hover: rgba(217, 184, 0, 0.06);
+    }
 
-        .footer{
-            position: fixed;
-            bottom: 0px;
-            height: 50px;
-            width: 100%;
-            background-color: #1a1a1a;
-            padding: 20px;
-            color: white;
-        }
+    [data-theme="dark"] {
+      --bg: #0f0f12;
+      --surface: #1c1c22;
+      --surface2: #26262f;
+      --border: #32323c;
+      --text: #e8e8f0;
+      --muted: #888899;
+      --accent: #fbbf24;
+        --accent-h: #f59e0b;
+      --shadow: 0 4px 32px rgba(0,0,0,0.5);
+      --row-hover: rgba(212, 199, 13, 0.08);
+    }
 
-        .fileobject{
-          cursor: pointer;
-        }
-        .fileobject:hover{
-          background-color: #f5f5f5;
-        }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0f0f12;
+        --surface: #1c1c22;
+        --surface2: #26262f;
+        --border: #32323c;
+        --text: #e8e8f0;
+        --muted: #888899;
+        --accent: #d4920d;
+        --accent-h: #b87c09;
+        --shadow: 0 4px 32px rgba(0,0,0,0.5);
+        --row-hover: rgba(212,146,13,0.08);
+      }
+    }
 
-        .fileobject.active{
-          background-color: #f5f5f5ee;
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background var(--trans), color var(--trans);
+    }
 
-        .noselect{
-          -webkit-touch-callout: none; /* iOS Safari */
-          -webkit-user-select: none; /* Safari */
-          -khtml-user-select: none; /* Konqueror HTML */
-          -moz-user-select: none; /* Old versions of Firefox */
-          -ms-user-select: none; /* Internet Explorer/Edge */
-          user-select: none;
-        }
+    .icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
 
-        #filelistWrapper{
-          position: relative;
-          padding: 12px;
-          border-top: 4px solid #ffe46c;
-          -webkit-box-shadow: 11px 9px 23px 0px rgba(54,54,54,0.31); 
-          box-shadow: 11px 9px 23px 0px rgba(54,54,54,0.31);
-        }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-        td{
-          word-break: break-all;
-        }
-    </style>
-    </head>
-    <body>
-        <div class="bar"></div>
-        <br>
-        <div class="container">
-            <h5>{{hostname}} File Sharing</h5>
-            <h3>{{filename}}</h3>
-            <div class="row">
-                <div class="one-half column">
-                    <table class="u-full-width">
-                        <thead>
-                          <tr>
-                            <th>Property</th>
-                            <th>Value</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td>MIME Type</td>
-                            <td>{{mime}}</td>
-                          </tr>
-                          <tr>
-                            <td>Folder Size</td>
-                            <td>{{size}}</td>
-                          </tr>
-                          <tr>
-                            <td>File Counts</td>
-                            <td>{{filecount}}</td>
-                          </tr>
-                          <tr>
-                            <td>Last Modification Time</td>
-                            <td>{{modtime}}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                      <a href="{{downloadurl}}" id="downloadLink"><button class="button-primary">Download All</button></a>
-                      <button id="sharebtn" onclick="share();">Share</button>
-                      <div style="margin-top: 10px;">
-                          <input type="checkbox" id="uncompressedCheck" name="uncompressed">
-                          <label for="uncompressedCheck" style="display: inline">Uncompressed</label>
-                      </div>
-                      <p style="font-size: 80%;"><b>Zipping duration depends on folder size and compression settings. Media files are best zipped without compression for faster processing.</b></p>
-                      <p>Request File ID: {{reqid}}<br>
-                      Request Timestamp: {{reqtime}}</p>
-                      <small>📂 Double click any item in the list to open or download</small>
-                      
-                      <script>
-                      document.getElementById('uncompressedCheck').addEventListener('change', function() {
-                          const downloadLink = document.getElementById('downloadLink');
-                          if (this.checked) {
-                              downloadLink.href = '{{downloadurl}}?compression_level=0';
-                          } else {
-                              downloadLink.href = '{{downloadurl}}';
-                          }
-                      });
-                      </script>
-                      
-                    
-                </div>
-                <div class="one-half column" id="filelistWrapper" style="overflow-y: auto; padding-right: 0.5em; min-height: 400px;">
-                  <table class="u-full-width">
-                    <thead>
-                      <tr>
-                        <th>Filename</th>
-                        <th>Type</th>
-                        <th>Size</th>
-                      </tr>
-                    </thead>
-                    <tbody id="folderList">
-                     
-                    </tbody>
-                  </table>
-                </div>
-            </div>
-          
+    .topbar-brand {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+      text-decoration: none;
+    }
+
+    .topbar-brand span { color: var(--text); font-weight: 400; }
+
+    .theme-toggle {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      cursor: pointer;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color var(--trans), color var(--trans);
+    }
+
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+
+    .page-wrap {
+      flex: 1;
+      padding: 32px 20px 60px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .info-hero {
+      padding: 28px 26px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+    }
+
+    .folder-icon {
+      color: var(--accent);
+      width: 48px;
+      height: 48px;
+    }
+
+    .info-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .info-name {
+      font-size: 1.3rem;
+      font-weight: 700;
+      word-break: break-word;
+      line-height: 1.3;
+    }
+
+    .info-host { font-size: 0.8rem; color: var(--muted); }
+
+    .divider { height: 1px; background: var(--border); }
+
+    .meta-list {
+      padding: 18px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meta-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .meta-value {
+      font-size: 0.88rem;
+      font-weight: 500;
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .action-stack {
+      padding: 16px 26px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: background var(--trans), transform 0.1s, box-shadow var(--trans);
+      width: 100%;
+      color: inherit;
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-fg);
+    }
+
+    .btn-primary:hover { background: var(--accent-h); }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    .compress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 26px 18px;
+    }
+
+    .compress-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .compress-row label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .compress-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      padding: 0 26px 18px;
+      line-height: 1.5;
+    }
+
+    .info-footer {
+      padding: 12px 26px;
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .info-footer-item { font-size: 0.72rem; color: var(--muted); }
+    .info-footer-item strong { color: var(--text); }
+
+    .browser-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 500px;
+      max-height: calc(100vh - 120px);
+    }
+
+    .browser-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+
+    .browser-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .breadcrumb-item {
+      font-size: 0.82rem;
+      color: var(--muted);
+      white-space: nowrap;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .breadcrumb-item:hover { color: var(--accent); }
+    .breadcrumb-item.active { color: var(--text); font-weight: 600; cursor: default; }
+    .breadcrumb-sep { color: var(--border); font-size: 0.8rem; }
+
+    .browser-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .browser-body::-webkit-scrollbar { width: 6px; }
+    .browser-body::-webkit-scrollbar-track { background: transparent; }
+    .browser-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .browser-body::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    .file-row {
+      display: grid;
+      grid-template-columns: 1fr 90px 90px 40px;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      cursor: pointer;
+      transition: background var(--trans);
+      user-select: none;
+    }
+
+    .file-row:hover { background: var(--row-hover); }
+    .file-row.selected { background: var(--row-hover); }
+    .file-row.back-row { color: var(--muted); font-size: 0.85rem; }
+    .file-row.back-row:hover { color: var(--accent); background: var(--row-hover); }
+
+    .file-name {
+      font-size: 0.88rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .file-name-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-name a {
+      color: inherit;
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-name a:hover { color: var(--accent); }
+
+    .file-type, .file-size {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .browser-cols {
+      display: grid;
+      grid-template-columns: 1fr 90px 90px 40px;
+      gap: 8px;
+      padding: 8px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .browser-col-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .browser-col-label:not(:first-child) { text-align: right; }
+
+    .browser-empty {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    #thumb-popup {
+      display: none;
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px;
+      z-index: 200;
+      pointer-events: none;
+    }
+
+    #thumb-popup img {
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .page-footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+
+    .page-footer a { color: var(--accent); text-decoration: none; }
+
+    /* Download button in file rows */
+    .dl-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: transparent;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color var(--trans), border-color var(--trans), background var(--trans);
+      flex-shrink: 0;
+    }
+
+    .file-row:hover .dl-btn {
+      color: var(--muted);
+      border-color: var(--border);
+      background: var(--surface2);
+    }
+
+    .dl-btn:hover {
+      color: var(--accent) !important;
+      border-color: var(--accent) !important;
+      background: var(--row-hover) !important;
+    }
+
+    /* Preview overlay */
+    #preview-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+    }
+
+    #preview-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      cursor: pointer;
+    }
+
+    #preview-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      max-width: 92vw;
+      max-height: 92vh;
+      width: 860px;
+      overflow: hidden;
+    }
+
+    #preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    #preview-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .preview-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    #preview-dl-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      transition: border-color var(--trans), color var(--trans);
+    }
+
+    #preview-dl-link:hover { border-color: var(--accent); color: var(--accent); }
+
+    #preview-close-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      transition: color var(--trans), border-color var(--trans);
+    }
+
+    #preview-close-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    #preview-body {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      min-height: 220px;
+    }
+
+    #preview-body img {
+      max-width: 100%;
+      max-height: calc(92vh - 100px);
+      object-fit: contain;
+      border-radius: 4px;
+    }
+
+    #preview-body video {
+      max-width: 100%;
+      max-height: calc(92vh - 100px);
+      outline: none;
+      border-radius: 4px;
+    }
+
+    #preview-body audio {
+      width: 340px;
+      max-width: 100%;
+    }
+
+    #preview-body iframe {
+      width: 100%;
+      flex: 1;
+      border: none;
+      border-radius: 4px;
+    }
+
+    #preview-body pre {
+      width: 100%;
+      align-self: stretch;
+      max-height: calc(92vh - 110px);
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-family: "Cascadia Code", "Fira Code", "Courier New", monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--surface2);
+      padding: 14px;
+      border-radius: 6px;
+      overflow: auto;
+      margin: 0;
+    }
+
+    #preview-loading {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar-brand" href="#">{{hostname}} <span>File Share</span></a>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+      <span id="themeIcon"></span>
+      <span id="themeLabel">Dark</span>
+    </button>
+  </header>
+
+  <main class="page-wrap">
+    <div class="layout">
+      <div class="card">
+        <div class="info-hero">
+          <svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+          <div class="info-tag">Shared Folder</div>
+          <div class="info-name">{{filename}}</div>
+          <div class="info-host">Shared from <strong>{{hostname}}</strong></div>
         </div>
-        <div class="footer">
-            <div class="container">
-                Cloud File Sharing Interface, Powered by <a style="color: white;" href="http://arozos.com">arozos</a>
-            </div>
-        </div>
-    <script>
-      var treeFileList = {{treelist}};
-      var downloadUUID = `{{downloaduuid}}`;
-      var currentViewingRoot = ".";
-      var selectedFile = null;
-      var stats = renderFileList(treeFileList["."]);
 
-      // most files are already compressed media...
-      if (stats.totalCompressedMediaSize / stats.totalFileSize >= 0.5) {
-        document.getElementById('uncompressedCheck').checked = true;
-        const downloadLink = document.getElementById('downloadLink');
-        downloadLink.href = '{{downloadurl}}?compression_level=0';
+        <div class="divider"></div>
+
+        <div class="meta-list">
+          <div class="meta-row"><span class="meta-label">Type</span><span class="meta-value">Folder</span></div>
+          <div class="meta-row"><span class="meta-label">Total Size</span><span class="meta-value">{{size}}</span></div>
+          <div class="meta-row"><span class="meta-label">File Count</span><span class="meta-value">{{filecount}} files</span></div>
+          <div class="meta-row"><span class="meta-label">Last Modified</span><span class="meta-value">{{modtime}}</span></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="action-stack">
+          <a class="btn btn-primary" href="{{downloadurl}}" id="downloadLink">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Download All</span>
+          </a>
+          <button class="btn btn-secondary" id="sharebtn" onclick="doShare()">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            <span>Share Link</span>
+          </button>
+        </div>
+
+        <div class="compress-row">
+          <input type="checkbox" id="uncompressedCheck" name="uncompressed">
+          <label for="uncompressedCheck">Skip compression (faster for media)</label>
+        </div>
+
+        <div class="compress-hint">
+          Media files (video, audio, images) are already compressed, so this option can speed up zipping.
+        </div>
+
+        <div class="info-footer">
+          <span class="info-footer-item">ID: <strong>{{reqid}}</strong></span>
+          <span class="info-footer-item">Timestamp: <strong>{{reqtime}}</strong></span>
+        </div>
+      </div>
+
+      <div class="card browser-card">
+        <div class="browser-header">
+          <span class="browser-title">Contents</span>
+          <div class="breadcrumb" id="breadcrumb"></div>
+        </div>
+
+        <div class="browser-cols">
+          <span class="browser-col-label">Name</span>
+          <span class="browser-col-label">Type</span>
+          <span class="browser-col-label">Size</span>
+          <span class="browser-col-label"></span>
+        </div>
+
+        <div class="browser-body" id="fileList"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="page-footer">
+    Cloud File Sharing Interface - Powered by <a href="https://os.aroz.org">arozos</a>
+  </footer>
+
+  <div id="thumb-popup"><img id="thumb-img" src="" alt=""></div>
+
+  <div id="preview-overlay">
+    <div id="preview-backdrop" onclick="closePreview()"></div>
+    <div id="preview-modal">
+      <div id="preview-header">
+        <span id="preview-title"></span>
+        <div class="preview-header-actions">
+          <a id="preview-dl-link" href="#" target="_blank">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download
+          </a>
+          <button id="preview-close-btn" onclick="closePreview()">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+      <div id="preview-body"></div>
+    </div>
+  </div>
+
+  <script>
+    var ICONS = {
+      moon: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>',
+      sun: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"></line><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"></line><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"></line></svg>',
+      folder: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"></path></svg>',
+      image: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="M21 16l-5-5-8 8"></path></svg>',
+      audio: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"></path><circle cx="6" cy="18" r="3"></circle><circle cx="16" cy="16" r="3"></circle></svg>',
+      video: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"></rect><polygon points="17,10 22,7 22,17 17,14"></polygon></svg>',
+      pdf: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2a2 2 0 0 1 0 4H8z"></path><path d="M14 13h3"></path><path d="M14 17h2"></path></svg>',
+      archive: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="8" y1="4" x2="8" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>',
+      text: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="14" y2="17"></line></svg>',
+      sheet: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="9" y1="4" x2="9" y2="20"></line><line x1="15" y1="4" x2="15" y2="20"></line></svg>',
+      file: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
+      back: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>',
+      download: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>'
+    };
+
+    (function initTheme() {
+      var saved = localStorage.getItem('shareTheme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var isDark = saved ? saved === 'dark' : prefersDark;
+      if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+      updateThemeBtn(isDark);
+    })();
+
+    function updateThemeBtn(isDark) {
+      var icon = document.getElementById('themeIcon');
+      var label = document.getElementById('themeLabel');
+      if (!icon) return;
+      icon.innerHTML = isDark ? ICONS.sun : ICONS.moon;
+      label.textContent = isDark ? 'Light' : 'Dark';
+    }
+
+    function toggleTheme() {
+      var root = document.documentElement;
+      var isDark = root.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        root.setAttribute('data-theme', 'light');
+        localStorage.setItem('shareTheme', 'light');
+      } else {
+        root.setAttribute('data-theme', 'dark');
+        localStorage.setItem('shareTheme', 'dark');
+      }
+      updateThemeBtn(!isDark);
+    }
+
+    if (location.protocol !== 'https:') {
+      var sb = document.getElementById('sharebtn');
+      if (sb) sb.style.display = 'none';
+    }
+
+    function doShare() {
+      navigator.share({
+        title: '{{filename}}',
+        text: '{{filename}} - File Share from {{hostname}}',
+        url: window.location.href
+      }).catch(function(){});
+    }
+
+    document.getElementById('uncompressedCheck').addEventListener('change', function() {
+      var link = document.getElementById('downloadLink');
+      link.href = this.checked ? '{{downloadurl}}?compression_level=0' : '{{downloadurl}}';
+    });
+
+    var treeFileList = {{treelist}};
+    var downloadUUID = '{{downloaduuid}}';
+    var currentPath = '.';
+    var pathStack = [];
+
+    var IMAGE_EXTS = new Set(['png','jpg','jpeg','webp','gif','avif','bmp']);
+    var AUDIO_EXTS = new Set(['mp3','wav','flac','aac','ogg','alac','wma']);
+    var VIDEO_EXTS = new Set(['mp4','avi','webm','mkv','wmv','mov','rmvb','rm']);
+    var COMPRESSED_EXTS = new Set(['mp3','flac','aac','ogg','mp4','webm','mkv','avi','mov','rmvb','rm','png','jpg','jpeg','webp','gif','avif']);
+
+    var VIDEO_PREVIEW_EXTS = new Set(['mp4','webm']);
+    var AUDIO_PREVIEW_EXTS = new Set(['mp3','wav','ogg','aac','flac']);
+    var TEXT_PREVIEW_EXTS = new Set(['txt','md','log','json','yaml','yml','html','htm','css','js','ts','xml','csv','ini','conf','sh','go','py','rs','jsx','tsx','c','cpp','h','java','kt','rb','php','sql']);
+
+    function isPreviewable(ext) {
+      return IMAGE_EXTS.has(ext) || VIDEO_PREVIEW_EXTS.has(ext) || AUDIO_PREVIEW_EXTS.has(ext) || ext === 'pdf' || TEXT_PREVIEW_EXTS.has(ext);
+    }
+
+    function openPreview(filename, url, ext) {
+      document.getElementById('preview-title').textContent = filename;
+      url = url.replace("//", "/"); // Workaround for url containing double slash
+      document.getElementById('preview-dl-link').href = url;
+      var body = document.getElementById('preview-body');
+      body.innerHTML = '';
+      body.removeAttribute('style');
+
+      if (IMAGE_EXTS.has(ext)) {
+        var img = new Image();
+        img.alt = filename;
+        img.src = url;
+        body.appendChild(img);
+      } else if (VIDEO_PREVIEW_EXTS.has(ext)) {
+        var video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        video.volume = 0.5;
+        body.appendChild(video);
+      } else if (AUDIO_PREVIEW_EXTS.has(ext)) {
+        var audio = document.createElement('audio');
+        audio.src = url;
+        audio.controls = true;
+        audio.volume = 0.5;
+        body.appendChild(audio);
+      } else if (ext === 'pdf') {
+        var iframe = document.createElement('iframe');
+        iframe.src = url;
+        body.style.padding = '0';
+        body.appendChild(iframe);
+      } else {
+        body.innerHTML = '<span id="preview-loading">Loading…</span>';
+        fetch(url).then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.text();
+        }).then(function(text) {
+          var pre = document.createElement('pre');
+          pre.textContent = text;
+          body.innerHTML = '';
+          body.appendChild(pre);
+        }).catch(function() {
+          body.innerHTML = '<span id="preview-loading">Preview not available.</span>';
+        });
       }
 
-      handleWindowResize();
-      $(window).on("resize", function(e){
-        handleWindowResize();
+      document.getElementById('preview-overlay').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function previewOrDownload(file, url) {
+      var ext = file.Filename.split('.').pop().toLowerCase();
+      if (isPreviewable(ext)) {
+        openPreview(file.Filename, url, ext);
+      } else {
+        window.open(url, '_blank');
+      }
+    }
+
+    function closePreview() {
+      var overlay = document.getElementById('preview-overlay');
+      overlay.style.display = 'none';
+      document.body.style.overflow = '';
+      var body = document.getElementById('preview-body');
+      var video = body.querySelector('video');
+      if (video) { video.pause(); video.src = ''; }
+      var audio = body.querySelector('audio');
+      if (audio) { audio.pause(); audio.src = ''; }
+      body.innerHTML = '';
+      body.removeAttribute('style');
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closePreview();
+    });
+
+    function iconSvg(filename, isDir) {
+      if (isDir) return ICONS.folder;
+      var ext = filename.split('.').pop().toLowerCase();
+      if (IMAGE_EXTS.has(ext)) return ICONS.image;
+      if (AUDIO_EXTS.has(ext)) return ICONS.audio;
+      if (VIDEO_EXTS.has(ext)) return ICONS.video;
+      if (ext === 'pdf') return ICONS.pdf;
+      if (ext === 'zip' || ext === 'tar' || ext === 'gz' || ext === '7z' || ext === 'rar') return ICONS.archive;
+      if (ext === 'txt' || ext === 'md' || ext === 'log' || ext === 'json' || ext === 'yaml' || ext === 'yml') return ICONS.text;
+      if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') return ICONS.sheet;
+      return ICONS.file;
+    }
+
+    function renderFileList(path) {
+      var list = treeFileList[path];
+      var container = document.getElementById('fileList');
+      container.innerHTML = '';
+
+      if (!list || list.length === 0) {
+        container.innerHTML = '<div class="browser-empty">This folder is empty</div>';
+        return;
+      }
+
+      if (path !== '.') {
+        var backRow = document.createElement('div');
+        backRow.className = 'file-row back-row';
+        backRow.innerHTML = '<div class="file-name">' + ICONS.back + '<span class="file-name-text">Back</span></div><div class="file-type"></div><div class="file-size"></div><div></div>';
+        backRow.addEventListener('dblclick', function(e) { e.preventDefault(); navigateUp(); });
+        backRow.addEventListener('click', function(e) { e.preventDefault(); navigateUp(); });
+        container.appendChild(backRow);
+      }
+
+      var sorted = list.slice().sort(function(a, b) {
+        if (a.IsDir !== b.IsDir) return a.IsDir ? -1 : 1;
+        return a.Filename.localeCompare(b.Filename);
       });
 
-      if (location.protocol !== 'https:') {
-         document.getElementById("sharebtn").remove()
-      }
+      sorted.forEach(function(file) {
+        var row = document.createElement('div');
+        row.className = 'file-row';
+        row.setAttribute('data-filename', file.Filename);
+        row.setAttribute('data-relpath', file.RelPath);
+        row.setAttribute('data-isdir', file.IsDir ? '1' : '0');
 
-      function share(){
-        let shareData = {
-          title: "{{filename}}",
-          text: '{{filename}} - File Share from {{hostname}}',
-          url: window.location.href,
-        }
+        var icon = iconSvg(file.Filename, file.IsDir);
+        var dlUrl = '../../share/download/' + downloadUUID + '/' + file.RelPath;
+        var nameCell = '<div class="file-name">' + icon + '<span class="file-name-text">' + escHtml(file.Filename) + '</span></div>';
+        var dlCell = file.IsDir
+          ? '<div></div>'
+          : '<a class="dl-btn" href="' + dlUrl + '" target="_blank" onclick="event.stopPropagation()" title="Download ' + escHtml(file.Filename) + '">' + ICONS.download + '</a>';
 
-        navigator.share(shareData).then(() =>
-          function(){
-            //Share succ
+        var typeLabel = file.IsDir ? 'Folder' : (file.Filename.split('.').pop().toUpperCase() || 'File');
+        row.innerHTML = nameCell +
+          '<div class="file-type">' + escHtml(typeLabel) + '</div>' +
+          '<div class="file-size">' + (file.IsDir ? '-' : escHtml(file.Filesize)) + '</div>' +
+          dlCell;
+
+        var singleClickTimer = null;
+        row.addEventListener('click', function() {
+          document.querySelectorAll('.file-row.selected').forEach(function(r) { r.classList.remove('selected'); });
+          row.classList.add('selected');
+          if (!file.IsDir) {
+            clearTimeout(singleClickTimer);
+            singleClickTimer = setTimeout(function() {
+              previewOrDownload(file, dlUrl);
+            }, 220);
           }
-        ).catch((e) =>
-          function(){
-              //Share failed
-          }
-        )
-      }
-
-
-      function handleWindowResize(){
-        if (window.innerWidth < 550){
-          //Assume mobile
-          $(".footer").css("height", "20px");
-        }else{
-          $(".footer").css("height", "50px");
-        }
-      }
-      
-      function convertToBytes(sizeString) {
-        // Remove any spaces and convert to uppercase
-        sizeString = sizeString.replace(/\s+/g, '').toUpperCase();
-        
-        // Regular expression to match number and unit
-        const matches = sizeString.match(/^([\d.]+)([KMGT]?B)$/i);
-        
-        if (!matches) {
-            throw new Error('Invalid format');
-        }
-
-        const size = parseFloat(matches[1]);
-        const unit = matches[2];
-
-        // Conversion factors
-        const units = {
-            'B': 1,
-            'KB': 1024,
-            'MB': 1024 ** 2,
-            'GB': 1024 ** 3,
-            'TB': 1024 ** 4
-        };
-
-        return Math.round(size * units[unit]);
-      }
-
-
-      function renderFileList(filelist){
-        $("#folderList").html("");
-        if (currentViewingRoot != "."){
-          $("#folderList").append(`<tr class="fileobject noselect" ondblclick="event.preventDefault(); parentdir();">
-              <td style="padding-left: 8px;" colspan="3" > ↩ Back</td>
-            </tr>`);
-          
-        }
-
-        // Add a div for thumbnail preview
-        if (!$("#thumbnail-preview").length) {
-          $("body").append(`
-            <div id="thumbnail-preview" style="
-              display: none;
-              position: fixed;
-              background: white;
-              padding: 5px;
-              border: 1px solid #ccc;
-              border-radius: 5px;
-              box-shadow: 0 0 10px rgba(0,0,0,0.2);
-              z-index: 1000;
-            ">
-              <img style="max-width: 200px; max-height: 200px;" />
-            </div>
-          `);
-        }
-
-        var totalCompressedMediaSize = 0;
-        var totalFileSize = 0;
-        filelist.forEach(file => {
-          var filetype = "File";
-          var displayName = "";
-          var isImage = false;
-          
-          if (file.IsDir == true){
-            //Folder
-            filetype = "Folder";
-            displayName = "📁 " + file.Filename;
-          }else{
-            //File
-            totalFileSize += convertToBytes(file.Filesize);
-            var ext = file.Filename.split(".").pop();
-            var icon = "📄"
-            ext = ext.toLowerCase();
-            if (ext == "mp3" || ext == "wav" || ext == "flac" || ext == "alac" || ext == "wma" || ext == "aac" || ext == "ogg" || ext == ""){
-              icon = "🎵";
-              if (ext != "wav") {
-                totalCompressedMediaSize += convertToBytes(file.Filesize);
-              }
-            }else if (ext == "mp4" || ext == "avi" || ext == "webm" || ext == "mkv" || ext == "wmv" || ext == "mov" || ext == "rmvb" || ext == "rm"){
-              icon = "🎞️";
-              totalCompressedMediaSize += convertToBytes(file.Filesize);
-            }else if (ext == "png" || ext == "jpeg" || ext == "jpg" || ext == "bmp" || ext == "gif" || ext == "webp" || ext == "avif"){
-              icon = "🖼️";
-              isImage = true;
-              if (ext != "bmp") {
-                totalCompressedMediaSize += convertToBytes(file.Filesize);
-              }
-            }
-
-            displayName =  icon + " " + file.Filename;
-          }
-
-          var filenameLinker = `<a href="../../share/download/${downloadUUID}/${file.RelPath}">${displayName}</a>`;
-          if (file.IsDir == true){
-            filenameLinker = `${displayName}`;
-          }
-
-          var tr = $(`<tr class="fileobject noselect" onclick="highlightThis(this);" filename="${file.Filename}" relpath="${file.RelPath}" type="${filetype.toLocaleLowerCase()}" ondblclick="event.preventDefault(); openThis(this);">
-              <td style="padding-left: 8px;">${filenameLinker}</td>
-              <td>${filetype}</td>
-              <td>${file.Filesize}</td>
-            </tr>`);
-
-          // Add hover event for images
-          if (isImage) {
-            // Store the download URL as a data attribute
-            tr.attr('data-download-url', `../../share/download/${downloadUUID}/${file.RelPath}`);
-
-            // Add hover events to the entire row
-            tr.hover(
-              function(e) { // mouseenter
-                var imgUrl = $(this).attr('data-download-url');
-                $("#thumbnail-preview img").attr('src', imgUrl);
-                $("#thumbnail-preview").css({
-                  display: 'block',
-                  left: e.pageX + 20,
-                  top: e.pageY + 20
-                });
-              },
-              function() { // mouseleave
-                $("#thumbnail-preview").hide();
-              }
-            );
-
-            // Update thumbnail position on mouse move over the entire row
-            tr.mousemove(function(e) {
-              $("#thumbnail-preview").css({
-                left: e.pageX + 20,
-                top: e.pageY + 20
-              });
-            });
-          }
-
-          $("#folderList").append(tr);
         });
 
-        // Add CSS to make the entire row hoverable
-        $("<style>")
-          .prop("type", "text/css")
-          .html(`
-            .fileobject { cursor: pointer; }
-            .fileobject:hover { background-color: rgba(0,0,0,0.05); }
-          `)
-          .appendTo("head");
-
-        return {
-          totalCompressedMediaSize, totalFileSize
-        }
-      }
-
-      //Went up one level
-      function parentdir(){
-        if (currentViewingRoot == "."){
-            //Root dir. Do nothing
-            
-        }else{
-            //Subdirs. travel up
-            var dirinfo = currentViewingRoot.split("/");
-            var nextDir = ".";
-            if (currentViewingRoot.indexOf("/") < 0){
-              //Parent dir will be root
-            }else{
-              dirinfo.pop();
-              nextDir = dirinfo.join("/");
-            }
-
-            
-            //Load the filelist
-            if (treeFileList[nextDir] != undefined){
-              currentViewingRoot = nextDir;
-              renderFileList(treeFileList[nextDir]);
-            }else{
-              //Back to root on error
-              currentViewingRoot = ".";
-              renderFileList(treeFileList["."]);
-            }
-        }
-      }
-
-      function openThis(object){
-        var targetFilename = $(object).attr("filename");
-        var targetType = $(object).attr("type");
-        var targetRelPath = $(object).attr("relpath");
-        
-        if (targetType == "folder"){
-          //Folder. Build a new root file list for this
-          var targetRenderList = treeFileList[targetRelPath];
-          if (targetRenderList != undefined){
-            currentViewingRoot = targetRelPath;
-            renderFileList(targetRenderList);
+        row.addEventListener('dblclick', function(e) {
+          e.preventDefault();
+          clearTimeout(singleClickTimer);
+          if (file.IsDir) {
+            navigateTo(file.RelPath);
+          } else {
+            window.open(dlUrl, '_blank');
           }
-          
-        }else{
-          //File. Download it
-          window.open("../../share/download/" + downloadUUID + "/" + targetRelPath)
+        });
+
+        if (IMAGE_EXTS.has(file.Filename.split('.').pop().toLowerCase())) {
+          var thumbUrl = '../../share/download/' + downloadUUID + '/' + file.RelPath;
+          row.addEventListener('mouseenter', function(e) {
+            document.getElementById('thumb-img').src = thumbUrl;
+            var popup = document.getElementById('thumb-popup');
+            popup.style.left = (e.pageX + 20) + 'px';
+            popup.style.top  = (e.pageY + 20) + 'px';
+            popup.style.display = 'block';
+          });
+          row.addEventListener('mousemove', function(e) {
+            var popup = document.getElementById('thumb-popup');
+            popup.style.left = (e.pageX + 20) + 'px';
+            popup.style.top  = (e.pageY + 20) + 'px';
+          });
+          row.addEventListener('mouseleave', function() {
+            document.getElementById('thumb-popup').style.display = 'none';
+          });
         }
+
+        container.appendChild(row);
+      });
+    }
+
+    function navigateTo(path) {
+      if (path === currentPath) return;
+      pathStack.push(currentPath);
+      currentPath = path;
+      renderFileList(path);
+      updateBreadcrumb(path);
+    }
+
+    function navigateUp() {
+      if (pathStack.length > 0) {
+        currentPath = pathStack.pop();
+      } else {
+        currentPath = '.';
       }
+      renderFileList(currentPath);
+      updateBreadcrumb(currentPath);
+    }
 
-      resizeDOMElement();
-      function resizeDOMElement(){
-        $("#filelistWrapper").css({
-          height: window.innerHeight - $("#filelistWrapper").offset().top - 100,
-        })
+    function updateBreadcrumb(path) {
+      var bc = document.getElementById('breadcrumb');
+      bc.innerHTML = '';
+
+      var rootItem = document.createElement('span');
+      rootItem.className = 'breadcrumb-item' + (path === '.' ? ' active' : '');
+      rootItem.innerHTML = ICONS.folder + '<span>Root</span>';
+      rootItem.setAttribute('data-path', '.');
+      rootItem.addEventListener('click', function() {
+        if (path !== '.') { pathStack = []; navigateTo('.'); }
+      });
+      bc.appendChild(rootItem);
+
+      if (path !== '.') {
+        var parts = path.split('/');
+        var built = '';
+        parts.forEach(function(part, i) {
+          var sep = document.createElement('span');
+          sep.className = 'breadcrumb-sep';
+          sep.textContent = '/';
+          bc.appendChild(sep);
+
+          built = built ? built + '/' + part : part;
+          var isLast = i === parts.length - 1;
+          var item = document.createElement('span');
+          item.className = 'breadcrumb-item' + (isLast ? ' active' : '');
+          item.textContent = part;
+          (function(p) {
+            item.addEventListener('click', function() {
+              if (!isLast) { pathStack = []; navigateTo(p); }
+            });
+          })(built);
+          bc.appendChild(item);
+        });
       }
+    }
 
-      function highlightThis(object){
-          $(".fileobject.active").removeClass("active");
-          $(object).addClass("active");
-          $("#activeFilename").text(" (" + $(object).attr("filename") +")");
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
-          //Update the properties values
-          selectedFile = $(object);
+    (function suggestCompressionMode() {
+      var totalSize = 0;
+      var compressedSize = 0;
+
+      Object.values(treeFileList).forEach(function(files) {
+        files.forEach(function(f) {
+          if (f.IsDir) return;
+          var ext = f.Filename.split('.').pop().toLowerCase();
+          var bytes = parseSize(f.Filesize);
+          totalSize += bytes;
+          if (COMPRESSED_EXTS.has(ext)) compressedSize += bytes;
+        });
+      });
+
+      if (totalSize > 0 && compressedSize / totalSize >= 0.5) {
+        document.getElementById('uncompressedCheck').checked = true;
+        document.getElementById('downloadLink').href = '{{downloadurl}}?compression_level=0';
       }
+    })();
 
-      $(window).on("resize", function(){
-        resizeDOMElement();
-      })
-    </script>
-    </body>
+    function parseSize(s) {
+      s = s.replace(/\s+/g, '').toUpperCase();
+      var m = s.match(/^([\d.]+)(B|KB|MB|GB|TB)$/i);
+      if (!m) return 0;
+      var units = { B:1, KB:1024, MB:1048576, GB:1073741824, TB:1099511627776 };
+      return parseFloat(m[1]) * (units[m[2]] || 1);
+    }
+
+    updateBreadcrumb('.');
+    renderFileList('.');
+  </script>
+</body>
 </html>

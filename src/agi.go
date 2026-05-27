@@ -88,6 +88,7 @@ func AGIInit() {
 	externalAGIRouter.HandleFunc("/api/ajgi/listExt", gw.ListExternalEndpoint)
 	externalAGIRouter.HandleFunc("/api/ajgi/addExt", gw.AddExternalEndPoint)
 	externalAGIRouter.HandleFunc("/api/ajgi/rmExt", gw.RemoveExternalEndPoint)
+	externalAGIRouter.HandleFunc("/api/ajgi/stats", gw.GetEndpointStats)
 
 	AGIGateway = gw
 }

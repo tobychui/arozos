@@ -1,4 +1,6 @@
+//go:build freebsd
 // +build freebsd
+
 package wifi
 
 /*
