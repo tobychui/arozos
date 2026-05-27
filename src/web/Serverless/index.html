@@ -727,13 +727,20 @@ function copyText(text, triggerEl) {
 
 /* ──────────────────────────────────────────────
    File selector
+   NOTE: ao_module_openFileSelector in virtual-desktop mode reads
+   callback.name and passes it as a string to the floating window so the
+   window can eval() it back in this scope. The callback MUST be a named
+   top-level function — anonymous functions have an empty .name and cause
+   the "Selection Failed. Is parent window alive?" error.
 ────────────────────────────────────────────── */
+function fileLoader(filedata) {
+    if (filedata && filedata.length > 0) {
+        document.getElementById('agiPath').value = filedata[0].filepath;
+    }
+}
+
 function openfileselector() {
-    ao_module_openFileSelector(function(filedata) {
-        if (filedata && filedata.length > 0) {
-            document.getElementById('agiPath').value = filedata[0].filepath;
-        }
-    }, "user:/", "file", false, {filter: ["agi", "js"]});
+    ao_module_openFileSelector(fileLoader, "user:/", "file", false, {filter: ["agi", "js"]});
 }
 
 /* ──────────────────────────────────────────────
