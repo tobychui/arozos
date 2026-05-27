@@ -660,8 +660,8 @@
             </div>
 
             <div class="log-tabs">
-                <div class="log-tab active" onclick="switchLogTab(this,'success')">✅ Successful</div>
-                <div class="log-tab"        onclick="switchLogTab(this,'failed')">❌ Failed</div>
+                <div class="log-tab active" onclick="switchLogTab(this,'success')"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:var(--success);vertical-align:middle;margin-right:4px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Successful</div>
+                <div class="log-tab"        onclick="switchLogTab(this,'failed')"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:var(--danger);vertical-align:middle;margin-right:4px;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>Failed</div>
             </div>
 
             <div id="log-success" class="log-panel active card">
@@ -718,7 +718,7 @@ function copyText(text, triggerEl) {
     navigator.clipboard.writeText(text).then(function(){
         showToast('Copied to clipboard');
         if (triggerEl) {
-            triggerEl.setAttribute('data-tip', '✓ Copied!');
+            triggerEl.setAttribute('data-tip', 'Copied!');
             triggerEl.classList.add('copied');
             setTimeout(function(){ triggerEl.classList.remove('copied'); }, 2000);
         }
@@ -901,16 +901,20 @@ function renderEndpointCard(uuid, path, stats) {
                     <span class="es-lbl">Success Rate</span>
                 </div>
             </div>
-            <div class="ep-bar-row">
-                <div class="ep-bar-wrap" style="display:flex;gap:1px;">
-                    <div class="ep-bar-fill success" style="width:${rate}%;border-radius:${(rate>0&&failRate>0)?'99px 0 0 99px':'99px'};"></div>
-                    <div class="ep-bar-fill danger"  style="width:${failRate}%;border-radius:${(rate>0&&failRate>0)?'0 99px 99px 0':'99px'};"></div>
-                </div>
-            </div>
-            <div style="display:flex;gap:12px;margin-top:5px;font-size:11px;">
-                <span style="color:var(--success);">● ${rate}% success</span>
-                <span style="color:var(--danger);">● ${failRate}% failed</span>
-            </div>
+            ${total === 0
+                ? `<div class="ep-bar-wrap" style="background:rgba(0,0,0,.10);"></div>
+                   <div style="margin-top:5px;font-size:11px;color:var(--text-3);">No executions recorded</div>`
+                : `<div class="ep-bar-row">
+                       <div class="ep-bar-wrap" style="display:flex;gap:1px;">
+                           <div class="ep-bar-fill success" style="width:${rate}%;border-radius:${(rate>0&&failRate>0)?'99px 0 0 99px':'99px'};"></div>
+                           <div class="ep-bar-fill danger"  style="width:${failRate}%;border-radius:${(rate>0&&failRate>0)?'0 99px 99px 0':'99px'};"></div>
+                       </div>
+                   </div>
+                   <div style="display:flex;gap:12px;margin-top:5px;font-size:11px;">
+                       <span style="display:flex;align-items:center;gap:3px;color:var(--success);"><svg width="8" height="8" viewBox="0 0 8 8" style="fill:currentColor;flex-shrink:0;"><circle cx="4" cy="4" r="4"/></svg>${rate}% success</span>
+                       <span style="display:flex;align-items:center;gap:3px;color:var(--danger);"><svg width="8" height="8" viewBox="0 0 8 8" style="fill:currentColor;flex-shrink:0;"><circle cx="4" cy="4" r="4"/></svg>${failRate}% failed</span>
+                   </div>`
+            }
             <div class="ep-last">Last called: ${timeSince(stats.last_executed_at)}</div>
         </div>
     `;
@@ -937,8 +941,8 @@ function renderStats() {
         var fail    = s.failed_executions  || 0;
         var avgMs   = s.avg_exec_time_ms   || 0;
         var totalMs = s.total_exec_time_ms || 0;
-        var rate    = total ? Math.round(ok/total*100) : 0;
-        var failRate= 100 - rate;
+        var rate     = total ? Math.round(ok/total*100)   : 0;
+        var failRate = total ? Math.round(fail/total*100) : 0;
 
         var el = document.createElement('div');
         el.id = 'sc-' + uuid;
@@ -978,14 +982,18 @@ function renderStats() {
             </div>
             <div style="padding:0 20px 18px;">
                 <div style="font-size:11px;color:var(--text-3);margin-bottom:6px;">Success / Failure ratio</div>
-                <div style="display:flex;height:8px;border-radius:99px;overflow:hidden;gap:2px;">
-                    <div style="width:${rate}%;background:var(--success);border-radius:99px 0 0 99px;transition:width .4s;"></div>
-                    <div style="width:${failRate}%;background:var(--danger);border-radius:0 99px 99px 0;transition:width .4s;"></div>
-                </div>
-                <div style="display:flex;gap:16px;margin-top:6px;font-size:11.5px;color:var(--text-2);">
-                    <span style="color:var(--success)">● ${rate}% success</span>
-                    <span style="color:var(--danger)">● ${failRate}% failed</span>
-                </div>
+                ${total === 0
+                    ? `<div style="height:8px;border-radius:99px;background:rgba(0,0,0,.10);"></div>
+                       <div style="margin-top:6px;font-size:11.5px;color:var(--text-3);">No executions recorded</div>`
+                    : `<div style="display:flex;height:8px;border-radius:99px;overflow:hidden;gap:2px;">
+                           <div style="width:${rate}%;background:var(--success);border-radius:${(rate>0&&failRate>0)?'99px 0 0 99px':'99px'};transition:width .4s;"></div>
+                           <div style="width:${failRate}%;background:var(--danger);border-radius:${(rate>0&&failRate>0)?'0 99px 99px 0':'99px'};transition:width .4s;"></div>
+                       </div>
+                       <div style="display:flex;gap:16px;margin-top:6px;font-size:11.5px;">
+                           <span style="display:flex;align-items:center;gap:4px;color:var(--success);"><svg width="8" height="8" viewBox="0 0 8 8" style="fill:currentColor;flex-shrink:0;"><circle cx="4" cy="4" r="4"/></svg>${rate}% success</span>
+                           <span style="display:flex;align-items:center;gap:4px;color:var(--danger);"><svg width="8" height="8" viewBox="0 0 8 8" style="fill:currentColor;flex-shrink:0;"><circle cx="4" cy="4" r="4"/></svg>${failRate}% failed</span>
+                       </div>`
+                }
             </div>
         `;
         container.appendChild(el);
@@ -1035,10 +1043,13 @@ function renderLogTable(panelId, field) {
     var rows = allLogs.map(function(item) {
         var e = item.entry;
         var badgeClass = isSuccess ? 'success' : 'danger';
-        var badgeText  = isSuccess ? '✓ OK'     : '✗ Error';
+        var badgeIcon  = isSuccess
+            ? '<svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:currentColor;vertical-align:middle;margin-right:3px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+            : '<svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:currentColor;vertical-align:middle;margin-right:3px;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>';
+        var badgeLabel = isSuccess ? 'OK' : 'Error';
         var msgClass   = isSuccess ? '' : 'err';
         return `<tr>
-            <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+            <td><span class="badge ${badgeClass}">${badgeIcon}${badgeLabel}</span></td>
             <td>
                 <div style="font-weight:500;">${escHtml(scriptName(item.endpointPath))}</div>
                 <div style="font-size:11px;color:var(--text-3);">${item.uuid.substring(0,8)}…</div>
