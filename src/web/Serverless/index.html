@@ -1,210 +1,1138 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-        <meta charset="UTF-8">
-        <meta name="theme-color" content="#4b75ff">
-        <link rel="stylesheet" href="../script/semantic/semantic.min.css">
-        <script src="../script/jquery.min.js"></script>
-        <script src="../script/ao_module.js"></script>
-        <script src="../script/semantic/semantic.min.js"></script>
-        <script type="application/javascript" src="../script/clipboard.min.js"></script>
-        <title>Serverless</title>
-        <style>
-            body{
-                background-color:white;
-            }
-                    /* Tooltip container */
-                   .tooltip {
-                   position: relative;
-                   display: inline-block;
-                   border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
-                   }
-       
-                   /* Tooltip text */
-                   .tooltip .tooltiptext {
-                   visibility: hidden;
-                   width: 120px;
-                   background-color: #555;
-                   color: #fff;
-                   text-align: center;
-                   padding: 5px 0;
-                   border-radius: 6px;
-       
-                   /* Position the tooltip text */
-                   position: absolute;
-                   z-index: 1;
-                   bottom: 125%;
-                   left: 50%;
-                   margin-left: -60px;
-       
-                   /* Fade in tooltip */
-                   opacity: 0;
-                   transition: opacity 0.3s;
-                   }
-       
-                   /* Tooltip arrow */
-                   .tooltip .tooltiptext::after {
-                   content: "";
-                   position: absolute;
-                   top: 100%;
-                   left: 50%;
-                   margin-left: -5px;
-                   border-width: 5px;
-                   border-style: solid;
-                   border-color: #555 transparent transparent transparent;
-                   }
-                   
-                   .tooltitle{
-                        height: 5em;
-                        background-color: #5d6f77;
-                        color: white;
-                   }
-               </style>
-    </head>
-    <body>
-        <div class="tooltitle">
-            <br>
-            <div class="ui container">
-                <h4 class="ui header">
-                    <div class="content" style="color: white;">
-                        Serverless Control Panel
-                      <div class="sub header" style="color: rgb(233, 233, 233);">Allow external services to run AGI scripts</div>
-                    </div>
-                </h4>
+<html lang="en">
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#ffffff">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <script type="application/javascript" src="../script/clipboard.min.js"></script>
+    <title>Serverless</title>
+    <style>
+        /* ── Design tokens ────────────────────────────────── */
+        :root {
+            --bg:           #f2f2f7;
+            --surface:      #ffffff;
+            --surface2:     #f9f9fb;
+            --border:       rgba(0,0,0,.10);
+            --text-1:       #1c1c1e;
+            --text-2:       #6e6e73;
+            --text-3:       #aeaeb2;
+            --accent:       #0a84ff;
+            --success:      #30d158;
+            --danger:       #ff453a;
+            --warn:         #ff9f0a;
+            --radius-sm:    8px;
+            --radius-md:    14px;
+            --radius-lg:    18px;
+            --shadow-sm:    0 1px 4px rgba(0,0,0,.06), 0 0 0 .5px rgba(0,0,0,.08);
+            --shadow-md:    0 4px 20px rgba(0,0,0,.08), 0 0 0 .5px rgba(0,0,0,.06);
+            --transition:   .18s ease;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+            background: var(--bg);
+            color: var(--text-1);
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* ── Shell layout ─────────────────────────────────── */
+        .shell {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ──────────────────────────────────────── */
+        .sidebar {
+            width: 220px;
+            min-width: 220px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 20px 16px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-header .app-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #0a84ff 0%, #5856d6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header .app-icon svg { width: 20px; height: 20px; fill: #fff; }
+
+        .sidebar-header .app-title {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -.3px;
+        }
+
+        .sidebar-section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-3);
+            letter-spacing: .5px;
+            text-transform: uppercase;
+            padding: 16px 16px 4px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            margin: 1px 8px;
+            cursor: pointer;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-1);
+            transition: background var(--transition);
+            text-decoration: none;
+            user-select: none;
+        }
+
+        .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        .nav-item:hover { background: rgba(0,0,0,.05); }
+        .nav-item.active { background: rgba(10,132,255,.12); color: var(--accent); }
+        .nav-item.active svg { fill: var(--accent); }
+
+        .sidebar-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 8px 16px;
+        }
+
+        /* ── Main content ─────────────────────────────────── */
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 28px 40px;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ── Page header ──────────────────────────────────── */
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 22px;
+        }
+
+        .page-header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -.4px;
+        }
+
+        .page-header p {
+            font-size: 13px;
+            color: var(--text-2);
+            margin-top: 2px;
+        }
+
+        /* ── Buttons ──────────────────────────────────────── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 7px 14px;
+            transition: opacity var(--transition), background var(--transition);
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .btn:hover { opacity: .85; }
+        .btn:active { opacity: .7; }
+        .btn svg { width: 13px; height: 13px; }
+
+        .btn-primary   { background: var(--accent);   color: #fff; }
+        .btn-danger    { background: var(--danger);   color: #fff; }
+        .btn-secondary { background: rgba(0,0,0,.07); color: var(--text-1); }
+
+        /* ── Global stat strip ────────────────────────────── */
+        .stat-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-card .sc-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--text-3);
+        }
+
+        .stat-card .sc-value {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .stat-card .sc-sub {
+            font-size: 11.5px;
+            color: var(--text-2);
+        }
+
+        .sc-value.c-success { color: var(--success); }
+        .sc-value.c-danger  { color: var(--danger);  }
+        .sc-value.c-accent  { color: var(--accent);  }
+
+        /* ── Section heading ──────────────────────────────── */
+        .section-heading {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-2);
+            letter-spacing: .3px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        /* ── Card container ───────────────────────────────── */
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        /* ── Endpoints list ───────────────────────────────── */
+        .endpoint-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+
+        .endpoint-card {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            padding: 18px 20px;
+        }
+
+        .ep-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .ep-info { flex: 1; min-width: 0; }
+
+        .ep-name {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -.2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ep-uuid {
+            font-size: 12px;
+            color: var(--text-2);
+            font-family: "SF Mono", "Menlo", "Monaco", monospace;
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ep-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+        /* progress bar */
+        .ep-metrics { display: flex; flex-direction: column; gap: 8px; }
+
+        .ep-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ep-bar-wrap {
+            flex: 1;
+            height: 6px;
+            background: rgba(0,0,0,.06);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .ep-bar-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width .4s ease;
+        }
+
+        .ep-bar-fill.success { background: var(--success); }
+        .ep-bar-fill.danger  { background: var(--danger);  }
+
+        .ep-stat-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .ep-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ep-stat .es-val {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -.5px;
+            line-height: 1;
+        }
+
+        .ep-stat .es-lbl {
+            font-size: 11px;
+            color: var(--text-2);
+            margin-top: 2px;
+        }
+
+        .ep-stat .es-val.c-success { color: var(--success); }
+        .ep-stat .es-val.c-danger  { color: var(--danger);  }
+        .ep-stat .es-val.c-warn    { color: var(--warn);    }
+
+        .ep-last {
+            font-size: 11.5px;
+            color: var(--text-3);
+            margin-top: 6px;
+        }
+
+        /* ── Add endpoint panel ───────────────────────────── */
+        .add-panel {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            padding: 20px;
+            margin-bottom: 28px;
+        }
+
+        .add-panel h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .add-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .add-row input {
+            flex: 1;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 13px;
+            font-family: inherit;
+            background: var(--surface2);
+            color: var(--text-1);
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .add-row input:focus { border-color: var(--accent); }
+
+        /* ── Toast ────────────────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: rgba(30,30,30,.92);
+            backdrop-filter: blur(12px);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 99px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: var(--shadow-md);
+            transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+            z-index: 9999;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* ── Log viewer ───────────────────────────────────── */
+        .log-tabs {
+            display: flex;
+            gap: 2px;
+            background: rgba(0,0,0,.06);
+            border-radius: var(--radius-sm);
+            padding: 3px;
+            width: fit-content;
+            margin-bottom: 14px;
+        }
+
+        .log-tab {
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 12.5px;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-2);
+            transition: background var(--transition), color var(--transition);
+            user-select: none;
+        }
+
+        .log-tab.active {
+            background: var(--surface);
+            color: var(--text-1);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .log-panel { display: none; }
+        .log-panel.active { display: block; }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .log-table th {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            color: var(--text-3);
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .log-table td {
+            padding: 10px 14px;
+            font-size: 12.5px;
+            vertical-align: top;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .log-table tr:last-child td { border-bottom: none; }
+        .log-table tr:hover td { background: var(--surface2); }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge.success { background: rgba(48,209,88,.15);  color: #218838; }
+        .badge.danger  { background: rgba(255,69,58,.15);  color: #c0392b; }
+        .badge.neutral { background: rgba(0,0,0,.07);      color: var(--text-2); }
+
+        .log-msg {
+            font-family: "SF Mono", "Menlo", "Monaco", monospace;
+            font-size: 11px;
+            color: var(--text-2);
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-width: 380px;
+        }
+
+        .log-msg.err { color: var(--danger); }
+
+        .mono { font-family: "SF Mono", "Menlo", "Monaco", monospace; }
+
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-3);
+            font-size: 13.5px;
+        }
+
+        .empty-state svg { width: 40px; height: 40px; fill: var(--text-3); margin-bottom: 12px; }
+
+        /* ── Responsive tweaks ────────────────────────────── */
+        @media (max-width: 720px) {
+            .stat-strip { grid-template-columns: repeat(2, 1fr); }
+            .sidebar { display: none; }
+            .main { padding: 16px; }
+        }
+
+        /* ── Copy tooltip ─────────────────────────────────── */
+        .copy-tip {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .copy-tip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30,30,30,.9);
+            color: #fff;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 5px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .15s;
+        }
+
+        .copy-tip.copied::after { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div class="shell">
+
+    <!-- ── Sidebar ──────────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="app-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
             </div>
+            <span class="app-title">Serverless</span>
         </div>
-        <div id="deleteSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i>Service Deleted</div>
-        <div>
-            <table class="ui celled unstackable table">
-                <thead>
-                    <tr>
-                        <th>UUID (access token)</th>
-                        <th>AGI Path</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="records">
-                
-                </tbody>
-            </table>
-            <div style="width: 100%" align="center">
-                <div class="ui breadcrumb" id="pageIndexs">
+
+        <span class="sidebar-section-label">Manage</span>
+
+        <a class="nav-item active" data-page="endpoints" onclick="navigate(this)">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+            Endpoints
+        </a>
+
+        <a class="nav-item" data-page="statistics" onclick="navigate(this)">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+            Statistics
+        </a>
+
+        <a class="nav-item" data-page="logs" onclick="navigate(this)">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            Execution Logs
+        </a>
+
+        <div class="sidebar-divider"></div>
+        <span class="sidebar-section-label">About</span>
+        <a class="nav-item" style="color:var(--text-2);font-size:12.5px;pointer-events:none;">
+            <svg viewBox="0 0 24 24" style="fill:var(--text-3)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            AGI Runtime 3.0
+        </a>
+    </aside>
+
+    <!-- ── Main content ──────────────────────────────── -->
+    <main class="main">
+
+        <!-- ────────── ENDPOINTS PAGE ────────── -->
+        <div id="page-endpoints" class="page active">
+            <div class="page-header">
+                <div>
+                    <h1>Endpoints</h1>
+                    <p>Serverless AGI scripts accessible via external REST calls</p>
+                </div>
+                <button class="btn btn-primary" onclick="showAddPanel()">
+                    <svg viewBox="0 0 24 24" style="fill:#fff"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    New Endpoint
+                </button>
+            </div>
+
+            <!-- Global summary strip -->
+            <div class="stat-strip" id="global-stats">
+                <div class="stat-card">
+                    <span class="sc-label">Endpoints</span>
+                    <span class="sc-value c-accent" id="gs-count">—</span>
+                    <span class="sc-sub">registered</span>
+                </div>
+                <div class="stat-card">
+                    <span class="sc-label">Total Executions</span>
+                    <span class="sc-value" id="gs-total">—</span>
+                    <span class="sc-sub">all time</span>
+                </div>
+                <div class="stat-card">
+                    <span class="sc-label">Successful</span>
+                    <span class="sc-value c-success" id="gs-ok">—</span>
+                    <span class="sc-sub">executions</span>
+                </div>
+                <div class="stat-card">
+                    <span class="sc-label">Failed</span>
+                    <span class="sc-value c-danger" id="gs-fail">—</span>
+                    <span class="sc-sub">executions</span>
+                </div>
+            </div>
+
+            <!-- Add panel (hidden by default) -->
+            <div class="add-panel" id="add-panel" style="display:none;">
+                <h3>Register New Endpoint</h3>
+                <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;">
+                    Select an AGI/JS script to expose as an external REST endpoint.
+                    The script will run with <strong>your user scope</strong>.
+                </p>
+                <div class="add-row">
+                    <input id="agiPath" type="text" placeholder="user:/path/to/script.js" readonly>
+                    <button class="btn btn-secondary" onclick="openfileselector()">
+                        <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+                        Browse
+                    </button>
+                    <button class="btn btn-primary" onclick="addEndpoint()">Add</button>
+                    <button class="btn btn-secondary" onclick="hideAddPanel()">Cancel</button>
+                </div>
+                <p style="margin-top:12px;font-size:11.5px;color:var(--text-3);">
+                    ⚠️ Do not register scripts from unknown sources — they execute with your account privileges.
+                </p>
+            </div>
+
+            <!-- Endpoints list -->
+            <div class="section-heading" style="margin-bottom:10px;">Registered endpoints</div>
+            <div class="endpoint-list" id="endpoint-list">
+                <div class="empty-state" id="ep-empty" style="display:none;">
+                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+                    <p>No endpoints registered yet.</p>
+                    <button class="btn btn-primary" style="margin-top:12px;" onclick="showAddPanel()">Add your first endpoint</button>
                 </div>
             </div>
         </div>
-        <div class="ui divider"></div>
-        <div id="updateSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i>Service Added</div>
-        <div class="ui container">
-            <h4>Select AGI Script</h4>
-            <p>Select a script to be executed by 3rd party application via RESTFUL request. <br>
-                Note that the AGI script will be executed with <b>your user scope</b></p>
-            <div class="ui action fluid input">
-                <input id="agiPath" type="text" placeholder="Select Location" readonly="true">
-                <button class="ui black button" onclick="openfileselector();"><i class="folder open icon"></i> Open</button>
+
+        <!-- ────────── STATISTICS PAGE ────────── -->
+        <div id="page-statistics" class="page">
+            <div class="page-header">
+                <div>
+                    <h1>Statistics</h1>
+                    <p>Per-endpoint execution metrics</p>
+                </div>
+                <button class="btn btn-secondary" onclick="refreshAll()">
+                    <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    Refresh
+                </button>
             </div>
-            <button class="ui positive right floated button" onclick="add();" style="margin-top: 0.4em;"><i class="ui checkmark icon"></i> Add</button>
-            <br><br>
-            <div class="ui divider"></div>
-            <p><small>Misuse of serverless function might affect your account safty or causes data loss. Please use this function with caution and do not copy and paste code from unknown sources.</small></p>
+            <div id="stats-list"></div>
         </div>
-        <br><br>
-        <script>
-            $.getJSON( "/api/ajgi/listExt", function( data ) {
-                $.each( data, function( key, val ) {
-                    appendTable(key, val.path);
-                });
-                if(Object.keys(data).length == 0) {
-                    $("#records").append(`<tr id="zeroRec"><td>No registered endpoint</td></tr>`);
-                }
+
+        <!-- ────────── LOGS PAGE ────────── -->
+        <div id="page-logs" class="page">
+            <div class="page-header">
+                <div>
+                    <h1>Execution Logs</h1>
+                    <p>Last 10 successful and failed executions per endpoint</p>
+                </div>
+                <button class="btn btn-secondary" onclick="refreshAll()">
+                    <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    Refresh
+                </button>
+            </div>
+
+            <div class="log-tabs">
+                <div class="log-tab active" onclick="switchLogTab(this,'success')">✅ Successful</div>
+                <div class="log-tab"        onclick="switchLogTab(this,'failed')">❌ Failed</div>
+            </div>
+
+            <div id="log-success" class="log-panel active card">
+                <div class="empty-state"><p>No successful executions recorded yet.</p></div>
+            </div>
+            <div id="log-failed" class="log-panel card">
+                <div class="empty-state"><p>No failed executions recorded yet.</p></div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ──────────────────────────────────────────────
+   State
+────────────────────────────────────────────── */
+var endpoints = {};  // uuid → {username, path}
+var statsData  = {};  // uuid → EndpointStats
+var tokenAccessPath = location.protocol + "//" + window.location.host + "/api/remote/";
+
+/* ──────────────────────────────────────────────
+   Navigation
+────────────────────────────────────────────── */
+function navigate(el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    var page = el.getAttribute('data-page');
+    document.getElementById('page-' + page).classList.add('active');
+    if (page === 'statistics') renderStats();
+    if (page === 'logs')       renderLogs();
+}
+
+/* ──────────────────────────────────────────────
+   Toast
+────────────────────────────────────────────── */
+var toastTimer;
+function showToast(msg) {
+    clearTimeout(toastTimer);
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+/* ──────────────────────────────────────────────
+   Clipboard
+────────────────────────────────────────────── */
+function copyText(text, triggerEl) {
+    navigator.clipboard.writeText(text).then(function(){
+        showToast('Copied to clipboard');
+        if (triggerEl) {
+            triggerEl.setAttribute('data-tip', '✓ Copied!');
+            triggerEl.classList.add('copied');
+            setTimeout(function(){ triggerEl.classList.remove('copied'); }, 2000);
+        }
+    });
+}
+
+/* ──────────────────────────────────────────────
+   File selector
+────────────────────────────────────────────── */
+function openfileselector() {
+    ao_module_openFileSelector(function(filedata) {
+        if (filedata && filedata.length > 0) {
+            document.getElementById('agiPath').value = filedata[0].filepath;
+        }
+    }, "user:/", "file", false, {filter: ["agi", "js"]});
+}
+
+/* ──────────────────────────────────────────────
+   Add / remove endpoints
+────────────────────────────────────────────── */
+function showAddPanel() {
+    document.getElementById('add-panel').style.display = '';
+    document.getElementById('agiPath').focus();
+}
+
+function hideAddPanel() {
+    document.getElementById('add-panel').style.display = 'none';
+    document.getElementById('agiPath').value = '';
+}
+
+function addEndpoint() {
+    var path = document.getElementById('agiPath').value.trim();
+    if (!path) { showToast('Please select a script first'); return; }
+    $.getJSON("/api/ajgi/addExt?path=" + encodeURIComponent(path), function(data) {
+        if (data.error) { showToast('Error: ' + data.error); return; }
+        var newUUID = data.replace(/"/g,'');
+        endpoints[newUUID] = {path: path};
+        statsData[newUUID]  = {uuid: newUUID, path: path, total_executions:0, successful_executions:0, failed_executions:0, total_exec_time_ms:0, avg_exec_time_ms:0, last_executed_at:0, recent_success:[], recent_failed:[]};
+        renderEndpointCard(newUUID, path, statsData[newUUID]);
+        updateGlobalStats();
+        hideAddPanel();
+        showToast('Endpoint registered');
+    });
+}
+
+function deleteEndpoint(uuid) {
+    if (!confirm('Remove this endpoint? External services using it will stop working.')) return;
+    $.getJSON("/api/ajgi/rmExt?uuid=" + uuid, function(data) {
+        if (data && data.error) { showToast('Error: ' + data.error); return; }
+        delete endpoints[uuid];
+        delete statsData[uuid];
+        var card = document.getElementById('ep-' + uuid);
+        if (card) card.remove();
+        updateGlobalStats();
+        // also remove from stats / logs pages
+        var sc = document.getElementById('sc-' + uuid);
+        if (sc) sc.remove();
+        showToast('Endpoint removed');
+        if (Object.keys(endpoints).length === 0) {
+            document.getElementById('ep-empty').style.display = '';
+        }
+    });
+}
+
+/* ──────────────────────────────────────────────
+   Render helpers
+────────────────────────────────────────────── */
+function scriptName(path) {
+    return path.split('/').pop() || path;
+}
+
+function fmtDuration(ms) {
+    if (ms < 1000)  return ms + 'ms';
+    if (ms < 60000) return (ms/1000).toFixed(1) + 's';
+    return (ms/60000).toFixed(1) + 'min';
+}
+
+function fmtTs(unix) {
+    if (!unix) return '—';
+    return new Date(unix * 1000).toLocaleString();
+}
+
+function timeSince(unix) {
+    if (!unix) return 'never';
+    var diff = Math.floor(Date.now()/1000) - unix;
+    if (diff < 60)   return 'just now';
+    if (diff < 3600) return Math.floor(diff/60) + ' min ago';
+    if (diff < 86400) return Math.floor(diff/3600) + ' hr ago';
+    return Math.floor(diff/86400) + ' days ago';
+}
+
+function successRate(stats) {
+    if (!stats.total_executions) return 0;
+    return Math.round(stats.successful_executions / stats.total_executions * 100);
+}
+
+/* ──────────────────────────────────────────────
+   Global stat strip
+────────────────────────────────────────────── */
+function updateGlobalStats() {
+    var count = 0, total = 0, ok = 0, fail = 0;
+    for (var u in statsData) {
+        count++;
+        var s = statsData[u];
+        total += (s.total_executions||0);
+        ok    += (s.successful_executions||0);
+        fail  += (s.failed_executions||0);
+    }
+    document.getElementById('gs-count').textContent = count;
+    document.getElementById('gs-total').textContent = total;
+    document.getElementById('gs-ok').textContent    = ok;
+    document.getElementById('gs-fail').textContent  = fail;
+}
+
+/* ──────────────────────────────────────────────
+   Endpoint card (Endpoints page)
+────────────────────────────────────────────── */
+function renderEndpointCard(uuid, path, stats) {
+    document.getElementById('ep-empty').style.display = 'none';
+
+    var total   = stats.total_executions   || 0;
+    var ok      = stats.successful_executions || 0;
+    var fail    = stats.failed_executions  || 0;
+    var avgMs   = stats.avg_exec_time_ms   || 0;
+    var rate    = total ? Math.round(ok/total*100) : 0;
+    var apiURL  = tokenAccessPath + uuid;
+
+    // remove if already exists (refresh)
+    var old = document.getElementById('ep-' + uuid);
+    if (old) old.remove();
+
+    var card = document.createElement('div');
+    card.className = 'endpoint-card';
+    card.id = 'ep-' + uuid;
+    card.innerHTML = `
+        <div class="ep-top">
+            <div class="ep-info">
+                <div class="ep-name" title="${escHtml(path)}">${escHtml(scriptName(path))}</div>
+                <div class="ep-uuid" title="${uuid}">${uuid}</div>
+            </div>
+            <div class="ep-actions">
+                <button class="btn btn-secondary copy-tip" data-tip="Copy URL" onclick='copyText("${apiURL}", this)'>
+                    <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    Copy URL
+                </button>
+                <button class="btn btn-danger" onclick='deleteEndpoint("${uuid}")'>
+                    <svg viewBox="0 0 24 24" style="fill:#fff"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    Delete
+                </button>
+            </div>
+        </div>
+        <div class="ep-metrics">
+            <div class="ep-stat-row">
+                <div class="ep-stat">
+                    <span class="es-val">${total}</span>
+                    <span class="es-lbl">Total Calls</span>
+                </div>
+                <div class="ep-stat">
+                    <span class="es-val c-success">${ok}</span>
+                    <span class="es-lbl">Successful</span>
+                </div>
+                <div class="ep-stat">
+                    <span class="es-val c-danger">${fail}</span>
+                    <span class="es-lbl">Failed</span>
+                </div>
+                <div class="ep-stat">
+                    <span class="es-val c-warn">${fmtDuration(Math.round(avgMs))}</span>
+                    <span class="es-lbl">Avg Time</span>
+                </div>
+                <div class="ep-stat">
+                    <span class="es-val">${rate}%</span>
+                    <span class="es-lbl">Success Rate</span>
+                </div>
+            </div>
+            <div class="ep-bar-row">
+                <div class="ep-bar-wrap">
+                    <div class="ep-bar-fill success" style="width:${rate}%"></div>
+                </div>
+                <span style="font-size:11px;color:var(--text-3);min-width:30px;">${rate}%</span>
+            </div>
+            <div class="ep-last">Last called: ${timeSince(stats.last_executed_at)}</div>
+        </div>
+    `;
+    document.getElementById('endpoint-list').appendChild(card);
+}
+
+/* ──────────────────────────────────────────────
+   Statistics page
+────────────────────────────────────────────── */
+function renderStats() {
+    var container = document.getElementById('stats-list');
+    container.innerHTML = '';
+
+    var uuids = Object.keys(statsData);
+    if (uuids.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No endpoints registered yet.</p></div>';
+        return;
+    }
+
+    uuids.forEach(function(uuid) {
+        var s = statsData[uuid];
+        var total   = s.total_executions   || 0;
+        var ok      = s.successful_executions || 0;
+        var fail    = s.failed_executions  || 0;
+        var avgMs   = s.avg_exec_time_ms   || 0;
+        var totalMs = s.total_exec_time_ms || 0;
+        var rate    = total ? Math.round(ok/total*100) : 0;
+        var failRate= 100 - rate;
+
+        var el = document.createElement('div');
+        el.id = 'sc-' + uuid;
+        el.className = 'card';
+        el.style.marginBottom = '16px';
+        el.innerHTML = `
+            <div style="padding:18px 20px;border-bottom:1px solid var(--border)">
+                <div style="font-size:15px;font-weight:600;">${escHtml(scriptName(s.path))}</div>
+                <div style="font-size:12px;color:var(--text-2);font-family:monospace;">${uuid}</div>
+                <div style="font-size:11.5px;color:var(--text-3);margin-top:2px;">${escHtml(s.path)}</div>
+            </div>
+            <div style="padding:18px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:20px;">
+                <div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:4px;">Total Executions</div>
+                    <div style="font-size:26px;font-weight:700;letter-spacing:-1px;">${total}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:4px;">Successful</div>
+                    <div style="font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--success);">${ok}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:4px;">Failed</div>
+                    <div style="font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--danger);">${fail}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:4px;">Avg Exec Time</div>
+                    <div style="font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--warn);">${fmtDuration(Math.round(avgMs))}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:4px;">Total Exec Time</div>
+                    <div style="font-size:26px;font-weight:700;letter-spacing:-1px;">${fmtDuration(totalMs)}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);margin-bottom:4px;">Last Called</div>
+                    <div style="font-size:13px;font-weight:600;margin-top:4px;">${s.last_executed_at ? fmtTs(s.last_executed_at) : '—'}</div>
+                </div>
+            </div>
+            <div style="padding:0 20px 18px;">
+                <div style="font-size:11px;color:var(--text-3);margin-bottom:6px;">Success / Failure ratio</div>
+                <div style="display:flex;height:8px;border-radius:99px;overflow:hidden;gap:2px;">
+                    <div style="width:${rate}%;background:var(--success);border-radius:99px 0 0 99px;transition:width .4s;"></div>
+                    <div style="width:${failRate}%;background:var(--danger);border-radius:0 99px 99px 0;transition:width .4s;"></div>
+                </div>
+                <div style="display:flex;gap:16px;margin-top:6px;font-size:11.5px;color:var(--text-2);">
+                    <span style="color:var(--success)">● ${rate}% success</span>
+                    <span style="color:var(--danger)">● ${failRate}% failed</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
+
+/* ──────────────────────────────────────────────
+   Logs page
+────────────────────────────────────────────── */
+function switchLogTab(el, panel) {
+    document.querySelectorAll('.log-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.log-panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('log-' + panel).classList.add('active');
+}
+
+function renderLogs() {
+    renderLogTable('success', 'recent_success');
+    renderLogTable('failed',  'recent_failed');
+}
+
+function renderLogTable(panelId, field) {
+    var container = document.getElementById('log-' + panelId);
+    var isSuccess = (panelId === 'success');
+    var allLogs = [];
+
+    for (var uuid in statsData) {
+        var s = statsData[uuid];
+        var entries = s[field] || [];
+        entries.forEach(function(e) {
+            allLogs.push({
+                endpointPath: s.path,
+                uuid: uuid,
+                entry: e
             });
+        });
+    }
 
-            function openfileselector(){
-                ao_module_openFileSelector(fileLoader, "user:/", "file",false, {filter:["agi", "js"]});
+    // Sort by timestamp descending
+    allLogs.sort(function(a,b){ return b.entry.timestamp - a.entry.timestamp; });
+
+    if (allLogs.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>' + (isSuccess ? 'No successful executions recorded yet.' : 'No failed executions recorded yet.') + '</p></div>';
+        return;
+    }
+
+    var rows = allLogs.map(function(item) {
+        var e = item.entry;
+        var badgeClass = isSuccess ? 'success' : 'danger';
+        var badgeText  = isSuccess ? '✓ OK'     : '✗ Error';
+        var msgClass   = isSuccess ? '' : 'err';
+        return `<tr>
+            <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+            <td>
+                <div style="font-weight:500;">${escHtml(scriptName(item.endpointPath))}</div>
+                <div style="font-size:11px;color:var(--text-3);">${item.uuid.substring(0,8)}…</div>
+            </td>
+            <td class="mono" style="font-size:11.5px;">${escHtml(e.request_id ? e.request_id.substring(0,12)+'…' : '—')}</td>
+            <td style="font-size:12px;color:var(--text-2);white-space:nowrap;">${fmtTs(e.timestamp)}</td>
+            <td style="white-space:nowrap;"><span class="badge neutral">${fmtDuration(e.duration_ms||0)}</span></td>
+            <td><div class="log-msg ${msgClass}">${escHtml(e.message||'')}</div></td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Endpoint</th>
+                    <th>Request ID</th>
+                    <th>Timestamp</th>
+                    <th>Duration</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+/* ──────────────────────────────────────────────
+   Data loading
+────────────────────────────────────────────── */
+function loadAll() {
+    // Load endpoints and stats in parallel
+    $.when(
+        $.getJSON("/api/ajgi/listExt"),
+        $.getJSON("/api/ajgi/stats")
+    ).done(function(epResp, stResp) {
+        var epData = epResp[0];
+        var stData = stResp[0];
+
+        endpoints = epData  || {};
+        statsData = stData  || {};
+
+        // Ensure every endpoint has a stats entry
+        for (var uuid in endpoints) {
+            if (!statsData[uuid]) {
+                statsData[uuid] = {
+                    uuid: uuid,
+                    path: endpoints[uuid].path,
+                    total_executions: 0,
+                    successful_executions: 0,
+                    failed_executions: 0,
+                    total_exec_time_ms: 0,
+                    avg_exec_time_ms: 0,
+                    last_executed_at: 0,
+                    recent_success: [],
+                    recent_failed: []
+                };
             }
+        }
 
+        // Render endpoint cards
+        var list = document.getElementById('endpoint-list');
+        // Clear existing cards (but keep empty state div)
+        Array.from(list.children).forEach(function(c){
+            if (c.id !== 'ep-empty') c.remove();
+        });
 
-            function fileLoader(filedata){
-                for (var i=0; i < filedata.length; i++){
-                    var filename = filedata[i].filename;
-                    var filepath = filedata[i].filepath;
-                    $("#agiPath").val(filepath);
-                }
-            }
-
-            function add() {
-                var path = $("#agiPath").val();
-                $.getJSON( "/api/ajgi/addExt?path=" + path, function( data ) {
-                    if(data.error == undefined) {
-                        $("#updateSuceed").slideDown("fast").delay(3000).slideUp("fast");
-                        appendTable(data, path);
-                    }else{
-                        alert(data.error);
-                    }
-                });
-            }
-
-            function delRecord(element) {
-                $.getJSON( "/api/ajgi/rmExt?uuid=" + $(element).attr("uuid"), function( data ) {
-                    if(data == "OK") {
-                        $("#deleteSuceed").slideDown("fast").delay(3000).slideUp("fast");
-                    }else{
-                        alert(data.error);
-                    }
-                });
-                $(element).parent().parent().remove().slideUp("fast");
-                if($("#records").html().trim() == '') {
-                    $("#records").append(`<tr id="zeroRec"><td>0 record returned.</td></tr>`);
-                }
-            }
-
-            
-            var tokenAccessPath = location.protocol + "//" + window.location.host + "/api/remote/";
-            new ClipboardJS('.copyURL', {
-                text: function(trigger) {
-                        var token = $(trigger).attr("token");
-                        var url = tokenAccessPath + token;
-                        console.log( $(trigger).find(".tooltiptext"));
-                        $(trigger).find(".tooltiptext").css({
-                            "visibility": "visible",
-                            "opacity": 1,
-                        });
-                        setTimeout(function(){
-                            $(trigger).find(".tooltiptext").css({
-                                "visibility": "hidden",
-                                "opacity": 0,
-                            });
-                        }, 3000);
-                    return url;
-                }
+        var uuids = Object.keys(statsData);
+        if (uuids.length === 0) {
+            document.getElementById('ep-empty').style.display = '';
+        } else {
+            document.getElementById('ep-empty').style.display = 'none';
+            uuids.forEach(function(uuid) {
+                renderEndpointCard(uuid, statsData[uuid].path || (endpoints[uuid]||{}).path || uuid, statsData[uuid]);
             });
+        }
 
-            function generateClipboardText(uuid) {
-                return `
-                    <div>
-                        <div class="content" style="font-family: monospace;">
-                           ${uuid} <a style="margin-left: 12px; font-family: Arial;" token="${uuid}" class="copyURL tooltip">
-                                <i class="copy icon"></i>  Copy
-                                <span class="tooltiptext"><i class="checkmark icon"></i> Copied</span>
-                           </a> 
-                        </div>
-                    </div>
-                `;
-            }
+        updateGlobalStats();
+    }).fail(function() {
+        showToast('Failed to load data');
+    });
+}
 
-            function appendTable(uuid, path) {
-                $("#zeroRec").remove().slideUp("fast");
-                $("#records").append(`<tr>
-                            <td>` + generateClipboardText(uuid) +`</td>
-                            <td>` + path + `</td>
-                            <td>
-                                <button class="ui icon basic circular negative button" uuid="` + uuid + `" onclick="delRecord(this)">
-                                <i class="close icon"></i>
-                                </button>
-                            </td>
-                        </tr>`);
-            }
-        </script>
-    </body>
+function refreshAll() {
+    loadAll();
+    showToast('Refreshed');
+}
+
+/* ──────────────────────────────────────────────
+   Utility
+────────────────────────────────────────────── */
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/* ──────────────────────────────────────────────
+   Bootstrap
+────────────────────────────────────────────── */
+$(document).ready(function() {
+    loadAll();
+});
+</script>
+</body>
 </html>

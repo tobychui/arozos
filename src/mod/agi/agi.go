@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -75,16 +76,18 @@ type Gateway struct {
 	//AllowAccessPkgs  map[string][]AgiPackage
 	LoadedAGILibrary map[string]AgiLibInjectionIntergface
 	Option           *AgiSysInfo
+	endpointStats    map[string]*EndpointStats // per-UUID execution statistics (in-memory)
+	statsMux         sync.RWMutex              // guards endpointStats
 }
 
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
 	//Handle startup registration of ajgi modules
 	gatewayObject := Gateway{
-		ReservedTables: option.ReservedTables,
-		NightlyScripts: []string{},
-		//AllowAccessPkgs:  map[string][]AgiPackage{},
+		ReservedTables:   option.ReservedTables,
+		NightlyScripts:   []string{},
 		LoadedAGILibrary: map[string]AgiLibInjectionIntergface{},
 		Option:           &option,
+		endpointStats:    make(map[string]*EndpointStats),
 	}
 
 	//Start all WebApps Registration
