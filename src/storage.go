@@ -12,6 +12,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/filesystem/abstractions/trashfs"
 	"imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/storage/bridge"
 
@@ -88,6 +89,28 @@ func LoadBaseStoragePool() error {
 		return err
 	}
 	fsHandlers = append(fsHandlers, tmpHandler)
+
+	//Load the trash folder as storage unit (trash:/)
+	//Files moved here via "recycle" are visible in the file explorer under trash:/
+	//Deleting a file from trash:/ permanently removes it from disk.
+	trashDirPath := filepath.ToSlash(filepath.Clean(*root_directory)) + "/trash/"
+	os.MkdirAll(trashDirPath, 0755)
+	trashAbstraction := trashfs.NewTrashFSAbstraction(trashfs.TrashFSUUID, trashDirPath, "user", false)
+	trashHandler := &fs.FileSystemHandler{
+		Name:                  "trash",
+		UUID:                  trashfs.TrashFSUUID,
+		Path:                  trashDirPath,
+		Hierarchy:             "user",
+		ReadOnly:              false,
+		RequireBuffer:         false,
+		InitiationTime:        time.Now().Unix(),
+		FileSystemAbstraction: trashAbstraction,
+		Filesystem:            localFileSystem,
+		RuntimePersistenceConfig: fs.RuntimePersistenceConfig{
+			LocalBufferPath: *tmp_directory,
+		},
+	}
+	fsHandlers = append(fsHandlers, trashHandler)
 
 	//Load all the storage config from file
 	rawConfig, err := os.ReadFile(*storage_config_file)
