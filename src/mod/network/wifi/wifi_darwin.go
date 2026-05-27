@@ -1,4 +1,6 @@
+//go:build darwin
 // +build darwin
+
 package wifi
 
 /*
