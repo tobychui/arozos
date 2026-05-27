@@ -28,12 +28,17 @@ func NewS3FileInfo(name string, size int64, isDir bool, modTime time.Time) *S3Fi
 	}
 }
 
-func (fi *S3FileInfo) Name() string      { return fi.name }
-func (fi *S3FileInfo) Size() int64       { return fi.size }
-func (fi *S3FileInfo) Mode() fs.FileMode { return 0664 }
+func (fi *S3FileInfo) Name() string { return fi.name }
+func (fi *S3FileInfo) Size() int64  { return fi.size }
+func (fi *S3FileInfo) Mode() fs.FileMode {
+	if fi.isDir {
+		return fs.ModeDir | 0755
+	}
+	return 0664
+}
 func (fi *S3FileInfo) ModTime() time.Time { return fi.modTime }
-func (fi *S3FileInfo) IsDir() bool       { return fi.isDir }
-func (fi *S3FileInfo) Sys() interface{}  { return nil }
+func (fi *S3FileInfo) IsDir() bool        { return fi.isDir }
+func (fi *S3FileInfo) Sys() interface{}   { return nil }
 
 // S3DirEntry implements fs.DirEntry for S3 objects.
 type S3DirEntry struct {

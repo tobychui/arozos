@@ -298,12 +298,9 @@
                 newPath = newPath.replace("s3://", "");
                 $(object).val(newPath);
             }else if (newPath.startsWith("http://") || newPath.startsWith("https://")){
-                // Could be WebDAV or an explicit S3 endpoint with http(s):// scheme.
-                // Only auto-select WebDAV if S3 is not already chosen.
-                var currentFs = $("#fstype input[type=hidden]").val();
-                if (currentFs !== "s3"){
-                    $("#fstype").dropdown("set selected", "webdav");
-                }
+                // http(s):// is ambiguous — it could be WebDAV or an explicit
+                // S3-compatible endpoint (e.g. http://minio:9000/bucket).
+                // Do not auto-select a filesystem type; let the user choose.
                 $(object).val(newPath);
             }else if (newPath.startsWith("ftp://")){
                 //FTP

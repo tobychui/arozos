@@ -111,7 +111,7 @@ func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder stri
 	// Create the thumbnail file with the full filename + .jpg
 	// e.g., DSC02977.ARW.jpg
 	outputPath := cacheFolder + filepath.Base(file) + ".jpg"
-	if err = fshAbs.WriteFile(outputPath, thumbBuf.Bytes(), 0775); err != nil {
+	if err = fshAbs.WriteFile(outputPath, thumbBuf.Bytes(), 0644); err != nil {
 		return "", errors.New("failed to write thumbnail: " + err.Error())
 	}
 

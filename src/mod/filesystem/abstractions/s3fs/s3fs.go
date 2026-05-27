@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,34 +84,54 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 		scheme = "http"
 	}
 
-	cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
-		// Use "us-east-1" as the default signing region.  For non-AWS endpoints
-		// the region only affects request signing and can be arbitrary.
-		awsconfig.WithRegion("us-east-1"),
-		awsconfig.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
-		),
-	)
+	credProvider := credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")
+
+	// newClient is a helper to build an s3.Client for a given signing region.
+	newClient := func(region string) (*s3.Client, error) {
+		cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+			awsconfig.WithRegion(region),
+			awsconfig.WithCredentialsProvider(credProvider),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return s3.NewFromConfig(cfg, func(o *s3.Options) {
+			// For custom endpoints (MinIO, Wasabi, R2, …) point the client there.
+			// Leaving BaseEndpoint empty uses the default AWS resolver.
+			if endpoint != "" {
+				o.BaseEndpoint = aws.String(scheme + "://" + endpoint)
+			}
+			// Path-style addressing is required by MinIO and most S3-compatible
+			// services; virtual-hosted style is fine for AWS S3 regardless.
+			o.UsePathStyle = true
+		}), nil
+	}
+
+	// Bootstrap with the default signing region.
+	client, err := newClient("us-east-1")
 	if err != nil {
 		return nil, err
 	}
 
-	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		// Point at the custom endpoint (MinIO, Wasabi, R2, …).
-		// For standard AWS S3, leaving BaseEndpoint empty uses the default resolver.
-		if endpoint != "" {
-			o.BaseEndpoint = aws.String(scheme + "://" + endpoint)
+	// Auto-discover the bucket's actual AWS region.
+	// manager.GetBucketRegion queries HeadBucket and reads the
+	// x-amz-bucket-region response header.  For non-AWS / S3-compatible
+	// services the header is absent; in that case we stay with us-east-1.
+	discoverCtx, discoverCancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer discoverCancel()
+
+	if bucketRegion, rerr := manager.GetBucketRegion(discoverCtx, client, bucket); rerr == nil && bucketRegion != "" && bucketRegion != "us-east-1" {
+		if rc, rerr2 := newClient(bucketRegion); rerr2 == nil {
+			client = rc
+			log.Printf("[S3 FS] Auto-discovered region %q for bucket %q\n", bucketRegion, bucket)
 		}
-		// Path-style addressing is required by MinIO and most S3-compatible
-		// services; it has no effect on AWS S3 (which supports both).
-		o.UsePathStyle = true
-	})
+	}
 
-	// Validate the bucket is reachable.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	// Validate the bucket is reachable with the final client.
+	valCtx, valCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer valCancel()
 
-	_, err = client.HeadBucket(ctx, &s3.HeadBucketInput{
+	_, err = client.HeadBucket(valCtx, &s3.HeadBucketInput{
 		Bucket: aws.String(bucket),
 	})
 	if err != nil {
@@ -296,19 +317,22 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 				return err
 			}
 			for _, obj := range page.Contents {
-				newKey := newPrefix + strings.TrimPrefix(aws.ToString(obj.Key), oldPrefix)
+				srcKey := aws.ToString(obj.Key)
+				newKey := newPrefix + strings.TrimPrefix(srcKey, oldPrefix)
 				_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
 					Bucket:     aws.String(s.bucket),
-					CopySource: aws.String(s.bucket + "/" + aws.ToString(obj.Key)),
+					CopySource: aws.String(s3CopySource(s.bucket, srcKey)),
 					Key:        aws.String(newKey),
 				})
 				if err != nil {
 					return err
 				}
-				_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+				if _, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 					Bucket: aws.String(s.bucket),
 					Key:    obj.Key,
-				})
+				}); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -318,7 +342,7 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 	newKey := s.realPathToKey(newname)
 	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
 		Bucket:     aws.String(s.bucket),
-		CopySource: aws.String(s.bucket + "/" + oldKey),
+		CopySource: aws.String(s3CopySource(s.bucket, oldKey)),
 		Key:        aws.String(newKey),
 	})
 	if err != nil {
@@ -424,8 +448,26 @@ func (s *S3FSAbstraction) IsDir(realpath string) bool {
 	return false
 }
 
-func (s *S3FSAbstraction) Glob(_ string) ([]string, error) {
-	return []string{}, arozfs.ErrOperationNotSupported
+// Glob lists all entries in the same directory as realpathWildcard whose names
+// match the wildcard pattern.  It uses ReadDir so it works on all FS types.
+func (s *S3FSAbstraction) Glob(realpathWildcard string) ([]string, error) {
+	dir := arozfs.ToSlash(filepath.Dir(realpathWildcard))
+	entries, err := s.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var matches []string
+	for _, entry := range entries {
+		fullPath := arozfs.ToSlash(filepath.Join(dir, entry.Name()))
+		matched, err := filepath.Match(realpathWildcard, fullPath)
+		if err != nil {
+			return nil, err
+		}
+		if matched {
+			matches = append(matches, fullPath)
+		}
+	}
+	return matches, nil
 }
 
 func (s *S3FSAbstraction) GetFileSize(realpath string) int64 {
@@ -614,6 +656,20 @@ func (s *S3FSAbstraction) Heartbeat() error {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+// s3CopySource builds a properly URL-encoded CopySource value for
+// s3.CopyObjectInput.  The AWS API requires each path segment of the key
+// to be percent-encoded (with %20 for spaces, etc.) while "/" separators
+// are kept as-is.  Using url.PathEscape on the whole key would encode "/" too,
+// so we encode each segment individually.
+func s3CopySource(bucket, key string) string {
+	segments := strings.Split(key, "/")
+	encoded := make([]string, len(segments))
+	for i, seg := range segments {
+		encoded[i] = url.PathEscape(seg)
+	}
+	return bucket + "/" + strings.Join(encoded, "/")
+}
 
 func filterFilepath(rawpath string) string {
 	rawpath = arozfs.ToSlash(filepath.Clean(strings.TrimSpace(rawpath)))
