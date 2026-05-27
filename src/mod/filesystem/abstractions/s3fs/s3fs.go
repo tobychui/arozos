@@ -3,6 +3,7 @@ package s3fs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"log"
@@ -11,8 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 )
 
@@ -24,62 +29,99 @@ import (
 	Supports AWS S3, MinIO, Wasabi, Backblaze B2, Cloudflare R2, and any other
 	S3-compatible storage provider.
 
-	Large-file design: GetObject / PutObject are fully streamed — data flows
-	directly between the caller and S3 without ever being fully buffered in
-	memory.  PutObject with size=-1 triggers automatic multipart upload inside
-	the MinIO SDK, making it safe to write arbitrarily large files on a device
-	with very little RAM.
+	Uses the official AWS SDK for Go v2 (aws-sdk-go-v2).  Non-AWS endpoints are
+	handled via BaseEndpoint + UsePathStyle on the S3 client options, which is the
+	standard pattern for S3-compatible services.
 
-	RequireBuffer = true  (no file-handle semantics; Open/Create return ErrOperationNotSupported)
+	Large-file / low-memory design
+	  ReadStream  → s3.GetObject returns resp.Body, an io.ReadCloser that streams
+	                directly from S3.  No data is buffered in RAM until the caller
+	                calls Read().
+	  WriteStream → manager.Uploader wraps PutObject and automatically switches to
+	                multipart upload for payloads above the configurable threshold
+	                (default 5 MiB per part).  The entire file is never held in
+	                memory, making this safe on RAM-constrained devices.
 
-	Path format in the storage config:
+	RequireBuffer = true  (no file-handle semantics; Open/Create are unsupported)
+
+	Path format in the storage config
 	  Path     = "[http://]<endpoint>[:<port>]/<bucket>[/<prefix>]"
 	  Username = Access Key ID
 	  Password = Secret Access Key
 
-	Examples:
-	  AWS S3  : "s3.amazonaws.com/my-bucket"
-	  MinIO   : "http://192.168.1.100:9000/my-bucket/optional-prefix"
-	  Wasabi  : "s3.wasabisys.com/my-bucket"
-	  R2      : "<account>.r2.cloudflarestorage.com/my-bucket"
+	Examples
+	  AWS S3           "s3.amazonaws.com/my-bucket"
+	  AWS (us-west-2)  "s3.us-west-2.amazonaws.com/my-bucket"
+	  MinIO (HTTP)     "http://192.168.1.100:9000/my-bucket/optional-prefix"
+	  Wasabi           "s3.wasabisys.com/my-bucket"
+	  Cloudflare R2    "<account-id>.r2.cloudflarestorage.com/my-bucket"
+
+	SSL is on by default.  Prepend "http://" to the endpoint to disable it
+	(useful for local MinIO / development setups).
 */
 
 // S3FSAbstraction implements filesystem.FileSystemAbstraction backed by S3.
 type S3FSAbstraction struct {
 	uuid      string
 	hierarchy string
-	endpoint  string
+	endpoint  string // bare host[:port], no scheme
 	bucket    string
 	prefix    string // optional root prefix inside the bucket (no leading/trailing slash)
 	accessKey string
 	secretKey string
 	useSSL    bool
-	client    *minio.Client
+	client    *s3.Client
+	uploader  *manager.Uploader
 }
 
 // NewS3FSAbstraction creates and validates a new S3 filesystem abstraction.
-// The endpoint should NOT include a scheme (http/https); pass useSSL = false
-// for plain HTTP endpoints (e.g. local MinIO in development).
+// The caller should NOT include a scheme in endpoint; pass useSSL to control
+// http vs https.
 func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, secretKey string, useSSL bool) (*S3FSAbstraction, error) {
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
-		Secure: useSSL,
-	})
+	scheme := "https"
+	if !useSSL {
+		scheme = "http"
+	}
+
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+		// Use "us-east-1" as the default signing region.  For non-AWS endpoints
+		// the region only affects request signing and can be arbitrary.
+		awsconfig.WithRegion("us-east-1"),
+		awsconfig.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	// Validate the bucket is reachable within a short timeout.
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		// Point at the custom endpoint (MinIO, Wasabi, R2, …).
+		// For standard AWS S3, leaving BaseEndpoint empty uses the default resolver.
+		if endpoint != "" {
+			o.BaseEndpoint = aws.String(scheme + "://" + endpoint)
+		}
+		// Path-style addressing is required by MinIO and most S3-compatible
+		// services; it has no effect on AWS S3 (which supports both).
+		o.UsePathStyle = true
+	})
+
+	// Validate the bucket is reachable.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	exists, err := client.BucketExists(ctx, bucket)
+	_, err = client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(bucket),
+	})
 	if err != nil {
+		var nf *types.NotFound
+		if errors.As(err, &nf) {
+			return nil, os.ErrNotExist
+		}
 		return nil, err
 	}
-	if !exists {
-		return nil, os.ErrNotExist // bucket not found
-	}
+
+	uploader := manager.NewUploader(client)
 
 	prefix = strings.Trim(prefix, "/")
 	log.Printf("[S3 FS] Mounted s3://%s/%s (endpoint=%s ssl=%v)\n", bucket, prefix, endpoint, useSSL)
@@ -94,6 +136,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 		secretKey: secretKey,
 		useSSL:    useSSL,
 		client:    client,
+		uploader:  uploader,
 	}, nil
 }
 
@@ -106,7 +149,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 func (s *S3FSAbstraction) realPathToKey(realPath string) string {
 	realPath = strings.TrimPrefix(filterFilepath(realPath), "/")
 	if realPath == "" || realPath == "." {
-		return s.prefix // bucket root (or configured prefix root)
+		return s.prefix
 	}
 	if s.prefix != "" {
 		return s.prefix + "/" + realPath
@@ -116,7 +159,7 @@ func (s *S3FSAbstraction) realPathToKey(realPath string) string {
 
 // keyToRealPath is the inverse of realPathToKey.
 func (s *S3FSAbstraction) keyToRealPath(key string) string {
-	key = strings.TrimSuffix(key, "/") // strip directory-marker trailing slash
+	key = strings.TrimSuffix(key, "/")
 	if s.prefix != "" {
 		key = strings.TrimPrefix(key, s.prefix+"/")
 	}
@@ -127,17 +170,15 @@ func (s *S3FSAbstraction) keyToRealPath(key string) string {
 }
 
 // ---------------------------------------------------------------------------
-// Fundamental Functions (required by FileSystemAbstraction)
+// Fundamental Functions (FileSystemAbstraction interface)
 // ---------------------------------------------------------------------------
 
 func (s *S3FSAbstraction) Chmod(_ string, _ os.FileMode) error {
 	return arozfs.ErrOperationNotSupported
 }
-
 func (s *S3FSAbstraction) Chown(_ string, _, _ int) error {
 	return arozfs.ErrOperationNotSupported
 }
-
 func (s *S3FSAbstraction) Chtimes(_ string, _, _ time.Time) error {
 	return arozfs.ErrOperationNotSupported
 }
@@ -147,17 +188,19 @@ func (s *S3FSAbstraction) Create(_ string) (arozfs.File, error) {
 	return nil, arozfs.ErrOperationNotSupported
 }
 
-// Mkdir creates an S3 "directory" marker (a zero-byte object whose key ends
-// with "/").  Many S3 clients create these markers so directory listings work
-// correctly even in empty directories.
+// Mkdir creates a zero-byte S3 "directory marker" object whose key ends with "/".
 func (s *S3FSAbstraction) Mkdir(filename string, _ os.FileMode) error {
 	key := s.realPathToKey(filename)
 	if !strings.HasSuffix(key, "/") {
 		key += "/"
 	}
 	ctx := context.Background()
-	_, err := s.client.PutObject(ctx, s.bucket, key, bytes.NewReader([]byte{}), 0,
-		minio.PutObjectOptions{ContentType: "application/x-directory"})
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader([]byte{}),
+		ContentType: aws.String("application/x-directory"),
+	})
 	return err
 }
 
@@ -177,40 +220,54 @@ func (s *S3FSAbstraction) OpenFile(_ string, _ int, _ os.FileMode) (arozfs.File,
 	return nil, arozfs.ErrOperationNotSupported
 }
 
-// Remove deletes a file or directory (recursively) from S3.
+// Remove deletes a single object or an entire virtual directory (recursively).
 func (s *S3FSAbstraction) Remove(filename string) error {
 	if s.IsDir(filename) {
 		return s.RemoveAll(filename)
 	}
 	key := s.realPathToKey(filename)
 	ctx := context.Background()
-	return s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	return err
 }
 
-// RemoveAll deletes every object whose key starts with the given prefix.
+// RemoveAll deletes every object whose key starts with the given path prefix.
 func (s *S3FSAbstraction) RemoveAll(path string) error {
 	prefix := s.realPathToKey(path)
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
-
 	ctx := context.Background()
-	objectsCh := s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: true,
-	})
 
-	for obj := range objectsCh {
-		if obj.Err != nil {
-			return obj.Err
-		}
-		if err := s.client.RemoveObject(ctx, s.bucket, obj.Key, minio.RemoveObjectOptions{}); err != nil {
+	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
+		Bucket:    aws.String(s.bucket),
+		Prefix:    aws.String(prefix),
+		Delimiter: aws.String(""),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
 			return err
+		}
+		for _, obj := range page.Contents {
+			_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+				Bucket: aws.String(s.bucket),
+				Key:    obj.Key,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	// Also remove the directory marker itself if it exists.
-	_ = s.client.RemoveObject(ctx, s.bucket, prefix, minio.RemoveObjectOptions{})
+	// Also remove any explicit directory marker at this path.
+	_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(prefix),
+	})
 	return nil
 }
 
@@ -229,58 +286,81 @@ func (s *S3FSAbstraction) Rename(oldname, newname string) error {
 			newPrefix += "/"
 		}
 
-		objectsCh := s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{
-			Prefix:    oldPrefix,
-			Recursive: true,
+		paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
+			Bucket: aws.String(s.bucket),
+			Prefix: aws.String(oldPrefix),
 		})
-		for obj := range objectsCh {
-			if obj.Err != nil {
-				return obj.Err
-			}
-			newKey := newPrefix + strings.TrimPrefix(obj.Key, oldPrefix)
-			_, err := s.client.CopyObject(ctx,
-				minio.CopyDestOptions{Bucket: s.bucket, Object: newKey},
-				minio.CopySrcOptions{Bucket: s.bucket, Object: obj.Key},
-			)
+		for paginator.HasMorePages() {
+			page, err := paginator.NextPage(ctx)
 			if err != nil {
 				return err
 			}
-			_ = s.client.RemoveObject(ctx, s.bucket, obj.Key, minio.RemoveObjectOptions{})
+			for _, obj := range page.Contents {
+				newKey := newPrefix + strings.TrimPrefix(aws.ToString(obj.Key), oldPrefix)
+				_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
+					Bucket:     aws.String(s.bucket),
+					CopySource: aws.String(s.bucket + "/" + aws.ToString(obj.Key)),
+					Key:        aws.String(newKey),
+				})
+				if err != nil {
+					return err
+				}
+				_, _ = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: aws.String(s.bucket),
+					Key:    obj.Key,
+				})
+			}
 		}
 		return nil
 	}
 
 	oldKey := s.realPathToKey(oldname)
 	newKey := s.realPathToKey(newname)
-	_, err := s.client.CopyObject(ctx,
-		minio.CopyDestOptions{Bucket: s.bucket, Object: newKey},
-		minio.CopySrcOptions{Bucket: s.bucket, Object: oldKey},
-	)
+	_, err := s.client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(s.bucket),
+		CopySource: aws.String(s.bucket + "/" + oldKey),
+		Key:        aws.String(newKey),
+	})
 	if err != nil {
 		return err
 	}
-	return s.client.RemoveObject(ctx, s.bucket, oldKey, minio.RemoveObjectOptions{})
+	_, err = s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(oldKey),
+	})
+	return err
 }
 
-// Stat returns file metadata.  Directories are synthesised if any object
-// exists under that prefix.
+// Stat returns object metadata.  Virtual directories are synthesised when any
+// objects exist under the path as a prefix.
 func (s *S3FSAbstraction) Stat(filename string) (os.FileInfo, error) {
 	if s.IsDir(filename) {
 		return NewS3FileInfo(arozfs.Base(filename), 0, true, time.Now()), nil
 	}
 	key := s.realPathToKey(filename)
 	ctx := context.Background()
-	info, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	resp, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
 	if err != nil {
 		return nil, err
 	}
-	return NewS3FileInfo(arozfs.Base(info.Key), info.Size, false, info.LastModified), nil
+	size := int64(0)
+	if resp.ContentLength != nil {
+		size = *resp.ContentLength
+	}
+	modTime := time.Now()
+	if resp.LastModified != nil {
+		modTime = *resp.LastModified
+	}
+	return NewS3FileInfo(arozfs.Base(key), size, false, modTime), nil
 }
 
 func (s *S3FSAbstraction) Close() error { return nil }
 
 // ---------------------------------------------------------------------------
-// Utility Functions (required by FileSystemAbstraction)
+// Utility Functions (FileSystemAbstraction interface)
 // ---------------------------------------------------------------------------
 
 func (s *S3FSAbstraction) VirtualPathToRealPath(subpath, username string) (string, error) {
@@ -291,27 +371,27 @@ func (s *S3FSAbstraction) RealPathToVirtualPath(fullpath, username string) (stri
 	return arozfs.GenericRealPathToVirtualPathTranslator(s.uuid, s.hierarchy, fullpath, username)
 }
 
-// FileExists returns true if an object with this key exists, or if any object
-// exists under this key as a prefix (i.e. it is a non-empty "directory").
+// FileExists returns true if an exact object exists with this key, or if the
+// path is a virtual directory (i.e. objects exist under it as a prefix).
 func (s *S3FSAbstraction) FileExists(realpath string) bool {
 	key := s.realPathToKey(realpath)
 	ctx := context.Background()
-
-	// Try exact object match first.
-	_, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
 	if err == nil {
 		return true
 	}
-	// Fall back to directory check.
 	return s.IsDir(realpath)
 }
 
-// IsDir returns true when the given path corresponds to a virtual S3
-// "directory" — i.e. at least one object exists with that key as a prefix.
+// IsDir returns true when the path represents a virtual S3 "directory":
+// either an explicit directory-marker object exists, or at least one object
+// has this path as a key prefix.
 func (s *S3FSAbstraction) IsDir(realpath string) bool {
 	key := s.realPathToKey(realpath)
-
-	// Bucket / prefix root is always a directory.
+	// Bucket root (or configured prefix root) is always a directory.
 	if key == "" || key == s.prefix {
 		return true
 	}
@@ -323,21 +403,23 @@ func (s *S3FSAbstraction) IsDir(realpath string) bool {
 
 	ctx := context.Background()
 
-	// Check for explicit directory marker.
-	_, err := s.client.StatObject(ctx, s.bucket, prefix, minio.StatObjectOptions{})
+	// Check for an explicit directory-marker object.
+	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(prefix),
+	})
 	if err == nil {
 		return true
 	}
 
-	// Check if any objects live under this prefix.
-	objCh := s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: false,
+	// Check if any objects exist under this prefix.
+	resp, err := s.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket:  aws.String(s.bucket),
+		Prefix:  aws.String(prefix),
+		MaxKeys: aws.Int32(1),
 	})
-	for obj := range objCh {
-		if obj.Err == nil {
-			return true
-		}
+	if err == nil && len(resp.Contents) > 0 {
+		return true
 	}
 	return false
 }
@@ -349,21 +431,30 @@ func (s *S3FSAbstraction) Glob(_ string) ([]string, error) {
 func (s *S3FSAbstraction) GetFileSize(realpath string) int64 {
 	key := s.realPathToKey(realpath)
 	ctx := context.Background()
-	info, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
-	if err != nil {
+	resp, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil || resp.ContentLength == nil {
 		return 0
 	}
-	return info.Size
+	return *resp.ContentLength
 }
 
 func (s *S3FSAbstraction) GetModTime(realpath string) (int64, error) {
 	key := s.realPathToKey(realpath)
 	ctx := context.Background()
-	info, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	resp, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
 	if err != nil {
 		return 0, err
 	}
-	return info.LastModified.Unix(), nil
+	if resp.LastModified == nil {
+		return time.Now().Unix(), nil
+	}
+	return resp.LastModified.Unix(), nil
 }
 
 func (s *S3FSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
@@ -380,8 +471,8 @@ func (s *S3FSAbstraction) ReadFile(filename string) ([]byte, error) {
 }
 
 // ReadDir lists the immediate children of a virtual S3 directory.
-// Uses non-recursive listing with "/" as the delimiter so that only the
-// direct contents of the requested level are returned.
+// Uses ListObjectsV2 with Delimiter "/" so that only the direct contents of
+// the requested level are returned (files and virtual sub-directories).
 func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	results := []fs.DirEntry{}
 
@@ -391,32 +482,54 @@ func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	}
 
 	ctx := context.Background()
-	objectsCh := s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: false, // use "/" delimiter implicitly → virtual dirs appear as entries
+	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
+		Bucket:    aws.String(s.bucket),
+		Prefix:    aws.String(prefix),
+		Delimiter: aws.String("/"),
 	})
 
-	for obj := range objectsCh {
-		if obj.Err != nil {
-			return results, obj.Err
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return results, err
 		}
 
-		// Skip the directory marker for the current directory itself.
-		if obj.Key == prefix {
-			continue
+		// CommonPrefixes are virtual sub-directories.
+		for _, cp := range page.CommonPrefixes {
+			cpKey := aws.ToString(cp.Prefix)
+			if cpKey == prefix {
+				continue
+			}
+			name := strings.TrimSuffix(strings.TrimPrefix(cpKey, prefix), "/")
+			if name == "" {
+				continue
+			}
+			results = append(results, NewS3DirEntry(name, 0, true, time.Now()))
 		}
 
-		// Extract the name relative to this directory.
-		name := strings.TrimPrefix(obj.Key, prefix)
-		name = strings.TrimSuffix(name, "/")
-		if name == "" {
-			continue
+		// Contents are individual files at this level.
+		for _, obj := range page.Contents {
+			objKey := aws.ToString(obj.Key)
+			// Skip the directory marker for the current directory itself.
+			if objKey == prefix {
+				continue
+			}
+			name := strings.TrimPrefix(objKey, prefix)
+			name = strings.TrimSuffix(name, "/")
+			if name == "" {
+				continue
+			}
+			size := int64(0)
+			if obj.Size != nil {
+				size = *obj.Size
+			}
+			modTime := time.Now()
+			if obj.LastModified != nil {
+				modTime = *obj.LastModified
+			}
+			isDir := strings.HasSuffix(objKey, "/")
+			results = append(results, NewS3DirEntry(name, size, isDir, modTime))
 		}
-
-		// In non-recursive mode, virtual sub-directories come back as keys
-		// ending with "/" (common prefixes).
-		isDir := strings.HasSuffix(obj.Key, "/")
-		results = append(results, NewS3DirEntry(name, obj.Size, isDir, obj.LastModified))
 	}
 
 	return results, nil
@@ -424,39 +537,41 @@ func (s *S3FSAbstraction) ReadDir(dirname string) ([]fs.DirEntry, error) {
 
 // WriteStream uploads data from stream directly to S3.
 //
-// Passing size = -1 (unknown) triggers the MinIO SDK's automatic multipart
-// upload, which splits the stream into parts in memory (default 16 MiB each)
-// and uploads them concurrently — the full file is NEVER held in RAM, making
-// this safe on devices with very limited memory.
+// The manager.Uploader automatically uses multipart upload when the content
+// exceeds the part threshold (default 5 MiB per part).  The full file is
+// NEVER held in RAM, which is safe on memory-constrained devices (e.g. a
+// Raspberry Pi) even for multi-GiB files.
 func (s *S3FSAbstraction) WriteStream(filename string, stream io.Reader, _ os.FileMode) error {
 	key := s.realPathToKey(filename)
-	ctx := context.Background()
-	_, err := s.client.PutObject(ctx, s.bucket, key, stream, -1,
-		minio.PutObjectOptions{
-			ContentType: "application/octet-stream",
-			// PartSize 0 means the SDK chooses the optimal part size automatically.
-		})
+	_, err := s.uploader.Upload(context.Background(), &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(key),
+		Body:        stream,
+		ContentType: aws.String("application/octet-stream"),
+	})
 	return err
 }
 
 // ReadStream opens an S3 object and returns its body as an io.ReadCloser.
 //
-// The caller receives a streaming reader backed by the S3 HTTP response body;
-// no data is loaded into memory until the caller calls Read().  This allows
-// seeking/serving arbitrarily large files on memory-constrained devices.
+// The body is the raw HTTP response from S3; no data is loaded into memory
+// until the caller calls Read().  This allows serving or copying arbitrarily
+// large files on memory-constrained devices.
 func (s *S3FSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
 	key := s.realPathToKey(filename)
-	ctx := context.Background()
-	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
+	resp, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
 	if err != nil {
 		return nil, err
 	}
-	return obj, nil
+	return resp.Body, nil // io.ReadCloser backed directly by the S3 HTTP response
 }
 
-// Walk visits every node (file and directory) reachable from root, calling
-// walkFn for each.  It uses directory-level recursive calls on ReadDir rather
-// than a single flat S3 list, so directory entries are included naturally.
+// Walk visits every node reachable from root (files and virtual directories),
+// calling walkFn for each.  It builds the tree level by level via ReadDir so
+// that virtual directory entries are naturally included.
 func (s *S3FSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
 	rootInfo := NewS3FileInfo(arozfs.Base(root), 0, true, time.Now())
 	if err := walkFn(root, rootInfo, nil); err != nil {
@@ -486,11 +601,13 @@ func (s *S3FSAbstraction) walkDir(dirPath string, walkFn filepath.WalkFunc) erro
 	return nil
 }
 
-// Heartbeat checks that the bucket is still reachable.
+// Heartbeat checks that the bucket is still reachable within 5 seconds.
 func (s *S3FSAbstraction) Heartbeat() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := s.client.BucketExists(ctx, s.bucket)
+	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(s.bucket),
+	})
 	return err
 }
 
@@ -498,7 +615,6 @@ func (s *S3FSAbstraction) Heartbeat() error {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-// filterFilepath normalises a raw filesystem path.
 func filterFilepath(rawpath string) string {
 	rawpath = arozfs.ToSlash(filepath.Clean(strings.TrimSpace(rawpath)))
 	if strings.HasPrefix(rawpath, "./") {
