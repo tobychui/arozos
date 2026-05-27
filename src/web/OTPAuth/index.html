@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4b75ff">
+    <title>OTP Authenticator</title>
+    <link rel="icon" type="image/svg+xml" href="img/small_icon.svg">
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── Design tokens (mirrors system settings) ── */
+        :root {
+            --bg:               #f3f3f3;
+            --sidebar-bg:       #ebebeb;
+            --sidebar-border:   #dcdcdc;
+            --text:             #202020;
+            --text-dim:         #555;
+            --text-muted:       #888;
+            --text-desc:        #666;
+            --title-color:      #1a1a1a;
+            --nav-hover:        rgba(0,0,0,0.055);
+            --nav-active:       rgba(0,0,0,0.09);
+            --card-bg:          #ffffff;
+            --card-border:      #e5e5e5;
+            --card-hover-bg:    #fafafa;
+            --scrollbar-thumb:  #c8c8c8;
+            --accent:           #4b75ff;
+            --accent-light:     rgba(75,117,255,0.1);
+            --danger:           #dc2626;
+            --danger-light:     rgba(220,38,38,0.08);
+            --success:          #16a34a;
+            --warn:             #d97706;
+        }
+
+        body.dark {
+            --bg:               #1f1f1f;
+            --sidebar-bg:       #282828;
+            --sidebar-border:   #363636;
+            --text:             #e3e3e3;
+            --text-dim:         #999;
+            --text-muted:       #666;
+            --text-desc:        #aaa;
+            --title-color:      #f0f0f0;
+            --nav-hover:        rgba(255,255,255,0.06);
+            --nav-active:       rgba(255,255,255,0.1);
+            --card-bg:          #2d2d2d;
+            --card-border:      #3a3a3a;
+            --card-hover-bg:    #333333;
+            --scrollbar-thumb:  #555;
+            --accent:           #5b8aff;
+            --accent-light:     rgba(91,138,255,0.12);
+            --danger:           #f87171;
+            --danger-light:     rgba(248,113,113,0.1);
+            --success:          #4ade80;
+            --warn:             #fbbf24;
+        }
+
+        /* ── Base ── */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        /* ── App shell ── */
+        #app {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* ── Sidebar ── */
+        #sidebar {
+            width: 248px;
+            min-width: 248px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #sidebar-header {
+            padding: 18px 14px 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        #sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--title-color);
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            user-select: none;
+        }
+
+        #sidebar-title svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        #add-btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            line-height: 1;
+            flex-shrink: 0;
+            transition: opacity 0.1s;
+        }
+        #add-btn:hover { opacity: 0.82; }
+
+        #search-box {
+            margin: 0 10px 8px;
+            padding: 7px 11px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 7px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.12s;
+            flex-shrink: 0;
+        }
+        #search-box:focus { border-color: var(--accent); }
+
+        #account-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2px 8px 10px;
+        }
+        #account-list::-webkit-scrollbar { width: 3px; }
+        #account-list::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+
+        .acct-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 10px;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: background 0.08s;
+            user-select: none;
+        }
+        .acct-item:hover  { background: var(--nav-hover); }
+        .acct-item.active { background: var(--nav-active); }
+
+        .acct-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            flex-shrink: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .acct-info { min-width: 0; flex: 1; }
+
+        .acct-name {
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text);
+        }
+
+        .acct-issuer {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        #sidebar-empty {
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ── Main content ── */
+        #main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 22px 26px;
+            min-width: 0;
+        }
+        #main::-webkit-scrollbar { width: 6px; }
+        #main::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+        #main-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        #main-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--title-color);
+        }
+
+        #filter-info {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ── OTP Card ── */
+        .otp-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 11px;
+            padding: 16px 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: background 0.08s, border-color 0.08s;
+            position: relative;
+        }
+        .otp-card:hover { background: var(--card-hover-bg); }
+        .otp-card.confirming { border-color: var(--danger); }
+
+        /* Timer ring */
+        .timer-wrap {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            flex-shrink: 0;
+        }
+        .timer-svg {
+            transform: rotate(-90deg);
+            display: block;
+        }
+        .timer-bg {
+            stroke: var(--card-border);
+            fill: none;
+        }
+        .timer-arc {
+            fill: none;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.9s linear, stroke 0.5s;
+        }
+        .timer-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        /* Account info */
+        .otp-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .otp-issuer {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin-bottom: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .otp-account {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .otp-code-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .otp-code {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 5px;
+            font-family: 'SF Mono', 'Cascadia Code', 'Courier New', monospace;
+            color: var(--accent);
+            cursor: pointer;
+            user-select: all;
+            line-height: 1;
+            transition: opacity 0.15s;
+        }
+        .otp-code.fading { opacity: 0.35; }
+
+        @keyframes codeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .otp-code.newcode { animation: codeIn 0.2s ease-out; }
+
+        .copy-btn {
+            background: none;
+            border: 1px solid var(--card-border);
+            border-radius: 5px;
+            padding: 4px 10px;
+            font-size: 11.5px;
+            color: var(--text-dim);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            transition: background 0.08s;
+        }
+        .copy-btn:hover { background: var(--nav-hover); }
+        .copy-btn.copied {
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        /* Card action buttons (right side) */
+        .otp-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .act-btn {
+            background: none;
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 5px 11px;
+            font-size: 11.5px;
+            color: var(--text-dim);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+            transition: background 0.08s;
+            font-family: inherit;
+        }
+        .act-btn:hover { background: var(--nav-hover); }
+        .act-btn.danger { color: var(--danger); }
+        .act-btn.danger:hover { background: var(--danger-light); border-color: var(--danger); }
+        .act-btn.confirm { background: var(--danger); color: #fff; border-color: var(--danger); }
+        .act-btn.confirm:hover { opacity: 0.85; }
+
+        /* Confirm-delete row (hidden by default) */
+        .confirm-delete-row {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--danger);
+        }
+        .confirm-delete-row.show { display: flex; }
+        .confirm-text { font-size: 12px; color: var(--danger); flex: 1; }
+
+        /* ── Empty state ── */
+        #empty-state {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            text-align: center;
+            color: var(--text-muted);
+            gap: 14px;
+        }
+        #empty-state svg {
+            width: 60px; height: 60px;
+            opacity: 0.25;
+        }
+        .empty-title { font-size: 15px; font-weight: 500; color: var(--text-dim); }
+        .empty-sub   { font-size: 13px; }
+
+        /* ── Modal ── */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.42);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+        #modal-overlay.show { display: flex; }
+
+        #modal {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 13px;
+            width: 490px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 56px);
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.22);
+            animation: modalIn 0.18s ease-out;
+        }
+        @keyframes modalIn {
+            from { opacity:0; transform: scale(0.96) translateY(6px); }
+            to   { opacity:1; transform: scale(1) translateY(0); }
+        }
+        #modal::-webkit-scrollbar { width: 4px; }
+        #modal::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+
+        .modal-header {
+            padding: 20px 22px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--title-color);
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 22px;
+            line-height: 1;
+            padding: 0 2px;
+        }
+        .modal-close:hover { color: var(--text); }
+
+        .modal-body { padding: 16px 22px 22px; }
+
+        /* Tabs */
+        .tab-bar {
+            display: flex;
+            gap: 3px;
+            background: var(--bg);
+            border-radius: 9px;
+            padding: 3px;
+            margin-bottom: 18px;
+        }
+        .tab-btn {
+            flex: 1;
+            border: none;
+            background: none;
+            border-radius: 7px;
+            padding: 7px 8px;
+            font-size: 12.5px;
+            cursor: pointer;
+            color: var(--text-dim);
+            font-family: inherit;
+            transition: background 0.08s, color 0.08s;
+        }
+        .tab-btn.active {
+            background: var(--card-bg);
+            color: var(--text);
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.09);
+        }
+        .tab-btn:not(.active):hover { color: var(--text); background: var(--nav-hover); }
+
+        /* Form */
+        .field { margin-bottom: 14px; }
+        .field label {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.45px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--card-border);
+            border-radius: 7px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13.5px;
+            outline: none;
+            font-family: inherit;
+            transition: border-color 0.12s;
+        }
+        .field input:focus,
+        .field select:focus { border-color: var(--accent); }
+        .field input.secret-input {
+            font-family: 'SF Mono','Cascadia Code','Courier New',monospace;
+            letter-spacing: 2px;
+        }
+        .field-row { display: flex; gap: 10px; }
+        .field-row .field { flex: 1; }
+
+        /* Camera */
+        #cam-wrap {
+            background: #111;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            position: relative;
+            margin-bottom: 12px;
+        }
+        #cam-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        #cam-canvas { display: none; }
+        .scan-viewfinder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .scan-frame {
+            width: 56%;
+            aspect-ratio: 1;
+            border-radius: 10px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+            position: relative;
+        }
+        /* Corner brackets */
+        .scan-frame::before,
+        .scan-frame::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-color: #fff;
+            border-style: solid;
+        }
+        .scan-frame::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+        .scan-frame::after  { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+        /* Extra corners via pseudo elements on inner divs */
+        .sf-tr, .sf-bl {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-color: #fff;
+            border-style: solid;
+        }
+        .sf-tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+        .sf-bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+
+        #cam-status {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.62);
+            color: #fff;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        /* Upload */
+        #upload-drop {
+            border: 2px dashed var(--card-border);
+            border-radius: 10px;
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: border-color 0.12s, background 0.12s;
+        }
+        #upload-drop:hover,
+        #upload-drop.dragover { border-color: var(--accent); background: var(--accent-light); }
+        #upload-drop svg { width: 38px; height: 38px; opacity: 0.35; margin-bottom: 10px; }
+        #upload-drop p { font-size: 13px; color: var(--text-dim); }
+        #upload-drop small { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; display: block; }
+
+        #upload-result { display: none; text-align: center; margin-bottom: 12px; }
+        #upload-preview {
+            max-width: 190px;
+            max-height: 190px;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            margin-bottom: 8px;
+        }
+        #upload-msg { font-size: 13px; color: var(--text-dim); }
+        #upload-retry {
+            background: none;
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 5px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-dim);
+            font-family: inherit;
+            margin-top: 8px;
+        }
+        #upload-retry:hover { background: var(--nav-hover); }
+
+        /* Edit modal (rename) */
+        #edit-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.42);
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+        }
+        #edit-modal-overlay.show { display: flex; }
+        #edit-modal {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 13px;
+            width: 380px;
+            max-width: calc(100vw - 32px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.22);
+            animation: modalIn 0.18s ease-out;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 18px;
+            border-radius: 7px;
+            border: none;
+            cursor: pointer;
+            font-size: 13.5px;
+            font-family: inherit;
+            font-weight: 500;
+        }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { opacity: 0.85; }
+        .btn-secondary {
+            background: var(--nav-hover);
+            border: 1px solid var(--card-border);
+            color: var(--text);
+        }
+        .btn-secondary:hover { background: var(--nav-active); }
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 18px;
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 14px;
+            right: 18px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 9px 15px;
+            font-size: 13px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.18s;
+            pointer-events: none;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        #toast.show { opacity: 1; }
+
+        /* Mobile sidebar */
+        #menu-toggle {
+            display: none;
+            position: fixed;
+            top: 11px;
+            right: 13px;
+            z-index: 150;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 7px;
+            padding: 7px 9px;
+            cursor: pointer;
+            color: var(--text);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+        }
+        #sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 99;
+        }
+
+        @media (max-width: 700px) {
+            #menu-toggle { display: flex; }
+            #sidebar {
+                position: fixed;
+                top: 0; left: -260px;
+                height: 100vh;
+                z-index: 100;
+                transition: left 0.22s ease;
+                box-shadow: 2px 0 12px rgba(0,0,0,0.18);
+            }
+            #sidebar.open { left: 0; }
+            body.sidebar-open #sidebar-overlay { display: block; }
+            #main { padding: 16px; }
+            #main-header { margin-bottom: 14px; }
+            .otp-card { padding: 12px 14px; gap: 12px; }
+            .otp-code { font-size: 22px; letter-spacing: 4px; }
+            .timer-wrap { width: 42px; height: 42px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar overlay (mobile) -->
+        <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+        <!-- Mobile menu toggle -->
+        <button id="menu-toggle" onclick="toggleSidebar()" aria-label="Open menu">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <!-- Sidebar -->
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <div id="sidebar-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L3.5 6.5v5.5c0 5.1 3.6 9.9 8.5 11 4.9-1.1 8.5-5.9 8.5-11V6.5L12 2z"/>
+                        <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                    Authenticator
+                </div>
+                <button id="add-btn" onclick="openAddModal()" title="Add account" aria-label="Add account">+</button>
+            </div>
+
+            <input type="search" id="search-box" placeholder="Search accounts…" oninput="filterAccounts(this.value)" autocomplete="off">
+
+            <div id="account-list">
+                <div id="sidebar-empty" style="display:none;">No accounts yet</div>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div id="main">
+            <div id="main-header">
+                <div id="main-title">Authenticator</div>
+                <div id="filter-info"></div>
+            </div>
+
+            <div id="otp-cards"></div>
+
+            <div id="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+                    <path d="M12 2L3.5 6.5v5.5c0 5.1 3.6 9.9 8.5 11 4.9-1.1 8.5-5.9 8.5-11V6.5L12 2z"/>
+                    <path d="M9 12l2 2 4-4"/>
+                </svg>
+                <div class="empty-title">No accounts added yet</div>
+                <div class="empty-sub">Click the <strong>+</strong> button to add your first account</div>
+                <button class="btn btn-primary" onclick="openAddModal()" style="margin-top:6px;">Add Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Add Account Modal ── -->
+    <div id="modal-overlay">
+        <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title-text">Add Account</div>
+                <button class="modal-close" onclick="closeAddModal()" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="tab-bar">
+                    <button class="tab-btn active" data-tab="manual"  onclick="switchTab('manual')">Manual Entry</button>
+                    <button class="tab-btn"         data-tab="camera" onclick="switchTab('camera')">Camera Scan</button>
+                    <button class="tab-btn"         data-tab="upload" onclick="switchTab('upload')">Upload Image</button>
+                </div>
+
+                <!-- Manual entry tab -->
+                <div id="tab-manual">
+                    <div class="field">
+                        <label>Account / Email *</label>
+                        <input type="text" id="in-account" placeholder="user@example.com" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label>Issuer / Service</label>
+                        <input type="text" id="in-issuer" placeholder="Google, GitHub, etc.">
+                    </div>
+                    <div class="field">
+                        <label>Secret Key *</label>
+                        <input type="text" id="in-secret" class="secret-input" placeholder="JBSWY3DPEHPK3PXP" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="field-row">
+                        <div class="field">
+                            <label>Algorithm</label>
+                            <select id="in-algo">
+                                <option value="SHA1">SHA-1 (default)</option>
+                                <option value="SHA256">SHA-256</option>
+                                <option value="SHA512">SHA-512</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Digits</label>
+                            <select id="in-digits">
+                                <option value="6">6 digits</option>
+                                <option value="8">8 digits</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Period</label>
+                            <select id="in-period">
+                                <option value="30">30s</option>
+                                <option value="60">60s</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="saveManual()">Add Account</button>
+                    </div>
+                </div>
+
+                <!-- Camera tab -->
+                <div id="tab-camera" style="display:none;">
+                    <div id="cam-wrap">
+                        <video id="cam-video" autoplay playsinline muted></video>
+                        <canvas id="cam-canvas"></canvas>
+                        <div class="scan-viewfinder">
+                            <div class="scan-frame">
+                                <div class="sf-tr"></div>
+                                <div class="sf-bl"></div>
+                            </div>
+                        </div>
+                        <div id="cam-status">Initialising camera…</div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+                        <button class="btn btn-secondary" id="cam-switch-btn" onclick="flipCamera()">Flip Camera</button>
+                    </div>
+                </div>
+
+                <!-- Upload tab -->
+                <div id="tab-upload" style="display:none;">
+                    <div id="upload-drop"
+                         onclick="document.getElementById('upload-file').click()"
+                         ondragover="event.preventDefault();this.classList.add('dragover')"
+                         ondragleave="this.classList.remove('dragover')"
+                         ondrop="handleDrop(event)">
+                        <input type="file" id="upload-file" accept="image/*" style="display:none;" onchange="handleFileInput(event)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M3 9h18M9 21V9M3 15l3-3 3 3"/>
+                        </svg>
+                        <p>Click or drag & drop a QR code image</p>
+                        <small>PNG, JPG, WebP supported</small>
+                    </div>
+                    <div id="upload-result">
+                        <img id="upload-preview" src="" alt="Uploaded QR code">
+                        <div id="upload-msg"></div>
+                        <button id="upload-retry" onclick="resetUpload()">Try another image</button>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Edit / Rename Modal ── -->
+    <div id="edit-modal-overlay">
+        <div id="edit-modal" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <div class="modal-title">Rename Account</div>
+                <button class="modal-close" onclick="closeEditModal()" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-id">
+                <div class="field">
+                    <label>Account / Email</label>
+                    <input type="text" id="edit-account" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label>Issuer / Service</label>
+                    <input type="text" id="edit-issuer">
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveEdit()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <!-- jsQR (bundled, for QR image/camera decoding) -->
+    <script src="script/jsqr.min.js"></script>
+
+    <script>
+    /* ════════════════════════════════════════════════
+       Theme
+    ════════════════════════════════════════════════ */
+    ao_module_getSystemThemeColor(function(color) {
+        document.body.classList.toggle('dark', color !== 'whiteTheme');
+    });
+
+    /* ════════════════════════════════════════════════
+       TOTP — RFC 6238
+    ════════════════════════════════════════════════ */
+
+    /** Decode a Base32 string (RFC 4648) → Uint8Array */
+    function base32Decode(b32) {
+        const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let bits = 0, value = 0, out = [];
+        for (const ch of b32.toUpperCase().replace(/[\s=]/g, '')) {
+            const idx = ALPHA.indexOf(ch);
+            if (idx < 0) continue;
+            value = (value << 5) | idx;
+            bits += 5;
+            if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+        }
+        return new Uint8Array(out);
+    }
+
+    /** Generate a TOTP code (async, uses Web Crypto API) */
+    async function generateTOTP(secret, algorithm, digits, period) {
+        const key   = base32Decode(secret);
+        const now   = Math.floor(Date.now() / 1000);
+        const step  = Math.floor(now / period);
+
+        // 8-byte big-endian counter
+        const buf  = new ArrayBuffer(8);
+        const view = new DataView(buf);
+        view.setUint32(0, 0, false);
+        view.setUint32(4, step, false);
+
+        const hashAlgo = algorithm === 'SHA256' ? 'SHA-256'
+                       : algorithm === 'SHA512' ? 'SHA-512'
+                       : 'SHA-1';
+
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw', key, { name: 'HMAC', hash: hashAlgo }, false, ['sign']
+        );
+        const sig    = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, buf));
+        const offset = sig[sig.length - 1] & 0x0f;
+        const code   = (
+            ((sig[offset]     & 0x7f) << 24) |
+            ((sig[offset + 1] & 0xff) << 16) |
+            ((sig[offset + 2] & 0xff) << 8)  |
+             (sig[offset + 3] & 0xff)
+        ) % Math.pow(10, digits);
+
+        return code.toString().padStart(digits, '0');
+    }
+
+    /** Seconds remaining in the current period */
+    function timeLeft(period) {
+        return period - (Math.floor(Date.now() / 1000) % period);
+    }
+
+    /* ════════════════════════════════════════════════
+       OTP URI Parser (otpauth://totp/…)
+    ════════════════════════════════════════════════ */
+    function parseOTPUri(uri) {
+        try {
+            if (!uri.startsWith('otpauth://')) return null;
+            const url  = new URL(uri);
+            const type = url.hostname;  // 'totp' or 'hotp'
+            if (type !== 'totp') return null;
+
+            let label   = decodeURIComponent(url.pathname.slice(1));
+            let issuer  = '';
+            let account = label;
+            if (label.includes(':')) {
+                const parts = label.split(':');
+                issuer  = parts[0].trim();
+                account = parts.slice(1).join(':').trim();
+            }
+
+            const p   = url.searchParams;
+            const secret = (p.get('secret') || '').toUpperCase().replace(/\s/g, '');
+            if (!secret) return null;
+            if (p.get('issuer')) issuer = p.get('issuer');
+
+            return {
+                issuer,
+                account,
+                secret,
+                algorithm : (p.get('algorithm') || 'SHA1').toUpperCase(),
+                digits    : parseInt(p.get('digits')  || '6'),
+                period    : parseInt(p.get('period')  || '30'),
+            };
+        } catch (e) { return null; }
+    }
+
+    /* ════════════════════════════════════════════════
+       App state
+    ════════════════════════════════════════════════ */
+    let accounts       = {};   // id → entry object
+    let liveValues     = {};   // id → current code string
+    let prevValues     = {};   // id → previous code (detect refresh)
+    let filterQuery    = '';
+    let currentTab     = 'manual';
+    let camStream      = null;
+    let camScanTimer   = null;
+    let camFacingMode  = 'environment';
+    let confirmTimers  = {};   // id → setTimeout handle
+
+    /* ════════════════════════════════════════════════
+       Avatar helpers
+    ════════════════════════════════════════════════ */
+    const AVATAR_PALETTE = [
+        '#4b75ff','#e94040','#16a34a','#9b59b6','#e67e22',
+        '#0891b2','#e91e8c','#7c3aed','#d97706','#0f766e'
+    ];
+    function avatarColor(str) {
+        let h = 0;
+        for (const c of (str || '?')) h = c.charCodeAt(0) + ((h << 5) - h);
+        return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+    }
+    function initials(issuer, account) {
+        const src   = (issuer || account || '?').trim();
+        const words = src.split(/[\s@._\-:]+/).filter(w => w.length > 0);
+        if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+        return src.slice(0, 2).toUpperCase();
+    }
+    function esc(s) {
+        return String(s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ════════════════════════════════════════════════
+       Sidebar rendering
+    ════════════════════════════════════════════════ */
+    function renderSidebar() {
+        const list = document.getElementById('account-list');
+        // Remove old items
+        list.querySelectorAll('.acct-item').forEach(el => el.remove());
+
+        const ids = filteredIds();
+        document.getElementById('sidebar-empty').style.display =
+            Object.keys(accounts).length === 0 ? '' : 'none';
+
+        ids.forEach(id => {
+            const a   = accounts[id];
+            const col = avatarColor(a.issuer || a.account);
+            const ini = initials(a.issuer, a.account);
+
+            const item = document.createElement('div');
+            item.className = 'acct-item';
+            item.dataset.id = id;
+            item.innerHTML = `
+                <div class="acct-avatar" style="background:${col}">${esc(ini)}</div>
+                <div class="acct-info">
+                    <div class="acct-name">${esc(a.account)}</div>
+                    <div class="acct-issuer">${esc(a.issuer || 'Unknown')}</div>
+                </div>`;
+            item.addEventListener('click', () => {
+                scrollToCard(id);
+                closeSidebar();
+            });
+            list.appendChild(item);
+        });
+    }
+
+    function scrollToCard(id) {
+        const card = document.getElementById('card-' + id);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    /* ════════════════════════════════════════════════
+       Main cards rendering
+    ════════════════════════════════════════════════ */
+    async function renderCards() {
+        const container = document.getElementById('otp-cards');
+        const emptyEl   = document.getElementById('empty-state');
+        const ids       = filteredIds();
+
+        if (Object.keys(accounts).length === 0) {
+            container.innerHTML = '';
+            emptyEl.style.display = 'flex';
+            return;
+        }
+        emptyEl.style.display = 'none';
+
+        // Remove stale cards
+        container.querySelectorAll('.otp-card').forEach(c => {
+            if (!accounts[c.dataset.id]) c.remove();
+        });
+
+        for (const id of ids) {
+            if (!document.getElementById('card-' + id)) {
+                await createCard(id);
+            }
+        }
+
+        // Hide cards not in filter
+        container.querySelectorAll('.otp-card').forEach(c => {
+            c.style.display = ids.includes(c.dataset.id) ? '' : 'none';
+        });
+    }
+
+    async function createCard(id) {
+        const a     = accounts[id];
+        const code  = await generateTOTP(a.secret, a.algorithm, a.digits, a.period);
+        liveValues[id]  = code;
+        prevValues[id]  = code;
+
+        const tl    = timeLeft(a.period);
+        const color = avatarColor(a.issuer || a.account);
+        const half  = Math.ceil(a.digits / 2);
+        const fmtCode = code.slice(0, half) + ' ' + code.slice(half);
+
+        const R   = 20;
+        const C   = 2 * Math.PI * R;
+        const off = C * (1 - tl / a.period);
+
+        const card = document.createElement('div');
+        card.className = 'otp-card';
+        card.id = 'card-' + id;
+        card.dataset.id = id;
+        card.innerHTML = `
+            <div class="timer-wrap">
+                <svg class="timer-svg" width="50" height="50" viewBox="0 0 50 50">
+                    <circle class="timer-bg"  cx="25" cy="25" r="${R}" stroke-width="3.5"/>
+                    <circle class="timer-arc" cx="25" cy="25" r="${R}" stroke-width="3.5"
+                        stroke="${color}"
+                        stroke-dasharray="${C.toFixed(2)}"
+                        stroke-dashoffset="${off.toFixed(2)}"/>
+                </svg>
+                <div class="timer-label" id="tl-${id}">${tl}</div>
+            </div>
+            <div class="otp-info">
+                <div class="otp-issuer">${esc(a.issuer || 'Unknown')}</div>
+                <div class="otp-account">${esc(a.account)}</div>
+                <div class="otp-code-row">
+                    <div class="otp-code" id="code-${id}" onclick="copyCodeById('${id}')" title="Click to copy">${fmtCode}</div>
+                    <button class="copy-btn" id="copybtn-${id}" onclick="copyCodeById('${id}')">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        Copy
+                    </button>
+                </div>
+            </div>
+            <div class="otp-actions">
+                <button class="act-btn" onclick="openEditModal('${id}')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Rename
+                </button>
+                <button class="act-btn danger" id="delbtn-${id}" onclick="startDeleteConfirm('${id}')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                    Delete
+                </button>
+            </div>`;
+
+        document.getElementById('otp-cards').appendChild(card);
+    }
+
+    /* ════════════════════════════════════════════════
+       Delete confirmation (inline)
+    ════════════════════════════════════════════════ */
+    function startDeleteConfirm(id) {
+        const btn = document.getElementById('delbtn-' + id);
+        if (!btn) return;
+
+        // Already in confirm state → confirm
+        if (btn.classList.contains('confirm')) {
+            clearTimeout(confirmTimers[id]);
+            delete confirmTimers[id];
+            doDelete(id);
+            return;
+        }
+
+        // Enter confirm state
+        btn.classList.add('confirm');
+        btn.innerHTML = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+            Confirm?`;
+
+        confirmTimers[id] = setTimeout(() => {
+            resetDeleteBtn(id);
+        }, 4000);
+    }
+
+    function resetDeleteBtn(id) {
+        const btn = document.getElementById('delbtn-' + id);
+        if (!btn) return;
+        btn.classList.remove('confirm');
+        btn.innerHTML = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+            Delete`;
+    }
+
+    function doDelete(id) {
+        ao_module_agirun('OTPAuth/backend/delete.js', { id }, function(data) {
+            if (data && data.error) { showToast('⚠ ' + data.error, true); return; }
+            delete accounts[id];
+            delete liveValues[id];
+            delete prevValues[id];
+            const card = document.getElementById('card-' + id);
+            if (card) { card.style.opacity = '0'; card.style.transition = 'opacity 0.2s'; setTimeout(() => card.remove(), 200); }
+            renderSidebar();
+            if (Object.keys(accounts).length === 0) {
+                document.getElementById('empty-state').style.display = 'flex';
+            }
+            showToast('Account deleted');
+        }, () => showToast('⚠ Failed to delete', true));
+    }
+
+    /* ════════════════════════════════════════════════
+       Tick (1 s interval) — update ring + code
+    ════════════════════════════════════════════════ */
+    function startRefreshLoop() {
+        setInterval(() => {
+            Promise.all(Object.keys(accounts).map(id => tickCard(id)));
+        }, 1000);
+    }
+
+    async function tickCard(id) {
+        const a = accounts[id];
+        if (!a) return;
+        const card = document.getElementById('card-' + id);
+        if (!card || card.style.display === 'none') return;
+
+        const tl   = timeLeft(a.period);
+        const code = await generateTOTP(a.secret, a.algorithm, a.digits, a.period);
+
+        // Update ring
+        const arc  = card.querySelector('.timer-arc');
+        const tlEl = document.getElementById('tl-' + id);
+        if (arc) {
+            const R = 20, C = 2 * Math.PI * R;
+            arc.style.strokeDashoffset = (C * (1 - tl / a.period)).toFixed(2);
+            // Warn colour when < 7s
+            arc.style.stroke = tl <= 7 ? 'var(--danger)' : avatarColor(a.issuer || a.account);
+        }
+        if (tlEl) tlEl.textContent = tl;
+
+        // Update code display
+        const codeEl = document.getElementById('code-' + id);
+        if (codeEl && code !== liveValues[id]) {
+            liveValues[id] = code;
+            const half = Math.ceil(a.digits / 2);
+            const fmt  = code.slice(0, half) + ' ' + code.slice(half);
+            codeEl.classList.add('fading');
+            setTimeout(() => {
+                codeEl.textContent = fmt;
+                codeEl.classList.remove('fading');
+                codeEl.classList.add('newcode');
+                setTimeout(() => codeEl.classList.remove('newcode'), 250);
+            }, 120);
+        }
+    }
+
+    /* ════════════════════════════════════════════════
+       Copy to clipboard
+    ════════════════════════════════════════════════ */
+    async function copyCodeById(id) {
+        const code = liveValues[id];
+        if (!code) return;
+        try {
+            await navigator.clipboard.writeText(code);
+        } catch (e) {
+            // Fallback for HTTP / cross-origin iframe
+            const ta = document.createElement('textarea');
+            ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.focus(); ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+        showToast('✓ Code copied');
+        const btn = document.getElementById('copybtn-' + id);
+        if (btn) {
+            btn.classList.add('copied');
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy`; }, 2000);
+        }
+    }
+
+    /* ════════════════════════════════════════════════
+       Load from backend
+    ════════════════════════════════════════════════ */
+    function loadAccounts() {
+        ao_module_agirun('OTPAuth/backend/list.js', {}, function(data) {
+            accounts = data || {};
+            renderSidebar();
+            renderCards();
+        }, () => showToast('⚠ Failed to load accounts', true));
+    }
+
+    /* ════════════════════════════════════════════════
+       Filtering
+    ════════════════════════════════════════════════ */
+    function filteredIds() {
+        const q = filterQuery.trim().toLowerCase();
+        if (!q) return Object.keys(accounts);
+        return Object.keys(accounts).filter(id => {
+            const a = accounts[id];
+            return (a.account + ' ' + (a.issuer || '')).toLowerCase().includes(q);
+        });
+    }
+
+    function filterAccounts(q) {
+        filterQuery = q;
+        renderSidebar();
+        renderCards();
+        const ids = filteredIds();
+        document.getElementById('filter-info').textContent =
+            q ? `${ids.length} of ${Object.keys(accounts).length} accounts` : '';
+    }
+
+    /* ════════════════════════════════════════════════
+       Add Modal
+    ════════════════════════════════════════════════ */
+    function openAddModal() {
+        clearManualForm();
+        document.getElementById('modal-overlay').classList.add('show');
+        switchTab('manual');
+    }
+
+    function closeAddModal() {
+        document.getElementById('modal-overlay').classList.remove('show');
+        stopCamera();
+        clearManualForm();
+        resetUpload();
+    }
+
+    document.getElementById('modal-overlay').addEventListener('click', e => {
+        if (e.target === document.getElementById('modal-overlay')) closeAddModal();
+    });
+
+    /* ── Tabs ── */
+    function switchTab(tab) {
+        if (currentTab === 'camera' && tab !== 'camera') stopCamera();
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        document.getElementById('tab-manual').style.display  = tab === 'manual'  ? '' : 'none';
+        document.getElementById('tab-camera').style.display  = tab === 'camera'  ? '' : 'none';
+        document.getElementById('tab-upload').style.display  = tab === 'upload'  ? '' : 'none';
+        if (tab === 'camera') startCamera();
+    }
+
+    /* ── Manual entry ── */
+    function clearManualForm() {
+        document.getElementById('in-account').value = '';
+        document.getElementById('in-issuer').value  = '';
+        document.getElementById('in-secret').value  = '';
+        document.getElementById('in-algo').value    = 'SHA1';
+        document.getElementById('in-digits').value  = '6';
+        document.getElementById('in-period').value  = '30';
+    }
+
+    function saveManual() {
+        const account   = document.getElementById('in-account').value.trim();
+        const issuer    = document.getElementById('in-issuer').value.trim();
+        const secret    = document.getElementById('in-secret').value.trim().replace(/\s/g,'').toUpperCase();
+        const algorithm = document.getElementById('in-algo').value;
+        const digits    = parseInt(document.getElementById('in-digits').value);
+        const period    = parseInt(document.getElementById('in-period').value);
+
+        if (!account) { showToast('⚠ Account name is required', true); return; }
+        if (!secret)  { showToast('⚠ Secret key is required', true);   return; }
+        if (!/^[A-Z2-7]+=*$/.test(secret)) {
+            showToast('⚠ Invalid secret — must be Base32 (A-Z, 2-7)', true);
+            return;
+        }
+
+        const id = 'otp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const entry = { id, account, issuer, secret, algorithm, digits, period };
+
+        ao_module_agirun('OTPAuth/backend/add.js', { entry: JSON.stringify(entry) }, function(data) {
+            if (data && data.error) { showToast('⚠ ' + data.error, true); return; }
+            accounts[id] = entry;
+            closeAddModal();
+            renderSidebar();
+            renderCards().then(() => scrollToCard(id));
+            showToast('✓ Account added');
+        }, () => showToast('⚠ Failed to save account', true));
+    }
+
+    /* ════════════════════════════════════════════════
+       Camera QR scanning
+    ════════════════════════════════════════════════ */
+    async function startCamera() {
+        stopCamera();
+        const status = document.getElementById('cam-status');
+        status.textContent = 'Requesting camera access…';
+
+        try {
+            const constraints = {
+                video: { facingMode: camFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+            };
+            camStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const vid = document.getElementById('cam-video');
+            vid.srcObject = camStream;
+            await vid.play();
+            status.textContent = 'Point camera at a QR code…';
+            startCamScan();
+        } catch (e) {
+            const msg = e.name === 'NotAllowedError'  ? 'Camera permission denied'
+                      : e.name === 'NotFoundError'    ? 'No camera found on this device'
+                      : 'Camera error: ' + e.message;
+            status.textContent = msg;
+        }
+    }
+
+    function stopCamera() {
+        if (camStream) {
+            camStream.getTracks().forEach(t => t.stop());
+            camStream = null;
+        }
+        clearInterval(camScanTimer);
+        camScanTimer = null;
+    }
+
+    function flipCamera() {
+        camFacingMode = camFacingMode === 'environment' ? 'user' : 'environment';
+        if (currentTab === 'camera') startCamera();
+    }
+
+    function startCamScan() {
+        const vid    = document.getElementById('cam-video');
+        const canvas = document.getElementById('cam-canvas');
+        const ctx    = canvas.getContext('2d');
+
+        camScanTimer = setInterval(() => {
+            if (vid.readyState < vid.HAVE_ENOUGH_DATA) return;
+            canvas.width  = vid.videoWidth;
+            canvas.height = vid.videoHeight;
+            ctx.drawImage(vid, 0, 0);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const result  = decodeQR(imgData);
+            if (result) {
+                stopCamera();
+                document.getElementById('cam-status').textContent = '✓ QR code detected!';
+                handleQRText(result);
+            }
+        }, 200);
+    }
+
+    /* ════════════════════════════════════════════════
+       Image upload QR scanning
+    ════════════════════════════════════════════════ */
+    function handleDrop(e) {
+        e.preventDefault();
+        document.getElementById('upload-drop').classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) processImage(file);
+    }
+
+    function handleFileInput(e) {
+        const file = e.target.files[0];
+        if (file) processImage(file);
+    }
+
+    function processImage(file) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width  = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                const imgData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+
+                document.getElementById('upload-drop').style.display   = 'none';
+                document.getElementById('upload-result').style.display = '';
+                document.getElementById('upload-preview').src = ev.target.result;
+                document.getElementById('upload-msg').textContent = 'Scanning…';
+
+                const text = decodeQR(imgData);
+                if (text) {
+                    document.getElementById('upload-msg').textContent = '✓ QR code found!';
+                    setTimeout(() => handleQRText(text), 400);
+                } else {
+                    document.getElementById('upload-msg').textContent =
+                        '✗ No QR code found — try a clearer image';
+                }
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetUpload() {
+        document.getElementById('upload-drop').style.display   = '';
+        document.getElementById('upload-result').style.display = 'none';
+        document.getElementById('upload-file').value = '';
+    }
+
+    /* ════════════════════════════════════════════════
+       QR Decode (jsQR)
+    ════════════════════════════════════════════════ */
+    function decodeQR(imageData) {
+        if (typeof jsQR === 'undefined') {
+            showToast('⚠ QR library not loaded', true);
+            return null;
+        }
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert'
+        });
+        return code ? code.data : null;
+    }
+
+    /* ════════════════════════════════════════════════
+       QR text → fill form or add directly
+    ════════════════════════════════════════════════ */
+    function handleQRText(text) {
+        const parsed = parseOTPUri(text);
+        if (!parsed) {
+            showToast('⚠ Not a valid OTP QR code', true);
+            if (currentTab === 'camera') {
+                document.getElementById('cam-status').textContent = 'Not an OTP QR code — keep scanning…';
+                startCamera();
+            }
+            return;
+        }
+        // Fill manual form and switch to it
+        document.getElementById('in-account').value = parsed.account;
+        document.getElementById('in-issuer').value  = parsed.issuer;
+        document.getElementById('in-secret').value  = parsed.secret;
+        document.getElementById('in-algo').value    = parsed.algorithm;
+        document.getElementById('in-digits').value  = String(parsed.digits);
+        document.getElementById('in-period').value  = String(parsed.period);
+        switchTab('manual');
+        showToast('✓ QR scanned — review and click Add Account');
+    }
+
+    /* ════════════════════════════════════════════════
+       Edit / Rename modal
+    ════════════════════════════════════════════════ */
+    function openEditModal(id) {
+        const a = accounts[id];
+        if (!a) return;
+        document.getElementById('edit-id').value      = id;
+        document.getElementById('edit-account').value = a.account;
+        document.getElementById('edit-issuer').value  = a.issuer || '';
+        document.getElementById('edit-modal-overlay').classList.add('show');
+        setTimeout(() => document.getElementById('edit-account').focus(), 80);
+    }
+
+    function closeEditModal() {
+        document.getElementById('edit-modal-overlay').classList.remove('show');
+    }
+
+    document.getElementById('edit-modal-overlay').addEventListener('click', e => {
+        if (e.target === document.getElementById('edit-modal-overlay')) closeEditModal();
+    });
+
+    function saveEdit() {
+        const id      = document.getElementById('edit-id').value;
+        const account = document.getElementById('edit-account').value.trim();
+        const issuer  = document.getElementById('edit-issuer').value.trim();
+        if (!account) { showToast('⚠ Account name cannot be empty', true); return; }
+
+        ao_module_agirun('OTPAuth/backend/update.js', { id, account, issuer }, function(data) {
+            if (data && data.error) { showToast('⚠ ' + data.error, true); return; }
+            accounts[id].account = account;
+            accounts[id].issuer  = issuer;
+            closeEditModal();
+            // Update displayed card
+            const card = document.getElementById('card-' + id);
+            if (card) {
+                card.querySelector('.otp-issuer').textContent  = issuer || 'Unknown';
+                card.querySelector('.otp-account').textContent = account;
+            }
+            renderSidebar();
+            showToast('✓ Account updated');
+        }, () => showToast('⚠ Failed to save changes', true));
+    }
+
+    /* ════════════════════════════════════════════════
+       Mobile sidebar
+    ════════════════════════════════════════════════ */
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.body.classList.toggle('sidebar-open');
+    }
+    function closeSidebar() {
+        document.getElementById('sidebar').classList.remove('open');
+        document.body.classList.remove('sidebar-open');
+    }
+
+    /* ════════════════════════════════════════════════
+       Toast
+    ════════════════════════════════════════════════ */
+    let toastTimer = null;
+    function showToast(msg, isWarn = false) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.style.borderColor = isWarn ? 'var(--danger)' : 'var(--card-border)';
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    /* ════════════════════════════════════════════════
+       Keyboard shortcuts
+    ════════════════════════════════════════════════ */
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            if (document.getElementById('edit-modal-overlay').classList.contains('show')) closeEditModal();
+            else if (document.getElementById('modal-overlay').classList.contains('show'))  closeAddModal();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); openAddModal(); }
+    });
+
+    /* ════════════════════════════════════════════════
+       Init
+    ════════════════════════════════════════════════ */
+    loadAccounts();
+    startRefreshLoop();
+    </script>
+</body>
+</html>
