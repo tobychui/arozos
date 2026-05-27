@@ -71,7 +71,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	// execute!
 	//start := time.Now()
 	//g.ExecuteAGIScript(scriptContent, "", "", w, r, userInfo)
-	result, err := g.ExecuteAGIScriptAsUser(fsh, realPath, userInfo, w, r)
+	_, result, err := g.ExecuteAGIScriptAsUser(fsh, realPath, userInfo, w, r)
 	//duration := time.Since(start)
 
 	if err != nil {
