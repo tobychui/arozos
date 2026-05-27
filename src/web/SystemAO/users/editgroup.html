@@ -7,195 +7,25 @@
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/applocale.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <link rel="stylesheet" href="ueditor.css">
     <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
-    body { background: #fff; }
-    body.dark { background: #2b2b2b; }
-
-    #eg-root {
-        --eg-text:        #1d1d1f;
-        --eg-dim:         #6e6e73;
-        --eg-muted:       #515153;
-        --eg-divider:     #d2d2d7;
-        --eg-hover:       rgba(0,0,0,0.045);
-        --eg-active:      rgba(0,0,0,0.09);
-        --eg-accent:      #588ce0;
-        --eg-danger:      #ff3b30;
-        --eg-success:     #34c759;
-        --eg-bg:          #ffffff;
-        --eg-card-bg:     #f5f5f7;
-        --eg-card-border: #e5e5ea;
-
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-        font-size: 14px;
-        -webkit-font-smoothing: antialiased;
-        color: var(--eg-text);
-        background: var(--eg-bg);
-        border-radius: 0.6em;
-    }
-
-    #eg-root.dark {
-        --eg-text:        #f0f0f0;
-        --eg-dim:         #a0a0a5;
-        --eg-muted:       #ccccd1;
-        --eg-divider:     #3a3a3c;
-        --eg-hover:       rgba(255,255,255,0.06);
-        --eg-active:      rgba(255,255,255,0.12);
-        --eg-accent:      #2997ff;
-        --eg-danger:      #ff453a;
-        --eg-success:     #30d158;
-        --eg-bg:          #2b2b2b;
-        --eg-card-bg:     #3a3a3c;
-        --eg-card-border: #48484a;
-    }
-
-    #eg-page { padding: 0 0 24px; }
-
-    /* ── Top accent bar ── */
-    #eg-topbar { height: 0.4em; background: var(--eg-accent); }
-
-    /* ── Toolbar ── */
-    #eg-toolbar { padding: 10px 12px 14px; border-top: 1px solid var(--eg-divider); margin-top: 6px; }
-    #eg-btn-row {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 6px;
-        flex-wrap: wrap;
-    }
-
-    /* ── Buttons ── */
-    .eg-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 6px 13px;
-        border-radius: 6px;
-        border: 1px solid var(--eg-card-border);
-        font-family: inherit;
-        font-size: 12.5px;
-        font-weight: 500;
-        cursor: pointer;
-        outline: none;
-        transition: background 0.1s, opacity 0.1s;
-        background: var(--eg-card-bg);
-        color: var(--eg-text);
-        white-space: nowrap;
-    }
-    .eg-btn:hover  { background: var(--eg-hover); }
-    .eg-btn:active { background: var(--eg-active); }
-    .eg-btn.primary { background: var(--eg-accent); color: #fff; border-color: var(--eg-accent); }
-    .eg-btn.primary:hover { opacity: 0.85; background: var(--eg-accent); }
-    .eg-btn.loading { opacity: 0.55; cursor: default; pointer-events: none; }
-
-    /* ── Section labels ── */
-    .eg-section-label {
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--eg-muted);
-        padding: 0 16px;
-        margin: 18px 0 6px;
-    }
-
-    /* ── Card ── */
-    .eg-card {
-        border: 1px solid var(--eg-divider);
-        border-radius: 10px;
-        overflow: hidden;
-        margin: 0 12px 6px;
-        background: var(--eg-bg);
-    }
-
-    /* ── Field rows ── */
-    .eg-field-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        padding: 10px 14px;
-        border-bottom: 1px solid var(--eg-divider);
-    }
-    .eg-field-row:last-child { border-bottom: none; }
-    .eg-field-label {
-        font-size: 12.5px;
-        font-weight: 500;
-        color: var(--eg-text);
-        min-width: 130px;
-        flex-shrink: 0;
-        padding-top: 5px;
-    }
-    .eg-field-body { flex: 1; min-width: 0; }
-
-    /* ── Inputs ── */
-    .eg-input {
-        width: 100%;
-        font-size: 13px;
-        font-family: inherit;
-        color: var(--eg-text);
-        background: var(--eg-card-bg);
-        border: 1px solid var(--eg-card-border);
-        border-radius: 6px;
-        padding: 5px 9px;
-        outline: none;
-        transition: border-color 0.1s;
-    }
-    .eg-input:focus { border-color: var(--eg-accent); }
-    .eg-input[readonly] { color: var(--eg-dim); cursor: default; }
-    .eg-input.error { border-color: var(--eg-danger); }
-    .eg-input-hint { font-size: 11.5px; color: var(--eg-muted); margin-top: 4px; }
-
-    /* ── Quota row ── */
-    .eg-quota-row { display: flex; align-items: center; gap: 8px; }
-    .eg-quota-row .eg-input { width: 110px; flex-shrink: 0; }
-    .eg-select {
-        font-size: 13px;
-        font-family: inherit;
-        color: var(--eg-text);
-        background: var(--eg-card-bg);
-        border: 1px solid var(--eg-card-border);
-        border-radius: 6px;
-        padding: 5px 8px;
-        outline: none;
-        cursor: pointer;
-    }
-    .eg-select:focus { border-color: var(--eg-accent); }
-
-    /* ── Admin toggle ── */
-    .eg-toggle-row {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        cursor: pointer;
-        user-select: none;
-    }
-    .eg-toggle-row .eg-cb {
-        width: 15px;
-        height: 15px;
-        accent-color: var(--eg-accent);
-        flex-shrink: 0;
-        cursor: pointer;
-    }
-    .eg-toggle-label { font-size: 12.5px; color: var(--eg-dim); }
-
-    /* ── Module checkbox list ── */
+    /* ── Module checkbox list (editgroup-specific) ── */
     .eg-mod-item {
         display: flex;
         align-items: center;
         gap: 10px;
         padding: 7px 12px;
-        border-bottom: 1px solid var(--eg-divider);
+        border-bottom: 1px solid var(--ued-divider);
         cursor: pointer;
         transition: background 0.08s;
         user-select: none;
     }
     .eg-mod-item:last-child { border-bottom: none; }
-    .eg-mod-item:hover { background: var(--eg-hover); }
+    .eg-mod-item:hover { background: var(--ued-hover); }
     .eg-mod-cb {
         width: 15px;
         height: 15px;
-        accent-color: var(--eg-accent);
+        accent-color: var(--ued-accent);
         flex-shrink: 0;
         cursor: pointer;
     }
@@ -206,7 +36,7 @@
         flex-shrink: 0;
         border-radius: 3px;
     }
-    .eg-mod-name { font-size: 13px; font-weight: 500; color: var(--eg-text); }
+    .eg-mod-name { font-size: 13px; font-weight: 500; color: var(--ued-text); }
 
     /* ── Module preview table ── */
     .eg-preview-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -216,86 +46,59 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: var(--eg-muted);
+        color: var(--ued-muted);
         padding: 7px 14px;
-        border-bottom: 1px solid var(--eg-divider);
-        background: var(--eg-card-bg);
+        border-bottom: 1px solid var(--ued-divider);
+        background: var(--ued-card-bg);
     }
     .eg-preview-table td {
         padding: 7px 14px;
-        border-bottom: 1px solid var(--eg-divider);
-        color: var(--eg-text);
+        border-bottom: 1px solid var(--ued-divider);
+        color: var(--ued-text);
         vertical-align: middle;
     }
     .eg-preview-table tbody tr:last-child td { border-bottom: none; }
     .eg-preview-table .eg-mod-icon { width: 18px; height: 18px; }
-
-    /* ── Feedback banners ── */
-    .eg-banner {
-        margin: 0 12px 8px;
-        padding: 9px 14px;
-        border-radius: 8px;
-        font-size: 12.5px;
-        font-weight: 500;
-    }
-    .eg-banner.success {
-        background: rgba(52,199,89,0.12);
-        color: var(--eg-success);
-        border: 1px solid rgba(52,199,89,0.28);
-    }
-    .eg-banner.error {
-        background: rgba(255,59,48,0.10);
-        color: var(--eg-danger);
-        border: 1px solid rgba(255,59,48,0.22);
-    }
-
-    /* ── Empty state ── */
-    .eg-empty {
-        text-align: center;
-        padding: 20px 16px;
-        color: var(--eg-muted);
-        font-size: 13px;
-    }
     </style>
 </head>
 <body>
-<div id="eg-root">
-<div id="eg-topbar"></div>
-<div id="eg-page">
+<div id="eg-root" class="ued-root">
+<div class="ued-topbar"></div>
+<div class="ued-page">
 
     <!-- Feedback banners -->
-    <div id="eg-success" class="eg-banner success" style="display:none;" locale="editgroup/msg-updated">Group permissions updated</div>
-    <div id="eg-error"   class="eg-banner error"   style="display:none;"><span id="eg-err-msg"></span></div>
+    <div id="eg-success" class="ued-banner success" locale="editgroup/msg-updated">Group permissions updated</div>
+    <div id="eg-error"   class="ued-banner error"><span id="eg-err-msg"></span></div>
 
     <!-- Group Info -->
-    <div class="eg-section-label" locale="editgroup/section-info">Group Information</div>
-    <div class="eg-card">
-        <div class="eg-field-row">
-            <div class="eg-field-label" locale="editgroup/field-groupname">Group Name</div>
-            <div class="eg-field-body">
-                <input id="eg-groupname" class="eg-input" type="text" readonly>
+    <div class="ued-section-label" locale="editgroup/section-info">Group Information</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-groupname">Group Name</div>
+            <div class="ued-field-body">
+                <input id="eg-groupname" class="ued-input" type="text" readonly>
             </div>
         </div>
-        <div class="eg-field-row">
-            <div class="eg-field-label" locale="editgroup/field-admin">Privileges</div>
-            <div class="eg-field-body">
-                <label class="eg-toggle-row">
-                    <input type="checkbox" id="eg-isadmin" class="eg-cb">
-                    <span class="eg-toggle-label" locale="editgroup/hint-admin">Grant administrator privileges to this group</span>
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-admin">Privileges</div>
+            <div class="ued-field-body">
+                <label class="ued-toggle-row">
+                    <input type="checkbox" id="eg-isadmin" class="ued-cb">
+                    <span class="ued-toggle-label" locale="editgroup/hint-admin">Grant administrator privileges to this group</span>
                 </label>
             </div>
         </div>
     </div>
 
     <!-- Storage Quota -->
-    <div class="eg-section-label" locale="editgroup/section-quota">Default Storage Quota</div>
-    <div class="eg-card">
-        <div class="eg-field-row">
-            <div class="eg-field-label" locale="editgroup/field-quota">Quota</div>
-            <div class="eg-field-body">
-                <div class="eg-quota-row">
-                    <input id="eg-quota" class="eg-input" type="number" value="15">
-                    <select id="eg-unit" class="eg-select">
+    <div class="ued-section-label" locale="editgroup/section-quota">Default Storage Quota</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-quota">Quota</div>
+            <div class="ued-field-body">
+                <div class="ued-quota-row">
+                    <input id="eg-quota" class="ued-input" type="number" value="15">
+                    <select id="eg-unit" class="ued-select">
                         <option value="1">Bytes</option>
                         <option value="1024">KB</option>
                         <option value="1048576">MB</option>
@@ -304,57 +107,57 @@
                         <option value="1125899906842624">PB</option>
                     </select>
                 </div>
-                <div class="eg-input-hint" locale="editgroup/quota-hint">Set to 0 for read-only, &minus;1 for unlimited</div>
+                <div class="ued-input-hint" locale="editgroup/quota-hint">Set to 0 for read-only, &minus;1 for unlimited</div>
             </div>
         </div>
     </div>
 
     <!-- Interface Module -->
-    <div class="eg-section-label" locale="editgroup/section-interface">Default Interface Module</div>
-    <div class="eg-card">
-        <div class="eg-field-row">
-            <div class="eg-field-label" locale="editgroup/field-interface">Module</div>
-            <div class="eg-field-body">
-                <select id="eg-interface" class="eg-select" style="width:100%;"></select>
-                <div class="eg-input-hint" locale="editgroup/hint-interface">The module loaded when users in this group log in.</div>
+    <div class="ued-section-label" locale="editgroup/section-interface">Default Interface Module</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="editgroup/field-interface">Module</div>
+            <div class="ued-field-body">
+                <select id="eg-interface" class="ued-select" style="width:100%;"></select>
+                <div class="ued-input-hint" locale="editgroup/hint-interface">The module loaded when users in this group log in.</div>
             </div>
         </div>
     </div>
 
     <!-- Accessible Modules -->
-    <div class="eg-section-label" locale="editgroup/section-access">Accessible Modules</div>
-    <div class="eg-card">
+    <div class="ued-section-label" locale="editgroup/section-access">Accessible Modules</div>
+    <div class="ued-card">
         <div id="eg-access-all-notice" style="display:none;">
-            <div class="eg-field-row">
-                <span style="font-size:12.5px;color:var(--eg-dim);" locale="editgroup/access-all">This group has access to all modules.</span>
+            <div class="ued-field-row">
+                <span style="font-size:12.5px;color:var(--ued-dim);" locale="editgroup/access-all">This group has access to all modules.</span>
             </div>
         </div>
         <div id="eg-module-list">
-            <div class="eg-empty" locale="editgroup/loading">Loading&hellip;</div>
+            <div class="ued-empty" locale="editgroup/loading">Loading&hellip;</div>
         </div>
     </div>
 
     <!-- Selected modules preview -->
-    <div class="eg-section-label" locale="editgroup/section-preview">Selected Modules</div>
-    <div class="eg-card" style="overflow-x:auto;">
+    <div class="ued-section-label" locale="editgroup/section-preview">Selected Modules</div>
+    <div class="ued-card" style="overflow-x:auto;">
         <table class="eg-preview-table">
             <thead><tr>
                 <th style="width:34px;"></th>
                 <th locale="editgroup/col-module">Module Name</th>
             </tr></thead>
             <tbody id="eg-mod-tbody">
-                <tr><td colspan="2" class="eg-empty" locale="editgroup/no-modules-selected">No modules selected</td></tr>
+                <tr><td colspan="2" class="ued-empty" locale="editgroup/no-modules-selected">No modules selected</td></tr>
             </tbody>
         </table>
     </div>
 
     <!-- Toolbar -->
-    <div id="eg-toolbar">
-        <div id="eg-btn-row">
-            <button class="eg-btn" onclick="egClose()">
+    <div class="ued-toolbar">
+        <div class="ued-btn-row">
+            <button class="ued-btn" onclick="egClose()">
                 <span locale="editgroup/btn-close">Close</span>
             </button>
-            <button class="eg-btn primary" onclick="updateGroup(this)">
+            <button class="ued-btn primary" onclick="updateGroup(this)">
                 <span locale="editgroup/btn-update">Update</span>
             </button>
         </div>
@@ -366,6 +169,11 @@
 <script>
     /* ── Locale ── */
     var egLocale = NewAppLocale();
+    if (egLocale){
+        egLocale.init('../locale/system_settings/editgroup.json', function() {
+            egLocale.translate();
+        });
+    }
 
     /* ── Theme detection (public-safe) ── */
     (function() {
@@ -417,19 +225,17 @@
     /* ── Feedback helpers ── */
     function egShowSuccess() {
         var el = document.getElementById('eg-success');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 3000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 3000);
     }
 
     function egShowError(msg) {
         document.getElementById('eg-err-msg').textContent = msg || '';
         var el = document.getElementById('eg-error');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 5000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 5000);
     }
 
     /* ── Close (public-safe) ── */
@@ -464,7 +270,7 @@
             return m.StartDir !== '' && m.Group !== 'Interface Module';
         });
         if (accessibles.length === 0) {
-            container.innerHTML = '<div class="eg-empty">' + egLocale.getString('editgroup/no-modules', 'No modules available') + '</div>';
+            container.innerHTML = '<div class="ued-empty">' + egLocale.getString('editgroup/no-modules', 'No modules available') + '</div>';
             return;
         }
         container.innerHTML = '';
@@ -501,7 +307,7 @@
         var tbody = document.getElementById('eg-mod-tbody');
         if (selectedModules.length === 0) {
             var msg = egLocale.getString('editgroup/no-modules-selected', 'No modules selected');
-            tbody.innerHTML = '<tr><td colspan="2" class="eg-empty">' + msg + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2" class="ued-empty">' + msg + '</td></tr>';
             return;
         }
         tbody.innerHTML = '';

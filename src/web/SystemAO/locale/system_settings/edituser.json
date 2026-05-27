@@ -6,6 +6,7 @@
             "name": "繁體中文（台灣）",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\",\"Apple LiGothic Medium\",\"STHeiti\"",
             "strings": {
+                "edituser/title": "編輯使用者",
                 "edituser/btn-update": "更新",
                 "edituser/btn-close": "關閉",
                 "edituser/btn-reset-pw": "重設密碼",
@@ -37,6 +38,7 @@
             "name": "廣東話",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\",\"Apple LiGothic Medium\",\"STHeiti\"",
             "strings": {
+                "edituser/title": "編輯用戶",
                 "edituser/btn-update": "更新",
                 "edituser/btn-close": "關閉",
                 "edituser/btn-reset-pw": "重設密碼",
@@ -68,6 +70,7 @@
             "name": "简体中文",
             "fontFamily": "\"Microsoft YaHei\",\"SimHei\",\"STHeiti\"",
             "strings": {
+                "edituser/title": "编辑用户",
                 "edituser/btn-update": "更新",
                 "edituser/btn-close": "关闭",
                 "edituser/btn-reset-pw": "重置密码",
@@ -98,6 +101,7 @@
         "en-us": {
             "name": "English",
             "strings": {
+                "edituser/title": "Edit User",
                 "edituser/btn-update": "Update",
                 "edituser/btn-close": "Close",
                 "edituser/btn-reset-pw": "Reset Password",
@@ -129,6 +133,7 @@
             "name": "日本語",
             "fontFamily": "\"Hiragino Sans\",\"Yu Gothic\",\"Meiryo\",sans-serif",
             "strings": {
+                "edituser/title": "ユーザーを編集",
                 "edituser/btn-update": "更新",
                 "edituser/btn-close": "閉じる",
                 "edituser/btn-reset-pw": "パスワードをリセット",

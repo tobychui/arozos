@@ -66,8 +66,9 @@
         <script>
             //Initialize applocale for translations
             if (applocale) {
-                applocale.init("../locale/personal_homepage.json", function(){
-                    applocale.translate();
+                var ph_Locale = NewAppLocale();
+                ph_Locale.init("../locale/personal_homepage.json", function(){
+                    ph_Locale.translate();
                 });
             }
 

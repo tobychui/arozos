@@ -1,33 +1,52 @@
 # ArOZ Online JavaScript Gateway Interface (AGI)
 
-The ArOZ Online JavaScript Gateway Interface (AGI) allows developers to create server-side scripts using JavaScript that can interact with the ArOZ Online system. AGI scripts run in a sandboxed Otto JavaScript VM environment, providing access to system functions while maintaining security.
+AGI is the server-side JavaScript runtime used by ArozOS for module scripts (`.agi` / `.js`).
+Scripts run in an Otto VM with sandboxed access to ArozOS functions.
 
-## Getting Started
+This document is updated to match the current AGI implementation in `mod/agi/agi*.go`.
 
-### Basic AGI Script Structure
+## AGI Version
 
-```javascript
-// Send a simple response
-sendResp("Hello, World!");
+- Runtime version: `3.0` (`AgiVersion` in `agi.go`)
 
-// Send JSON response
-sendJSONResp({message: "Hello", status: "success"});
-
-// Send OK response
-sendOK();
-```
-
-### Loading Libraries
+## Quick Start
 
 ```javascript
-// Load required libraries
-if (requirelib("filelib") == true) {
-    // File operations are now available
-    var content = filelib.readFile("user:/example.txt");
+// Basic response
+sendResp("Hello from AGI");
+
+// JSON response
+sendJSONResp({ ok: true, time: Date.now() });
+
+// Load a library
+if (requirelib("filelib")) {
+    var files = filelib.glob("user:/Desktop/*");
+    sendJSONResp(files);
 }
 ```
 
-## Global Variables
+## Runtime Globals
+
+### System globals
+
+- `BUILD_VERSION`
+- `INTERNAL_VERSION`
+- `LOADED_MODULES`
+- `LOADED_STORAGES`
+- `__FILE__`
+- `HTTP_RESP`
+- `HTTP_HEADER`
+
+### User globals
+
+- `USERNAME`
+- `USERICON`
+- `USERQUOTA_TOTAL`
+- `USERQUOTA_USED`
+- `USER_VROOTS`
+- `USER_MODULES`
+
+### Detached-script globals (`execd` child)
 
 - `BUILD_VERSION`: Current system build version
 - `INTERNAL_VERSION`: Internal version number
@@ -43,712 +62,707 @@ if (requirelib("filelib") == true) {
 - `USER_VROOTS`: User's accessible virtual root paths
 - `USER_MODULES`: User's accessible modules
 - `EXECUTION_ID`: UUIDv4 that uniquely identifies this script invocation — useful for correlating log lines across concurrent executions
+- `PARENT_DETACHED` (`true`)
+- `PARENT_PAYLOAD` (string payload)
 
-## Core Functions
+## Path Rules
 
-### Response Functions
+- Use virtual paths such as `user:/`, `tmp:/`, `extuuid:/...`.
+- Many library functions auto-resolve relative paths against the running script.
+- Permission checks are enforced (`CanRead` / `CanWrite`).
+
+## Core AGI Functions
+
+### Response functions
 
 #### `sendResp(content)`
-Sends a response to the client.
+Sets `HTTP_RESP`.
 
 ```javascript
-sendResp("Operation completed successfully");
+sendResp("done");
 ```
 
 #### `echo(content)`
-Appends content to the response.
+Appends text to current `HTTP_RESP`.
 
 ```javascript
 echo("Hello ");
-echo("World!"); // Response: "Hello World!"
+echo("World");
 ```
 
 #### `sendOK()`
-Sends a simple "ok" response.
+Sets response to `ok`.
 
 ```javascript
-sendOK(); // Response: "ok"
+sendOK();
 ```
 
-#### `sendJSONResp(object)`
-Sends a JSON response.
+#### `sendJSONResp(objectOrJsonString)`
+Sets `HTTP_HEADER = application/json` and writes JSON response.
 
 ```javascript
-sendJSONResp({
-    status: "success",
-    data: [1, 2, 3]
-});
+sendJSONResp({ success: true, items: [1, 2, 3] });
 ```
 
-### Database Functions
+### DB functions
 
 #### `newDBTableIfNotExists(tableName)`
-Creates a new database table if it doesn't exist.
-
 ```javascript
-if (newDBTableIfNotExists("myapp_settings")) {
-    echo("Table created successfully");
-}
+newDBTableIfNotExists("my_table");
 ```
 
 #### `DBTableExists(tableName)`
-Checks if a database table exists.
-
 ```javascript
-if (DBTableExists("user_preferences")) {
-    echo("Table exists");
-}
+if (DBTableExists("my_table")) sendOK();
 ```
 
 #### `writeDBItem(tableName, key, value)`
-Writes a key-value pair to a database table.
-
 ```javascript
-writeDBItem("settings", "theme", "dark");
+writeDBItem("my_table", "theme", "dark");
 ```
 
 #### `readDBItem(tableName, key)`
-Reads a value from a database table.
-
 ```javascript
-var theme = readDBItem("settings", "theme");
-if (theme) {
-    echo("Current theme: " + theme);
-}
+var v = readDBItem("my_table", "theme");
 ```
 
 #### `listDBTable(tableName)`
-Lists all key-value pairs in a table.
+Returns key-value object.
 
 ```javascript
-var settings = listDBTable("settings");
-echo(JSON.stringify(settings));
+var kv = listDBTable("my_table");
+sendJSONResp(kv);
 ```
 
 #### `deleteDBItem(tableName, key)`
-Deletes a key-value pair from a table.
-
 ```javascript
-deleteDBItem("settings", "old_key");
+deleteDBItem("my_table", "theme");
 ```
 
 #### `dropDBTable(tableName)`
-Drops an entire database table.
-
 ```javascript
-dropDBTable("temporary_data");
+dropDBTable("my_table");
 ```
 
-### Module Management
+### Module and scheduling
 
-#### `registerModule(jsonConfig)`
-Registers a module with the system.
+#### `registerModule(jsonConfigString)`
+Registers a module from JSON config.
 
 ```javascript
-var moduleConfig = {
+registerModule(JSON.stringify({
     Name: "MyApp",
-    Desc: "My custom application",
+    Desc: "Example module",
     Group: "Utilities",
-    IconPath: "MyApp/icon.png",
+    IconPath: "icon.png",
     Version: "1.0",
-    StartDir: "MyApp/index.html",
+    StartDir: "index.html",
     SupportFW: true,
-    LaunchFWDir: "MyApp/index.html",
-    SupportEmb: true,
-    LaunchEmb: "MyApp/embedded.html",
-    InitFWSize: [800, 600],
-    InitEmbSize: [400, 300],
-    SupportedExt: [".txt", ".md"]
-};
-
-registerModule(JSON.stringify(moduleConfig));
+    LaunchFWDir: "index.html"
+}));
 ```
 
 #### `addNightlyTask(scriptPath)`
-Adds a script to run nightly.
+Adds a valid AGI script to nightly task list.
 
 ```javascript
-addNightlyTask("MyApp/tasks/backup.js");
+addNightlyTask("MyApp/nightly.agi");
 ```
 
-## User Management Functions
+### Utility and flow
 
-### Permission Functions
-
-#### `pathCanWrite(virtualPath)`
-Checks if the current user can write to a path.
+#### `includes(scriptName)`
+Loads and executes another script relative to current script directory.
 
 ```javascript
-if (pathCanWrite("user:/documents/")) {
-    echo("Can write to documents folder");
-}
+includes("helpers.js");
+```
+
+#### `delay(ms)`
+Sleeps for milliseconds.
+
+```javascript
+delay(500);
+```
+
+#### `exit()`
+Stops script execution.
+
+```javascript
+if (!userIsAdmin()) exit();
+```
+
+#### `execd(scriptName, payload)`
+Executes another script asynchronously.
+
+```javascript
+execd("worker.agi", JSON.stringify({ job: "thumbs" }));
+```
+
+#### Deprecated (kept for compatibility)
+
+- `requirepkg(...)` -> deprecated in AGI v3
+- `execpkg(...)` -> deprecated in AGI v3
+- `decodeVirtualPath(...)` -> deprecated
+- `decodeAbsoluteVirtualPath(...)` -> deprecated
+- `encodeRealPath(...)` -> deprecated
+
+### User/permission functions
+
+#### `pathCanWrite(vpath)`
+```javascript
+if (pathCanWrite("user:/Documents")) sendOK();
 ```
 
 #### `getUserPermissionGroup()`
-Gets the current user's permission group information.
+Returns JSON string.
 
 ```javascript
-var groupInfo = JSON.parse(getUserPermissionGroup());
-echo("User group: " + groupInfo.name);
+var group = JSON.parse(getUserPermissionGroup());
 ```
 
 #### `userIsAdmin()`
-Checks if the current user is an administrator.
-
 ```javascript
-if (userIsAdmin()) {
-    echo("User is admin");
-}
+if (!userIsAdmin()) sendResp("admin only");
 ```
 
-### User Account Functions
-
-#### `userExists(username)`
-Checks if a user exists (admin only).
-
+#### `userExists(username)` (admin only)
 ```javascript
-if (userExists("john_doe")) {
-    echo("User exists");
-}
+if (userExists("alice")) echo("exists");
 ```
 
-#### `createUser(username, password, defaultGroup)`
-Creates a new user account (admin only).
-
+#### `createUser(username, password, defaultGroup)` (admin only)
 ```javascript
-if (createUser("newuser", "password123", "users")) {
-    echo("User created successfully");
-}
+createUser("alice", "StrongPass", "default");
 ```
 
-#### `removeUser(username)`
-Removes a user account (admin only).
-
+#### `removeUser(username)` (admin only)
 ```javascript
-if (removeUser("olduser")) {
-    echo("User removed successfully");
-}
+removeUser("alice");
 ```
 
-### Script Execution
+#### `editUser(...)`
+Currently stubbed and always returns false.
 
-#### `execd(scriptPath, payload)`
-Executes another script asynchronously with optional payload.
+## Loading Libraries
 
-```javascript
-execd("MyApp/worker.js", "process_data");
-```
-
-## File Library (`filelib`)
-
-Load with: `requirelib("filelib")`
-
-### File Operations
-
-#### `filelib.writeFile(virtualPath, content)`
-Writes content to a file.
+Use `requirelib(libName)`.
 
 ```javascript
-filelib.writeFile("user:/notes.txt", "Hello, World!");
+requirelib("filelib");
 ```
 
-#### `filelib.readFile(virtualPath)`
-Reads content from a file.
+Registered library IDs:
+
+- `filelib`
+- `imagelib`
+- `http`
+- `share`
+- `iot`
+- `appdata`
+- `sysinfo`
+- `ziplib`
+- `ffmpeg` (only when ffmpeg exists on host)
+
+Special case:
+
+- `requirelib("websocket")` is injected only in HTTP request context.
+
+## filelib API
+
+Load:
 
 ```javascript
-var content = filelib.readFile("user:/notes.txt");
-echo(content);
+requirelib("filelib");
 ```
 
-#### `filelib.deleteFile(virtualPath)`
-Deletes a file.
+### `filelib.writeFile(vpath, content)`
+```javascript
+filelib.writeFile("user:/notes.txt", "hello");
+```
+
+### `filelib.readFile(vpath)`
+```javascript
+var t = filelib.readFile("user:/notes.txt");
+```
+
+### `filelib.deleteFile(vpath)`
+```javascript
+filelib.deleteFile("user:/notes.txt");
+```
+
+### `filelib.walk(vpath, mode)`
+`mode`: `all`, `file`, `folder`
 
 ```javascript
-filelib.deleteFile("user:/temp.txt");
+var allFiles = filelib.walk("user:/", "file");
 ```
 
-### Directory Operations
+### `filelib.glob(pattern, sortMode)`
+`sortMode` supports default and user modes from FS sort settings.
 
-#### `filelib.mkdir(virtualPath)`
-Creates a directory.
+```javascript
+var list = filelib.glob("user:/Desktop/*.jpg", "default");
+```
 
+### `filelib.aglob(pattern, sortMode)`
+Advanced glob.
+
+```javascript
+var list = filelib.aglob("user:/Desktop/**/*.png", "default");
+```
+
+### `filelib.readdir(vpath, sortMode)`
+Returns array of objects: `{Filename, Filepath, Ext, Filesize, Modtime, IsDir}`.
+
+```javascript
+var entries = filelib.readdir("user:/Desktop", "default");
+```
+
+### `filelib.filesize(vpath)`
+```javascript
+var size = filelib.filesize("user:/movie.mp4");
+```
+
+### `filelib.fileExists(vpath)`
+```javascript
+if (filelib.fileExists("user:/a.txt")) sendOK();
+```
+
+### `filelib.isDir(vpath)`
+```javascript
+if (filelib.isDir("user:/Desktop")) sendOK();
+```
+
+### `filelib.mkdir(vpath)`
 ```javascript
 filelib.mkdir("user:/newfolder");
 ```
 
-#### `filelib.readdir(virtualPath, sortMode)`
-Lists directory contents.
-
+### `filelib.md5(vpath)`
 ```javascript
-var files = filelib.readdir("user:/documents", "name");
-// Returns array of file objects
+var hash = filelib.md5("user:/a.txt");
 ```
 
-### File Information
-
-#### `filelib.fileExists(virtualPath)`
-Checks if a file exists.
+### `filelib.mtime(vpath, parseToUnix)`
+`parseToUnix=true` returns Unix timestamp; otherwise formatted string.
 
 ```javascript
-if (filelib.fileExists("user:/config.json")) {
-    echo("Config file exists");
-}
+var ts = filelib.mtime("user:/a.txt", true);
 ```
 
-#### `filelib.isDir(virtualPath)`
-Checks if path is a directory.
+### `filelib.rootName(vpath)`
+Returns storage root display name.
 
 ```javascript
-if (filelib.isDir("user:/documents")) {
-    echo("Is a directory");
-}
+var root = filelib.rootName("user:/Desktop/a.txt");
 ```
 
-#### `filelib.filesize(virtualPath)`
-Gets file size in bytes.
+## imagelib API
+
+Load:
 
 ```javascript
-var size = filelib.filesize("user:/largefile.zip");
-echo("File size: " + size + " bytes");
+requirelib("imagelib");
 ```
 
-#### `filelib.mtime(virtualPath)`
-Gets file modification time.
+### `imagelib.getImageDimension(vpath)`
+Returns `[width, height]`.
 
 ```javascript
-var mtime = filelib.mtime("user:/document.txt");
-echo("Modified: " + mtime);
+var dim = imagelib.getImageDimension("user:/img.jpg");
 ```
 
-#### `filelib.md5(virtualPath)`
-Calculates MD5 hash of a file.
+### `imagelib.resizeImage(src, dest, width, height)`
+```javascript
+imagelib.resizeImage("user:/img.jpg", "user:/img_small.jpg", 800, 600);
+```
+
+### `imagelib.resizeImageBase64(src, width, height, format)`
+Returns data URL string.
 
 ```javascript
-var hash = filelib.md5("user:/important.doc");
-echo("MD5: " + hash);
+var b64 = imagelib.resizeImageBase64("user:/img.jpg", 320, 240, "jpeg");
 ```
 
-### File Searching
+### `imagelib.cropImage(src, dest, x, y, width, height)`
+```javascript
+imagelib.cropImage("user:/img.jpg", "user:/crop.jpg", 10, 10, 200, 200);
+```
 
-#### `filelib.walk(virtualPath, mode)`
-Recursively walks a directory.
+### `imagelib.loadThumbString(vpath)`
+Returns cached thumbnail base64 string.
 
 ```javascript
-// List all files recursively
-var allFiles = filelib.walk("user:/documents", "file");
-
-// List all directories recursively
-var allDirs = filelib.walk("user:/documents", "folder");
-
-// List everything
-var everything = filelib.walk("user:/documents", "all");
+var thumb = imagelib.loadThumbString("user:/img.jpg");
 ```
 
-#### `filelib.glob(pattern)`
-Finds files matching a pattern.
+### `imagelib.hasExif(vpath)`
+```javascript
+if (imagelib.hasExif("user:/img.jpg")) echo("has exif");
+```
+
+### `imagelib.getExif(vpath)`
+Returns JSON string.
 
 ```javascript
-var txtFiles = filelib.glob("user:/documents/*.txt");
+var exif = JSON.parse(imagelib.getExif("user:/img.jpg"));
 ```
 
-#### `filelib.aglob(pattern)`
-Finds files with advanced pattern matching.
+## http API
+
+Load:
 
 ```javascript
-var jsFiles = filelib.aglob("user:/**/*.js");
+requirelib("http");
 ```
 
-## Image Library (`imagelib`)
+### `http.get(url)`
+```javascript
+var body = http.get("https://example.com");
+```
 
-Load with: `requirelib("imagelib")`
+### `http.post(url, jsonString)`
+```javascript
+var body = http.post("https://example.com/api", JSON.stringify({a:1}));
+```
 
-### Image Information
-
-#### `imagelib.getImageDimension(imagePath)`
-Gets image dimensions.
+### `http.head(url, headerKey)`
+- Without `headerKey`: returns JSON string of all headers.
+- With `headerKey`: returns JSON string of that header value.
 
 ```javascript
-var dimensions = imagelib.getImageDimension("user:/photo.jpg");
-// Returns: {width: 1920, height: 1080}
+var headers = JSON.parse(http.head("https://example.com"));
 ```
 
-#### `imagelib.hasExif(imagePath)`
-Checks if image has EXIF data.
+### `http.getCode(url)`
+Returns status code.
 
 ```javascript
-if (imagelib.hasExif("user:/photo.jpg")) {
-    echo("Image has EXIF data");
-}
+var code = http.getCode("https://example.com");
 ```
 
-#### `imagelib.getExif(imagePath)`
-Extracts EXIF data from image.
+### `http.download(url, destDirVpath, filenameOptional)`
+Downloads into destination directory.
 
 ```javascript
-var exif = JSON.parse(imagelib.getExif("user:/photo.jpg"));
-echo("Camera: " + exif.Make);
+http.download("https://example.com/a.zip", "user:/Downloads", "a.zip");
 ```
 
-### Image Processing
+### `http.getb64(url)`
+```javascript
+var raw = http.getb64("https://example.com/logo.png");
+```
 
-#### `imagelib.resizeImage(inputPath, outputPath, width, height)`
-Resizes an image.
+### `http.redirect(targetUrl, statusCode)`
+Default status code is `307` when omitted.
 
 ```javascript
-imagelib.resizeImage("user:/photo.jpg", "user:/photo_small.jpg", 800, 600);
+http.redirect("https://example.com/new", 302);
 ```
 
-#### `imagelib.cropImage(inputPath, outputPath, x, y, width, height)`
-Crops an image.
+## share API
+
+Load:
 
 ```javascript
-imagelib.cropImage("user:/photo.jpg", "user:/photo_crop.jpg", 100, 100, 500, 500);
+requirelib("share");
 ```
 
-#### `imagelib.loadThumbString(imagePath, size)`
-Generates a base64 thumbnail.
+### `share.shareFile(vpath, timeoutSec)`
+`timeoutSec=0` means no auto-expire.
 
 ```javascript
-var thumbnail = imagelib.loadThumbString("user:/photo.jpg", 200);
-echo("<img src='data:image/jpeg;base64," + thumbnail + "' />");
+var uuid = share.shareFile("user:/report.pdf", 3600);
 ```
 
-## HTTP Library (`http`)
+### `share.removeShare(shareUUID)`
+```javascript
+share.removeShare(uuid);
+```
 
-Load with: `requirelib("http")`
+### `share.checkShareExists(shareUUID)`
+```javascript
+if (share.checkShareExists(uuid)) sendOK();
+```
 
-### HTTP Requests
+### `share.fileIsShared(vpath)`
+```javascript
+if (share.fileIsShared("user:/report.pdf")) sendOK();
+```
 
-#### `http.get(url)`
-Makes a GET request.
+### `share.getFileShareUUID(vpath)`
+```javascript
+var sid = share.getFileShareUUID("user:/report.pdf");
+```
+
+### `share.checkSharePermission(shareUUID)`
+```javascript
+var perm = share.checkSharePermission(uuid);
+```
+
+## iot API
+
+Load:
 
 ```javascript
-var response = http.get("https://api.example.com/data");
-echo(response);
+requirelib("iot");
 ```
 
-#### `http.post(url, jsonData)`
-Makes a POST request with JSON data.
-
+### `iot.ready()`
 ```javascript
-var data = JSON.stringify({name: "John", age: 30});
-var response = http.post("https://api.example.com/users", data);
+if (!iot.ready()) sendResp("iot unavailable");
 ```
 
-#### `http.head(url)`
-Makes a HEAD request.
-
-```javascript
-var headers = http.head("https://example.com");
-```
-
-### Advanced HTTP Functions
-
-#### `http.download(url, savePath)`
-Downloads a file from URL.
-
-```javascript
-http.download("https://example.com/file.zip", "user:/downloads/file.zip");
-```
-
-#### `http.getb64(url)`
-Gets response as base64.
-
-```javascript
-var b64data = http.getb64("https://example.com/image.png");
-```
-
-#### `http.getCode(url)`
-Gets HTTP status code.
-
-```javascript
-var statusCode = http.getCode("https://example.com");
-if (statusCode == 200) {
-    echo("Site is up");
-}
-```
-
-#### `http.redirect(url, statusCode)`
-Redirects the client to another URL.
-
-```javascript
-http.redirect("https://example.com/newpage", 302);
-```
-
-## Share Library (`share`)
-
-Load with: `requirelib("share")`
-
-### File Sharing
-
-#### `share.shareFile(virtualPath, timeout)`
-Shares a file and returns share UUID.
-
-```javascript
-var shareId = share.shareFile("user:/document.pdf", 3600); // 1 hour timeout
-echo("Share URL: /share/" + shareId);
-```
-
-#### `share.removeShare(shareUUID)`
-Removes a file share.
-
-```javascript
-share.removeShare("share-uuid-here");
-```
-
-### Share Information
-
-#### `share.checkShareExists(shareUUID)`
-Checks if a share exists.
-
-```javascript
-if (share.checkShareExists("share-uuid")) {
-    echo("Share exists");
-}
-```
-
-#### `share.fileIsShared(virtualPath)`
-Checks if a file is shared.
-
-```javascript
-if (share.fileIsShared("user:/document.pdf")) {
-    echo("File is shared");
-}
-```
-
-#### `share.getFileShareUUID(virtualPath)`
-Gets the share UUID for a file.
-
-```javascript
-var shareId = share.getFileShareUUID("user:/document.pdf");
-if (shareId) {
-    echo("Share ID: " + shareId);
-}
-```
-
-#### `share.checkSharePermission(shareUUID)`
-Gets share permission level.
-
-```javascript
-var permission = share.checkSharePermission("share-uuid");
-// Returns permission level (read/write/etc)
-```
-
-## IoT Library (`iot`)
-
-Load with: `requirelib("iot")`
-
-### Device Discovery
-
-#### `iot.scan()`
-Scans for available IoT devices.
+### `iot.scan()`
+Returns scanned device array.
 
 ```javascript
 var devices = iot.scan();
-// Returns array of device objects
 ```
 
-#### `iot.list()`
-Lists cached IoT devices.
+### `iot.list()`
+Returns cached device array.
 
 ```javascript
 var devices = iot.list();
 ```
 
-### Device Control
-
-#### `iot.connect(deviceId, username, password, token)`
-Connects to an IoT device.
-
+### `iot.connect(deviceId, username, password, token)`
 ```javascript
-if (iot.connect("device123", "admin", "password", "")) {
-    echo("Connected to device");
-}
+iot.connect("dev-1", "admin", "pass", "");
 ```
 
-#### `iot.disconnect(deviceId)`
-Disconnects from an IoT device.
+### `iot.status(deviceId)`
+Returns parsed status object.
 
 ```javascript
-iot.disconnect("device123");
+var s = iot.status("dev-1");
 ```
 
-#### `iot.exec(deviceId, endpoint, payload)`
-Executes a command on an IoT device.
+### `iot.exec(deviceId, endpointName, payloadObject)`
+Returns parsed result object or `false`.
 
 ```javascript
-var result = iot.exec("device123", "set_temperature", {value: 25});
+var resp = iot.exec("dev-1", "toggle", { value: true });
 ```
 
-#### `iot.status(deviceId)`
-Gets device status.
+### `iot.disconnect(deviceId)`
+```javascript
+iot.disconnect("dev-1");
+```
+
+### `iot.iconTag(deviceId)`
+```javascript
+var tag = iot.iconTag("dev-1");
+```
+
+## appdata API (read-only web root access)
+
+Load:
 
 ```javascript
-var status = iot.status("device123");
+requirelib("appdata");
 ```
 
-### Utility Functions
+### `appdata.readFile(relativePathFromWebRoot)`
+```javascript
+var conf = appdata.readFile("MyApp/config.json");
+```
 
-#### `iot.ready()`
-Checks if IoT system is ready.
+### `appdata.listDir(relativeDirFromWebRoot)`
+Returns relative path array.
 
 ```javascript
-if (iot.ready()) {
-    echo("IoT system ready");
-}
+var files = appdata.listDir("MyApp");
 ```
 
-#### `iot.iconTag(deviceId)`
-Gets device icon tag.
+### `appdata.getModuleList()`
+Returns parsed module list array.
 
 ```javascript
-var iconTag = iot.iconTag("device123");
+var mods = appdata.getModuleList();
 ```
 
-## Appdata Library (`appdata`)
+## sysinfo API
 
-Load with: `requirelib("appdata")`
-
-### Read-Only Web Data Access
-
-#### `appdata.readFile(relativePath)`
-Reads a file from the web root.
+Load:
 
 ```javascript
-var config = appdata.readFile("MyApp/config.json");
-var configObj = JSON.parse(config);
+requirelib("sysinfo");
 ```
 
-#### `appdata.listDir(relativePath)`
-Lists contents of a web directory.
+### `sysinfo.getCPUUsage()`
+Returns CPU usage percent.
 
 ```javascript
-var files = JSON.parse(appdata.listDir("MyApp/templates"));
-for (var i = 0; i < files.length; i++) {
-    echo("File: " + files[i]);
-}
+var cpu = sysinfo.getCPUUsage();
 ```
 
-## FFmpeg Library (`ffmpeg`)
-
-Load with: `requirelib("ffmpeg")`
-
-### Media Conversion
-
-#### `ffmpeg.convert(inputPath, outputPath, compression)`
-Converts media files using FFmpeg.
+### `sysinfo.getRAMUsage()`
+Returns `{used, total, percent}`.
 
 ```javascript
-// Convert video to different format
-ffmpeg.convert("user:/video.mp4", "user:/video.webm", 0);
-
-// Convert with compression
-ffmpeg.convert("user:/audio.wav", "user:/audio.mp3", 5);
+var ram = sysinfo.getRAMUsage();
 ```
 
-## WebSocket Library (`websocket`)
-
-Load with: `requirelib("websocket")`
-
-### WebSocket Connection
-
-#### `websocket.upgrade(timeout)`
-Upgrades HTTP connection to WebSocket.
+### `sysinfo.getNetworkUsage()`
+Returns `{rxRate, txRate, rxTotal, txTotal}` in bytes / bytes per second.
 
 ```javascript
-if (websocket.upgrade(300)) { // 5 minute timeout
-    echo("WebSocket upgraded");
-}
+var net = sysinfo.getNetworkUsage();
 ```
 
-#### `websocket.send(message)`
-Sends a message through WebSocket.
+### `sysinfo.getDiskInfo()`
+Returns logical disk info array.
 
 ```javascript
-websocket.send("Hello from server!");
+var disks = sysinfo.getDiskInfo();
 ```
 
-#### `websocket.read()`
-Reads a message from WebSocket.
+## ziplib API
+
+Load:
 
 ```javascript
-var message = websocket.read();
-if (message) {
-    echo("Received: " + message);
-}
+requirelib("ziplib");
 ```
 
-#### `websocket.close()`
-Closes the WebSocket connection.
+### `ziplib.extractZipFile(src, destDir)`
+```javascript
+ziplib.extractZipFile("user:/a.zip", "user:/out/");
+```
+
+### `ziplib.createZipFile(sourcesArrayOrString, outputZip)`
+```javascript
+ziplib.createZipFile(["user:/a.txt", "user:/b.txt"], "user:/bundle.zip");
+```
+
+### `ziplib.createTarFile(sourcesArrayOrString, outputTar)`
+```javascript
+ziplib.createTarFile(["user:/folder"], "user:/bundle.tar");
+```
+
+### `ziplib.extractTarFile(srcTar, destDir)`
+```javascript
+ziplib.extractTarFile("user:/bundle.tar", "user:/out/");
+```
+
+### `ziplib.createTarGzFile(sourcesArrayOrString, outputTarGz)`
+```javascript
+ziplib.createTarGzFile(["user:/folder"], "user:/bundle.tar.gz");
+```
+
+### `ziplib.extractTarGzFile(srcTarGz, destDir)`
+```javascript
+ziplib.extractTarGzFile("user:/bundle.tar.gz", "user:/out/");
+```
+
+### `ziplib.createGzFile(srcFile, outputGz)`
+```javascript
+ziplib.createGzFile("user:/a.log", "user:/a.log.gz");
+```
+
+### `ziplib.extractGzFile(srcGz, outputFile)`
+```javascript
+ziplib.extractGzFile("user:/a.log.gz", "user:/a.log");
+```
+
+### `ziplib.isValidZipFile(vpath)`
+Checks whether archive format is recognizable.
 
 ```javascript
-websocket.close();
+var ok = ziplib.isValidZipFile("user:/a.zip");
 ```
 
-## Serverless Functions
-
-These functions are available when AGI scripts are called via HTTP requests.
-
-### Request Information
-
-#### `REQ_METHOD`
-HTTP request method.
+### `ziplib.listZipFileContents(zipPath)`
+Returns JSON tree string.
 
 ```javascript
-echo("Request method: " + REQ_METHOD);
+var tree = JSON.parse(ziplib.listZipFileContents("user:/a.zip"));
 ```
 
-### Parameter Access
-
-#### `getPara(key)`
-Gets a GET parameter.
+### `ziplib.listZipFileDir(zipPath, dirPathInZip)`
+Returns immediate child names array.
 
 ```javascript
-var username = getPara("username");
-if (username) {
-    echo("Hello, " + username);
-}
+var items = ziplib.listZipFileDir("user:/a.zip", "docs");
 ```
 
-#### `postPara(key)`
-Gets a POST parameter.
+### `ziplib.getFileFromZip(zipPath, filePathInZip)`
+Extracts one file to `tmp:/` and returns that virtual path.
 
 ```javascript
-var password = postPara("password");
+var tmp = ziplib.getFileFromZip("user:/a.zip", "docs/readme.txt");
 ```
 
-#### `readBody()`
-Reads the raw request body.
+### `ziplib.getCompressFileType(vpath)`
+Returns one of `zip`, `7z`, `tar`, `tar.gz`, `gz`, `unknown`.
 
 ```javascript
-var rawData = readBody();
-var data = JSON.parse(rawData);
+var t = ziplib.getCompressFileType("user:/a.tgz");
 ```
 
-## Error Handling
-
-AGI scripts should handle errors appropriately:
+### `ziplib.extractAnyFile(srcArchive, destDir)`
+Auto-detects format and extracts.
 
 ```javascript
-try {
-    var content = filelib.readFile("user:/file.txt");
-    if (content === false) {
-        sendJSONResp({error: "File not found"});
-    } else {
-        sendJSONResp({content: content});
-    }
-} catch (e) {
-    sendJSONResp({error: "Script error: " + e.message});
-}
+ziplib.extractAnyFile("user:/archive.any", "user:/out/");
 ```
 
-## Security Considerations
+### `ziplib.createAnyZipFile(sourcesArrayOrString, outputPath, format)`
+`format`: `zip`, `tar`, `tar.gz` (`tgz`), `gz`.
 
-- All file operations are sandboxed to user-accessible paths
-- Database operations are restricted to non-reserved tables
-- User management functions require admin privileges
-- External HTTP requests should be validated
-- File uploads should check size limits and types
+```javascript
+ziplib.createAnyZipFile(["user:/folder"], "user:/bundle.tar.gz", "tar.gz");
+```
+
+## ffmpeg API
+
+Load:
+
+```javascript
+requirelib("ffmpeg");
+```
+
+Note: library exists only when host has `ffmpeg` installed.
+
+### `ffmpeg.convert(input, output, compression)`
+Generic conversion.
+
+```javascript
+ffmpeg.convert("user:/in.mov", "user:/out.mp4", 0);
+```
+
+### `ffmpeg.audioConvert(input, output, sampleRate, progressFile)`
+```javascript
+ffmpeg.audioConvert("user:/in.wav", "user:/out.mp3", 44100, "tmp:/audio_progress.json");
+```
+
+### `ffmpeg.imageConvert(input, output, scaleFactor, compressionRate)`
+```javascript
+ffmpeg.imageConvert("user:/in.png", "user:/out.jpg", 0.5, 80);
+```
+
+### `ffmpeg.videoConvert(input, output, resolution, compressionRate, progressFile)`
+```javascript
+ffmpeg.videoConvert("user:/in.mp4", "user:/out.mp4", "720p", 55, "tmp:/video_progress.json");
+```
+
+### `ffmpeg.convertWithProgress(input, output, progressFile)`
+```javascript
+ffmpeg.convertWithProgress("user:/in.mp4", "user:/out.gif", "tmp:/conv_progress.json");
+```
+
+## websocket API
+
+Load:
+
+```javascript
+requirelib("websocket");
+```
+
+This library is only available in request handlers with active HTTP request/response context.
 
 ## Scheduler Library (`scheduler`)
 
@@ -833,71 +847,28 @@ The scheduler calls `cron.agi` with the permissions of the user who approved it,
 ## Examples
 
 ### Complete File Upload Handler
+### `websocket.upgrade(timeoutSec)`
+Upgrades current HTTP request to WebSocket. Default timeout is 300 seconds.
 
 ```javascript
-// Load required libraries
-requirelib("filelib");
-
-// Get uploaded file info from POST parameters
-var filename = postPara("filename");
-var filedata = postPara("filedata");
-
-if (filename && filedata) {
-    // Decode base64 data
-    var decodedData = atob(filedata);
-    
-    // Save to user directory
-    var savePath = "user:/uploads/" + filename;
-    if (filelib.writeFile(savePath, decodedData)) {
-        sendJSONResp({
-            status: "success",
-            message: "File uploaded successfully",
-            path: savePath
-        });
-    } else {
-        sendJSONResp({
-            status: "error",
-            message: "Failed to save file"
-        });
-    }
-} else {
-    sendJSONResp({
-        status: "error",
-        message: "Missing filename or filedata"
-    });
-}
+if (!websocket.upgrade(300)) exit();
 ```
 
-### User Settings Manager
+### `websocket.send(text)`
+```javascript
+websocket.send("hello client");
+```
+
+### `websocket.read()`
+Returns incoming message string, or `false` when closed.
 
 ```javascript
-// Load file library
-requirelib("filelib");
+var msg = websocket.read();
+```
 
-// Create settings table if not exists
-newDBTableIfNotExists("user_settings");
-
-// Handle different actions
-var action = getPara("action");
-
-if (action === "get") {
-    var key = getPara("key");
-    var value = readDBItem("user_settings", key);
-    sendJSONResp({value: value});
-    
-} else if (action === "set") {
-    var key = postPara("key");
-    var value = postPara("value");
-    writeDBItem("user_settings", key, value);
-    sendJSONResp({status: "saved"});
-    
-} else if (action === "list") {
-    var settings = listDBTable("user_settings");
-    sendJSONResp(settings);
-    
-} else {
-    sendJSONResp({error: "Invalid action"});
-}
+### `websocket.close()`
+```javascript
+websocket.close();
 ```
 
 ### Background Scheduler (webapp backend)
@@ -1004,3 +975,9 @@ setInterval(checkStatus, 30000);
 ```
 
 This documentation covers all available AGI APIs with practical examples. For more advanced usage, refer to the existing module implementations in the system.
+## Notes and Caveats
+
+- `requirelib("audio")` is registered in code but currently has no callable functions.
+- `filelib` currently does not expose `writeBinaryFile` / `readBinaryFile` on the public `filelib` object.
+- Most APIs return `false` or `null` on failure; many also raise AGI runtime errors.
+- For admin-only APIs (`userExists`, `createUser`, `removeUser`), check `userIsAdmin()` first.

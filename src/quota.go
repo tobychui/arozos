@@ -156,7 +156,8 @@ func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http
 
 	userFileSystemHandlers := userinfo.GetAllFileSystemHandler()
 	for _, thisHandler := range userFileSystemHandlers {
-		if thisHandler.Hierarchy == "user" {
+		if thisHandler.Hierarchy == "user" && !thisHandler.IsNetworkDrive() {
+			// We only calculate the file distribution for the user's local storage, not network drives, and we only calculate for the user level handler to avoid duplication
 			thispath := filepath.ToSlash(filepath.Clean(thisHandler.Path)) + "/users/" + userinfo.Username + "/"
 			filepath.Walk(thispath, func(fpath string, info os.FileInfo, err error) error {
 				if err != nil {

@@ -1,96 +1,278 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Disk Space</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0 user-scalable=no">
-        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
-        <script type="text/javascript" src="../../../script/jquery.min.js"></script>
-        <script type="text/javascript" src="../../../script/semantic/semantic.min.js"></script>
-        <style>
-            #diskInfo{
-                padding-left:22px;
-            }
-            .usedSpace{
-                margin-top: -0.8em;
-            }
-        </style>
-    </head>
-    <body>
-        <button class="ui small button" onclick="toggleTmpfs();">Toggle tmpfs</button>
-        <div id="diskInfo" class="ui feed">
-            
-        </div>
-        <script>
-            initDiskInfo();
-            function initDiskInfo(){
-                $("#diskInfo").html("");
-                $.get("../../system/disk/space/list",function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        for (var i = 0; i < data.length; i++){
-                            var thisDev = data[i];
-                            var usedPercentage = parseInt(thisDev.Used / thisDev.Volume * 100);
-                            var color = "blue";
-                            if (usedPercentage >= 90){
-                                color = "red";
-                            }
-                            if (thisDev.Used == 0 && thisDev.Volume == 0){
-                                color = "black";
-                                usedPercentage = 100;
-                            }
-                            var tmpfs = "";
-                            var style = "";
-                            if (thisDev.Device == "tmpfs"){
-                                tmpfs = "tmpfs";
-                                style = "display:none;";
-                            }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Disk Space</title>
+    <script src="../../../script/jquery.min.js"></script>
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
 
-                            //Check if it is RAID partitions
-                            let deviceName = thisDev.Device.split("/").pop();
-                            let diskIcon = "disk.svg";
-                            if (deviceName.substr(0, 2) == "md"){
-                                //It is RAID device
-                                color = "teal";
-                                diskIcon = "raid.svg";
-                            }
-                            $("#diskInfo").append(`<div class="event ${tmpfs}" style="${style}">
-                                <div class="label">
-                                    <img src="../disk/space/img/${diskIcon}">
-                                </div>
-                                <div class="content">
-                                    <div class="summary">
-                                        ${thisDev.MountPoint}
-                                    <div class="date">
-                                    (${thisDev.Device})
-                                    </div>
-                                    </div>
-                                    <div class="extra text" style="width:100% !important;">
-                                    <div class="ui small ${color} active progress">
-                                        <div class="bar" style="width:${usedPercentage}%;">
-                                            <div class="progress">${usedPercentage}%</div>
-                                        </div>
-                                        <div class="label">Free: ${bytesToSize(thisDev.Available)} / Total: ${bytesToSize(thisDev.Volume)}</div>
-                                    </div>
-                                    </div>
-                                </div>
-                            </div>`);
-                        }
-                    }
-                })
-            }
+    :root {
+        --ds-bg:       #ffffff;
+        --ds-card-bg:  #f5f5f7;
+        --ds-border:   #e5e5ea;
+        --ds-text:     #1d1d1f;
+        --ds-dim:      #6e6e73;
+        --ds-muted:    #8e8e93;
+        --ds-accent:   #2997ff;
+        --ds-warn:     #ff9500;
+        --ds-danger:   #ff3b30;
+        --ds-raid:     #34c759;
+        --ds-unknown:  #c7c7cc;
+        --ds-bar-bg:   #e5e5ea;
+        --ds-hover:    rgba(0,0,0,0.035);
+        --ds-topbar:   #2997ff;
+    }
 
-            function bytesToSize(bytes) {
-                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-                if (bytes == 0) return '0 Byte';
-                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-                return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
-            }
+    body.dark {
+        --ds-bg:       #1c1c1e;
+        --ds-card-bg:  #2c2c2e;
+        --ds-border:   #38383a;
+        --ds-text:     #f0f0f0;
+        --ds-dim:      #98989d;
+        --ds-muted:    #636366;
+        --ds-accent:   #2997ff;
+        --ds-warn:     #ff9f0a;
+        --ds-danger:   #ff453a;
+        --ds-raid:     #30d158;
+        --ds-unknown:  #48484a;
+        --ds-bar-bg:   #38383a;
+        --ds-hover:    rgba(255,255,255,0.05);
+    }
 
-            function toggleTmpfs(){
-                $(".tmpfs").slideToggle();
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        background: var(--ds-bg);
+        color: var(--ds-text);
+    }
+
+    /* ── Top accent bar ── */
+    .ds-topbar { height: 0.4em; background: var(--ds-topbar); }
+
+    /* ── Header row ── */
+    .ds-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px 6px;
+    }
+    .ds-title {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--ds-muted);
+    }
+    .ds-toggle-btn {
+        font-family: inherit;
+        font-size: 11.5px;
+        font-weight: 500;
+        color: var(--ds-accent);
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        outline: none;
+    }
+    .ds-toggle-btn:hover { opacity: 0.75; }
+
+    /* ── List ── */
+    #diskInfo { padding: 0 12px 16px; }
+
+    /* ── Disk row ── */
+    .ds-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        margin-bottom: 6px;
+        background: var(--ds-card-bg);
+        border: 1px solid var(--ds-border);
+        transition: background 0.1s;
+    }
+    .ds-item:last-child { margin-bottom: 0; }
+    .ds-item:hover { background: var(--ds-hover); }
+
+    .ds-icon {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+        flex-shrink: 0;
+        opacity: 0.82;
+    }
+    body.dark .ds-icon { filter: brightness(1.3); }
+
+    .ds-info { flex: 1; min-width: 0; }
+
+    .ds-name-row {
+        display: flex;
+        align-items: baseline;
+        gap: 7px;
+        margin-bottom: 7px;
+    }
+    .ds-mount {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ds-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .ds-device {
+        font-size: 11.5px;
+        color: var(--ds-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Progress bar ── */
+    .ds-bar-track {
+        width: 100%;
+        height: 5px;
+        border-radius: 99px;
+        background: var(--ds-bar-bg);
+        overflow: hidden;
+        margin-bottom: 5px;
+    }
+    .ds-bar-fill {
+        height: 100%;
+        border-radius: 99px;
+        background: var(--ds-accent);
+        transition: width 0.45s ease;
+    }
+    .ds-bar-fill.warn    { background: var(--ds-warn); }
+    .ds-bar-fill.danger  { background: var(--ds-danger); }
+    .ds-bar-fill.raid    { background: var(--ds-raid); }
+    .ds-bar-fill.unknown { background: var(--ds-unknown); }
+
+    /* ── Stats row ── */
+    .ds-stats-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .ds-pct {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--ds-dim);
+    }
+    .ds-sizes { font-size: 11px; color: var(--ds-muted); }
+
+    /* ── Error / empty states ── */
+    .ds-error {
+        padding: 20px 12px;
+        font-size: 12.5px;
+        color: var(--ds-danger);
+    }
+    </style>
+</head>
+<body>
+<div class="ds-header-row">
+    <span class="ds-title" locale="diskspace/title">Storage</span>
+    <button class="ds-toggle-btn" onclick="toggleTmpfs()" locale="diskspace/toggle-tmpfs">Toggle tmpfs</button>
+</div>
+<div id="diskInfo"></div>
+
+<script>
+    /* ── Locale ── */
+    var dsLocale = NewAppLocale();
+
+    /* ── Theme detection ── */
+    (function() {
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) {
+                    document.body.classList.toggle('dark', c !== 'whiteTheme');
+                });
+                return;
             }
-        </script>
-    </body>
+        } catch(e) {}
+        try {
+            var t = null;
+            if (typeof preferredTheme !== 'undefined')                       t = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
+            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (t) document.body.classList.toggle('dark', t === 'dark' || t === 'darkTheme');
+        } catch(e) {}
+    })();
+
+    /* ── Bootstrap ── */
+    dsLocale.init("../../SystemAO/locale/system_settings/diskspace.json", function() {
+        dsLocale.translate();
+        initDiskInfo();
+    });
+
+    function initDiskInfo() {
+        $('#diskInfo').html('');
+        $.get('../../system/disk/space/list', function(data) {
+            if (data.error !== undefined) {
+                $('#diskInfo').html('<div class="ds-error">' + $('<span>').text(data.error).html() + '</div>');
+                return;
+            }
+            for (var i = 0; i < data.length; i++) {
+                renderDiskItem(data[i]);
+            }
+        });
+    }
+
+    function renderDiskItem(dev) {
+        var isTmpfs   = (dev.Device === 'tmpfs');
+        var isUnknown = (dev.Used === 0 && dev.Volume === 0);
+        var deviceName = dev.Device.split('/').pop();
+        var isRaid    = (deviceName.substr(0, 2) === 'md');
+
+        var pct = isUnknown ? 100 : Math.min(100, Math.round(dev.Used / dev.Volume * 100));
+        var fillClass = isUnknown ? 'unknown'
+                      : isRaid   ? 'raid'
+                      : pct >= 90 ? 'danger'
+                      : pct >= 75 ? 'warn'
+                      : '';
+
+        var diskIcon  = isRaid ? 'raid.svg' : 'disk.svg';
+        var safeMount = $('<span>').text(dev.MountPoint).html();
+        var safeDev   = $('<span>').text(dev.Device).html();
+        var sizeText  = isUnknown
+            ? dsLocale.getString('diskspace/na', 'N/A')
+            : dsLocale.getString('diskspace/free', 'Free: ') + bytesToSize(dev.Available) + '&nbsp;&nbsp;/&nbsp;&nbsp;' + dsLocale.getString('diskspace/total', 'Total: ') + bytesToSize(dev.Volume);
+
+        var html =
+            '<div class="ds-item' + (isTmpfs ? ' tmpfs' : '') + '"' +
+            (isTmpfs ? ' style="display:none;"' : '') + '>' +
+              '<img class="ds-icon" src="../disk/space/img/' + diskIcon + '">' +
+              '<div class="ds-info">' +
+                '<div class="ds-name-row">' +
+                  '<span class="ds-mount">' + safeMount + '</span>' +
+                  '<span class="ds-device">' + safeDev + '</span>' +
+                '</div>' +
+                '<div class="ds-bar-track">' +
+                  '<div class="ds-bar-fill ' + fillClass + '" style="width:' + pct + '%;"></div>' +
+                '</div>' +
+                '<div class="ds-stats-row">' +
+                  '<span class="ds-pct">' + (isUnknown ? '—' : pct + '%') + '</span>' +
+                  '<span class="ds-sizes">' + sizeText + '</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+
+        $('#diskInfo').append(html);
+    }
+
+    function bytesToSize(bytes) {
+        var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        if (bytes === 0) return '0 Bytes';
+        var i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+    }
+
+    function toggleTmpfs() {
+        $('.tmpfs').slideToggle(160);
+    }
+</script>
+</body>
 </html>

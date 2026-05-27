@@ -192,6 +192,159 @@
         font-size: 13px;
     }
 
+    /* ── Delete panel ── */
+    #gr-delete-panel {
+        display: none;
+        border: 1px solid var(--gr-danger);
+        border-radius: 10px;
+        margin: 0 12px 10px;
+        background: var(--gr-bg);
+        overflow: hidden;
+    }
+    #gr-delete-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 14px;
+        background: rgba(255,59,48,0.06);
+        border-bottom: 1px solid var(--gr-danger);
+    }
+    #gr-root.dark #gr-delete-panel-header { background: rgba(255,69,58,0.10); }
+    .gr-del-title {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--gr-danger);
+    }
+    .gr-del-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--gr-danger);
+        font-size: 16px;
+        line-height: 1;
+        padding: 0 2px;
+        opacity: 0.7;
+    }
+    .gr-del-close:hover { opacity: 1; }
+    #gr-delete-panel-body { padding: 12px 14px; }
+    .gr-del-action-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--gr-dim);
+        margin-bottom: 8px;
+    }
+    .gr-radio-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        padding: 6px 0;
+        cursor: pointer;
+        user-select: none;
+    }
+    .gr-radio-row input[type="radio"] {
+        accent-color: var(--gr-danger);
+        flex-shrink: 0;
+        margin-top: 3px;
+        cursor: pointer;
+    }
+    .gr-radio-label { font-size: 13px; color: var(--gr-text); font-weight: 500; }
+    .gr-radio-hint  { font-size: 11.5px; color: var(--gr-muted); margin-top: 2px; }
+    .gr-radio-extra { margin-top: 6px; margin-left: 22px; display: none; }
+    .gr-del-select {
+        font-size: 13px;
+        font-family: inherit;
+        color: var(--gr-text);
+        background: var(--gr-card-bg);
+        border: 1px solid var(--gr-card-border);
+        border-radius: 6px;
+        padding: 5px 8px;
+        outline: none;
+        cursor: pointer;
+        width: 100%;
+        max-width: 260px;
+    }
+    .gr-del-select:focus { border-color: var(--gr-accent); }
+    .gr-del-divider { border: none; border-top: 1px solid var(--gr-divider); margin: 10px 0; }
+    .gr-affected-box {
+        border: 1px solid var(--gr-divider);
+        border-radius: 8px;
+        overflow: hidden;
+        max-height: 140px;
+        overflow-y: auto;
+        font-size: 12.5px;
+        margin-top: 6px;
+    }
+    .gr-affected-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px 12px;
+        border-bottom: 1px solid var(--gr-divider);
+    }
+    .gr-affected-row:last-child { border-bottom: none; }
+    .gr-affected-username { font-weight: 500; color: var(--gr-text); }
+    .gr-affected-badge {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 20px;
+        background: rgba(255,59,48,0.12);
+        color: var(--gr-danger);
+    }
+    .gr-del-warn {
+        font-size: 12px;
+        color: var(--gr-danger);
+        font-weight: 500;
+        margin-top: 8px;
+        display: none;
+    }
+
+    /* ── Self-membership warning ── */
+    #gr-self-warn {
+        display: none;
+        font-size: 12px;
+        font-weight: 500;
+        color: #92400e;
+        background: rgba(146,64,14,0.07);
+        border: 1px solid rgba(146,64,14,0.22);
+        border-radius: 6px;
+        padding: 7px 10px;
+        margin-top: 10px;
+        line-height: 1.5;
+    }
+    #gr-root.dark #gr-self-warn {
+        color: #fbbf24;
+        background: rgba(251,191,36,0.08);
+        border-color: rgba(251,191,36,0.22);
+    }
+    .gr-del-confirm-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 12px;
+        gap: 8px;
+    }
+    .gr-del-hint { font-size: 12px; color: var(--gr-danger); font-weight: 500; }
+    .gr-btn-del-confirm {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 13px;
+        border-radius: 6px;
+        border: 1px solid var(--gr-danger);
+        font-family: inherit;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        background: var(--gr-danger);
+        color: #fff;
+        white-space: nowrap;
+        transition: opacity 0.1s;
+    }
+    .gr-btn-del-confirm:hover { opacity: 0.85; }
+    .gr-btn-del-confirm.loading { opacity: 0.55; cursor: default; pointer-events: none; }
+
     /* ── Toast ── */
     #gr-toast {
         display: none;
@@ -245,10 +398,71 @@
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2L8.5 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span locale="group/edit">Edit</span>
             </button>
-            <button id="removeGroupButton" class="gr-btn danger disabled" onclick="removeGroup()" style="margin-left:auto;">
+            <button id="removeGroupButton" class="gr-btn danger disabled" onclick="openDeletePanel()" style="margin-left:auto;">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 3h10M4 3V2h4v1M5 6v3M7 6v3M2 3l.8 8h6.4L10 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span locale="group/remove">Remove</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Delete group panel -->
+    <div id="gr-delete-panel">
+        <div id="gr-delete-panel-header">
+            <span class="gr-del-title" locale="group/del-title">Delete Group</span>
+            <button class="gr-del-close" onclick="closeDeletePanel()" title="Close">&times;</button>
+        </div>
+        <div id="gr-delete-panel-body">
+
+            <div class="gr-del-action-label" locale="group/del-action-label">What should happen to users currently in this group?</div>
+
+            <label class="gr-radio-row">
+                <input type="radio" name="gr-del-action" value="reassign" id="gr-radio-reassign" onchange="grOnActionChange()" checked>
+                <div>
+                    <div class="gr-radio-label" locale="group/del-action-reassign">Move users to another group</div>
+                    <div class="gr-radio-hint" locale="group/del-action-reassign-hint">All users in this group will be assigned to the selected group instead.</div>
+                    <div class="gr-radio-extra" id="gr-reassign-extra">
+                        <select id="gr-target-group" class="gr-del-select"></select>
+                    </div>
+                </div>
+            </label>
+
+            <label class="gr-radio-row">
+                <input type="radio" name="gr-del-action" value="removeonly" onchange="grOnActionChange()">
+                <div>
+                    <div class="gr-radio-label" locale="group/del-action-removeonly">Remove group from users, keep accounts</div>
+                    <div class="gr-radio-hint" locale="group/del-action-removeonly-hint">User accounts will remain but will no longer belong to this group. Users with only this group will lose their interface module.</div>
+                </div>
+            </label>
+
+            <label class="gr-radio-row">
+                <input type="radio" name="gr-del-action" value="deleteusers" onchange="grOnActionChange()">
+                <div>
+                    <div class="gr-radio-label" locale="group/del-action-deleteusers">Delete all users in this group</div>
+                    <div class="gr-radio-hint" locale="group/del-action-deleteusers-hint">All user accounts in this group will be permanently removed.</div>
+                </div>
+            </label>
+
+            <hr class="gr-del-divider">
+
+            <div id="gr-affected-area">
+                <div class="gr-del-action-label" locale="group/del-affected-label">Affected Users</div>
+                <div id="gr-affected-list" class="gr-affected-box">
+                    <div class="gr-empty" style="padding:12px;" locale="group/del-loading">Loading&hellip;</div>
+                </div>
+                <div id="gr-single-group-warn" class="gr-del-warn" locale="group/del-warn-single">
+                    Warning: Some users are only in this group and will lose their interface module after removal.
+                </div>
+            </div>
+
+            <div id="gr-self-warn"></div>
+
+            <div class="gr-del-confirm-row">
+                <span class="gr-del-hint" locale="group/del-confirm-hint">This action cannot be undone.</span>
+                <button class="gr-btn-del-confirm" id="gr-confirm-del-btn" onclick="grConfirmDelete(this)">
+                    <span locale="group/del-confirm-btn">Confirm &amp; Delete</span>
+                </button>
+            </div>
+
         </div>
     </div>
 
@@ -363,7 +577,7 @@ function loadGroupList() {
             var keyJs  = key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
             $('#groupList').append(
-                '<div class="gr-group-row" onclick="selectGroup(\'' + keyJs + '\', this)">' +
+                '<div class="gr-group-row" onclick="grSelectGroup(\'' + keyJs + '\', this)">'+
                     '<div class="gr-group-name">' + keyEsc + '</div>' +
                     '<div class="gr-group-access">' + accessHtml + '</div>' +
                     '<div class="gr-group-admin">' + adminHtml + '</div>' +
@@ -375,10 +589,11 @@ function loadGroupList() {
 }
 
 /* ── Row selection ── */
-function selectGroup(groupName, rowEl) {
+function grSelectGroup(groupName, rowEl) {
     $('.gr-group-row').removeClass('selected');
     $(rowEl).addClass('selected');
     currentSelectedGroup = groupName;
+    closeDeletePanel();
 
     $('#editGroupButton').removeClass('disabled');
     if (groupName === 'administrator') {
@@ -418,32 +633,160 @@ function confirmCreateHandler(data) {
     if (data) loadGroupList();
 }
 
-/* ── Remove group ── */
-function removeGroup() {
-    if (currentSelectedGroup === 'administrator') {
-        showGrToast(grLocale ? grLocale.getString('group/no-remove-admin', 'Cannot remove the administrator group') : 'Cannot remove the administrator group', true);
-        return;
+/* ── Delete panel ── */
+var grDeletePreviewLoaded = false;
+var grAffectedUsers = [];
+var grCurrentUsername = "";
+
+// Fetch the current logged-in username once so we can warn if the admin is
+// about to delete a group they themselves belong to.
+$.get('../../system/desktop/user', function(data) {
+    if (data && data.Username) { grCurrentUsername = data.Username; }
+});
+
+function openDeletePanel() {
+    if (!currentSelectedGroup || currentSelectedGroup === 'administrator') return;
+    grDeletePreviewLoaded = false;
+    grAffectedUsers = [];
+
+    // Reset to defaults
+    document.getElementById('gr-radio-reassign').checked = true;
+    document.getElementById('gr-reassign-extra').style.display = 'block';
+    document.getElementById('gr-single-group-warn').style.display = 'none';
+    document.getElementById('gr-self-warn').style.display = 'none';
+    document.getElementById('gr-affected-list').innerHTML =
+        '<div class="gr-empty" style="padding:12px;">' +
+        (grLocale ? grLocale.getString('group/del-loading', 'Loading\u2026') : 'Loading\u2026') + '</div>';
+
+    document.getElementById('gr-delete-panel').style.display = 'block';
+    grLoadDeletePreview();
+}
+
+function closeDeletePanel() {
+    var panel = document.getElementById('gr-delete-panel');
+    if (panel) panel.style.display = 'none';
+}
+
+function grOnActionChange() {
+    var action = document.querySelector('input[name="gr-del-action"]:checked').value;
+    document.getElementById('gr-reassign-extra').style.display = (action === 'reassign') ? 'block' : 'none';
+
+    var warn = document.getElementById('gr-single-group-warn');
+    if (action === 'removeonly' && grDeletePreviewLoaded) {
+        var hasSingle = grAffectedUsers.some(function(u) { return u.groupCount <= 1; });
+        warn.style.display = hasSingle ? 'block' : 'none';
+    } else {
+        warn.style.display = 'none';
     }
-    var msg = grLocale
-        ? grLocale.getString('group/confirm-remove', 'Remove group: ') + currentSelectedGroup + '?'
-        : 'Confirm removing group: ' + currentSelectedGroup + '?';
-    if (confirm(msg)) {
-        $.ajax({
-            url: '../../system/permission/delgroup',
-            data: { groupname: currentSelectedGroup },
-            method: 'GET',
-            success: function(data) {
-                if (data.error !== undefined) {
-                    showGrToast(data.error, true);
-                } else {
-                    loadGroupList();
-                }
-            },
-            error: function() {
-                showGrToast('Server communication error', true);
-            }
+
+    if (grDeletePreviewLoaded) { grUpdateSelfWarn(); }
+}
+
+function grLoadDeletePreview() {
+    // Load other groups for the reassign dropdown
+    $.get('../../system/permission/listgroup', function(data) {
+        var sel = document.getElementById('gr-target-group');
+        sel.innerHTML = '';
+        var others = (data || []).filter(function(g) { return g !== currentSelectedGroup; });
+        others.forEach(function(g) {
+            var opt = document.createElement('option');
+            opt.value = g;
+            opt.textContent = g;
+            if (g === 'default') opt.selected = true;
+            sel.appendChild(opt);
         });
+    });
+
+    // Load affected users
+    $.get('../../system/permission/listgroupusers', { groupname: currentSelectedGroup }, function(data) {
+        grAffectedUsers = data || [];
+        grDeletePreviewLoaded = true;
+
+        var listBox = document.getElementById('gr-affected-list');
+        if (grAffectedUsers.length === 0) {
+            var emptyMsg = grLocale ? grLocale.getString('group/del-no-affected', 'No users are in this group.') : 'No users are in this group.';
+            listBox.innerHTML = '<div class="gr-empty" style="padding:12px;">' + emptyMsg + '</div>';
+        } else {
+            listBox.innerHTML = '';
+            var onlyLabel = grLocale ? grLocale.getString('group/del-only-group', 'Only group') : 'Only group';
+            grAffectedUsers.forEach(function(u) {
+                var row = document.createElement('div');
+                row.className = 'gr-affected-row';
+                var badge = (u.groupCount <= 1)
+                    ? '<span class="gr-affected-badge">' + onlyLabel + '</span>' : '';
+                row.innerHTML = '<span class="gr-affected-username">' + escHtml(u.username) + '</span>' + badge;
+                listBox.appendChild(row);
+            });
+        }
+        grOnActionChange();
+    }).fail(function() {
+        document.getElementById('gr-affected-list').innerHTML =
+            '<div class="gr-empty" style="padding:12px;color:var(--gr-danger);">' +
+            (grLocale ? grLocale.getString('group/del-load-error', 'Failed to load users.') : 'Failed to load users.') + '</div>';
+    });
+}
+
+/* ── Self-membership warning helper ── */
+function grUpdateSelfWarn() {
+    var el = document.getElementById('gr-self-warn');
+    if (!el || !grCurrentUsername) return;
+
+    var isSelf = grAffectedUsers.some(function(u) { return u.username === grCurrentUsername; });
+    if (!isSelf) { el.style.display = 'none'; return; }
+
+    var action = document.querySelector('input[name="gr-del-action"]:checked');
+    var val = action ? action.value : '';
+    if (val === 'deleteusers') {
+        el.textContent = '\u26a0\ufe0f ' + (grLocale
+            ? grLocale.getString('group/del-self-warn-deleteusers',
+                'You are in this group. Your account will not be deleted \u2014 only your group membership will be removed.')
+            : 'You are in this group. Your account will not be deleted \u2014 only your group membership will be removed.');
+    } else {
+        el.textContent = '\u26a0\ufe0f ' + (grLocale
+            ? grLocale.getString('group/del-self-warn-general', 'You are a member of this group.')
+            : 'You are a member of this group.');
     }
+    el.style.display = 'block';
+}
+
+function grConfirmDelete(btn) {
+    var action      = document.querySelector('input[name="gr-del-action"]:checked').value;
+    var targetgroup = document.getElementById('gr-target-group').value;
+    var groupname   = currentSelectedGroup;
+
+    var confirmMsg = grLocale
+        ? grLocale.getString('group/del-confirm-msg', 'Delete group "' + groupname + '"? This cannot be undone.').replace('{group}', groupname)
+        : 'Delete group "' + groupname + '"? This cannot be undone.';
+    if (!confirm(confirmMsg)) return;
+
+    $(btn).addClass('loading');
+    $.ajax({
+        url: '../../system/permission/delgroupwithhandling',
+        method: 'POST',
+        data: {
+            groupname:   groupname,
+            action:      action,
+            targetgroup: targetgroup
+        },
+        success: function(data) {
+            $(btn).removeClass('loading');
+            if (data && data.error !== undefined) {
+                showGrToast(data.error, true);
+                return;
+            }
+            closeDeletePanel();
+            var msg = grLocale ? grLocale.getString('group/del-success', 'Group deleted successfully.') : 'Group deleted successfully.';
+            showGrToast(msg, false);
+            loadGroupList();
+        },
+        error: function(xhr) {
+            $(btn).removeClass('loading');
+            var msg = xhr.status === 403
+                ? (grLocale ? grLocale.getString('group/del-forbidden', 'Access denied.') : 'Access denied.')
+                : (grLocale ? grLocale.getString('group/del-error', 'Failed to delete group.') : 'Failed to delete group.');
+            showGrToast(msg, true);
+        }
+    });
 }
 
 /* ── Helpers ── */
