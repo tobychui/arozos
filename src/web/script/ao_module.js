@@ -327,7 +327,82 @@ function ao_module_openPath(path, filename=undefined){
    
 }
 
-//Open a particular tab using System Setting module. Require 
+/*
+    ao_module_requestSchedulerPermission(options, callback)
+
+    Show a permission dialog asking the user to allow the calling app to register
+    a background scheduled task on their behalf.
+
+    options = {
+        appName:     "My App",           // Display name of the requesting app
+        appIcon:     "MyApp/img/icon.png", // Optional icon path (relative to web root)
+        taskName:    "MyApp_DailySync",  // Unique task identifier (max 32 chars)
+        scriptName:  "cron.agi",         // Filename inside the app folder (next to init.agi); defaults to "cron.agi"
+        interval:    86400,              // Execution interval in seconds
+        base:        0,                  // Base unix timestamp (0 = now)
+        description: "Daily sync task"   // Optional description shown in popup
+    }
+
+    callback(result):
+        result.allowed  => true if the user approved and the scheduler was registered
+        result.taskName => the task name that was registered
+*/
+function ao_module_requestSchedulerPermission(options, callback) {
+    if (!options || !options.taskName) {
+        console.error("[ao_module] requestSchedulerPermission: missing required options (taskName)");
+        if (typeof callback === 'function') callback({allowed: false, error: "invalid options"});
+        return;
+    }
+    if (!options.scriptName) options.scriptName = "cron.agi";
+    if (!options.appName)    options.appName    = document.title || "Application";
+    if (!options.interval)   options.interval   = 86400;
+    if (!options.base)       options.base       = Math.floor(Date.now() / 1000);
+    if (!options.description) options.description = "";
+
+    var callbackFnName = "_spCallback_" + Date.now();
+    window[callbackFnName] = function(result) {
+        delete window[callbackFnName];
+        if (typeof callback === 'function') callback(result);
+    };
+
+    var encoded = encodeURIComponent(JSON.stringify(options));
+    var url = "SystemAO/arsm/scheduler_permission.html#" + encoded;
+
+    if (ao_module_virtualDesktop) {
+        ao_module_newfw({
+            url: url,
+            width: 400,
+            height: 480,
+            appicon: "SystemAO/arsm/img/scheduler.png",
+            title: "Scheduler Permission",
+            parent: ao_module_windowID,
+            callback: callbackFnName
+        });
+    } else {
+        // Non-desktop mode: open popup window and poll localStorage
+        var listenerKey = "spResult_" + Date.now();
+        var popupWin = window.open(ao_root + url, "_blank", "width=400,height=480");
+        var pollInterval = setInterval(function() {
+            var stored = localStorage.getItem(listenerKey);
+            if (stored !== null && stored !== undefined) {
+                clearInterval(pollInterval);
+                localStorage.removeItem(listenerKey);
+                try {
+                    var result = JSON.parse(stored);
+                    if (typeof callback === 'function') callback(result);
+                } catch(e) {
+                    if (typeof callback === 'function') callback({allowed: false});
+                }
+            }
+            if (popupWin && popupWin.closed) {
+                clearInterval(pollInterval);
+                if (typeof callback === 'function') callback({allowed: false});
+            }
+        }, 300);
+    }
+}
+
+//Open a particular tab using System Setting module. Require
 //1) Setting Group
 //2) Setting Name
 function ao_module_openSetting(group, name){

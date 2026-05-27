@@ -217,14 +217,14 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Assign a unique request ID for log tracing.
-	requestID := uuid.NewV4().String()
+	// Measure wall-clock duration; the returned execID (assigned by the AGI
+	// runtime) is reused as the request ID for execution log tracing.
 	start := time.Now()
 
-	result, execErr := g.ExecuteAGIScriptAsUser(fsh, realPath, userInfo, w, r)
+	execID, result, execErr := g.ExecuteAGIScriptAsUser(fsh, realPath, userInfo, w, r)
 
 	durationMs := time.Since(start).Milliseconds()
-	g.recordExecution(endpointUUID, pathFromDb, requestID, r.Method, durationMs, execErr)
+	g.recordExecution(endpointUUID, pathFromDb, execID, r.Method, durationMs, execErr)
 
 	if execErr != nil {
 		log.Println("[Remote AGI] ", pathFromDb, " failed to execute", execErr.Error())

@@ -16,10 +16,6 @@ import (
 
 // Generate thumbnail for RAW image files by extracting embedded JPEG
 func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder string, file string, generateOnly bool) (string, error) {
-	if fsh.RequireBuffer {
-		return "", errors.New("RAW thumbnail generation not supported for buffered file systems")
-	}
-
 	fshAbs := fsh.FileSystemAbstraction
 
 	// Check file size - skip files larger than 100MB to prevent memory issues
@@ -105,19 +101,18 @@ func generateThumbnailForRAW(fsh *filesystem.FileSystemHandler, cacheFolder stri
 		return "", errors.New("failed to crop thumbnail: " + err.Error())
 	}
 
+	// Encode the thumbnail into a buffer first so we can write it via WriteFile,
+	// which works on every filesystem type including buffered ones (S3, FTP, WebDAV).
+	var thumbBuf bytes.Buffer
+	if err = jpeg.Encode(&thumbBuf, croppedImg, &jpeg.Options{Quality: 90}); err != nil {
+		return "", errors.New("failed to encode thumbnail: " + err.Error())
+	}
+
 	// Create the thumbnail file with the full filename + .jpg
 	// e.g., DSC02977.ARW.jpg
 	outputPath := cacheFolder + filepath.Base(file) + ".jpg"
-	out, err := fshAbs.Create(outputPath)
-	if err != nil {
-		return "", err
-	}
-	defer out.Close()
-
-	// Write JPEG thumbnail
-	err = jpeg.Encode(out, croppedImg, &jpeg.Options{Quality: 90})
-	if err != nil {
-		return "", err
+	if err = fshAbs.WriteFile(outputPath, thumbBuf.Bytes(), 0644); err != nil {
+		return "", errors.New("failed to write thumbnail: " + err.Error())
 	}
 
 	if !generateOnly {
@@ -540,12 +535,10 @@ func getSizeForType(fieldType uint16) uint32 {
 	return 1
 }
 
-// Render full-size RAW image as JPEG for media serving
+// Render full-size RAW image as JPEG for media serving.
+// Works on all filesystem types, including buffered ones (S3, FTP, WebDAV),
+// because it only uses ReadFile / GetFileSize and never opens a file handle.
 func RenderRAWImage(fsh *filesystem.FileSystemHandler, file string) ([]byte, error) {
-	if fsh.RequireBuffer {
-		return nil, errors.New("RAW image rendering not supported for buffered file systems")
-	}
-
 	fshAbs := fsh.FileSystemAbstraction
 
 	// Check file size - skip files larger than 100MB to prevent memory issues

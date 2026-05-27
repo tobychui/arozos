@@ -64,10 +64,6 @@
             });
 
             //http test
-            backendWrapper.http.download("https://ccns.arozos.com/share/download/6341f7fe-e03e-4200-88f2-6d4800b846fc/imuslab%20%E4%B8%BB%E9%A1%8C%E6%9B%B2.mp3", "tmp:/", "", function(data){
-                console.log("Download status: ", data)
-            });
-
             backendWrapper.http.get("https://www.google.com/robots.txt", function(data){
                 console.log("HTTP GET test: ", data);
             })

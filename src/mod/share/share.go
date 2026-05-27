@@ -727,6 +727,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.Write([]byte(content))
 				return
 
@@ -861,6 +862,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					content = []byte(strings.ReplaceAll(string(content), key, value))
 				}
 
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.Write([]byte(content))
 				return
 			}
@@ -1417,4 +1419,3 @@ func getPathHashFromUsernameAndVpath(userinfo *user.User, vpath string) (string,
 	}
 	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
 }
-

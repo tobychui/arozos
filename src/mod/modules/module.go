@@ -33,6 +33,11 @@ type ModuleHandler struct {
 	LoadedModule []*ModuleInfo
 	userHandler  *user.UserHandler
 	tmpDirectory string
+
+	// OnModuleUninstall is an optional hook called when a module is uninstalled.
+	// The hook receives the module name and can be used to clean up associated resources
+	// (e.g. remove scheduled cron jobs registered by that module).
+	OnModuleUninstall func(moduleName string)
 }
 
 func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *ModuleHandler {

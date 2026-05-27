@@ -7,167 +7,16 @@
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/applocale.js"></script>
      <script src="../../script/ao_module.js"></script>
+    <link rel="stylesheet" href="ueditor.css">
     <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
-    body { background: #fff; }
-    body.dark { background: #2b2b2b; }
-
-    #eu-root {
-        --eu-text:        #1d1d1f;
-        --eu-dim:         #6e6e73;
-        --eu-muted:       #4d4d4e;
-        --eu-divider:     #d2d2d7;
-        --eu-hover:       rgba(0,0,0,0.045);
-        --eu-active:      rgba(0,0,0,0.09);
-        --eu-accent:      #588ce0;
-        --eu-danger:      #ff3b30;
-        --eu-success:     #34c759;
-        --eu-bg:          #ffffff;
-        --eu-card-bg:     #f5f5f7;
-        --eu-card-border: #e5e5ea;
-
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-        font-size: 14px;
-        -webkit-font-smoothing: antialiased;
-        color: var(--eu-text);
-        background: var(--eu-bg);
-        border-radius: 0.6em; 
-    }
-
-    #eu-root.dark {
-        --eu-text:        #f0f0f0;
-        --eu-dim:         #a0a0a5;
-        --eu-muted:       #c3c3c7;
-        --eu-divider:     #3a3a3c;
-        --eu-hover:       rgba(255,255,255,0.06);
-        --eu-active:      rgba(255,255,255,0.12);
-        --eu-accent:      #2997ff;
-        --eu-danger:      #ff453a;
-        --eu-success:     #30d158;
-        --eu-bg:          #2b2b2b;
-        --eu-card-bg:     #3a3a3c;
-        --eu-card-border: #48484a;
-    }
-
-    #eu-page { padding: 0 0 24px; }
-
-    /* ── Top accent bar ── */
-    #eu-topbar { height: 0.4em; background: var(--eu-accent); }
-
-    /* ── Toolbar ── */
-    #eu-toolbar { padding: 10px 12px 14px; border-top: 1px solid var(--eu-divider); margin-top: 6px; }
-    #eu-btn-row {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 6px;
-        flex-wrap: wrap;
-    }
-
-    /* ── Buttons ── */
-    .eu-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 6px 13px;
-        border-radius: 6px;
-        border: 1px solid var(--eu-card-border);
-        font-family: inherit;
-        font-size: 12.5px;
-        font-weight: 500;
-        cursor: pointer;
-        outline: none;
-        transition: background 0.1s, opacity 0.1s;
-        background: var(--eu-card-bg);
-        color: var(--eu-text);
-        white-space: nowrap;
-    }
-    .eu-btn:hover  { background: var(--eu-hover); }
-    .eu-btn:active { background: var(--eu-active); }
-    .eu-btn.primary { background: var(--eu-accent); color: #fff; border-color: var(--eu-accent); }
-    .eu-btn.primary:hover { opacity: 0.85; background: var(--eu-accent); }
-    .eu-btn.danger  { color: var(--eu-danger); border-color: var(--eu-danger); background: transparent; }
-    .eu-btn.danger:hover  { background: rgba(255,59,48,0.08); }
-    #eu-root.dark .eu-btn.danger:hover { background: rgba(255,69,58,0.13); }
-    .eu-btn.loading { opacity: 0.55; cursor: default; pointer-events: none; }
-
-    /* ── Section labels ── */
-    .eu-section-label {
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--eu-muted);
-        padding: 0 16px;
-        margin: 18px 0 6px;
-    }
-
-    /* ── Card ── */
-    .eu-card {
-        border: 1px solid var(--eu-divider);
-        border-radius: 10px;
-        overflow: hidden;
-        margin: 0 12px 6px;
-        background: var(--eu-bg);
-    }
-
-    /* ── Field rows ── */
-    .eu-field-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        padding: 10px 14px;
-        border-bottom: 1px solid var(--eu-divider);
-    }
-    .eu-field-row:last-child { border-bottom: none; }
-    .eu-field-label {
-        font-size: 12.5px;
-        font-weight: 500;
-        color: var(--eu-text);
-        min-width: 130px;
-        flex-shrink: 0;
-        padding-top: 5px;
-    }
-    .eu-field-body { flex: 1; min-width: 0; }
-
-    /* ── Inputs ── */
-    .eu-input {
-        width: 100%;
-        font-size: 13px;
-        font-family: inherit;
-        color: var(--eu-text);
-        background: var(--eu-card-bg);
-        border: 1px solid var(--eu-card-border);
-        border-radius: 6px;
-        padding: 5px 9px;
-        outline: none;
-        transition: border-color 0.1s;
-    }
-    .eu-input:focus { border-color: var(--eu-accent); }
-    .eu-input[readonly] { color: var(--eu-dim); cursor: default; }
-    .eu-input.error { border-color: var(--eu-danger); }
-    .eu-input-hint { font-size: 11.5px; color: var(--eu-muted); margin-top: 4px; }
-
-    /* ── Quota row ── */
-    .eu-quota-row { display: flex; align-items: center; gap: 8px; }
-    .eu-quota-row .eu-input { width: 110px; flex-shrink: 0; }
-    .eu-select {
-        font-size: 13px;
-        font-family: inherit;
-        color: var(--eu-text);
-        background: var(--eu-card-bg);
-        border: 1px solid var(--eu-card-border);
-        border-radius: 6px;
-        padding: 5px 8px;
-        outline: none;
-        cursor: pointer;
-    }
-    .eu-select:focus { border-color: var(--eu-accent); }
+    /* ── Danger button variant (editUser-specific) ── */
+    .ued-btn.danger  { color: var(--ued-danger); border-color: var(--ued-danger); background: transparent; }
+    .ued-btn.danger:hover  { background: rgba(255,59,48,0.08); }
+    #eu-root.dark .ued-btn.danger:hover { background: rgba(255,69,58,0.13); }
 
     /* ── Group checkbox list ── */
     #eu-groups-list {
-        border: 1px solid var(--eu-divider);
+        border: 1px solid var(--ued-divider);
         border-radius: 8px;
         overflow: hidden;
     }
@@ -176,21 +25,21 @@
         align-items: center;
         gap: 10px;
         padding: 7px 12px;
-        border-bottom: 1px solid var(--eu-divider);
+        border-bottom: 1px solid var(--ued-divider);
         cursor: pointer;
         transition: background 0.08s;
         user-select: none;
     }
     .eu-group-item:last-child { border-bottom: none; }
-    .eu-group-item:hover { background: var(--eu-hover); }
+    .eu-group-item:hover { background: var(--ued-hover); }
     .eu-group-cb {
         width: 15px;
         height: 15px;
-        accent-color: var(--eu-accent);
+        accent-color: var(--ued-accent);
         flex-shrink: 0;
         cursor: pointer;
     }
-    .eu-group-name { font-size: 13px; font-weight: 500; color: var(--eu-text); }
+    .eu-group-name { font-size: 13px; font-weight: 500; color: var(--ued-text); }
 
     /* ── Permission preview table ── */
     .eu-perm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -200,88 +49,61 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: var(--eu-muted);
+        color: var(--ued-muted);
         padding: 7px 14px;
-        border-bottom: 1px solid var(--eu-divider);
-        background: var(--eu-card-bg);
+        border-bottom: 1px solid var(--ued-divider);
+        background: var(--ued-card-bg);
     }
     .eu-perm-table td {
         padding: 8px 14px;
-        border-bottom: 1px solid var(--eu-divider);
-        color: var(--eu-text);
+        border-bottom: 1px solid var(--ued-divider);
+        color: var(--ued-text);
         vertical-align: top;
     }
     .eu-perm-table tbody tr:last-child td { border-bottom: none; }
-
-    /* ── Feedback banners ── */
-    .eu-banner {
-        margin: 0 12px 8px;
-        padding: 9px 14px;
-        border-radius: 8px;
-        font-size: 12.5px;
-        font-weight: 500;
-    }
-    .eu-banner.success {
-        background: rgba(52,199,89,0.12);
-        color: var(--eu-success);
-        border: 1px solid rgba(52,199,89,0.28);
-    }
-    .eu-banner.error {
-        background: rgba(255,59,48,0.10);
-        color: var(--eu-danger);
-        border: 1px solid rgba(255,59,48,0.22);
-    }
 
     /* ── Password reset result ── */
     #eu-pw-result {
         margin-top: 10px;
         padding: 10px 12px;
-        border: 1px solid var(--eu-divider);
+        border: 1px solid var(--ued-divider);
         border-radius: 8px;
-        background: var(--eu-card-bg);
+        background: var(--ued-card-bg);
     }
-    .eu-pw-label { font-size: 11.5px; color: var(--eu-muted); margin-bottom: 5px; }
-
-    /* ── Empty state ── */
-    .eu-empty {
-        text-align: center;
-        padding: 20px 16px;
-        color: var(--eu-muted);
-        font-size: 13px;
-    }
+    .eu-pw-label { font-size: 11.5px; color: var(--ued-muted); margin-bottom: 5px; }
     </style>
 </head>
 <body>
-<div id="eu-root">
-<div id="eu-topbar"></div>
-<div id="eu-page">
+<div id="eu-root" class="ued-root">
+<div class="ued-topbar"></div>
+<div class="ued-page">
 
     <!-- Feedback banners -->
-    <div id="eu-success" class="eu-banner success" style="display:none;" locale="edituser/msg-updated">Profile updated</div>
-    <div id="eu-error"   class="eu-banner error"   style="display:none;"><span id="eu-err-msg"></span></div>
+    <div id="eu-success" class="ued-banner success" locale="edituser/msg-updated">Profile updated</div>
+    <div id="eu-error"   class="ued-banner error"><span id="eu-err-msg"></span></div>
 
     <!-- Profile & Permissions -->
-    <div class="eu-section-label" locale="edituser/section-profile">Profile &amp; Permissions</div>
-    <div class="eu-card">
-        <div class="eu-field-row">
-            <div class="eu-field-label" locale="edituser/field-username">Username</div>
-            <div class="eu-field-body">
-                <input id="eu-username" class="eu-input" type="text" readonly>
+    <div class="ued-section-label" locale="edituser/section-profile">Profile &amp; Permissions</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="edituser/field-username">Username</div>
+            <div class="ued-field-body">
+                <input id="eu-username" class="ued-input" type="text" readonly>
             </div>
         </div>
-        <div class="eu-field-row" style="align-items:flex-start;">
-            <div class="eu-field-label" style="padding-top:8px;" locale="edituser/field-groups">Permission Groups</div>
-            <div class="eu-field-body">
+        <div class="ued-field-row" style="align-items:flex-start;">
+            <div class="ued-field-label" style="padding-top:8px;" locale="edituser/field-groups">Permission Groups</div>
+            <div class="ued-field-body">
                 <div id="eu-groups-list">
-                    <div class="eu-empty" locale="edituser/loading">Loading&hellip;</div>
+                    <div class="ued-empty" locale="edituser/loading">Loading&hellip;</div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Permissions Preview -->
-    <div class="eu-section-label" locale="edituser/section-perms">Permissions Preview</div>
-    <div class="eu-card" style="overflow-x:auto;">
+    <div class="ued-section-label" locale="edituser/section-perms">Permissions Preview</div>
+    <div class="ued-card" style="overflow-x:auto;">
         <table class="eu-perm-table">
             <thead><tr>
                 <th locale="edituser/col-group">Group</th>
@@ -289,20 +111,20 @@
                 <th locale="edituser/col-modules">Accessible Modules</th>
             </tr></thead>
             <tbody id="eu-perm-table-body">
-                <tr><td colspan="3" class="eu-empty" locale="edituser/no-groups-selected">No groups selected</td></tr>
+                <tr><td colspan="3" class="ued-empty" locale="edituser/no-groups-selected">No groups selected</td></tr>
             </tbody>
         </table>
     </div>
 
     <!-- Storage Quota -->
-    <div class="eu-section-label" locale="edituser/section-quota">Storage Quota</div>
-    <div class="eu-card">
-        <div class="eu-field-row">
-            <div class="eu-field-label" locale="edituser/field-quota">Quota</div>
-            <div class="eu-field-body">
-                <div class="eu-quota-row">
-                    <input id="eu-quota" class="eu-input" type="number" value="15">
-                    <select id="eu-unit" class="eu-select">
+    <div class="ued-section-label" locale="edituser/section-quota">Storage Quota</div>
+    <div class="ued-card">
+        <div class="ued-field-row">
+            <div class="ued-field-label" locale="edituser/field-quota">Quota</div>
+            <div class="ued-field-body">
+                <div class="ued-quota-row">
+                    <input id="eu-quota" class="ued-input" type="number" value="15">
+                    <select id="eu-unit" class="ued-select">
                         <option value="1">Bytes</option>
                         <option value="1024">KB</option>
                         <option value="1048576">MB</option>
@@ -311,19 +133,19 @@
                         <option value="1125899906842624">PB</option>
                     </select>
                 </div>
-                <div class="eu-input-hint" locale="edituser/quota-hint">Set to 0 for read-only, &minus;1 for unlimited</div>
+                <div class="ued-input-hint" locale="edituser/quota-hint">Set to 0 for read-only, &minus;1 for unlimited</div>
             </div>
         </div>
     </div>
 
     <!-- Password & Security -->
-    <div class="eu-section-label" locale="edituser/section-security">Password &amp; Security</div>
-    <div class="eu-card">
-        <div class="eu-field-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
-            <div style="font-size:12.5px;color:var(--eu-dim);line-height:1.5;" locale="edituser/reset-pw-desc">
+    <div class="ued-section-label" locale="edituser/section-security">Password &amp; Security</div>
+    <div class="ued-card">
+        <div class="ued-field-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+            <div style="font-size:12.5px;color:var(--ued-dim);line-height:1.5;" locale="edituser/reset-pw-desc">
                 A temporary password will be generated. Provide the reset link to the user to complete the password change.
             </div>
-            <button class="eu-btn danger" onclick="resetPassword(this)">
+            <button class="ued-btn danger" onclick="resetPassword(this)">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                     <path d="M10 6a4 4 0 1 1-1.17-2.83" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     <polyline points="10,1 10,4 7,4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -332,18 +154,18 @@
             </button>
             <div id="eu-pw-result" style="display:none;width:100%;">
                 <div class="eu-pw-label" locale="edituser/reset-link-hint">Provide this reset link to the user:</div>
-                <input id="eu-pw-link" class="eu-input" type="text" readonly onclick="this.select();">
+                <input id="eu-pw-link" class="ued-input" type="text" readonly onclick="this.select();">
             </div>
         </div>
     </div>
 
     <!-- Toolbar -->
-    <div id="eu-toolbar">
-        <div id="eu-btn-row">
-            <button class="eu-btn" onclick="euClose()">
+    <div class="ued-toolbar">
+        <div class="ued-btn-row">
+            <button class="ued-btn" onclick="euClose()">
                 <span locale="edituser/btn-close">Close</span>
             </button>
-            <button class="eu-btn primary" onclick="handleUserProfileUpdate(this)">
+            <button class="ued-btn primary" onclick="handleUserProfileUpdate(this)">
                 <span locale="edituser/btn-update">Update</span>
             </button>
         </div>
@@ -401,19 +223,17 @@
     /* ── Feedback helpers ── */
     function euShowSuccess() {
         var el = document.getElementById('eu-success');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 3000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 3000);
     }
 
     function euShowError(msg) {
         document.getElementById('eu-err-msg').textContent = msg || '';
         var el = document.getElementById('eu-error');
-        el.style.display = 'block';
+        el.classList.add('visible');
         clearTimeout(el._t);
-        el._t = setTimeout(function() { el.style.display = 'none'; }, 5000);
-        try { window.scrollTo(0, 0); } catch(e) {}
+        el._t = setTimeout(function() { el.classList.remove('visible'); }, 5000);
     }
 
     /* ── Close window (public-safe) ── */
@@ -446,7 +266,7 @@
         var container = document.getElementById('eu-groups-list');
         var keys = Object.keys(groupList);
         if (keys.length === 0) {
-            container.innerHTML = '<div class="eu-empty">' + euLocale.getString('edituser/no-groups', 'No groups available') + '</div>';
+            container.innerHTML = '<div class="ued-empty">' + euLocale.getString('edituser/no-groups', 'No groups available') + '</div>';
             return;
         }
         container.innerHTML = '';
@@ -478,7 +298,7 @@
         document.querySelectorAll('.eu-group-cb:checked').forEach(function(cb) { selected.push(cb.value); });
         if (selected.length === 0) {
             var msg = euLocale.getString('edituser/no-groups-selected', 'No groups selected');
-            tbody.innerHTML = '<tr><td colspan="3" class="eu-empty">' + msg + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="ued-empty">' + msg + '</td></tr>';
             return;
         }
         tbody.innerHTML = '';
@@ -488,16 +308,16 @@
             var isAdmin  = info[1];
             var modules  = Array.isArray(info[0]) ? info[0] : [];
             var adminHtml = isAdmin
-                ? '<svg width="13" height="13" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;"><path d="M2 6l3 3 5-5" stroke="var(--eu-accent)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-                : '<span style="color:var(--eu-muted);">&#8212;</span>';
+                ? '<svg width="13" height="13" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;"><path d="M2 6l3 3 5-5" stroke="var(--ued-accent)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+                : '<span style="color:var(--ued-muted);">&#8212;</span>';
             var modulesHtml = modules.length
-                ? modules.map(function(m) { return $('<span>').text(m).html(); }).join('<span style="color:var(--eu-muted);margin:0 2px;">/</span>')
-                : '<span style="color:var(--eu-muted);">&#8212;</span>';
+                ? modules.map(function(m) { return $('<span>').text(m).html(); }).join('<span style="color:var(--ued-muted);margin:0 2px;">/</span>')
+                : '<span style="color:var(--ued-muted);">&#8212;</span>';
             var tr = document.createElement('tr');
             tr.innerHTML =
                 '<td>' + $('<span>').text(gname).html() + '</td>' +
                 '<td>' + adminHtml + '</td>' +
-                '<td style="font-size:11.5px;color:var(--eu-dim);">' + modulesHtml + '</td>';
+                '<td style="font-size:11.5px;color:var(--ued-dim);">' + modulesHtml + '</td>';
             tbody.appendChild(tr);
         });
     }
@@ -641,11 +461,13 @@
     euLocale.init('../locale/system_settings/edituser.json', function() {
         euLocaleReady = true;
         euLocale.translate();
+        ao_module_setWindowTitle(euLocale.getString('edituser/title', 'Edit User'));
         initContents(function() { initGroupList(); });
     });
     /* Safety fallback: init without locale if JSON fails to load within 2 s */
     setTimeout(function() {
         if (!euLocaleReady) {
+            ao_module_setWindowTitle('Edit User');
             initContents(function() { initGroupList(); });
         }
     }, 2000);
