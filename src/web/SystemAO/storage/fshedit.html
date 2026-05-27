@@ -145,6 +145,7 @@
                         <div class="item" data-value="smb">SMB</div>
                         <div class="item" data-value="ftp">FTP</div>
                         <div class="item" data-value="sftp">SFTP</div>
+                        <div class="item" data-value="s3">S3 / S3-Compatible</div>
                     </div>
                 </div>
             </div>
@@ -168,15 +169,32 @@
             <div class="networkfs" style="display:none;">
                 <div class="ui divider"></div>
                 <p>Security and Authentication</p>
+
+                <!-- S3-specific path format and credential guide (shown only for s3 type) -->
+                <div class="s3hint" style="display:none;">
+                    <div class="ui info message" style="margin-bottom:1em;">
+                        <div class="header"><i class="cloud icon"></i> S3 / S3-Compatible Storage</div>
+                        <p><b>Path format:</b></p>
+                        <ul>
+                            <li><code>s3.amazonaws.com/my-bucket</code> &mdash; AWS S3</li>
+                            <li><code>s3.us-west-2.amazonaws.com/my-bucket/prefix</code> &mdash; AWS S3 with region &amp; prefix</li>
+                            <li><code>http://192.168.1.100:9000/my-bucket</code> &mdash; MinIO (local, no SSL)</li>
+                            <li><code>s3.wasabisys.com/my-bucket</code> &mdash; Wasabi</li>
+                            <li><code>&lt;account&gt;.r2.cloudflarestorage.com/my-bucket</code> &mdash; Cloudflare R2</li>
+                        </ul>
+                        <p>Prepend <code>http://</code> to disable SSL (e.g. local MinIO). HTTPS is used by default.</p>
+                    </div>
+                </div>
+
                 <div class="field">
-                    <label>Username</label>
-                    <input type="text" name="username" placeholder="">
+                    <label id="usernameLabel">Username</label>
+                    <input type="text" name="username" id="usernameInput" placeholder="">
                 </div>
                 <div class="field">
-                    <label>Password</label>
-                    <input type="password" name="password" placeholder="">
+                    <label id="passwordLabel">Password</label>
+                    <input type="password" name="password" id="passwordInput" placeholder="">
                 </div>
-                <small>Leave Username / Password field empty for using the old config</small>
+                <small id="authHint">Leave Username / Password field empty for using the old config</small>
                 <br><br>
             </div>
             <button class="ui right floated button" onclick='handleCancel();'>Cancel</button>
@@ -188,7 +206,12 @@
         //Get target fsh uuid and group from hash
         var targetFSH = "";
         var opr = "set";
-        $(".ui.dropdown").dropdown();
+        // Initialise all dropdowns; wire the filesystem-type dropdown to the
+        // change handler so the S3 / local-fs sections toggle correctly.
+        $(".ui.dropdown").not("#fstype").dropdown();
+        $("#fstype").dropdown({
+            onChange: function(value){ handleFileSystemTypeChange(value); }
+        });
         $(".ui.checkbox").checkbox();
 
         $(document).ready(function(){
@@ -269,11 +292,18 @@
 
         function checkPathProtocol(object){
             var newPath = $(object).val();
-            if (newPath.startsWith("http://") || newPath.startsWith("https://")){
-                //WebDAV
-                $("#fstype").dropdown("set selected", "webdav");
-                //newPath = newPath.replace("http://", "");
-                //newPath = newPath.replace("https://", "");
+            if (newPath.startsWith("s3://")){
+                //S3-compatible (strip scheme, keep endpoint/bucket/prefix)
+                $("#fstype").dropdown("set selected", "s3");
+                newPath = newPath.replace("s3://", "");
+                $(object).val(newPath);
+            }else if (newPath.startsWith("http://") || newPath.startsWith("https://")){
+                // Could be WebDAV or an explicit S3 endpoint with http(s):// scheme.
+                // Only auto-select WebDAV if S3 is not already chosen.
+                var currentFs = $("#fstype input[type=hidden]").val();
+                if (currentFs !== "s3"){
+                    $("#fstype").dropdown("set selected", "webdav");
+                }
                 $(object).val(newPath);
             }else if (newPath.startsWith("ftp://")){
                 //FTP
@@ -313,11 +343,30 @@
                 $(".localfs").show();
                 $(".networkfs").hide();
             }
+
+            // S3-specific credential labels and hint panel
+            if (fstype === "s3"){
+                $(".s3hint").show();
+                $("#usernameLabel").text("Access Key ID");
+                $("#passwordLabel").text("Secret Access Key");
+                $("#usernameInput").attr("placeholder", "e.g. AKIAIOSFODNN7EXAMPLE");
+                $("#passwordInput").attr("placeholder", "e.g. wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLE");
+                $("#authHint").text("Enter your S3 Access Key ID and Secret Access Key.");
+                $("input[name=path]").attr("placeholder", "e.g. s3.amazonaws.com/my-bucket or http://192.168.1.100:9000/my-bucket");
+            }else{
+                $(".s3hint").hide();
+                $("#usernameLabel").text("Username");
+                $("#passwordLabel").text("Password");
+                $("#usernameInput").attr("placeholder", "");
+                $("#passwordInput").attr("placeholder", "");
+                $("#authHint").text("Leave Username / Password field empty for using the old config");
+                $("input[name=path]").attr("placeholder", "e.g. /media/mydrive");
+            }
         }
 
         function isNetworkFs(name){
             name = name.trim();
-            if (name == "webdav" || name == "smb" || name == "ftp" || name == "sftp"){
+            if (name == "webdav" || name == "smb" || name == "ftp" || name == "sftp" || name == "s3"){
                 return true;
             }
             return false;
