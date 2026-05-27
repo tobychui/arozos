@@ -13,6 +13,9 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
+// statsTable is the BoltDB table used to persist endpoint execution statistics.
+const statsTable = "ext_agi_stats"
+
 // endpointFormat holds the owner and script path for a registered endpoint.
 type endpointFormat struct {
 	Username string `json:"username"`
@@ -21,11 +24,11 @@ type endpointFormat struct {
 
 // ExecLog holds the details of a single execution attempt.
 type ExecLog struct {
-	RequestID string `json:"request_id"`
-	Timestamp int64  `json:"timestamp"`
-	DurationMs int64 `json:"duration_ms"`
-	Method    string `json:"method"`
-	Message   string `json:"message"`
+	RequestID  string `json:"request_id"`
+	Timestamp  int64  `json:"timestamp"`
+	DurationMs int64  `json:"duration_ms"`
+	Method     string `json:"method"`
+	Message    string `json:"message"`
 }
 
 // EndpointStats tracks cumulative statistics for a single serverless endpoint.
@@ -42,21 +45,92 @@ type EndpointStats struct {
 	RecentFailed    []ExecLog `json:"recent_failed"`
 }
 
-// recordExecution updates in-memory stats for the given endpoint UUID after one
-// execution. It is safe to call from multiple goroutines.
+// ── DB helpers ────────────────────────────────────────────────────────────────
+
+// ensureStatsTable creates the stats DB table if it does not yet exist.
+func (g *Gateway) ensureStatsTable() {
+	sysdb := g.Option.UserHandler.GetDatabase()
+	if !sysdb.TableExists(statsTable) {
+		sysdb.NewTable(statsTable)
+	}
+}
+
+// loadStatsFromDB reads persisted EndpointStats for one UUID from BoltDB.
+// Returns nil when no record exists or the data cannot be parsed.
+// Must NOT be called while holding g.statsMux.
+func (g *Gateway) loadStatsFromDB(endpointUUID string) *EndpointStats {
+	sysdb := g.Option.UserHandler.GetDatabase()
+	if !sysdb.TableExists(statsTable) {
+		return nil
+	}
+	if !sysdb.KeyExists(statsTable, endpointUUID) {
+		return nil
+	}
+	// The DB stores values as JSON-encoded strings; Read() decodes one layer.
+	rawJSON := ""
+	if err := sysdb.Read(statsTable, endpointUUID, &rawJSON); err != nil {
+		return nil
+	}
+	var s EndpointStats
+	if err := json.Unmarshal([]byte(rawJSON), &s); err != nil {
+		return nil
+	}
+	// Ensure slice fields are never nil (avoids JSON "null" in responses).
+	if s.RecentSuccess == nil {
+		s.RecentSuccess = []ExecLog{}
+	}
+	if s.RecentFailed == nil {
+		s.RecentFailed = []ExecLog{}
+	}
+	return &s
+}
+
+// saveStatsToDB persists the pre-marshalled stats JSON for one endpoint.
+// Must NOT be called while holding g.statsMux (to avoid lock contention on I/O).
+func (g *Gateway) saveStatsToDB(endpointUUID string, jsonBytes []byte) {
+	g.ensureStatsTable()
+	sysdb := g.Option.UserHandler.GetDatabase()
+	sysdb.Write(statsTable, endpointUUID, string(jsonBytes))
+}
+
+// deleteStatsFromDB removes persisted stats for one endpoint.
+func (g *Gateway) deleteStatsFromDB(endpointUUID string) {
+	sysdb := g.Option.UserHandler.GetDatabase()
+	if sysdb.TableExists(statsTable) {
+		sysdb.Delete(statsTable, endpointUUID)
+	}
+}
+
+// ── Core execution tracking ───────────────────────────────────────────────────
+
+// recordExecution updates in-memory stats for endpointUUID after one execution
+// and then persists them to BoltDB. Safe for concurrent use.
 func (g *Gateway) recordExecution(endpointUUID, path, requestID, method string, durationMs int64, execErr error) {
 	g.statsMux.Lock()
-	defer g.statsMux.Unlock()
 
 	stats, exists := g.endpointStats[endpointUUID]
 	if !exists {
-		stats = &EndpointStats{
-			UUID:          endpointUUID,
-			Path:          path,
-			RecentSuccess: []ExecLog{},
-			RecentFailed:  []ExecLog{},
+		// Cold-start: try to restore from the database before creating a blank entry.
+		// loadStatsFromDB must be called without the lock (it doesn't touch the map),
+		// but here we release and re-acquire to keep the load outside the lock window.
+		g.statsMux.Unlock()
+		loaded := g.loadStatsFromDB(endpointUUID)
+		g.statsMux.Lock()
+
+		// Re-check in case another goroutine populated it while we were loading.
+		if stats, exists = g.endpointStats[endpointUUID]; !exists {
+			if loaded != nil {
+				stats = loaded
+			} else {
+				stats = &EndpointStats{
+					UUID:          endpointUUID,
+					Path:          path,
+					RecentSuccess: []ExecLog{},
+					RecentFailed:  []ExecLog{},
+				}
+			}
+			g.endpointStats[endpointUUID] = stats
 		}
-		g.endpointStats[endpointUUID] = stats
 	}
 
 	stats.TotalExecutions++
@@ -74,7 +148,6 @@ func (g *Gateway) recordExecution(endpointUUID, path, requestID, method string, 
 	if execErr != nil {
 		stats.FailedExecs++
 		entry.Message = execErr.Error()
-		// Prepend and keep last 10
 		stats.RecentFailed = append([]ExecLog{entry}, stats.RecentFailed...)
 		if len(stats.RecentFailed) > 10 {
 			stats.RecentFailed = stats.RecentFailed[:10]
@@ -82,13 +155,22 @@ func (g *Gateway) recordExecution(endpointUUID, path, requestID, method string, 
 	} else {
 		stats.SuccessfulExecs++
 		entry.Message = "Execution successful"
-		// Prepend and keep last 10
 		stats.RecentSuccess = append([]ExecLog{entry}, stats.RecentSuccess...)
 		if len(stats.RecentSuccess) > 10 {
 			stats.RecentSuccess = stats.RecentSuccess[:10]
 		}
 	}
+
+	// Marshal while still holding the lock so we capture a consistent snapshot.
+	jsonBytes, _ := json.Marshal(stats)
+
+	g.statsMux.Unlock()
+
+	// DB write outside the lock to avoid holding it during I/O.
+	g.saveStatsToDB(endpointUUID, jsonBytes)
 }
+
+// ── HTTP handlers ─────────────────────────────────────────────────────────────
 
 // ExtAPIHandler handles incoming requests from external services via
 // /api/remote/{UUID}.
@@ -135,7 +217,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Assign a unique request ID for log tracing
+	// Assign a unique request ID for log tracing.
 	requestID := uuid.NewV4().String()
 	start := time.Now()
 
@@ -187,7 +269,8 @@ func (g *Gateway) AddExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, "\""+id+"\"")
 }
 
-// RemoveExternalEndPoint deletes a registered endpoint by UUID.
+// RemoveExternalEndPoint deletes a registered endpoint by UUID, including its
+// persisted statistics.
 func (g *Gateway) RemoveExternalEndPoint(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -217,9 +300,11 @@ func (g *Gateway) RemoveExternalEndPoint(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Remove endpoint record and its persisted stats.
 	sysdb.Delete("external_agi", endpointUUID)
+	g.deleteStatsFromDB(endpointUUID)
 
-	// Also clean up in-memory stats for this endpoint
+	// Clean up in-memory cache.
 	g.statsMux.Lock()
 	delete(g.endpointStats, endpointUUID)
 	g.statsMux.Unlock()
@@ -267,8 +352,9 @@ func (g *Gateway) ListExternalEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetEndpointStats returns execution statistics for all endpoints owned by the
-// current user. Endpoints that have never been called are included with zeroed
-// counters so the UI always has a complete picture.
+// current user.  For each endpoint the server checks the in-memory cache first;
+// on a cache miss it loads from BoltDB so that stats survive process restarts.
+// Endpoints that have never been called are included with zeroed counters.
 func (g *Gateway) GetEndpointStats(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := g.Option.UserHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -288,33 +374,53 @@ func (g *Gateway) GetEndpointStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.statsMux.RLock()
-	defer g.statsMux.RUnlock()
-
-	result := make(map[string]*EndpointStats)
+	// Collect the UUIDs that belong to this user before touching the lock.
+	type epEntry struct {
+		uuid string
+		path string
+	}
+	var userEndpoints []epEntry
 	for _, keypairs := range entries {
-		var dataFromResult endpointFormat
+		var ep endpointFormat
 		rawJSON := ""
 		endpointUUID := string(keypairs[0])
 		json.Unmarshal(keypairs[1], &rawJSON)
-		json.Unmarshal([]byte(rawJSON), &dataFromResult)
-
-		if dataFromResult.Username != userInfo.Username {
-			continue
+		json.Unmarshal([]byte(rawJSON), &ep)
+		if ep.Username == userInfo.Username {
+			userEndpoints = append(userEndpoints, epEntry{endpointUUID, ep.Path})
 		}
+	}
 
-		if stats, exists := g.endpointStats[endpointUUID]; exists {
-			result[endpointUUID] = stats
+	// For each endpoint: serve from memory, fall back to DB, or return zeros.
+	// We use a write lock because a DB-load may populate the memory cache.
+	g.statsMux.Lock()
+	result := make(map[string]*EndpointStats, len(userEndpoints))
+	for _, ep := range userEndpoints {
+		if stats, exists := g.endpointStats[ep.uuid]; exists {
+			result[ep.uuid] = stats
 		} else {
-			// Endpoint exists but has never been called — return empty stats
-			result[endpointUUID] = &EndpointStats{
-				UUID:          endpointUUID,
-				Path:          dataFromResult.Path,
-				RecentSuccess: []ExecLog{},
-				RecentFailed:  []ExecLog{},
+			// Not in memory — try the database.
+			g.statsMux.Unlock()
+			dbStats := g.loadStatsFromDB(ep.uuid)
+			g.statsMux.Lock()
+
+			// Re-check after re-acquiring the lock.
+			if stats, exists = g.endpointStats[ep.uuid]; exists {
+				result[ep.uuid] = stats
+			} else if dbStats != nil {
+				g.endpointStats[ep.uuid] = dbStats
+				result[ep.uuid] = dbStats
+			} else {
+				result[ep.uuid] = &EndpointStats{
+					UUID:          ep.uuid,
+					Path:          ep.path,
+					RecentSuccess: []ExecLog{},
+					RecentFailed:  []ExecLog{},
+				}
 			}
 		}
 	}
+	g.statsMux.Unlock()
 
 	returnJson, err := json.Marshal(result)
 	if err != nil {

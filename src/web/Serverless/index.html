@@ -846,12 +846,13 @@ function updateGlobalStats() {
 function renderEndpointCard(uuid, path, stats) {
     document.getElementById('ep-empty').style.display = 'none';
 
-    var total   = stats.total_executions   || 0;
-    var ok      = stats.successful_executions || 0;
-    var fail    = stats.failed_executions  || 0;
-    var avgMs   = stats.avg_exec_time_ms   || 0;
-    var rate    = total ? Math.round(ok/total*100) : 0;
-    var apiURL  = tokenAccessPath + uuid;
+    var total    = stats.total_executions      || 0;
+    var ok       = stats.successful_executions || 0;
+    var fail     = stats.failed_executions     || 0;
+    var avgMs    = stats.avg_exec_time_ms      || 0;
+    var rate     = total ? Math.round(ok/total*100)   : 0;
+    var failRate = total ? Math.round(fail/total*100) : 0;
+    var apiURL   = tokenAccessPath + uuid;
 
     // remove if already exists (refresh)
     var old = document.getElementById('ep-' + uuid);
@@ -901,10 +902,14 @@ function renderEndpointCard(uuid, path, stats) {
                 </div>
             </div>
             <div class="ep-bar-row">
-                <div class="ep-bar-wrap">
-                    <div class="ep-bar-fill success" style="width:${rate}%"></div>
+                <div class="ep-bar-wrap" style="display:flex;gap:1px;">
+                    <div class="ep-bar-fill success" style="width:${rate}%;border-radius:${(rate>0&&failRate>0)?'99px 0 0 99px':'99px'};"></div>
+                    <div class="ep-bar-fill danger"  style="width:${failRate}%;border-radius:${(rate>0&&failRate>0)?'0 99px 99px 0':'99px'};"></div>
                 </div>
-                <span style="font-size:11px;color:var(--text-3);min-width:30px;">${rate}%</span>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:5px;font-size:11px;">
+                <span style="color:var(--success);">● ${rate}% success</span>
+                <span style="color:var(--danger);">● ${failRate}% failed</span>
             </div>
             <div class="ep-last">Last called: ${timeSince(stats.last_executed_at)}</div>
         </div>
