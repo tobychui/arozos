@@ -1,0 +1,21 @@
+/*
+    Movie App Register Script
+*/
+
+var moduleLaunchInfo = {
+    Name: "Movie",
+    Desc: "Apple TV-style movie & TV series player for ArOZ Online",
+    Group: "Media",
+    IconPath: "Movie/img/module_icon.png",
+    Version: "1.0.0",
+    StartDir: "Movie/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Movie/index.html",
+    SupportEmb: false,
+    LaunchEmb: "Movie/index.html",
+    InitFWSize: [1280, 800],
+    InitEmbSize: [1280, 800],
+    SupportedExt: [".mp4", ".webm", ".ogg", ".mkv", ".avi", ".mov", ".m4v", ".wmv", ".flv", ".rmvb", ".ts"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));
