@@ -1,8 +1,18 @@
 package csrf
 
 import (
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"imuslab.com/arozos/mod/auth"
+	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/permission"
+	"imuslab.com/arozos/mod/storage"
+	"imuslab.com/arozos/mod/user"
 )
 
 // NewTokenManager accepts a nil *user.UserHandler because it only stores the
@@ -117,5 +127,97 @@ func TestClearExpiredTokens(t *testing.T) {
 	m.Range(func(_, _ interface{}) bool { count++; return true })
 	if count != 0 {
 		t.Errorf("expected 0 tokens after ClearExpiredTokens, got %d", count)
+	}
+}
+
+// newHandlerTestTokenManager builds a real TokenManager with a minimal
+// (but functional) UserHandler backed by a temp-dir database.  The returned
+// cleanup function must be called when the test is done.
+func newHandlerTestTokenManager(t *testing.T) (*TokenManager, func()) {
+	t.Helper()
+	tmpDir := t.TempDir()
+
+	sysdb, err := db.NewDatabase(tmpDir+"/system.db", false)
+	if err != nil {
+		t.Fatalf("NewDatabase: %v", err)
+	}
+
+	// authlogger creates ./system/auth/ relative to cwd; redirect to tmpDir
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+
+	authAgent := auth.NewAuthenticationAgent("test", []byte("test-secret"), sysdb, false, nil)
+
+	ph, err := permission.NewPermissionHandler(sysdb)
+	if err != nil {
+		t.Fatalf("NewPermissionHandler: %v", err)
+	}
+
+	sp, _ := storage.NewStoragePool(nil, "system")
+
+	uh, err := user.NewUserHandler(sysdb, authAgent, ph, sp, nil)
+	if err != nil {
+		t.Fatalf("NewUserHandler: %v", err)
+	}
+
+	tm := NewTokenManager(uh, 300)
+
+	cleanup := func() {
+		sysdb.Close()
+		os.Chdir(origDir)
+	}
+	return tm, cleanup
+}
+
+// TestHandleNewToken_Unauthorized verifies that an unauthenticated request
+// to HandleNewToken returns HTTP 401.
+func TestHandleNewToken_Unauthorized(t *testing.T) {
+	tm, cleanup := newHandlerTestTokenManager(t)
+	defer cleanup()
+
+	req := httptest.NewRequest("GET", "/csrf/new", nil)
+	w := httptest.NewRecorder()
+	tm.HandleNewToken(w, req)
+
+	if w.Code != 401 {
+		t.Errorf("expected HTTP 401, got %d", w.Code)
+	}
+}
+
+// TestHandleTokenValidation_Unauthorized verifies that HandleTokenValidation
+// returns false when the request is not authenticated.
+func TestHandleTokenValidation_Unauthorized(t *testing.T) {
+	tm, cleanup := newHandlerTestTokenManager(t)
+	defer cleanup()
+
+	form := url.Values{"csrft": {"sometoken"}}
+	req := httptest.NewRequest("POST", "/csrf/validate",
+		strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	result := tm.HandleTokenValidation(w, req)
+	if result != false {
+		t.Error("expected false for unauthenticated request")
+	}
+}
+
+// TestHandleTokenValidation_EmptyToken verifies that HandleTokenValidation
+// returns false when no token is provided (authenticated but missing csrft).
+// This exercises the empty-token branch in HandleTokenValidation.
+func TestHandleTokenValidation_EmptyToken(t *testing.T) {
+	tm, cleanup := newHandlerTestTokenManager(t)
+	defer cleanup()
+
+	// POST without any csrft parameter — auth will fail first, returning false
+	req := httptest.NewRequest("POST", "/csrf/validate", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	result := tm.HandleTokenValidation(w, req)
+	if result != false {
+		t.Error("expected false when csrft parameter is missing")
 	}
 }

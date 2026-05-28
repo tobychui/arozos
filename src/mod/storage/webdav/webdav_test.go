@@ -3,6 +3,8 @@ package webdav
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -189,5 +191,193 @@ func TestMv_MissingKey(t *testing.T) {
 	_, err := mv(req, "missing", false)
 	if err == nil {
 		t.Error("expected error for missing GET parameter")
+	}
+}
+
+func TestMv_PostMode(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodPost, "/", strings.NewReader("foo=bar"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	val, err := mv(req, "foo", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != "bar" {
+		t.Errorf("expected 'bar', got %q", val)
+	}
+}
+
+func TestMv_PostMode_MissingKey(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodPost, "/", strings.NewReader("other=value"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	_, err := mv(req, "missing", true)
+	if err == nil {
+		t.Error("expected error for missing POST parameter")
+	}
+}
+
+func TestSendTextResponse(t *testing.T) {
+	w := httptest.NewRecorder()
+	sendTextResponse(w, "hello world")
+	if w.Body.String() != "hello world" {
+		t.Errorf("expected 'hello world', got %q", w.Body.String())
+	}
+}
+
+func TestSendJSONResponse(t *testing.T) {
+	w := httptest.NewRecorder()
+	sendJSONResponse(w, `{"key":"value"}`)
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Error("expected Content-Type: application/json")
+	}
+	if w.Body.String() != `{"key":"value"}` {
+		t.Errorf("unexpected body: %q", w.Body.String())
+	}
+}
+
+func TestSendErrorResponse(t *testing.T) {
+	w := httptest.NewRecorder()
+	sendErrorResponse(w, "something went wrong")
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Error("expected Content-Type: application/json")
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "something went wrong") {
+		t.Errorf("expected error message in body, got %q", body)
+	}
+	if !strings.Contains(body, "error") {
+		t.Errorf("expected 'error' key in body, got %q", body)
+	}
+}
+
+func TestSendOK(t *testing.T) {
+	w := httptest.NewRecorder()
+	sendOK(w)
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Error("expected Content-Type: application/json")
+	}
+	if w.Body.String() != `"OK"` {
+		t.Errorf("expected '\"OK\"', got %q", w.Body.String())
+	}
+}
+
+func TestLoadImageAsBase64_NotExists(t *testing.T) {
+	_, err := loadImageAsBase64("/this/does/not/exist.png")
+	if err == nil {
+		t.Error("expected error for non-existent file")
+	}
+}
+
+func TestLoadImageAsBase64_ValidFile(t *testing.T) {
+	// Create a temp file with some content
+	f, err := os.CreateTemp("", "testimg*.txt")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(f.Name())
+	f.Write([]byte("test image data"))
+	f.Close()
+
+	encoded, err := loadImageAsBase64(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if encoded == "" {
+		t.Error("expected non-empty base64 string")
+	}
+}
+
+func TestGetIP_XRealIP(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-REAL-IP", "1.2.3.4")
+
+	ip, err := getIP(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip != "1.2.3.4" {
+		t.Errorf("expected '1.2.3.4', got %q", ip)
+	}
+}
+
+func TestGetIP_XForwardedFor(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-FORWARDED-FOR", "5.6.7.8, 9.10.11.12")
+
+	ip, err := getIP(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip != "5.6.7.8" {
+		t.Errorf("expected '5.6.7.8', got %q", ip)
+	}
+}
+
+func TestGetIP_RemoteAddr(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.1:1234"
+
+	ip, err := getIP(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip != "10.0.0.1" {
+		t.Errorf("expected '10.0.0.1', got %q", ip)
+	}
+}
+
+func TestGetIP_Invalid(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "invalid-addr"
+
+	_, err := getIP(req)
+	if err == nil {
+		t.Error("expected error for invalid RemoteAddr")
+	}
+}
+
+func TestHandleRequest_NoBasicAuth(t *testing.T) {
+	s := newTestServer()
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/user/file.txt", nil)
+	w := httptest.NewRecorder()
+	s.HandleRequest(w, req)
+
+	// Without basic auth, should get 401 Unauthorized
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for no basic auth, got %d", w.Code)
+	}
+	wwwAuth := w.Header().Get("WWW-Authenticate")
+	if wwwAuth == "" {
+		t.Error("expected WWW-Authenticate header to be set")
+	}
+}
+
+func TestHandleRequest_EmptyVroot(t *testing.T) {
+	s := newTestServer()
+
+	// Path like /webdav// has empty segment after stripping
+	req := httptest.NewRequest(http.MethodGet, "/webdav//", nil)
+	w := httptest.NewRecorder()
+	s.HandleRequest(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for empty vroot, got %d", w.Code)
+	}
+}
+
+func TestHandleConnectionList_Empty(t *testing.T) {
+	s := newTestServer()
+
+	req := httptest.NewRequest(http.MethodGet, "/webdav/connections", nil)
+	w := httptest.NewRecorder()
+	s.HandleConnectionList(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 OK, got %d", w.Code)
+	}
+	body := w.Body.String()
+	// Should return empty JSON array
+	if !strings.Contains(body, "[") {
+		t.Errorf("expected JSON array in response, got %q", body)
 	}
 }

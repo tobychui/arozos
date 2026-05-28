@@ -126,3 +126,125 @@ func TestInSlice(t *testing.T) {
 // Ensure the package can be imported and os/filepath are usable (compile check).
 var _ = os.DevNull
 var _ = filepath.Separator
+
+// ----- IsQuotaInitialized -----
+
+func TestIsQuotaInitialized_True(t *testing.T) {
+	database := openTempDB(t)
+	// NewUserQuotaHandler writes a quota entry, so it should be initialized
+	qh := NewUserQuotaHandler(database, "inituser", []*fs.FileSystemHandler{}, 1024)
+	if !qh.IsQuotaInitialized() {
+		t.Error("expected IsQuotaInitialized=true for a freshly created handler")
+	}
+}
+
+func TestIsQuotaInitialized_FalseAfterRemoval(t *testing.T) {
+	database := openTempDB(t)
+	qh := NewUserQuotaHandler(database, "removeuser", []*fs.FileSystemHandler{}, 512)
+	qh.RemoveUserQuota()
+	if qh.IsQuotaInitialized() {
+		t.Error("expected IsQuotaInitialized=false after quota removal")
+	}
+}
+
+// ----- UpdateUserStoragePool -----
+
+func TestUpdateUserStoragePool(t *testing.T) {
+	database := openTempDB(t)
+	qh := NewUserQuotaHandler(database, "pooluser", []*fs.FileSystemHandler{}, 2048)
+
+	// Initial pool is empty
+	if len(qh.fspool) != 0 {
+		t.Fatalf("expected initial fspool length 0, got %d", len(qh.fspool))
+	}
+
+	// Update to a new (still empty) pool — confirms the method doesn't panic
+	newPool := []*fs.FileSystemHandler{}
+	qh.UpdateUserStoragePool(newPool)
+
+	if len(qh.fspool) != 0 {
+		t.Errorf("expected fspool length 0 after update, got %d", len(qh.fspool))
+	}
+}
+
+func TestUpdateUserStoragePool_QuotaCalculationAfterUpdate(t *testing.T) {
+	database := openTempDB(t)
+	qh := NewUserQuotaHandler(database, "calcuser", []*fs.FileSystemHandler{}, 4096)
+
+	// Replace pool with nil and recalculate — should not panic and keep quota at 0
+	qh.UpdateUserStoragePool([]*fs.FileSystemHandler{})
+	qh.CalculateQuotaUsage()
+
+	if qh.UsedStorageQuota != 0 {
+		t.Errorf("expected 0 used quota after update with empty pool, got %d", qh.UsedStorageQuota)
+	}
+}
+
+// TestCalculateQuotaUsage_WithUserHierarchy tests the quota walk on a real directory tree.
+func TestCalculateQuotaUsage_WithUserHierarchy(t *testing.T) {
+	database := openTempDB(t)
+
+	// Create a temp filesystem root that mimics a "user" hierarchy.
+	root := t.TempDir()
+	username := "walkuser"
+	userDir := filepath.Join(root, "users", username)
+	if err := os.MkdirAll(userDir, 0755); err != nil {
+		t.Fatalf("failed to create user dir: %v", err)
+	}
+
+	// Write two files with known sizes.
+	if err := os.WriteFile(filepath.Join(userDir, "a.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatalf("write a.txt: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(userDir, "b.txt"), []byte("world!"), 0644); err != nil {
+		t.Fatalf("write b.txt: %v", err)
+	}
+
+	// Build a minimal FileSystemHandler with Hierarchy="user" pointing to root.
+	fsh := &fs.FileSystemHandler{
+		Hierarchy: "user",
+		Path:      root,
+	}
+
+	qh := NewUserQuotaHandler(database, username, []*fs.FileSystemHandler{fsh}, 1<<20)
+	// CalculateQuotaUsage is called inside NewUserQuotaHandler; check it found the files.
+	if qh.UsedStorageQuota != 11 { // "hello"=5, "world!"=6
+		t.Errorf("expected UsedStorageQuota=11, got %d", qh.UsedStorageQuota)
+	}
+}
+
+// TestCalculateQuotaUsage_NonExistentUserDir verifies that a user dir that
+// doesn't exist inside the hierarchy is gracefully skipped.
+func TestCalculateQuotaUsage_NonExistentUserDir(t *testing.T) {
+	database := openTempDB(t)
+
+	root := t.TempDir()
+	// Do NOT create users/<username> — verify it is skipped without error.
+	fsh := &fs.FileSystemHandler{
+		Hierarchy: "user",
+		Path:      root,
+	}
+
+	qh := NewUserQuotaHandler(database, "ghost", []*fs.FileSystemHandler{fsh}, 1<<20)
+	if qh.UsedStorageQuota != 0 {
+		t.Errorf("expected 0 for missing user dir, got %d", qh.UsedStorageQuota)
+	}
+}
+
+// TestCalculateQuotaUsage_NonUserHierarchy confirms that handlers with a
+// hierarchy other than "user" do not contribute to quota.
+func TestCalculateQuotaUsage_NonUserHierarchy(t *testing.T) {
+	database := openTempDB(t)
+
+	root := t.TempDir()
+	// Hierarchy is "public" — should be ignored.
+	fsh := &fs.FileSystemHandler{
+		Hierarchy: "public",
+		Path:      root,
+	}
+
+	qh := NewUserQuotaHandler(database, "pubuser", []*fs.FileSystemHandler{fsh}, 1<<20)
+	if qh.UsedStorageQuota != 0 {
+		t.Errorf("expected 0 for non-user hierarchy, got %d", qh.UsedStorageQuota)
+	}
+}

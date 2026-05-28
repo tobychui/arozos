@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -305,5 +308,134 @@ func TestReturnFormat_Marshal(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"timezone"`) {
 		t.Errorf("expected 'timezone' key in JSON output, got: %s", data)
+	}
+}
+
+// setupFakeTimedatectl creates a temporary directory with a fake timedatectl
+// binary that outputs "Timezone=America/Los_Angeles\n", injects it into PATH,
+// and returns a cleanup function.  Only used on Linux.
+func setupFakeTimedatectl(t *testing.T) (cleanup func()) {
+	t.Helper()
+	if runtime.GOOS != "linux" {
+		return func() {}
+	}
+
+	dir := t.TempDir()
+	fakeBin := filepath.Join(dir, "timedatectl")
+	script := "#!/bin/sh\necho 'Timezone=America/Los_Angeles'\n"
+	if err := os.WriteFile(fakeBin, []byte(script), 0755); err != nil {
+		t.Fatalf("failed to write fake timedatectl: %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", dir+string(os.PathListSeparator)+oldPath)
+	return func() {
+		os.Setenv("PATH", oldPath)
+	}
+}
+
+// verifyFakeTimedatectl checks that the fake binary is picked up by exec.LookPath.
+func verifyFakeTimedatectl(t *testing.T) bool {
+	t.Helper()
+	p, err := exec.LookPath("timedatectl")
+	if err != nil {
+		return false
+	}
+	cmd := exec.Command(p, "show", "-p", "Timezone")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), "=")
+}
+
+// TestShowTime_WithFakeTimedatectl exercises ShowTime on Linux using a fake
+// timedatectl that produces valid output, covering the returnFormat creation,
+// json.Marshal and utils.SendJSONResponse lines.
+func TestShowTime_WithFakeTimedatectl(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-only test")
+	}
+
+	cleanup := setupFakeTimedatectl(t)
+	defer cleanup()
+
+	if !verifyFakeTimedatectl(t) {
+		t.Skip("fake timedatectl not reachable in PATH")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/time/show", nil)
+	rr := httptest.NewRecorder()
+	ShowTime(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rr.Code)
+	}
+
+	body := rr.Body.String()
+	if !json.Valid([]byte(body)) {
+		t.Errorf("expected valid JSON, got: %q", body)
+	}
+}
+
+// TestShowTime_ResponseFields_WithFake verifies the JSON fields when
+// timedatectl output is valid.
+func TestShowTime_ResponseFields_WithFake(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-only test")
+	}
+
+	cleanup := setupFakeTimedatectl(t)
+	defer cleanup()
+
+	if !verifyFakeTimedatectl(t) {
+		t.Skip("fake timedatectl not reachable in PATH")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/time/show", nil)
+	rr := httptest.NewRecorder()
+	ShowTime(rr, req)
+
+	body := rr.Body.String()
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if _, ok := result["time"]; !ok {
+		t.Error("expected 'time' field in response")
+	}
+	if _, ok := result["timezone"]; !ok {
+		t.Error("expected 'timezone' field in response")
+	}
+}
+
+// TestShowTime_TimezoneValue_WithFake confirms that the timezone value comes
+// from the fake timedatectl output.
+func TestShowTime_TimezoneValue_WithFake(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-only test")
+	}
+
+	cleanup := setupFakeTimedatectl(t)
+	defer cleanup()
+
+	if !verifyFakeTimedatectl(t) {
+		t.Skip("fake timedatectl not reachable in PATH")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/time/show", nil)
+	rr := httptest.NewRecorder()
+	ShowTime(rr, req)
+
+	body := rr.Body.String()
+	var rf returnFormat
+	if err := json.Unmarshal([]byte(body), &rf); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	// The fake timedatectl outputs "Timezone=America/Los_Angeles\n"
+	// After SplitN("Timezone=America/Los_Angeles\n","=",2)[1] we get "America/Los_Angeles\n"
+	if !strings.Contains(rf.Timezone, "America/Los_Angeles") {
+		t.Errorf("expected 'America/Los_Angeles' in timezone, got %q", rf.Timezone)
 	}
 }

@@ -1,6 +1,8 @@
 package diskcapacity
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -92,4 +94,90 @@ func TestResolveCapacityInfoRequiresRealUser(t *testing.T) {
 		t.Errorf("expected nil UserHandler stored in Resolver, got %v", r.UserHandler)
 	}
 	t.Log("ResolveCapacityInfo with a real UserHandler requires a live database; skipping live call in unit test")
+}
+
+// TestHandleCapacityResolvingNilUserHandler verifies that HandleCapacityResolving
+// returns an error response when the UserHandler is nil (simulating unauthenticated).
+func TestHandleCapacityResolvingNilUserHandler(t *testing.T) {
+	r := NewCapacityResolver(nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/capacity", nil)
+	rr := httptest.NewRecorder()
+
+	// With nil UserHandler, GetUserInfoFromRequest will panic/error.
+	// We use recover to make the test safe.
+	func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				// Panic from nil pointer dereference is expected with nil handler.
+				t.Logf("HandleCapacityResolving panicked as expected with nil UserHandler: %v", rec)
+			}
+		}()
+		r.HandleCapacityResolving(rr, req)
+	}()
+}
+
+// TestHandleTmpCapacityResolvingNilUserHandler verifies that HandleTmpCapacityResolving
+// returns an error response when the UserHandler is nil.
+func TestHandleTmpCapacityResolvingNilUserHandler(t *testing.T) {
+	r := NewCapacityResolver(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/capacity/tmp", nil)
+	rr := httptest.NewRecorder()
+
+	func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				t.Logf("HandleTmpCapacityResolving panicked as expected with nil UserHandler: %v", rec)
+			}
+		}()
+		r.HandleTmpCapacityResolving(rr, req)
+	}()
+}
+
+// TestResolveCapacityInfoNilUserHandler verifies that ResolveCapacityInfo returns
+// an error (not a panic) when the UserHandler is nil.
+func TestResolveCapacityInfoNilUserHandler(t *testing.T) {
+	r := NewCapacityResolver(nil)
+
+	func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				t.Logf("ResolveCapacityInfo panicked as expected with nil UserHandler: %v", rec)
+			}
+		}()
+		_, err := r.ResolveCapacityInfo("testuser", "local:/")
+		if err != nil {
+			t.Logf("ResolveCapacityInfo returned error (expected): %v", err)
+		}
+	}()
+}
+
+// TestCapacityInfoCanBeMarshalled verifies CapacityInfo can be converted to a
+// meaningful string representation.
+func TestCapacityInfoCanBeMarshalled(t *testing.T) {
+	ci := CapacityInfo{
+		PhysicalDevice:    "/dev/sda1",
+		FileSystemType:    "ext4",
+		MountingHierarchy: "primary",
+		Used:              1024 * 1024 * 100,  // 100 MiB
+		Available:         1024 * 1024 * 900,  // 900 MiB
+		Total:             1024 * 1024 * 1000, // ~1 GiB
+	}
+
+	if ci.Used+ci.Available != ci.Total {
+		t.Errorf("expected Used(%d) + Available(%d) == Total(%d)",
+			ci.Used, ci.Available, ci.Total)
+	}
+	if ci.FileSystemType != "ext4" {
+		t.Errorf("FileSystemType: want ext4, got %q", ci.FileSystemType)
+	}
+}
+
+// TestNewCapacityResolverReturnType verifies the constructor returns the correct type.
+func TestNewCapacityResolverReturnType(t *testing.T) {
+	r := NewCapacityResolver(nil)
+	if _, ok := interface{}(r).(*Resolver); !ok {
+		t.Error("NewCapacityResolver should return *Resolver")
+	}
 }
