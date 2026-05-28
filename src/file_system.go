@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"hash/crc32"
 	"io"
 	"io/fs"
 	"log"
@@ -498,6 +499,16 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	totalFileSize := int64(0)
+
+	// Full-file CRC32 hasher (IEEE polynomial, matches JS crc32Table implementation)
+	fileCRC32Hasher := crc32.NewIEEE()
+
+	// Per-chunk state machine:
+	// The client sends a text metadata frame {"index":N,"checksum":"hex"} before each binary frame.
+	var pendingChunkIndex int
+	var pendingChunkChecksum string
+	expectingBinary := false
+
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
@@ -510,20 +521,89 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			} else {
 				os.RemoveAll(uploadFolder)
 			}
-
 			return
 		}
-		//The mt should be 2 = binary for file upload and 1 for control syntax
+
 		if mt == 1 {
-			msg := strings.TrimSpace(string(message))
-			if msg == "done" {
-				//Start the merging process
-				break
+			// Text frame – either chunk metadata or done signal
+			textMsg := strings.TrimSpace(string(message))
+
+			if !expectingBinary {
+				// Check if this is the done signal
+				var doneSignal struct {
+					Done         bool   `json:"done"`
+					TotalChunks  int    `json:"totalChunks"`
+					FileChecksum string `json:"fileChecksum"`
+				}
+				if jsonErr := json.Unmarshal([]byte(textMsg), &doneSignal); jsonErr == nil && doneSignal.Done {
+					// Verify the full-file CRC32 before merging
+					if doneSignal.FileChecksum != "" {
+						computedSum := fileCRC32Hasher.Sum32()
+						computedSumBytes := []byte{byte(computedSum >> 24), byte(computedSum >> 16), byte(computedSum >> 8), byte(computedSum)}
+						computedHex := hex.EncodeToString(computedSumBytes)
+						if doneSignal.FileChecksum != computedHex {
+							systemWideLogger.PrintAndLog("File System", "Upload file checksum mismatch: client="+doneSignal.FileChecksum+" server="+computedHex, nil)
+							c.WriteMessage(1, []byte(`{"error":"File integrity check failed: full-file checksum mismatch"}`))
+							c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
+							time.Sleep(1 * time.Second)
+							c.Close()
+							if isHugeFile {
+								fshAbs.RemoveAll(uploadFolder)
+							} else {
+								os.RemoveAll(uploadFolder)
+							}
+							return
+						}
+					}
+					// Checksum verified – proceed to merge
+					break
+				}
+
+				// Parse as chunk metadata
+				var meta struct {
+					Index    int    `json:"index"`
+					Checksum string `json:"checksum"`
+				}
+				if jsonErr := json.Unmarshal([]byte(textMsg), &meta); jsonErr != nil {
+					systemWideLogger.PrintAndLog("File System", "Invalid chunk metadata received: "+textMsg, jsonErr)
+					continue
+				}
+				pendingChunkIndex = meta.Index
+				pendingChunkChecksum = meta.Checksum
+				expectingBinary = true
 			}
+
 		} else if mt == 2 {
-			//File block. Save it to tmp folder
-			chunkFilepath := filepath.Join(uploadFolder, "upld_"+strconv.Itoa(blockCounter))
-			chunkName = append(chunkName, chunkFilepath)
+			// Binary frame – the chunk data that follows a metadata frame
+			if !expectingBinary {
+				systemWideLogger.PrintAndLog("File System", "Received binary chunk without preceding metadata, ignoring", nil)
+				continue
+			}
+			expectingBinary = false
+
+			// Verify chunk CRC32
+			chunkSum := crc32.ChecksumIEEE(message)
+			chunkSumBytes := []byte{byte(chunkSum >> 24), byte(chunkSum >> 16), byte(chunkSum >> 8), byte(chunkSum)}
+			chunkHex := hex.EncodeToString(chunkSumBytes)
+			if pendingChunkChecksum != "" && pendingChunkChecksum != chunkHex {
+				// CRC32 mismatch – ask the client to re-send this chunk
+				systemWideLogger.PrintAndLog("File System", "Chunk "+strconv.Itoa(pendingChunkIndex)+" CRC32 mismatch: expected "+pendingChunkChecksum+" got "+chunkHex, nil)
+				retryMsg, _ := json.Marshal(map[string]int{"retryChunk": pendingChunkIndex})
+				c.WriteMessage(1, retryMsg)
+				// Reset state; client will re-send the metadata+binary for this chunk
+				continue
+			}
+
+			// Chunk verified – write to tmp folder.
+			// Use pendingChunkIndex as the canonical filename so that a retry overwrites
+			// the previous (corrupted) attempt rather than creating a duplicate entry.
+			chunkFilepath := filepath.Join(uploadFolder, "upld_"+strconv.Itoa(pendingChunkIndex))
+			if pendingChunkIndex == blockCounter {
+				// First time this chunk index is successfully received
+				chunkName = append(chunkName, chunkFilepath)
+				blockCounter++
+			}
+
 			var writeErr error
 			if isHugeFile {
 				writeErr = fshAbs.WriteFile(chunkFilepath, message, 0700)
@@ -532,16 +612,11 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if writeErr != nil {
-				//Unable to write block. Is the tmp folder fulled?
-				systemWideLogger.PrintAndLog("File System", "Upload chunk write failed: "+err.Error(), err)
-				c.WriteMessage(1, []byte(`{\"error\":\"Write file chunk to disk failed\"}`))
-
-				//Close the connection
+				systemWideLogger.PrintAndLog("File System", "Upload chunk write failed: "+writeErr.Error(), writeErr)
+				c.WriteMessage(1, []byte(`{"error":"Write file chunk to disk failed"}`))
 				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 				time.Sleep(1 * time.Second)
 				c.Close()
-
-				//Clear the tmp files
 				if isHugeFile {
 					fshAbs.RemoveAll(uploadFolder)
 				} else {
@@ -550,22 +625,18 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			//Update the last upload chunk time
-			lastChunkArrivalTime = time.Now().Unix()
+			// Update running full-file CRC32 with the verified chunk data
+			fileCRC32Hasher.Write(message)
 
-			//Check if the file size is too big
+			// Update timing and quota tracking
+			lastChunkArrivalTime = time.Now().Unix()
 			totalFileSize += int64(len(message))
 
 			if totalFileSize > max_upload_size {
-				//File too big
-				c.WriteMessage(1, []byte(`{\"error\":\"File size too large\"}`))
-
-				//Close the connection
+				c.WriteMessage(1, []byte(`{"error":"File size too large"}`))
 				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 				time.Sleep(1 * time.Second)
 				c.Close()
-
-				//Clear the tmp files
 				if isHugeFile {
 					fshAbs.RemoveAll(uploadFolder)
 				} else {
@@ -573,28 +644,21 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 				}
 				return
 			} else if !userinfo.StorageQuota.HaveSpace(totalFileSize) {
-				//Quota exceeded
-				c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
-
-				//Close the connection
+				c.WriteMessage(1, []byte(`{"error":"User Storage Quota Exceeded"}`))
 				c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 				time.Sleep(1 * time.Second)
 				c.Close()
-
-				//Clear the tmp files
 				if isHugeFile {
 					fshAbs.RemoveAll(uploadFolder)
 				} else {
 					os.RemoveAll(uploadFolder)
 				}
+				return
 			}
-			blockCounter++
 
-			//Request client to send the next chunk
+			// Acknowledge the chunk; client will send the next metadata+binary pair
 			c.WriteMessage(1, []byte("next"))
-
 		}
-		//systemWideLogger.PrintAndLog("File System", ("recv:", len(message), "type", mt)
 	}
 
 	//Try to decode the location if possible
@@ -621,7 +685,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		systemWideLogger.PrintAndLog("File System", "Failed to open file:"+err.Error(), err)
-		c.WriteMessage(1, []byte(`{\"error\":\"Failed to open destination file\"}`))
+		c.WriteMessage(1, []byte(`{"error":"Failed to open destination file"}`))
 		c.WriteControl(8, []byte{}, time.Now().Add(time.Second))
 		time.Sleep(1 * time.Second)
 		c.Close()
@@ -638,7 +702,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to open Source Chunk"+filesrc+" with error "+err.Error(), err)
-			c.WriteMessage(1, []byte(`{\"error\":\"Failed to open Source Chunk\"}`))
+			c.WriteMessage(1, []byte(`{"error":"Failed to open Source Chunk"}`))
 			return
 		}
 
@@ -655,7 +719,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 
 		//Write to websocket for the percentage of upload is written fro tmp to dest
 		moveProg := strconv.Itoa(int(math.Round(float64(counter)/float64(len(chunkName))*100))) + "%"
-		c.WriteMessage(1, []byte(`{\"move\":\"`+moveProg+`"}`))
+		c.WriteMessage(1, []byte(`{"move":"`+moveProg+`"}`))
 	}
 
 	out.Close()
@@ -671,11 +735,11 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Could not obtain stat, handle error
 		systemWideLogger.PrintAndLog("File System", "Failed to validate uploaded file: "+mergeFileLocation+". Error Message: "+err.Error(), err)
-		c.WriteMessage(1, []byte(`{\"error\":\"Failed to validate uploaded file\"}`))
+		c.WriteMessage(1, []byte(`{"error":"Failed to validate uploaded file"}`))
 		return
 	}
 	if !userinfo.StorageQuota.HaveSpace(fi.Size()) {
-		c.WriteMessage(1, []byte(`{\"error\":\"User Storage Quota Exceeded\"}`))
+		c.WriteMessage(1, []byte(`{"error":"User Storage Quota Exceeded"}`))
 		if fsh.RequireBuffer {
 			os.RemoveAll(mergeFileLocation)
 		} else {
@@ -690,7 +754,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		f, err := os.Open(mergeFileLocation)
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to open buffered file at "+mergeFileLocation+" with error "+err.Error(), err)
-			c.WriteMessage(1, []byte(`{\"error\":\"Failed to open buffered object\"}`))
+			c.WriteMessage(1, []byte(`{"error":"Failed to open buffered object"}`))
 			f.Close()
 			return
 		}
@@ -698,7 +762,7 @@ func system_fs_handleLowMemoryUpload(w http.ResponseWriter, r *http.Request) {
 		err = fsh.FileSystemAbstraction.WriteStream(decodedUploadLocation, f, 0775)
 		if err != nil {
 			systemWideLogger.PrintAndLog("File System", "Failed to write to file system: "+fsh.UUID+" with error "+err.Error(), err)
-			c.WriteMessage(1, []byte(`{\"error\":\"Failed to upload to remote file system\"}`))
+			c.WriteMessage(1, []byte(`{"error":"Failed to upload to remote file system"}`))
 			f.Close()
 			return
 		}
@@ -1425,7 +1489,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 
 	//Send over the oprId for this file operation for tracking
 	time.Sleep(300 * time.Millisecond)
-	c.WriteMessage(1, []byte("{\"oprid\":\""+oprId+"\"}"))
+	c.WriteMessage(1, []byte(`{"oprid":"`+oprId+`"}`))
 
 	type ProgressUpdate struct {
 		LatestFile string
@@ -2228,7 +2292,7 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 		result := ""
 		err := sysdb.Read("fs", "pref/"+key+"/"+username, &result)
 		if err != nil {
-			utils.SendJSONResponse(w, "{\"error\":\"Key not found.\"}")
+			utils.SendJSONResponse(w, `{"error":"Key not found."}`)
 			return
 		}
 		utils.SendTextResponse(w, result)

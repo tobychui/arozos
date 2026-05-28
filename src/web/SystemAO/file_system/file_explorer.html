@@ -506,7 +506,6 @@
             <div class="uploadList" id="uploadProgressList">
               
             </div>
-            <br>
         </div>
 
         <!-- Confirm Exit -->
@@ -573,10 +572,34 @@
             let uploadingFileCount = 0;
             let maxConcurrentUpload = 4; //Maxmium number of oncurrent upload
             let uploadPendingList = []; //Upload pending queue for mass upoad
+            let uploadRetryMap = new Map(); //taskUUID -> {file, targetDir} for WebSocket upload retry
             let lowMemoryMode = true;   //Upload with low memory mode channel
             let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
             let uploadFileChunkSize = 1024 * 512; //512KB, 4MB not working quite well on slow network
             let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
+            const CHUNK_TIMEOUT_MS = 30000; //30s timeout waiting for server "next" ack before retrying a chunk
+            const MAX_CHUNK_RETRIES = 3;    //Maximum retries per individual chunk before failing the upload
+
+            //CRC32 lookup table and helpers for chunk/file integrity verification
+            const crc32Table = (() => {
+                const t = new Uint32Array(256);
+                for (let i = 0; i < 256; i++) {
+                    let c = i;
+                    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                    t[i] = c;
+                }
+                return t;
+            })();
+            //Update a running CRC32 state with new bytes (does not finalize)
+            function crc32UpdateState(state, bytes) {
+                for (let i = 0; i < bytes.length; i++)
+                    state = (state >>> 8) ^ crc32Table[(state ^ bytes[i]) & 0xFF];
+                return state;
+            }
+            //Compute standalone CRC32 of a Uint8Array and return hex string
+            function crc32Hex(bytes) {
+                return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+            }
 
             //File Sharing related
             let shareEditingObject = "";
@@ -4711,23 +4734,88 @@
 
                 let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + encodeURIComponent(filename) + "&path=" + encodeURIComponent(uploadDir) + hugeFileMode);
                 let currentSendingIndex = 0;
-                let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
-                
-                //Define a function for sending a particular chunk
-                function sendChunk(id){
-                    var offsetStart = id*uploadFileChunkSize;
-                    var offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
-                    var thisblob = file.slice(offsetStart,offsetEnd);
-                    socket.send(thisblob);
-                    //console.log(id + "/" + chunks);
+                let chunks = Math.ceil(file.size/uploadFileChunkSize);
 
-                    //Update progress to first percentage
-                    var progress = id / (chunks-1) * 100.0;
-                    if (progress > 100){
-                        progress = 100;
+                // Per-chunk retry state
+                let chunkRetryCount = 0;
+                let chunkTimeoutTimer = null;
+
+                // Running CRC32 state across all chunks for full-file checksum
+                // Initialized to 0xFFFFFFFF (pre-conditioning), finalized with XOR at the end
+                let runningCRC32State = 0xFFFFFFFF;
+                // Track which chunk indices have already been factored into the running state
+                // so that retries do not corrupt the full-file CRC32
+                let chunkCRC32Committed = {};
+
+                // Store file reference in retry map so the user can retry on failure
+                uploadRetryMap.set(taskUUID, {file: file, targetDir: JSON.parse(JSON.stringify(uploadDir))});
+
+                // Mark an upload task as failed and reveal the retry button
+                function markUploadFailed(tUUID) {
+                    clearTimeout(chunkTimeoutTimer);
+                    $(".uploadTask").each(function(){
+                        if ($(this).attr("taskID") == tUUID){
+                            $(this).find(".bar").css("width","100%");
+                            $(this).find(".progress:not(.percentage)").attr("class","ui tiny error progress");
+                            $(this).find(".uploadTaskRemoveIcon").show();
+                            $(this).find(".uploadTaskRetryBtn").show();
+                            $(this).addClass("ended");
+                            $(this).find(".progress.percentage").hide();
+                        }
+                    });
+                }
+
+                // Send a specific chunk by index.
+                // Reads the slice as ArrayBuffer, computes CRC32, sends metadata then binary.
+                // Sets a CHUNK_TIMEOUT_MS timer; on expiry retries up to MAX_CHUNK_RETRIES times.
+                async function sendChunk(id) {
+                    var offsetStart = id * uploadFileChunkSize;
+                    var offsetEnd   = id * uploadFileChunkSize + uploadFileChunkSize;
+                    var thisblob = file.slice(offsetStart, offsetEnd);
+
+                    let arrayBuffer;
+                    try {
+                        arrayBuffer = await thisblob.arrayBuffer();
+                    } catch(e) {
+                        console.error("[Upload] Failed to read chunk " + id + ": " + e);
+                        markUploadFailed(taskUUID);
+                        return;
                     }
-                    updateProgressForWebSocketUpload(taskUUID, progress)
-                    
+
+                    let bytes = new Uint8Array(arrayBuffer);
+
+                    // Update the running full-file CRC32 only on the first attempt for each
+                    // chunk index so that retries do not double-count the bytes
+                    if (!chunkCRC32Committed[id]) {
+                        runningCRC32State = crc32UpdateState(runningCRC32State, bytes);
+                        chunkCRC32Committed[id] = true;
+                    }
+
+                    // Compute a standalone CRC32 for this chunk for transmission verification
+                    let chunkCRCHex = crc32Hex(bytes);
+
+                    // Protocol: text metadata frame, then binary data frame
+                    socket.send(JSON.stringify({index: id, checksum: chunkCRCHex}));
+                    socket.send(arrayBuffer);
+
+                    // Update progress (cap at 95% to leave room for the merge phase)
+                    var progress = chunks <= 1 ? 50 : (id / (chunks - 1) * 95.0);
+                    if (progress > 95) progress = 95;
+                    updateProgressForWebSocketUpload(taskUUID, progress);
+
+                    // (Re)start the per-chunk acknowledgement timeout
+                    clearTimeout(chunkTimeoutTimer);
+                    chunkTimeoutTimer = setTimeout(function() {
+                        if (chunkRetryCount < MAX_CHUNK_RETRIES) {
+                            chunkRetryCount++;
+                            console.warn("[Upload] Chunk " + id + " ACK timeout – retry " + chunkRetryCount + "/" + MAX_CHUNK_RETRIES);
+                            sendChunk(id);
+                        } else {
+                            console.error("[Upload] Chunk " + id + " failed after " + MAX_CHUNK_RETRIES + " retries");
+                            markUploadFailed(taskUUID);
+                            socket.close();
+                        }
+                    }, CHUNK_TIMEOUT_MS);
                 }
 
                 //Update all UI elements
@@ -4737,37 +4825,42 @@
                     if ($(this).attr("taskID") == taskUUID){
                         //This is the target upload task object. Hide its close button
                         $(this).find(".uploadTaskRemoveIcon").hide();
+                        $(this).find(".uploadTaskRetryBtn").hide();
                     }
                 });
 
                 //Start sending
-                socket.onopen = function(e) {
+                socket.onopen = async function(e) {
                     if (filesize < uploadFileChunkSize){
-                        //This file is smaller than chunk size, set it to somwhere within 10% - 20% so it doesn't look like it is stuck
-                        updateProgressForWebSocketUpload(taskUUID, 10 +  Math.floor(Math.random() * Math.floor(10)))
+                        //This file is smaller than chunk size, set it to somewhere within 10% - 20% so it doesn't look like it is stuck
+                        updateProgressForWebSocketUpload(taskUUID, 10 + Math.floor(Math.random() * 10));
                     }
-                    
                     //Send the first chunk
-                    sendChunk(0);
-                    currentSendingIndex++;
+                    await sendChunk(0);
+                    currentSendingIndex = 1;
                 };
 
-                socket.onmessage = function(event) {
-                    //Append to the send index
+                socket.onmessage = async function(event) {
                     var incomingValue = event.data;
 
                     if (incomingValue == "next"){
-                        if (currentSendingIndex == chunks + 1){
-                            //Already finished
-                            socket.send("done");
+                        // Server acknowledged the last chunk; clear timeout and reset retry counter
+                        clearTimeout(chunkTimeoutTimer);
+                        chunkRetryCount = 0;
+
+                        if (currentSendingIndex >= chunks){
+                            // All chunks sent and acknowledged – send done + full-file checksum
+                            let finalCRC32Hex = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+                            socket.send(JSON.stringify({done: true, totalChunks: chunks, fileChecksum: finalCRC32Hex}));
                         }else{
                             //Send next chunk
-                            sendChunk(currentSendingIndex);
+                            await sendChunk(currentSendingIndex);
                             currentSendingIndex++;
                         }
-                      
+
                     }else if (incomingValue == "OK"){
-                        //Merge completed
+                        //Merge completed successfully
+                        uploadRetryMap.delete(taskUUID);
                         $(".uploadTask").each(function(){
                             if ($(this).attr("taskID") == taskUUID){
                                 //Update this progress bar to completed
@@ -4775,39 +4868,36 @@
                                 $(this).find(".progress:not(.percentage)").attr("class", "ui tiny success progress");
                                 $(this).find(".progress.percentage").hide();
                                 $(this).find(".uploadTaskRemoveIcon").show();
+                                $(this).find(".uploadTaskRetryBtn").hide();
                                 $(this).addClass("ended");
-                               
-                                
                                 $.when($(this).delay(1000).fadeOut("fast")).then(function(){
                                     $(this).remove();
                                     updateUploadFileCount();
                                 });
-                                
                             }
                         });
                     }else{
                         //Try to parse it as JSON
                         try{
-                            var resp = JSON.parse(incomingValue.split('\\' + '"').join("\""));
-                            //console.log(resp);
+                            var resp = JSON.parse(incomingValue);
                             if (resp.error !== undefined){
-                                //This is an error message
-                                msgbox("red remove",resp.error);
-
-                                //Update the progress bar to error
-                                $(".uploadTask").each(function(){
-                                    if ($(this).attr("taskID") == taskUUID){
-                                        //Update this progress bar to completed
-                                        $(this).find(".bar").css("width","100%");
-                                        $(this).find(".progress:not(.percentage)").attr("class","ui tiny error progress");
-                                        $(this).find(".uploadTaskRemoveIcon").show();
-                                        $(this).addClass("ended");
-                                        $(this).find(".progress.percentage").hide();
-                                    }
-                                });
+                                //Server reported an error
+                                msgbox("red remove", resp.error);
+                                markUploadFailed(taskUUID);
+                            }else if (resp.retryChunk !== undefined){
+                                // Server detected a CRC32 mismatch and requests a chunk re-send
+                                clearTimeout(chunkTimeoutTimer);
+                                if (chunkRetryCount < MAX_CHUNK_RETRIES){
+                                    chunkRetryCount++;
+                                    console.warn("[Upload] Server requested retry for chunk " + resp.retryChunk + " (CRC32 mismatch) – retry " + chunkRetryCount + "/" + MAX_CHUNK_RETRIES);
+                                    await sendChunk(resp.retryChunk);
+                                } else {
+                                    console.error("[Upload] Chunk " + resp.retryChunk + " CRC32 mismatch after max retries");
+                                    markUploadFailed(taskUUID);
+                                    socket.close();
+                                }
                             }else if (resp.move !== undefined){
-                                //File move from tmp to archive progress
-                                //Update the progress bar to show move progress
+                                //File move from tmp to archive – show progress
                                 $(".uploadTask").each(function(){
                                     if ($(this).attr("taskID") == taskUUID){
                                         $(this).find(".bar").css("width","100%");
@@ -4826,9 +4916,10 @@
                 };
 
                 socket.onclose = function(event) {
+                    clearTimeout(chunkTimeoutTimer);
                     uploadingFileCount--;
                     updateUploadFileCount();
-                     //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
+                    //After the previous file has uploaded / errored, check if there are another file needed to be uploaded
                     setTimeout(function(){
                         if (uploadPendingList.length > 0){
                             let nextFile = uploadPendingList.shift();
@@ -4838,19 +4929,9 @@
                 };
 
                 socket.onerror = function(error) {
-                    console.log(error.message);
-                    console.log("Unable to open WebSocket connection. Fall back to FORM POST upload mode. (Check your nginx / reverse proxy settings!!!)")
-                    //Try to fallback to FORM POST upload mode
-                    lowMemoryMode = false;
-                   
-                    uploadPendingList.push({
-                        File: file,
-                        UUID: taskUUID,
-                        TargetDir: JSON.parse(JSON.stringify(targetDir)),
-                    });
-                    
-                   
-                    return
+                    console.error("[Upload] WebSocket error:", error);
+                    // Mark the task as failed and show the retry button
+                    markUploadFailed(taskUUID);
                 };
 
             }else{
@@ -5221,11 +5302,35 @@
                         <div class="progress percentage"></div>
                     </div>
                 </div>
+                <div class="uploadTaskRetryBtn" onclick="retryUploadFile('${newuuid}');" style="display:none; cursor:pointer; float:left; margin-right:4px;" title="Retry upload">
+                    <i class="redo icon"></i>
+                </div>
                 <div class="uploadTaskRemoveIcon" onclick="removeThisTask(this, '${newuuid}');" style="">
                     <i class="remove icon"></i>
                 </div>
             </div>`);
             return newuuid;
+        }
+
+        function retryUploadFile(taskUUID){
+            let retryInfo = uploadRetryMap.get(taskUUID);
+            if (!retryInfo){
+                console.warn("[Upload] No retry info found for task " + taskUUID);
+                return;
+            }
+            // Reset the task UI back to pending state
+            $(".uploadTask").each(function(){
+                if ($(this).attr("taskID") == taskUUID){
+                    $(this).removeClass("ended");
+                    $(this).find(".bar").css("width","0%");
+                    $(this).find(".progress:not(.percentage)").attr("class","ui small themed progress");
+                    $(this).find(".progress.percentage").text("").show();
+                    $(this).find(".uploadTaskRetryBtn").hide();
+                    $(this).find(".uploadTaskRemoveIcon").hide();
+                }
+            });
+            // Re-queue the file for upload using the same task UUID
+            uploadFile(retryInfo.file, taskUUID, retryInfo.targetDir);
         }
 
         function removeThisTask(object, taskUUID){

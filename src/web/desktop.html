@@ -1500,6 +1500,27 @@
         let uploadFileChunkSize = 1024 * 512; //512KB per chunk in low memory upload
         let largeFileCutoffSize = 8192 * 1024 * 1024; //Any file larger than this size is consider "large file", default to 8GB
         let postUploadModeCutoff = 25 * 1048576; //25MB, files smaller than this will upload using POST Mode
+        const CHUNK_TIMEOUT_MS = 30000; //30s to wait for server ack before retrying a chunk
+        const MAX_CHUNK_RETRIES = 3;    //Maximum per-chunk retries before marking the upload failed
+
+        //CRC32 lookup table and helpers (IEEE polynomial, matches Go's hash/crc32 package)
+        const crc32Table = (() => {
+            const t = new Uint32Array(256);
+            for (let i = 0; i < 256; i++) {
+                let c = i;
+                for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                t[i] = c;
+            }
+            return t;
+        })();
+        function crc32UpdateState(state, bytes) {
+            for (let i = 0; i < bytes.length; i++)
+                state = (state >>> 8) ^ crc32Table[(state ^ bytes[i]) & 0xFF];
+            return state;
+        }
+        function crc32Hex(bytes) {
+            return ((crc32UpdateState(0xFFFFFFFF, bytes) ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+        }
 
         //Others
         var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -2184,8 +2205,16 @@
                 let hoverOffset = [event.pageX - $(this).offset().left, event.pageY - $(this).offset().top];
                 if (hoverOffset[1] <= 3 && !$(this).parent().hasClass("fixedsize")){
                     $(this).addClass("resizbleCursor");
+                    if (hoverOffset[0] < 15) {
+                        $(this).css("cursor", "nw-resize");
+                    } else if (hoverOffset[0] > $(this).parent().width() - 15) {
+                        $(this).css("cursor", "ne-resize");
+                    } else {
+                        $(this).css("cursor", "");
+                    }
                 }else{
                     $(this).removeClass("resizbleCursor");
+                    $(this).css("cursor", "");
                 }
             });
             $(".fwdragger").off("mouseup").on("mouseup", function(evt) {
@@ -2238,6 +2267,11 @@
             });
 
             $(".closetoggle").off("touchstart").on("touchstart",function(evt){
+                // If touch is within the 3px top-edge zone, let fwdragger handle corner resize
+                var fwTop = $(this).closest(".floatWindow").offset().top;
+                if (evt.pageY - fwTop <= 3 && !$(this).closest(".floatWindow").hasClass("fixedsize")) {
+                    return;
+                }
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 closeFloatWindow(this,evt);
@@ -2269,10 +2303,29 @@
             });
 
             $(".closetoggle").off("mousedown").on("mousedown",function(evt){
+                // If the click lands in the 10px top-edge zone, let the event bubble to
+                // fwdragger so it can detect and start a top-corner resize instead
+                var fwTop = $(this).closest(".floatWindow").offset().top;
+                if (resizingWindow && evt.pageY - fwTop <= 10 && !$(this).closest(".floatWindow").hasClass("fixedsize")) {
+                    return;
+                }
                 evt.preventDefault();
                 evt.stopImmediatePropagation();
                 closeFloatWindow(this,evt);
             });
+
+            
+            $(".closetoggle").off("mouseup").on("mouseup",function(evt){
+                // If the mouse up lands in the 10px top-edge zone, let the event bubble to
+                // fwdragger so it can detect and start a top-corner resize instead
+                var fwTop = $(this).closest(".floatWindow").offset().top;
+                if (resizingWindow && evt.pageY - fwTop <= 10 && !$(this).closest(".floatWindow").hasClass("fixedsize")) {
+                    // Stop resizing and restore cursor to default if mouse up on close button while resizing from top edge
+                    mainWindowMouseup(evt);
+                    return;
+                }
+            });
+            
 
             $(".dockleft").off("mousedown").on("mousedown",function(evt){
                 evt.preventDefault();
@@ -2612,6 +2665,30 @@
                         "top": posY - 2,
                         "height": Math.max(newHeight,minHeight),
                     });
+                } else if (resizingEdgeID == 7){
+                    // Top-left corner: resize height from top + width from left
+                    var newHeight = $(object).height() - (posY - $(object).offset().top) + 2;
+                    var newWidth = $(object).offset().left - posX + $(object).width();
+                    var newLeft = posX;
+                    if (newWidth < minxWidth) {
+                        newLeft = $(object).offset().left + $(object).width() - minxWidth;
+                        newWidth = minxWidth;
+                    }
+                    $(object).css({
+                        "top": posY - 2,
+                        "height": Math.max(newHeight, minHeight),
+                        "left": newLeft,
+                        "width": newWidth
+                    });
+                } else if (resizingEdgeID == 8){
+                    // Top-right corner: resize height from top + width from right
+                    var newHeight = $(object).height() - (posY - $(object).offset().top) + 2;
+                    var newWidth = posX - $(object).offset().left + 2;
+                    $(object).css({
+                        "top": posY - 2,
+                        "height": Math.max(newHeight, minHeight),
+                        "width": Math.max(newWidth, minxWidth)
+                    });
                 }
             }
         }
@@ -2717,10 +2794,18 @@
             //Get the relative click offset of the down event
             clickDownOffset = [event.pageX - $(object).offset().left, event.pageY - $(object).offset().top];
             if (clickDownOffset[1] <= 3 && !$(object).hasClass("fixedsize")){
-                //Resizing Top Edge
+                //Resizing Top Edge (with corner detection)
                 resizingWindow = true;
                 resizingWindowTarget = $(object);
-                resizingEdgeID = 6;
+                if (clickDownOffset[0] < 10) {
+                    resizingEdgeID = 7; // top-left corner
+                    $("#fwdragpanel, #tfwdragpanel").css("cursor", "nw-resize");
+                } else if (clickDownOffset[0] > $(object).width() - 10) {
+                    resizingEdgeID = 8; // top-right corner
+                    $("#fwdragpanel, #tfwdragpanel").css("cursor", "ne-resize");
+                } else {
+                    resizingEdgeID = 6; // top edge
+                }
             }else{
                 //Moving Window
                 movingWindow = true;
@@ -2774,7 +2859,7 @@
 
                 $(object).css("left", event.pageX - clickDownOffset[0]);
                 $(object).css("top", event.pageY - clickDownOffset[1]);
-            } else if (resizingWindow && resizingEdgeID == 6){
+            } else if (resizingWindow && (resizingEdgeID == 6 || resizingEdgeID == 7 || resizingEdgeID == 8)){
                 resizeMove($(object), event);
             }
         }
@@ -3730,7 +3815,6 @@
 
         $("body").on("mouseup", function(evt) {
             mainWindowMouseup(evt);
-
         });
         $("body").on("touchend", function(evt) {
             mainWindowMouseup(evt);
@@ -3756,6 +3840,7 @@
                 resizingEdgeID = 0;
                 $("#fwdragpanel").hide();
                 $("#tfwdragpanel").hide();
+                $("#fwdragpanel, #tfwdragpanel").css("cursor", "");
                 $('.floatWindow.topmost').css("pointer-events", "auto");
                 $('.floatWindow.topmost').css("opacity", 1);
                 $(resizingWindowTarget).find(".iframecover").hide();
@@ -6882,88 +6967,131 @@
 
                 let socket = new WebSocket(protocol + window.location.hostname + ":" + port + "/system/file_system/lowmemUpload?filename=" + filename + "&path=" + uploadDir + hugeFileMode);
                 let currentSendingIndex = 0;
-                let chunks = Math.ceil(file.size/uploadFileChunkSize,uploadFileChunkSize);
-                
-                //Define a function for sending a particular chunk
-                function sendChunk(id, uploadingIconUUID){
-                    let offsetStart = id*uploadFileChunkSize;
-                    let offsetEnd = id*uploadFileChunkSize + uploadFileChunkSize;
-                    let thisblob = file.slice(offsetStart,offsetEnd);
-                    socket.send(thisblob);
-                    //console.log(id + "/" + chunks);
+                let chunks = Math.ceil(file.size/uploadFileChunkSize);
 
-                    //Update progress to first percentage
-                    let progress = id / (chunks-1) * 100.0;
-                    if (progress > 100){
-                        progress = 100;
+                // Per-chunk retry state
+                let chunkRetryCount = 0;
+                let chunkTimeoutTimer = null;
+
+                // Running CRC32 state across all chunks for full-file checksum
+                let runningCRC32State = 0xFFFFFFFF;
+                let chunkCRC32Committed = {};
+
+                async function sendChunk(id) {
+                    let offsetStart = id * uploadFileChunkSize;
+                    let offsetEnd   = id * uploadFileChunkSize + uploadFileChunkSize;
+                    let arrayBuffer;
+                    try {
+                        arrayBuffer = await file.slice(offsetStart, offsetEnd).arrayBuffer();
+                    } catch(e) {
+                        console.error("[Desktop Upload] Failed to read chunk " + id + ": " + e);
+                        return;
                     }
 
+                    let bytes = new Uint8Array(arrayBuffer);
 
+                    // Update running full-file CRC32 only on first attempt for each chunk
+                    if (!chunkCRC32Committed[id]) {
+                        runningCRC32State = crc32UpdateState(runningCRC32State, bytes);
+                        chunkCRC32Committed[id] = true;
+                    }
+
+                    let chunkCRCHex = crc32Hex(bytes);
+
+                    // Send metadata frame then binary frame
+                    socket.send(JSON.stringify({index: id, checksum: chunkCRCHex}));
+                    socket.send(arrayBuffer);
+
+                    // Update desktop icon progress (cap at 95% to reserve room for merge)
+                    let progress = chunks <= 1 ? 50 : (id / (chunks - 1) * 95.0);
+                    if (progress > 95) progress = 95;
                     if (uploadingIconUUID != undefined){
-                        //Update the progress on the object
                         $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", progress + "%");
-                        if (progress == 100){
+                        if (progress >= 95){
                             $("." + uploadingIconUUID + ".launchIcon").find(".progress").addClass("indeterminate");
                         }
                     }
-                 
+
+                    // Start ack timeout; retry chunk on expiry
+                    clearTimeout(chunkTimeoutTimer);
+                    chunkTimeoutTimer = setTimeout(function() {
+                        if (chunkRetryCount < MAX_CHUNK_RETRIES) {
+                            chunkRetryCount++;
+                            console.warn("[Desktop Upload] Chunk " + id + " ACK timeout – retry " + chunkRetryCount + "/" + MAX_CHUNK_RETRIES);
+                            sendChunk(id);
+                        } else {
+                            console.error("[Desktop Upload] Chunk " + id + " failed after max retries");
+                            socket.close();
+                        }
+                    }, CHUNK_TIMEOUT_MS);
                 }
 
                 //Start sending
-                socket.onopen = function(e) {
+                socket.onopen = async function(e) {
                     if (filesize < uploadFileChunkSize){
-                        //This file is smaller than chunk size, set it to somwhere within 10% - 20% so it doesn't look like it is stuck
-                        $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "15%");
+                        if (uploadingIconUUID != undefined){
+                            $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "15%");
+                        }
                     }
-                    
-                    //Send the first chunk
-                    sendChunk(0, uploadingIconUUID);
-                    currentSendingIndex++;
+                    await sendChunk(0);
+                    currentSendingIndex = 1;
                 };
 
-                socket.onmessage = function(event) {
-                    //Append to the send index
+                socket.onmessage = async function(event) {
                     var incomingValue = event.data;
 
                     if (incomingValue == "next"){
-                        if (currentSendingIndex == chunks + 1){
-                            //Already finished
-                            socket.send("done");
+                        clearTimeout(chunkTimeoutTimer);
+                        chunkRetryCount = 0;
+
+                        if (currentSendingIndex >= chunks){
+                            // All chunks acknowledged – send done with full-file checksum
+                            let finalCRC32Hex = ((runningCRC32State ^ 0xFFFFFFFF) >>> 0).toString(16).padStart(8, '0');
+                            socket.send(JSON.stringify({done: true, totalChunks: chunks, fileChecksum: finalCRC32Hex}));
                         }else{
-                            //Send next chunk
-                            sendChunk(currentSendingIndex, uploadingIconUUID);
+                            await sendChunk(currentSendingIndex);
                             currentSendingIndex++;
                         }
-                      
-                    }else if (incomingValue == "OK"){
-                        //Merge completed
-                        
-                    }else{
-                        //Try to parse it as JSON
-                        try{
-                            var resp = JSON.parse(incomingValue.split('\\' + '"').join("\""));
-                            console.log(resp);
-                            if (resp.error !== undefined){
-                                //This is an error message
-                                sendNotification("Upload Failed", resp.error, "remove")
 
-                                //Update the progress bar to error
+                    }else if (incomingValue == "OK"){
+                        //Merge completed successfully – icon will be cleaned up by onclose
+                    }else{
+                        try{
+                            var resp = JSON.parse(incomingValue);
+                            if (resp.error !== undefined){
+                                sendNotification("Upload Failed", resp.error, "remove");
+                                clearTimeout(chunkTimeoutTimer);
                                 $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
                                 $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
                                 setTimeout(function(){
-                                    $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000,function() { $(this).remove(); });
+                                    $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000, function() { $(this).remove(); });
                                 }, 2000);
+                            } else if (resp.retryChunk !== undefined){
+                                // Server-requested chunk retry (CRC32 mismatch)
+                                clearTimeout(chunkTimeoutTimer);
+                                if (chunkRetryCount < MAX_CHUNK_RETRIES) {
+                                    chunkRetryCount++;
+                                    console.warn("[Desktop Upload] Server requested retry for chunk " + resp.retryChunk);
+                                    await sendChunk(resp.retryChunk);
+                                } else {
+                                    console.error("[Desktop Upload] Chunk " + resp.retryChunk + " CRC32 mismatch after max retries");
+                                    socket.close();
+                                }
+                            } else if (resp.move !== undefined){
+                                // Server is moving file from tmp to destination
+                                if (uploadingIconUUID != undefined){
+                                    $("." + uploadingIconUUID + ".launchIcon").find(".bar").css("width", "100%");
+                                }
                             }
                         }catch(ex){
-                            //Something else
                             console.log(incomingValue);
                             console.log(ex);
                         }
                     }
-
                 };
 
                 socket.onclose = function(event) {
+                    clearTimeout(chunkTimeoutTimer);
                     $("." + uploadingIconUUID).remove();
                     if (callback != undefined){
                         callback();
@@ -6971,12 +7099,13 @@
                 };
 
                 socket.onerror = function(error) {
-                    console.log(error.message);
-                    console.log("[Desktop] Unable to open WebSocket connection. Fall back to FORM POST upload mode. (Check your nginx / reverse proxy settings!!!)")
-                    //Try to fallback to FORM POST upload mode
-                    lowMemoryMode = false;
-                    uploadFile(thisFile, callback)
-                    return
+                    console.error("[Desktop Upload] WebSocket error:", error);
+                    clearTimeout(chunkTimeoutTimer);
+                    $("." + uploadingIconUUID + ".launchIcon").find(".progress").removeClass("primary").addClass("error");
+                    $("." + uploadingIconUUID + ".launchIcon").find(".launchIconText").text(applocale.getString("upload/message/failed", "Failed!"));
+                    setTimeout(function(){
+                        $("." + uploadingIconUUID + ".launchIcon").fadeOut(3000, function() { $(this).remove(); });
+                    }, 2000);
                 };
             }else{
                 let url = 'system/file_system/upload'
