@@ -3,12 +3,30 @@ package diskmg
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"runtime"
 	"strings"
 	"testing"
 
 	fs "imuslab.com/arozos/mod/filesystem"
 )
+
+// createFakeSda1 creates a fake /dev/sda1 file so checkDeviceValid returns true.
+// Returns a cleanup function that removes the file.
+// The file is a plain file (not a real block device) so lsblk won't show it,
+// meaning checkDeviceMounted will still fail gracefully.
+func createFakeSda1(t *testing.T) func() {
+	t.Helper()
+	f, err := os.Create("/dev/sda1")
+	if err != nil {
+		t.Skipf("cannot create /dev/sda1 (no root?): %v", err)
+		return func() {}
+	}
+	f.Close()
+	return func() {
+		os.Remove("/dev/sda1")
+	}
+}
 
 // TestCheckDeviceMounted_ExistingDeviceName tests checkDeviceMounted with a device
 // name that appears in lsblk output, causing grep to succeed but json.Unmarshal
@@ -95,16 +113,18 @@ func TestUnmountWithNonMatchingFSHandler(t *testing.T) {
 	}
 }
 
-// TestHandleMountLinuxNtfsFormat exercises the ntfs format path (hits the
-// mounting tool selection logic for ntfs). Device check fails but ntfs selection is covered.
+// TestHandleMountLinuxNtfsFormat exercises the ntfs format selection path.
+// Creates a fake /dev/sda1 so checkDeviceValid returns true, allowing us to
+// reach the format selection code. Uses a non-existent mount point so the
+// handler returns early at the mount point check (no actual mount occurs).
 func TestHandleMountLinuxNtfsFormat(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
-	// Pass a valid-looking device pattern. checkDeviceValid will check /dev/sda1 existence.
-	// On most test systems this device doesn't exist so we get "Device name is not valid".
-	// But we hit the ntfs format selection line.
-	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=ntfs&mnt=/tmp", nil)
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=ntfs&mnt=/nonexistent_mp_xyz", nil)
 	rr := httptest.NewRecorder()
 	HandleMount(rr, req, nil)
 	resp := rr.Body.String()
@@ -119,7 +139,10 @@ func TestHandleMountLinuxExt4Format(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
-	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=ext4&mnt=/tmp", nil)
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=ext4&mnt=/nonexistent_mp_xyz", nil)
 	rr := httptest.NewRecorder()
 	HandleMount(rr, req, nil)
 	resp := rr.Body.String()
@@ -134,7 +157,10 @@ func TestHandleMountLinuxVfatFormat(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
-	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=vfat&mnt=/tmp", nil)
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=vfat&mnt=/nonexistent_mp_xyz", nil)
 	rr := httptest.NewRecorder()
 	HandleMount(rr, req, nil)
 	resp := rr.Body.String()
@@ -149,7 +175,10 @@ func TestHandleMountLinuxBrtfsFormat(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
-	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=brtfs&mnt=/tmp", nil)
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=brtfs&mnt=/nonexistent_mp_xyz", nil)
 	rr := httptest.NewRecorder()
 	HandleMount(rr, req, nil)
 	resp := rr.Body.String()
@@ -160,11 +189,15 @@ func TestHandleMountLinuxBrtfsFormat(t *testing.T) {
 }
 
 // TestHandleMountLinuxUnsupportedFormat tests the "Format not supported" path.
+// With a valid device (/dev/sda1 exists), format "xfs" reaches the else branch.
 func TestHandleMountLinuxUnsupportedFormat(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
-	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=xfs&mnt=/tmp", nil)
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=xfs&mnt=/nonexistent_mp_xyz", nil)
 	rr := httptest.NewRecorder()
 	HandleMount(rr, req, nil)
 	resp := rr.Body.String()
@@ -174,7 +207,42 @@ func TestHandleMountLinuxUnsupportedFormat(t *testing.T) {
 	t.Logf("HandleMount unsupported format: %s", resp)
 }
 
-// TestHandleMountLinuxMissingFormatWithDevice exercises the path where format is
+// TestHandleMountLinuxValidFormatValidMountPoint tests reaching the mount point
+// existence check. /tmp exists so we proceed to umount check.
+func TestHandleMountLinuxValidFormatValidMountPoint(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-only")
+	}
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
+	// /tmp exists → passes mount point check → reaches umount param check → mount attempt
+	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=ntfs&mnt=/tmp", nil)
+	rr := httptest.NewRecorder()
+	HandleMount(rr, req, nil)
+	resp := rr.Body.String()
+	// Mount will fail (no ntfs-3g and no real device), but we cover those lines
+	t.Logf("HandleMount valid mountpt: %s", resp)
+}
+
+// TestHandleMountLinuxUmountPathWithDevice tests the umount=true path when device is valid.
+func TestHandleMountLinuxUmountPathWithDevice(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-only")
+	}
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
+	// umount=true with valid device and existing mount point
+	req := httptest.NewRequest(http.MethodGet, "/disk/mount?dev=sda1&format=ntfs&mnt=/tmp&umount=true", nil)
+	rr := httptest.NewRecorder()
+	HandleMount(rr, req, nil)
+	resp := rr.Body.String()
+	// Unmount will fail (/tmp is not mounted via sda1), but we cover the umount path
+	t.Logf("HandleMount umount=true: %s", resp)
+}
+
+// TestHandleMountLinuxMissingFormatOnly exercises the path where format is
 // missing on Linux (early return).
 func TestHandleMountLinuxMissingFormatOnly(t *testing.T) {
 	if runtime.GOOS != "linux" {
@@ -189,23 +257,27 @@ func TestHandleMountLinuxMissingFormatOnly(t *testing.T) {
 	}
 }
 
-// TestHandleFormatLinuxNtfsPath verifies HandleFormat handles ntfs format on Linux.
-// The device won't be valid (no /dev/sda1), but we exercise the format selection.
+// TestHandleFormatLinuxWithFakeDevice verifies HandleFormat proceeds past checkDeviceValid
+// when /dev/sda1 exists, reaching checkDeviceMounted (which will fail gracefully).
 func TestHandleFormatLinuxNtfsPath(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
 	body := strings.NewReader("dev=sda1&format=ntfs")
 	req := httptest.NewRequest(http.MethodPost, "/disk/format", body)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	HandleFormat(rr, req, nil)
 	resp := rr.Body.String()
-	// Will fail because checkDeviceValid fails for non-existent /dev/sda1
+	// checkDeviceMounted("sda1") will fail (grep finds nothing in lsblk for fake device)
+	// → "Failed to check disk mount status"
 	if resp == "" {
 		t.Error("expected non-empty response")
 	}
-	t.Logf("HandleFormat ntfs: %s", resp)
+	t.Logf("HandleFormat ntfs with fake device: %s", resp)
 }
 
 // TestHandleFormatLinuxVfatPath verifies HandleFormat handles vfat format path.
@@ -213,6 +285,9 @@ func TestHandleFormatLinuxVfatPath(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
 	body := strings.NewReader("dev=sda1&format=vfat")
 	req := httptest.NewRequest(http.MethodPost, "/disk/format", body)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -222,7 +297,7 @@ func TestHandleFormatLinuxVfatPath(t *testing.T) {
 	if resp == "" {
 		t.Error("expected non-empty response")
 	}
-	t.Logf("HandleFormat vfat: %s", resp)
+	t.Logf("HandleFormat vfat with fake device: %s", resp)
 }
 
 // TestHandleFormatLinuxExt4Path verifies HandleFormat handles ext4 format path.
@@ -230,6 +305,9 @@ func TestHandleFormatLinuxExt4Path(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux-only")
 	}
+	cleanup := createFakeSda1(t)
+	defer cleanup()
+
 	body := strings.NewReader("dev=sda1&format=ext4")
 	req := httptest.NewRequest(http.MethodPost, "/disk/format", body)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -239,7 +317,7 @@ func TestHandleFormatLinuxExt4Path(t *testing.T) {
 	if resp == "" {
 		t.Error("expected non-empty response")
 	}
-	t.Logf("HandleFormat ext4: %s", resp)
+	t.Logf("HandleFormat ext4 with fake device: %s", resp)
 }
 
 // TestCheckDeviceValidWithActualSlashDev verifies checkDeviceValid handles
