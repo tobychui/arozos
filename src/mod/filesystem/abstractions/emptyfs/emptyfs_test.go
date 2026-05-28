@@ -153,3 +153,120 @@ func TestEmptyFS_RealPathToVirtualPath(t *testing.T) {
 		t.Errorf("Expected ErrRpathResolveFailed, got %v", err)
 	}
 }
+
+func TestEmptyFS_FileExists(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	if fs.FileExists("/any/path") {
+		t.Error("Expected FileExists to always return false")
+	}
+	if fs.FileExists("") {
+		t.Error("Expected FileExists to always return false for empty path")
+	}
+}
+
+func TestEmptyFS_IsDir(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	if fs.IsDir("/any/dir") {
+		t.Error("Expected IsDir to always return false")
+	}
+	if fs.IsDir("") {
+		t.Error("Expected IsDir to always return false for empty path")
+	}
+}
+
+func TestEmptyFS_Glob(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	results, err := fs.Glob("*.txt")
+	if err != arozfs.ErrNullOperation {
+		t.Errorf("Expected ErrNullOperation, got %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("Expected empty results, got %v", results)
+	}
+}
+
+func TestEmptyFS_GetFileSize(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	size := fs.GetFileSize("/any/file")
+	if size != 0 {
+		t.Errorf("Expected 0 file size, got %d", size)
+	}
+}
+
+func TestEmptyFS_GetModTime(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	modtime, err := fs.GetModTime("/any/file")
+	if err != arozfs.ErrOperationNotSupported {
+		t.Errorf("Expected ErrOperationNotSupported, got %v", err)
+	}
+	if modtime != 0 {
+		t.Errorf("Expected 0 modtime, got %d", modtime)
+	}
+}
+
+func TestEmptyFS_WriteFile(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	err := fs.WriteFile("test.txt", []byte("data"), 0644)
+	if err != arozfs.ErrNullOperation {
+		t.Errorf("Expected ErrNullOperation, got %v", err)
+	}
+}
+
+func TestEmptyFS_ReadFile(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	data, err := fs.ReadFile("test.txt")
+	if err != arozfs.ErrOperationNotSupported {
+		t.Errorf("Expected ErrOperationNotSupported, got %v", err)
+	}
+	if string(data) != "" {
+		t.Errorf("Expected empty data, got %q", string(data))
+	}
+}
+
+func TestEmptyFS_ReadDir(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	entries, err := fs.ReadDir("/some/dir")
+	if err != arozfs.ErrOperationNotSupported {
+		t.Errorf("Expected ErrOperationNotSupported, got %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("Expected empty entries, got %v", entries)
+	}
+}
+
+func TestEmptyFS_WriteStream(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	err := fs.WriteStream("test.txt", nil, 0644)
+	if err != arozfs.ErrNullOperation {
+		t.Errorf("Expected ErrNullOperation, got %v", err)
+	}
+}
+
+func TestEmptyFS_ReadStream(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	rc, err := fs.ReadStream("test.txt")
+	if err != arozfs.ErrOperationNotSupported {
+		t.Errorf("Expected ErrOperationNotSupported, got %v", err)
+	}
+	if rc != nil {
+		t.Error("Expected nil ReadCloser")
+	}
+}
+
+func TestEmptyFS_Walk(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	err := fs.Walk("/some/root", func(path string, info os.FileInfo, err error) error {
+		return nil
+	})
+	if err != arozfs.ErrOperationNotSupported {
+		t.Errorf("Expected ErrOperationNotSupported, got %v", err)
+	}
+}
+
+func TestEmptyFS_Heartbeat(t *testing.T) {
+	fs := NewEmptyFileSystemAbstraction()
+	err := fs.Heartbeat()
+	if err != nil {
+		t.Errorf("Expected nil from Heartbeat, got %v", err)
+	}
+}

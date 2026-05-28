@@ -1,9 +1,13 @@
 package authlogger
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -200,5 +204,276 @@ func TestLogAuthByRequestInfo(t *testing.T) {
 		if record.Timestamp != tt {
 			t.Fatalf("Timestamp expected: %v, got: %v", tt, record.Timestamp)
 		}
+	}
+}
+
+// ----- handlers.go: HandleIndexListing -----
+
+func TestHandleIndexListing_Empty(t *testing.T) {
+	teardownSuite := setupSuite(t)
+	defer teardownSuite(t)
+
+	logger, err := NewLogger()
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/log/index", nil)
+	rr := httptest.NewRecorder()
+
+	logger.HandleIndexListing(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	// Empty logger should return an empty JSON array
+	var indexes []string
+	if err := json.Unmarshal(rr.Body.Bytes(), &indexes); err != nil {
+		t.Fatalf("response is not valid JSON: %v — body: %s", err, rr.Body.String())
+	}
+	if len(indexes) != 0 {
+		t.Errorf("expected empty index list, got %v", indexes)
+	}
+}
+
+func TestHandleIndexListing_WithRecords(t *testing.T) {
+	teardownSuite := setupSuite(t)
+	defer teardownSuite(t)
+
+	logger, err := NewLogger()
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	// Log one record so a month table is created
+	if err := logger.LogAuthByRequestInfo("user1", "10.0.0.1:1234", time.Now().Unix(), true, "web"); err != nil {
+		t.Fatalf("LogAuthByRequestInfo: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/log/index", nil)
+	rr := httptest.NewRecorder()
+	logger.HandleIndexListing(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var indexes []string
+	if err := json.Unmarshal(rr.Body.Bytes(), &indexes); err != nil {
+		t.Fatalf("response is not valid JSON: %v — body: %s", err, rr.Body.String())
+	}
+	if len(indexes) == 0 {
+		t.Error("expected at least one month index after logging")
+	}
+}
+
+// ----- handlers.go: HandleTableListing -----
+
+func TestHandleTableListing_MissingRecord(t *testing.T) {
+	teardownSuite := setupSuite(t)
+	defer teardownSuite(t)
+
+	logger, err := NewLogger()
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	form := url.Values{}
+	// "record" parameter is missing
+	req := httptest.NewRequest(http.MethodPost, "/auth/log/table", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	logger.HandleTableListing(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 (error encoded in body), got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "error") {
+		t.Errorf("expected error in response when 'record' param is missing, got: %s", body)
+	}
+}
+
+func TestHandleTableListing_NonExistentTable(t *testing.T) {
+	teardownSuite := setupSuite(t)
+	defer teardownSuite(t)
+
+	logger, err := NewLogger()
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	form := url.Values{}
+	form.Set("record", "Jan-1970") // month table that doesn't exist
+	req := httptest.NewRequest(http.MethodPost, "/auth/log/table", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	logger.HandleTableListing(rr, req)
+
+	body := rr.Body.String()
+	if !strings.Contains(body, "error") {
+		t.Errorf("expected error for non-existent table, got: %s", body)
+	}
+}
+
+func TestHandleTableListing_WithRecords(t *testing.T) {
+	teardownSuite := setupSuite(t)
+	defer teardownSuite(t)
+
+	logger, err := NewLogger()
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	// Create a record so we have a month table
+	if err := logger.LogAuthByRequestInfo("alice", "192.168.1.5:9000", time.Now().Unix(), false, "web"); err != nil {
+		t.Fatalf("LogAuthByRequestInfo: %v", err)
+	}
+
+	// Find out which month table was created
+	summary := logger.ListSummary()
+	if len(summary) == 0 {
+		t.Fatal("expected at least one month table after logging")
+	}
+	monthKey := summary[0]
+
+	form := url.Values{}
+	form.Set("record", monthKey)
+	req := httptest.NewRequest(http.MethodPost, "/auth/log/table", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	logger.HandleTableListing(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var records []LoginRecord
+	if err := json.Unmarshal(rr.Body.Bytes(), &records); err != nil {
+		t.Fatalf("response not valid JSON: %v — body: %s", err, rr.Body.String())
+	}
+	if len(records) == 0 {
+		t.Error("expected at least one login record in response")
+	}
+}
+
+func TestHandleTableListing_UsernameFiltering(t *testing.T) {
+	teardownSuite := setupSuite(t)
+	defer teardownSuite(t)
+
+	logger, err := NewLogger()
+	if err != nil {
+		t.Fatalf("NewLogger: %v", err)
+	}
+	defer logger.Close()
+
+	// Log with a username that contains special characters
+	if err := logger.LogAuthByRequestInfo("user@example.com", "10.0.0.2:80", time.Now().Unix(), true, "web"); err != nil {
+		t.Fatalf("LogAuthByRequestInfo: %v", err)
+	}
+
+	summary := logger.ListSummary()
+	if len(summary) == 0 {
+		t.Fatal("expected at least one month table")
+	}
+
+	form := url.Values{}
+	form.Set("record", summary[0])
+	req := httptest.NewRequest(http.MethodPost, "/auth/log/table", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	logger.HandleTableListing(rr, req)
+
+	var records []LoginRecord
+	if err := json.Unmarshal(rr.Body.Bytes(), &records); err != nil {
+		t.Fatalf("response not valid JSON: %v — body: %s", err, rr.Body.String())
+	}
+
+	// The handler replaces non-alphanumeric chars with '░'
+	for _, r := range records {
+		if strings.Contains(r.TargetUsername, "@") {
+			t.Errorf("expected '@' to be filtered from username, got: %s", r.TargetUsername)
+		}
+	}
+}
+
+// ── getIpAddressFromRequest ──────────────────────────────────────────────────
+
+func TestGetIpAddressFromRequest_RemoteAddr(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.1:8080"
+
+	lastHop, sources := getIpAddressFromRequest(req)
+	if lastHop != "10.0.0.1:8080" {
+		t.Errorf("expected lastHop='10.0.0.1:8080', got %q", lastHop)
+	}
+	// No X-Forwarded-For header → sources slice contains one empty string
+	_ = sources
+}
+
+func TestGetIpAddressFromRequest_XForwardedFor(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "proxy.example.com:80"
+	req.Header.Set("X-Forwarded-For", "192.168.1.10, 10.0.0.2")
+
+	_, sources := getIpAddressFromRequest(req)
+	if len(sources) != 2 {
+		t.Fatalf("expected 2 source addresses, got %d: %v", len(sources), sources)
+	}
+	if sources[0] != "192.168.1.10" {
+		t.Errorf("expected first source '192.168.1.10', got %q", sources[0])
+	}
+	if sources[1] != " 10.0.0.2" && sources[1] != "10.0.0.2" {
+		t.Logf("second source: %q (raw split may include space)", sources[1])
+	}
+}
+
+// ── summaryDate sort.Interface ───────────────────────────────────────────────
+
+func TestSummaryDate_Len(t *testing.T) {
+	sd := summaryDate{"Jan-2024", "Feb-2024", "Mar-2024"}
+	if sd.Len() != 3 {
+		t.Errorf("expected Len()=3, got %d", sd.Len())
+	}
+}
+
+func TestSummaryDate_Swap(t *testing.T) {
+	sd := summaryDate{"Jan-2024", "Feb-2024"}
+	sd.Swap(0, 1)
+	if sd[0] != "Feb-2024" || sd[1] != "Jan-2024" {
+		t.Errorf("Swap failed: got %v", sd)
+	}
+}
+
+func TestSummaryDate_Less_NewerFirst(t *testing.T) {
+	sd := summaryDate{"Jan-2024", "Dec-2023"}
+	// Less(0,1) should return true if sd[0] is newer than sd[1] (i.e., sort descending)
+	if !sd.Less(0, 1) {
+		t.Error("expected Jan-2024 to sort before Dec-2023 (newer first)")
+	}
+	if sd.Less(1, 0) {
+		t.Error("expected Dec-2023 to NOT sort before Jan-2024")
+	}
+}
+
+func TestSummaryDate_Sort_OrderedDescending(t *testing.T) {
+	sd := summaryDate{"Feb-2023", "Dec-2023", "Jan-2024", "Mar-2023"}
+	sort.Sort(sd)
+	// After sorting, newest first
+	if sd[0] != "Jan-2024" {
+		t.Errorf("expected first element 'Jan-2024', got %q", sd[0])
+	}
+	if sd[len(sd)-1] != "Feb-2023" {
+		t.Errorf("expected last element 'Feb-2023', got %q", sd[len(sd)-1])
 	}
 }
