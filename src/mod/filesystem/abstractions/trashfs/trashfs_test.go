@@ -12,54 +12,30 @@ import (
 
 // helpers ---------------------------------------------------------------
 
-// setupTrashDir creates a temporary directory that acts as the trash root
-// (i.e. the path you would pass to NewTrashFSAbstraction) and returns the
-// path together with a teardown function.
-func setupTrashDir(t *testing.T) (trashRoot string, teardown func()) {
+func setupDir(t *testing.T) (dir string, teardown func()) {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "trashfs_test_*")
+	d, err := os.MkdirTemp("", "trashfs_test_*")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}
-	return dir, func() { os.RemoveAll(dir) }
+	return d, func() { os.RemoveAll(d) }
 }
 
-// newTestAbstraction returns a TrashFSAbstraction backed by trashRoot.
-func newTestAbstraction(trashRoot string) TrashFSAbstraction {
-	return NewTrashFSAbstraction(TrashFSUUID, trashRoot, "user", false)
-}
-
-// createUserDir creates the user-isolated subtree inside trashRoot so that
-// VirtualPathToRealPath("trash:/", username) resolves without error.
-func createUserDir(t *testing.T, trashRoot, username string) string {
-	t.Helper()
-	userDir := filepath.Join(trashRoot, "users", username)
-	if err := os.MkdirAll(userDir, 0755); err != nil {
-		t.Fatalf("MkdirAll %s: %v", userDir, err)
-	}
-	return userDir
-}
-
-// writeFile is a small helper that writes content to path, creating parent
-// directories as needed.
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
+		t.Fatalf("MkdirAll %s: %v", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("WriteFile %s: %v", path, err)
 	}
 }
 
-// TestNewTrashFSAbstraction verifies that the constructor sets fields correctly
-// and that the backing directory can be resolved via VirtualPathToRealPath.
+// ---- TrashFSAbstraction unit tests ----
+
+// TestNewTrashFSAbstraction verifies the constructor sets fields correctly.
 func TestNewTrashFSAbstraction(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
-	defer teardown()
-
-	abs := newTestAbstraction(trashRoot)
-
+	abs := NewTrashFSAbstraction()
 	if abs.UUID != TrashFSUUID {
 		t.Errorf("UUID = %q, want %q", abs.UUID, TrashFSUUID)
 	}
@@ -69,532 +45,306 @@ func TestNewTrashFSAbstraction(t *testing.T) {
 	if abs.ReadOnly {
 		t.Error("ReadOnly should be false")
 	}
+}
 
-	// VirtualPathToRealPath for the root should not error even though the
-	// users/ subdirectory may not exist yet.
-	username := "testuser"
-	rpath, err := abs.VirtualPathToRealPath("trash:/", username)
+// TestVirtualPathToRealPath_Root verifies that the trash root path resolves to
+// the sentinel value.
+func TestVirtualPathToRealPath_Root(t *testing.T) {
+	abs := NewTrashFSAbstraction()
+	rpath, err := abs.VirtualPathToRealPath("trash:/", "alice")
 	if err != nil {
-		t.Fatalf("VirtualPathToRealPath: %v", err)
+		t.Fatalf("VirtualPathToRealPath(root): %v", err)
 	}
-	if rpath == "" {
-		t.Error("VirtualPathToRealPath returned empty string")
+	if rpath != TrashRootSentinel {
+		t.Errorf("root resolved to %q, want TrashRootSentinel", rpath)
+	}
+
+	// Same result when subpath arrives already stripped (as GetIDFromVirtualPath produces).
+	rpath2, err := abs.VirtualPathToRealPath("", "alice")
+	if err != nil {
+		t.Fatalf("VirtualPathToRealPath(''): %v", err)
+	}
+	if rpath2 != TrashRootSentinel {
+		t.Errorf("empty subpath resolved to %q, want TrashRootSentinel", rpath2)
 	}
 }
 
-// TestVirtualPathRoundtrip verifies that VirtualPathToRealPath and
-// RealPathToVirtualPath are inverse operations for a concrete file path.
+// TestVirtualPathRoundtrip verifies that RealPathToVirtualPath and
+// VirtualPathToRealPath are inverse operations for concrete file paths.
 func TestVirtualPathRoundtrip(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
+	abs := NewTrashFSAbstraction()
+	root, teardown := setupDir(t)
 	defer teardown()
 
-	abs := newTestAbstraction(trashRoot)
-	username := "alice"
-	userDir := createUserDir(t, trashRoot, username)
-
-	// Write a dummy file inside the user's trash directory.
-	trashFile := filepath.Join(userDir, "1700000000_report.pdf")
-	writeFile(t, trashFile, "dummy content")
+	realpath := filepath.Join(root, "users", "alice", "documents", ".metadata", ".trash", "report.pdf.1700000000")
+	writeFile(t, realpath, "PDF bytes")
 
 	// real → virtual
-	vpath, err := abs.RealPathToVirtualPath(trashFile, username)
+	vpath, err := abs.RealPathToVirtualPath(realpath, "alice")
 	if err != nil {
 		t.Fatalf("RealPathToVirtualPath: %v", err)
 	}
-	if !strings.HasPrefix(vpath, TrashFSUUID+":") {
-		t.Errorf("virtual path %q should start with %q", vpath, TrashFSUUID+":")
+	if !strings.HasPrefix(vpath, TrashFSUUID+":/") {
+		t.Errorf("virtual path %q does not start with %q", vpath, TrashFSUUID+":/")
 	}
 
 	// virtual → real (round-trip)
-	rpath, err := abs.VirtualPathToRealPath(vpath, username)
+	rpath, err := abs.VirtualPathToRealPath(vpath, "alice")
 	if err != nil {
 		t.Fatalf("VirtualPathToRealPath: %v", err)
 	}
-
-	// Normalise separators before comparing.
-	want := filepath.ToSlash(filepath.Clean(trashFile))
+	want := filepath.ToSlash(filepath.Clean(realpath))
 	got := filepath.ToSlash(filepath.Clean(rpath))
 	if got != want {
 		t.Errorf("round-trip mismatch:\n  got  %s\n  want %s", got, want)
 	}
 }
 
-// TestRemovePermanentlyDeletesFile ensures that Remove deletes both the trashed
-// file and its .trashinfo sidecar (if one exists).
+// TestVirtualPathToRealPath_Invalid checks that malformed hex paths are rejected.
+func TestVirtualPathToRealPath_Invalid(t *testing.T) {
+	abs := NewTrashFSAbstraction()
+	_, err := abs.VirtualPathToRealPath("trash:/ZZZZ_not_hex", "alice")
+	if err == nil {
+		t.Error("expected error for invalid hex path, got nil")
+	}
+}
+
+// TestSentinelBehaviour verifies that operations on the sentinel root behave
+// as documented (FileExists=true, IsDir=true, ReadDir returns empty list).
+func TestSentinelBehaviour(t *testing.T) {
+	abs := NewTrashFSAbstraction()
+
+	if !abs.FileExists(TrashRootSentinel) {
+		t.Error("FileExists(sentinel) should be true")
+	}
+	if !abs.IsDir(TrashRootSentinel) {
+		t.Error("IsDir(sentinel) should be true")
+	}
+
+	entries, err := abs.ReadDir(TrashRootSentinel)
+	if err != nil {
+		t.Fatalf("ReadDir(sentinel): %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("ReadDir(sentinel) returned %d entries, want 0", len(entries))
+	}
+
+	fi, err := abs.Stat(TrashRootSentinel)
+	if err != nil {
+		t.Fatalf("Stat(sentinel): %v", err)
+	}
+	if !fi.IsDir() {
+		t.Error("Stat(sentinel).IsDir() should be true")
+	}
+}
+
+// TestRemovePermanentlyDeletesFile verifies that Remove permanently deletes
+// the underlying file (no move to another location).
 func TestRemovePermanentlyDeletesFile(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
+	root, teardown := setupDir(t)
 	defer teardown()
+	abs := NewTrashFSAbstraction()
 
-	abs := newTestAbstraction(trashRoot)
-	username := "alice"
-	userDir := createUserDir(t, trashRoot, username)
-
-	trashFile := filepath.Join(userDir, "1700000001_notes.txt")
+	trashFile := filepath.Join(root, "users", "alice", ".metadata", ".trash", "notes.txt.1700000001")
 	writeFile(t, trashFile, "some notes")
-
-	// Write a sidecar as well.
-	info := TrashInfo{
-		OriginalVpath:    "user:/documents/notes.txt",
-		OriginalFilename: "notes.txt",
-		DeletedAt:        1700000001,
-	}
-	if err := WriteTrashInfo(trashFile, info); err != nil {
-		t.Fatalf("WriteTrashInfo: %v", err)
-	}
-
-	// Both the file and sidecar should exist before the call.
-	if !utils.FileExists(trashFile) {
-		t.Fatal("trashFile does not exist before Remove")
-	}
-	sidecar := trashFile + TrashInfoExt
-	if !utils.FileExists(sidecar) {
-		t.Fatal("sidecar does not exist before Remove")
-	}
 
 	if err := abs.Remove(trashFile); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
-
-	// Both should be gone.
 	if utils.FileExists(trashFile) {
-		t.Error("trashFile still exists after Remove")
-	}
-	if utils.FileExists(sidecar) {
-		t.Error("sidecar still exists after Remove")
+		t.Error("file still exists after Remove")
 	}
 }
 
-// TestRemoveAllPermanentlyDeletesDirectory verifies that RemoveAll removes a
-// directory and its sidecar.
+// TestRemoveAllPermanentlyDeletesDirectory verifies that RemoveAll permanently
+// removes an entire directory tree.
 func TestRemoveAllPermanentlyDeletesDirectory(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
+	root, teardown := setupDir(t)
 	defer teardown()
+	abs := NewTrashFSAbstraction()
 
-	abs := newTestAbstraction(trashRoot)
-	username := "bob"
-	userDir := createUserDir(t, trashRoot, username)
-
-	trashDir := filepath.Join(userDir, "1700000002_project")
-	if err := os.MkdirAll(filepath.Join(trashDir, "subdir"), 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
+	trashDir := filepath.Join(root, "users", "bob", ".metadata", ".trash", "project.1700000002")
 	writeFile(t, filepath.Join(trashDir, "file.go"), "package main")
-	writeFile(t, filepath.Join(trashDir, "subdir", "inner.go"), "package main")
-
-	info := TrashInfo{
-		OriginalVpath:    "user:/project",
-		OriginalFilename: "project",
-		DeletedAt:        1700000002,
-		IsDir:            true,
-	}
-	if err := WriteTrashInfo(trashDir, info); err != nil {
-		t.Fatalf("WriteTrashInfo: %v", err)
-	}
+	writeFile(t, filepath.Join(trashDir, "sub", "inner.go"), "package main")
 
 	if err := abs.RemoveAll(trashDir); err != nil {
 		t.Fatalf("RemoveAll: %v", err)
 	}
-
 	if utils.FileExists(trashDir) {
-		t.Error("trashDir still exists after RemoveAll")
-	}
-	if utils.FileExists(trashDir + TrashInfoExt) {
-		t.Error("sidecar still exists after RemoveAll")
+		t.Error("directory still exists after RemoveAll")
 	}
 }
 
-// TestWriteReadTrashInfo verifies round-trip serialisation of TrashInfo.
-func TestWriteReadTrashInfo(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
-	defer teardown()
+// ---- Package-level helper tests ----
 
-	// Create a file for the sidecar to accompany.
-	target := filepath.Join(trashRoot, "somefile.dat")
-	writeFile(t, target, "content")
-
-	want := TrashInfo{
-		OriginalVpath:    "user:/downloads/somefile.dat",
-		OriginalFilename: "somefile.dat",
-		DeletedAt:        time.Now().Unix(),
-		IsDir:            false,
+// TestRealPathToTrashVPath verifies the package-level convenience function.
+func TestRealPathToTrashVPath(t *testing.T) {
+	realpath := "/files/users/alice/.metadata/.trash/report.pdf.1700000000"
+	vpath := RealPathToTrashVPath(realpath)
+	if !strings.HasPrefix(vpath, TrashFSUUID+":/") {
+		t.Errorf("vpath %q does not start with trash:/", vpath)
 	}
-
-	if err := WriteTrashInfo(target, want); err != nil {
-		t.Fatalf("WriteTrashInfo: %v", err)
-	}
-
-	if !TrashInfoExists(target) {
-		t.Fatal("TrashInfoExists returned false after WriteTrashInfo")
-	}
-
-	got, err := ReadTrashInfo(target)
+	decoded, err := TrashVPathToRealPath(vpath)
 	if err != nil {
-		t.Fatalf("ReadTrashInfo: %v", err)
+		t.Fatalf("TrashVPathToRealPath: %v", err)
 	}
-
-	if got.OriginalVpath != want.OriginalVpath {
-		t.Errorf("OriginalVpath = %q, want %q", got.OriginalVpath, want.OriginalVpath)
-	}
-	if got.OriginalFilename != want.OriginalFilename {
-		t.Errorf("OriginalFilename = %q, want %q", got.OriginalFilename, want.OriginalFilename)
-	}
-	if got.DeletedAt != want.DeletedAt {
-		t.Errorf("DeletedAt = %d, want %d", got.DeletedAt, want.DeletedAt)
-	}
-	if got.IsDir != want.IsDir {
-		t.Errorf("IsDir = %v, want %v", got.IsDir, want.IsDir)
+	want := filepath.ToSlash(filepath.Clean(realpath))
+	if filepath.ToSlash(filepath.Clean(decoded)) != want {
+		t.Errorf("decoded = %q, want %q", decoded, want)
 	}
 }
 
-// TestReadTrashInfo_Missing verifies that ReadTrashInfo returns an error when
-// no sidecar file exists.
-func TestReadTrashInfo_Missing(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
-	defer teardown()
-
-	_, err := ReadTrashInfo(filepath.Join(trashRoot, "nonexistent.txt"))
+// TestTrashVPathToRealPath_RootErrors verifies that the root sentinel path
+// returns an error (not a real path).
+func TestTrashVPathToRealPath_RootErrors(t *testing.T) {
+	_, err := TrashVPathToRealPath("trash:/")
 	if err == nil {
-		t.Error("expected error for missing sidecar, got nil")
+		t.Error("expected error for root vpath, got nil")
 	}
 }
 
-// TestBuildParseTrashFilename checks the Build/Parse round-trip.
-func TestBuildParseTrashFilename(t *testing.T) {
+// TestTrashVPathToRealPath_InvalidHex verifies that malformed paths are rejected.
+func TestTrashVPathToRealPath_InvalidHex(t *testing.T) {
+	_, err := TrashVPathToRealPath("trash:/not_valid_hex!")
+	if err == nil {
+		t.Error("expected error for invalid hex, got nil")
+	}
+}
+
+// TestIsLegacyTrashFile verifies detection of legacy .trash directory entries.
+func TestIsLegacyTrashFile(t *testing.T) {
 	cases := []struct {
-		originalName string
-		ts           int64
+		path string
+		want bool
 	}{
-		{"report.pdf", 1700000000},
-		{"my file with spaces.docx", 1234567890},
-		{"no_ext", 9999999999},
-		{"subdir", 1111111111},
+		{"/files/users/alice/.metadata/.trash/report.pdf.1700000000", true},
+		{"/files/users/alice/documents/.metadata/.trash/notes.txt.1234567890", true},
+		{"/files/users/alice/documents/notes.txt", false},
+		{"/files/users/alice/.trash/notes.txt", false},   // wrong dir name
+		{"/files/users/alice/.metadata/notes.txt", false}, // not in .trash
 	}
-
 	for _, tc := range cases {
-		built := BuildTrashFilename(tc.originalName, tc.ts)
-
-		gotTs, gotName, err := ParseTrashFilename(built)
-		if err != nil {
-			t.Errorf("ParseTrashFilename(%q): %v", built, err)
-			continue
-		}
-		if gotTs != tc.ts {
-			t.Errorf("timestamp mismatch: got %d, want %d", gotTs, tc.ts)
-		}
-		if gotName != tc.originalName {
-			t.Errorf("name mismatch: got %q, want %q", gotName, tc.originalName)
+		got := IsLegacyTrashFile(tc.path)
+		if got != tc.want {
+			t.Errorf("IsLegacyTrashFile(%q) = %v, want %v", tc.path, got, tc.want)
 		}
 	}
 }
 
-// TestParseTrashFilename_Invalid ensures bad inputs are rejected.
-func TestParseTrashFilename_Invalid(t *testing.T) {
-	invalids := []string{
-		"",           // empty
-		"noUnderscore", // no '_' separator
-		"_missingTs",   // empty timestamp part
-		"abc_file.txt", // non-numeric timestamp
-	}
-	for _, s := range invalids {
-		_, _, err := ParseTrashFilename(s)
-		if err == nil {
-			t.Errorf("ParseTrashFilename(%q): expected error, got nil", s)
-		}
-	}
-}
+// ---- Integration-style workflow tests ----
 
-// TestWalkSkipsSidecars verifies that Walk does not surface .trashinfo files.
-func TestWalkSkipsSidecars(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
-	defer teardown()
-
-	abs := newTestAbstraction(trashRoot)
-	username := "charlie"
-	userDir := createUserDir(t, trashRoot, username)
-
-	// Create a file + sidecar in the user dir.
-	trashFile := filepath.Join(userDir, "1700000003_image.png")
-	writeFile(t, trashFile, "PNG content")
-
-	info := TrashInfo{
-		OriginalVpath:    "user:/pictures/image.png",
-		OriginalFilename: "image.png",
-		DeletedAt:        1700000003,
-	}
-	if err := WriteTrashInfo(trashFile, info); err != nil {
-		t.Fatalf("WriteTrashInfo: %v", err)
-	}
-
-	// Walk from the trash root and collect all visited paths.
-	rroot, err := abs.VirtualPathToRealPath("trash:/", username)
-	if err != nil {
-		t.Fatalf("VirtualPathToRealPath: %v", err)
-	}
-	// Ensure the root dir exists for the walk.
-	os.MkdirAll(rroot, 0755)
-
-	var visited []string
-	if err := abs.Walk(rroot, func(path string, _ os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		visited = append(visited, path)
-		return nil
-	}); err != nil {
-		t.Fatalf("Walk: %v", err)
-	}
-
-	for _, p := range visited {
-		if strings.HasSuffix(p, TrashInfoExt) {
-			t.Errorf("Walk yielded sidecar file: %s", p)
-		}
-	}
-
-	// The actual trashed file should be present.
-	found := false
-	for _, p := range visited {
-		if filepath.Base(p) == filepath.Base(trashFile) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("Walk did not yield trashed file %q; visited: %v", trashFile, visited)
-	}
-}
-
-// TestReadDirSkipsSidecars verifies that ReadDir hides .trashinfo files.
-func TestReadDirSkipsSidecars(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
-	defer teardown()
-
-	abs := newTestAbstraction(trashRoot)
-	username := "dave"
-	userDir := createUserDir(t, trashRoot, username)
-
-	trashFile := filepath.Join(userDir, "1700000004_doc.odt")
-	writeFile(t, trashFile, "ODT content")
-	if err := WriteTrashInfo(trashFile, TrashInfo{
-		OriginalVpath:    "user:/docs/doc.odt",
-		OriginalFilename: "doc.odt",
-		DeletedAt:        1700000004,
-	}); err != nil {
-		t.Fatalf("WriteTrashInfo: %v", err)
-	}
-
-	entries, err := abs.ReadDir(userDir)
-	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
-	}
-
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), TrashInfoExt) {
-			t.Errorf("ReadDir returned sidecar entry: %s", e.Name())
-		}
-	}
-
-	// The trash file itself must be listed.
-	found := false
-	for _, e := range entries {
-		if e.Name() == filepath.Base(trashFile) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("ReadDir did not return trashed file %q", filepath.Base(trashFile))
-	}
-}
-
-// TestGlobSkipsSidecars verifies that Glob results exclude .trashinfo files.
-func TestGlobSkipsSidecars(t *testing.T) {
-	trashRoot, teardown := setupTrashDir(t)
-	defer teardown()
-
-	abs := newTestAbstraction(trashRoot)
-	username := "eve"
-	userDir := createUserDir(t, trashRoot, username)
-
-	for i, name := range []string{"file1.txt", "file2.txt"} {
-		tf := filepath.Join(userDir, BuildTrashFilename(name, int64(1700000010+i)))
-		writeFile(t, tf, "content")
-		if err := WriteTrashInfo(tf, TrashInfo{
-			OriginalVpath:    "user:/" + name,
-			OriginalFilename: name,
-			DeletedAt:        int64(1700000010 + i),
-		}); err != nil {
-			t.Fatalf("WriteTrashInfo: %v", err)
-		}
-	}
-
-	matches, err := abs.Glob(filepath.Join(userDir, "*"))
-	if err != nil {
-		t.Fatalf("Glob: %v", err)
-	}
-
-	for _, m := range matches {
-		if strings.HasSuffix(m, TrashInfoExt) {
-			t.Errorf("Glob returned sidecar: %s", m)
-		}
-	}
-	if len(matches) != 2 {
-		t.Errorf("Glob returned %d entries, want 2; entries: %v", len(matches), matches)
-	}
-}
-
-// TestRecycleWorkflow performs an end-to-end test of the recycle + permanent
-// delete workflow without the HTTP layer:
+// TestRecycleWorkflow simulates the full recycle → list → permanent-delete
+// workflow at the filesystem level (no HTTP layer).
 //
-//  1. A "source" file exists in a simulated user storage directory.
-//  2. RecycleToTrash moves it to the trash directory and writes a .trashinfo sidecar.
-//  3. The original file no longer exists.
-//  4. The trash directory lists the file.
-//  5. PermanentDeleteFromTrash removes the file and sidecar permanently.
+//  1. A file exists in a simulated user storage directory.
+//  2. It is "recycled" by renaming into .metadata/.trash/ on the SAME FS
+//     (mimicking what file_system.go does — no cross-device copy).
+//  3. system_fs_listTrash equivalent: Walk finds the file in .trash.
+//  4. The trash:/ vpath is built and round-trips correctly.
+//  5. Permanently delete via TrashFSAbstraction.RemoveAll.
 func TestRecycleWorkflow(t *testing.T) {
-	// Set up a "source" storage area and a trash area.
-	srcRoot, teardownSrc := setupTrashDir(t)
-	defer teardownSrc()
-	trashRoot, teardownTrash := setupTrashDir(t)
-	defer teardownTrash()
-
+	root, teardown := setupDir(t)
+	defer teardown()
+	abs := NewTrashFSAbstraction()
 	username := "frank"
 
-	// Create a source file the user wants to delete.
-	srcFile := filepath.Join(srcRoot, "users", username, "work", "spreadsheet.xlsx")
+	// Source file inside the simulated storage root.
+	srcFile := filepath.Join(root, "users", username, "work", "spreadsheet.xlsx")
 	writeFile(t, srcFile, "XLSX data")
-	originalVpath := "user:/work/spreadsheet.xlsx"
 
-	abs := newTestAbstraction(trashRoot)
-	userTrashDir := createUserDir(t, trashRoot, username)
-
-	// --- Step 1: recycle the file ---
+	// Step 1: recycle — move to adjacent .metadata/.trash/ (same volume, fast rename).
 	ts := time.Now().Unix()
-	basename := filepath.Base(srcFile)
-	trashName := BuildTrashFilename(basename, ts)
-	trashFilePath := filepath.Join(userTrashDir, trashName)
-
-	if err := os.Rename(srcFile, trashFilePath); err != nil {
+	trashDir := filepath.Join(filepath.Dir(srcFile), ".metadata", ".trash")
+	if err := os.MkdirAll(trashDir, 0755); err != nil {
+		t.Fatalf("MkdirAll trash dir: %v", err)
+	}
+	trashName := filepath.Base(srcFile) + "." + utils.Int64ToString(ts)
+	trashPath := filepath.Join(trashDir, trashName)
+	if err := os.Rename(srcFile, trashPath); err != nil {
 		t.Fatalf("simulated recycle (Rename): %v", err)
 	}
-	if err := WriteTrashInfo(trashFilePath, TrashInfo{
-		OriginalVpath:    originalVpath,
-		OriginalFilename: basename,
-		DeletedAt:        ts,
-	}); err != nil {
-		t.Fatalf("WriteTrashInfo: %v", err)
-	}
 
-	// --- Step 2: source file must be gone ---
+	// Step 2: source must be gone.
 	if utils.FileExists(srcFile) {
 		t.Error("source file still exists after recycle")
 	}
 
-	// --- Step 3: trash file must exist and sidecar must be readable ---
-	if !utils.FileExists(trashFilePath) {
-		t.Fatal("trashed file not found in trash directory")
-	}
-	info, err := ReadTrashInfo(trashFilePath)
-	if err != nil {
-		t.Fatalf("ReadTrashInfo: %v", err)
-	}
-	if info.OriginalVpath != originalVpath {
-		t.Errorf("OriginalVpath = %q, want %q", info.OriginalVpath, originalVpath)
-	}
-	if info.OriginalFilename != basename {
-		t.Errorf("OriginalFilename = %q, want %q", info.OriginalFilename, basename)
-	}
-
-	// --- Step 4: Walk should return the trashed file ---
-	rroot, _ := abs.VirtualPathToRealPath("trash:/", username)
-	os.MkdirAll(rroot, 0755)
-	var trashEntries []string
-	abs.Walk(rroot, func(path string, fi os.FileInfo, err error) error {
-		if err == nil && !fi.IsDir() {
-			trashEntries = append(trashEntries, path)
+	// Step 3: walk the root to find .trash entries (mimics system_fs_listTrash).
+	var foundPaths []string
+	filepath.Walk(filepath.Join(root, "users", username), func(path string, info os.FileInfo, err error) error {
+		if err == nil && filepath.Base(filepath.Dir(path)) == LegacyTrashDir {
+			foundPaths = append(foundPaths, path)
 		}
 		return nil
 	})
-	foundInTrash := false
-	for _, e := range trashEntries {
-		if filepath.Base(e) == trashName {
-			foundInTrash = true
-			break
-		}
-	}
-	if !foundInTrash {
-		t.Errorf("trashed file %q not found during Walk; entries: %v", trashName, trashEntries)
+	if len(foundPaths) == 0 {
+		t.Fatal("listTrash walk found no trashed files")
 	}
 
-	// --- Step 5: permanently delete from trash ---
-	if err := abs.Remove(trashFilePath); err != nil {
+	// Step 4: build trash:/ vpath and verify round-trip.
+	trashVpath := RealPathToTrashVPath(trashPath)
+	if !strings.HasPrefix(trashVpath, TrashFSUUID+":/") {
+		t.Errorf("trash vpath %q has wrong prefix", trashVpath)
+	}
+	decoded, err := TrashVPathToRealPath(trashVpath)
+	if err != nil {
+		t.Fatalf("TrashVPathToRealPath: %v", err)
+	}
+	if filepath.ToSlash(filepath.Clean(decoded)) != filepath.ToSlash(filepath.Clean(trashPath)) {
+		t.Errorf("decoded path mismatch: got %s, want %s", decoded, trashPath)
+	}
+
+	// Step 5: permanent delete via TrashFSAbstraction.
+	if err := abs.Remove(trashPath); err != nil {
 		t.Fatalf("Remove (permanent delete): %v", err)
 	}
-	if utils.FileExists(trashFilePath) {
+	if utils.FileExists(trashPath) {
 		t.Error("trashed file still exists after permanent delete")
-	}
-	if utils.FileExists(trashFilePath + TrashInfoExt) {
-		t.Error("sidecar still exists after permanent delete")
 	}
 }
 
-// TestRestoreWorkflow simulates reading a .trashinfo sidecar to determine the
-// restore destination and renaming the file back.
+// TestRestoreWorkflow simulates restoring a file from .trash to its original
+// location using the same path logic as system_fs_restoreFile.
 func TestRestoreWorkflow(t *testing.T) {
-	srcRoot, teardownSrc := setupTrashDir(t)
-	defer teardownSrc()
-	trashRoot, teardownTrash := setupTrashDir(t)
-	defer teardownTrash()
+	root, teardown := setupDir(t)
+	defer teardown()
 
 	username := "grace"
 
-	// Create a file in the trash directory as if it had been recycled.
-	userTrashDir := createUserDir(t, trashRoot, username)
-	ts := int64(1700000100)
+	// Create a file as if it had already been recycled.
+	trashDir := filepath.Join(root, "users", username, "media", ".metadata", ".trash")
 	basename := "music.mp3"
-	trashName := BuildTrashFilename(basename, ts)
-	trashFilePath := filepath.Join(userTrashDir, trashName)
-	writeFile(t, trashFilePath, "MP3 bytes")
+	ts := int64(1700000100)
+	trashName := basename + "." + utils.Int64ToString(ts)
+	trashPath := filepath.Join(trashDir, trashName)
+	writeFile(t, trashPath, "MP3 bytes")
 
-	// Original path was inside srcRoot.
-	originalRealPath := filepath.Join(srcRoot, "users", username, "media", basename)
-	originalVpath := "user:/media/" + basename
-
-	if err := WriteTrashInfo(trashFilePath, TrashInfo{
-		OriginalVpath:    originalVpath,
-		OriginalFilename: basename,
-		DeletedAt:        ts,
-	}); err != nil {
-		t.Fatalf("WriteTrashInfo: %v", err)
+	// Confirm the file is recognised as a legacy trash file.
+	if !IsLegacyTrashFile(trashPath) {
+		t.Fatal("IsLegacyTrashFile returned false for a .trash path")
 	}
 
-	// Simulate restore: read sidecar, determine destination, move file back.
-	info, err := ReadTrashInfo(trashFilePath)
-	if err != nil {
-		t.Fatalf("ReadTrashInfo: %v", err)
-	}
-	if info.OriginalFilename != basename {
-		t.Fatalf("unexpected OriginalFilename: %q", info.OriginalFilename)
-	}
+	// Simulate restore (same logic as system_fs_restoreFile):
+	// strip timestamp suffix, go up two levels.
+	origName := strings.TrimSuffix(filepath.Base(trashPath), filepath.Ext(filepath.Base(trashPath)))
+	restoreRoot := filepath.Dir(filepath.Dir(filepath.Dir(trashPath)))
+	targetPath := filepath.Join(restoreRoot, origName)
 
-	// Recreate the original directory structure.
-	if err := os.MkdirAll(filepath.Dir(originalRealPath), 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+		t.Fatalf("MkdirAll restore parent: %v", err)
 	}
-	// Move the file back.
-	if err := os.Rename(trashFilePath, originalRealPath); err != nil {
+	if err := os.Rename(trashPath, targetPath); err != nil {
 		t.Fatalf("Rename (restore): %v", err)
 	}
-	// Remove the sidecar.
-	os.Remove(trashFilePath + TrashInfoExt)
 
-	// Verify outcomes.
-	if !utils.FileExists(originalRealPath) {
-		t.Error("restored file not found at original location")
+	// Verify the original name was correctly reconstructed.
+	if filepath.Base(targetPath) != basename {
+		t.Errorf("restored filename = %q, want %q", filepath.Base(targetPath), basename)
 	}
-	if utils.FileExists(trashFilePath) {
+	if !utils.FileExists(targetPath) {
+		t.Error("restored file not found at expected location")
+	}
+	if utils.FileExists(trashPath) {
 		t.Error("trashed file still exists after restore")
-	}
-	if utils.FileExists(trashFilePath + TrashInfoExt) {
-		t.Error("sidecar still exists after restore")
 	}
 }

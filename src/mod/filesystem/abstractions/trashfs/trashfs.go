@@ -5,25 +5,24 @@ package trashfs
 
 	This package implements the trash:/ virtual filesystem for ArozOS.
 
-	The trash:/ filesystem uses a dedicated trash directory with user-isolated
-	subdirectories. Each trashed file is stored alongside a .trashinfo sidecar
-	file that records its original virtual path and deletion timestamp, enabling
-	restore operations.
-
-	Behaviour:
-	  - Recycling a file moves it to trash:/ and writes a .trashinfo sidecar.
-	  - Deleting a file from trash:/ permanently removes both the file and its sidecar.
-	  - The trash:/ FSH uses the "user" hierarchy so each user has an isolated
-	    subtree at trash:/users/<username>/.
-
-	The TrashFSAbstraction wraps a LocalFileSystemAbstraction and is identified
-	by the reserved UUID "trash". file_system.go checks this UUID to decide
-	whether a "recycle" operation should do a permanent delete instead of
-	moving the file to another .trash directory.
+	Design philosophy (following Toby's original design):
+	  - Files are NOT moved across filesystems. When a file is recycled,
+	    it is renamed into a .metadata/.trash/ subdirectory on the SAME
+	    filesystem it lives on. This avoids cross-device copies, excessive
+	    SSD/SD-card wear, and works for network drives.
+	  - The trash:/ FSH is a VIRTUAL aggregating view. It walks all registered
+	    FSH roots, finds every .metadata/.trash/ directory, and presents the
+	    contents as a unified virtual filesystem.
+	  - Virtual paths are of the form trash:/<hex-encoded real path>.
+	    Hex encoding is used so the paths are URL-safe and round-trip through
+	    filepath.Clean without modification.
+	  - Deleting a file from trash:/ permanently removes it from disk.
+	  - file_system.go detects srcFsh.UUID == "trash" to trigger a permanent
+	    delete instead of a second move-to-trash.
 */
 
 import (
-	"encoding/json"
+	"encoding/hex"
 	"errors"
 	"io"
 	"io/fs"
@@ -32,7 +31,6 @@ import (
 	"strings"
 	"time"
 
-	"imuslab.com/arozos/mod/filesystem/abstractions/localfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -40,249 +38,281 @@ import (
 const (
 	// TrashFSUUID is the reserved virtual-path UUID for the trash filesystem.
 	TrashFSUUID = "trash"
-	// TrashInfoExt is the suffix appended to every sidecar metadata file.
-	TrashInfoExt = ".trashinfo"
+
+	// TrashRootSentinel is returned by VirtualPathToRealPath when the path is
+	// the trash root (trash:/ or trash:). Callers that handle trash:/ listing
+	// specially will never pass this to the OS.
+	TrashRootSentinel = "\x00trash_root\x00"
+
+	// LegacyTrashDir is the directory name used by the legacy trash mechanism.
+	// Files are moved here when recycled (adjacent to the file's own directory).
+	LegacyTrashDir = ".trash"
 )
 
-// TrashInfo holds the metadata stored in a .trashinfo sidecar file.
-type TrashInfo struct {
-	// OriginalVpath is the full virtual path the file had before it was trashed,
-	// e.g. "user:/documents/report.pdf".
-	OriginalVpath string `json:"original_vpath"`
-	// OriginalFilename is the bare filename (no directory, no timestamp suffix).
-	OriginalFilename string `json:"original_filename"`
-	// DeletedAt is the Unix timestamp (seconds) when the file was trashed.
-	DeletedAt int64 `json:"deleted_at"`
-	// IsDir is true when the trashed entry is a directory.
-	IsDir bool `json:"is_dir"`
-}
-
-// TrashFSAbstraction implements FileSystemAbstraction for the trash:/ filesystem.
-// Internally it delegates all actual I/O to a LocalFileSystemAbstraction that
-// is rooted at the configured trash directory.
+// TrashFSAbstraction implements FileSystemAbstraction for the trash:/ virtual
+// filesystem.  It has no backing storage of its own; instead it resolves paths
+// from hex-encoded real paths and delegates I/O directly to the OS.
 type TrashFSAbstraction struct {
 	UUID      string
-	Rootpath  string
 	Hierarchy string
 	ReadOnly  bool
-
-	// inner performs all real file-system operations.
-	inner localfs.LocalFileSystemAbstraction
 }
 
-// NewTrashFSAbstraction returns a new TrashFSAbstraction backed by rootpath.
-// rootpath should be a dedicated directory, e.g. "{storage_root}/trash/".
-// hierarchy should normally be "user" so every user gets an isolated subtree.
-func NewTrashFSAbstraction(uuid, rootpath, hierarchy string, readonly bool) TrashFSAbstraction {
+// NewTrashFSAbstraction returns a TrashFSAbstraction ready for use.
+func NewTrashFSAbstraction() TrashFSAbstraction {
 	return TrashFSAbstraction{
-		UUID:      uuid,
-		Rootpath:  rootpath,
-		Hierarchy: hierarchy,
-		ReadOnly:  readonly,
-		inner:     localfs.NewLocalFileSystemAbstraction(uuid, rootpath, hierarchy, readonly),
+		UUID:      TrashFSUUID,
+		Hierarchy: "user",
+		ReadOnly:  false,
 	}
 }
 
-// ---- FileSystemAbstraction delegated methods ----
+// ---- Path translation ----
+
+// VirtualPathToRealPath decodes a trash:/ virtual path back to the real
+// on-disk path.  The subpath from GetIDFromVirtualPath is either "" (root) or
+// "/<hex-encoded real path>".
+func (t TrashFSAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
+	// Strip any remaining uuid: prefix that might arrive from callers.
+	subpath = strings.TrimPrefix(subpath, TrashFSUUID+":")
+	subpath = strings.TrimPrefix(subpath, "/")
+
+	if subpath == "" {
+		// Caller asked for the trash root - return sentinel.
+		return TrashRootSentinel, nil
+	}
+
+	decoded, err := hex.DecodeString(subpath)
+	if err != nil {
+		return "", errors.New("invalid trash:/ path (hex decode failed): " + err.Error())
+	}
+	return string(decoded), nil
+}
+
+// RealPathToVirtualPath converts an absolute on-disk path (inside a .trash
+// directory) to a trash:/ virtual path by hex-encoding the real path.
+func (t TrashFSAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
+	fullpath = filepath.ToSlash(filepath.Clean(fullpath))
+	encoded := hex.EncodeToString([]byte(fullpath))
+	return TrashFSUUID + ":/" + encoded, nil
+}
+
+// ---- Fundamental operations ----
 
 func (t TrashFSAbstraction) Chmod(filename string, mode os.FileMode) error {
-	return t.inner.Chmod(filename, mode)
+	if filename == TrashRootSentinel {
+		return arozfs.ErrOperationNotSupported
+	}
+	return os.Chmod(filename, mode)
 }
 func (t TrashFSAbstraction) Chown(filename string, uid int, gid int) error {
-	return t.inner.Chown(filename, uid, gid)
+	if filename == TrashRootSentinel {
+		return arozfs.ErrOperationNotSupported
+	}
+	return os.Chown(filename, uid, gid)
 }
 func (t TrashFSAbstraction) Chtimes(filename string, atime time.Time, mtime time.Time) error {
-	return t.inner.Chtimes(filename, atime, mtime)
+	if filename == TrashRootSentinel {
+		return arozfs.ErrOperationNotSupported
+	}
+	return os.Chtimes(filename, atime, mtime)
 }
 func (t TrashFSAbstraction) Create(filename string) (arozfs.File, error) {
-	return t.inner.Create(filename)
+	return nil, arozfs.ErrOperationNotSupported
 }
 func (t TrashFSAbstraction) Mkdir(filename string, mode os.FileMode) error {
-	return t.inner.Mkdir(filename, mode)
+	return arozfs.ErrOperationNotSupported
 }
 func (t TrashFSAbstraction) MkdirAll(filename string, mode os.FileMode) error {
-	return t.inner.MkdirAll(filename, mode)
+	return arozfs.ErrOperationNotSupported
 }
 func (t TrashFSAbstraction) Name() string {
 	return ""
 }
 func (t TrashFSAbstraction) Open(filename string) (arozfs.File, error) {
-	return t.inner.Open(filename)
+	if filename == TrashRootSentinel {
+		return nil, arozfs.ErrOperationNotSupported
+	}
+	return os.Open(filename)
 }
 func (t TrashFSAbstraction) OpenFile(filename string, flag int, perm os.FileMode) (arozfs.File, error) {
-	return t.inner.OpenFile(filename, flag, perm)
+	if filename == TrashRootSentinel {
+		return nil, arozfs.ErrOperationNotSupported
+	}
+	return os.OpenFile(filename, flag, perm)
 }
 
-// Remove permanently deletes filename and its .trashinfo sidecar (if present).
+// Remove permanently deletes filename from disk.
 func (t TrashFSAbstraction) Remove(filename string) error {
-	// Delete the .trashinfo sidecar if it exists.
-	sidecar := filename + TrashInfoExt
-	if utils.FileExists(sidecar) {
-		os.Remove(sidecar)
+	if filename == TrashRootSentinel {
+		return arozfs.ErrOperationNotSupported
 	}
 	return os.Remove(filename)
 }
 
-// RemoveAll permanently deletes path (and its .trashinfo sidecar if present).
+// RemoveAll permanently deletes path (file or directory tree) from disk.
 func (t TrashFSAbstraction) RemoveAll(path string) error {
-	sidecar := path + TrashInfoExt
-	if utils.FileExists(sidecar) {
-		os.Remove(sidecar)
+	if path == TrashRootSentinel {
+		return arozfs.ErrOperationNotSupported
 	}
 	return os.RemoveAll(path)
 }
 
 func (t TrashFSAbstraction) Rename(oldname, newname string) error {
-	return t.inner.Rename(oldname, newname)
+	if oldname == TrashRootSentinel || newname == TrashRootSentinel {
+		return arozfs.ErrOperationNotSupported
+	}
+	return os.Rename(oldname, newname)
 }
+
 func (t TrashFSAbstraction) Stat(filename string) (os.FileInfo, error) {
-	return t.inner.Stat(filename)
+	if filename == TrashRootSentinel {
+		return &syntheticDirInfo{name: "trash"}, nil
+	}
+	return os.Stat(filename)
 }
+
 func (t TrashFSAbstraction) Close() error {
 	return nil
-}
-
-// ---- Path translation ----
-
-func (t TrashFSAbstraction) VirtualPathToRealPath(subpath string, username string) (string, error) {
-	return t.inner.VirtualPathToRealPath(subpath, username)
-}
-
-func (t TrashFSAbstraction) RealPathToVirtualPath(fullpath string, username string) (string, error) {
-	return t.inner.RealPathToVirtualPath(fullpath, username)
 }
 
 // ---- Utility methods ----
 
 func (t TrashFSAbstraction) FileExists(realpath string) bool {
+	if realpath == TrashRootSentinel {
+		return true
+	}
 	return utils.FileExists(realpath)
 }
 
 func (t TrashFSAbstraction) IsDir(realpath string) bool {
-	return t.inner.IsDir(realpath)
+	if realpath == TrashRootSentinel {
+		return true
+	}
+	fi, err := os.Stat(realpath)
+	if err != nil {
+		return false
+	}
+	return fi.IsDir()
 }
 
-// Glob returns matching paths, excluding .trashinfo sidecar files from results.
+// Glob returns matching paths, excluding .trashinfo sidecar files.
 func (t TrashFSAbstraction) Glob(realpathWildcard string) ([]string, error) {
-	all, err := t.inner.Glob(realpathWildcard)
-	return filterSidecars(all), err
+	if realpathWildcard == TrashRootSentinel || strings.HasPrefix(realpathWildcard, TrashRootSentinel) {
+		return nil, nil
+	}
+	return filepath.Glob(realpathWildcard)
 }
 
 func (t TrashFSAbstraction) GetFileSize(realpath string) int64 {
-	return t.inner.GetFileSize(realpath)
-}
-func (t TrashFSAbstraction) GetModTime(realpath string) (int64, error) {
-	return t.inner.GetModTime(realpath)
-}
-func (t TrashFSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
-	return t.inner.WriteFile(filename, content, mode)
-}
-func (t TrashFSAbstraction) ReadFile(filename string) ([]byte, error) {
-	return t.inner.ReadFile(filename)
+	if realpath == TrashRootSentinel {
+		return 0
+	}
+	fi, err := os.Stat(realpath)
+	if err != nil {
+		return 0
+	}
+	return fi.Size()
 }
 
-// ReadDir returns directory entries, hiding .trashinfo sidecar files.
-func (t TrashFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
-	all, err := os.ReadDir(filename)
+func (t TrashFSAbstraction) GetModTime(realpath string) (int64, error) {
+	if realpath == TrashRootSentinel {
+		return 0, nil
+	}
+	fi, err := os.Stat(realpath)
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
-	filtered := make([]fs.DirEntry, 0, len(all))
-	for _, e := range all {
-		if !strings.HasSuffix(e.Name(), TrashInfoExt) {
-			filtered = append(filtered, e)
-		}
+	return fi.ModTime().Unix(), nil
+}
+
+func (t TrashFSAbstraction) WriteFile(filename string, content []byte, mode os.FileMode) error {
+	return arozfs.ErrOperationNotSupported
+}
+
+func (t TrashFSAbstraction) ReadFile(filename string) ([]byte, error) {
+	if filename == TrashRootSentinel {
+		return nil, arozfs.ErrOperationNotSupported
 	}
-	return filtered, nil
+	return os.ReadFile(filename)
+}
+
+// ReadDir returns an empty list for the sentinel root (actual listing is done
+// by system_fs_handleTrashListing in file_system.go).
+func (t TrashFSAbstraction) ReadDir(filename string) ([]fs.DirEntry, error) {
+	if filename == TrashRootSentinel {
+		return []fs.DirEntry{}, nil
+	}
+	return os.ReadDir(filename)
 }
 
 func (t TrashFSAbstraction) WriteStream(filename string, stream io.Reader, mode os.FileMode) error {
-	return t.inner.WriteStream(filename, stream, mode)
-}
-func (t TrashFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
-	return t.inner.ReadStream(filename)
+	return arozfs.ErrOperationNotSupported
 }
 
-// Walk traverses the tree rooted at root, skipping .trashinfo sidecar files.
+func (t TrashFSAbstraction) ReadStream(filename string) (io.ReadCloser, error) {
+	if filename == TrashRootSentinel {
+		return nil, arozfs.ErrOperationNotSupported
+	}
+	return os.Open(filename)
+}
+
+// Walk traverses the tree rooted at root.  For the sentinel root, it is a
+// no-op (aggregation is handled by system_fs_listTrash in file_system.go).
 func (t TrashFSAbstraction) Walk(root string, walkFn filepath.WalkFunc) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(path, TrashInfoExt) {
-			return nil // skip sidecar files
-		}
-		return walkFn(path, info, err)
-	})
+	if root == TrashRootSentinel {
+		return nil
+	}
+	return filepath.Walk(root, walkFn)
 }
 
 func (t TrashFSAbstraction) Heartbeat() error {
 	return nil
 }
 
-// ---- TrashInfo helpers ----
+// ---- Helpers ----
 
-// WriteTrashInfo writes a .trashinfo sidecar alongside trashFilePath.
-// trashFilePath is the real (on-disk) path of the already-moved trash file.
-func WriteTrashInfo(trashFilePath string, info TrashInfo) error {
-	data, err := json.MarshalIndent(info, "", "  ")
+// RealPathToTrashVPath is a package-level convenience function that converts a
+// real .trash file path to its trash:/ virtual path.  It mirrors the
+// RealPathToVirtualPath method but can be called without an instance.
+func RealPathToTrashVPath(realpath string) string {
+	realpath = filepath.ToSlash(filepath.Clean(realpath))
+	return TrashFSUUID + ":/" + hex.EncodeToString([]byte(realpath))
+}
+
+// TrashVPathToRealPath decodes a full trash:/ virtual path (e.g.
+// "trash:/2f66696c65...") back to the real on-disk path.
+func TrashVPathToRealPath(trashVpath string) (string, error) {
+	encoded := strings.TrimPrefix(trashVpath, TrashFSUUID+":/")
+	encoded = strings.TrimPrefix(encoded, TrashFSUUID+":")
+	if encoded == "" {
+		return "", errors.New("path is trash root, not a specific file")
+	}
+	decoded, err := hex.DecodeString(encoded)
 	if err != nil {
-		return err
+		return "", errors.New("invalid trash:/ path: " + err.Error())
 	}
-	return os.WriteFile(trashFilePath+TrashInfoExt, data, 0644)
+	return string(decoded), nil
 }
 
-// ReadTrashInfo reads the .trashinfo sidecar for trashFilePath.
-// Returns an error if the sidecar does not exist or cannot be parsed.
-func ReadTrashInfo(trashFilePath string) (TrashInfo, error) {
-	sidecar := trashFilePath + TrashInfoExt
-	data, err := os.ReadFile(sidecar)
-	if err != nil {
-		return TrashInfo{}, err
-	}
-	var info TrashInfo
-	if err := json.Unmarshal(data, &info); err != nil {
-		return TrashInfo{}, err
-	}
-	return info, nil
+// IsLegacyTrashFile reports whether realpath is inside a legacy .trash
+// directory (i.e. a file recycled before trash:/ was introduced).
+// The canonical path is .metadata/.trash/, so both the parent dir and its
+// parent must match.
+func IsLegacyTrashFile(realpath string) bool {
+	dir := filepath.Dir(realpath)
+	return filepath.Base(dir) == LegacyTrashDir && filepath.Base(filepath.Dir(dir)) == ".metadata"
 }
 
-// TrashInfoExists reports whether a .trashinfo sidecar exists for trashFilePath.
-func TrashInfoExists(trashFilePath string) bool {
-	return utils.FileExists(trashFilePath + TrashInfoExt)
+// syntheticDirInfo is a minimal os.FileInfo that represents the virtual trash
+// root directory.
+type syntheticDirInfo struct {
+	name string
 }
 
-// BuildTrashFilename returns the on-disk filename for a trashed file:
-//
-//	{timestamp}_{originalBasename}
-//
-// Using the timestamp as a prefix keeps the directory ordered by deletion time
-// and avoids name collisions when the same file is deleted multiple times.
-func BuildTrashFilename(originalBasename string, deletedAt int64) string {
-	return strings.Join([]string{
-		utils.Int64ToString(deletedAt),
-		originalBasename,
-	}, "_")
-}
-
-// ParseTrashFilename splits a trash filename back into (timestamp, originalBasename).
-// Returns an error if the name does not follow the expected format.
-func ParseTrashFilename(trashBasename string) (deletedAt int64, originalBasename string, err error) {
-	idx := strings.Index(trashBasename, "_")
-	if idx <= 0 {
-		return 0, "", errors.New("invalid trash filename: missing timestamp prefix")
-	}
-	ts, convErr := utils.StringToInt64(trashBasename[:idx])
-	if convErr != nil {
-		return 0, "", errors.New("invalid trash filename: non-numeric timestamp")
-	}
-	return ts, trashBasename[idx+1:], nil
-}
-
-// filterSidecars removes any path that ends with TrashInfoExt from the slice.
-func filterSidecars(paths []string) []string {
-	out := paths[:0]
-	for _, p := range paths {
-		if !strings.HasSuffix(p, TrashInfoExt) {
-			out = append(out, p)
-		}
-	}
-	return out
-}
+func (s *syntheticDirInfo) Name() string      { return s.name }
+func (s *syntheticDirInfo) Size() int64       { return 0 }
+func (s *syntheticDirInfo) Mode() os.FileMode { return os.ModeDir | 0755 }
+func (s *syntheticDirInfo) ModTime() time.Time { return time.Time{} }
+func (s *syntheticDirInfo) IsDir() bool       { return true }
+func (s *syntheticDirInfo) Sys() interface{}  { return nil }

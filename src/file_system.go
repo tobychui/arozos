@@ -1034,56 +1034,29 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 
 	//Get information of each files and process it into results
 	for c, file := range files {
-		fsh := fshs[c]
-		fsAbs := fsh.FileSystemAbstraction
-		virtualFilepath, _ := fsAbs.RealPathToVirtualPath(file, userinfo.Username)
+		fsAbs := fshs[c].FileSystemAbstraction
+
+		// Virtual path for this trash entry uses the trash:/ scheme so that
+		// subsequent delete operations permanently remove the file instead of
+		// re-trashing it.
+		trashVpath := trashfs.RealPathToTrashVPath(file)
 		rawsize := fsAbs.GetFileSize(file)
 		isDir := fsAbs.IsDir(file)
 
-		var timestampInt64 int64
-		var originalName string
-		var originalExt string
-		var virtualOrgPath string
-
-		if fsh.UUID == trashfs.TrashFSUUID {
-			// New trash:/ format: metadata comes from the .trashinfo sidecar.
-			info, infoErr := trashfs.ReadTrashInfo(file)
-			if infoErr == nil {
-				timestampInt64 = info.DeletedAt
-				originalName = info.OriginalFilename
-				// Derive original directory virtual path from original vpath.
-				virtualOrgPath = filepath.ToSlash(filepath.Dir(info.OriginalVpath))
-			} else {
-				// Sidecar missing — fall back to filename parsing.
-				ts, basename, parseErr := trashfs.ParseTrashFilename(filepath.Base(file))
-				if parseErr == nil {
-					timestampInt64 = ts
-					originalName = basename
-				} else {
-					originalName = filepath.Base(file)
-				}
-				virtualOrgPath, _ = fsAbs.RealPathToVirtualPath(filepath.Dir(file), userinfo.Username)
-			}
-			originalExt = filepath.Ext(originalName)
-			if isDir {
-				originalExt = ""
-			}
-		} else {
-			// Legacy .trash directory format.
-			timestamp := filepath.Ext(file)[1:]
-			originalName = strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
-			originalExt = filepath.Ext(filepath.Base(originalName))
-			virtualOrgPath, _ = fsAbs.RealPathToVirtualPath(filepath.Dir(filepath.Dir(filepath.Dir(file))), userinfo.Username)
-			timestampInt64, _ = utils.StringToInt64(timestamp)
-			if isDir {
-				originalExt = ""
-			}
+		// Legacy format: filename is "{originalname}.{timestamp}"
+		timestamp := filepath.Ext(file)[1:]
+		originalName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
+		originalExt := filepath.Ext(filepath.Base(originalName))
+		virtualOrgPath, _ := fsAbs.RealPathToVirtualPath(filepath.Dir(filepath.Dir(filepath.Dir(file))), userinfo.Username)
+		timestampInt64, _ := utils.StringToInt64(timestamp)
+		if isDir {
+			originalExt = ""
 		}
 
 		removeTimeDate := time.Unix(timestampInt64, 0)
 		results = append(results, trashedFile{
 			Filename:         filepath.Base(file),
-			Filepath:         virtualFilepath,
+			Filepath:         trashVpath,
 			FileExt:          originalExt,
 			IsDir:            isDir,
 			Filesize:         int64(rawsize),
@@ -1105,8 +1078,8 @@ func system_fs_scanTrashBin(w http.ResponseWriter, r *http.Request) {
 }
 
 // Restore a trashed file to its original location.
-// Supports both the new trash:/ format (uses .trashinfo sidecar) and the
-// legacy adjacent .trash directory format.
+// Accepts paths in either the trash:/ virtual scheme or the legacy virtual path
+// (e.g. user:/.metadata/.trash/…) format.
 func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -1120,74 +1093,50 @@ func system_fs_restoreFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fsh, subpath, err := GetFSHandlerSubpathFromVpath(targetTrashedFile)
-	if err != nil {
-		utils.SendErrorResponse(w, err.Error())
-		return
-	}
-	fshAbs := fsh.FileSystemAbstraction
+	var realpath string
 
-	//Translate it to realpath
-	realpath, _ := fshAbs.VirtualPathToRealPath(subpath, userinfo.Username)
-	if !fshAbs.FileExists(realpath) {
+	if strings.HasPrefix(targetTrashedFile, trashfs.TrashFSUUID+":") {
+		// New trash:/ scheme — decode the hex-encoded real path directly.
+		realpath, err = trashfs.TrashVPathToRealPath(targetTrashedFile)
+		if err != nil {
+			utils.SendErrorResponse(w, "Invalid trash path: "+err.Error())
+			return
+		}
+	} else {
+		// Legacy virtual path (e.g. user:/.metadata/.trash/…)
+		fsh, subpath, resolveErr := GetFSHandlerSubpathFromVpath(targetTrashedFile)
+		if resolveErr != nil {
+			utils.SendErrorResponse(w, resolveErr.Error())
+			return
+		}
+		realpath, _ = fsh.FileSystemAbstraction.VirtualPathToRealPath(subpath, userinfo.Username)
+	}
+
+	if !filesystem.FileExists(realpath) {
 		utils.SendErrorResponse(w, "File not exists")
 		return
 	}
 
-	if fsh.UUID == trashfs.TrashFSUUID {
-		// New trash:/ format — read .trashinfo sidecar to find the original location.
-		info, readErr := trashfs.ReadTrashInfo(realpath)
-		if readErr != nil {
-			utils.SendErrorResponse(w, "Cannot restore: missing trash metadata (.trashinfo not found)")
-			return
-		}
+	// Both formats store the file at:
+	//   {fsh_root}/users/{username}/{dir}/.metadata/.trash/{basename}.{timestamp}
+	// Restore: strip the timestamp suffix and move back two levels up.
+	if filepath.Base(filepath.Dir(realpath)) != trashfs.LegacyTrashDir {
+		utils.SendErrorResponse(w, "File not in trashbin")
+		return
+	}
 
-		// Resolve the original virtual path back to a real path.
-		origFsh, origSubpath, resolveErr := GetFSHandlerSubpathFromVpath(info.OriginalVpath)
-		if resolveErr != nil {
-			utils.SendErrorResponse(w, "Cannot restore: original filesystem no longer available")
-			return
-		}
-		origFshAbs := origFsh.FileSystemAbstraction
-		origRealpath, transErr := origFshAbs.VirtualPathToRealPath(origSubpath, userinfo.Username)
-		if transErr != nil {
-			utils.SendErrorResponse(w, "Cannot restore: path translation failed")
-			return
-		}
+	originalFilename := strings.TrimSuffix(filepath.Base(realpath), filepath.Ext(filepath.Base(realpath)))
+	restoreFolderRoot := filepath.Dir(filepath.Dir(filepath.Dir(realpath)))
+	targetPath := filepath.ToSlash(filepath.Join(restoreFolderRoot, originalFilename))
+	if err := os.Rename(realpath, targetPath); err != nil {
+		utils.SendErrorResponse(w, "Restore failed: "+err.Error())
+		return
+	}
 
-		// Make sure the destination directory exists.
-		os.MkdirAll(filepath.Dir(origRealpath), 0755)
-
-		// Move the file back.
-		if renameErr := os.Rename(realpath, origRealpath); renameErr != nil {
-			// Cross-device: copy then delete.
-			if copyErr := filesystem.FileCopy(fsh, realpath, origFsh, filepath.Dir(origRealpath), "keep", nil); copyErr != nil {
-				utils.SendErrorResponse(w, "Restore failed: "+copyErr.Error())
-				return
-			}
-			fshAbs.RemoveAll(realpath)
-		}
-
-		// Remove the .trashinfo sidecar.
-		os.Remove(realpath + trashfs.TrashInfoExt)
-
-	} else {
-		// Legacy .trash directory format.
-		if filepath.Base(filepath.Dir(realpath)) != ".trash" {
-			utils.SendErrorResponse(w, "File not in trashbin")
-			return
-		}
-
-		originalFilename := strings.TrimSuffix(filepath.Base(realpath), filepath.Ext(filepath.Base(realpath)))
-		restoreFolderRoot := filepath.Dir(filepath.Dir(filepath.Dir(realpath)))
-		targetPath := filepath.ToSlash(filepath.Join(restoreFolderRoot, originalFilename))
-		fshAbs.Rename(realpath, targetPath)
-
-		// Remove the parent .trash dir if it is now empty.
-		filescounter, _ := fshAbs.Glob(filepath.Dir(realpath) + "/*")
-		if len(filescounter) == 0 {
-			fshAbs.Remove(filepath.Dir(realpath))
-		}
+	// Remove the .trash dir if it is now empty.
+	filescounter, _ := filepath.Glob(filepath.Dir(realpath) + "/*")
+	if len(filescounter) == 0 {
+		os.Remove(filepath.Dir(realpath))
 	}
 
 	utils.SendOK(w)
@@ -1228,44 +1177,26 @@ func system_fs_clearTrashBin(w http.ResponseWriter, r *http.Request) {
 	utils.SendOK(w)
 }
 
-// Get all trash in a string list.
-// It scans the trash:/ FSH first (new centralised trash), then falls back to
-// the legacy per-FSH .trash directories for files recycled before the trash:/
-// filesystem was introduced.
+// system_fs_listTrash walks all registered FSHs and returns a list of real
+// on-disk paths for files sitting inside any .metadata/.trash/ directory,
+// together with the FSH each file belongs to.
+// Callers that need virtual paths should call trashfs.RealPathToTrashVPath.
 func system_fs_listTrash(username string) ([]string, []*filesystem.FileSystemHandler, error) {
 	userinfo, _ := userHandler.GetUserInfoFromUsername(username)
 
 	files := []string{}
 	fshs := []*filesystem.FileSystemHandler{}
 
-	// --- Primary: scan the dedicated trash:/ filesystem ---
-	trashFsh, err := GetFsHandlerByUUID(trashfs.TrashFSUUID)
-	if err == nil {
-		trashFshAbs := trashFsh.FileSystemAbstraction
-		trashRootPath, _ := trashFshAbs.VirtualPathToRealPath(trashfs.TrashFSUUID+":/", userinfo.Username)
-		os.MkdirAll(trashRootPath, 0755)
-		trashFshAbs.Walk(trashRootPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() {
-				return nil
-			}
-			files = append(files, path)
-			fshs = append(fshs, trashFsh)
-			return nil
-		})
-	}
-
-	// --- Legacy: scan adjacent .trash directories inside other FSHs ---
-	for _, storage := range userinfo.GetAllFileSystemHandler() {
-		if storage.Hierarchy == "backup" || storage.UUID == trashfs.TrashFSUUID {
+	for _, fsh := range userinfo.GetAllFileSystemHandler() {
+		if fsh.Hierarchy == "backup" || fsh.UUID == trashfs.TrashFSUUID {
 			continue
 		}
-		thisFshAbs := storage.FileSystemAbstraction
+		thisFshAbs := fsh.FileSystemAbstraction
 		rootPath, _ := thisFshAbs.VirtualPathToRealPath("", userinfo.Username)
 		thisFshAbs.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-			oneLevelUpper := filepath.Base(filepath.Dir(path))
-			if oneLevelUpper == ".trash" {
+			if filepath.Base(filepath.Dir(path)) == trashfs.LegacyTrashDir {
 				files = append(files, path)
-				fshs = append(fshs, storage)
+				fshs = append(fshs, fsh)
 			}
 			return nil
 		})
@@ -2188,16 +2119,14 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 			} else if operation == "recycle" {
-				//Put it into the trash:/ filesystem and allow it to be removed later.
-				//If the source file is already inside trash:/, permanently delete it instead.
+				//Move file to the .metadata/.trash/ subdirectory on the SAME filesystem
+				//(no cross-device copy). If the source is already in trash:/, permanently
+				//delete it instead.
 				if !srcFshAbs.FileExists(rsrcFile) {
-					//Check if it is a non escapted file instead
 					utils.SendErrorResponse(w, "Source file not exists")
 					return
-
 				}
 
-				//Check if the upload target is read only.
 				if !userinfo.CanWrite(vsrcFile) {
 					utils.SendErrorResponse(w, "Access Denied")
 					return
@@ -2213,68 +2142,33 @@ func system_fs_handleOpr(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if srcFsh.UUID == trashfs.TrashFSUUID {
-					// Source is already in trash:/ — permanently delete it.
+					// File is already in trash:/ — permanently delete it from disk.
 					err = srcFshAbs.RemoveAll(rsrcFile)
 					if err != nil {
-						systemWideLogger.PrintAndLog("File System", "Failed to permanently delete file from trash. See log for more info.", err)
+						systemWideLogger.PrintAndLog("File System", "Failed to permanently delete file from trash.", err)
 						utils.SendErrorResponse(w, "Failed to permanently delete file from trash")
 						return
 					}
 				} else if srcFsh.RequireBuffer {
-					// Network drives that require buffering cannot be moved to trash:/
-					// — they must be deleted permanently.
+					// Network / buffer-required filesystems cannot rename-into-trash.
+					// Permanent delete is the only option.
 					err = srcFshAbs.RemoveAll(rsrcFile)
 					if err != nil {
-						utils.SendErrorResponse(w, "Incompatible File System Type: direct deletion failed: "+err.Error())
+						utils.SendErrorResponse(w, "Incompatible File System Type: Try SHIFT + DELETE to delete file permanently")
 						return
 					}
 				} else {
-					// Regular local filesystem: move to trash:/ with a .trashinfo sidecar.
-					trashFsh, trashErr := GetFsHandlerByUUID(trashfs.TrashFSUUID)
-					if trashErr != nil {
-						// Trash filesystem not available — fall back to adjacent .trash dir.
-						legacyTrashDir := filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.metadata/.trash/"
-						srcFshAbs.MkdirAll(legacyTrashDir, 0755)
-						hidden.HideFile(filepath.Dir(legacyTrashDir))
-						hidden.HideFile(legacyTrashDir)
-						err = srcFshAbs.Rename(rsrcFile, legacyTrashDir+filepath.Base(rsrcFile)+"."+utils.Int64ToString(time.Now().Unix()))
-						if err != nil {
-							systemWideLogger.PrintAndLog("File System", "Failed to move file to trash. See log for more info.", err)
-							utils.SendErrorResponse(w, "Failed to move file to trash")
-							return
-						}
-					} else {
-						// Move the file into the user's trash:/ directory.
-						deletedAt := time.Now().Unix()
-						trashName := trashfs.BuildTrashFilename(filepath.Base(rsrcFile), deletedAt)
-						trashUserDir, trashTranslateErr := trashFsh.FileSystemAbstraction.VirtualPathToRealPath(trashfs.TrashFSUUID+":/", userinfo.Username)
-						if trashTranslateErr != nil {
-							utils.SendErrorResponse(w, "Failed to resolve trash directory")
-							return
-						}
-						os.MkdirAll(trashUserDir, 0755)
-						trashDest := filepath.Join(trashUserDir, trashName)
-						err = os.Rename(rsrcFile, trashDest)
-						if err != nil {
-							// Cross-device rename — copy then remove.
-							err = filesystem.FileCopy(srcFsh, rsrcFile, trashFsh, trashUserDir, "keep", nil)
-							if err == nil {
-								srcFshAbs.RemoveAll(rsrcFile)
-							}
-						}
-						if err != nil {
-							systemWideLogger.PrintAndLog("File System", "Failed to move file to trash:/. See log for more info.", err)
-							utils.SendErrorResponse(w, "Failed to move file to trash")
-							return
-						}
-						// Write .trashinfo sidecar so the file can be restored later.
-						trashinfo := trashfs.TrashInfo{
-							OriginalVpath:    vsrcFile,
-							OriginalFilename: filepath.Base(rsrcFile),
-							DeletedAt:        deletedAt,
-							IsDir:            srcFshAbs.IsDir(rsrcFile),
-						}
-						trashfs.WriteTrashInfo(trashDest, trashinfo)
+					// Local filesystem: move to adjacent .metadata/.trash/ dir on the
+					// SAME volume (fast rename, no data copy, no cross-device wear).
+					trashDir := filepath.ToSlash(filepath.Dir(rsrcFile)) + "/.metadata/.trash/"
+					srcFshAbs.MkdirAll(trashDir, 0755)
+					hidden.HideFile(filepath.Dir(trashDir))
+					hidden.HideFile(trashDir)
+					err = srcFshAbs.Rename(rsrcFile, trashDir+filepath.Base(rsrcFile)+"."+utils.Int64ToString(time.Now().Unix()))
+					if err != nil {
+						systemWideLogger.PrintAndLog("File System", "Failed to move file to trash.", err)
+						utils.SendErrorResponse(w, "Failed to move file to trash")
+						return
 					}
 				}
 			} else if operation == "unzip" {
@@ -2668,6 +2562,52 @@ func system_fs_getFileProperties(w http.ResponseWriter, r *http.Request) {
 	S1:/			<= Open {uuid=S1}/
 */
 
+// system_fs_handleTrashListing produces a directory-listing-style JSON response
+// for the trash:/ virtual root.  It aggregates all .metadata/.trash/ files from
+// every FSH the user has access to and returns each entry with a trash:/
+// virtual path so that subsequent operations (delete, restore) are routed to
+// the correct handler.
+func system_fs_handleTrashListing(w http.ResponseWriter, username string) {
+	files, fshs, err := system_fs_listTrash(username)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	results := []filesystem.FileData{}
+	for i, realpath := range files {
+		fshAbs := fshs[i].FileSystemAbstraction
+		statInfo, statErr := fshAbs.Stat(realpath)
+		if statErr != nil {
+			continue
+		}
+
+		// Parse original name and timestamp from the legacy filename convention
+		// "{originalname}.{unix_timestamp}".
+		timestamp := filepath.Ext(realpath)[1:]
+		origName := strings.TrimSuffix(filepath.Base(realpath), filepath.Ext(filepath.Base(realpath)))
+		timestampInt64, _ := utils.StringToInt64(timestamp)
+
+		results = append(results, filesystem.FileData{
+			Filename:    origName,
+			Filepath:    trashfs.RealPathToTrashVPath(realpath),
+			Realpath:    filepath.ToSlash(realpath),
+			IsDir:       statInfo.IsDir(),
+			Filesize:    statInfo.Size(),
+			Displaysize: filesystem.GetFileDisplaySize(statInfo.Size(), 2),
+			ModTime:     timestampInt64,
+		})
+	}
+
+	// Sort newest first.
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].ModTime > results[j].ModTime
+	})
+
+	js, _ := json.Marshal(results)
+	utils.SendJSONResponse(w, string(js))
+}
+
 func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	currentDir, err := utils.PostPara(r, "dir")
 	if err != nil {
@@ -2697,6 +2637,12 @@ func system_fs_handleList(w http.ResponseWriter, r *http.Request) {
 	fsh, subpath, err := GetFSHandlerSubpathFromVpath(currentDir)
 	if err != nil {
 		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	// Special case: trash:/ root listing aggregates all .trash files across FSHs.
+	if fsh.UUID == trashfs.TrashFSUUID {
+		system_fs_handleTrashListing(w, userinfo.Username)
 		return
 	}
 

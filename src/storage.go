@@ -90,16 +90,17 @@ func LoadBaseStoragePool() error {
 	}
 	fsHandlers = append(fsHandlers, tmpHandler)
 
-	//Load the trash folder as storage unit (trash:/)
-	//Files moved here via "recycle" are visible in the file explorer under trash:/
-	//Deleting a file from trash:/ permanently removes it from disk.
-	trashDirPath := filepath.ToSlash(filepath.Clean(*root_directory)) + "/trash/"
-	os.MkdirAll(trashDirPath, 0755)
-	trashAbstraction := trashfs.NewTrashFSAbstraction(trashfs.TrashFSUUID, trashDirPath, "user", false)
+	// Register the trash:/ virtual filesystem.
+	// trash:/ is a virtual aggregating view over all .metadata/.trash/ directories
+	// that exist within registered FSHs.  It has no physical backing directory of
+	// its own — files recycled from local FSHs are moved to a .metadata/.trash/
+	// subdirectory on the SAME filesystem (no cross-device copy).
+	// Deleting a file from trash:/ permanently removes it from disk.
+	trashAbstraction := trashfs.NewTrashFSAbstraction()
 	trashHandler := &fs.FileSystemHandler{
 		Name:                  "trash",
 		UUID:                  trashfs.TrashFSUUID,
-		Path:                  trashDirPath,
+		Path:                  "(virtual)",
 		Hierarchy:             "user",
 		ReadOnly:              false,
 		RequireBuffer:         false,
