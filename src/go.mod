@@ -33,8 +33,8 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	github.com/studio-b12/gowebdav v0.11.0
 	gitlab.com/NebulousLabs/go-upnp v0.0.0-20211002182029-11da932010b6
+	golang.org/x/image v0.38.0
 	golang.org/x/crypto v0.50.0
-	golang.org/x/image v0.33.0
 	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.20.0
 )
