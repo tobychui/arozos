@@ -3,124 +3,102 @@
     "version": "1.0",
     "keys": {
         "zh-tw": {
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "fwtitle" : "檔案分享",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fwtitle": "檔案分享",
+            "strings": {
                 "title/title": "檔案分享",
-                "button/copy":"複製到剪貼簿",
-                "button/remove":"移除分享",
-                "button/copied":"已複製！",
-
-                "share/setting/title":"分享設定",
-                "share/setting/subtitle":"設定誰可以存取此檔案",
-                "share/setting/options":"取存設定：",
-                "share/setting/anyoneWithLink":"擁有連接的使用者",
-                "share/setting/anyoneWithLink/desc":"任何擁有分享連接的使用者皆可下載此檔案",
-                "share/setting/anyoneSignedIn":"已登入的使用者",
-                "share/setting/anyoneSignedIn/desc":"任何已登入並擁有分享連接的使用者皆可下載此檔案",
-                "share/setting/sameGroup":"在同一權限群組內的使用者",
-                "share/setting/sameGroup/desc":"任何擁有相同使用者權限的使用者皆可下載此檔案",
-                "share/setting/updated":"存取權限已更新",
-
-                "share/setting/advance/title":"進階分享選項",
-                "share/setting/advance/users":"指定使用者",
-                "share/setting/advance/usersDesc":"指定已登入之使用者帳戶名稱",
-                "share/setting/advance/usersInstruct":"於下方列表中選擇指定分享的用戶",
-                "share/setting/advance/addUserToSave":"新增最少一名使用者以儲存變更",
-                "share/setting/advance/groups":"指定權限群組",
-                "share/setting/advance/groupsDesc":"使用者只要擁有下述指定之任何一個群組權限皆可存取",
-                "share/setting/advance/groupsInstruct":"於下方列表中選擇指定分享的群組",
-                "share/setting/advance/addGroupToSave":"新增最少一個權限群組以儲存變更",
-
+                "button/copy": "複製到剪貼簿",
+                "button/remove": "移除分享",
+                "button/copied": "已複製！",
+                "share/setting/title": "分享設定",
+                "share/setting/subtitle": "設定誰可以存取此檔案",
+                "share/setting/options": "取存設定：",
+                "share/setting/anyoneWithLink": "擁有連接的使用者",
+                "share/setting/anyoneWithLink/desc": "任何擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/anyoneSignedIn": "已登入的使用者",
+                "share/setting/anyoneSignedIn/desc": "任何已登入並擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/sameGroup": "在同一權限群組內的使用者",
+                "share/setting/sameGroup/desc": "任何擁有相同使用者權限的使用者皆可下載此檔案",
+                "share/setting/updated": "存取權限已更新",
+                "share/setting/advance/title": "進階分享選項",
+                "share/setting/advance/users": "指定使用者",
+                "share/setting/advance/usersDesc": "指定已登入之使用者帳戶名稱",
+                "share/setting/advance/usersInstruct": "於下方列表中選擇指定分享的用戶",
+                "share/setting/advance/addUserToSave": "新增最少一名使用者以儲存變更",
+                "share/setting/advance/groups": "指定權限群組",
+                "share/setting/advance/groupsDesc": "使用者只要擁有下述指定之任何一個群組權限皆可存取",
+                "share/setting/advance/groupsInstruct": "於下方列表中選擇指定分享的群組",
+                "share/setting/advance/addGroupToSave": "新增最少一個權限群組以儲存變更",
                 "message/removed": "分享已移除",
                 "qr/loading": "載入中"
-               
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-hk": {
-            "fontFamily":"\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "fwtitle" : "檔案分享",
-            "strings":{
+            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
+            "fwtitle": "檔案分享",
+            "strings": {
                 "title/title": "檔案分享",
-                "button/copy":"複製到剪貼簿",
-                "button/remove":"移除分享",
-                "button/copied":"已複製！",
-
-                "share/setting/title":"分享設定",
-                "share/setting/subtitle":"設定誰可以存取此檔案",
-                "share/setting/options":"取存設定：",
-                "share/setting/anyoneWithLink":"擁有連接的使用者",
-                "share/setting/anyoneWithLink/desc":"任何擁有分享連接的使用者皆可下載此檔案",
-                "share/setting/anyoneSignedIn":"已登入的使用者",
-                "share/setting/anyoneSignedIn/desc":"任何已登入並擁有分享連接的使用者皆可下載此檔案",
-                "share/setting/sameGroup":"在同一權限群組內的使用者",
-                "share/setting/sameGroup/desc":"任何擁有相同使用者權限的使用者皆可下載此檔案",
-                "share/setting/updated":"存取權限已更新",
-
-                "share/setting/advance/title":"進階分享選項",
-                "share/setting/advance/users":"指定使用者",
-                "share/setting/advance/usersDesc":"指定已登入之使用者帳戶名稱",
-                "share/setting/advance/usersInstruct":"於下方列表中選擇指定分享的用戶",
-                "share/setting/advance/addUserToSave":"新增最少一名使用者以儲存變更",
-                "share/setting/advance/groups":"指定權限群組",
-                "share/setting/advance/groupsDesc":"使用者只要擁有下述指定之任何一個群組權限皆可存取",
-                "share/setting/advance/groupsInstruct":"於下方列表中選擇指定分享的群組",
-                "share/setting/advance/addGroupToSave":"新增最少一個權限群組以儲存變更",
-
+                "button/copy": "複製到剪貼簿",
+                "button/remove": "移除分享",
+                "button/copied": "已複製！",
+                "share/setting/title": "分享設定",
+                "share/setting/subtitle": "設定誰可以存取此檔案",
+                "share/setting/options": "取存設定：",
+                "share/setting/anyoneWithLink": "擁有連接的使用者",
+                "share/setting/anyoneWithLink/desc": "任何擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/anyoneSignedIn": "已登入的使用者",
+                "share/setting/anyoneSignedIn/desc": "任何已登入並擁有分享連接的使用者皆可下載此檔案",
+                "share/setting/sameGroup": "在同一權限群組內的使用者",
+                "share/setting/sameGroup/desc": "任何擁有相同使用者權限的使用者皆可下載此檔案",
+                "share/setting/updated": "存取權限已更新",
+                "share/setting/advance/title": "進階分享選項",
+                "share/setting/advance/users": "指定使用者",
+                "share/setting/advance/usersDesc": "指定已登入之使用者帳戶名稱",
+                "share/setting/advance/usersInstruct": "於下方列表中選擇指定分享的用戶",
+                "share/setting/advance/addUserToSave": "新增最少一名使用者以儲存變更",
+                "share/setting/advance/groups": "指定權限群組",
+                "share/setting/advance/groupsDesc": "使用者只要擁有下述指定之任何一個群組權限皆可存取",
+                "share/setting/advance/groupsInstruct": "於下方列表中選擇指定分享的群組",
+                "share/setting/advance/addGroupToSave": "新增最少一個權限群組以儲存變更",
                 "message/removed": "分享已移除",
                 "qr/loading": "載入中"
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "zh-cn": {
-            "fwtitle" : "文件分享",
-            "strings":{
+            "fwtitle": "文件分享",
+            "strings": {
                 "title/title": "文件分享",
-                "button/copy":"复制到剪切板",
-                "button/remove":"移除分享",
-                "button/copied":"已复制！",
-
-                "share/setting/title":"分享设置",
-                "share/setting/subtitle":"设置谁可以存取此文件",
-                "share/setting/options":"存取设置：",
-                "share/setting/anyoneWithLink":"拥有链接的使用者",
-                "share/setting/anyoneWithLink/desc":"任何拥有分享链接的使用者均可下载此文件",
-                "share/setting/anyoneSignedIn":"已登录的使用者",
-                "share/setting/anyoneSignedIn/desc":"任何已登录并拥有分享链接的使用者均可下载此文件",
-                "share/setting/sameGroup":"在同一权限群组内的使用者",
-                "share/setting/sameGroup/desc":"任何拥有相同使用者权限的使用者均可下载此文件",
-                "share/setting/updated":"存取权限已更新",
-
-                "share/setting/advance/title":"高级分享选项",
-                "share/setting/advance/users":"指定使用者",
-                "share/setting/advance/usersDesc":"指定已登录的使用者帐户名称",
-                "share/setting/advance/usersInstruct":"于下方列表中选择指定分享的用户",
-                "share/setting/advance/addUserToSave":"新增最少一名使用者以存储变更",
-                "share/setting/advance/groups":"指定权限群组",
-                "share/setting/advance/groupsDesc":"使用者只要拥有下述指定之任何一个群组权限均可存取",
-                "share/setting/advance/groupsInstruct":"于下方列表中选择指定分享的群组",
-                "share/setting/advance/addGroupToSave":"新增最少一个权限群组以存储变更",
-                
+                "button/copy": "复制到剪切板",
+                "button/remove": "移除分享",
+                "button/copied": "已复制！",
+                "share/setting/title": "分享设置",
+                "share/setting/subtitle": "设置谁可以存取此文件",
+                "share/setting/options": "存取设置：",
+                "share/setting/anyoneWithLink": "拥有链接的使用者",
+                "share/setting/anyoneWithLink/desc": "任何拥有分享链接的使用者均可下载此文件",
+                "share/setting/anyoneSignedIn": "已登录的使用者",
+                "share/setting/anyoneSignedIn/desc": "任何已登录并拥有分享链接的使用者均可下载此文件",
+                "share/setting/sameGroup": "在同一权限群组内的使用者",
+                "share/setting/sameGroup/desc": "任何拥有相同使用者权限的使用者均可下载此文件",
+                "share/setting/updated": "存取权限已更新",
+                "share/setting/advance/title": "高级分享选项",
+                "share/setting/advance/users": "指定使用者",
+                "share/setting/advance/usersDesc": "指定已登录的使用者帐户名称",
+                "share/setting/advance/usersInstruct": "于下方列表中选择指定分享的用户",
+                "share/setting/advance/addUserToSave": "新增最少一名使用者以存储变更",
+                "share/setting/advance/groups": "指定权限群组",
+                "share/setting/advance/groupsDesc": "使用者只要拥有下述指定之任何一个群组权限均可存取",
+                "share/setting/advance/groupsInstruct": "于下方列表中选择指定分享的群组",
+                "share/setting/advance/addGroupToSave": "新增最少一个权限群组以存储变更",
                 "message/removed": "分享已移除",
-                "qr/loading": "载入中" 
+                "qr/loading": "载入中"
             },
-            "titles":{
-
-            },
-            "placeholder":{
-
-            }
+            "titles": {},
+            "placeholder": {}
         },
         "en-us": {
             "fontFamily": "",
@@ -130,7 +108,6 @@
                 "button/copy": "Copy to Clipboard",
                 "button/remove": "Remove Sharing",
                 "button/copied": "Copied!",
-        
                 "share/setting/title": "Sharing Settings",
                 "share/setting/subtitle": "Specify who can access this file",
                 "share/setting/options": "Access Settings:",
@@ -141,7 +118,6 @@
                 "share/setting/sameGroup": "Users in the same permission group",
                 "share/setting/sameGroup/desc": "Anyone with the same user permission can download this file",
                 "share/setting/updated": "Access permission updated",
-        
                 "share/setting/advance/title": "Advanced Sharing Options",
                 "share/setting/advance/users": "Specified Users",
                 "share/setting/advance/usersDesc": "Specify logged-in user account names",
@@ -151,7 +127,6 @@
                 "share/setting/advance/groupsDesc": "Users with any of the specified group permissions can access",
                 "share/setting/advance/groupsInstruct": "Select specified groups for sharing from the list below",
                 "share/setting/advance/addGroupToSave": "Add at least one permission group to save changes",
-        
                 "message/removed": "Sharing has been removed",
                 "qr/loading": "Loading"
             },
@@ -166,7 +141,6 @@
                 "button/copy": "クリップボードにコピー",
                 "button/remove": "共有を解除",
                 "button/copied": "コピー済み！",
-        
                 "share/setting/title": "共有設定",
                 "share/setting/subtitle": "誰がこのファイルにアクセスできるかを指定",
                 "share/setting/options": "アクセス設定:",
@@ -177,7 +151,6 @@
                 "share/setting/sameGroup": "同じ権限グループのユーザー",
                 "share/setting/sameGroup/desc": "同じユーザー権限を持つユーザーがこのファイルをダウンロードできます",
                 "share/setting/updated": "アクセス権限が更新されました",
-        
                 "share/setting/advance/title": "高度な共有オプション",
                 "share/setting/advance/users": "指定ユーザー",
                 "share/setting/advance/usersDesc": "ログインしているユーザーアカウント名を指定",
@@ -187,7 +160,6 @@
                 "share/setting/advance/groupsDesc": "指定されたグループ権限を持つユーザーはすべてアクセスできます",
                 "share/setting/advance/groupsInstruct": "以下のリストから共有するための特定のグループを選択",
                 "share/setting/advance/addGroupToSave": "変更を保存するには少なくとも1つの権限グループを追加",
-        
                 "message/removed": "共有が解除されました",
                 "qr/loading": "読み込み中"
             },
@@ -202,7 +174,6 @@
                 "button/copy": "클립보드에 복사",
                 "button/remove": "공유 제거",
                 "button/copied": "복사 완료!",
-                
                 "share/setting/title": "공유 설정",
                 "share/setting/subtitle": "이 파일에 접근할 수 있는 사람 지정",
                 "share/setting/options": "접근 설정:",
@@ -213,7 +184,6 @@
                 "share/setting/sameGroup": "동일한 권한 그룹의 사용자",
                 "share/setting/sameGroup/desc": "동일한 사용자 권한을 가진 누구나 이 파일을 다운로드할 수 있습니다",
                 "share/setting/updated": "접근 권한이 업데이트되었습니다",
-                
                 "share/setting/advance/title": "고급 공유 옵션",
                 "share/setting/advance/users": "지정된 사용자",
                 "share/setting/advance/usersDesc": "로그인한 사용자 계정 이름 지정",
@@ -223,13 +193,44 @@
                 "share/setting/advance/groupsDesc": "지정된 그룹 권한을 가진 사용자가 접근할 수 있습니다",
                 "share/setting/advance/groupsInstruct": "아래 목록에서 공유할 지정된 그룹을 선택하세요",
                 "share/setting/advance/addGroupToSave": "변경 사항을 저장하려면 최소한 한 개의 권한 그룹을 추가하세요",
-                
                 "message/removed": "공유가 제거되었습니다",
                 "qr/loading": "로딩 중"
             },
             "titles": {},
             "placeholder": {}
+        },
+        "ru-ru": {
+            "fontFamily": "Calibri Regular, Calibri Bold",
+            "fwtitle": "Общий доступ к файлам",
+            "strings": {
+                "title/title": "Общий доступ к файлам",
+                "button/copy": "Копировать в буфер обмена",
+                "button/remove": "Удалить общий доступ",
+                "button/copied": "Скопировано!",
+                "share/setting/title": "Настройки общего доступа",
+                "share/setting/subtitle": "Укажите, кто может получить доступ к этому файлу",
+                "share/setting/options": "Настройки доступа:",
+                "share/setting/anyoneWithLink": "Любой, у кого есть ссылка",
+                "share/setting/anyoneWithLink/desc": "Любой, у кого есть общая ссылка, может скачать этот файл",
+                "share/setting/anyoneSignedIn": "Любой вошедший в систему",
+                "share/setting/anyoneSignedIn/desc": "Любой вошедший в систему и имеющий общую ссылку может скачать этот файл",
+                "share/setting/sameGroup": "Пользователи в той же группе разрешений",
+                "share/setting/sameGroup/desc": "Любой с теми же правами пользователя может скачать этот файл",
+                "share/setting/updated": "Разрешение на доступ обновлено",
+                "share/setting/advance/title": "Расширенные параметры общего доступа",
+                "share/setting/advance/users": "Указанные пользователи",
+                "share/setting/advance/usersDesc": "Укажите имена учётных записей пользователей, вошедших в систему",
+                "share/setting/advance/usersInstruct": "Выберите конкретных пользователей из списка ниже",
+                "share/setting/advance/addUserToSave": "Добавьте хотя бы одного пользователя, чтобы сохранить изменения",
+                "share/setting/advance/groups": "Указанные группы разрешений",
+                "share/setting/advance/groupsDesc": "Пользователи с любыми из указанных групповых разрешений могут получить доступ",
+                "share/setting/advance/groupsInstruct": "Выберите указанные группы для общего доступа из списка ниже",
+                "share/setting/advance/addGroupToSave": "Добавьте хотя бы одну группу разрешений, чтобы сохранить изменения",
+                "message/removed": "Общий доступ был удалён",
+                "qr/loading": "Загрузка"
+            },
+            "titles": {},
+            "placeholder": {}
         }
-        
     }
 }
