@@ -41,11 +41,19 @@
             --hover:      rgba(255,255,255,.055);
             --active-bg:  rgba(168,85,247,.13);
             --player-h:   88px;
+            --player-h-mobile: 120px;
             --sidebar-w:  240px;
             --font:       -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
         }
 
-        html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; }
+        html, body { 
+            height: 100%; 
+            overflow: hidden; 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: var(--font); 
+            font-size: 14px; 
+        }
 
         /* ── App Layout ────────────────────────────────────────────────── */
         #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -157,7 +165,7 @@
             .sidebar.open { transform: translateX(0); }
             .sidebar-overlay { display: block; }
             .queue-panel{
-                bottom: calc(var(--player-h) - 2px) !important;
+                bottom: calc(var(--player-h-mobile)) !important;
             }
         }
 
@@ -190,7 +198,7 @@
         /* ── Folder Grid ────────────────────────────────────────────────── */
         .folder-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             gap: 12px; margin-bottom: 20px;
         }
         .folder-card {
@@ -458,13 +466,13 @@
         }
 
         @media (max-width: 768px) {
-            .player-bar { height: 86px; padding: 8px 10px 0; flex-wrap: wrap; align-items: flex-start; gap: 0 10px; }
+            .player-bar { height: 120px; padding: 8px 10px 0; flex-wrap: wrap; align-items: flex-start; gap: 0 10px; }
             .player-track { width: auto; flex: 1; align-self: center; }
             .player-controls { display: none; }
             .player-extras { width: auto; gap: 2px; align-self: center; }
             .player-cover { width: 40px; height: 40px; }
             .player-track-name { font-size: 12px; }
-            .mobile-seek-row { display: flex !important; margin-left: 2em; margin-right: 2em; }
+            .mobile-seek-row { display: flex !important; margin-left: 2em; margin-right: 2em;;}
             /* Show minimal mobile controls */
             .mobile-player-controls {
                 display: flex !important; align-items: center; gap: 4px;
@@ -476,6 +484,15 @@
         }
         .mobile-player-controls { display: none; }
         .mobile-seek-row { display: none; width: 100%; align-items: center; gap: 6px; padding: 2px 0 8px; }
+
+        /* Safari mobile browser (not standalone/webapp): fix bottom url bar issue */
+        @media (max-width: 768px) and (display-mode: browser) {
+            @supports (-webkit-touch-callout: none) {
+                .mobile-seek-row {
+                    padding-bottom: 2em;
+                }
+            }
+        }
 
         /* ── Loading overlay ─────────────────────────────────────────────── */
         .loading-overlay {
@@ -940,9 +957,31 @@
 
             <!-- ── ARTISTS ───────────────────────────────────────────────── -->
             <div x-show="view === 'artists' && !loading">
-                <div class="content-header"><h2>Artists</h2></div>
+                <div class="content-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <h2 style="margin:0;">Artists</h2>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.16);"
+                              x-show="artistsFromCache && !artistsRefreshing">Cached</span>
+                        <span style="font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.45);"
+                              x-show="artistsRefreshing">Refreshing</span>
+                        <span style="font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);"
+                              x-show="!artistsFromCache && !artistsRefreshing && artists.length > 0">Live</span>
+                        <span style="font-size:12px;color:var(--text2);" x-text="artistsStatusText()"></span>
+                        <span style="font-size:12px;color:var(--text2);" x-show="artistsCacheUpdatedAt" x-text="artistsUpdatedTimeText()"></span>
+                        <button class="ctrl-btn" title="Refresh artists" x-on:click="_loadArtists({ forceNetwork: true })">
+                            <i class="ui sync icon" style="margin:0;"></i>
+                        </button>
+                    </div>
+                </div>
                 <div class="content-body">
-                    <template x-if="artists.length === 0">
+                    <template x-if="artists.length === 0 && artistsRefreshing">
+                        <div class="empty-state">
+                            <i class="ui sync icon"></i>
+                            <h3>Loading artists</h3>
+                            <p>Fetching your artist list in the background…</p>
+                        </div>
+                    </template>
+                    <template x-if="artists.length === 0 && !artistsRefreshing">
                         <div class="empty-state">
                             <i class="ui user icon"></i>
                             <h3>No artists found</h3>

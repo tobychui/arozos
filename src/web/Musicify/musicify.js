@@ -27,6 +27,16 @@ function musicifyApp() {
         // ── Artists ─────────────────────────────────────────────────────────
         artists: [],
         selectedArtist: null,   // full artist object when expanded
+        artistsFromCache: false,
+        artistsRefreshing: false,
+        artistsCacheUpdatedAt: 0,
+        _artistsFetchInFlight: false,
+        _artistsUpdateFlash: false,
+        _artistsUpdateFlashTimer: null,
+        _artistsWorker: null,
+        _artistsWorkerReqId: 0,
+        _artistsActiveReqId: 0,
+        _artistsWatchdogTimer: null,
 
         // ── Recent ──────────────────────────────────────────────────────────
         recentSongs: [],
@@ -136,6 +146,13 @@ function musicifyApp() {
                 navigator.serviceWorker.register('sw.js').catch(function(){});
             }
 
+            window.addEventListener('beforeunload', () => {
+                if (this._artistsWorker) {
+                    this._artistsWorker.terminate();
+                    this._artistsWorker = null;
+                }
+            });
+
             // Handle #folder=<path> hash from embedded player's "Open in Musicify" button
             var _hash = window.location.hash;
             if (_hash.startsWith('#folder=')) {
@@ -170,7 +187,7 @@ function musicifyApp() {
                 if (this.folderContents.songs.length === 0 && this.folderContents.folders.length === 0) {
                     this.loadFolder(this.folderRoot);
                 }
-            } else if (v === 'artists' && this.artists.length === 0) {
+            } else if (v === 'artists') {
                 this._loadArtists();
             } else if (v === 'recent' && this.recentSongs.length === 0) {
                 this._loadRecent();
@@ -263,18 +280,201 @@ function musicifyApp() {
         // ════════════════════════════════════════════════════════════════════
         //  ARTISTS
         // ════════════════════════════════════════════════════════════════════
-        _loadArtists() {
-            this.loading = true;
-            this.loadingMsg = 'Loading artists…';
+        _loadArtists(opts) {
+            opts = opts || {};
+            var forceNetwork = !!opts.forceNetwork;
+            var cache = null;
+
+            // Artists refresh should never block the entire content panel.
+            this.loading = false;
+
+            if (!forceNetwork) {
+                cache = this._readArtistsCache();
+                if (cache && Array.isArray(cache.items)) {
+                    this.artists = cache.items;
+                    this.artistsFromCache = true;
+                    this.artistsCacheUpdatedAt = cache.updatedAt || 0;
+                }
+            }
+
+            if (this._artistsFetchInFlight) return;
+
+            this._artistsFetchInFlight = true;
+            this.artistsRefreshing = true;
+
+            var reqId = ++this._artistsWorkerReqId;
+            this._artistsActiveReqId = reqId;
+            this._startArtistsWatchdog(reqId);
+
+            // Use worker first to keep fetch + JSON parsing off the UI thread.
+            var startedInWorker = this._dispatchArtistsFetchToWorker(reqId);
+            if (!startedInWorker) {
+                // Fallback for environments where Worker is unavailable.
+                this._dispatchArtistsFetchFallback(reqId);
+            }
+        },
+
+        _dispatchArtistsFetchToWorker(reqId) {
+            if (!('Worker' in window)) return false;
             const self = this;
+
+            if (!this._artistsWorker) {
+                try {
+                    this._artistsWorker = new Worker('artistsWorker.js');
+                } catch (e) {
+                    this._artistsWorker = null;
+                    return false;
+                }
+
+                this._artistsWorker.onmessage = function(evt) {
+                    var msg = evt && evt.data ? evt.data : {};
+                    if (msg.type === 'artistsResult') {
+                        self._applyArtistsResult(msg.items, msg.reqId);
+                    } else if (msg.type === 'artistsError') {
+                        self._handleArtistsError(msg.reqId);
+                    }
+                };
+
+                this._artistsWorker.onerror = function() {
+                    self._handleArtistsError(self._artistsActiveReqId);
+                    if (self._artistsWorker) {
+                        self._artistsWorker.terminate();
+                        self._artistsWorker = null;
+                    }
+                };
+            }
+
+            try {
+                this._artistsWorker.postMessage({
+                    type: 'fetchArtists',
+                    reqId: reqId,
+                    endpoint: ao_root + 'system/ajgi/interface?script=Musicify/backend/listArtists.js'
+                });
+                return true;
+            } catch (e) {
+                return false;
+            }
+        },
+
+        _dispatchArtistsFetchFallback(reqId) {
             fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/listArtists.js', {
                 method: 'POST', cache: 'no-cache',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({})
             }).then(r => r.json()).then(data => {
-                self.artists = data;
-                self.loading = false;
-            }).catch(() => { self.loading = false; });
+                this._applyArtistsResult(data, reqId);
+            }).catch(() => {
+                this._handleArtistsError(reqId);
+            });
+        },
+
+        _applyArtistsResult(data, reqId) {
+            if (reqId !== this._artistsActiveReqId) return;
+
+            data = Array.isArray(data) ? data : [];
+            var selectedPath = this.selectedArtist ? this.selectedArtist.path : null;
+
+            this.artists = data;
+            this.artistsFromCache = false;
+            this.artistsCacheUpdatedAt = Date.now();
+            this._writeArtistsCache(data, this.artistsCacheUpdatedAt);
+            this._flashArtistsUpdated();
+
+            if (selectedPath) {
+                var matched = null;
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i].path === selectedPath) {
+                        matched = data[i];
+                        break;
+                    }
+                }
+                this.selectedArtist = matched;
+            }
+
+            this._finalizeArtistsFetch(reqId);
+        },
+
+        _handleArtistsError(reqId) {
+            if (reqId !== this._artistsActiveReqId) return;
+            this._finalizeArtistsFetch(reqId);
+        },
+
+        _startArtistsWatchdog(reqId) {
+            if (this._artistsWatchdogTimer) clearTimeout(this._artistsWatchdogTimer);
+            const self = this;
+            this._artistsWatchdogTimer = setTimeout(() => {
+                if (reqId !== self._artistsActiveReqId) return;
+                self._finalizeArtistsFetch(reqId);
+                if (self._artistsWorker) {
+                    self._artistsWorker.terminate();
+                    self._artistsWorker = null;
+                }
+            }, 25000);
+        },
+
+        _finalizeArtistsFetch(reqId) {
+            if (reqId !== this._artistsActiveReqId) return;
+            if (this._artistsWatchdogTimer) {
+                clearTimeout(this._artistsWatchdogTimer);
+                this._artistsWatchdogTimer = null;
+            }
+            this.artistsRefreshing = false;
+            this._artistsFetchInFlight = false;
+        },
+
+        _readArtistsCache() {
+            try {
+                var raw = localStorage.getItem('musicify_artists_cache');
+                if (!raw) return null;
+                var payload = JSON.parse(raw);
+                if (!payload || !Array.isArray(payload.items)) return null;
+                return {
+                    updatedAt: payload.updatedAt || 0,
+                    items: payload.items
+                };
+            } catch (e) {
+                return null;
+            }
+        },
+
+        _writeArtistsCache(items, updatedAt) {
+            try {
+                localStorage.setItem('musicify_artists_cache', JSON.stringify({
+                    updatedAt: updatedAt || Date.now(),
+                    items: Array.isArray(items) ? items : []
+                }));
+            } catch (e) {}
+        },
+
+        _flashArtistsUpdated() {
+            this._artistsUpdateFlash = true;
+            if (this._artistsUpdateFlashTimer) clearTimeout(this._artistsUpdateFlashTimer);
+            const self = this;
+            this._artistsUpdateFlashTimer = setTimeout(() => {
+                self._artistsUpdateFlash = false;
+            }, 3000);
+        },
+
+        artistsStatusText() {
+            if (this.artistsRefreshing && this.artistsFromCache) {
+                return 'Showing cached artists while refreshing in background';
+            }
+            if (this.artistsFromCache) {
+                return 'Showing cached artists';
+            }
+            if (this.artistsRefreshing) {
+                return 'Refreshing artist list';
+            }
+            if (this._artistsUpdateFlash) {
+                return 'Artist list updated';
+            }
+            return 'Live artist list';
+        },
+
+        artistsUpdatedTimeText() {
+            if (!this.artistsCacheUpdatedAt) return '';
+            var d = new Date(this.artistsCacheUpdatedAt);
+            return 'Updated at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         },
 
         selectArtist(artist) {
@@ -510,6 +710,10 @@ function musicifyApp() {
             this._saveRecentlyPlayed(song);
             this._setupMediaSession();
             document.title = song.name + ' – Musicify';
+            if (ao_module_virtualDesktop){
+                ao_module_setWindowTitle('Musicify - ' + song.name);
+            }
+            this.trackInfoSong = song;
         },
 
         togglePlay() {
