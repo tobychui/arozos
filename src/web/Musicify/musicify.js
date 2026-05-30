@@ -37,6 +37,10 @@ function musicifyApp() {
         _artistsWorkerReqId: 0,
         _artistsActiveReqId: 0,
         _artistsWatchdogTimer: null,
+        // Artist virtual scrolling
+        artistRowHeight: 65, // must match CSS .artist-row height
+        artistOverscan: 120, //artistRowHeight * artistOverscan = overscan px, Should be large enough for playlist expansion
+        artistScrollTop: 0,
 
         // ── Recent ──────────────────────────────────────────────────────────
         recentSongs: [],
@@ -474,11 +478,80 @@ function musicifyApp() {
         artistsUpdatedTimeText() {
             if (!this.artistsCacheUpdatedAt) return '';
             var d = new Date(this.artistsCacheUpdatedAt);
-            return 'Updated at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return 'Updated at ' + d.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                timeZoneName: 'short'
+            });
         },
 
         selectArtist(artist) {
-            this.selectedArtist = (this.selectedArtist && this.selectedArtist.path === artist.path) ? null : artist;
+            var isClosing = this.selectedArtist && this.selectedArtist.path === artist.path;
+            this.selectedArtist = isClosing ? null : artist;
+
+            if (isClosing) return;
+
+            var index = this.artists.findIndex(function(item) {
+                return item.path === artist.path;
+            });
+            if (index < 0) return;
+
+            // Keep the selected artist near the top of the viewport so the expanded list stays readable.
+            var targetScrollTop = Math.max(0, (index * this.artistRowHeight) - 33);
+            this.artistScrollTop = targetScrollTop;
+
+            this.$nextTick(() => {
+                var container = document.getElementById('artist-content-body');
+                if (container) {
+                    container.scrollTop = targetScrollTop;
+                }
+            });
+        },
+
+        visibleArtists() {
+            const viewportHeight = window.innerHeight;
+
+            const start =
+                Math.max(
+                    0,
+                    Math.floor(this.artistScrollTop / this.artistRowHeight)
+                    - this.artistOverscan
+                );
+
+            const count =
+                Math.ceil(viewportHeight / this.artistRowHeight)
+                + (this.artistOverscan * 2);
+
+            return this.artists.slice(start, start + count);
+        },
+
+        artistStartIndex() {
+            return Math.max(
+                0,
+                Math.floor(this.artistScrollTop / this.artistRowHeight)
+                - this.artistOverscan
+            );
+        },
+
+        artistTopSpacerHeight() {
+            return this.artistStartIndex() * this.artistRowHeight;
+        },
+
+        artistBottomSpacerHeight() {
+            const rendered =
+                this.visibleArtists().length;
+
+            return Math.max(
+                0,
+                (this.artists.length -
+                    this.artistStartIndex() -
+                    rendered) * this.artistRowHeight
+            );
+        },
+
+        onArtistScroll(e) {
+            this.artistScrollTop = e.target.scrollTop;
         },
 
         // ════════════════════════════════════════════════════════════════════
