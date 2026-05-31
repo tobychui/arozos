@@ -23,6 +23,13 @@ ao_module_getSystemThemeColor(function (color) {
     preferredTheme = color === 'whiteTheme' ? 'light' : 'dark';
 });
 
+/* Called by the desktop broadcastDesktopThemeChange() when the user toggles dark/light mode */
+window.desktopThemeChanged = function (theme) {
+    var isDark = (theme === 'dark');
+    document.body.classList.toggle('dark', isDark);
+    preferredTheme = isDark ? 'dark' : 'light';
+};
+
 /* ── Bootstrap ── */
 applocale.init('../locale/system_settings.json', function (cache) {
     localeCache = cache;

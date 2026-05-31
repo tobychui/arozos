@@ -70,6 +70,12 @@ func system_setting_getSettingGroups() []settingGroup {
 			Desc:     "List of modules loaded in the system",
 		},
 		{
+			Name:     "Desktop & Themes",
+			Group:    "Desktop",
+			IconPath: "SystemAO/desktop/img/personalization.png",
+			Desc:     "Personalize your desktop experience",
+		},
+		{
 			Name:     "Disk & Storage",
 			Group:    "Disk",
 			IconPath: "SystemAO/system_setting/img/drive.svg",

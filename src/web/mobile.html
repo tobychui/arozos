@@ -1,1761 +1,1062 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>ArozOS Mobile</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="manifest" href="manifest.webmanifest">
-        <link rel="stylesheet" href="script/semantic/semantic.css">
-        <link rel="stylesheet" href="script/ao.css">
-        <script type="text/javascript" src="script/jquery.min.js"></script>
-        <script type="text/javascript" src="script/semantic/semantic.js"></script>
-        <script type="text/javascript" src="script/ao_module.js"></script>
-        <script type="text/javascript" src="./script/applocale.js"></script>
-        <style>
+<head>
+    <title>ArozOS</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="manifest" href="manifest.webmanifest">
+    <script src="script/jquery.min.js"></script>
+    <script src="script/ao_module.js"></script>
+    <script src="script/applocale.js"></script>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+}
+/* ── Wallpaper ── */
+#backdrop {
+    position: fixed; inset: 0; z-index: 0;
+    background: url('img/desktop/bg/init.jpg') center/cover no-repeat;
+    transition: background-image 0.5s;
+}
+#backdrop-dim {
+    position: fixed; inset: 0; z-index: 1;
+    background: rgba(0,0,0,0.28);
+    pointer-events: none;
+    transition: background 0.3s;
+}
+body.dark-mode #backdrop-dim { background: rgba(0,0,0,0.52); }
 
-            body{
-                height: 100%;
-            }
-            .themeColor{
-                background-color:#1c1c1c;
-            }
+/* ── Launchpad container ── */
+#launchpad { position: fixed; inset: 0; z-index: 2; overflow: hidden; }
+.lp-section {
+    position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+    transition: transform 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+}
 
-            .taskBar{
-                position:fixed;
-                top:0px;
-                left:0px;
-                width:30px;
-                height:100%;
-                overflow: visible !important;
-                z-index:999;
-            }
-            #mainFrame{
-                width: calc(100% - 30px);
-                position:fixed;
-                top:0px;
-                right:0px;
-                overflow: hidden;
+/* ── Section 1: Home ── */
+#sec-home {
+    display: flex; flex-direction: column; align-items: center;
+    padding-top: max(env(safe-area-inset-top), 20px);
+}
+#clock-widget {
+    margin-top: 14vh; text-align: center; color: #fff;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.45); pointer-events: none;
+}
+#clock-time { font-size: clamp(60px, 18vw, 92px); font-weight: 100; letter-spacing: -2px; line-height: 1; }
+#clock-date { font-size: clamp(14px, 4vw, 18px); font-weight: 300; margin-top: 8px; opacity: 0.88; }
+#home-hint {
+    position: absolute; bottom: calc(max(env(safe-area-inset-bottom), 12px) + 120px);
+    left: 0; right: 0; text-align: center;
+    color: rgba(255,255,255,0.5); font-size: 11px; pointer-events: none;
+    animation: hint 2.2s ease-in-out infinite;
+}
+@keyframes hint { 0%,100%{opacity:.5;transform:translateY(0)} 50%{opacity:.15;transform:translateY(-5px)} }
+#home-hint svg { display: block; margin: 0 auto 2px; }
+/* Dock */
+#dock {
+    position: absolute;
+    bottom: calc(max(env(safe-area-inset-bottom), 10px) + 8px);
+    left: 14px; right: 14px;
+}
+#dock-inner {
+    background: rgba(255,255,255,0.22);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border-radius: 26px; padding: 10px 6px;
+    display: grid; grid-template-columns: repeat(4,1fr);
+}
+body.dark-mode #dock-inner { background: rgba(0,0,0,0.38); }
+.dock-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; padding: 7px 4px; border-radius: 16px;
+    transition: opacity .15s; -webkit-tap-highlight-color: transparent;
+}
+.dock-item:active { opacity: .55; }
+.dock-item img { width: clamp(46px,13vw,60px); height: clamp(46px,13vw,60px); border-radius: 14px; object-fit: cover; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+.dock-label { font-size: 10px; color: rgba(255,255,255,.9); text-shadow: 0 1px 3px rgba(0,0,0,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 68px; text-align: center; }
 
-            }
-            .toggleTaskBar{
-                position:absolute;
-                bottom:0px;
-                right:0px;
-                margin-right:-20px;
-                width:30px;
-                height:90px;
-                border-radius: 0px 10px 10px 0px;
-            }
+/* ── Section 2: Apps ── */
+#sec-apps { display: flex; flex-direction: column; }
+#apps-header {
+    padding: calc(max(env(safe-area-inset-top),16px) + 10px) 16px 8px;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+}
+#apps-header h2 { font-size: 26px; font-weight: 700; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.4); }
+#apps-edit-btn {
+    flex-shrink: 0;
+    background: rgba(255,255,255,.2); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,.28); border-radius: 14px;
+    padding: 5px 16px; color: #fff; font-size: 14px; font-weight: 500;
+    cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s, color .15s;
+    margin-right: 3em; /* Avoid the control panel button */
+}
+#apps-edit-btn.on { background: rgba(255,255,255,.9); color: #111; border-color: transparent; }
+#apps-edit-btn:active { opacity: .6; }
+/* drag states */
+.app-item.dragging { opacity: .25; }
+.app-item.drag-target .app-icon-wrap { outline: 2px solid rgba(255,255,255,.85); outline-offset: 3px; border-radius: 16px; }
+/* removed-app ghost tiles */
+.app-item.app-removed { opacity: .35; }
+.app-restore {
+    position:absolute; top:-5px; left:-5px; width:26px; height:26px;
+    border-radius:50%; background:#107c10;
+    display:flex; align-items:center; justify-content:center;
+    z-index:5; cursor:pointer; border:2px solid #fff;
+}
+.app-restore img { width:13px; height:13px; pointer-events:none; display:block; }
+#app-search-wrap {
+    margin: 6px 14px 4px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.18); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-radius: 12px; padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,.22);
+}
+body.dark-mode #app-search-wrap { background: rgba(0,0,0,.3); border-color: rgba(255,255,255,.12); }
+#app-search-input { flex:1; background:transparent; border:none; outline:none; color:#fff; font-size:14px; }
+#app-search-input::placeholder { color: rgba(255,255,255,.55); }
+#edit-done-btn {
+    position: absolute; top: calc(max(env(safe-area-inset-top),14px) + 12px); right: 14px;
+    background: rgba(255,255,255,.92); color: #111; border: none; border-radius: 14px;
+    padding: 6px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+    display: none; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+#app-grid-wrap {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    padding: 4px 8px calc(max(env(safe-area-inset-bottom),12px) + 8px);
+}
+#app-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 2px 0; }
+@media(min-width:460px){ #app-grid{grid-template-columns:repeat(5,1fr);} }
+@media(min-width:700px){ #app-grid{grid-template-columns:repeat(6,1fr);} }
+.app-item {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 9px 4px; cursor: pointer; border-radius: 18px;
+    transition: background .15s; position: relative;
+    -webkit-tap-highlight-color: transparent;
+}
+.app-item:active:not(.jiggling) { background: rgba(255,255,255,.12); }
+.app-icon-wrap { position: relative; width: clamp(52px,14vw,68px); height: clamp(52px,14vw,68px); }
+.app-icon-wrap img {
+    width: 100%; height: 100%; border-radius: 16px; object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3); pointer-events: none;
+    display: block;
+}
+.app-name { font-size: clamp(9px,2.4vw,11px); color: rgba(255,255,255,.94); text-shadow: 0 1px 3px rgba(0,0,0,.5); text-align: center; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+/* Jiggle */
+@keyframes jiggle { 0%{transform:rotate(-1.8deg) scale(1.02)} 50%{transform:rotate(1.8deg) scale(1.02)} 100%{transform:rotate(-1.8deg) scale(1.02)} }
+.jiggling .app-icon-wrap { animation: jiggle .32s infinite ease-in-out; }
+/* Delete badge */
+.app-del { position:absolute; top:-5px; left:-5px; width:26px; height:26px; border-radius:50%; background:#c42b1c; display:none; z-index:5; cursor:pointer; border:2px solid #fff; align-items:center; justify-content:center; }
+.editing .app-del { display: flex; }
+.app-del img { width:13px; height:13px; pointer-events:none; display:block; }
+/* Drag ghost */
+#drag-ghost { position:fixed; pointer-events:none; z-index:999; width:clamp(52px,14vw,68px); height:clamp(52px,14vw,68px); border-radius:16px; overflow:hidden; opacity:.82; box-shadow:0 10px 28px rgba(0,0,0,.45); transform:scale(1.12); display:none; }
+#drag-ghost img { width:100%; height:100%; object-fit:cover; }
 
-            #listMenu{
-                z-index:1000;
-                position:fixed;
-                top:0px;
-                left:0px;
-                width:100%;
-                height:100%;
-                padding:12px;
-                background-color: #fcffff;
-                box-shadow: 3px 3px 5px 0px rgba(207, 207, 207, 0.37);
-            }
-            #listMenu .searchBar {
-                width: 100%;
-                border-bottom: 2px solid #34b7eb;
-            }
-            
-            #listMenu .listItemWrapper {
-                overflow: hidden;
-            }
+/* ── Section 3: Files ── */
+#sec-files { display: flex; flex-direction: column; }
+#files-header {
+    padding: calc(max(env(safe-area-inset-top),16px) + 10px) 16px 8px;
+    flex-shrink: 0;
+}
+#files-header h2 { font-size: 26px; font-weight: 700; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.4); }
+#files-header p { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 3px; }
+#files-grid-wrap {
+    flex:1; overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+    padding: 10px 12px calc(max(env(safe-area-inset-bottom),12px)+8px);
+}
+#files-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+@media(min-width:460px){#files-grid{grid-template-columns:repeat(4,1fr);}}
+.folder-item {
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:14px 6px; border-radius:16px; cursor:pointer;
+    background:rgba(255,255,255,.13); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.18);
+    transition:background .15s; -webkit-tap-highlight-color:transparent;
+}
+body.dark-mode .folder-item{background:rgba(0,0,0,.28);border-color:rgba(255,255,255,.1);}
+.folder-item:active{background:rgba(255,255,255,.24);}
+.folder-emoji{width:40px;height:40px;display:block;object-fit:contain;}
+.folder-name{font-size:11px;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4);text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#files-empty{text-align:center;color:rgba(255,255,255,.5);margin-top:64px;font-size:14px;display:none;}
 
-            #listMenu .listItemWrapper .groups {
-                background-color: #f5f5f5;
-                width: 120px;
-                height: calc(100% - 40px);
-                display: inline-block;
-                overflow-y: auto;
-                padding-top: 8px;
-            }
-            
-            #listMenu .listItemWrapper .groups .item {
-                padding-left: 7px;
-                padding-bottom: 6px;
-                padding-top: 6px;
-                cursor: pointer;
-            }
-            
-            #listMenu .listItemWrapper .groups .item.selected {
-                color: #34b7eb;
-            }
-            
-            #listMenu .listItemWrapper .groups .item:hover {
-                background-color: #dedede;
-            }
+/* ── Page dots ── */
+#page-dots {
+    position:fixed; bottom:36px;
+    left:50%; transform:translateX(-50%); display:flex; gap:7px; z-index:50; pointer-events:none;
+}
+.pd{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.35);transition:background .2s,transform .2s;}
+.pd.on{background:rgba(255,255,255,.9);transform:scale(1.35);}
 
-            #listMenuItem{
-                width: calc(100% - 130px) !important;
-                float: right;
-                overflow-y: auto;
-                height: calc(100% - 40px) !important;
-            }
+/* ── Control Panel ── */
+#cp-btn {
+    position:fixed; top:max(env(safe-area-inset-top),10px); right:10px; z-index:82;
+    width:36px; height:36px; border-radius:50%;
+    background:rgba(0,0,0,.32); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.22);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+#cp-btn:active{opacity:.6;}
+#cp-backdrop{position:fixed;inset:0;z-index:80;display:none;}
+#cp-backdrop.on{display:block;}
+#cp-panel {
+    position:fixed; top:0; right:0; z-index:81;
+    width:min(310px,90vw); max-height:86vh; overflow-y:auto;
+    background:rgba(235,235,235,.9); backdrop-filter:blur(40px) saturate(200%); -webkit-backdrop-filter:blur(40px) saturate(200%);
+    border-radius:0 0 0 22px; box-shadow:0 8px 36px rgba(0,0,0,.28);
+    padding-top:max(env(safe-area-inset-top),20px);
+    transform:translateY(-110%); transition:transform .34s cubic-bezier(.4,0,.2,1);
+}
+body.dark-mode #cp-panel{background:rgba(28,28,28,.93);}
+#cp-panel.on{transform:translateY(0);}
+.cp-user{display:flex;align-items:center;gap:12px;padding:12px 16px 10px;}
+.cp-av{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;}
+.cp-name{font-size:14px;font-weight:600;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+body.dark-mode .cp-name{color:#f0f0f0;}
+.cp-grp{font-size:11px;color:#666;margin-top:1px;}
+body.dark-mode .cp-grp{color:#aaa;}
+.cp-sep{height:1px;background:rgba(0,0,0,.08);margin:0 16px;}
+body.dark-mode .cp-sep{background:rgba(255,255,255,.1);}
+.cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:10px 14px;}
+.cp-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:12px 8px;background:rgba(0,0,0,.06);border-radius:14px;border:none;cursor:pointer;font-size:11px;font-weight:500;color:#111;-webkit-tap-highlight-color:transparent;transition:opacity .15s;}
+body.dark-mode .cp-tile{background:rgba(255,255,255,.1);color:#f0f0f0;}
+.cp-tile:active{opacity:.55;}
+.cp-tile.on{background:#111;color:#fff;}
+body.dark-mode .cp-tile.on{background:#e8e8e8;color:#111;}
+.cp-tile-icon{font-size:24px;}
+.cp-list-lbl{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.4px;padding:6px 16px 2px;}
+.cp-acc-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.cp-acc-item:active{background:rgba(0,0,0,.05);}
+body.dark-mode .cp-acc-item:active{background:rgba(255,255,255,.05);}
+.cp-acc-item img{width:32px;height:32px;border-radius:50%;}
+.cp-acc-name{font-size:13px;color:#111;}
+body.dark-mode .cp-acc-name{color:#f0f0f0;}
+.cp-btns{padding:4px 14px 16px;}
+.cp-btn{width:100%;padding:10px 14px;margin-top:7px;background:rgba(0,0,0,.06);border:none;border-radius:12px;font-size:13px;font-weight:500;color:#111;cursor:pointer;display:flex;align-items:center;gap:10px;-webkit-tap-highlight-color:transparent;}
+body.dark-mode .cp-btn{background:rgba(255,255,255,.1);color:#f0f0f0;}
+.cp-btn:active{opacity:.55;}
+.cp-btn.red{color:#c42b1c;}
+body.dark-mode .cp-btn.red{color:#ff6b6b;}
+.cp-btn-ic{font-size:17px;width:22px;text-align:center;}
 
-            #listMenuItem img{
-                width: 50px;
-            }
+/* ── Float Window Layer ── */
+#fw-layer{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;background:#000;}
+#fw-layer.on{display:flex;}
+#fw-bar {
+    background:rgba(18,18,18,.96); backdrop-filter:blur(10px);
+    padding:calc(max(env(safe-area-inset-top),10px)+4px) 10px 8px;
+    display:flex; align-items:center; gap:7px; flex-shrink:0;
+    overflow-x:auto; overflow-y:hidden; scrollbar-width:none;
+}
+#fw-bar::-webkit-scrollbar{display:none;}
+#fw-back{flex-shrink:0;background:rgba(255,255,255,.16);border:none;border-radius:8px;padding:5px 11px;color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent;}
+#fw-back:active{opacity:.55;}
+#fw-tabs{display:flex;gap:6px;flex-shrink:0;}
+.fw-tab{background:rgba(255,255,255,.12);border:none;border-radius:8px;padding:4px 10px;color:rgba(255,255,255,.65);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;min-width:60px;max-width:160px;-webkit-tap-highlight-color:transparent;transition:background .15s;}
+.fw-tab.on{background:rgba(255,255,255,.26);color:#fff;}
+.fw-tab img{width:16px;height:16px;border-radius:3px;flex-shrink:0;}
+.fw-tab-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fw-tab-x{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;cursor:pointer;}
+.fw-tab-x:active{background:#c42b1c;}
+#fw-body{flex:1;position:relative;overflow:hidden;}
+.floatWindowWrapper{position:absolute;inset:0;display:none;}
+.floatWindowWrapper.on{display:block;}
+.floatWindow{width:100%;height:100%;}
+.fwtab{width:100%;height:100%;}
+.fwtab iframe{width:100%;height:100%;border:none;}
 
-            .module.item{
-                padding:8px;
-            }
+/* ── Connection lost ── */
+#conndrop{position:fixed;top:max(env(safe-area-inset-top),8px);left:50%;transform:translateX(-50%);z-index:200;background:rgba(196,43,28,.9);backdrop-filter:blur(8px);border-radius:20px;padding:5px 13px;display:none;align-items:center;gap:7px;font-size:12px;color:#fff;}
+#conndrop img{width:14px;height:14px;}
+</style>
+</head>
+<body>
 
-            .hideListMenuButton{
-                position: absolute;
-                bottom:22px;
-                left:32px;
-                cursor:pointer;
-            }
+<div id="backdrop"></div>
+<div id="backdrop-dim"></div>
 
-            .hideListMenuButton img{
-                left:12px;
-                width:50px;
-            }
+<!-- Page indicator -->
+<div id="page-dots">
+    <div class="pd on" data-s="0"></div>
+    <div class="pd" data-s="1"></div>
+    <div class="pd" data-s="2"></div>
+</div>
 
-            .listMenuLauncher{
-                position:absolute;
-                bottom:12px;
-                left:12px;
-            }
+<!-- Control panel trigger -->
+<div id="cp-btn" onclick="cpToggle()">
+    <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+        <circle cx="4.5" cy="4.5" r="1.8" fill="white"/>
+        <circle cx="12.5" cy="4.5" r="1.8" fill="white"/>
+        <circle cx="4.5" cy="12.5" r="1.8" fill="white"/>
+        <circle cx="12.5" cy="12.5" r="1.8" fill="white"/>
+    </svg>
+</div>
+<div id="cp-backdrop" onclick="cpClose()"></div>
+<div id="cp-panel">
+    <div class="cp-user">
+        <img class="cp-av" id="cp-av" src="img/desktop/system_icon/user.svg">
+        <div style="flex:1;min-width:0;">
+            <div class="cp-name" id="cp-name">User</div>
+            <div class="cp-grp" id="cp-grp">@user</div>
+        </div>
+    </div>
+    <div class="cp-sep"></div>
+    <div class="cp-grid">
+        <button class="cp-tile" id="cp-dark-btn" onclick="cpToggleDark()">
+            <span class="cp-tile-icon" id="cp-dark-ic">🌙</span>
+            <span id="cp-dark-lbl">Dark Mode</span>
+        </button>
+        <button class="cp-tile" onclick="cpFullscreen()">
+            <span class="cp-tile-icon">⛶</span>
+            <span>Fullscreen</span>
+        </button>
+        <button class="cp-tile" onclick="cpWallpaper()">
+            <span class="cp-tile-icon">🖼</span>
+            <span>Wallpaper</span>
+        </button>
+        <button class="cp-tile" onclick="cpSettings()">
+            <span class="cp-tile-icon">⚙️</span>
+            <span>Settings</span>
+        </button>
+    </div>
+    <div class="cp-sep"></div>
+    <div class="cp-list-lbl">Other Accounts</div>
+    <div id="cp-acc-list"></div>
+    <div class="cp-btns">
+        <button class="cp-btn" onclick="cpAddAccount()"><span class="cp-btn-ic">👤</span>Add / Switch Account</button>
+        <button class="cp-btn red" onclick="cpLogout()"><span class="cp-btn-ic">⏏</span>Sign Out</button>
+    </div>
+</div>
 
-            .listMenuLauncher .functionbtn{
-                cursor:pointer;
-            }
-            
-            .blurred{
-                filter: blur(3px);
-            }
+<!-- Launchpad -->
+<div id="launchpad">
 
-            #backdrop {
-                background-repeat: no-repeat;
-                background-size: cover;
-                background-position: center;
-                background-image: url('img/desktop/bg/init.jpg');
-                width: 100%;
-                height: 100%;
-                overflow-x: hidden;
-                pointer-events: none;
-            }
-
-            #windowButtonWrapper{
-                padding-top:6px;
-                max-height: calc(100% - 4em);
-                overflow-y: auto;
-            }
-
-            .floatWindowButton{
-                padding: 5px;
-            }
-
-            .floatWindowButton .minimizedIcon{
-                width: 20px;
-                height:20px;
-            }
-
-            .floatWindowButton .normalElements{
-                padding:8px;
-                border-bottom: 1px solid #4a4a4a;
-                cursor:pointer;
-                vertical-align:middle;
-                position: relative;
-            }
-
-            .floatWindowButton .normalizedIcon{
-                width:40;
-                height:40px;
-                margin-right:12px;
-            }
-
-            .normalElements .windowTitle{
-                display:inline-block;
-                width:200px !important;
-                vertical-align:middle;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;  
-            }  
-
-            .fwtab{
-                position: absolute;
-                top:0px;
-                right: 0px;
-                width: 100%;
-                height: 100%;
-            }
-
-            #windowWrapper{
-                height: 100%;
-                width: 100%;
-                position: absolute;
-                top:0px;
-                right:0px;
-            }
-
-            .floatWindowWrapper{
-                width: 100%;
-                height: 100%;
-            }
-
-            .floatWindow{
-                width: 100%;
-                height: 100%;
-                position: absolute;
-            }
-
-
-
-            .fwtab iframe{
-                border: 0px solid transparent;
-                height: 100%;
-            }
-
-            .floatWindowButton .closebutton{
-                position: absolute;
-                font-size: 120%;
-                color:white;
-                right: 0em;
-                top: 0px;
-                margin-top: -8px;
-                margin-left: -4px;
-                padding: 3px;
-            }
-
-            .floatWindowButton .externalbutton{
-                position: absolute;
-                font-size: 120%;
-                color:white;
-                right: 1.6em;
-                top: 0px;
-                margin-top: -8px;
-                margin-left: -4px;
-                padding: 3px;
-            }
-
-            #conndrop{
-                padding: 0.5em;
-                position: fixed;
-                top: 0px;
-                right: 0px;
-                z-index: 115;
-                width: 100px;
-                display: none; 
-                justify-content: flex-end;
-                pointer-events: none;
-            }
-
-            .extendOnly{
-                display:none;
-            }
-            
-
-            /* Magic css to make the connection logo blink */
-            @-moz-keyframes blink {
-                0% {
-                    opacity:1;
-                }
-                50% {
-                    opacity:0;
-                }
-                100% {
-                    opacity:1;
-                }
-            } 
-
-            @-webkit-keyframes blink {
-                0% {
-                    opacity:1;
-                }
-                50% {
-                    opacity:0;
-                }
-                100% {
-                    opacity:1;
-                }
-            }
-            /* IE */
-            @-ms-keyframes blink {
-                0% {
-                    opacity:1;
-                }
-                50% {
-                    opacity:0;
-                }
-                100% {
-                    opacity:1;
-                }
-            } 
-            /* Opera and prob css3 final iteration */
-            @keyframes blink {
-                0% {
-                    opacity:1;
-                }
-                50% {
-                    opacity:0;
-                }
-                100% {
-                    opacity:1;
-                }
-            } 
-            .blink-image {
-                -moz-animation: blink normal 2s infinite ease-in-out; /* Firefox */
-                -webkit-animation: blink normal 2s infinite ease-in-out; /* Webkit */
-                -ms-animation: blink normal 2s infinite ease-in-out; /* IE */
-                animation: blink normal 2s infinite ease-in-out; /* Opera and prob css3 final iteration */
-            }
-
-            #sidebarToggleOverlay{
-                width: 100%;
-                height: 100%;
-                z-index: 995;
-                position: fixed;
-                top:0px;
-                left:0px;
-                display:none;
-            }
-
-            #userprofile{
-                z-index: 90;
-                position: fixed;
-                top: 0px;
-                left: 3em;
-                right: 3em;
-                background-color: rgba(255,255,255,0.95);
-                backdrop-filter: blur(4px);
-                border-bottom-left-radius: 20px;
-                border-bottom-right-radius: 20px;
-                padding-left: 1.2em;
-                padding-right: 1.2em;
-                padding-top: 1.2em;
-                display:none;
-
-                
-                box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
-                -webkit-box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
-                -moz-box-shadow: 6px 8px 5px 2px rgba(0,0,0,0.2);
-                
-            }
-
-            .clock{
-                position: fixed; 
-                left: 0px; 
-                width: 100%; 
-                top: 0px; 
-                padding-top: 0.3em;
-                padding-bottom: 0.7em;
-                color: white; 
-                text-align: center; 
-                pointer-events: none;
-            }
-
-            #shortcuts{
-                position: absolute;
-                bottom: 0px;
-                right: 0px;
-                width: calc(100% - 20px);
-                padding: 1em;
-            }
-
-            body.horizontal #shortcuts{
-                position: absolute;
-                top: 0px;
-                right: 0px;
-                width: 5em;
-                height: 100%;
-                padding: 1em;
-                border-left: 1px solid rgba(168, 168, 168, 0.2);
-                backdrop-filter: blur(3px);
-            }
-
-            body.horizontal #shortcuts .ui.four.column.grid{
-                display: -webkit-flex;
-                display: flex;
-
-                -webkit-flex-direction: column;
-                flex-direction: column;
-
-                -webkit-align-content: space-between;
-                align-content: space-between;
-
-                -webkit-flex-flow: row wrap;
-                flex-flow: row wrap;
-            }
-
-            #shortcuts .clickable.image{
-                cursor: pointer;
-                border-radius: 10px;
-                padding: 0.1em;
-            }
-
-            body.horizontal #shortcuts .shortcutObject{
-                width: 5em;
-                margin-top: 1em;
-            }
-
-            .disabled{
-                pointer-events: none;
-            }
-
-            #alternativeAccountList{
-                padding-bottom: 0.6em;
-            }
-
-            .alternativeAccount{
-                padding-top: 0.6em !important;
-                padding-bottom: 0.6em !important;
-                margin: 0;
-        
-            }
-
-            .alternativeAccount .usericon{
-                width: 35px !important;
-            }
-
-            .alternativeAccount .username{
-                font-weight: 400;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="taskBar themeColor" >
-            <div class="toggleTaskBar themeColor" shown="false" onclick="toggleTaskBar(this);">
-                <img class="ui image sidebararrow" style="margin-top:8px; margin-left: -10px;" src="img/mobile/keyboard_arrow_right-white-48dp.svg"></img>
-            </div>
-            <div class="listMenuLauncher">
-                <img onclick="showListMenu();" class="functionbtn" src="img/mobile/apps-white-48dp.svg" style="width: 30px;"/>
-                <img onclick="showProfileInfo();" class="functionbtn extendOnly" src="img/mobile/account_circle_white_48dp.svg" style="width: 30px;"/>
-                <img onclick="openDesktopCustomization();" class="functionbtn extendOnly" src="img/mobile/palette_white_48dp.svg" style="width: 30px;"/>
-                <img onclick="openDesktopAsFolder();" class="functionbtn extendOnly" src="img/mobile/folder_open_white_24dp.svg" style="width: 30px;"/>
-                <img onclick="fullscreen();" class="functionbtn extendOnly" src="img/mobile/fullscreen_white_48dp.svg" style="width: 30px;"/>
-                <img onclick="openSystemSettings();" class="functionbtn extendOnly" src="img/mobile/tune_white_24dp.svg" style="width: 30px;"/>
-
-                <img onclick="showDesktop();" class="functionbtn extendOnly" src="img/mobile/layers_clear_white_48dp.svg" style="width: 30px;"/>
-            </div>
-            <div id="windowButtonWrapper">
-               
+    <!-- Section 1: Home -->
+    <div class="lp-section" id="sec-home">
+        <div id="clock-widget">
+            <div id="clock-time">00:00</div>
+            <div id="clock-date">Saturday, January 1</div>
+        </div>
+        <div id="home-hint">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M9 13V5M5 9L9 5L13 9" stroke="rgba(255,255,255,0.55)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Swipe up for apps
+        </div>
+        <div id="dock">
+            <div id="dock-inner">
+                <div class="dock-item" onclick="launchShortcut(1)"><img id="d1" src="img/mobile/pending.svg"><span class="dock-label" id="dl1"></span></div>
+                <div class="dock-item" onclick="launchShortcut(2)"><img id="d2" src="img/mobile/pending.svg"><span class="dock-label" id="dl2"></span></div>
+                <div class="dock-item" onclick="launchShortcut(3)"><img id="d3" src="img/mobile/pending.svg"><span class="dock-label" id="dl3"></span></div>
+                <div class="dock-item" onclick="launchShortcut(4)"><img id="d4" src="img/mobile/pending.svg"><span class="dock-label" id="dl4"></span></div>
             </div>
         </div>
+    </div>
 
-        <div id="userprofile">
-            <div class="ui minimal comments">
-                <div class="ui comment">
-                    <div class="avatar" style="height: 2.5em">
-                        <img class="usericon" src="img/desktop/system_icon/user.svg">
-                    </div>
-                    <div class="content">
-                        <dic class="author" id="username" style="font-weight: 600 !important;">User</dic>
-                        <div class="text" id="usergroups" style="color: #616162;">@user</div>
-                    </div>
-                </div>
-            </div>
-            <div class="ui divider"></div>
-            <div id="alternativeAccountList">
-
-            </div>
-            <div class="ui fluid basic button" style="" onclick="openSwitchAccountPanel(); toggleProfileInfo();">
-                <i class="ui blue user plus icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/addAccount">Add another account</span>
-            </div>
-            <div id="signoutAllButton" style="margin-top: 0.6em; margin-bottom: 1.2em;" class="ui fluid basic black button" onclick="logoutAllAccounts();">
-                <i class="log out icon icon" style="margin-right: 0.6em;"></i> <span locale="account/switch/signoutAll">Sign-out all accounts</span>
-            </div>
-            <button locale="quickAccess/logout" onclick="logout();" class="ui basic blue mini button" style="position: absolute; top: 1em; right: 1em;">Logout</button>
-            <button onclick="toggleProfileInfo();" class="circular ui themecolor icon button" style="position: absolute; bottom: 0px; right: 0px; margin-bottom: -10px; margin-right: -10px; color: white;">
-                <i class="remove icon"></i>
-              </button>
+    <!-- Section 2: Apps -->
+    <div class="lp-section" id="sec-apps">
+        <div id="apps-header">
+            <h2>Apps</h2>
+            <button id="apps-edit-btn" onclick="toggleEdit()">Edit</button>
         </div>
-
-        <div id="listMenu" style="left:-100%;">
-            <div class="searchBar" onkeydown="searchModule(event);">
-                <div class="ui icon fluid input" style="border-radius: 0px !important;">
-                    <input id="searchBar" type="text" placeholder="Search">
-                    <i class="search icon"></i>
-                </div>
-            </div>
-            <dib class="listItemWrapper">
-                <div class="groups">
-                    <div locale="listmenu/catergory/searchResults" id="searchResults" class="item" style="display:none;">Search Results</div>
-                    <div locale="listmenu/catergory/all" class="item groupType selected" group="All">All</div>
-                    <div locale="listmenu/catergory/media" class="item groupType" group="Media">Media</div>
-                    <div locale="listmenu/catergory/office" class="item groupType" group="Office">Office</div>
-                    <div locale="listmenu/catergory/download" class="item groupType" group="Download">Download</div>
-                    <div locale="listmenu/catergory/files" class="item groupType" group="Files">Files</div>
-                    <div locale="listmenu/catergory/internet" class="item groupType" group="Internet">Internet</div>
-                    <div locale="listmenu/catergory/settings" class="item groupType" group="System Settings">System Settings</div>
-                    <div locale="listmenu/catergory/tools" class="item groupType" group="System Tools">System Tools</div>
-                    <div locale="listmenu/catergory/utils" class="item groupType" group="Utilities">Utilities</div>
-                    <div locale="listmenu/catergory/other" class="item groupType" group="Other">Other</div>
-                    <div class="hideListMenuButton" onclick="closeListMenu();">
-                        <img class="ui image" src="img/mobile/cancel-black-48dp.svg"></img>
-                    </div>
-                </div>
-                <div id="listMenuItem" class="items" align="left">
-    
-                </div>
-            </div>
+        <div id="app-search-wrap">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="6.5" cy="6.5" r="4.5" stroke="rgba(255,255,255,0.65)" stroke-width="1.4"/>
+                <path d="M10 10L14 14" stroke="rgba(255,255,255,0.65)" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <input id="app-search-input" type="text" placeholder="Search apps…" oninput="filterApps(this.value)" autocomplete="off">
         </div>
-        <div id="mainFrame">
-            <div id="backdrop">
-                
-            </div>
-            <div class="clock">
-                ArozOS Desktop
-            </div>
-           
-            <div id="windowWrapper">
-                
-            </div>
-            <div id="shortcuts">
-                <!-- System Shortcuts -->
-                <div class="ui divider verticalDisplayOnly"></div>
-                <div class="ui four column grid">
-                    <div class="column shortcutObject">
-                        <img id="shortcut1" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
-                    </div>
-                    <div class="column shortcutObject">
-                        <img id="shortcut2" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
-                    </div>
-                    <div class="column shortcutObject">
-                        <img id="shortcut3" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
-                    </div>
-                    <div class="column shortcutObject">
-                        <img id="shortcut4" module="" onclick="launchThisModule(this);" class="ui medium clickable image" src="img/mobile/pending.svg">
-                    </div>
-                </div>
-            </div>
-           
-            <div id="conndrop">
-                <img class="ui mini image blink-image" src="SystemAO/desktop/icons/connlost.svg">
-            </div>
+        <div id="app-grid-wrap"><div id="app-grid"></div></div>
+    </div>
+
+    <!-- Section 3: Files -->
+    <div class="lp-section" id="sec-files">
+        <div id="files-header"><h2>Desktop</h2><p>Folders on your desktop</p></div>
+        <div id="files-grid-wrap">
+            <div id="files-grid"></div>
+            <div id="files-empty">No folders on desktop</div>
         </div>
-        <div id="sidebarToggleOverlay"></div>
-       
+    </div>
+</div>
 
-        <script>
-            /*
-                ArOZ Online Mobile Interfacae
+<!-- Drag ghost -->
+<div id="drag-ghost"><img id="drag-ghost-img" src=""></div>
 
-                This script must maintain compatibility to the desktop.system interface
-                regarding all cross iframe access functions.
+<!-- Float window layer -->
+<div id="fw-layer">
+    <div id="fw-bar">
+        <button id="fw-back" onclick="fwBack()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Back
+        </button>
+        <div id="fw-tabs"></div>
+    </div>
+    <div id="fw-body"></div>
+</div>
 
-            */
-            var isDesktopMode = true;   //Try to emulate Desktop mode
-            var moduleInstalled = [];   //List of installed modules on the system
-            var desktopThemeList = [];  //List of themes installed, same as desktop theme
-            var listMenuShown = false;
-            var hostInfo;
+<!-- Connection indicator -->
+<div id="conndrop">
+    <img src="SystemAO/desktop/icons/connlost.svg">
+    No connection
+</div>
 
-            //IME mockup
-            window.ime = null;
+<script>
+/* ============================================================
+   ArozOS Mobile Interface — Launchpad Design
+   Maintains full float-window API compatibility with desktop.html
+   ============================================================ */
 
-            //Clock related
-            var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            var daysNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+/* ── Virtual desktop flag (read by ao_module.js in loaded iframes) ── */
+window.isDesktopMode = true;
+window.ime = null;
 
-            //initiation Functions
-            initHostInfo();
-            initModuleList();
-            bindGroupTypeEvents();
-            initBackdropImage();
-            initUserDefinedThemeColor();
-            bindBackgroundClickActions();
-            initStartupSounds();
-            initDesktopUserInfo();
-            initShortcuts();
+/* ── State ── */
+var moduleInstalled = [];
+var desktopThemeList = [];
+var userInfo = {};
+var shortcuts = {1:null, 2:null, 3:null, 4:null};
+var currentSec = 0;
+var isDark = false;
+var isEditMode = false;
+var appOrder = [];          // ordered array of active module names
+var removedApps = [];       // module names the user has hidden
+var dragSrcName = null;
+var dragTargetName = null;
+var dragGhostOff = {x:0, y:0};
+var isDragging = false;
+var _autoScrollRaf = null;
+var _autoScrollDir = 0;
 
-            //Bind background click
-            function bindBackgroundClickActions(){
-                $("#mainFrame").on("touchstart click", function(evt){
-                    if ($(this).hasClass("blurred") && $(".taskBar").find(".toggleTaskBar").attr("shown") == "true"){
-                        //hide the taskbar
-                        hideTaskBar();
-                    }
-                });
+/* ── Locale ── */
+var mLoc = (typeof NewAppLocale === "function") ? NewAppLocale() : {getString:function(k,d){return d;},init:function(f,cb){if(cb)cb();},translate:function(){}};
+mLoc.init("SystemAO/locale/desktop.json", function(){ mLoc.translate(); });
 
-                $("#sidebarToggleOverlay").on("touchstart click", function(evt){
-                    if ($(".taskBar").find(".toggleTaskBar").attr("shown") == "true"){
-                        //hide the taskbar
-                        evt.preventDefault();
-                        hideTaskBar();
-                    }
-                });
+/* ── Clock data (must be defined before clockLoop() is called below) ── */
+var _mon=["January","February","March","April","May","June","July","August","September","October","November","December"];
+var _day=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+/* ── Boot ── */
+initTheme();
+initBackdrop();
+initAccentColor();
+initModules();
+initShortcuts();
+initUserInfo();
+initFiles();
+initStartupAudio();
+clockLoop();
+connCheck();
+goSec(0); // initialise section positions so they don't all stack at translateY(0)
+$.get("system/desktop/host", function(d){ if(d.Hostname) document.title = d.Hostname; });
+
+/* ─────────────────────────────────────────────
+   THEME
+───────────────────────────────────────────── */
+function initTheme(){
+    $.get("system/file_system/preference?key=file_explorer/theme", function(d){
+        setDarkMode(d === "darkTheme");
+    });
+}
+function setDarkMode(dark){
+    isDark = dark;
+    $("body").toggleClass("dark-mode", dark);
+    if(dark){
+        $("#cp-dark-ic").text("☀"); $("#cp-dark-lbl").text("Light Mode");
+        $("#cp-dark-btn").addClass("on");
+    }else{
+        $("#cp-dark-ic").text("🌙"); $("#cp-dark-lbl").text("Dark Mode");
+        $("#cp-dark-btn").removeClass("on");
+    }
+}
+/* Called by parent.desktopThemeChanged — not applicable here (standalone page),
+   but defined for forward-compat if ever embedded */
+window.desktopThemeChanged = function(theme){ setDarkMode(theme === "dark"); };
+
+/* ─────────────────────────────────────────────
+   WALLPAPER / ACCENT
+───────────────────────────────────────────── */
+function initBackdrop(){
+    $.get("system/desktop/theme", function(list){
+        desktopThemeList = list;
+        $.get("system/desktop/theme?get=true", function(t){ changeDesktopTheme(t); });
+    });
+}
+function changeDesktopTheme(t){
+    if(!t.includes(":/")){
+        for(var i=0;i<desktopThemeList.length;i++){
+            if(desktopThemeList[i].Theme===t){
+                var bg = desktopThemeList[i].Bglist[0];
+                $("#backdrop").css("background-image","url(img/desktop/bg/"+t+"/"+bg+")");
+                return;
             }
-           
-            //Check and prepare localization
-            if (applocale){
-                //Applocale found. Do localization
-                applocale.init("./SystemAO/locale/desktop.json", function(){
-                    applocale.translate();
-                });
-            }else{
-                //Applocale not found. Is this a trim down version of ArozOS?
-                var applocale = {
-                    getString: function(key, original){
-                        return original;
-                    }
-                }
-            }
+        }
+    }else{
+        $.get("system/desktop/theme?load="+t,function(d){
+            if(d.error){changeDesktopTheme("default");return;}
+            $("#backdrop").css("background-image","url(media/?file="+d[0]+")");
+        });
+    }
+}
+function initAccentColor(){
+    pref("themecolor",function(c){ if(c&&!c.error) setThemeColor(c); });
+}
+function setThemeColor(c){
+    /* Backward-compat: modules call parent.setThemeColor() */
+    document.documentElement.style.setProperty("--accent",c);
+}
 
-            //Connection check
-            setInterval(function() {
-                $.ajax({
-                    url: 'system/auth/checkLogin',
-                    success: function(data) {
-                        if (data == true) {
-                            //Continue session
-                        } else {
-                            //Session timeout. Redirect to system index
-                            window.location.href = "index.html";
-                        }
-                        $("#conndrop").hide();
-                        $("#conndrop").css("display", "none");
-                    },
-                    error: function(evt) {
-                        //Server closed or freezed?
-                        $("#conndrop").show();
-                        $("#conndrop").css("display", "flex");
-                    },
-                    timeout: 15000
-                });
-            }, 15000);
+/* ─────────────────────────────────────────────
+   MODULE LIST + APP GRID
+───────────────────────────────────────────── */
+function initModules(){
+    $.ajax({url:"system/modules/list",success:function(data){
+        moduleInstalled = data;
+        var saved = localStorage.getItem("mobile/appOrder");
+        if(saved){try{appOrder=JSON.parse(saved);}catch(e){appOrder=[];}}
+        var savedRm = localStorage.getItem("mobile/removedApps");
+        if(savedRm){try{removedApps=JSON.parse(savedRm);}catch(e){removedApps=[];}}
+        renderGrid("");
+    }});
+}
 
-            //Initiate the host information
-            function initHostInfo(){
-                $.get("system/desktop/host",function(data){
-                    hostInfo = data;
-                    document.title = hostInfo.Hostname;
-                });
-            }
+function getOrderedModules(){
+    var result = [];
+    appOrder.forEach(function(n){
+        var m=moduleInstalled.find(function(x){return x.Name===n;});
+        if(m) result.push(m);
+    });
+    // Auto-include newly installed modules (not in appOrder and not explicitly removed)
+    moduleInstalled.forEach(function(m){
+        if(m.StartDir
+            && !result.find(function(x){return x.Name===m.Name;})
+            && removedApps.indexOf(m.Name)===-1){
+            result.push(m);
+        }
+    });
+    return result;
+}
 
-            //Initialize background image
-            function initBackdropImage(){
-                $.get("system/desktop/theme", function(data) {
-                    //Return a list of theme stored on the system
-                    desktopThemeList = data;
-                    $.get("system/desktop/theme?get=true", function(data) {
-                        //Get the user theme settings
-                        changeDesktopTheme(data);
-                    });
-                });
-            }
+function renderGrid(filter){
+    var grid = $("#app-grid"); grid.empty();
+    // Rebuild appOrder from active (non-removed) modules when not filtering
+    if(!filter){
+        appOrder = getOrderedModules()
+            .filter(function(m){return !!m.StartDir;})
+            .map(function(m){return m.Name;});
+    }
+    var idx=0;
+    getOrderedModules().forEach(function(m){
+        if(!m.StartDir) return;
+        if(filter && !m.Name.toLowerCase().includes(filter.toLowerCase())) return;
+        var ic = m.IconPath||"img/system/service.png";
+        var name = escH(m.Name);
+        var attr = escA(m.Name);
+        grid.append('<div class="app-item" data-mod="'+attr+'" data-i="'+idx+'">'
+            +'<div class="app-icon-wrap">'
+            +'<img src="'+escA(ic)+'" onerror="this.src=\'img/system/service.png\'">'
+            +'<div class="app-del" onclick="appDelTap(event,\''+attr+'\')">'
+            +'<img src="SystemAO/desktop/img/icons/close_white.svg">'
+            +'</div>'
+            +'</div>'
+            +'<span class="app-name">'+name+'</span>'
+            +'</div>');
+        idx++;
+    });
+    // In edit mode (no filter active) show removed apps as ghost tiles at the bottom
+    if(isEditMode && !filter){
+        removedApps.forEach(function(name){
+            var m=moduleInstalled.find(function(x){return x.Name===name;});
+            if(!m||!m.StartDir) return;
+            var ic = m.IconPath||"img/system/service.png";
+            var attr = escA(m.Name);
+            grid.append('<div class="app-item app-removed" data-mod="'+attr+'">'
+                +'<div class="app-icon-wrap">'
+                +'<img src="'+escA(ic)+'" onerror="this.src=\'img/system/service.png\'">'
+                +'<div class="app-restore" onclick="appRestoreTap(event,\''+attr+'\')">'
+                +'<img src="SystemAO/desktop/img/icons/add_white.svg">'
+                +'</div>'
+                +'</div>'
+                +'<span class="app-name">'+escH(m.Name)+'</span>'
+                +'</div>');
+        });
+    }
+    bindAppTouch();
+}
 
-            function initUserDefinedThemeColor(){
-                $.ajax({
-                    url: "system/desktop/preference",
-                    data: {preference: "themecolor"},
-                    method: "POST",
-                    success: function(data){
-                        console.log(data);
-                        if (data.error == undefined && data != ""){
-                            setThemeColor(data);
-                        }
-                    }
-                });
-            }
+function filterApps(q){
+    if(isEditMode) exitEdit();
+    renderGrid(q||"");
+}
 
-            function changeDesktopTheme(themename){
-                //Match the given theme to the themename
-                if (themename.includes(":/") == false){
-                    //This is a path
-                    for (var i =0; i < desktopThemeList.length ; i++){
-                        if (desktopThemeList[i].Theme == themename){
-                            var targetImage = desktopThemeList[i].Bglist[0];
-                            $("#backdrop").css("background-image", `url(img/desktop/bg/${themename}/${targetImage})`)
-                        }
-                    }
-                }else{
-                    //This is a path (user defined background folder)
-                    $.get("system/desktop/theme?load=" + themename, function(data){
-                        if (data.error !== undefined){
-                            //The folder is gone. Use default instead
-                            console.log(data.error);
-                            changeDesktopTheme("default");
-                        }else{
-                            $("#backdrop").css("background-image", `url(media/?file=${data[0]})`)
-                        }
-                    });
-                }
-            }
-           
-            function toggleFullScreen() {
-                var doc = window.document;
-                var docEl = doc.documentElement;
+function bindAppTouch(){
+    $("#app-grid .app-item").off("touchstart pointerdown").on("touchstart pointerdown",function(e){
+        if(!isEditMode) return;
+        // Don't start drag when the touch lands on a badge button
+        if($(e.target).closest(".app-del,.app-restore").length) return;
+        startDrag(e,this);
+    });
+    $("#app-grid .app-item").off("click").on("click",function(){
+        if(isEditMode)return;
+        openModule($(this).data("mod"));
+    });
+}
 
-                var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
-                var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+/* ── Edit mode ── */
+function toggleEdit(){ isEditMode ? exitEdit() : enterEdit(); }
+function enterEdit(){
+    isEditMode=true;
+    $("#apps-edit-btn").text("Done").addClass("on");
+    renderGrid(""); // rebuild DOM so ghost tiles appear
+    // Apply edit-mode classes to the freshly created active items
+    $("#app-grid .app-item:not(.app-removed)").addClass("jiggling editing");
+}
+function exitEdit(){
+    isEditMode=false;
+    $("#apps-edit-btn").text("Edit").removeClass("on");
+    localStorage.setItem("mobile/appOrder",JSON.stringify(appOrder));
+    renderGrid(""); // rebuild DOM to remove ghost tiles
+}
+function appDelTap(e,name){
+    e.stopPropagation();
+    var i=appOrder.indexOf(name);
+    if(i>-1) appOrder.splice(i,1);
+    if(removedApps.indexOf(name)===-1) removedApps.push(name);
+    localStorage.setItem("mobile/appOrder",JSON.stringify(appOrder));
+    localStorage.setItem("mobile/removedApps",JSON.stringify(removedApps));
+    enterEdit(); // enterEdit renders + applies edit classes
+}
+function appRestoreTap(e,name){
+    e.stopPropagation();
+    var i=removedApps.indexOf(name);
+    if(i>-1) removedApps.splice(i,1);
+    if(appOrder.indexOf(name)===-1) appOrder.push(name);
+    localStorage.setItem("mobile/appOrder",JSON.stringify(appOrder));
+    localStorage.setItem("mobile/removedApps",JSON.stringify(removedApps));
+    enterEdit(); // enterEdit renders + applies edit classes
+}
 
-                if(!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
-                    requestFullScreen.call(docEl);
-                }
-                else {
-                    cancelFullScreen.call(doc);
-                }
-            }
+/* ── Drag-to-reorder ── */
+function startDrag(e,el){
+    e.preventDefault();
+    isDragging=true;
+    dragSrcName=$(el).data("mod");
+    dragTargetName=null;
+    var t=e.touches?e.touches[0]:e;
+    var r=el.getBoundingClientRect();
+    dragGhostOff={x:t.clientX-r.left,y:t.clientY-r.top};
+    $("#drag-ghost-img").attr("src",$(el).find("img").first().attr("src"));
+    $("#drag-ghost").css({display:"block",left:t.clientX-dragGhostOff.x,top:t.clientY-dragGhostOff.y});
+    $(el).addClass("dragging");
+    $(document).on("touchmove.dg pointermove.dg",onDragMove);
+    $(document).on("touchend.dg pointerup.dg",onDragEnd);
+}
 
+function onDragMove(e){
+    if(!isDragging)return;
+    var t=e.touches?e.touches[0]:e;
+    var gx=t.clientX-dragGhostOff.x, gy=t.clientY-dragGhostOff.y;
+    $("#drag-ghost").css({left:gx,top:gy});
 
+    /* ── auto-scroll when ghost nears the top/bottom edge of the list ── */
+    var wrap=document.getElementById("app-grid-wrap");
+    var wr=wrap.getBoundingClientRect();
+    var threshold=60;
+    var prev=_autoScrollDir;
+    if(gy<wr.top+threshold) _autoScrollDir=-1;
+    else if(gy+60>wr.bottom-threshold) _autoScrollDir=1;
+    else _autoScrollDir=0;
+    if(_autoScrollDir!==0&&prev===0) _runAutoScroll();
 
-            //Sidebar
-            function toggleTaskBar(obj){
-                if ($(obj).attr("shown") == "true"){
-                    hideTaskBar();
-                }else{
-                    showTaskBar();
-                }
-            }
+    /* ── highlight drop target (no re-render during drag) ── */
+    var found=null;
+    $("#app-grid .app-item").each(function(){
+        var r=this.getBoundingClientRect();
+        if(t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom){
+            var n=$(this).data("mod");
+            if(n!==dragSrcName) found=n;
+        }
+    });
+    if(found!==dragTargetName){
+        $(".app-item").removeClass("drag-target");
+        dragTargetName=found;
+        if(found) $(".app-item[data-mod='"+found+"']").addClass("drag-target");
+    }
+}
 
-            function hideTaskBar(){
-                //Hide the taskBar
-                $(".taskBar").animate({
-                    width: "30px"
-                },300, "swing");
-                $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_right-white-48dp.svg");
-                $(".taskBar").find(".toggleTaskBar").attr("shown","false");
-                $("#mainFrame").removeClass("blurred");
+function _runAutoScroll(){
+    if(!isDragging||_autoScrollDir===0){_autoScrollRaf=null;return;}
+    document.getElementById("app-grid-wrap").scrollTop+=_autoScrollDir*5;
+    _autoScrollRaf=requestAnimationFrame(_runAutoScroll);
+}
 
-                //Minimize all fwbuttons
-                $(".floatWindowButton").each(function(){
-                    $(this).find(".minimizedElements").show();
-                    $(this).find(".normalElements").hide();
-                });
+function onDragEnd(){
+    isDragging=false;
+    _autoScrollDir=0;
+    if(_autoScrollRaf){cancelAnimationFrame(_autoScrollRaf);_autoScrollRaf=null;}
+    $("#drag-ghost").hide();
+    $(document).off("touchmove.dg pointermove.dg touchend.dg pointerup.dg");
 
-                $("#sidebarToggleOverlay").hide();
-                $(".extendOnly").slideUp("fast");
+    /* commit reorder on drop */
+    if(dragTargetName){
+        var a=appOrder.indexOf(dragSrcName), b=appOrder.indexOf(dragTargetName);
+        if(a>-1&&b>-1){appOrder.splice(a,1);appOrder.splice(b,0,dragSrcName);}
+    }
+    localStorage.setItem("mobile/appOrder",JSON.stringify(appOrder));
+    renderGrid(""); enterEdit();
+}
 
-                //Check the number of floatWindow
-                if ($(".floatWindowWrapper").length == 0){
-                    //Reaching desktop layer
-                    showShortcuts();
-                }else{
-                    //Check if all float windows are hidden
-                    var allHidden = $(".floatWindowWrapper").is(":hidden");
-                    if (!allHidden){
-                        hideShortcuts();
-                    }
-                    
-                }
-            }
+/* ─────────────────────────────────────────────
+   DESKTOP FILES (Section 3)
+───────────────────────────────────────────── */
+function initFiles(){
+    $.get("system/desktop/listDesktop",function(data){
+        if(!data||data.error){$("#files-empty").show();return;}
+        var folders=data.filter(function(f){return f.IsDir&&!f.IsShortcut;});
+        if(!folders.length){$("#files-empty").show();return;}
+        folders.forEach(function(f){
+            $("#files-grid").append(
+                '<div class="folder-item" onclick="openFolder(\''+escA(f.Filepath)+'\')">'
+                +'<img class="folder-emoji" src="SystemAO/desktop/img/icons/folder_blue.svg">'
+                +'<span class="folder-name">'+escH(f.Filename)+'</span>'
+                +'</div>'
+            );
+        });
+    });
+}
+function openFolder(fp){
+    window.open("SystemAO/file_system/file_explorer.html#"+encodeURIComponent(fp),"_blank");
+}
 
-            function showTaskBar(){
-                //Show the taskbar
-                $(".taskBar").animate({
-                    width: "300px"
-                }, 300, "swing", function(){
-                    //Switch all fwbuttons to normal size
-                    $(".floatWindowButton").each(function(){
-                        $(this).find(".minimizedElements").hide();
-                        $(this).find(".normalElements").show();
-                     });
-                     $(".extendOnly").slideDown("fast");
-                });
-                $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_left-white-48dp.svg");
-                $(".taskBar").find(".toggleTaskBar").attr("shown","true");
-                $("#mainFrame").addClass("blurred");
-                $("#sidebarToggleOverlay").show();
-                
-            }
+/* ─────────────────────────────────────────────
+   DOCK SHORTCUTS
+───────────────────────────────────────────── */
+function initShortcuts(){[1,2,3,4].forEach(function(i){initShortcut(i);});}
+function initShortcut(id){
+    pref("ao/mobile/shorcut/"+id,function(name){
+        if(!name){$("#d"+id).attr("src","img/mobile/pending.svg");return;}
+        $.get("system/modules/getLaunchPara?module="+encodeURIComponent(name),function(p){
+            if(p.error)return;
+            shortcuts[id]=p;
+            $("#d"+id).attr("src",p.IconPath||"img/system/service.png");
+            $("#dl"+id).text(p.Name);
+        });
+    });
+}
+function launchShortcut(id){if(shortcuts[id])openModule(shortcuts[id].Name);}
 
-            //List all modules
-            function initModuleList(){
-                $.ajax({
-                    url: "system/modules/list",
-                    success: function(data) {
-                        moduleInstalled = data;
-                        listModulesType("All");
-                    }
-                });
-            }
+/* ─────────────────────────────────────────────
+   SECTION NAVIGATION
+───────────────────────────────────────────── */
+function goSec(n){
+    if(n<0||n>2)return;
+    if(n!==1&&isEditMode)exitEdit();
+    currentSec=n;
+    ["#sec-home","#sec-apps","#sec-files"].forEach(function(s,i){
+        $(s).css("transform","translateY("+(i-n)*100+"%)");
+    });
+    $(".pd").removeClass("on");
+    $(".pd[data-s='"+n+"']").addClass("on");
+}
 
-            //ListMenu group classification events
-            function bindGroupTypeEvents(){
-                $(".groupType").on("click",function(evt){
-                    //Clear all serach results
-                    $("#searchResults").slideUp('fast');
-                    listModulesType($(this).attr("group"));
-                    $(".groupType.selected").removeClass("selected");
-                    $(this).addClass("selected");
-                    /*
-                    var classificationObject = this;
-                    if ($(this).attr("group") == "All"){
-                        $('.item.module').show();
-                    } else if ($(this).attr("group") == "Other"){
-                        var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilties"];
-                        $('.item.module').each(function(){
-                            if (excludeList.includes($(this).attr("group")) == false){
-                                $(this).show();
-                            }else{
-                                $(this).hide();
-                            }
-                        });
-                    }else{
-                        $('.item.module').each(function(){
-                            if ($(this).attr("group") == $(classificationObject).attr("group")){
-                                $(this).show();
-                            }else{
-                                $(this).hide();
-                            }
-                        });
-                    }
-                    */
-                   
-                });
-            }
+/* Swipe handling per-section */
+var _sy=0;
+function _trackStart(e){_sy=e.touches?e.touches[0].clientY:e.clientY;}
+function _swipeDelta(e){var y=e.changedTouches?e.changedTouches[0].clientY:e.clientY;return _sy-y;}
 
-            function searchModule(event) {
-                if (event.which == 13) {
-                    var keyword = $("#searchBar").val().toLowerCase();
-                    var results = [];
-                    var lessAccurateResults = [];
-                    $(".groupType.selected").removeClass("selected");
-                    $("#searchResults").addClass("selected").slideDown('fast');
-                    //Load all search results
-                    for (var i = 0; i < moduleInstalled.length; i++) {
-                        var thisModule = moduleInstalled[i];
-                        var pathInfo = thisModule["StartDir"].split("/");
-                        for (var j = 0; j < pathInfo.length; j++) {
-                            pathInfo[j] = pathInfo[j].toLowerCase();
-                        }
-                        if (thisModule["Name"].toLowerCase().includes(keyword)) {
-                            results.push(thisModule);
-                        } else if (pathInfo.includes(keyword.toLowerCase()) || pathInfo.includes(keyword.split(" ").join("_").toLowerCase())) {
-                            lessAccurateResults.push(thisModule);
-                        }
-                    }
-                    results = results.concat(lessAccurateResults);
-                    //Append the results to list
-                    $("#listMenuItem").html("");
-                    for (var i = 0; i < results.length; i++) {
-                        generateListMenuItem(results[i]);
-                    }
+// Section 1: anywhere swipe up → section 2
+$("#sec-home").on("touchstart",function(e){_sy=e.touches[0].clientY;})
+              .on("touchend",function(e){if(_swipeDelta(e)>55)goSec(1);});
 
-                    if (results.length == 0) {
-                        //Append a custom no results div to the content
-                        $("#listMenuItem").append(`<div class="item module"><span><img class="ui middle aligned tiny image" src="img/system/not found.png" style="padding-right: 12px;">No Results</span></div>`);
-                    }
-                }
-            }
-           
+// Section 2 header: swipe down → sec 1, swipe up → sec 3
+$("#apps-header,#app-search-wrap").on("touchstart",function(e){_sy=e.touches[0].clientY;})
+    .on("touchend",function(e){var d=_swipeDelta(e);if(d<-55)goSec(0);else if(d>55)goSec(2);});
 
-            function listModulesType(groupType) {
-                var listingItems = [];
-                if (groupType == "All") {
-                    //List all of the items
-                    for (var i = 0; i < moduleInstalled.length; i++) {
-                        if (moduleInstalled[i]["StartDir"] != "") {
-                            listingItems.push(moduleInstalled[i]);
-                        }
-                    }
-                } else if (groupType == "Other") {
-                    var excludeList = ["Media", "Office", "Download", "Files", "Internet", "System Settings", "System Tools", "Utilties"];
-                    //List the Other groups
-                    for (var i = 0; i < moduleInstalled.length; i++) {
-                        if (excludeList.includes(moduleInstalled[i]["Group"]) == false && moduleInstalled[i]["StartDir"] != "") {
-                            listingItems.push(moduleInstalled[i]);
-                        }
-                    }
-                } else {
-                    //List the given group
-                    for (var i = 0; i < moduleInstalled.length; i++) {
-                        if (moduleInstalled[i]["Group"] == groupType && moduleInstalled[i]["StartDir"] != "") {
-                            listingItems.push(moduleInstalled[i]);
-                        }
-                    }
-                }
+// App grid edge-overscroll
+var _agw=document.getElementById("app-grid-wrap");
+_agw.addEventListener("touchstart",function(e){_sy=e.touches[0].clientY;},{passive:true});
+_agw.addEventListener("touchend",function(e){
+    var d=_sy-e.changedTouches[0].clientY;
+    if(_agw.scrollTop<=0&&d<-70)goSec(0);
+    if(_agw.scrollTop+_agw.clientHeight>=_agw.scrollHeight-2&&d>70)goSec(2);
+},{passive:true});
 
-                //List the item to the listmenu
-                $("#listMenuItem").html("");
-                for (var i = 0; i < listingItems.length; i++) {
-                    var thisModule = listingItems[i];
-                    generateListMenuItem(thisModule);
-                }
-                if (listingItems.length == 0) {
-                    $("#listMenuItem").html(`<div class="item module"><span><img class="ui middle aligned tiny image" src="img/system/not found.png" style="padding-right: 12px;">No WebApp found</span></div>`)
-                }
-            }
+// Section 3 header: swipe down → sec 2
+$("#files-header").on("touchstart",function(e){_sy=e.touches[0].clientY;})
+                  .on("touchend",function(e){if(_swipeDelta(e)<-55)goSec(1);});
 
-            function generateListMenuItem(thisModule) {
-                var icon = thisModule["IconPath"];
-                if (icon == "") {
-                    //Use default system icon
-                    icon = "img/system/service.png";
-                }
-                var name = thisModule["Name"];
-                var startdir = thisModule["StartDir"];
-                var group = thisModule["Group"];
-                var fwsupport = "false";
-                if (thisModule["SupportFW"]) {
-                    fwsupport = "true";
-                }
-                $("#listMenuItem").append(`<div class="item module" module="${name}" startdir="${startdir}" fw="${fwsupport}" group="${group}" onclick="openModuleFromMenu(this);">
-                    <span>
-                        <img class="ui middle aligned tiny image" src="${icon}" style="padding-right: 12px;"></img>
-                        ${name}
-                    </span>
-                </div>`);
-            }
+var _fgw=document.getElementById("files-grid-wrap");
+_fgw.addEventListener("touchstart",function(e){_sy=e.touches[0].clientY;},{passive:true});
+_fgw.addEventListener("touchend",function(e){
+    if(_fgw.scrollTop<=0&&(_sy-e.changedTouches[0].clientY)<-70)goSec(1);
+},{passive:true});
 
-            function closeListMenu(callback = undefined){
-                if (listMenuShown == false){
-                    //Already closed
-                    if (typeof callback != "undefined"){
-                        callback();
-                    }
-                    return;
-                }
-                $("#listMenu").animate({
-                    left: window.innerWidth * -1
-                },300,"swing", function(){
-                    $(".taskBar").animate({
-                        width: "300px",
-                    },300,"swing", function(){
-                        
-                        if (typeof callback != "undefined"){
-                            callback();
-                        }else{
-                            $(".extendOnly").slideDown("fast");
-                        }
-                    });
-                    
-                });
+/* ─────────────────────────────────────────────
+   CLOCK
+───────────────────────────────────────────── */
+var _mon=["January","February","March","April","May","June","July","August","September","October","November","December"];
+var _day=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function clockLoop(){updateClock();setInterval(updateClock,15000);}
+function updateClock(){
+    var d=new Date();
+    $("#clock-time").text(pad2(d.getHours())+":"+pad2(d.getMinutes()));
+    $("#clock-date").text(_day[d.getDay()]+", "+_mon[d.getMonth()]+" "+d.getDate());
+}
+function pad2(n){return n<10?"0"+n:""+n;}
 
-                listMenuShown = false;
-            }
-
-            //Bind swip events
-            document.addEventListener('touchstart', handleTouchStart, false);        
-            document.addEventListener('touchmove', handleTouchMove, false);
-
-            var xDown = null;                                                        
-            var yDown = null;
-            var swipeTarget = null;
-            var targetType = "fw";
-            function getTouches(evt) {
-            return evt.touches ||             // browser API
-                    evt.originalEvent.touches; // jQuery
-            }                                                     
-
-            function handleTouchStart(evt) {
-                const firstTouch = getTouches(evt)[0];
-                if ($(evt.target).hasClass("taskBar")){
-                        swipeTarget = evt.target;
-                        targetType = "taskbar"
-                }else if ($(evt.target).hasClass("toggleTaskBar")){
-
-                
-                }else{
-                    if (evt.path != undefined){
-                        swipeTarget = getFloatWindowObjectFromPath(evt.path);
-                    }
-                    
-                }
-                
-                xDown = firstTouch.clientX; 
-                yDown = firstTouch.clientY;
-            };
-
-            function getFloatWindowObjectFromPath(path){
-                var targetObject = undefined;
-                targetType = undefined
-                path.forEach(object => {
-                    if ($(object).hasClass("floatWindowButton")){
-                        targetObject = object
-                        targetType = "fw"
-                    }
-                })
-
-                return targetObject;
-            }
-
-            function handleTouchMove(evt) {
-                if ( ! xDown || ! yDown ) {
-                    return;
-                }
-
-                var xUp = evt.touches[0].clientX;                                    
-                var yUp = evt.touches[0].clientY;
-
-                var xDiff = xDown - xUp;
-                var yDiff = yDown - yUp;
-
-                if ( Math.abs( xDiff ) > Math.abs( yDiff ) ) {/*most significant*/
-                    if ( xDiff > 0 ) {
-                        /* left swipe */ 
-                        if (swipeTarget !== undefined && targetType == "fw"){
-                            closeFloatWindow($(swipeTarget).attr("windowId"));
-                        }else if (swipeTarget !== undefined && targetType == "taskbar"){
-                            hideTaskBar();
-                        }
-                    } else {
-                        /* right swipe */
-                        if (swipeTarget !== undefined && targetType == "fw"){
-                            //Allow left or right swipe to remove fw
-                            closeFloatWindow($(swipeTarget).attr("windowId"));
-                        }else  if (swipeTarget !== undefined && targetType == "taskbar"){
-                            //Right swipe on taskbar
-                            if ($(swipeTarget).find(".toggleTaskBar").attr("shown") == "true"){
-                                //Already shown. Toggle list menu
-                                showListMenu();
-                            }else{
-                                showTaskBar();
-                            }
-                            
-                        }
-                    }                       
-                } else {
-                    if ( yDiff > 0 ) {
-                        /* up swipe */ 
-                    } else { 
-                        /* down swipe */
-                    }                                                                 
-                }
-                /* reset values */
-                xDown = null;
-                yDown = null;
-                swipeTarget = null;
-            };
-
-
-            function showListMenu(callback = undefined){
-                if ($(".taskBar").find(".toggleTaskBar").attr("shown") == "false"){
-                    $(".taskBar").find(".toggleTaskBar").attr("shown", "true");
-                    $(".taskBar").find('.sidebararrow').attr("src","img/mobile/keyboard_arrow_left-white-48dp.svg");
-                    $("#mainFrame").addClass("blurred");
-                }
-                $(".taskBar").animate({
-                    width: window.innerWidth,
-                },300, "swing", function(){
-                    //Switch all fwbuttons to normal size
-                    $(".floatWindowButton").each(function(){
-                        $(this).find(".minimizedElements").hide();
-                        $(this).find(".normalElements").show();
-                     });
-
-                     //Show list menu
-                    $("#listMenu").animate({
-                        left: 0
-                    },300,"swing", function(){
-                        if (typeof callback != "undefined"){
-                            callback();
-                        }
-                    });
-                });
-                listMenuShown = true;
-                $("#sidebarToggleOverlay").show();
-            }
-
-            function openModule(moduleName) {
-                $.get("system/modules/getLaunchPara?module=" + moduleName, function(data) {
-                    console.log(data);
-                    if (data.error !== undefined) {
-                        //Something went wrong.
-                        console.log("Unable to open module " + moduleName);
-                        if (data.error == "Not logged in."){
-                            //Session expired
-                            window.location.href = "login.html";
-                        }
-                    }else {
-                        //Launch the given module
-                        var url = data["StartDir"];
-                        var size = [undefined, undefined];
-                        var icon = "img/system/favicon.png";
-                        if (data["IconPath"] != "") {
-                            icon = data["IconPath"];
-                        }
-                        var title = data["Name"];
-                        //Check if the module support fw mode. If yes, launch with fwmode url. IF not, launch to index
-                        if (data["SupportFW"] == true) {
-                            if (data["LaunchFWDir"] != null) {
-                                url = data["LaunchFWDir"];
-                            }
-                            if (data["InitFWSize"] != null) {
-                                size = data["InitFWSize"];
-                            }
-                        }
-
-                        //Launch the given module
-                        newFloatWindow({
-                            url: url,
-                            width: size[0],
-                            height: size[1],
-                            appicon: icon,
-                            title: title
-                        });
-
-                        closeListMenu(function(){
-                            hideTaskBar();
-                        });
-                        
-                    }
-                });
-            }
-
-            function openModuleFromMenu(object) {
-                var moduleName = $(object).attr("module");
-                openModule(moduleName);
-            }
-
-            //In mobile interface, there will be some option ignored by default
-            function newFloatWindow(options){
-                //Hide all other floatWindows
-                $(".floatWindowWrapper").fadeOut("fast");
-
-                //Hide shortcuts
-                hideShortcuts();
-
-                //Construct the new window
-                var windowID = Date.now();
-                var parent = options.parent || "";
-                var callback = options.callback || "";
-                //Create a new iframe
-                $("#windowWrapper").append(` <div class="floatWindowWrapper" windowId="${windowID}">
-                <div class="floatWindow" windowId="${windowID}" parent="${parent}" callback="${callback}">
-                    <div class="fwtab">
-                        <iframe src="${options.url}" style="width: 100%; height: 100%;"></iframe>
-                    </div>
-                </div>
-                </div>`);
-
-                //Create the button
-                var title = options.title || "New FloatWindow";
-
-                $("#windowButtonWrapper").append(`
-                    <div class="floatWindowButton" windowID="${windowID}" onclick="focusTab(this)">
-                        <div class="minimizedElements">
-                            <img class="minimizedIcon" src="${options.appicon}">
-                        </div>
-                        <div class="normalElements" style="display:none;">
-                            <img class="ui normalizedIcon middle aligned image" src="${options.appicon}">
-                            <span class="windowTitle" style="color:white;">${title}</span>
-                            <div class="closebutton" onclick="closefw(this);"><i class="remove icon"></i></div>
-                            <div class="externalbutton" onclick="openfwInNewTab(this);"><i class="external icon"></i></div>
-                        </div>
-                        
-                    </div>
-                `);
-            }  
-
-            ///Functions realted to window resize and auto scaling
-            function updateWindowDimensions(){
-                $("#backdrop").css({
-                    width: window.innerWidth,
-                    height: window.innerHeight
-                });
-                
-                //Check if the device is used horizontally or vertically
-                if (window.innerWidth > window.innerHeight){
-                    //Holding horizontally
-                    $("body").addClass("horizontal");
-                    $("#shortcuts").find(".shortcutObject").removeClass("column");
-                    $(".verticalDisplayOnly").hide();
-                }else{
-                    //Holding vertically
-                    $("body").removeClass("horizontal");
-                    $("#shortcuts").find(".shortcutObject").addClass("column");
-                    if (!listMenuShown){
-                        $("#listMenu").css("left", window.innerWidth * -1);
-                    }
-                    $(".horizontalDisplayOnly").hide();
-                }
-            }
-
-
-            updateWindowDimensions();
-            $(window).on("resize", function(data){
-                updateWindowDimensions();
-
-                //Handle resize and reposition of the list menu
-                if (listMenuShown){
-                    $("#listMenu").css({
-                        left: 0
-                    });
-                }else{
-                    $("#listMenu").css({
-                        left: window.innerWidth * -1
-                    });
-                }
+/* ─────────────────────────────────────────────
+   USER INFO
+───────────────────────────────────────────── */
+function initUserInfo(){
+    $.get("system/desktop/user",function(d){
+        if(d.error)return;
+        userInfo=d;
+        $("#cp-name").text(d.Username);
+        $("#cp-grp").text("@"+(d.UserGroups||[]).join("/"));
+        if(d.UserIcon)$("#cp-av").attr("src",d.UserIcon);
+        loadCpAccounts();
+    });
+}
+function loadCpAccounts(){
+    $("#cp-acc-list").empty();
+    $.get("system/auth/u/list",function(data){
+        if(!data||data.error)return;
+        data.forEach(function(ac){
+            if(ac.Username===userInfo.Username)return;
+            $.get("system/desktop/user?target="+ac.Username,function(ud){
+                var ic=ud.UserIcon||"img/desktop/system_icon/user.svg";
+                $("#cp-acc-list").append(
+                    '<div class="cp-acc-item" onclick="cpSwitch(\''+escA(ac.Username)+'\')">'
+                    +'<img src="'+escA(ic)+'">'
+                    +'<span class="cp-acc-name">'+escH(ac.Username)+(ac.IsExpired?" (expired)":"")+"</span>"
+                    +'</div>'
+                );
             });
-
-            //Float Window APIs
-            function setFloatWindowTitle(id, title){
-                $(".floatWindowButton").each(function(){
-                    if ($(this).attr("windowId") == id){
-                        $(this).find(".windowTitle").text(title);
-                    }
-                })
-            }
-
-            function getFloatWindowByID(id){
-                var targetObejct = undefined;
-                $(".floatWindowWrapper").each(function(){
-                    if ($(this).attr("windowId") == id){
-                        targetObejct = $(this);
-                    }
-                });
-                return targetObejct;
-            }
-
-            function MoveFloatWindowToTop(targetfw){
-                //Check if this windows is already topped
-                if ($(targetfw).is(":visible")){
-                    //Already topped
-                    return;
-                }
-
-                $(".floatWindowWrapper").each(function(){
-                    $(this).fadeOut("fast");
-                });
-
-                console.log(targetfw);
-                $(targetfw).parent().fadeIn("fast");
-            }
-
-            function focusTab(object){
-                var windowID = $(object).attr("windowId");
-                //Hide all other flowWindows
-                $(".floatWindowWrapper").fadeOut("fast");
-
-                //Show the target fw
-                var fw = getFloatWindowByID(windowID);
-                hideShortcuts();
-                fw.fadeIn("fast", function(){
-                    hideTaskBar();
-                });
-                
-            }
-
-            function getFloatWindowByID(id){
-                var targetObejct = undefined;
-                $(".floatWindowWrapper").each(function(){
-                    if ($(this).attr("windowId") == id){
-                        targetObejct = $(this);
-                    }
-                });
-
-                return targetObejct;
-            }
-
-            function setFloatWindowResizePolicy(id, allowResize){
-                //Disabled in mobile mode
-            }
-
-            function setFloatWindowSize(id, width, height){
-                //Disabled in mobile mode
-            }
-
-            function closeFloatWindow(windowID){
-                //Get the content iframe with that windowID
-                var contentWindow = getFloatWindowByID(windowID);
-                if (contentWindow == undefined){
-                    return;
-                }
-                contentWindow = contentWindow.find("iframe")[0].contentWindow;
-                try {
-                    if (contentWindow.ao_module_close === undefined) {
-                        //This module do not use ao_module wrapper. Close it directly.
-                        closeFwProcess(windowID);
-                    } else {
-                        //Pass the closing events to the window itself
-                        contentWindow.ao_module_close();
-                    }
-                } catch (ex) {
-                    //Problems of closing floatWindow. Force closing.
-                    closeFwProcess(windowID);
-                }
-            } 
-
-            function closefw(object){
-                var windowID = $(object).parent().parent().attr("windowID");
-                closeFloatWindow(windowID);
-            }
-
-            function openfwInNewTab(object){
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                var windowID = $(object).parent().parent().attr("windowID");
-                var targetFloatWindow = null;
-                $(".floatWindowWrapper").each(function(){
-                    if ($(this).attr("windowid") == windowID){
-                        targetFloatWindow = $(this);
-                    }
-                });
-                if (targetFloatWindow == null){
-                    return;
-                }
-                var iframe = $(targetFloatWindow).find("iframe");
-                var url = $(iframe)[0].contentWindow.location.href;
-                window.open(url);
-            }
-
-
-            //Get the window below this window id, can return null if there is no window
-            function getPreviousWindowObject(windowID){
-                var previousWindowID = null;
-                var result = null;
-                $(".floatWindowButton").each(function(){
-                    if ($(this).attr("windowid") == windowID){
-                        result = previousWindowID;
-                    }else{
-                        let thisWindowID = $(this).attr("windowid");
-                        previousWindowID = thisWindowID;
-                    }
-                });
-
-                return result;
-            }
-
-            function closeFwProcess(windowID){
-                //Get the previous window object
-                var previousWindowID = getPreviousWindowObject(windowID);
-                
-                //Remove the window object
-                $(".floatWindowWrapper").each(function(){
-                    if ($(this).attr("windowId") == windowID){
-                        $(this).fadeOut("fast",function(){
-                            $(this).remove(); 
-                        });
-                    }
-                });
-
-                //Remove the button object
-                $(".floatWindowButton").each(function(){
-                    if ($(this).attr("windowId") == windowID){
-                        $(this).fadeOut("fast",function(){
-                            $(this).remove(); 
-                        });
-                    }
-                });
-
-                //Focus the window behind if exists
-                setTimeout(function(){
-                    if (previousWindowID != null){
-                        //Hide all other flowWindows
-                        $(".floatWindowWrapper").fadeOut("fast");
-
-                        //Show the target fw
-                        var fw = getFloatWindowByID(previousWindowID);
-                        console.log(fw);
-                        fw.fadeIn("fast", function(){
-                            
-                        });
-                    }
-                }, 100);
-                
-                
-            }
-
-            function bindObjectToIMEEvents(object){
-                console.log("IME not supported in mobile desktop mode")
-            };
-
-            function openFileWithModule(moduleLaunchInfo, openFileList) {
-                var url = moduleLaunchInfo["StartDir"];
-                var size = [undefined, undefined];
-                var title = moduleLaunchInfo["Name"];
-                var icon = "img/system/favicon.png";
-                if (moduleLaunchInfo["IconPath"] != "") {
-                    icon = moduleLaunchInfo["IconPath"];
-                }
-                //Use floatWindow if exists
-                if (moduleLaunchInfo["SupportFW"] == true && moduleLaunchInfo["LaunchFWDir"] != "") {
-                    url = moduleLaunchInfo["LaunchFWDir"];
-                    if (moduleLaunchInfo["InitFWSize"] !== null) {
-                        size = moduleLaunchInfo["InitFWSize"]
-                    }
-                }
-                //Use embedded mode if exists
-                if (moduleLaunchInfo["SupportEmb"] == true && moduleLaunchInfo["LaunchEmb"] != "") {
-                    url = moduleLaunchInfo["LaunchEmb"];
-                    if (moduleLaunchInfo["InitEmbSize"] !== null) {
-                        size = moduleLaunchInfo["InitEmbSize"]
-                    }
-                }
-
-                var openParamter = encodeURIComponent(JSON.stringify(openFileList));
-
-                //Add launch files info and launch floatWindow
-                newFloatWindow({
-                    url: url + "#" + openParamter,
-                    width: size[0],
-                    height: size[1],
-                    appicon: icon,
-                    title: title
-                });
-            }
-
-            //Mobile interface do not support pin function yet
-            function PinFloatWindowToTopMostMode(object){
-            }
-
-            function UnpinFloatWindowFromTopMostMode(object){
-
-            }
-
-            /*
-                List Menu Specific function groups
-            */
-
-            function openDesktopAsFolder(){
-                newFloatWindow({
-                    url: "SystemAO/file_system/file_explorer.html#" + encodeURIComponent("user:/Desktop/"),
-                    appicon: "SystemAO/file_system/img/small_icon.png",
-                    width:1080,
-                    height:580,
-                    title: "File Manager"
-                });
-
-                hideTaskBar();
-            }
-
-            function openDesktopCustomization(){
-                newFloatWindow({
-                    url: "SystemAO/desktop/personalization.html",
-                    appicon: "SystemAO/desktop/img/personalization.png",
-                    width:640,
-                    height:480,
-                    title: "Personalization"
-                });
-
-                hideTaskBar();
-            }
-
-            function showDesktop(){
-                $(".floatWindowWrapper").fadeOut("fast");
-                hideTaskBar();
-                showShortcuts();
-            }
-
-            //Theme color placeholder functions
-            function setThemeColor(color){
-                $(".themeColor").css("background-color", color);
-
-            }
-
-            //Startup sound
-            function initStartupSounds(){
-                $.ajax({
-                    url: "../../system/desktop/preference",
-                    method: "POST",
-                    data: {preference: "startup-audio"},
-                    success: function(data){
-                        if (data == undefined || data == ""){
-                            return;
-                        }
-                        var currentGlobalVol = localStorage.getItem("global_volume");
-                        if (currentGlobalVol != null && currentGlobalVol != undefined && currentGlobalVol != ""){
-                            
-                        }else{
-                            currentGlobalVol = 0;
-                        }
-
-                        var audio = new Audio("media?file=" + data);
-                        audio.volume = currentGlobalVol;
-                        audio.play();
-                    }
-                });
-            }
-
-            function fullscreen() {
-                //Opening full screen will lead to hidden of all iframe for unknown reasons
-                var isInFullScreen = (document.fullscreenElement && document.fullscreenElement !== null) ||
-                    (document.webkitFullscreenElement && document.webkitFullscreenElement !== null) ||
-                    (document.mozFullScreenElement && document.mozFullScreenElement !== null) ||
-                    (document.msFullscreenElement && document.msFullscreenElement !== null);
-                var elem = document.documentElement;
-                if (!isInFullScreen) {
-                    if (elem.requestFullscreen) {
-                        elem.requestFullscreen();
-                    } else if (elem.mozRequestFullScreen) { /* Firefox */
-                        elem.mozRequestFullScreen();
-                    } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
-                        elem.webkitRequestFullscreen();
-                    } else if (elem.msRequestFullscreen) { /* IE/Edge */
-                        elem.msRequestFullscreen();
-                    }
-                } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    } else if (document.webkitExitFullscreen) {
-                        document.webkitExitFullscreen();
-                    } else if (document.mozCancelFullScreen) {
-                        document.mozCancelFullScreen();
-                    } else if (document.msExitFullscreen) {
-                        document.msExitFullscreen();
-                    }
-                }
-
-                hideTaskBar();
-            }
-
-            function initDesktopUserInfo(){
-                $.get("system/desktop/user", function(data){
-                    if (data.error !== undefined){
-                        alert(data.error);
-                    }else{
-                        userInfo = data;
-                        //Update the user tag
-                        $("#username").text(userInfo.Username);
-                        $("#usergroups").text("@" + userInfo.UserGroups.join("/"));
-                        $("#usergroups").attr("title",userInfo.UserGroups.join(" / "));
-                        if (data.UserIcon !== ""){
-                            $(".usericon").attr("src",data.UserIcon);
-                        }
-
-                        listAllStoredAccounts();
-                    }
-                });
-            }
-
-            function showProfileInfo(){
-                hideTaskBar();
-                setTimeout(function(){
-                    toggleProfileInfo();
-                }, 500);
-            }
-
-            function initShortcuts(){
-                initShortcut(1, $("#shortcut1"));
-                initShortcut(2, $("#shortcut2"));
-                initShortcut(3, $("#shortcut3"));
-                initShortcut(4, $("#shortcut4"));
-            }
-
-            function initShortcut(id, displayTarget){
-                getStorage("ao/mobile/shorcut/" + id, function(data){
-                    if (data != ""){
-                        $.get("system/modules/getLaunchPara?module=" + data, function(para){
-                            displayTarget.attr("src", para.IconPath);
-                            if (para.StartDir == ""){
-                                displayTarget.addClass("disabled");
-                            }else{
-                                displayTarget.attr("module", encodeURIComponent(JSON.stringify(para.Name)));
-                            }
-                        });
-                    }else{
-                        //No data for this shortcut
-                        displayTarget.attr("src", "img/desktop/system_icon/bad_shortcut.png");
-                        displayTarget.addClass("disabled");
-                    }
-                });
-            }
-
-            function showShortcuts(){
-                if (window.innerWidth > window.innerHeight){
-                    //Horizontal
-                    $("#shortcuts").fadeIn("fast");
-                }else{
-                    //Vertical
-                    $("#shortcuts").slideDown("fast");
-                }
-                
-            }
-
-            function hideShortcuts(){
-                if (window.innerWidth > window.innerHeight){
-                    //Horizontal
-                    $("#shortcuts").fadeOut("fast");
-                }else{
-                    //Vertical
-                    $("#shortcuts").slideUp("fast");
-                }
-                
-            }
-
-            function launchThisModule(object){
-                var moduleName = JSON.parse(decodeURIComponent($(object).attr("module")));
-                if (moduleName != ""){
-                    openModule(moduleName);
-                }
-            }
-
-            function toggleProfileInfo(){
-                $("#userprofile").transition('drop');
-            }
-
-            function openSystemSettings(){
-                openModule("System Setting");
-            }
-
-            function logout() {
-                loggingOut = true;
-                if (confirm("Exiting Session. Confirm?")){
-                    $.get("system/auth/logout", function() {
-                        window.location.href = "/";
-                    });
-                    toggleProfileInfo();
-                }
-                
-            }
-
-            function setStorage(key, value, callback = undefined) {
-                $.ajax({
-                    url: "system/desktop/preference",
-                    data: {preference: key, value: value},
-                    method: "POST",
-                    success: function(data) {
-                        if (data.error !== undefined) {
-                            console.log(data.error);
-                        } else {
-                            if (callback !== undefined) {
-                                callback();
-                            }
-
-                        }
-                    }
-                });
-            }
-
-            function getStorage(key, callback) {
-                $.ajax({
-                    url: "system/desktop/preference",
-                    data: {preference: key},
-                    method: "POST",
-                    success: callback
-                });
-            }
-
-            
-            //Keep the clock updated
-            setInterval(function(){
-                updateClockTime();
-            },5000);
-            updateClockTime();
-            function updateClockTime(){
-                var d = new Date();
-                var display = monthNames[d.getMonth()] + " " + d.getDate() + " " + zeropad(d.getHours(),2) + ":" + zeropad(d.getMinutes(),2);
-                
-                if ($(".notification.object").length > 0){
-                    display += `<span style="color: #f54242; margin-left: 8px; float: center;"><i class="notice circle icon"></i></span>`;
-                }
-                $(".clock").html(display);
-                var largedate = monthNames[d.getMonth()] + " " + d.getDate() + " " + d.getFullYear() 
-                $("#largedate").text(largedate);
-                var dow = daysNames[d.getDay()];
-                $("#dayofweek").text(dow);
-            }
-
-            function zeropad(n, width, z) {
-                z = z || '0';
-                n = n + '';
-                return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
-            }
-
-            /*
-                Account switching functions
-            */
-
-            function listAllStoredAccounts(){
-                $("#alternativeAccountList").empty();
-            
-                //Request server side for the account pool
-                $.get("system/auth/u/list", function(data){
-                    if (data.error != undefined){
-                        $("#signoutAllButton").addClass('disabled');
-                        $("#alternativeAccountList").append(`<div class="ui message">
-                            <i class="ui green check circle icon"></i> ${applocale.getString("account/switch/noAlternative", "No other account stored on this browser")}
-                        </div>`);
-                        return;
-                    }else{
-                        if (data.length > 1){
-                            data.forEach(function(account){
-                                if (account.Username == userInfo.Username){
-                                    //Skip
-                                    return;
-                                }
-                                
-                                $.get("system/desktop/user?target=" + account.Username, function(data){
-                                    let userIcon = data.UserIcon;
-                                    if (userIcon == ""){
-                                        userIcon = "img/desktop/system_icon/user.svg"
-                                    }
-                                    $("#alternativeAccountList").append(`
-                                        <div class="alternativeAccount ${account.IsExpired?"expired":""}" acname="${account.Username}" onclick="switchAccount(this);">
-                                            <div class="ui header">
-                                                <img class="usericon" src="${userIcon}">
-                                                <div class="content" style="font-size: 95% !important;">
-                                                    <span class="username">${account.Username}</span> ${(data.IsAdmin)?'<i style="margin-left: 0.4em; color: rgb(38, 50, 56);" class="small shield alternate icon themed text isAdminIcon"></i>':""}
-                                                    <div class="sub header usergroup">${!account.IsExpired?"<i class='ui green check circle icon' style='margin-right: 0px;'></i> " + applocale.getString("account/switch/sessionValid", "Session Valid"):"<i class='ui red times circle icon' style='margin-right: 0px;'></i> " + applocale.getString("account/switch/sessionExpired", "Session Expired")}</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `);
-                                });
-                            });
-                            $("#signoutAllButton").removeClass('disabled');
-                        }else{
-                            $("#signoutAllButton").addClass('disabled');
-                            $("#alternativeAccountList").append(`<div class="ui message">
-                                <i class="ui green check circle icon"></i> ${applocale.getString("account/switch/noAlternative", "No other account stored on this browser")}
-                            </div>`);
-                            return;
-                        }
-                    }
-                })
-            }
-
-            function switchAccount(object){
-                let targetUsername = $(object).attr("acname");
-                if (targetUsername == undefined || targetUsername == ""){
-                    console.log("Unable to load username from element")
-                    return;
-                }
-
-                //Check if it is expired
-                if ($(object).hasClass("expired")){
-                    openSwitchAccountPanel();
-                    return;
-                }
-
-                $.ajax({
-                    url: "system/auth/u/switch",
-                    data: {
-                        "username": targetUsername,
-                    },
-                    success: function(data){
-                        if (data.error != undefined){
-                            alert(data.error);
-                        }else{
-                            window.location.reload();
-                        }
-                    }
-                })
-            }
-
-            function openSwitchAccountPanel(){
-                var uuid = newFloatWindow({
-                    url: 'SystemAO/advance/switchAccount.html',
-                    width: 470,
-                    height: 680,
-                    appicon: "SystemAO/desktop/img/account-switch.png",
-                    title: "Switch Account"
-                });
-            }
-
-            function logoutAllAccounts(){
-                if (confirm(applocale.getString("account/switch/logout/confirm", "This will logout all other accounts from this browser. Confirm?"))){
-                    $.ajax({
-                        url: "system/auth/u/logoutAll",
-                        success: function(data){
-                            if (data.error != undefined){
-                                alert(data.error);
-                            }else{
-                                //Reset the browser pool id
-                                localStorage.removeItem("ao_acc");
-                                listAllStoredAccounts();
-                                toggleProfileInfo();
-                            }
-                        }
-                    })
-                }
-            }
-
-            //mobile mode not support re-initialization. Refresh page.
-            function initDesktop(){
-                window.location.reload();
-            }
-
-        </script>
-    </body>
+        });
+    });
+}
+
+/* ─────────────────────────────────────────────
+   CONTROL PANEL
+───────────────────────────────────────────── */
+function cpToggle(){cpOpen?cpClose():cpShow();}
+var cpOpen=false;
+function cpShow(){cpOpen=true;$("#cp-panel,#cp-backdrop").addClass("on");}
+function cpClose(){cpOpen=false;$("#cp-panel,#cp-backdrop").removeClass("on");}
+function cpToggleDark(){
+    setDarkMode(!isDark);
+    $.get("system/file_system/preference?key=file_explorer/theme&value="+(isDark?"darkTheme":"whiteTheme"));
+}
+function cpFullscreen(){
+    cpClose();
+    var el=document.documentElement;
+    if(!document.fullscreenElement){(el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen).call(el);}
+    else{(document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen).call(document);}
+}
+function cpWallpaper(){
+    cpClose();
+    newFloatWindow({
+        url:"SystemAO/system_setting/index.html#"+encodeURIComponent(JSON.stringify({group:"Desktop",name:"Wallpaper"})),
+        appicon:"SystemAO/desktop/img/personalization.png",
+        title:"System Settings"
+    });
+}
+function cpSettings(){cpClose();openModule("System Setting");}
+function cpLogout(){
+    cpClose();
+    if(confirm(mLoc.getString("quickAccess/logout/confirm","Sign out of ArozOS?"))){
+        $.get("system/auth/logout",function(){window.location.href="/";});
+    }
+}
+function cpAddAccount(){
+    cpClose();
+    newFloatWindow({url:"SystemAO/advance/switchAccount.html",appicon:"SystemAO/desktop/img/account-switch.png",title:"Switch Account"});
+}
+function cpSwitch(username){
+    cpClose();
+    $.ajax({url:"system/auth/u/switch",data:{username:username},success:function(d){
+        if(d.error)alert(d.error);else window.location.reload();
+    }});
+}
+
+/* ─────────────────────────────────────────────
+   MODULE OPENING
+───────────────────────────────────────────── */
+function openModule(name){
+    $.get("system/modules/getLaunchPara?module="+encodeURIComponent(name),function(d){
+        if(d.error){if(d.error==="Not logged in.")window.location.href="login.html";return;}
+        var url=d.StartDir, ic=d.IconPath||"img/system/favicon.png";
+        if(d.SupportFW&&d.LaunchFWDir)url=d.LaunchFWDir;
+        newFloatWindow({url:url,appicon:ic,title:d.Name});
+    });
+}
+function openFileWithModule(info,files){
+    var url=info.StartDir, ic=info.IconPath||"img/system/favicon.png";
+    if(info.SupportFW&&info.LaunchFWDir)url=info.LaunchFWDir;
+    if(info.SupportEmb&&info.LaunchEmb)url=info.LaunchEmb;
+    newFloatWindow({url:url+"#"+encodeURIComponent(JSON.stringify(files)),appicon:ic,title:info.Name});
+}
+
+/* ─────────────────────────────────────────────
+   FLOAT WINDOW LAYER  (full API compatibility)
+───────────────────────────────────────────── */
+function newFloatWindow(opts){
+    var wid = Date.now()+"";
+    var par = opts.parent||"", cb = opts.callback||"";
+    var url = opts.url||"", title = opts.title||"Window", ic = opts.appicon||"img/system/favicon.png";
+
+    // Structure: .floatWindowWrapper > .floatWindow[windowId,parent,callback] > .fwtab > iframe
+    var wrap=$('<div class="floatWindowWrapper" windowId="'+wid+'">'
+        +'<div class="floatWindow" windowId="'+wid+'" parent="'+escA(par)+'" callback="'+escA(cb)+'">'
+        +'<div class="fwtab">'
+        +'<iframe src="'+escA(url)+'" allow="fullscreen"></iframe>'
+        +'</div></div></div>');
+    $("#fw-body").append(wrap);
+
+    // Hide others, show this
+    $(".floatWindowWrapper").removeClass("on").hide();
+    wrap.addClass("on").show();
+
+    // Tab button
+    var tab=$('<div class="fw-tab on" data-wid="'+wid+'">'
+        +'<img src="'+escA(ic)+'" onerror="this.src=\'img/system/favicon.png\'">'
+        +'<span class="fw-tab-title">'+escH(title)+'</span>'
+        +'<span class="fw-tab-x" onclick="fwTabClose(event,\''+wid+'\')">×</span>'
+        +'</div>');
+    tab.on("click",function(e){if(!$(e.target).hasClass("fw-tab-x"))fwFocus(wid);});
+    $("#fw-tabs .fw-tab").removeClass("on");
+    $("#fw-tabs").append(tab);
+
+    $("#fw-layer").addClass("on");
+    return wid;
+}
+
+function fwBack(){
+    // Close all windows and return to launchpad
+    $(".floatWindowWrapper").each(function(){closeFwProcess($(this).attr("windowId"));});
+    $("#fw-layer").removeClass("on");
+}
+function fwFocus(wid){
+    $(".floatWindowWrapper").removeClass("on").hide();
+    $(".fw-tab").removeClass("on");
+    var fw=getFloatWindowByID(wid);
+    if(fw)fw.addClass("on").show();
+    $(".fw-tab[data-wid='"+wid+"']").addClass("on");
+}
+function fwTabClose(e,wid){e.stopPropagation();closeFloatWindow(wid);}
+
+function closeFwProcess(wid){
+    var prev=getPreviousWindowObject(wid);
+    $(".floatWindowWrapper[windowId='"+wid+"']").remove();
+    $(".fw-tab[data-wid='"+wid+"']").remove();
+    if(!$(".floatWindowWrapper").length){
+        $("#fw-layer").removeClass("on");
+    }else if(prev){
+        fwFocus(prev);
+    }else{
+        fwFocus($(".floatWindowWrapper").last().attr("windowId"));
+    }
+}
+function closeFloatWindow(wid){
+    var fw=getFloatWindowByID(wid);
+    if(!fw)return;
+    try{
+        var cw=fw.find("iframe")[0].contentWindow;
+        if(cw&&cw.ao_module_close){cw.ao_module_close();return;}
+    }catch(e){}
+    closeFwProcess(wid);
+}
+function getFloatWindowByID(id){
+    var f=null;
+    $(".floatWindowWrapper").each(function(){if($(this).attr("windowId")===""+id)f=$(this);});
+    return f;
+}
+function MoveFloatWindowToTop(fw){
+    var id=$(fw).attr("windowId")||$(fw).find(".floatWindow").attr("windowId");
+    if(id)fwFocus(id);
+}
+function setFloatWindowTitle(id,t){$(".fw-tab[data-wid='"+id+"'] .fw-tab-title").text(t);}
+function setFloatWindowResizePolicy(){}
+function setFloatWindowSize(){}
+function setFloatWindowMinimizePolicy(){}
+function PinFloatWindowToTopMostMode(){}
+function UnpinFloatWindowFromTopMostMode(){}
+function bindObjectToIMEEvents(){}
+function getPreviousWindowObject(wid){
+    var prev=null,res=null;
+    $(".fw-tab").each(function(){
+        var w=$(this).data("wid");
+        if(w===wid)res=prev;else prev=w;
+    });
+    return res;
+}
+
+/* Legacy taskbar stubs (no sidebar in new design) */
+function showTaskBar(){}
+function hideTaskBar(){}
+function showShortcuts(){}
+function hideShortcuts(){}
+function showDesktop(){$("#fw-layer").removeClass("on");}
+function openDesktopCustomization(){cpWallpaper();}
+function openDesktopAsFolder(){
+    window.open("SystemAO/file_system/file_explorer.html#"+encodeURIComponent("user:/Desktop/"),"_blank");
+}
+function openSystemSettings(){cpSettings();}
+function initDesktop(){window.location.reload();}
+function fullscreen(){cpFullscreen();}
+function logout(){cpLogout();}
+function toggleProfileInfo(){}
+
+/* ─────────────────────────────────────────────
+   STARTUP AUDIO
+───────────────────────────────────────────── */
+function initStartupAudio(){
+    pref("startup-audio",function(d){
+        if(!d)return;
+        var v=parseFloat(localStorage.getItem("global_volume"))||0.7;
+        var a=new Audio("media?file="+d);
+        a.volume=v; a.play().catch(function(){});
+    });
+}
+
+/* ─────────────────────────────────────────────
+   STORAGE HELPERS
+───────────────────────────────────────────── */
+function pref(key,cb){
+    $.ajax({url:"system/desktop/preference",method:"POST",data:{preference:key},success:cb});
+}
+function setPref(key,val,cb){
+    $.ajax({url:"system/desktop/preference",method:"POST",data:{preference:key,value:val},
+        success:function(d){if(!d.error&&cb)cb();}});
+}
+function getStorage(key,cb){pref(key,cb);}
+function setStorage(key,val,cb){setPref(key,val,cb);}
+
+/* ─────────────────────────────────────────────
+   CONNECTION CHECK
+───────────────────────────────────────────── */
+function connCheck(){
+    setInterval(function(){
+        $.ajax({url:"system/auth/checkLogin",timeout:15000,
+            success:function(d){if(!d)window.location.href="index.html";$("#conndrop").hide();},
+            error:function(){$("#conndrop").css("display","flex");}
+        });
+    },15000);
+}
+
+/* ─────────────────────────────────────────────
+   UTILITY
+───────────────────────────────────────────── */
+function escH(s){return $("<span>").text(s||"").html();}
+function escA(s){return(s||"").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+</script>
+</body>
 </html>

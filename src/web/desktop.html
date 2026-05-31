@@ -6115,13 +6115,12 @@
         }
 
         function personalization() {
-            //Show the personalization window
             newFloatWindow({
-                url: "SystemAO/desktop/personalization.html",
+                url: "SystemAO/system_setting/index.html#" + encodeURIComponent(JSON.stringify({group: "Desktop", name: "Wallpaper"})),
                 appicon: "SystemAO/desktop/img/personalization.png",
-                width:640,
-                height:480,
-                title: "Personalization"
+                width: 1200,
+                height: 580,
+                title: "System Settings"
             });
             hideAllContextMenus();
         }
@@ -7232,12 +7231,25 @@
             $("body").removeClass("whiteTheme").addClass("darkTheme");
             $("#powerIcon").attr("src","img/system/power-white.svg");
             updateThemeToggleBtn();
+            broadcastDesktopThemeChange("dark");
         }
 
         function setWhiteTheme(){
             $("body").removeClass("darkTheme").addClass("whiteTheme");
             $("#powerIcon").attr("src","img/system/power.svg");
             updateThemeToggleBtn();
+            broadcastDesktopThemeChange("light");
+        }
+
+        function broadcastDesktopThemeChange(theme){
+            $(".floatWindow iframe").each(function(){
+                try {
+                    var fw = this.contentWindow;
+                    if (fw && typeof fw.desktopThemeChanged === "function"){
+                        fw.desktopThemeChanged(theme);
+                    }
+                } catch(e) {}
+            });
         }
 
         function toggleDesktopTheme(){

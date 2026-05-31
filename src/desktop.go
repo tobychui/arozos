@@ -51,6 +51,36 @@ func DesktopInit() {
 		os.Exit(1)
 	}
 
+	//Register Desktop settings sub-items
+	registerSetting(settingModule{
+		Name:     "Wallpaper",
+		Desc:     "Desktop Wallpaper Settings",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/wallpaper.html",
+	})
+	registerSetting(settingModule{
+		Name:     "Sounds",
+		Desc:     "System Sound Settings",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/sounds.html",
+	})
+	registerSetting(settingModule{
+		Name:     "Theme",
+		Desc:     "System Theme Color",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/theme.html",
+	})
+	registerSetting(settingModule{
+		Name:     "Mobile UX",
+		Desc:     "Mobile Desktop Shortcuts",
+		IconPath: "SystemAO/desktop/img/personalization.png",
+		Group:    "Desktop",
+		StartDir: "SystemAO/desktop/settings/mobile_ux.html",
+	})
+
 	//Register Desktop Module
 	moduleHandler.RegisterModule(module.ModuleInfo{
 		Name:        "Desktop",
