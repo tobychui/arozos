@@ -18,6 +18,9 @@ var SCRIPT_GET_LIBRARY   = BACKEND_PATH + "getLibrary.js";
 var SCRIPT_GET_EPISODES  = BACKEND_PATH + "getEpisodes.js";
 var SCRIPT_GET_THUMBNAIL = BACKEND_PATH + "getThumbnail.js";
 var SCRIPT_LIST_FOLDER   = BACKEND_PATH + "listFolder.js";
+var SCRIPT_GET_MOVIE_INFO = BACKEND_PATH + "getMovieInfo.js";
+var SCRIPT_GET_WATCHTIME  = BACKEND_PATH + "getWatchTime.js";
+var SCRIPT_SET_WATCHTIME  = BACKEND_PATH + "setWatchTime.js";
 
 // ── Scanner settings ─────────────────────────────────────────────────────────
 var VALID_VIDEO_FORMATS = ["mp4", "webm", "ogg", "mkv", "avi", "mov", "m4v", "wmv", "flv", "rmvb", "ts"];

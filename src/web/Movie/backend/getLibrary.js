@@ -1,26 +1,22 @@
 /*
-    Movie App - Library Scanner
-    Scans all file-system roots for video content.
+    Movie App - Library Scanner v2
 
-    Scanning strategy:
-      • root:/Video/       – scanned normally; subfolders classified as series or movie
-      • root:/Movie/ etc.  – all subfolders forced to type "movie"
-      • Any folder named "Movie" or "Movies" anywhere in the tree is treated the same
+    Scanning strategy for root:/Video/ direct children:
+      • Subfolder has immediate subdirs with videos → type "series"  (seasons = those subdirs)
+      • Subfolder has only direct video files        → type "collection" (flat playlist)
+      • Subfolder is empty / container only         → recurse one level deeper
 
-    Album object returned:
-    {
-        "name"        : "House MD",
-        "type"        : "series" | "movie",
-        "folderpath"  : "user:/Video/House MD/",
-        "thumbnail"   : "<base64>" | "",
-        "episodeCount": 44,
-        "seasons"     : [              // only for "series"
-            { "name": "Season 1", "folderpath": "…/", "episodeCount": 22 }
-        ]
-    }
+    Special folder names (case-insensitive) handled separately:
+      • "Anime" / ANIME_FOLDER_NAMES → each child is an anime title  (type "anime")
+      • "Movie" / MOVIE_FOLDER_NAMES → each child is a movie entry   (type "movie")
+
+    Root-level Movie/Movies/Anime folders (not under Video/) are also processed.
+
+    Loose video files directly in root:/Video/ → type "short".
+
+    Types returned: "series" | "anime" | "movie" | "collection" | "short"
 */
 
-// ── Load shared config ────────────────────────────────────────────────────────
 includes("common.js");
 requirelib("filelib");
 requirelib("imagelib");
@@ -68,7 +64,7 @@ function shouldSkipRoot(rootPath) {
     return false;
 }
 
-// Return video files directly inside a folder (non-recursive)
+// Return video files directly inside a folder (non-recursive, skips macOS forks)
 function listVideosInFolder(folderPath) {
     var ensure = ensureSlash(folderPath);
     var videos = [];
@@ -76,18 +72,17 @@ function listVideosInFolder(folderPath) {
         var found = filelib.aglob(ensure + "*." + VALID_VIDEO_FORMATS[i]);
         if (found && found.length > 0) {
             for (var j = 0; j < found.length; j++) {
-                var fname = basename(found[j]);
-                if (fname.substr(0, 2) !== "._") { videos.push(found[j]); }
+                if (basename(found[j]).substr(0, 2) !== "._") { videos.push(found[j]); }
             }
         }
     }
     return videos;
 }
 
-// Return immediate subdirectories of a folder
+// Return immediate subdirectories only (depth = 1)
 function listSubdirs(folderPath) {
     var ensure = ensureSlash(folderPath);
-    var all = filelib.walk(ensure, "folder");
+    var all    = filelib.walk(ensure, "folder");
     if (!all) { return []; }
     var immediate = [];
     for (var i = 0; i < all.length; i++) {
@@ -98,194 +93,193 @@ function listSubdirs(folderPath) {
     return immediate;
 }
 
-// Thumbnail from the first video file (better than folder icon)
+// Load cached thumbnail string for a video file; returns base64 or ""
 function getFirstVideoThumb(videoFile) {
     if (!videoFile) { return ""; }
-    var thumb = imagelib.loadThumbString(videoFile);
-    if (thumb !== false && thumb !== null && typeof thumb === "string" && thumb.length > 0) {
-        return thumb;
-    }
+    var t = imagelib.loadThumbString(videoFile);
+    if (t !== false && t !== null && typeof t === "string" && t.length > 0) { return t; }
     return "";
 }
 
-// ── Recursive folder classifier ───────────────────────────────────────────────
+// ── Scanners ──────────────────────────────────────────────────────────────────
+
+// Scan an Anime container: each immediate child becomes one anime title (type "anime")
+function scanAnimeContainer(containerPath, results) {
+    var cEnsure = ensureSlash(containerPath);
+    var titles  = listSubdirs(cEnsure);
+    for (var i = 0; i < titles.length; i++) {
+        var titlePath = ensureSlash(titles[i]);
+        var titleName = basename(titlePath);
+        var directEps = listVideosInFolder(titlePath);
+        directEps.sort();
+
+        var titleSubdirs    = listSubdirs(titlePath);
+        var seasonsWithVids = [];
+        for (var j = 0; j < titleSubdirs.length; j++) {
+            var sv = listVideosInFolder(titleSubdirs[j]);
+            if (sv.length > 0) {
+                sv.sort();
+                seasonsWithVids.push({ folder: ensureSlash(titleSubdirs[j]), videos: sv });
+            }
+        }
+        seasonsWithVids.sort(function(a, b) { return basename(a.folder) < basename(b.folder) ? -1 : 1; });
+
+        if (directEps.length > 0) {
+            results.push({
+                name:         titleName,
+                type:         "anime",
+                folderpath:   titlePath,
+                thumbnail:    getFirstVideoThumb(directEps[0]),
+                episodeCount: directEps.length,
+                seasons:      [{ name: titleName, folderpath: titlePath, episodeCount: directEps.length }]
+            });
+        } else if (seasonsWithVids.length > 0) {
+            var total   = 0;
+            var seasons = [];
+            for (var k = 0; k < seasonsWithVids.length; k++) {
+                total += seasonsWithVids[k].videos.length;
+                seasons.push({
+                    name:         basename(seasonsWithVids[k].folder),
+                    folderpath:   seasonsWithVids[k].folder,
+                    episodeCount: seasonsWithVids[k].videos.length
+                });
+            }
+            results.push({
+                name:         titleName,
+                type:         "anime",
+                folderpath:   titlePath,
+                thumbnail:    getFirstVideoThumb(seasonsWithVids[0].videos[0]),
+                episodeCount: total,
+                seasons:      seasons
+            });
+        }
+        // else: skip empty title folder
+    }
+}
+
+// Scan a Movie container: each immediate child (or loose file) is one movie (type "movie")
+function scanMovieContainer(containerPath, results) {
+    var cEnsure = ensureSlash(containerPath);
+    var subs    = listSubdirs(cEnsure);
+    for (var i = 0; i < subs.length; i++) {
+        var sfPath = ensureSlash(subs[i]);
+        var sfVids = listVideosInFolder(sfPath);
+        sfVids.sort();
+        if (sfVids.length > 0) {
+            results.push({
+                name:         basename(sfPath),
+                type:         "movie",
+                folderpath:   sfPath,
+                thumbnail:    getFirstVideoThumb(sfVids[0]),
+                episodeCount: sfVids.length,
+                seasons:      []
+            });
+        } else {
+            // One more level (e.g. Movie/Franchise/Film/*.mkv)
+            var subSubs = listSubdirs(sfPath);
+            for (var j = 0; j < subSubs.length; j++) {
+                var ssVids = listVideosInFolder(subSubs[j]);
+                ssVids.sort();
+                if (ssVids.length > 0) {
+                    results.push({
+                        name:         basename(subSubs[j]),
+                        type:         "movie",
+                        folderpath:   ensureSlash(subSubs[j]),
+                        thumbnail:    getFirstVideoThumb(ssVids[0]),
+                        episodeCount: ssVids.length,
+                        seasons:      []
+                    });
+                }
+            }
+        }
+    }
+    // Loose single-file movies directly in the container
+    var loose = listVideosInFolder(cEnsure);
+    loose.sort();
+    for (var lv = 0; lv < loose.length; lv++) {
+        var base = basename(loose[lv]);
+        var dot  = base.lastIndexOf(".");
+        results.push({
+            name:         dot > 0 ? base.substring(0, dot) : base,
+            type:         "movie",
+            folderpath:   cEnsure,
+            thumbnail:    getFirstVideoThumb(loose[lv]),
+            episodeCount: 1,
+            seasons:      [],
+            _singleFile:  loose[lv]
+        });
+    }
+}
+
+// Classify a direct child of the Video/ folder.
 //
-//   folderPath  – folder to classify
-//   forceMovie  – true when an ancestor "Movie/Movies" folder was detected
-//   results     – array to push result objects into
-//   depth       – recursion guard (max 6 levels)
+//   subsWithVids.length > 0  →  "series"     (those subdirs are seasons)
+//   directVideos.length > 0  →  "collection" (flat playlist)
+//   otherwise                →  recurse one level (handles containers like Video/Pack/Series/)
 //
-function scanAlbumFolder(folderPath, forceMovie, results, depth) {
+// depth guards against infinite recursion; max 2 recursive calls from scanRoot.
+function classifyVideoFolder(folderPath, results, depth) {
     depth = depth || 0;
-    if (depth > 6) { return; }
+    if (depth > 2) { return; }
 
     var ensure = ensureSlash(folderPath);
     var name   = basename(ensure);
 
-    // ── If THIS folder is named "Anime", each subfolder is its own series ────
-    if (isAnimeFolderName(name)) {
-        var animeSubs = listSubdirs(ensure);
-        for (var ai = 0; ai < animeSubs.length; ai++) {
-            var titlePath = ensureSlash(animeSubs[ai]);
-            var titleName = basename(titlePath);
-            var directEps = listVideosInFolder(titlePath);
-            directEps.sort();
-            var titleDirs = listSubdirs(titlePath);
-            var titleSeasonsWithVids = [];
-            for (var tj = 0; tj < titleDirs.length; tj++) {
-                var sv = listVideosInFolder(titleDirs[tj]);
-                if (sv.length > 0) {
-                    sv.sort();
-                    titleSeasonsWithVids.push({ folder: titleDirs[tj], videos: sv });
-                }
-            }
-            titleSeasonsWithVids.sort(function (a, b) {
-                return basename(a.folder) < basename(b.folder) ? -1 : 1;
-            });
-            if (directEps.length > 0) {
-                // Episodes sitting directly in the title folder → one implicit season
-                results.push({
-                    name:         titleName,
-                    type:         "anime",
-                    folderpath:   titlePath,
-                    thumbnail:    getFirstVideoThumb(directEps[0]),
-                    episodeCount: directEps.length,
-                    seasons:      [{ name: titleName, folderpath: titlePath, episodeCount: directEps.length }]
-                });
-            } else if (titleSeasonsWithVids.length > 0) {
-                // Season sub-folders found
-                var aTotalEps = 0;
-                var aSeasons  = [];
-                for (var ts = 0; ts < titleSeasonsWithVids.length; ts++) {
-                    aTotalEps += titleSeasonsWithVids[ts].videos.length;
-                    aSeasons.push({
-                        name:         basename(titleSeasonsWithVids[ts].folder),
-                        folderpath:   titleSeasonsWithVids[ts].folder,
-                        episodeCount: titleSeasonsWithVids[ts].videos.length
-                    });
-                }
-                results.push({
-                    name:         titleName,
-                    type:         "anime",
-                    folderpath:   titlePath,
-                    thumbnail:    getFirstVideoThumb(titleSeasonsWithVids[0].videos[0]),
-                    episodeCount: aTotalEps,
-                    seasons:      aSeasons
-                });
-            } else {
-                // Empty or nested structure – fall back to normal scanning
-                scanAlbumFolder(titlePath, false, results, depth + 1);
-            }
-        }
-        return;
-    }
+    // Delegate to specialised scanners
+    if (isAnimeFolderName(name)) { scanAnimeContainer(ensure, results); return; }
+    if (isMovieFolderName(name)) { scanMovieContainer(ensure, results); return; }
 
-    // ── If THIS folder is named "Movie/Movies", scan its children as movies ──
-    if (isMovieFolderName(name)) {
-        var subs = listSubdirs(ensure);
-        for (var i = 0; i < subs.length; i++) {
-            scanAlbumFolder(subs[i], true, results, depth + 1);
-        }
-        // Loose videos directly inside the Movie folder
-        var looseVids = listVideosInFolder(ensure);
-        looseVids.sort();
-        for (var lv = 0; lv < looseVids.length; lv++) {
-            var lvName   = basename(looseVids[lv]);
-            var dot      = lvName.lastIndexOf(".");
-            var displayN = dot > 0 ? lvName.substring(0, dot) : lvName;
-            results.push({
-                name:         displayN,
-                type:         "movie",
-                folderpath:   ensure,
-                thumbnail:    getFirstVideoThumb(looseVids[lv]),
-                episodeCount: 1,
-                seasons:      [],
-                _singleFile:  looseVids[lv]
-            });
-        }
-        return;
-    }
-
-    // ── Gather direct content ─────────────────────────────────────────────────
     var directVideos = listVideosInFolder(ensure);
     directVideos.sort();
 
     var subdirs = listSubdirs(ensure);
 
-    // Find sub-folders that have videos directly inside them
-    var subsWithVideos = [];
-    for (var k = 0; k < subdirs.length; k++) {
-        var sf    = subdirs[k];
-        var svids = listVideosInFolder(sf);
-        svids.sort();
-        if (svids.length > 0) {
-            subsWithVideos.push({ folder: sf, videos: svids });
+    // Build list of immediate subdirs that contain video files directly inside them
+    var subsWithVids = [];
+    for (var i = 0; i < subdirs.length; i++) {
+        var sv = listVideosInFolder(subdirs[i]);
+        if (sv.length > 0) {
+            sv.sort();
+            subsWithVids.push({ folder: ensureSlash(subdirs[i]), videos: sv });
         }
     }
-    // Sort seasons naturally by name
-    subsWithVideos.sort(function (a, b) {
-        return basename(a.folder) < basename(b.folder) ? -1 : 1;
-    });
+    subsWithVids.sort(function(a, b) { return basename(a.folder) < basename(b.folder) ? -1 : 1; });
 
-    // ── Case 1: folder has direct videos → movie/album ────────────────────────
-    if (directVideos.length > 0) {
+    if (subsWithVids.length > 0) {
+        // TV series / anime-style: subdirs are seasons
+        var totalEps = 0;
+        var seasons  = [];
+        for (var s = 0; s < subsWithVids.length; s++) {
+            totalEps += subsWithVids[s].videos.length;
+            seasons.push({
+                name:         basename(subsWithVids[s].folder),
+                folderpath:   subsWithVids[s].folder,
+                episodeCount: subsWithVids[s].videos.length
+            });
+        }
         results.push({
             name:         name,
-            type:         "movie",
+            type:         "series",
+            folderpath:   ensure,
+            thumbnail:    getFirstVideoThumb(subsWithVids[0].videos[0]),
+            episodeCount: totalEps,
+            seasons:      seasons
+        });
+    } else if (directVideos.length > 0) {
+        // Flat playlist: all videos live directly inside this folder
+        results.push({
+            name:         name,
+            type:         "collection",
             folderpath:   ensure,
             thumbnail:    getFirstVideoThumb(directVideos[0]),
             episodeCount: directVideos.length,
             seasons:      []
         });
-        return;
-    }
-
-    // ── Case 2: sub-folders contain videos ────────────────────────────────────
-    if (subsWithVideos.length > 0) {
-        if (forceMovie) {
-            // Movie context → each sub-folder is a separate movie
-            for (var m = 0; m < subsWithVideos.length; m++) {
-                var sfF = subsWithVideos[m].folder;
-                var sfV = subsWithVideos[m].videos;
-                results.push({
-                    name:         basename(sfF),
-                    type:         "movie",
-                    folderpath:   sfF,
-                    thumbnail:    sfV.length > 0 ? getFirstVideoThumb(sfV[0]) : "",
-                    episodeCount: sfV.length,
-                    seasons:      []
-                });
-            }
-        } else {
-            // Normal context → TV series with seasons
-            var totalEps = 0;
-            var seasons  = [];
-            for (var s = 0; s < subsWithVideos.length; s++) {
-                totalEps += subsWithVideos[s].videos.length;
-                seasons.push({
-                    name:         basename(subsWithVideos[s].folder),
-                    folderpath:   subsWithVideos[s].folder,
-                    episodeCount: subsWithVideos[s].videos.length
-                });
-            }
-            // Thumbnail: first video of first (alphabetically first) season
-            var seriesThumb = subsWithVideos[0].videos.length > 0
-                ? getFirstVideoThumb(subsWithVideos[0].videos[0]) : "";
-            results.push({
-                name:         name,
-                type:         "series",
-                folderpath:   ensure,
-                thumbnail:    seriesThumb,
-                episodeCount: totalEps,
-                seasons:      seasons
-            });
+    } else {
+        // Container with no direct videos and no season subdirs → recurse
+        for (var r = 0; r < subdirs.length; r++) {
+            classifyVideoFolder(subdirs[r], results, depth + 1);
         }
-        return;
-    }
-
-    // ── Case 3: empty / container folder → recurse into sub-folders ───────────
-    for (var r = 0; r < subdirs.length; r++) {
-        scanAlbumFolder(subdirs[r], forceMovie, results, depth + 1);
     }
 }
 
@@ -295,22 +289,21 @@ function scanRoot(rootPath) {
     var albums = [];
     var ensure = ensureSlash(rootPath);
 
-    // 1. Scan root:/Video/ (primary video library)
+    // 1. root:/Video/ — each immediate subfolder becomes a library entry
     var videoBase = ensure + VIDEO_FOLDER_NAME + "/";
     if (filelib.fileExists(videoBase)) {
         var videoDirs = listSubdirs(videoBase);
         for (var i = 0; i < videoDirs.length; i++) {
-            scanAlbumFolder(videoDirs[i], false, albums, 0);
+            classifyVideoFolder(videoDirs[i], albums, 0);
         }
-        // Loose videos sitting directly in Video/ → individual "short" entries
+        // Loose video files directly in Video/ → individual "short" entries
         var looseVideos = listVideosInFolder(videoBase);
         looseVideos.sort();
         for (var lv = 0; lv < looseVideos.length; lv++) {
-            var lvName = basename(looseVideos[lv]);
-            var lvDot  = lvName.lastIndexOf(".");
-            var lvDisp = lvDot > 0 ? lvName.substring(0, lvDot) : lvName;
+            var lvBase = basename(looseVideos[lv]);
+            var lvDot  = lvBase.lastIndexOf(".");
             albums.push({
-                name:         lvDisp,
+                name:         lvDot > 0 ? lvBase.substring(0, lvDot) : lvBase,
                 type:         "short",
                 folderpath:   videoBase,
                 thumbnail:    getFirstVideoThumb(looseVideos[lv]),
@@ -321,35 +314,16 @@ function scanRoot(rootPath) {
         }
     }
 
-    // 2. Scan any root-level Movie/Movies folders (e.g. disk:/Movie/)
+    // 2. Root-level Movie/Movies and Anime folders (siblings of Video/)
     var rootDirs = listSubdirs(ensure);
     for (var d = 0; d < rootDirs.length; d++) {
-        var dirName      = basename(rootDirs[d]);
-        var dirNameLower = dirName.toLowerCase();
-        // Skip the Video folder (already handled above)
-        if (dirName === VIDEO_FOLDER_NAME) { continue; }
-        if (MOVIE_FOLDER_NAMES.indexOf(dirNameLower) >= 0) {
-            var movieDirs = listSubdirs(rootDirs[d]);
-            for (var m = 0; m < movieDirs.length; m++) {
-                scanAlbumFolder(movieDirs[m], true, albums, 0);
-            }
-            // Loose videos directly in root:/Movie/
-            var looseMovies = listVideosInFolder(rootDirs[d]);
-            looseMovies.sort();
-            for (var lm = 0; lm < looseMovies.length; lm++) {
-                var lmName = basename(looseMovies[lm]);
-                var lmDot  = lmName.lastIndexOf(".");
-                var dispN  = lmDot > 0 ? lmName.substring(0, lmDot) : lmName;
-                albums.push({
-                    name:         dispN,
-                    type:         "movie",
-                    folderpath:   rootDirs[d],
-                    thumbnail:    getFirstVideoThumb(looseMovies[lm]),
-                    episodeCount: 1,
-                    seasons:      [],
-                    _singleFile:  looseMovies[lm]
-                });
-            }
+        var dirName = basename(rootDirs[d]);
+        if (dirName === VIDEO_FOLDER_NAME) { continue; } // already processed above
+        if (MOVIE_FOLDER_NAMES.indexOf(dirName.toLowerCase()) >= 0) {
+            scanMovieContainer(rootDirs[d], albums);
+        }
+        if (isAnimeFolderName(dirName)) {
+            scanAnimeContainer(rootDirs[d], albums);
         }
     }
 
@@ -364,9 +338,8 @@ function main() {
     if (!roots) { roots = []; }
 
     for (var i = 0; i < roots.length; i++) {
-        var root = roots[i];
-        if (shouldSkipRoot(root)) { continue; }
-        var found = scanRoot(root);
+        if (shouldSkipRoot(roots[i])) { continue; }
+        var found = scanRoot(roots[i]);
         for (var j = 0; j < found.length; j++) { allAlbums.push(found[j]); }
     }
 

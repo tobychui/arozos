@@ -264,12 +264,16 @@ html, body {
 #season-tabs {
     flex-shrink: 0;
     display: flex;
-    gap: 8px;
-    padding: 12px 28px 0;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 10px 28px 8px;
+    max-height: 120px;    /* ~3 rows before scrolling */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface2) transparent;
 }
-#season-tabs::-webkit-scrollbar { display: none; }
+#season-tabs::-webkit-scrollbar { width: 3px; height: 3px; }
+#season-tabs::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
 
 .season-tab {
     flex-shrink: 0;
@@ -620,6 +624,104 @@ html, body {
     font-size: 32px; user-select: none;
 }
 
+/* ─── Movie info panel ───────────────────────────────────────────────────────── */
+#view-movie-info { position: relative; }
+#movie-info-backdrop {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center 20%;
+    filter: blur(4px) brightness(0.38);
+    transform: scale(1.12); z-index: 0;
+}
+#movie-info-back {
+    position: absolute; top: 14px; left: 16px; z-index: 10;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    border: none; cursor: pointer; border-radius: 20px;
+    color: var(--text); font-size: 13px; font-weight: 500;
+    padding: 6px 16px; transition: background var(--transition); outline: none;
+}
+#movie-info-back:hover { background: var(--accent); }
+#movie-info-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    scroll-behavior: smooth; position: relative; z-index: 1;
+}
+#movie-info-scroll::-webkit-scrollbar { width: 4px; }
+#movie-info-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+#movie-info-hero {
+    min-height: 280px; display: flex; align-items: flex-end; gap: 24px;
+    padding: 70px 32px 28px;
+}
+#movie-info-poster-wrap {
+    width: 130px; flex-shrink: 0; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7);
+    aspect-ratio: 2/3; background: var(--surface2);
+}
+#movie-info-poster-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#movie-info-meta { flex: 1; min-width: 0; }
+#movie-info-title    { font-size: 26px; font-weight: 700; line-height: 1.15; margin-bottom: 2px; }
+#movie-info-filename {
+    font-size: 11px; color: var(--text-sub); opacity: 0.6;
+    font-style: italic; margin-bottom: 6px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: none; /* shown only after IMDB title replaces the album name */
+}
+#movie-info-year  { font-size: 14px; color: var(--text-sub); margin-bottom: 8px; }
+#movie-info-cast  { font-size: 13px; color: var(--text-sub); line-height: 1.5; margin-bottom: 14px; }
+#movie-info-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.yt-badge {
+    display: inline-flex; align-items: center;
+    background: #ff0000; color: #fff;
+    border-radius: 5px; font-size: 12px; font-weight: 800;
+    padding: 5px 9px; cursor: pointer; border: none; outline: none;
+    transition: opacity var(--transition);
+}
+.yt-badge:hover { opacity: 0.8; }
+.imdb-badge {
+    display: inline-flex; align-items: center;
+    background: #f5c518; color: #000;
+    border-radius: 5px; font-size: 12px; font-weight: 800;
+    padding: 5px 9px; cursor: pointer; border: none; outline: none;
+    transition: opacity var(--transition);
+}
+.imdb-badge:hover { opacity: 0.8; }
+#movie-info-loading {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; padding: 28px 0; gap: 10px; color: var(--text-sub);
+}
+#movie-info-loading.active { display: flex; }
+#movie-info-files { padding: 0 20px 48px; }
+@media (max-width: 600px) {
+    #movie-info-hero { flex-direction: column; align-items: flex-start; padding: 56px 16px 20px; }
+    #movie-info-poster-wrap { width: 90px; }
+    #movie-info-title { font-size: 20px; }
+    #movie-info-files { padding: 0 12px 48px; }
+}
+
+/* ─── Resume popup ───────────────────────────────────────────────────────────── */
+#resume-popup {
+    display: none;
+    position: absolute; bottom: 90px; right: 20px; z-index: 25;
+    background: rgba(22,22,24,0.97); backdrop-filter: blur(16px);
+    border-radius: 12px; padding: 16px 18px; min-width: 240px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1);
+    animation: slideUpPopup 0.2s ease;
+}
+#resume-popup.active { display: block; }
+@keyframes slideUpPopup {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+#resume-popup-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+#resume-popup-sub   { font-size: 12px; color: var(--text-sub); margin-bottom: 12px; }
+#resume-popup-btns  { display: flex; gap: 8px; }
+.resume-btn {
+    flex: 1; padding: 8px; border: none; cursor: pointer;
+    border-radius: 7px; font-size: 12px; font-weight: 600;
+    outline: none; transition: opacity var(--transition);
+}
+.resume-btn:hover { opacity: 0.8; }
+#resume-btn-continue { background: var(--accent); color: #fff; }
+#resume-btn-restart  { background: var(--surface2); color: var(--text); }
+
 /* Focus ring for TV remote navigation */
 .tv-focused {
     outline: 3px solid var(--accent) !important;
@@ -804,6 +906,11 @@ html, body {
                 <div id="movies-grid" class="album-grid"></div>
                 <div class="load-more-wrap"><button class="load-more-btn" id="movies-load-more" style="display:none" onclick="loadMoreSection('movies')">Load more</button></div>
             </div>
+            <div id="collections-section" style="display:none">
+                <div class="section-title">Collections</div>
+                <div id="collections-grid" class="album-grid"></div>
+                <div class="load-more-wrap"><button class="load-more-btn" id="collections-load-more" style="display:none" onclick="loadMoreSection('collections')">Load more</button></div>
+            </div>
             <div id="series-section" style="display:none">
                 <div class="section-title">TV / Shows</div>
                 <div id="series-grid" class="album-grid"></div>
@@ -847,6 +954,36 @@ html, body {
         </div>
     </div>
 
+    <!-- ═══════════════ MOVIE INFO VIEW ══════════════════════════════════════ -->
+    <div id="view-movie-info" class="view">
+        <div id="movie-info-backdrop"></div>
+        <button id="movie-info-back" onclick="closeMovieInfo()"><img src="img/icons/back_arrow_white.svg" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Back</button>
+        <div id="movie-info-scroll">
+            <div id="movie-info-hero">
+                <div id="movie-info-poster-wrap">
+                    <img id="movie-info-poster-img" src="img/thumbnail.png" alt="">
+                </div>
+                <div id="movie-info-meta">
+                    <div id="movie-info-title"></div>
+                    <div id="movie-info-filename"></div>
+                    <div id="movie-info-year"></div>
+                    <div id="movie-info-cast"></div>
+                    <div id="movie-info-actions">
+                        <button class="btn btn-primary" id="movie-info-play-btn"><img src="img/icons/play_black.svg" width="15" height="15" alt="" style="vertical-align:middle;margin-right:5px;">Play</button>
+                        <button class="btn btn-secondary" id="movie-info-fm-btn">Open in Files</button>
+                        <button class="yt-badge" id="movie-info-yt-btn">▶ YouTube</button>
+                        <button class="imdb-badge" id="movie-info-imdb-btn" style="display:none">IMDb</button>
+                    </div>
+                </div>
+            </div>
+            <div id="movie-info-loading"><div class="spinner"></div><span>Loading info…</span></div>
+            <div id="movie-info-files" style="display:none">
+                <div class="section-title" style="font-size:16px;margin:16px 20px 10px;">Files</div>
+                <div id="movie-info-episode-list"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- ═══════════════ FOLDER VIEW ════════════════════════════════════════ -->
     <div id="view-folder" class="view">
         <div id="folder-nav-bar">
@@ -872,6 +1009,16 @@ html, body {
             <button id="player-back" onclick="closePlayer()"><img src="img/icons/back_arrow_white.svg" width="14" height="14" alt="" style="vertical-align:middle;margin-right:4px;">Back</button>
             <video id="main-video" preload="metadata"></video>
 
+            <!-- Resume-from-last-position popup -->
+            <div id="resume-popup">
+                <div id="resume-popup-title">Resume playback?</div>
+                <div id="resume-popup-sub"></div>
+                <div id="resume-popup-btns">
+                    <button class="resume-btn" id="resume-btn-continue">Resume</button>
+                    <button class="resume-btn" id="resume-btn-restart">Start over</button>
+                </div>
+            </div>
+
             <!-- Auto-play countdown -->
             <div id="next-countdown">
                 <div id="next-countdown-text">Next episode in <span id="countdown-num">5</span>s&hellip;</div>
@@ -889,7 +1036,7 @@ html, body {
                 <div class="ctx-divider"></div>
                 <div class="ctx-item" id="ctx-repeat"><i class="ctx-icon">↺</i>Repeat: Off</div>
                 <div class="ctx-divider"></div>
-                <div class="ctx-item" id="ctx-props"><i class="ctx-icon">ℹ</i>Video Properties</div>
+                <div class="ctx-item" id="ctx-props">Video Properties</div>
                 <!-- <div class="ctx-item" id="ctx-stats"><i class="ctx-icon">⧉</i>Streaming Stats</div> -->
             </div>
 
@@ -966,14 +1113,16 @@ var controlsTimer  = null;
 
 // Library pagination
 var PAGE_SIZE   = 24;
-var moviesData  = [];
-var showsData   = [];
-var shortsData  = [];
-var animeData   = [];
-var moviesShown = 0;
-var showsShown  = 0;
-var shortsShown = 0;
-var animeShown  = 0;
+var moviesData      = [];
+var collectionsData = [];
+var showsData       = [];
+var shortsData      = [];
+var animeData       = [];
+var moviesShown      = 0;
+var collectionsShown = 0;
+var showsShown       = 0;
+var shortsShown      = 0;
+var animeShown       = 0;
 
 // Auto-play between episodes
 var autoplayEnabled = localStorage.getItem('movie_autoplay') !== '0'; // on by default
@@ -982,9 +1131,227 @@ var countdownTimer  = null;
 // Single-repeat
 var repeatSingle = false;
 
+// Movie info panel
+var currentMovieAlbum  = null;
+var movieInfoEpisodes  = [];
+var currentMovieImdbTitle = null; // IMDB title once fetched; null until then
+
+// Player return-destination and watch-position tracking
+var playerReturnView  = 'library';
+var pendingResumePos  = 0;
+var watchSaveInterval = null;
+
 // Folder browse state
 var folderViewPath   = '/';
 var folderViewVideos = [];
+
+// ─── Movie info panel ─────────────────────────────────────────────────────────
+function openMovieInfo(album) {
+    currentMovieAlbum     = album;
+    currentAlbum          = album;
+    movieInfoEpisodes     = [];
+    currentMovieImdbTitle = null;
+
+    // Seed with local data immediately
+    $('#movie-info-title').text(album.name);
+    $('#movie-info-filename').hide().text('');
+    $('#movie-info-year').text('');
+    $('#movie-info-cast').text('');
+    $('#movie-info-imdb-btn').hide();
+    $('#movie-info-files').hide();
+    $('#movie-info-loading').addClass('active');
+
+    var localThumb = album.thumbnail
+        ? 'data:image/jpeg;base64,' + album.thumbnail
+        : 'img/thumbnail.png';
+    $('#movie-info-poster-img').attr('src', localThumb);
+    $('#movie-info-backdrop').css('background-image', 'url(' + localThumb + ')');
+
+    // Bind Play button
+    $('#movie-info-play-btn').off('click').on('click', function () {
+        if (movieInfoEpisodes.length > 0) {
+            currentAlbum = album; currentSeason = null;
+            currentEpisodes = movieInfoEpisodes;
+            startPlayback(0);
+        }
+    });
+
+    // Bind Open in Files — opens file manager at the movie's location
+    $('#movie-info-fm-btn').off('click').on('click', function () {
+        if (!currentMovieAlbum) { return; }
+        if (currentMovieAlbum._singleFile) {
+            var fp    = currentMovieAlbum._singleFile;
+            var dir   = fp.substring(0, fp.lastIndexOf('/'));
+            var fname = fp.split('/').pop();
+            ao_module_openPath(dir, fname);
+        } else {
+            ao_module_openPath(currentMovieAlbum.folderpath);
+        }
+    });
+
+    // Bind YouTube search — uses IMDB title once available, raw name otherwise
+    $('#movie-info-yt-btn').off('click').on('click', function () {
+        var term = currentMovieImdbTitle || (currentMovieAlbum ? currentMovieAlbum.name : '');
+        window.open('https://www.youtube.com/results?search_query=' + encodeURIComponent(term + ' trailer'), '_blank');
+    });
+
+    showView('movie-info');
+
+    // Fetch IMDB metadata
+    ao_module_agirun(SCRIPT_GET_MOVIE_INFO, { movie: album.name }, function (data) {
+        $('#movie-info-loading').removeClass('active');
+        if (data && !data.error) { applyMovieInfo(data); }
+    }, function () {
+        $('#movie-info-loading').removeClass('active');
+    });
+
+    // Build file list
+    if (album._singleFile) {
+        var ext = '.' + album._singleFile.split('.').pop().toLowerCase();
+        movieInfoEpisodes = [{ name: album.name, filepath: album._singleFile, ext: ext, index: 0 }];
+        // Single file — file list not needed (Play button is enough)
+    } else {
+        ao_module_agirun(SCRIPT_GET_EPISODES, { folder: album.folderpath }, function (data) {
+            if (data && !data.error && data.length > 0) {
+                movieInfoEpisodes = data;
+                if (data.length > 1) { renderMovieFileList(data); }
+            }
+        });
+    }
+}
+
+function applyMovieInfo(info) {
+    var imdbTitle = info['#TITLE']      || '';
+    var year      = info['#YEAR']       ? String(info['#YEAR']) : '';
+    var actors    = info['#ACTORS']    || '';
+    var imdbUrl   = info['#IMDB_URL']  || '';
+    var poster    = info['#IMG_POSTER'] || '';
+
+    // Replace the displayed title with the canonical IMDB title and show the
+    // original filename as a small italic subtitle underneath.
+    if (imdbTitle) {
+        currentMovieImdbTitle = imdbTitle;
+        $('#movie-info-title').text(imdbTitle);
+        if (currentMovieAlbum && currentMovieAlbum.name !== imdbTitle) {
+            $('#movie-info-filename').text(currentMovieAlbum.name).show();
+        }
+    }
+
+    if (year)   { $('#movie-info-year').text(year); }
+    if (actors) {
+        $('#movie-info-cast').html(
+            '<span style="color:var(--text-sub);font-weight:600">Cast</span> ' + escapeHtml(actors)
+        );
+    }
+
+    if (poster) {
+        var img = document.getElementById('movie-info-poster-img');
+        img.onerror = function () {
+            img.src = (currentMovieAlbum && currentMovieAlbum.thumbnail)
+                ? 'data:image/jpeg;base64,' + currentMovieAlbum.thumbnail
+                : 'img/thumbnail.png';
+            img.onerror = null;
+        };
+        img.onload = function () {
+            $('#movie-info-backdrop').css('background-image', 'url(' + poster + ')');
+            img.onload = null;
+        };
+        img.src = poster;
+    }
+
+    if (imdbUrl) {
+        $('#movie-info-imdb-btn').show().off('click').on('click', function () {
+            window.open(imdbUrl, '_blank');
+        });
+    }
+}
+
+function renderMovieFileList(episodes) {
+    var $list = $('#movie-info-episode-list').empty();
+    episodes.forEach(function (ep, i) {
+        var row = $('<div class="episode-item" tabindex="0" role="button">'
+            + '<div class="ep-thumb"><div class="ep-thumb-placeholder"><img src="img/icons/play_white.svg" alt=""></div></div>'
+            + '<div class="ep-info">'
+            +   '<div class="ep-name">' + escapeHtml(ep.name) + '</div>'
+            +   '<div class="ep-path">' + escapeHtml((ep.ext || '').replace('.', '').toUpperCase()) + '</div>'
+            + '</div>'
+            + '<div class="ep-play-icon"><img src="img/icons/play_white.svg" alt=""></div>'
+            + '</div>');
+        row.data('idx', i);
+        row.on('click', function () {
+            currentAlbum = currentMovieAlbum; currentSeason = null;
+            currentEpisodes = movieInfoEpisodes;
+            startPlayback($(this).data('idx'));
+        });
+        row.on('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                currentAlbum = currentMovieAlbum; currentSeason = null;
+                currentEpisodes = movieInfoEpisodes;
+                startPlayback($(this).data('idx'));
+            }
+        });
+        $list.append(row);
+        // Lazy thumbnail
+        (function (epObj, rowEl) {
+            ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: epObj.filepath }, function (data) {
+                if (data && !data.error && data.length > 20) {
+                    rowEl.find('.ep-thumb-placeholder')
+                        .replaceWith('<img src="data:image/jpeg;base64,' + data + '" alt="">');
+                }
+            });
+        })(ep, row);
+    });
+    $('#movie-info-files').show();
+}
+
+function closeMovieInfo() {
+    currentMovieAlbum = null;
+    movieInfoEpisodes = [];
+    showView('library');
+}
+
+// ─── Watch position (resume) ──────────────────────────────────────────────────
+function saveWatchPosition() {
+    var vid = document.getElementById('main-video');
+    if (playingIndex < 0 || !currentEpisodes || !vid.duration || vid.duration < 3600) { return; }
+    var ep = currentEpisodes[playingIndex];
+    if (!ep || vid.currentTime < 10) { return; }
+    ao_module_agirun(SCRIPT_SET_WATCHTIME, {
+        filepath: ep.filepath,
+        position: Math.floor(vid.currentTime),
+        duration: Math.floor(vid.duration)
+    }, function () {}, function () {});
+}
+
+function clearWatchPosition() {
+    if (playingIndex < 0 || !currentEpisodes) { return; }
+    var ep = currentEpisodes[playingIndex];
+    if (!ep) { return; }
+    ao_module_agirun(SCRIPT_SET_WATCHTIME, { filepath: ep.filepath, position: 0, duration: 0 },
+        function () {}, function () {});
+}
+
+function showResumePopup(savedPos, duration) {
+    var vid = document.getElementById('main-video');
+    vid.pause();
+    pendingResumePos = savedPos;
+    $('#resume-popup-sub').text(
+        'Last position: ' + formatTime(savedPos) + ' of ' + formatTime(duration)
+    );
+    $('#resume-popup').addClass('active');
+    showControls();
+
+    $('#resume-btn-continue').off('click').on('click', function () {
+        vid.currentTime = pendingResumePos;
+        vid.play();
+        $('#resume-popup').removeClass('active');
+    });
+    $('#resume-btn-restart').off('click').on('click', function () {
+        vid.play();
+        $('#resume-popup').removeClass('active');
+    });
+}
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -1179,53 +1546,42 @@ function loadLibrary() {
 
 // ─── Render library grid ──────────────────────────────────────────────────────
 function renderLibrary(albums) {
-    // Movies: non-short, non-anime, single-file  |  Shows: multi-episode (non-anime)  |  Shorts: type=short  |  Anime: type=anime
-    moviesData  = albums.filter(function (a) { return a.type !== 'series' && a.type !== 'short' && a.type !== 'anime' && a.episodeCount === 1; });
-    showsData   = albums.filter(function (a) { return a.type === 'series'; });
-    shortsData  = albums.filter(function (a) { return a.type === 'short'; });
-    animeData   = albums.filter(function (a) { return a.type === 'anime'; });
-    moviesShown = 0;
-    showsShown  = 0;
-    shortsShown = 0;
-    animeShown  = 0;
+    moviesData      = albums.filter(function (a) { return a.type === 'movie'; });
+    collectionsData = albums.filter(function (a) { return a.type === 'collection'; });
+    showsData       = albums.filter(function (a) { return a.type === 'series'; });
+    animeData       = albums.filter(function (a) { return a.type === 'anime'; });
+    shortsData      = albums.filter(function (a) { return a.type === 'short'; });
+    moviesShown      = 0;
+    collectionsShown = 0;
+    showsShown       = 0;
+    animeShown       = 0;
+    shortsShown      = 0;
     $('#movies-grid').empty();
+    $('#collections-grid').empty();
     $('#series-grid').empty();
     $('#shorts-grid').empty();
     $('#anime-grid').empty();
 
-    if (moviesData.length === 0 && showsData.length === 0 && shortsData.length === 0 && animeData.length === 0) {
+    if (!moviesData.length && !collectionsData.length && !showsData.length && !animeData.length && !shortsData.length) {
         $('#no-content').show();
         return;
     }
     $('#no-content').hide();
 
-    if (moviesData.length > 0) {
-        $('#movies-section').show();
-        loadMoreSection('movies');
-    } else {
-        $('#movies-section').hide();
-    }
+    if (moviesData.length > 0) { $('#movies-section').show(); loadMoreSection('movies'); }
+    else { $('#movies-section').hide(); }
 
-    if (showsData.length > 0) {
-        $('#series-section').show();
-        loadMoreSection('shows');
-    } else {
-        $('#series-section').hide();
-    }
+    if (collectionsData.length > 0) { $('#collections-section').show(); loadMoreSection('collections'); }
+    else { $('#collections-section').hide(); }
 
-    if (animeData.length > 0) {
-        $('#anime-section').show();
-        loadMoreSection('anime');
-    } else {
-        $('#anime-section').hide();
-    }
+    if (showsData.length > 0) { $('#series-section').show(); loadMoreSection('shows'); }
+    else { $('#series-section').hide(); }
 
-    if (shortsData.length > 0) {
-        $('#shorts-section').show();
-        loadMoreSection('shorts');
-    } else {
-        $('#shorts-section').hide();
-    }
+    if (animeData.length > 0) { $('#anime-section').show(); loadMoreSection('anime'); }
+    else { $('#anime-section').hide(); }
+
+    if (shortsData.length > 0) { $('#shorts-section').show(); loadMoreSection('shorts'); }
+    else { $('#shorts-section').hide(); }
 }
 
 function loadMoreSection(which) {
@@ -1248,6 +1604,15 @@ function loadMoreSection(which) {
         for (i = start; i < end; i++) { $grid.append(buildCard(data[i], i)); }
         showsShown = end;
         $btn.toggle(showsShown < data.length);
+    } else if (which === 'collections') {
+        data  = collectionsData;
+        $grid = $('#collections-grid');
+        $btn  = $('#collections-load-more');
+        start = collectionsShown;
+        end   = Math.min(start + PAGE_SIZE, data.length);
+        for (i = start; i < end; i++) { $grid.append(buildCard(data[i], i)); }
+        collectionsShown = end;
+        $btn.toggle(collectionsShown < data.length);
     } else if (which === 'anime') {
         data  = animeData;
         $grid = $('#anime-grid');
@@ -1283,7 +1648,9 @@ function buildCard(album, idx) {
         ? album.episodeCount + ' ep'
         : album.type === 'short'
             ? (ext || 'Short')
-            : album.episodeCount + (album.episodeCount > 1 ? ' parts' : ' movie');
+            : album.type === 'collection'
+                ? album.episodeCount + (album.episodeCount > 1 ? ' videos' : ' video')
+                : album.episodeCount + (album.episodeCount > 1 ? ' parts' : ' movie');
 
     var card = $('<div class="album-card" tabindex="0" role="button" aria-label="' + escapeAttr(album.name) + '">'
         + thumb
@@ -1301,6 +1668,8 @@ function buildCard(album, idx) {
             currentEpisodes = [{ name: album.name, filepath: album._singleFile,
                 ext: album._singleFile.split('.').pop().toLowerCase(), index: 0 }];
             startPlayback(0);
+        } else if (album.type === 'movie') {
+            openMovieInfo(album);
         } else { openDetail(album); }
     });
     card.on('keydown', function (e) {
@@ -1311,6 +1680,8 @@ function buildCard(album, idx) {
                 currentEpisodes = [{ name: album.name, filepath: album._singleFile,
                     ext: album._singleFile.split('.').pop().toLowerCase(), index: 0 }];
                 startPlayback(0);
+            } else if (album.type === 'movie') {
+                openMovieInfo(album);
             } else { openDetail(album); }
         }
     });
@@ -1352,6 +1723,8 @@ function openDetail(album) {
     $('#detail-title').text(album.name);
     var sub = (album.type === 'series' || album.type === 'anime')
         ? album.seasons.length + ' season' + (album.seasons.length !== 1 ? 's' : '') + ' · ' + album.episodeCount + ' episodes'
+        : album.type === 'collection'
+        ? album.episodeCount + (album.episodeCount > 1 ? ' videos' : ' video')
         : album.episodeCount + (album.episodeCount > 1 ? ' parts' : ' movie');
     $('#detail-subtitle').text(sub);
 
@@ -1448,18 +1821,16 @@ function isWebPlayable(ext) {
 }
 function startPlayback(index) {
     cancelCountdown();
+    $('#resume-popup').removeClass('active');
     if (!currentEpisodes || currentEpisodes.length === 0) { return; }
     playingIndex = index;
     var ep = currentEpisodes[index];
 
-    // Choose endpoint based on file extension
     var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
-    var src = '';
-    if (isWebPlayable(ext)) {
-        src = MEDIA_API + '?file=' + encodeURIComponent(ep.filepath);
-    } else {
-        src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
-    }
+    var src = isWebPlayable(ext)
+        ? MEDIA_API   + '?file=' + encodeURIComponent(ep.filepath)
+        : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+
     var vid = document.getElementById('main-video');
     vid.src = src;
     vid.play();
@@ -1467,21 +1838,37 @@ function startPlayback(index) {
     $('#now-playing-title').text(ep.name);
     ao_module_setWindowTitle('Movie – ' + ep.name);
 
-    // Build sidebar list
     renderSidebar(currentEpisodes, index);
 
-    // Hide sidebar by default when there is only one video — nothing useful to show
     if (currentEpisodes.length <= 1) {
         $('#playlist-sidebar').addClass('collapsed');
     } else {
         $('#playlist-sidebar').removeClass('collapsed');
     }
 
-    // Highlight in episode list
     highlightPlayingEpisode(index);
+
+    // Remember where we came from so closePlayer() can return there
+    var curView = $('.view.active').attr('id');
+    if (curView && curView !== 'view-player') {
+        playerReturnView = curView.replace('view-', '');
+    }
 
     showView('player');
     showControls();
+
+    // After metadata loads, offer to resume if the video is >1 hr and has a saved position
+    (function (epFilepath) {
+        $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
+            if (vid.duration > 3600) {
+                ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: epFilepath }, function (data) {
+                    if (data && !data.error && data.position > 30 && data.position < vid.duration * 0.95) {
+                        showResumePopup(data.position, vid.duration);
+                    }
+                });
+            }
+        });
+    })(ep.filepath);
 }
 
 function renderSidebar(episodes, playing) {
@@ -1527,15 +1914,16 @@ function highlightPlayingEpisode(idx) {
 }
 
 function closePlayer() {
+    saveWatchPosition();
     cancelCountdown();
+    if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
     var vid = document.getElementById('main-video');
     vid.pause();
     vid.src = '';
-    var returnTo = (currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime'))
+    $('#resume-popup').removeClass('active');
+    var returnTo = (currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime' || currentAlbum.type === 'collection'))
         ? 'detail'
-        : (currentAlbum && currentAlbum.type === 'folder')
-        ? 'folder'
-        : 'library';
+        : playerReturnView;
     showView(returnTo);
 }
 
@@ -1548,14 +1936,18 @@ function showLibrary() {
 function showView(name) {
     $('.view').removeClass('active');
     $('#view-' + name).addClass('active');
-    if (name === 'folder') {
-        $('.mode-tab').removeClass('active');
-        $('#tab-folder').addClass('active');
-        $('#search-wrap').hide();
-    } else if (name === 'library' || name === 'detail') {
+    if (name === 'library' || name === 'detail') {
         $('.mode-tab').removeClass('active');
         $('#tab-library').addClass('active');
         $('#search-wrap').show();
+    } else if (name === 'folder') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-folder').addClass('active');
+        $('#search-wrap').hide();
+    } else if (name === 'movie-info') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-library').addClass('active');
+        $('#search-wrap').hide();
     }
     // player view leaves tab state unchanged
 }
@@ -1608,9 +2000,22 @@ function initVideoControls() {
         $time.text(formatTime(vid.currentTime) + ' / ' + formatTime(vid.duration));
     });
 
-    $(vid).on('play',  function () { $('#play-icon').attr('src', 'img/icons/pause_white.svg'); });
-    $(vid).on('pause', function () { $('#play-icon').attr('src', 'img/icons/play_white.svg'); });
+    $(vid).on('play', function () {
+        $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        // Periodically save position for videos longer than 1 hr
+        if (watchSaveInterval) { clearInterval(watchSaveInterval); }
+        watchSaveInterval = setInterval(function () {
+            if (!vid.paused && vid.duration > 3600) { saveWatchPosition(); }
+        }, 30000);
+    });
+    $(vid).on('pause', function () {
+        $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
+        if (vid.duration > 3600 && vid.currentTime > 30) { saveWatchPosition(); }
+    });
     $(vid).on('ended', function () {
+        clearWatchPosition(); // video finished naturally — remove resume point
+        if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
         cancelCountdown();
         if (repeatSingle) {
             vid.currentTime = 0;
@@ -1647,6 +2052,7 @@ function initVideoControls() {
 }
 
 function togglePlay() {
+    $('#resume-popup').removeClass('active');
     var vid = document.getElementById('main-video');
     if (vid.paused) { vid.play(); } else { vid.pause(); }
 }
