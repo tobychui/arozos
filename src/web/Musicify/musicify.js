@@ -26,7 +26,8 @@ function musicifyApp() {
 
         // ── Artists ─────────────────────────────────────────────────────────
         artists: [],
-        selectedArtist: null,   // full artist object when expanded
+        selectedArtist: null,   // full artist object for dedicated artist songs view
+        artistDetailOpen: false,
         artistsFromCache: false,
         artistsRefreshing: false,
         artistsCacheUpdatedAt: 0,
@@ -41,6 +42,8 @@ function musicifyApp() {
         artistRowHeight: 65, // must match CSS .artist-row height
         artistOverscan: 120, //artistRowHeight * artistOverscan = overscan px, Should be large enough for playlist expansion
         artistScrollTop: 0,
+        artistListScrollTop: 0,
+        selectedArtistListScrollTop: 0,
 
         // ── Recent ──────────────────────────────────────────────────────────
         recentSongs: [],
@@ -260,6 +263,7 @@ function musicifyApp() {
 
         folderNavigate(path) {
             this.folderStack.push(this.folderPath);
+            this.artistDetailOpen = false;
             this.selectedArtist = null;
             this.loadFolder(path);
         },
@@ -486,26 +490,47 @@ function musicifyApp() {
             });
         },
 
+        _getSelectedArtistListContainer() {
+            return document.getElementById('artist-selected-content-body');
+        },
+
+        _getMainContentContainer() {
+            return document.getElementById('mainContent');
+        },
+
         selectArtist(artist) {
-            var isClosing = this.selectedArtist && this.selectedArtist.path === artist.path;
-            this.selectedArtist = isClosing ? null : artist;
+            var mainContainer = this._getMainContentContainer();
+            if (mainContainer) {
+                this.artistListScrollTop = mainContainer.scrollTop;
+                this.artistScrollTop = mainContainer.scrollTop;
+            }
+            console.log(this.artistListScrollTop,  this.artistScrollTop);
 
-            if (isClosing) return;
+            this.selectedArtist = artist;
+            this.artistDetailOpen = true;
 
-            var index = this.artists.findIndex(function(item) {
-                return item.path === artist.path;
+            this.$nextTick(() => {
+                this.$nextTick(() => {
+                    var mainContainer = this._getMainContentContainer();
+                    if (mainContainer) {
+                        mainContainer.scrollTop = 0;
+                    };
+                });
             });
-            if (index < 0) return;
+        },
 
-            // Keep the selected artist near the top of the viewport so the expanded list stays readable.
-            var targetScrollTop = Math.max(0, (index * this.artistRowHeight) - 33);
+        backToArtistList() {
+            this.artistDetailOpen = false;
+            var targetScrollTop = this.artistListScrollTop || 0;
             this.artistScrollTop = targetScrollTop;
 
             this.$nextTick(() => {
-                var container = document.getElementById('artist-content-body');
-                if (container) {
-                    container.scrollTop = targetScrollTop;
-                }
+                this.$nextTick(() => {
+                    var mainContainer = this._getMainContentContainer();
+                    if (mainContainer) {
+                        mainContainer.scrollTop = targetScrollTop;
+                    }
+                });
             });
         },
 
@@ -552,6 +577,11 @@ function musicifyApp() {
 
         onArtistScroll(e) {
             this.artistScrollTop = e.target.scrollTop;
+            this.artistListScrollTop = e.target.scrollTop;
+        },
+
+        onSelectedArtistListScroll(e) {
+            this.selectedArtistListScrollTop = e.target.scrollTop;
         },
 
         // ════════════════════════════════════════════════════════════════════

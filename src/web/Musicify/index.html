@@ -230,7 +230,10 @@
         .artist-count { font-size: 12px; color: var(--text2); }
         .artist-expand { color: var(--text3); transition: transform .2s; }
         .artist-expand.open { transform: rotate(90deg); }
-
+        #artist-content-body{
+            height: calc(100% - 265px);
+            overflow-y:auto;
+        }
         /* ── Song List ──────────────────────────────────────────────────── */
         .song-list { width: 100%; }
         .song-row {
@@ -828,7 +831,7 @@
                     <template x-if="searchResults.length > 0">
                         <div>
                             <p class="search-results-label" x-text="searchResults.length + ' result(s)'"></p>
-                            <div class="song-list">
+                            <div class="song-list" id="artist-selected-content-body" x-on:scroll="onSelectedArtistListScroll($event)">
                                 <div class="song-list-header">
                                     <span></span><span></span><span>Title</span><span>Artist</span><span class="song-list-size-col">Size</span><span></span>
                                 </div>
@@ -976,7 +979,6 @@
                 <div class="content-body">
                     <template x-if="artists.length === 0 && artistsRefreshing">
                         <div class="empty-state">
-                            <i class="ui sync icon"></i>
                             <h3>Loading artists</h3>
                             <p>Fetching your artist list in the background…</p>
                         </div>
@@ -989,11 +991,11 @@
                         </div>
                     </template>
                    
-                    <div id="artist-content-body" style="height:calc(100vh - 180px);overflow-y:auto;" x-on:scroll="onArtistScroll($event)">
-                        <div :style="'height:' + artistTopSpacerHeight() + 'px'"></div>
-                        <template x-for="artist in visibleArtists()" :key="artist.path">
-                            <div>
-                                <div class="artist-row" x-on:click="selectArtist(artist, $event.currentTarget)">
+                    <template x-if="!artistDetailOpen">
+                        <div id="artist-content-body" x-on:scroll="onArtistScroll($event)">
+                            <div :style="'height:' + artistTopSpacerHeight() + 'px'"></div>
+                            <template x-for="artist in visibleArtists()" :key="artist.path">
+                                <div class="artist-row" x-on:click="selectArtist(artist)">
                                     <div class="artist-avatar" x-text="artist.name.charAt(0)"></div>
                                     <div class="artist-info">
                                         <div class="artist-name"  x-text="artist.name"></div>
@@ -1002,34 +1004,57 @@
                                     <button class="ctrl-btn" style="margin-right:4px;" x-on:click.stop="playList(artist.songs, 0)">
                                         <i class="ui play icon" style="margin:0;"></i>
                                     </button>
-                                    <i class="ui chevron right icon artist-expand"
-                                    :class="{open: selectedArtist && selectedArtist.path === artist.path}"
-                                    style="margin:0;"></i>
+                                    <i class="ui chevron right icon artist-expand" style="margin:0;"></i>
                                 </div>
-                                
-                                <div x-show="selectedArtist && selectedArtist.path === artist.path"
-                                    style="background:var(--bg2);border-radius:0 0 8px 8px;margin-bottom:4px;">
-                                    <template x-for="(song, idx) in artist.songs" :key="song.filepath">
-                                        <div class="song-row" :class="{active: isCurrentTrack(song)}"
-                                            style="grid-template-columns: 28px 36px 1fr 80px 28px;"
-                                            x-on:click="playSong(song, artist.songs, $event)">
-                                            <span class="song-idx"  x-text="idx + 1"></span>
-                                            <span class="song-play"><i class="ui play icon" style="margin:0;"></i></span>
-                                            <div class="song-cover-placeholder"><img :src="getCoverUrl(song)" loading="lazy" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"></div>
-                                            <div class="song-info">
-                                                <div class="song-name" x-text="song.name"></div>
-                                            </div>
-                                            <span class="song-size" x-text="song.hsize"></span>
-                                            <span class="song-menu" x-on:click.stop="promptAddToPlaylist(song, $event)">
-                                                <i class="ui ellipsis vertical icon" style="margin:0;font-size:14px;"></i>
-                                            </span>
+                            </template>
+                            <div :style="'height:' + artistBottomSpacerHeight() + 'px'"></div>
+                        </div>
+                    </template>
+
+                    <template x-if="artistDetailOpen">
+                        <div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap;">
+                                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                                    <button class="btn btn-secondary" x-on:click="backToArtistList()">
+                                        <i class="ui arrow left icon"></i> Back
+                                    </button>
+                                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                                        <!-- <div class="artist-avatar" x-text="selectedArtist.name.charAt(0)"></div> -->
+                                        <div style="min-width:0;">
+                                            <div class="artist-name" x-text="selectedArtist.name"></div>
+                                            <div class="artist-count" x-text="selectedArtist.songCount + ' tracks'"></div>
                                         </div>
-                                    </template>
+                                    </div>
                                 </div>
+                                <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;"
+                                    x-on:click="playList(selectedArtist.songs, 0)">
+                                    <i class="ui play icon"></i> Play all
+                                </button>
                             </div>
-                        </template>
-                        <div :style="'height:' + artistBottomSpacerHeight() + 'px'"></div>
-                    </div>
+
+                            <div class="song-list">
+                                <div class="song-list-header">
+                                    <span>#</span><span></span><span>Title</span><span></span><span class="song-list-size-col">Size</span><span></span>
+                                </div>
+                                <template x-for="(song, idx) in selectedArtist.songs" :key="song.filepath">
+                                    <div class="song-row" :class="{active: isCurrentTrack(song)}"
+                                         x-on:click="playSong(song, selectedArtist.songs, $event)">
+                                        <span class="song-idx"  x-text="idx + 1"></span>
+                                        <span class="song-play"><i class="ui play icon" style="margin:0;"></i></span>
+                                        <div class="song-cover-placeholder"><img :src="getCoverUrl(song)" loading="lazy" x-on:error="$event.target.src='img/placeholder.png'; $event.target.onerror=null"></div>
+                                        <div class="song-info">
+                                            <div class="song-name" x-text="song.name"></div>
+                                            <div class="song-artist" x-text="selectedArtist.name"></div>
+                                        </div>
+                                        <span class="song-size" x-text="song.hsize"></span>
+                                        <span class="song-menu" x-on:click.stop="promptAddToPlaylist(song, $event)">
+                                            <i class="ui ellipsis vertical icon" style="margin:0;font-size:14px;"></i>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                     <!-- 
                     <template x-for="artist in artists" :key="artist.path">
                         <div>
