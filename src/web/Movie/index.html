@@ -558,8 +558,31 @@ html, body {
     .ep-thumb { width: 72px; }
 }
 
+/* ─── Phone: wrap topbar so the search bar never overflows ───────────────────── */
+@media (max-width: 540px) {
+    #topbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: var(--header-h);
+        padding: 6px 14px;
+        row-gap: 4px;
+        align-items: center;
+    }
+    #topbar h1 { font-size: 18px; flex-shrink: 0; }
+    #mode-tabs  { flex-shrink: 0; }
+    /* Force search onto its own row, full width */
+    #search-wrap {
+        flex-basis: 100%;
+        margin-left: 0;
+        order: 10;
+    }
+    #search-input        { width: 100%; max-width: none; }
+    #search-input:focus  { width: 100%; }
+}
+
 @media (max-width: 400px) {
     :root { --card-w: 110px; }
+    .mode-tab { padding: 5px 8px; font-size: 12px; }
 }
 
 /* TV / large screen layout */
@@ -689,6 +712,21 @@ html, body {
 }
 #movie-info-loading.active { display: flex; }
 #movie-info-files { padding: 0 20px 48px; }
+#movie-info-wrong-wrap {
+    display: none;
+    padding: 10px 32px 0;
+}
+.reset-info-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text-sub);
+    font-size: 11px; font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer; outline: none;
+    transition: border-color var(--transition), color var(--transition);
+}
+.reset-info-btn:hover { border-color: rgba(255,69,58,0.55); color: #ff453a; }
 @media (max-width: 600px) {
     #movie-info-hero { flex-direction: column; align-items: flex-start; padding: 56px 16px 20px; }
     #movie-info-poster-wrap { width: 90px; }
@@ -976,6 +1014,9 @@ html, body {
                     </div>
                 </div>
             </div>
+            <div id="movie-info-wrong-wrap">
+                <button class="reset-info-btn" id="movie-info-reset-btn">✕ Wrong movie? Disable IMDB info</button>
+            </div>
             <div id="movie-info-loading"><div class="spinner"></div><span>Loading info…</span></div>
             <div id="movie-info-files" style="display:none">
                 <div class="section-title" style="font-size:16px;margin:16px 20px 10px;">Files</div>
@@ -1158,6 +1199,7 @@ function openMovieInfo(album) {
     $('#movie-info-year').text('');
     $('#movie-info-cast').text('');
     $('#movie-info-imdb-btn').hide();
+    $('#movie-info-wrong-wrap').hide();
     $('#movie-info-files').hide();
     $('#movie-info-loading').addClass('active');
 
@@ -1264,6 +1306,37 @@ function applyMovieInfo(info) {
             window.open(imdbUrl, '_blank');
         });
     }
+
+    // Show the "wrong movie" reset button now that IMDB data is displayed
+    $('#movie-info-wrong-wrap').show();
+    $('#movie-info-reset-btn').off('click').on('click', function () {
+        if (!currentMovieAlbum) { return; }
+        ao_module_agirun(SCRIPT_DISABLE_MOVIE_INFO, { movie: currentMovieAlbum.name },
+            function () { resetMovieInfo(); },
+            function () { resetMovieInfo(); } // reset UI even if backend call fails
+        );
+    });
+}
+
+// Reset the movie info panel to local-only state (used after disabling IMDB info)
+function resetMovieInfo() {
+    if (!currentMovieAlbum) { return; }
+    currentMovieImdbTitle = null;
+    var album = currentMovieAlbum;
+
+    $('#movie-info-title').text(album.name);
+    $('#movie-info-filename').hide().text('');
+    $('#movie-info-year').text('');
+    $('#movie-info-cast').text('');
+    $('#movie-info-imdb-btn').hide();
+    $('#movie-info-wrong-wrap').hide();
+
+    // Restore local thumbnail as poster and backdrop
+    var localThumb = album.thumbnail
+        ? 'data:image/jpeg;base64,' + album.thumbnail
+        : 'img/thumbnail.png';
+    document.getElementById('movie-info-poster-img').src = localThumb;
+    $('#movie-info-backdrop').css('background-image', 'url(' + localThumb + ')');
 }
 
 function renderMovieFileList(episodes) {

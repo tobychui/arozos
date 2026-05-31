@@ -145,6 +145,11 @@ function main() {
     if (filelib.fileExists(cacheFile)) {
         var cached = filelib.readFile(cacheFile);
         if (cached !== false && cached.length > 2) {
+            // User manually disabled IMDB info for this title
+            if (cached.indexOf('"_disabled"') >= 0) {
+                sendJSONResp(JSON.stringify({ error: "disabled" }));
+                return;
+            }
             sendJSONResp(cached);   // must use sendJSONResp so jQuery parses it as an object
             return;
         }
