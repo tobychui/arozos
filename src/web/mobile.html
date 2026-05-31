@@ -232,7 +232,12 @@ body.dark-mode .cp-tile{background:rgba(255,255,255,.1);color:#f0f0f0;}
 .cp-tile:active{opacity:.55;}
 .cp-tile.on{background:#111;color:#fff;}
 body.dark-mode .cp-tile.on{background:#e8e8e8;color:#111;}
-.cp-tile-icon{font-size:24px;}
+.cp-tile-icon{display:flex;align-items:center;justify-content:center;}
+.cp-tile-icon img{width:26px;height:26px;display:block;}
+/* Light/dark icon pair switching */
+img.cp-ic-w{display:none !important;}
+body.dark-mode img.cp-ic-b{display:none !important;}
+body.dark-mode img.cp-ic-w{display:block !important;}
 .cp-list-lbl{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.4px;padding:6px 16px 2px;}
 .cp-acc-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .cp-acc-item:active{background:rgba(0,0,0,.05);}
@@ -246,7 +251,8 @@ body.dark-mode .cp-btn{background:rgba(255,255,255,.1);color:#f0f0f0;}
 .cp-btn:active{opacity:.55;}
 .cp-btn.red{color:#c42b1c;}
 body.dark-mode .cp-btn.red{color:#ff6b6b;}
-.cp-btn-ic{font-size:17px;width:22px;text-align:center;}
+.cp-btn-ic{width:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cp-btn-ic img{width:18px;height:18px;display:block;}
 
 /* ── Float Window Layer ── */
 #fw-layer{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;background:#000;}
@@ -312,19 +318,30 @@ body.dark-mode .cp-btn.red{color:#ff6b6b;}
     <div class="cp-sep"></div>
     <div class="cp-grid">
         <button class="cp-tile" id="cp-dark-btn" onclick="cpToggleDark()">
-            <span class="cp-tile-icon" id="cp-dark-ic">🌙</span>
+            <span class="cp-tile-icon">
+                <img id="cp-dark-ic" src="SystemAO/desktop/img/icons/lightmode_black.svg">
+            </span>
             <span id="cp-dark-lbl">Dark Mode</span>
         </button>
         <button class="cp-tile" onclick="cpFullscreen()">
-            <span class="cp-tile-icon">⛶</span>
+            <span class="cp-tile-icon">
+                <img class="cp-ic-b" src="SystemAO/desktop/img/icons/fullscreen_black.svg">
+                <img class="cp-ic-w" src="SystemAO/desktop/img/icons/fullscreen_white.svg">
+            </span>
             <span>Fullscreen</span>
         </button>
         <button class="cp-tile" onclick="cpWallpaper()">
-            <span class="cp-tile-icon">🖼</span>
+            <span class="cp-tile-icon">
+                <img class="cp-ic-b" src="SystemAO/desktop/img/icons/wallpaper_black.svg">
+                <img class="cp-ic-w" src="SystemAO/desktop/img/icons/wallpaper_white.svg">
+            </span>
             <span>Wallpaper</span>
         </button>
         <button class="cp-tile" onclick="cpSettings()">
-            <span class="cp-tile-icon">⚙️</span>
+            <span class="cp-tile-icon">
+                <img class="cp-ic-b" src="SystemAO/desktop/img/icons/settings_black.svg">
+                <img class="cp-ic-w" src="SystemAO/desktop/img/icons/settings_white.svg">
+            </span>
             <span>Settings</span>
         </button>
     </div>
@@ -332,8 +349,20 @@ body.dark-mode .cp-btn.red{color:#ff6b6b;}
     <div class="cp-list-lbl">Other Accounts</div>
     <div id="cp-acc-list"></div>
     <div class="cp-btns">
-        <button class="cp-btn" onclick="cpAddAccount()"><span class="cp-btn-ic">👤</span>Add / Switch Account</button>
-        <button class="cp-btn red" onclick="cpLogout()"><span class="cp-btn-ic">⏏</span>Sign Out</button>
+        <button class="cp-btn" onclick="cpAddAccount()">
+            <span class="cp-btn-ic">
+                <img class="cp-ic-b" src="SystemAO/desktop/img/icons/switch_user_black.svg">
+                <img class="cp-ic-w" src="SystemAO/desktop/img/icons/switch_user_white.svg">
+            </span>
+            Add / Switch Account
+        </button>
+        <button class="cp-btn red" onclick="cpLogout()">
+            <span class="cp-btn-ic">
+                <img class="cp-ic-b" src="SystemAO/desktop/img/icons/signout_black.svg">
+                <img class="cp-ic-w" src="SystemAO/desktop/img/icons/signout_white.svg">
+            </span>
+            Sign Out
+        </button>
     </div>
 </div>
 
@@ -470,10 +499,14 @@ function setDarkMode(dark){
     isDark = dark;
     $("body").toggleClass("dark-mode", dark);
     if(dark){
-        $("#cp-dark-ic").text("☀"); $("#cp-dark-lbl").text("Light Mode");
+        // Panel is dark → use white icon; button shows "Light Mode" (click to leave dark)
+        $("#cp-dark-ic").attr("src","SystemAO/desktop/img/icons/darkmode_white.svg");
+        $("#cp-dark-lbl").text("Light Mode");
         $("#cp-dark-btn").addClass("on");
     }else{
-        $("#cp-dark-ic").text("🌙"); $("#cp-dark-lbl").text("Dark Mode");
+        // Panel is light → use black icon; button shows "Dark Mode" (click to enter dark)
+        $("#cp-dark-ic").attr("src","SystemAO/desktop/img/icons/lightmode_black.svg");
+        $("#cp-dark-lbl").text("Dark Mode");
         $("#cp-dark-btn").removeClass("on");
     }
 }

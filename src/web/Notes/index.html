@@ -315,6 +315,44 @@
         ::-webkit-scrollbar-track { background: transparent; }
         body.light-mode ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 4px; }
         body.dark-mode  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+
+        /* Back button: hidden on desktop, shown on mobile */
+        .back-btn {
+            display: none;
+            font-size: 20px;
+            line-height: 1;
+            margin-right: 2px;
+        }
+
+        /* RWD: phone portrait */
+        @media (max-width: 600px) {
+            .sidebar {
+                width: 100%;
+                min-width: 0;
+                border-right: none;
+                flex: 1;
+            }
+
+            body.light-mode .sidebar { border-bottom: 1px solid #d1d1d6; }
+            body.dark-mode  .sidebar { border-bottom: 1px solid #38383a; }
+
+            /* Editor hidden by default on mobile; shown when a note is open */
+            .editor { display: none; }
+
+            body.mobile-editor-active .sidebar { display: none; }
+
+            body.mobile-editor-active .editor {
+                display: flex;
+                flex: 1;
+            }
+
+            .back-btn { display: flex; }
+
+            /* Slightly more touch-friendly note items */
+            .note-item { padding: 12px 14px; }
+
+            .editor-area { padding: 16px 18px; }
+        }
     </style>
 </head>
 <body class="dark-mode">
@@ -355,7 +393,10 @@
         <!-- Shown when a note is active -->
         <div class="editor-content" id="editorContent">
             <div class="editor-header">
-                <span class="editor-date" id="editorDate"></span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <button class="icon-btn back-btn" id="backBtn" title="Back to notes">&#8592;</button>
+                    <span class="editor-date" id="editorDate"></span>
+                </div>
                 <div class="editor-actions">
                     <button class="icon-btn" id="downloadNoteBtn" title="Export as .txt">
                         <img id="downloadIcon" src="img/download_white.svg" alt="download">
@@ -376,6 +417,19 @@
     <div id="snackbar"></div>
 
     <script>
+        // ── Mobile helpers ─────────────────────────────────────────────────────
+        function isMobile() {
+            return window.matchMedia('(max-width: 600px)').matches;
+        }
+
+        function showMobileEditor() {
+            if (isMobile()) document.body.classList.add('mobile-editor-active');
+        }
+
+        function showMobileList() {
+            document.body.classList.remove('mobile-editor-active');
+        }
+
         // ── State ──────────────────────────────────────────────────────────────
         var notes       = [];       // [{id, title, updatedAt}] – no content in memory
         var meta        = {};       // full metadata object from server
@@ -561,6 +615,7 @@
         function selectNote(id) {
             activeId = id;
             renderNoteList();
+            showMobileEditor();
 
             // Show editor shell immediately, then load content async
             var textarea = document.getElementById('noteTextarea');
@@ -586,6 +641,7 @@
             notes.unshift(stub);
             activeId = id;
             renderNoteList();
+            showMobileEditor();
             renderEditor('');
             document.getElementById('noteTextarea').focus();
 
@@ -606,6 +662,7 @@
             if (activeId) {
                 selectNote(activeId);
             } else {
+                showMobileList();
                 renderEditor();
             }
 
@@ -674,6 +731,9 @@
         }
 
         // ── Toolbar buttons ────────────────────────────────────────────────────
+        document.getElementById('backBtn').addEventListener('click', function () {
+            showMobileList();
+        });
         document.getElementById('newNoteBtn').addEventListener('click', createNote);
         document.getElementById('deleteNoteBtn').addEventListener('click', deleteActiveNote);
         document.getElementById('downloadNoteBtn').addEventListener('click', downloadActiveNote);
