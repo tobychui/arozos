@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
@@ -213,6 +214,28 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 	}
 
 	return nil
+}
+
+// ResolveDeviceByUUID tries to find a block device path (e.g. /dev/sdb1) by its
+// partition UUID using blkid. Linux only. Returns an error if the UUID is not found.
+func ResolveDeviceByUUID(partUUID string) (string, error) {
+	if runtime.GOOS != "linux" {
+		return "", errors.New("UUID-based device lookup is only supported on Linux")
+	}
+	if partUUID == "" {
+		return "", errors.New("empty UUID given")
+	}
+	cmd := exec.Command("blkid", "-U", partUUID)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("device with UUID %s not found: %v", partUUID, err)
+	}
+	devPath := strings.TrimSpace(out.String())
+	if devPath == "" {
+		return "", fmt.Errorf("UUID %s did not resolve to any device", partUUID)
+	}
+	return devPath, nil
 }
 
 func GetFileSize(filename string) int64 {

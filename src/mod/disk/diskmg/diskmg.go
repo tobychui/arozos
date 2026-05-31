@@ -3,6 +3,7 @@ package diskmg
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os/exec"
@@ -458,5 +459,125 @@ func checkDeviceValid(devname string) (bool, string) {
 
 func HandlePlatform(w http.ResponseWriter, r *http.Request) {
 	js, _ := json.Marshal(runtime.GOOS)
+	utils.SendJSONResponse(w, string(js))
+}
+
+/*
+HandleListDevicesWithInfo returns all block devices with their partitions,
+partition UUID (from blkid / lsblk -f), filesystem type, size and mount point.
+Used by the storage pool editor UI so the user can pick a partition by name
+instead of having to know the raw /dev path.
+
+GET /system/disk/diskmg/devices
+*/
+
+// lsblkFull is used to parse a single lsblk -b --json -o NAME,SIZE,TYPE,FSTYPE,UUID,LABEL,MOUNTPOINT,MODEL call.
+type lsblkFull struct {
+	Blockdevices []lsblkFullDev `json:"blockdevices"`
+}
+
+type lsblkFullDev struct {
+	Name       string         `json:"name"`
+	Size       int64          `json:"size"`
+	Type       string         `json:"type"`
+	Fstype     interface{}    `json:"fstype"`
+	UUID       interface{}    `json:"uuid"`
+	Label      interface{}    `json:"label"`
+	Mountpoint interface{}    `json:"mountpoint"`
+	Model      interface{}    `json:"model"`
+	Children   []lsblkFullDev `json:"children"`
+}
+
+// PartitionDeviceInfo is the per-partition record returned to the frontend.
+type PartitionDeviceInfo struct {
+	Name       string `json:"name"`
+	DevPath    string `json:"devpath"`
+	Fstype     string `json:"fstype"`
+	UUID       string `json:"uuid"`
+	Label      string `json:"label"`
+	Size       int64  `json:"size"`
+	Mountpoint string `json:"mountpoint"`
+}
+
+// BlockDeviceInfo is the per-disk record returned to the frontend.
+type BlockDeviceInfo struct {
+	Name       string                `json:"name"`
+	Model      string                `json:"model"`
+	Size       int64                 `json:"size"`
+	Partitions []PartitionDeviceInfo `json:"partitions"`
+}
+
+func HandleListDevicesWithInfo(w http.ResponseWriter, r *http.Request) {
+	if runtime.GOOS != "linux" {
+		utils.SendErrorResponse(w, "This function is Linux only")
+		return
+	}
+
+	cmd := exec.Command("lsblk", "-b", "--json", "-o", "NAME,SIZE,TYPE,FSTYPE,UUID,LABEL,MOUNTPOINT,MODEL")
+	o, err := cmd.CombinedOutput()
+	if err != nil {
+		utils.SendErrorResponse(w, "lsblk error: "+err.Error())
+		return
+	}
+
+	var raw lsblkFull
+	if err := json.Unmarshal(o, &raw); err != nil {
+		utils.SendErrorResponse(w, "parse error: "+err.Error())
+		return
+	}
+
+	// helper: safely convert interface{} to string
+	ifaceStr := func(v interface{}) string {
+		if v == nil {
+			return ""
+		}
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+
+	result := []BlockDeviceInfo{}
+	for _, dev := range raw.Blockdevices {
+		// Only show disk/loop/md types; skip rom, etc.
+		if dev.Type != "disk" && dev.Type != "md" && dev.Type != "loop" {
+			continue
+		}
+
+		diskInfo := BlockDeviceInfo{
+			Name:       dev.Name,
+			Model:      ifaceStr(dev.Model),
+			Size:       dev.Size,
+			Partitions: []PartitionDeviceInfo{},
+		}
+
+		for _, part := range dev.Children {
+			partInfo := PartitionDeviceInfo{
+				Name:       part.Name,
+				DevPath:    "/dev/" + part.Name,
+				Fstype:     ifaceStr(part.Fstype),
+				UUID:       ifaceStr(part.UUID),
+				Label:      ifaceStr(part.Label),
+				Size:       part.Size,
+				Mountpoint: ifaceStr(part.Mountpoint),
+			}
+			diskInfo.Partitions = append(diskInfo.Partitions, partInfo)
+		}
+
+		// If a disk has no children (e.g. unpartitioned), expose the disk itself as
+		// a single entry so it can still be selected.
+		if len(diskInfo.Partitions) == 0 {
+			diskInfo.Partitions = append(diskInfo.Partitions, PartitionDeviceInfo{
+				Name:       dev.Name,
+				DevPath:    "/dev/" + dev.Name,
+				Fstype:     ifaceStr(dev.Fstype),
+				UUID:       ifaceStr(dev.UUID),
+				Label:      ifaceStr(dev.Label),
+				Size:       dev.Size,
+				Mountpoint: ifaceStr(dev.Mountpoint),
+			})
+		}
+
+		result = append(result, diskInfo)
+	}
+
+	js, _ := json.Marshal(result)
 	utils.SendJSONResponse(w, string(js))
 }

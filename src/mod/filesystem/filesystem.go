@@ -142,7 +142,19 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 	if inSlice([]string{"ext4", "ext2", "ext3", "fat", "vfat", "ntfs"}, fstype) || fstype == "" {
 		//Check if the target fs require mounting
 		if option.Automount == true {
-			err := MountDevice(option.Mountpt, option.Mountdev, option.Filesystem)
+			// If a partition UUID is stored, try to resolve the actual device path from
+			// the UUID first (survives USB device renames across reboots). Fall back to
+			// the stored device path if UUID lookup fails.
+			actualMountDev := option.Mountdev
+			if option.DiskUUID != "" {
+				if resolvedPath, err := ResolveDeviceByUUID(option.DiskUUID); err == nil {
+					log.Println("[Storage] Resolved device by UUID " + option.DiskUUID + " -> " + resolvedPath)
+					actualMountDev = resolvedPath
+				} else {
+					log.Println("[Storage] UUID lookup failed for " + option.DiskUUID + ", falling back to device path " + option.Mountdev)
+				}
+			}
+			err := MountDevice(option.Mountpt, actualMountDev, option.Filesystem)
 			if err != nil {
 				return &FileSystemHandler{}, err
 			}
