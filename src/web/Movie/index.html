@@ -220,7 +220,7 @@ html, body {
     position: absolute; inset: 0;
     background-size: cover;
     background-position: center top;
-    filter: blur(28px) brightness(0.35);
+    filter: blur(4px) brightness(0.55);
     transform: scale(1.1);
 }
 #detail-hero-content {
@@ -566,6 +566,60 @@ html, body {
     :root { --card-w: 240px; }
 }
 
+/* ─── Mode tabs ──────────────────────────────────────────────────────────────── */
+#mode-tabs { display: flex; gap: 2px; }
+.mode-tab {
+    background: none; border: none; cursor: pointer;
+    border-radius: 6px; color: var(--text-sub);
+    font-size: 13px; font-weight: 500; padding: 5px 12px;
+    transition: background var(--transition), color var(--transition);
+    outline: none;
+}
+.mode-tab.active { background: var(--surface2); color: var(--text); }
+.mode-tab:hover { color: var(--text); }
+
+/* ─── Folder view ────────────────────────────────────────────────────────────── */
+#folder-nav-bar {
+    flex-shrink: 0;
+    padding: 6px 20px;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    min-height: 40px;
+}
+#folder-nav-bar::-webkit-scrollbar { display: none; }
+#folder-breadcrumb { display: flex; align-items: center; gap: 2px; }
+.crumb-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-sub); font-size: 13px;
+    padding: 3px 7px; border-radius: 5px;
+    transition: color var(--transition), background var(--transition);
+    outline: none; white-space: nowrap;
+}
+.crumb-btn:hover { color: var(--text); background: var(--surface2); }
+.crumb-btn.crumb-current { color: var(--text); font-weight: 600; pointer-events: none; }
+.crumb-sep { color: var(--text-sub); font-size: 12px; opacity: 0.4; padding: 0 2px; }
+#folder-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 8px 20px 40px; scroll-behavior: smooth;
+}
+#folder-scroll::-webkit-scrollbar { width: 4px; }
+#folder-scroll::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+#folder-loading {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 0; gap: 12px; color: var(--text-sub);
+}
+#folder-loading.active { display: flex; }
+#folder-empty { display: none; color: var(--text-sub); padding: 60px 0; text-align: center; }
+.folder-thumb {
+    width: 100%; aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #1c2640 0%, #2a3d6e 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; user-select: none;
+}
+
 /* Focus ring for TV remote navigation */
 .tv-focused {
     outline: 3px solid var(--accent) !important;
@@ -728,7 +782,11 @@ html, body {
 
     <!-- ─ Top bar ─────────────────────────────────────────────────────────── -->
     <div id="topbar">
-        <h1><img src="img/icons/movie_white.svg" width="22" height="22" alt="" style="vertical-align:middle;margin-right:6px;"><span>Movie</span></h1>
+        <h1><img src="img/module_icon.png" width="22" height="22" alt="" style="vertical-align:middle;margin-right:6px;margin-top:-4px;"><span>Movie</span></h1>
+        <div id="mode-tabs">
+            <button class="mode-tab active" id="tab-library" onclick="switchTab('library')">Library</button>
+            <button class="mode-tab" id="tab-folder" onclick="switchTab('folder')">Browse</button>
+        </div>
         <div id="search-wrap">
             <input id="search-input" type="text" placeholder="Search…" autocomplete="off">
         </div>
@@ -786,6 +844,25 @@ html, body {
 
         <div id="episode-scroll">
             <div id="episode-list"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ FOLDER VIEW ════════════════════════════════════════ -->
+    <div id="view-folder" class="view">
+        <div id="folder-nav-bar">
+            <div id="folder-breadcrumb"></div>
+        </div>
+        <div id="folder-scroll">
+            <div id="folder-loading"><div class="spinner"></div><span>Loading…</span></div>
+            <div id="folder-empty"></div>
+            <div id="folder-section-dirs" style="display:none">
+                <div class="section-title">Folders</div>
+                <div id="folder-dirs-grid" class="album-grid"></div>
+            </div>
+            <div id="folder-section-vids" style="display:none">
+                <div class="section-title">Videos</div>
+                <div id="folder-vids-grid" class="album-grid"></div>
+            </div>
         </div>
     </div>
 
@@ -904,6 +981,170 @@ var countdownTimer  = null;
 
 // Single-repeat
 var repeatSingle = false;
+
+// Folder browse state
+var folderViewPath   = '/';
+var folderViewVideos = [];
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(tab) {
+    if (tab === 'folder') {
+        var wasAlreadyFolder = $('#view-folder').hasClass('active');
+        showView('folder');
+        if (!wasAlreadyFolder) { navigateFolder(folderViewPath); }
+    } else {
+        showView('library');
+    }
+}
+
+// ─── Folder navigation ────────────────────────────────────────────────────────
+function buildBreadcrumbs(path) {
+    var crumbs = [{ name: 'Home', path: '/' }];
+    if (!path || path === '/') { return crumbs; }
+    var colonIdx = path.indexOf(':/');
+    if (colonIdx < 0) { return crumbs; }
+    var root = path.substring(0, colonIdx + 2);
+    crumbs.push({ name: root, path: root });
+    var rest = path.substring(colonIdx + 2);
+    if (!rest) { return crumbs; }
+    var parts = rest.split('/').filter(function (s) { return s.length > 0; });
+    var cumPath = root;
+    for (var i = 0; i < parts.length; i++) {
+        cumPath += parts[i] + '/';
+        crumbs.push({ name: parts[i], path: cumPath });
+    }
+    return crumbs;
+}
+
+function renderBreadcrumb(path) {
+    var crumbs = buildBreadcrumbs(path);
+    var $bc = $('#folder-breadcrumb').empty();
+    for (var i = 0; i < crumbs.length; i++) {
+        var crumb = crumbs[i];
+        var isLast = (i === crumbs.length - 1);
+        if (i > 0) { $bc.append('<span class="crumb-sep">›</span>'); }
+        var btn = $('<button class="crumb-btn' + (isLast ? ' crumb-current' : '') + '">'
+            + escapeHtml(crumb.name) + '</button>');
+        if (!isLast) {
+            (function (p) { btn.on('click', function () { navigateFolder(p); }); })(crumb.path);
+        }
+        $bc.append(btn);
+    }
+}
+
+function navigateFolder(path) {
+    folderViewPath = path || '/';
+    renderBreadcrumb(folderViewPath);
+    loadFolderContents(folderViewPath);
+}
+
+function loadFolderContents(path) {
+    $('#folder-loading').addClass('active');
+    $('#folder-empty').hide();
+    $('#folder-section-dirs').hide();
+    $('#folder-section-vids').hide();
+
+    var params = (path && path !== '/') ? { folder: path } : { folder: '' };
+    ao_module_agirun(SCRIPT_LIST_FOLDER, params, function (data) {
+        $('#folder-loading').removeClass('active');
+        if (!data || data.error) {
+            $('#folder-empty').text(data && data.error ? data.error : 'Failed to load folder.').show();
+            return;
+        }
+        renderFolderContents(data);
+    }, function () {
+        $('#folder-loading').removeClass('active');
+        $('#folder-empty').text('Error loading folder.').show();
+    });
+}
+
+function renderFolderContents(data) {
+    folderViewVideos = data.videos || [];
+
+    var hasDirs = data.folders && data.folders.length > 0;
+    var hasVids = data.videos  && data.videos.length  > 0;
+
+    if (!hasDirs && !hasVids) {
+        $('#folder-empty').text('This folder is empty.').show();
+        return;
+    }
+
+    if (hasDirs) {
+        var $dirs = $('#folder-dirs-grid').empty();
+        $('#folder-section-dirs').show();
+        data.folders.forEach(function (f) {
+            var thumbHtml;
+            if (f.isRoot) {
+                thumbHtml = '<div class="poster-placeholder"><img src="img/root_placeholder.png" alt=""></div>';
+            } else if (f.hasVideos && f.thumbnail && f.thumbnail.length > 20) {
+                thumbHtml = '<img class="poster" src="data:image/jpeg;base64,' + f.thumbnail + '" alt="">';
+            } else if (f.hasVideos) {
+                thumbHtml = '<div class="poster-placeholder"><img src="img/playlist_placeholder.png" alt=""></div>';
+            } else {
+                thumbHtml = '<div class="poster-placeholder"><img src="img/folder_placeholder.png" alt=""></div>';
+            }
+            var meta = f.isRoot ? 'Storage root' : (f.hasVideos ? 'Playlist' : 'Folder');
+            var card = $('<div class="album-card" tabindex="0" role="button" aria-label="' + escapeAttr(f.name) + '">'
+                + thumbHtml
+                + '<div class="card-info">'
+                +   '<div class="card-title">' + escapeHtml(f.name) + '</div>'
+                +   '<div class="card-meta">' + escapeHtml(meta) + '</div>'
+                + '</div>'
+                + '</div>');
+            card.on('click', function () { navigateFolder(f.path); });
+            card.on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigateFolder(f.path); }
+            });
+            $dirs.append(card);
+        });
+    }
+
+    if (hasVids) {
+        var $vids = $('#folder-vids-grid').empty();
+        $('#folder-section-vids').show();
+        data.videos.forEach(function (v, i) {
+            var card = $('<div class="album-card" tabindex="0" role="button" aria-label="' + escapeAttr(v.name) + '">'
+                + '<div class="poster-placeholder"><img src="img/thumbnail.png" alt=""></div>'
+                + '<div class="card-info">'
+                +   '<div class="card-title">' + escapeHtml(v.name) + '</div>'
+                +   '<div class="card-meta">' + escapeHtml((v.ext || '').replace('.', '').toUpperCase()) + '</div>'
+                + '</div>'
+                + '</div>');
+            card.data('vidIdx', i);
+            card.data('vidInfo', v);
+            card.on('click', function () { playFolderVideos(folderViewVideos, $(this).data('vidIdx')); });
+            card.on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playFolderVideos(folderViewVideos, $(this).data('vidIdx')); }
+            });
+            $vids.append(card);
+        });
+
+        // Lazy-load video thumbnails
+        $('#folder-vids-grid .album-card').each(function () {
+            var $card = $(this);
+            var v = $card.data('vidInfo');
+            if (!v) { return; }
+            ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: v.filepath }, function (data) {
+                if (data && !data.error && data.length > 20) {
+                    $card.find('.poster-placeholder')
+                        .replaceWith('<img class="poster" src="data:image/jpeg;base64,' + data + '" alt="">');
+                }
+            });
+        });
+    }
+}
+
+function playFolderVideos(videos, startIndex) {
+    if (!videos || videos.length === 0) { return; }
+    var segments = folderViewPath.split('/').filter(function (s) { return s.length > 0; });
+    var folderName = segments.length > 0 ? segments[segments.length - 1] : 'Videos';
+    currentAlbum    = { name: folderName, type: 'folder', folderpath: folderViewPath };
+    currentSeason   = null;
+    currentEpisodes = videos.map(function (v, i) {
+        return { name: v.name, filepath: v.filepath, ext: v.ext, index: i };
+    });
+    startPlayback(startIndex);
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 $(document).ready(function () {
@@ -1082,7 +1323,9 @@ function loadCardThumbnails() {
         var $card = $(this);
         var album = $card.data('album');
         if (!album || album.thumbnail) { return; } // already has thumb
-        ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: album.folderpath }, function (data) {
+        // For shorts use the actual video file; folder path would yield the generic folder thumbnail
+        var fileParam = (album.type === 'short' && album._singleFile) ? album._singleFile : album.folderpath;
+        ao_module_agirun(SCRIPT_GET_THUMBNAIL, { file: fileParam }, function (data) {
             if (data && !data.error && data.length > 20) {
                 $card.find('.poster-placeholder')
                     .replaceWith('<img class="poster" src="data:image/jpeg;base64,' + data + '" alt="">');
@@ -1227,6 +1470,13 @@ function startPlayback(index) {
     // Build sidebar list
     renderSidebar(currentEpisodes, index);
 
+    // Hide sidebar by default when there is only one video — nothing useful to show
+    if (currentEpisodes.length <= 1) {
+        $('#playlist-sidebar').addClass('collapsed');
+    } else {
+        $('#playlist-sidebar').removeClass('collapsed');
+    }
+
     // Highlight in episode list
     highlightPlayingEpisode(index);
 
@@ -1281,9 +1531,12 @@ function closePlayer() {
     var vid = document.getElementById('main-video');
     vid.pause();
     vid.src = '';
-    // Return to detail only if user was watching a series/anime with a detail page;
-    // for movies/shorts go straight back to library.
-    showView(currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime') ? 'detail' : 'library');
+    var returnTo = (currentAlbum && (currentAlbum.type === 'series' || currentAlbum.type === 'anime'))
+        ? 'detail'
+        : (currentAlbum && currentAlbum.type === 'folder')
+        ? 'folder'
+        : 'library';
+    showView(returnTo);
 }
 
 function showLibrary() {
@@ -1295,6 +1548,16 @@ function showLibrary() {
 function showView(name) {
     $('.view').removeClass('active');
     $('#view-' + name).addClass('active');
+    if (name === 'folder') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-folder').addClass('active');
+        $('#search-wrap').hide();
+    } else if (name === 'library' || name === 'detail') {
+        $('.mode-tab').removeClass('active');
+        $('#tab-library').addClass('active');
+        $('#search-wrap').show();
+    }
+    // player view leaves tab state unchanged
 }
 
 // ─── Video controls ───────────────────────────────────────────────────────────

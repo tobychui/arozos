@@ -17,6 +17,7 @@ var AGI_INTERFACE = "../system/ajgi/interface?script=";
 var SCRIPT_GET_LIBRARY   = BACKEND_PATH + "getLibrary.js";
 var SCRIPT_GET_EPISODES  = BACKEND_PATH + "getEpisodes.js";
 var SCRIPT_GET_THUMBNAIL = BACKEND_PATH + "getThumbnail.js";
+var SCRIPT_LIST_FOLDER   = BACKEND_PATH + "listFolder.js";
 
 // ── Scanner settings ─────────────────────────────────────────────────────────
 var VALID_VIDEO_FORMATS = ["mp4", "webm", "ogg", "mkv", "avi", "mov", "m4v", "wmv", "flv", "rmvb", "ts"];
