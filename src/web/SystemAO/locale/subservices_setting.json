@@ -102,26 +102,6 @@
                 "subservices/Start": "開始"
             }
         },
-        "ko_kr": {
-            "name": "한국어",
-            "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",
-            "strings": {
-                "subservices/Title": "서브서비스 관리",
-                "subservices/Subtitle": "서브서비스로 서비스를 연결합니다",
-                "subservices/WhatIs": "서브서비스란?",
-                "subservices/Desc": "서브서비스는 ArOZ Online 모듈의 한 종류로, 시스템 코어에 내장되어 있지 않지만 코어 모듈처럼 동작합니다. ArOZ Online Core에 내장된 리버스 프록시로 구동되어 코어 모듈과 같이 웹 콘텐츠를 제공합니다. 코어 모듈과 달리 서브서비스는 필요에 따라 끌 수 있어 자원을 절약할 수 있습니다.",
-                "subservices/Running": "실행 중인 서비스",
-                "subservices/Module": "해당 모듈",
-                "subservices/Port": "포트",
-                "subservices/ProxyPath": "리버스 프록시 경로",
-                "subservices/Executable": "실행 파일 (프로세스 ID)",
-                "subservices/Action": "동작",
-                "subservices/Disable": "비활성화",
-                "subservices/Disabled": "비활성화된 서비스",
-                "subservices/ServiceName": "서비스 이름",
-                "subservices/Start": "시작"
-            }
-        },
         "ko-kr": {
             "name": "한국어",
             "fontFamily": "\"Microsoft JhengHei\",\"SimHei\", \"Apple LiGothic Medium\", \"STHeiti\"",

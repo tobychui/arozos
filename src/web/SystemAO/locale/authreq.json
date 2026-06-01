@@ -67,19 +67,6 @@
                 "Password": "パスワード"
             }
         },
-        "ko_kr": {
-            "fontFamily": "",
-            "strings": {
-                "page/title": "관리자 인증",
-                "button/confirm": "확인",
-                "button/cancel": "취소",
-                "": ""
-            },
-            "placeholder": {
-                "Username": "사용자 이름",
-                "Password": "비밀번호"
-            }
-        },
         "ko-kr": {
             "fontFamily": "",
             "strings": {

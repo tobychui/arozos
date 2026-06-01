@@ -172,40 +172,6 @@
                 "addAndRemove/zipPlaceholder": "ストレージから .zip ファイルを選択…"
             }
         },
-        "ko_kr": {
-            "name": "한국어",
-            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
-            "strings": {
-                "addAndRemove/installTitle": "새 WebApp 설치",
-                "addAndRemove/installFromFS": "파일 시스템에서 설치",
-                "addAndRemove/browse": "찾아보기",
-                "addAndRemove/install": "설치",
-                "addAndRemove/uploadAndInstall": "업로드 및 설치",
-                "addAndRemove/dropPre": "<b>.zip</b> 파일을 여기에 끌어다 놓거나",
-                "addAndRemove/dropClickBrowse": "클릭하여 선택",
-                "addAndRemove/uploading": "업로드 및 설치 중…",
-                "addAndRemove/installedWebApps": "설치된 WebApp",
-                "addAndRemove/loading": "로딩 중…",
-                "addAndRemove/noWebApps": "설치된 WebApp이 없습니다.",
-                "addAndRemove/systemApps": "시스템 앱",
-                "addAndRemove/installing": "설치 중…",
-                "addAndRemove/installOk": "WebApp이 성공적으로 설치되었습니다.",
-                "addAndRemove/installFail": "설치에 실패했습니다. 서버 로그를 확인하세요.",
-                "addAndRemove/zipOnly": ".zip 파일만 지원됩니다.",
-                "addAndRemove/uploadFail": "업로드에 실패했습니다.",
-                "addAndRemove/locationKey": "위치",
-                "addAndRemove/lastUpdateKey": "마지막 업데이트",
-                "addAndRemove/sizeKey": "크기",
-                "addAndRemove/closeBtn": "닫기",
-                "addAndRemove/deleteAppBtn": "앱 삭제",
-                "addAndRemove/confirmRemove": "\"{name}\"을(를) 영구적으로 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.",
-                "addAndRemove/removedOk": "\"{name}\"이(가) 성공적으로 삭제되었습니다.",
-                "addAndRemove/removeFail": "삭제에 실패했습니다."
-            },
-            "placeholder": {
-                "addAndRemove/zipPlaceholder": "저장소에서 .zip 파일을 선택…"
-            }
-        },
         "ko-kr": {
             "name": "한국어",
             "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
