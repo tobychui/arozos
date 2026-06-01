@@ -388,6 +388,64 @@
         .tc-btn.primary:hover { background: var(--accent-h); border-color: var(--accent-h); }
         .tc-btn.danger  { color: var(--danger); }
         .tc-btn.danger:hover { background: var(--hover); }
+
+        /* Mobile-only nav buttons (hidden on desktop) */
+        .mobile-nav-btn {
+            display: none;
+            width: 30px; height: 30px;
+            border-radius: 7px;
+            border: none;
+            background: transparent;
+            color: var(--text2);
+            cursor: pointer;
+            align-items: center; justify-content: center;
+            font-size: 15px;
+            transition: background 0.12s, color 0.12s;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .mobile-nav-btn:hover { background: var(--hover); color: var(--text); }
+
+        /* Small task-count badge shown on the queue button in left header */
+        .mobile-badge {
+            position: absolute; top: -3px; right: -3px;
+            background: var(--accent); color: var(--btn-text);
+            font-size: 0.62em; font-weight: 700;
+            min-width: 15px; height: 15px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 3px; pointer-events: none;
+        }
+
+        /* RWD: phone portrait */
+        @media (max-width: 600px) {
+            #appWrapper { flex-direction: column; }
+
+            #leftPanel {
+                width: 100%;
+                min-width: 0;
+                max-width: none;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                flex: 1;
+            }
+
+            /* Right panel hidden by default; shown when in queue view */
+            #rightPanel { display: none; }
+
+            body.mobile-queue-view #leftPanel  { display: none; }
+            body.mobile-queue-view #rightPanel {
+                display: flex;
+                flex: 1;
+            }
+
+            .mobile-nav-btn { display: flex; }
+
+            /* Larger touch targets for form controls */
+            .ff-select, .ff-input { padding: 9px 10px; font-size: 0.9em; }
+            #convertBtn { padding: 11px; font-size: 0.95em; }
+            .tc-btn { padding: 6px 12px; font-size: 0.8em; }
+        }
     </style>
 </head>
 <body class="light">
@@ -401,6 +459,10 @@
             <span class="hdr-spacer"></span>
             <button id="themeToggleBtn" onclick="toggleTheme()" title="Toggle dark / light mode">
                 <i class="moon icon" id="themeIcon"></i>
+            </button>
+            <button class="mobile-nav-btn" id="mobileQueueBtn" onclick="switchToQueue()" title="View task queue">
+                <i class="list ul icon"></i>
+                <span class="mobile-badge" id="mobileQueueBadge" style="display:none">0</span>
             </button>
         </div>
         <div id="leftBody">
@@ -503,6 +565,7 @@
     <!-- ════════════════ RIGHT PANEL ════════════════ -->
     <div id="rightPanel">
         <div id="rightHeader">
+            <button class="mobile-nav-btn" id="mobileBackBtn" onclick="switchToConvert()" title="Back to conversion settings">&#8592;</button>
             <i class="list ul icon hdr-icon"></i>
             Task Queue
             <span id="taskCountBadge">0</span>
@@ -523,6 +586,17 @@
 // ══════════════════════════════════════════════════════════════════
 //  FFmpeg Factory  –  frontend logic
 // ══════════════════════════════════════════════════════════════════
+
+// ── Mobile panel navigation ───────────────────────────────────────────────
+function isMobileFF() {
+    return window.matchMedia('(max-width: 600px)').matches;
+}
+function switchToQueue() {
+    document.body.classList.add('mobile-queue-view');
+}
+function switchToConvert() {
+    document.body.classList.remove('mobile-queue-view');
+}
 
 // --- Extension groups ---
 var VIDEO_EXTS       = ["mp4","mkv","avi","mov","flv","webm"];
@@ -845,6 +919,7 @@ function startConversion() {
     addTaskCard(taskData);
     startPolling(taskId);
     clearSelectedFile();
+    if (isMobileFF()) switchToQueue();
 
     // Fire the long-running AGI request (no timeout → waits until ffmpeg finishes)
     ao_module_agirun("FFmpeg Factory/agi/convert.agi", {
@@ -1038,8 +1113,13 @@ function dismissTask(taskId) {
 
 function refreshTaskCount() {
     var n = $("#taskList .task-card").length;
-    if (n > 0) { $("#taskCountBadge").text(n).show(); }
-    else        { $("#taskCountBadge").hide(); }
+    if (n > 0) {
+        $("#taskCountBadge").text(n).show();
+        $("#mobileQueueBadge").text(n).show();
+    } else {
+        $("#taskCountBadge").hide();
+        $("#mobileQueueBadge").hide();
+    }
 }
 
 // ──────────────────────────────────────────────
