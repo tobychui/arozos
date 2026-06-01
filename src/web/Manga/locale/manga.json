@@ -1,13 +1,13 @@
 {
     "author": "arozos-manga",
-    "version": "1.0",
+    "version": "2.0",
     "keys": {
         "en-us": {
             "name": "English",
             "fwtitle": "Manga",
             "strings": {
                 "app/title":                "Manga",
-                "loading/library":          "Scanning library…",
+                "loading/library":          "Loading...",
                 "loading/chapter":          "Loading chapter…",
                 "empty/title":              "No manga found",
                 "empty/sub":               "Add manga folders to",
@@ -45,17 +45,17 @@
 
         "zh-tw": {
             "name": "繁體中文（台灣）",
-            "fwtitle": "漫畫圖書館",
+            "fwtitle": "漫畫櫃",
             "fontFamily": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
             "strings": {
                 "app/title":                "漫畫",
-                "loading/library":          "掃描圖書館中…",
+                "loading/library":          "載入中…",
                 "loading/chapter":          "載入章節中…",
                 "empty/title":              "找不到漫畫",
                 "empty/sub":               "請將漫畫資料夾加入",
                 "nosearch/title":           "無搜尋結果",
                 "nosearch/sub":            "找不到符合的漫畫。",
-                "btn/back_library":         "圖書館",
+                "btn/back_library":         "返回櫃檯",
                 "btn/back":                "返回",
                 "btn/prev":                "上一話",
                 "btn/next":                "下一話",
@@ -87,17 +87,17 @@
 
         "zh-cn": {
             "name": "简体中文",
-            "fwtitle": "漫画图书馆",
+            "fwtitle": "漫画柜",
             "fontFamily": "\"Microsoft YaHei\", \"SimHei\", \"WenQuanYi Micro Hei\", sans-serif",
             "strings": {
                 "app/title":                "漫画",
-                "loading/library":          "正在扫描库…",
+                "loading/library":          "正在加载…",
                 "loading/chapter":          "正在加载章节…",
                 "empty/title":              "未找到漫画",
                 "empty/sub":               "请将漫画文件夹添加到",
                 "nosearch/title":           "无搜索结果",
                 "nosearch/sub":            "没有符合的漫画。",
-                "btn/back_library":         "书库",
+                "btn/back_library":         "返回柜台",
                 "btn/back":                "返回",
                 "btn/prev":                "上一话",
                 "btn/next":                "下一话",
@@ -129,11 +129,11 @@
 
         "ja-jp": {
             "name": "日本語",
-            "fwtitle": "マンガ図書館",
+            "fwtitle": "マンガライブラリ",
             "fontFamily": "\"Meiryo\", \"Yu Gothic\", \"Hiragino Kaku Gothic ProN\", sans-serif",
             "strings": {
                 "app/title":                "マンガ",
-                "loading/library":          "ライブラリをスキャン中…",
+                "loading/library":          "読み込み中…",
                 "loading/chapter":          "話を読み込み中…",
                 "empty/title":              "マンガが見つかりません",
                 "empty/sub":               "マンガフォルダを追加：",
@@ -171,12 +171,12 @@
 
         "ko-kr": {
             "name": "한국어",
-            "fwtitle": "만화 도서관",
+            "fwtitle": "만화 라이브러리",
             "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
             "strings": {
                 "app/title":                "만화",
-                "loading/library":          "라이브러리 스캔 중…",
-                "loading/chapter":          "체터 불러오는 중…",
+                "loading/library":          "만화 라이브러리 로딩 중…",
+                "loading/chapter":          "화 로딩 중…",
                 "empty/title":              "만화를 찾을 수 없습니다",
                 "empty/sub":               "만화 폴더를 추가해 주세요:",
                 "nosearch/title":           "검색 결과 없음",
