@@ -83,6 +83,33 @@ html, body {
 /* ─── Library view ───────────────────────────────────────────────────────────── */
 #view-library { padding: 0; }
 
+/* Status bar ─────────────────────────────────────────────────────────────────── */
+#library-status-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 22px;
+    font-size: 11px;
+    color: var(--text-sub);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    min-height: 26px;
+}
+.spinner-sm {
+    width: 11px; height: 11px; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+#library-refresh-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--accent); font-size: 11px; font-weight: 500;
+    padding: 0; outline: none; transition: opacity var(--transition);
+}
+#library-refresh-btn:hover   { opacity: 0.7; }
+#library-refresh-btn:disabled { opacity: 0.35; cursor: default; }
+
 #library-scroll {
     flex: 1;
     overflow-y: auto;
@@ -934,6 +961,11 @@ html, body {
 
     <!-- ═══════════════ LIBRARY VIEW ═══════════════════════════════════════ -->
     <div id="view-library" class="view active">
+        <div id="library-status-bar">
+            <div class="spinner-sm" id="library-spinner"></div>
+            <span id="library-status-text"></span>
+            <button id="library-refresh-btn" onclick="refreshLibrary()" style="display:none">↻ Refresh</button>
+        </div>
         <div id="library-scroll">
             <div id="no-content">
                 <div class="icon"><img src="img/icons/movie_white.svg" alt=""></div>
@@ -1137,6 +1169,11 @@ html, body {
 <script>
 // ─── All configurable paths come from backend/common.js ──────────────────────
 // (SCRIPT_GET_LIBRARY, SCRIPT_GET_EPISODES, SCRIPT_GET_THUMBNAIL, MEDIA_API)
+
+// ─── Library cache (localStorage) ────────────────────────────────────────────
+var LIBRARY_CACHE_KEY     = 'movie_library_cache';
+var LIBRARY_CACHE_VERSION = 1;
+var libraryNeedsRedraw    = false; // set when bg-refresh finishes outside the library view
 
 // ─── App state ────────────────────────────────────────────────────────────────
 var library        = [];   // full album array from server
@@ -1601,19 +1638,124 @@ $(document).ready(function () {
     });
 });
 
-// ─── Load library from backend ────────────────────────────────────────────────
+// ─── Library cache helpers ─────────────────────────────────────────────────────
+function getCachedLibrary() {
+    try {
+        var raw = localStorage.getItem(LIBRARY_CACHE_KEY);
+        if (!raw) { return null; }
+        var obj = JSON.parse(raw);
+        if (!obj || obj.version !== LIBRARY_CACHE_VERSION || !Array.isArray(obj.data)) { return null; }
+        return obj;  // { version, ts, data }
+    } catch (e) { return null; }
+}
+
+function updateLibraryCache(data) {
+    try {
+        localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({
+            version: LIBRARY_CACHE_VERSION,
+            ts:      Date.now(),
+            data:    data
+        }));
+    } catch (e) {} // storage full or unavailable — silently ignore
+}
+
+// spinning=true  →  show spinner, hide Refresh button
+// spinning=false →  hide spinner, show Refresh button
+function setLibraryStatus(text, spinning) {
+    $('#library-status-text').text(text);
+    $('#library-spinner').toggle(spinning);
+    $('#library-refresh-btn').toggle(!spinning);
+}
+
+function timeAgo(ts) {
+    var d = Math.floor((Date.now() - ts) / 1000);
+    if (d < 60)    { return 'just now'; }
+    if (d < 3600)  { return Math.floor(d / 60) + 'm ago'; }
+    if (d < 86400) { return Math.floor(d / 3600) + 'h ago'; }
+    return Math.floor(d / 86400) + 'd ago';
+}
+
+// Re-render the library grid, preserving an active search filter if present
+function renderCurrentLibrary() {
+    var q = $('#search-input').val().trim().toLowerCase();
+    renderLibrary(q ? library.filter(function (a) { return a.name.toLowerCase().indexOf(q) > -1; }) : library);
+}
+
+// ─── Load library (cache-first) ────────────────────────────────────────────────
 function loadLibrary() {
+    var cached = getCachedLibrary();
+
+    if (cached) {
+        // ── Have cache: show it immediately, skip the loading overlay ──────────
+        $('#loading-overlay').hide();
+        library = cached.data;
+        renderLibrary(library);
+        setLibraryStatus('Cached · ' + timeAgo(cached.ts) + ' · refreshing…', true);
+
+        // Background fetch — silently update when done
+        ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+            if (!data || data.error) {
+                setLibraryStatus('⚠ Refresh failed · showing cached data', false);
+                return;
+            }
+            updateLibraryCache(data);
+            library = data;
+            if ($('#view-library').hasClass('active')) {
+                renderCurrentLibrary();    // user is watching — update smoothly
+                libraryNeedsRedraw = false;
+            } else {
+                libraryNeedsRedraw = true; // user navigated away — re-render on return
+            }
+            var n = library.length;
+            setLibraryStatus('✓ ' + n + ' item' + (n !== 1 ? 's' : ''), false);
+        }, function () {
+            setLibraryStatus('⚠ Refresh failed · showing cached data', false);
+        });
+
+    } else {
+        // ── No cache: full loading screen, wait for first fetch ───────────────
+        setLibraryStatus('Loading…', true);
+        ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+            $('#loading-overlay').fadeOut(300);
+            if (!data || data.error) {
+                showToast('Failed to load library');
+                setLibraryStatus('⚠ Failed to load library', false);
+                return;
+            }
+            updateLibraryCache(data);
+            library = data;
+            renderLibrary(library);
+            var n = library.length;
+            setLibraryStatus('✓ ' + n + ' item' + (n !== 1 ? 's' : ''), false);
+        }, function () {
+            $('#loading-overlay').fadeOut(300);
+            showToast('Error loading library');
+            setLibraryStatus('⚠ Error loading library', false);
+        });
+    }
+}
+
+// ─── Manual refresh (Refresh button) ──────────────────────────────────────────
+function refreshLibrary() {
+    $('#library-refresh-btn').prop('disabled', true);
+    setLibraryStatus('Refreshing…', true);
     ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
-        $('#loading-overlay').fadeOut(300);
+        $('#library-refresh-btn').prop('disabled', false);
         if (!data || data.error) {
-            showToast('Failed to load library');
+            showToast('Failed to refresh library');
+            setLibraryStatus('⚠ Refresh failed', false);
             return;
         }
+        updateLibraryCache(data);
         library = data;
-        renderLibrary(library);
+        renderCurrentLibrary();
+        libraryNeedsRedraw = false;
+        var n = library.length;
+        setLibraryStatus('✓ ' + n + ' item' + (n !== 1 ? 's' : '') + ' · just refreshed', false);
     }, function () {
-        $('#loading-overlay').fadeOut(300);
-        showToast('Error loading library');
+        $('#library-refresh-btn').prop('disabled', false);
+        showToast('Error refreshing library');
+        setLibraryStatus('⚠ Refresh failed', false);
     });
 }
 
@@ -2003,6 +2145,11 @@ function closePlayer() {
 function showLibrary() {
     showView('library');
     currentAlbum = null;
+    // If a background refresh completed while the user was away, apply it now
+    if (libraryNeedsRedraw) {
+        libraryNeedsRedraw = false;
+        renderCurrentLibrary();
+    }
 }
 
 // ─── View switching ───────────────────────────────────────────────────────────
