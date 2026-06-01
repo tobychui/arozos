@@ -16,7 +16,7 @@
     font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-#ov-root.dark {
+body.dark #ov-root {
     --ov-bg: #2b2b2b;
     --ov-border: #3b3b3b;
     --ov-text: #ececec;
@@ -207,18 +207,20 @@
     var overviewLocale = NewAppLocale();
 
     function applyTheme() {
+        // Theme is driven by body.dark (set by system_setting/main.js and desktopThemeChanged).
+        // Sync body.dark here for the initial load in case it isn't set yet.
         var isDark = false;
         try {
             if (typeof preferredTheme !== 'undefined') {
                 isDark = (preferredTheme === 'dark' || preferredTheme === 'darkTheme');
             } else {
                 ao_module_getSystemThemeColor(function (c) {
-                    document.getElementById('ov-root').classList.toggle('dark', c !== 'whiteTheme');
+                    document.body.classList.toggle('dark', c !== 'whiteTheme');
                 });
                 return;
             }
         } catch (e) {}
-        document.getElementById('ov-root').classList.toggle('dark', isDark);
+        document.body.classList.toggle('dark', isDark);
     }
 
     function ovS(key, fallback) {
