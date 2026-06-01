@@ -2084,7 +2084,10 @@
             if (thisModule["SupportFW"]) {
                 fwsupport = "true";
             }
-            $("#listMenuItem").append(`<div class="item module" module="${name}" startdir="${startdir}" fw="${fwsupport}" onclick="openModuleFromMenu(this);" ontouchstart="openModuleFromMenu(this);">
+            $("#listMenuItem").append(`<div class="item module" module="${name}" startdir="${startdir}" fw="${fwsupport}"
+                        draggable="true"
+                        ondragstart="listMenuItemDragStart(event,this);"
+                        onclick="openModuleFromMenu(this);" ontouchstart="openModuleFromMenu(this);">
                         <span>
                             <img src="${icon}"></img>
                             ${name}
@@ -4403,8 +4406,33 @@
             }
             var sourceFilename = ev.dataTransfer.getData("filename");
             var sourceFilepath = ev.dataTransfer.getData("filepath");
+
+            // ── List-menu app drag → create shortcut at drop location ──────────────
+            if (ev.dataTransfer.getData("moduledragtype") === "module" && target.attr("id") === "bgwrapper") {
+                var _mName = ev.dataTransfer.getData("modulename");
+                var _mIcon = ev.dataTransfer.getData("moduleicon");
+                var _locs  = gridPositionAllocate(ev.clientX, ev.clientY, 1);
+                var _gx = _locs[0][0], _gy = _locs[0][1];
+                $.ajax({
+                    url:    "system/desktop/createShortcut",
+                    method: "POST",
+                    data:   { stype: "module", stext: _mName, spath: _mName, sicon: _mIcon },
+                    success: function(data) {
+                        if (data.error) { console.log(data.error); return; }
+                        // Set position then refresh; filename is <name>.shortcut
+                        setIconDesktopLocation(_mName + ".shortcut", _gx, _gy, function() {
+                            refresh(undefined, false);
+                        });
+                    }
+                });
+                // Close list menu after a successful drop
+                $("#listMenu").fadeOut("fast", function() { listMenuShown = false; });
+                return;
+            }
+            // ────────────────────────────────────────────────────────────────────────
+
             //To handle multiple file transfer from file explorer
-            var sourceFilelist = ev.dataTransfer.getData("filedata"); 
+            var sourceFilelist = ev.dataTransfer.getData("filedata");
 
             //To handle drag dropping URLs onto desktop
             var linkObject = ev.dataTransfer.getData('text/html');
@@ -4883,6 +4911,21 @@
         //THIS FUNCTION IS NEEDED. DO NOT DELETE ALLOWDROP FUNCTION
         function allowDrop(ev) {
             ev.preventDefault();
+        }
+
+        // Fired when the user starts dragging a list-menu app item onto the desktop
+        function listMenuItemDragStart(ev, el) {
+            ev.stopPropagation();
+            var name  = $(el).attr("module");
+            var icon  = $(el).find("img").first().attr("src");
+            ev.dataTransfer.effectAllowed = "copy";
+            ev.dataTransfer.setData("moduledragtype", "module");
+            ev.dataTransfer.setData("modulename",     name);
+            ev.dataTransfer.setData("moduleicon",     icon);
+            // Clear file-drag fields so existing drop logic ignores this event
+            ev.dataTransfer.setData("filepath",  "");
+            ev.dataTransfer.setData("filename",  "");
+            ev.dataTransfer.setData("filedata",  "");
         }
 
         //Pass in the object fullpath and return the icon object onscreen
