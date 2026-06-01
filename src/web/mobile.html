@@ -185,6 +185,7 @@ body.dark-mode #app-search-wrap { background: rgba(0,0,0,.3); border-color: rgba
 body.dark-mode .folder-item{background:rgba(0,0,0,.28);border-color:rgba(255,255,255,.1);}
 .folder-item:active{background:rgba(255,255,255,.24);}
 .folder-emoji{width:40px;height:40px;display:block;object-fit:contain;}
+.shortcut-icon{width:40px;height:40px;border-radius:10px;object-fit:cover;display:block;background:rgba(255,255,255,.25);}
 .folder-name{font-size:11px;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.4);text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #files-empty{text-align:center;color:rgba(255,255,255,.5);margin-top:64px;font-size:14px;display:none;}
 
@@ -409,10 +410,10 @@ body.dark-mode .cp-btn.red{color:#ff6b6b;}
 
     <!-- Section 3: Files -->
     <div class="lp-section" id="sec-files">
-        <div id="files-header"><h2>Desktop</h2><p>Folders on your desktop</p></div>
+        <div id="files-header"><h2>Desktop</h2><p>Folders &amp; Shortcuts</p></div>
         <div id="files-grid-wrap">
             <div id="files-grid"></div>
-            <div id="files-empty">No folders on desktop</div>
+            <div id="files-empty">No folders or shortcuts on desktop</div>
         </div>
     </div>
 </div>
@@ -753,8 +754,26 @@ function onDragEnd(){
 function initFiles(){
     $.get("system/desktop/listDesktop",function(data){
         if(!data||data.error){$("#files-empty").show();return;}
+
+        // URL shortcuts shown first
+        var urlShortcuts=data.filter(function(f){return f.IsShortcut&&f.ShortcutType==="url";});
+        // Folders shown after
         var folders=data.filter(function(f){return f.IsDir&&!f.IsShortcut;});
-        if(!folders.length){$("#files-empty").show();return;}
+
+        if(!urlShortcuts.length&&!folders.length){$("#files-empty").show();return;}
+
+        urlShortcuts.forEach(function(f){
+            var icon=f.ShortcutImage||"";
+            var name=escH(f.ShortcutName||f.Filename);
+            var url=escA(f.ShortcutPath);
+            $("#files-grid").append(
+                '<div class="folder-item" onclick="openUrlShortcut(\''+url+'\')">'
+                +'<img class="shortcut-icon" src="'+escA(icon)+'" onerror="this.src=\'img/system/favicon.png\'">'
+                +'<span class="folder-name">'+name+'</span>'
+                +'</div>'
+            );
+        });
+
         folders.forEach(function(f){
             $("#files-grid").append(
                 '<div class="folder-item" onclick="openFolder(\''+escA(f.Filepath)+'\')">'
@@ -767,6 +786,9 @@ function initFiles(){
 }
 function openFolder(fp){
     window.open("SystemAO/file_system/file_explorer.html#"+encodeURIComponent(fp),"_blank");
+}
+function openUrlShortcut(url){
+    window.open(url,"_blank");
 }
 
 /* ─────────────────────────────────────────────
