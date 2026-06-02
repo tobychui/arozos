@@ -458,6 +458,42 @@
         .seek-bar { background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--progress, 0%), var(--border) var(--progress, 0%), var(--border) 100%); }
         .volume-bar { background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--vol-pct, 80%), var(--border) var(--vol-pct, 80%), var(--border) 100%); }
 
+        /* ── Seek bar extended hit-area wrapper (±10 px transparent zone) ── */
+        .seek-bar-wrap {
+            flex: 1;
+            position: relative;
+            height: 4px;
+            cursor: pointer;
+        }
+        .seek-bar-wrap > .seek-bar {
+            flex: unset;
+            position: absolute;
+            top: -10px;
+            left: 0;
+            width: 100%;
+            height: 24px;
+            background: transparent;
+            border-radius: 0;
+        }
+        .seek-bar-wrap > .seek-bar::-webkit-slider-runnable-track {
+            height: 4px;
+            border-radius: 2px;
+            background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--progress, 0%), var(--border) var(--progress, 0%), var(--border) 100%);
+        }
+        .seek-bar-wrap > .seek-bar::-webkit-slider-thumb {
+            margin-top: -4px;
+        }
+        .seek-bar-wrap > .seek-bar::-moz-range-track {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border);
+        }
+        .seek-bar-wrap > .seek-bar::-moz-range-progress {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--accent);
+        }
+
         /* Right: extras */
         .player-extras {
             display: flex; align-items: center; gap: 4px;
@@ -1344,13 +1380,18 @@
             <!-- Seek bar -->
             <div class="seek-row">
                 <span class="seek-time" x-text="formatTime(currentTime)"></span>
-                <input type="range" class="seek-bar" min="0" :max="Math.floor(duration) || 100"
-                    :value="Math.floor(currentTime)"
-                    :style="'--progress:' + progressPercent() + '%'"
-                    x-on:mousedown="beginSeek()"
-                    x-on:touchstart="beginSeek()"
-                    x-on:change="endSeek($event.target.value)"
-                    x-on:input="currentTime = parseFloat($event.target.value)">
+                <div class="seek-bar-wrap">
+                    <input type="range" class="seek-bar" min="0" :max="Math.floor(duration) || 100"
+                        :value="Math.floor(currentTime)"
+                        :style="'--progress:' + progressPercent() + '%'"
+                        x-on:mousedown="beginSeek()"
+                        x-on:touchstart="beginSeek()"
+                        x-on:touchmove="currentTime = parseFloat($event.target.value)"
+                        x-on:touchend="endSeek($event.target.value)"
+                        x-on:touchcancel="endSeek($event.target.value)"
+                        x-on:change="endSeek($event.target.value)"
+                        x-on:input="currentTime = parseFloat($event.target.value)">
+                </div>
                 <span class="seek-time right" x-text="formatTime(duration)"></span>
             </div>
         </div>
@@ -1385,13 +1426,18 @@
         <!-- Mobile: seek bar -->
         <div class="mobile-seek-row">
             <span class="seek-time" x-text="formatTime(currentTime)"></span>
-            <input type="range" class="seek-bar" min="0" :max="Math.floor(duration) || 100"
-                :value="Math.floor(currentTime)"
-                :style="'--progress:' + progressPercent() + '%'"
-                x-on:mousedown="beginSeek()"
-                x-on:touchstart="beginSeek()"
-                x-on:change="endSeek($event.target.value)"
-                x-on:input="currentTime = parseFloat($event.target.value)">
+            <div class="seek-bar-wrap">
+                <input type="range" class="seek-bar" min="0" :max="Math.floor(duration) || 100"
+                    :value="Math.floor(currentTime)"
+                    :style="'--progress:' + progressPercent() + '%'"
+                    x-on:mousedown="beginSeek()"
+                    x-on:touchstart="beginSeek()"
+                    x-on:touchmove="currentTime = parseFloat($event.target.value)"
+                    x-on:touchend="endSeek($event.target.value)"
+                    x-on:touchcancel="endSeek($event.target.value)"
+                    x-on:change="endSeek($event.target.value)"
+                    x-on:input="currentTime = parseFloat($event.target.value)">
+            </div>
             <span class="seek-time right" x-text="formatTime(duration)"></span>
         </div>
 
