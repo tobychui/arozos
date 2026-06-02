@@ -180,8 +180,20 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 
 	targetFshAbs := targetFsh.FileSystemAbstraction
 
-	// Check if this is a RAW image file and render it as JPEG
-	if metadata.IsRawImageFile(realFilepath) {
+	//Check if downloadMode
+	downloadMode := false
+	dw, _ := utils.GetPara(r, "download")
+	if dw == "true" {
+		downloadMode = true
+	}
+
+	//New download implementations, allow /download to be used instead of &download=true
+	if strings.Contains(r.RequestURI, "media/download/?file=") {
+		downloadMode = true
+	}
+
+	// Check if this is a RAW image file and render it as JPEG (preview only, not download)
+	if !downloadMode && metadata.IsRawImageFile(realFilepath) {
 		jpegData, err := metadata.RenderRAWImage(targetFsh, realFilepath)
 		if err != nil {
 			// If RAW rendering fails, fall back to serving the raw file
@@ -193,18 +205,6 @@ func (s *Instance) ServerMedia(w http.ResponseWriter, r *http.Request) {
 			w.Write(jpegData)
 			return
 		}
-	}
-
-	//Check if downloadMode
-	downloadMode := false
-	dw, _ := utils.GetPara(r, "download")
-	if dw == "true" {
-		downloadMode = true
-	}
-
-	//New download implementations, allow /download to be used instead of &download=true
-	if strings.Contains(r.RequestURI, "media/download/?file=") {
-		downloadMode = true
 	}
 
 	//Serve the file
