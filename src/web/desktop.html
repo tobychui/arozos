@@ -132,6 +132,7 @@
         
         .launchIconWrapper.selected {
             background: rgba(250, 250, 250, 0.4) !important;
+            z-index: 200;
         }
         
         .launchIconText {
@@ -143,10 +144,23 @@
             word-break: break-all;
             width: 100%;
             font-variant-numeric: tabular-nums lining-nums;
+            /* Clamp to 2 lines so long names don't bleed into the icon below */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
         
         .launchIconWrapper:hover {
             background: rgba(250, 250, 250, 0.2);
+            z-index: 200; /* float above sibling icon images */
+        }
+
+        /* On hover or selection: unclamp text so full name is visible */
+        .launchIconWrapper:hover .launchIconText,
+        .launchIconWrapper.selected .launchIconText {
+            display: block;          /* disables -webkit-box clamping */
+            overflow: visible;
+            -webkit-line-clamp: unset;
         }
         
         .launchIconText.small {
