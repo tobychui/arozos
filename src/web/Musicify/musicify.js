@@ -494,8 +494,24 @@ function musicifyApp() {
             return document.getElementById('artist-selected-content-body');
         },
 
+        _getArtistListContainer() {
+            return document.getElementById('artist-content-body');
+        },
+
         _getMainContentContainer() {
             return document.getElementById('mainContent');
+        },
+
+        _getArtistViewportHeight() {
+            var artistListContainer = this._getArtistListContainer();
+            if (artistListContainer && artistListContainer.clientHeight) {
+                return artistListContainer.clientHeight;
+            }
+            var mainContainer = this._getMainContentContainer();
+            if (mainContainer && mainContainer.clientHeight) {
+                return mainContainer.clientHeight;
+            }
+            return window.innerHeight;
         },
 
         selectArtist(artist) {
@@ -504,7 +520,6 @@ function musicifyApp() {
                 this.artistListScrollTop = mainContainer.scrollTop;
                 this.artistScrollTop = mainContainer.scrollTop;
             }
-            console.log(this.artistListScrollTop,  this.artistScrollTop);
 
             this.selectedArtist = artist;
             this.artistDetailOpen = true;
@@ -535,7 +550,7 @@ function musicifyApp() {
         },
 
         visibleArtists() {
-            const viewportHeight = window.innerHeight;
+            const viewportHeight = this._getArtistViewportHeight();
 
             const start =
                 Math.max(
@@ -576,8 +591,21 @@ function musicifyApp() {
         },
 
         onArtistScroll(e) {
-            this.artistScrollTop = e.target.scrollTop;
-            this.artistListScrollTop = e.target.scrollTop;
+            var eventScrollTop = e && e.target ? e.target.scrollTop : 0;
+            var artistListContainer = this._getArtistListContainer();
+            var mainContainer = this._getMainContentContainer();
+            var scrollTop = Math.max(
+                eventScrollTop,
+                artistListContainer ? artistListContainer.scrollTop : 0,
+                mainContainer ? mainContainer.scrollTop : 0
+            );
+            this.artistScrollTop = scrollTop;
+            this.artistListScrollTop = scrollTop;
+        },
+
+        onMainContentScroll(e) {
+            if (this.view !== 'artists' || this.artistDetailOpen) return;
+            this.onArtistScroll(e);
         },
 
         onSelectedArtistListScroll(e) {

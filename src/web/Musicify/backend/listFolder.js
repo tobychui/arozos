@@ -2,6 +2,13 @@
     Musicify - List Folder Contents
     Parameters: folder (vpath, URL-encoded)
     Returns: { folders: [string], songs: [{filepath, name, ext, filesize, hsize, mtime}] }
+
+    NOTE: We use filelib.readdir() rather than filelib.aglob() here because
+    aglob fails silently on non-user:/ virtual drives (e.g. "D:/" on Windows)
+    regardless of the sort/scope parameter supplied.  filelib.readdir() uses a
+    different internal code-path that works across every mounted drive, which is
+    why the legacy Music module (the only other backend that lists drives) also
+    uses readdir exclusively.
 */
 includes("common.js");
 requirelib("filelib");
@@ -13,18 +20,27 @@ function main() {
     }
 
     var decodedFolder = decodeURIComponent(folder);
-    // Remove trailing wildcard/slash if present
-    decodedFolder = decodedFolder.replace(/\/\*$/, "").replace(/\/$/, ""); // I tried to comment this but not working
-    var results = filelib.aglob(decodedFolder + "/*", "user");
+    // Normalise: strip any trailing "/*" glob suffix or bare trailing slash
+    decodedFolder = decodedFolder.replace(/\/\*$/, "").replace(/\/$/, "");
+
+    // filelib.readdir returns an array of entry objects:
+    //   { Filepath, Filename, IsDir, Ext, Filesize, LastModified }
+    // This works on all mounted drives including Windows drive-letter roots
+    // (D:/, E:/ …) where filelib.aglob fails silently.
+    var entries = filelib.readdir(decodedFolder);
     var subfolders = [];
     var songs = [];
-    for (var i = 0; i < results.length; i++) {
-        var f = results[i];
-        if (isHiddenFile(f)) continue;
-        if (filelib.isDir(f)) {
-            subfolders.push(f);
-        } else if (isMusicFile(f)) {
-            songs.push(buildSongEntry(f));
+
+    if (entries) {
+        for (var i = 0; i < entries.length; i++) {
+            var entry = entries[i];
+            var f = entry.Filepath;
+            if (!f || isHiddenFile(f)) continue;
+            if (entry.IsDir) {
+                subfolders.push(f);
+            } else if (isMusicFile(f)) {
+                songs.push(buildSongEntry(f));
+            }
         }
     }
 

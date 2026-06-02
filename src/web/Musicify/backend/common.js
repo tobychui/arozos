@@ -39,12 +39,35 @@ function getMusicRoots() {
     var roots = filelib.glob("/");
     var musicRoots = [];
     for (var i = 0; i < roots.length; i++) {
-        var musicPath = roots[i] + "Music/";
-        if ( roots[i] == "tmp:/" ||  roots[i] == "trash:/") continue; // skip tmp:/ and trash:/
-        if (!filelib.fileExists(musicPath)) {
-            filelib.mkdir(musicPath);
+        var root = roots[i];
+        if (root === "tmp:/" || root === "trash:/") continue;
+
+        // Normalise: ensure the root always has a trailing slash so that
+        // path concatenation works correctly on all platforms (e.g. "D:"
+        // vs "D:/").
+        if (root.charAt(root.length - 1) !== '/') root = root + "/";
+
+        var musicPath = root + "Music/";
+
+        if (root === "user:/") {
+            // For the user home drive auto-create the Music folder when absent.
+            if (!filelib.fileExists(musicPath)) {
+                filelib.mkdir(musicPath);
+            }
+            musicRoots.push(musicPath);
+        } else {
+            // For every other mounted drive (e.g. D:/ on Windows) only call
+            // filelib.fileExists – do NOT call mkdir.  On many mounted drives
+            // mkdir silently fails or creates a directory in an unexpected
+            // location, which then causes walk/readdir to return empty results
+            // even when the real Music folder is present.
+            if (filelib.fileExists(musicPath)) {
+                musicRoots.push(musicPath);
+            }
+            // If Music/ does not yet exist on this drive we skip it rather
+            // than creating an empty directory – the user can create their own
+            // folder structure and Musicify will pick it up on the next scan.
         }
-        musicRoots.push(musicPath);
     }
     return musicRoots;
 }
