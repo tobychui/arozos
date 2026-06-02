@@ -768,8 +768,18 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 			} else if directServe {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-				w.Header().Set("Content-Type", contentType)
-				if targetFsh.RequireBuffer {
+				if metadata.IsRawImageFile(fileRuntimeAbsPath) {
+					// Convert RAW image to JPEG for browser display
+					jpegData, err := metadata.RenderRAWImage(targetFsh, fileRuntimeAbsPath)
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("500 - Failed to render RAW image: " + err.Error()))
+						return
+					}
+					w.Header().Set("Content-Type", "image/jpeg")
+					w.Write(jpegData)
+				} else if targetFsh.RequireBuffer {
+					w.Header().Set("Content-Type", contentType)
 					f, err := targetFshAbs.ReadStream(fileRuntimeAbsPath)
 					if err != nil {
 						w.WriteHeader(http.StatusInternalServerError)
@@ -779,6 +789,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					defer f.Close()
 					io.Copy(w, f)
 				} else {
+					w.Header().Set("Content-Type", contentType)
 					f, err := targetFshAbs.Open(fileRuntimeAbsPath)
 					if err != nil {
 						w.WriteHeader(http.StatusInternalServerError)
@@ -810,7 +821,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 					previewTemplate = filepath.Join(templateRoot, "video.html")
 				} else if ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".ogg" {
 					previewTemplate = filepath.Join(templateRoot, "audio.html")
-				} else if ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp" {
+				} else if ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || metadata.IsRawImageFile(fileRuntimeAbsPath) {
 					previewTemplate = filepath.Join(templateRoot, "image.html")
 				} else if ext == ".pdf" {
 					previewTemplate = filepath.Join(templateRoot, "iframe.html")
