@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Text</title>
+    <script src="../script/jquery.min.js"></script>
+    <script src="../script/ao_module.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --toolbar-h:    40px;
+            --statusbar-h:  22px;
+            /* warm parchment chrome */
+            --bg:           #d0dced;
+            --toolbar-bg:   #f2f2f7;
+            --toolbar-bdr:  #e6e6e9;
+            /* near-white warm paper for the actual writing area */
+            --editor-bg:    #f7f7f2;
+            /* warm dark ink */
+            --text:         #2a2010;
+            --text2:        #747c9e;
+            /* amber accent */
+            --accent:       #1863c4;
+            --sep:          #a8c1cb;
+            --hover:        rgba(0,0,0,.06);
+            --btn-active-bg:#1863c4;
+            --btn-active-fg:#fff;
+            /* dirty/edited indicator uses the accent amber, not orange */
+            --dirty-color:  #1863c4;
+        }
+        body.dark {
+            --bg:           #141a24;
+            --toolbar-bg:   #1a2030;
+            --toolbar-bdr:  #28344a;
+            --editor-bg:    #111620;
+            --text:         #cdd8ee;
+            --text2:        #6070a0;
+            --accent:       #5b9cf6;
+            --sep:          #28344a;
+            --hover:        rgba(255,255,255,.06);
+            --btn-active-bg:#5b9cf6;
+            --btn-active-fg:#fff;
+            --dirty-color:  #5b9cf6;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Toolbar ──────────────────────────────────────────────────────── */
+        #toolbar {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+            height: var(--toolbar-h);
+            padding: 0 8px;
+            background: var(--toolbar-bg);
+            border-bottom: 1px solid var(--toolbar-bdr);
+            box-shadow: 0 1px 4px rgba(0,0,0,.08);
+            overflow-x: auto;
+            overflow-y: hidden;
+            position: relative;
+            z-index: 1;
+        }
+        #toolbar::-webkit-scrollbar { height: 0; }
+
+        .tb-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            height: 26px;
+            padding: 0 8px;
+            border: none;
+            border-radius: 5px;
+            background: none;
+            color: var(--text);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: background .1s;
+            user-select: none;
+        }
+        .tb-btn:hover  { background: var(--hover); }
+        .tb-btn.active { background: var(--btn-active-bg); color: var(--btn-active-fg); }
+
+        .tb-sep {
+            width: 1px;
+            height: 18px;
+            background: var(--sep);
+            flex-shrink: 0;
+            margin: 0 3px;
+        }
+
+        .tb-label {
+            font-size: 11px;
+            color: var(--text2);
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .tb-select {
+            height: 24px;
+            padding: 0 6px;
+            border: 1px solid var(--toolbar-bdr);
+            border-radius: 5px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: border-color .1s;
+        }
+        .tb-select:focus { border-color: var(--accent); }
+
+        .tb-size-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 1px;
+            flex-shrink: 0;
+        }
+        .tb-size-val {
+            min-width: 26px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text);
+            user-select: none;
+        }
+        .tb-size-btn {
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 4px;
+            background: none;
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background .1s;
+        }
+        .tb-size-btn:hover { background: var(--hover); }
+
+        /* ── Editor ───────────────────────────────────────────────────────── */
+        #editor {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+            padding: 28px 10%;
+            border: none;
+            outline: none;
+            resize: none;
+            background: var(--editor-bg);
+            color: var(--text);
+            font-size: 14px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            tab-size: 4;
+            -moz-tab-size: 4;
+            overflow-y: auto;
+            transition: background .2s, color .2s;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,.04);
+        }
+        #editor::placeholder { color: var(--text2); }
+
+        /* ── Status bar ───────────────────────────────────────────────────── */
+        #statusbar {
+            flex-shrink: 0;
+            height: var(--statusbar-h);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            background: var(--toolbar-bg);
+            border-top: 1px solid var(--toolbar-bdr);
+            font-size: 10px;
+            color: var(--text2);
+        }
+        #status-msg.dirty { color: var(--dirty-color); }
+        #status-msg.error { color: #c0392b; }
+
+        /* ── Confirm overlay (in-iframe popup) ────────────────────────────── */
+        #confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.35);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+        }
+        #confirm-overlay.show { display: flex; }
+
+        #confirm-box {
+            background: var(--editor-bg);
+            border: 1px solid var(--toolbar-bdr);
+            border-radius: 13px;
+            padding: 24px 24px 18px;
+            width: 300px;
+            box-shadow: 0 16px 48px rgba(0,0,0,.25), 0 2px 8px rgba(0,0,0,.12);
+        }
+        #confirm-box h3 {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        #confirm-box p {
+            font-size: 12px;
+            color: var(--text2);
+            line-height: 1.55;
+            margin-bottom: 18px;
+        }
+        .confirm-row {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .cbtn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            transition: opacity .1s, background .1s;
+        }
+        .cbtn:hover { opacity: .85; }
+        .cbtn-cancel  { background: var(--hover); color: var(--text); border: 1px solid var(--toolbar-bdr); }
+        .cbtn-discard { background: rgba(231,76,60,.13); color: #e74c3c; border: 1px solid rgba(231,76,60,.3); }
+        .cbtn-save    { background: var(--accent); color: #fff; }
+    </style>
+</head>
+<body>
+<div id="app">
+
+    <!-- ── Toolbar ──────────────────────────────────────────────────────── -->
+    <div id="toolbar">
+
+        <!-- File operations -->
+        <button class="tb-btn" onclick="openFile()" title="Open file">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            Open
+        </button>
+        <button class="tb-btn" onclick="saveFile()" title="Save  Ctrl+S">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save
+        </button>
+
+        <div class="tb-sep"></div>
+
+        <!-- Font family -->
+        <span class="tb-label">Font</span>
+        <select id="sel-font" class="tb-select" style="width:134px;" onchange="applyFont()" title="Font family">
+            <option value="system">System Default</option>
+            <option value="arial">Arial</option>
+            <option value="times">Times New Roman</option>
+            <option value="courier">Courier New</option>
+            <option value="georgia">Georgia</option>
+            <option value="verdana">Verdana</option>
+            <option value="trebuchet">Trebuchet MS</option>
+            <option value="comic">Comic Sans MS</option>
+        </select>
+
+        <div class="tb-sep"></div>
+
+        <!-- Font size -->
+        <span class="tb-label">Size</span>
+        <div class="tb-size-wrap">
+            <button class="tb-size-btn" onclick="changeFontSize(-1)" title="Decrease font size">−</button>
+            <span class="tb-size-val" id="font-size-lbl">14</span>
+            <button class="tb-size-btn" onclick="changeFontSize(+1)" title="Increase font size">+</button>
+        </div>
+
+        <div class="tb-sep"></div>
+
+        <!-- Bold -->
+        <button class="tb-btn" id="bold-btn" onclick="toggleBold()" title="Bold">
+            <strong style="font-size:13px;">B</strong>
+        </button>
+
+        <div class="tb-sep"></div>
+
+        <!-- Line height -->
+        <span class="tb-label">Line</span>
+        <select id="sel-lh" class="tb-select" style="width:84px;" onchange="applyLineHeight()" title="Line spacing">
+            <option value="1.2">Compact</option>
+            <option value="1.5">Normal</option>
+            <option value="1.6" selected>Relaxed</option>
+            <option value="2.0">Double</option>
+        </select>
+
+        <div class="tb-sep"></div>
+
+        <!-- Theme toggle -->
+        <button class="tb-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle dark / light theme">
+            <svg id="icon-sun" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1"  x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22"   x2="5.64"  y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1"  y1="12" x2="3"  y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22"  y1="19.78" x2="5.64"  y2="18.36"/>
+                <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"/>
+            </svg>
+            <svg id="icon-moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <span id="theme-lbl">Dark</span>
+        </button>
+
+    </div>
+
+    <!-- ── Editor ───────────────────────────────────────────────────────── -->
+    <textarea id="editor" placeholder="Start typing…" spellcheck="false"></textarea>
+
+    <!-- ── Status bar ───────────────────────────────────────────────────── -->
+    <div id="statusbar">
+        <span id="status-msg">Ready</span>
+        <span id="stat-count">0 chars · 1 line</span>
+    </div>
+
+</div><!-- /#app -->
+
+<!-- ── Unsaved-changes dialog (in-iframe popup) ──────────────────────────── -->
+<div id="confirm-overlay">
+    <div id="confirm-box">
+        <h3>Unsaved Changes</h3>
+        <p id="confirm-msg">Your changes haven't been saved. Save before closing?</p>
+        <div class="confirm-row">
+            <button class="cbtn cbtn-cancel"  onclick="dlgCancel()">Cancel</button>
+            <button class="cbtn cbtn-discard" onclick="dlgDiscard()">Discard</button>
+            <button class="cbtn cbtn-save"    onclick="dlgSave()">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+var filepath             = "";
+var filename             = "";
+var lastSavedContent     = "";
+var isDark               = false;
+var fontSize             = 14;
+var isBold               = false;
+var dlgCallback          = null;
+var pendingCloseCallback = null;  // used by handleDlgSaveAs to survive the async picker
+
+// Font family map
+var fontMap = {
+    system:   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    arial:    "Arial, sans-serif",
+    times:    "'Times New Roman', Times, serif",
+    courier:  "'Courier New', Courier, monospace",
+    georgia:  "Georgia, serif",
+    verdana:  "Verdana, Geneva, sans-serif",
+    trebuchet:"'Trebuchet MS', sans-serif",
+    comic:    "'Comic Sans MS', cursive"
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────
+$(function(){
+    // Restore font size from previous session
+    var savedSize = parseInt(localStorage.getItem("text_fontSize"));
+    if (savedSize && savedSize >= 8 && savedSize <= 72){
+        fontSize = savedSize;
+        $("#font-size-lbl").text(fontSize);
+        $("#editor").css("font-size", fontSize + "px");
+    }
+
+    var files = ao_module_loadInputFiles();
+    if (files && files.length > 0){
+        filepath = files[0].filepath;
+        filename = files[0].filename;
+        loadFile();
+    } else {
+        updateTitle();
+    }
+
+    // Ctrl+S to save
+    $(document).on("keydown", function(e){
+        if (e.ctrlKey && e.key === "s"){
+            e.preventDefault();
+            saveFile();
+        }
+    });
+
+    // Live updates on every keystroke
+    $("#editor").on("input", function(){
+        updateStatBar();
+        updateTitle();
+    });
+
+    updateStatBar();
+});
+
+// ── File loading ──────────────────────────────────────────────────────────
+function loadFile(){
+    $.get(ao_root + "media?file=" + encodeURIComponent(filepath) + "&t=" + Date.now(), function(data){
+        if (typeof data !== "string") data = JSON.stringify(data, null, 2);
+        $("#editor").val(data);
+        lastSavedContent = data;
+        updateTitle();
+        updateStatBar();
+    }).fail(function(){
+        setStatus("Failed to load file", "error");
+    });
+}
+
+// ── Named global callbacks for ao_module_openFileSelector ─────────────────
+// ao_module_openFileSelector resolves the callback by function.name in VDI
+// mode, so all callbacks must be named top-level functions on window.
+
+// Called after the user picks a Save-As path from the toolbar Save button
+function handleSaveAs(filedata){
+    if (!filedata || !filedata.length) return;
+    filepath = filedata[0].filepath;
+    filename = filedata[0].filename;
+    doSave();
+}
+
+// Called after the user picks a file from the toolbar Open button
+function handleOpenFile(filedata){
+    if (!filedata || !filedata.length) return;
+    filepath = filedata[0].filepath;
+    filename = filedata[0].filename;
+    lastSavedContent = "";  // don't treat freshly loaded content as dirty
+    loadFile();
+}
+
+// Called after the user picks a Save-As path from the close-confirmation dialog
+function handleDlgSaveAs(filedata){
+    if (!filedata || !filedata.length){
+        pendingCloseCallback = null;
+        return;
+    }
+    filepath = filedata[0].filepath;
+    filename = filedata[0].filename;
+    doSave(function(){
+        if (pendingCloseCallback){
+            pendingCloseCallback("saved");
+            pendingCloseCallback = null;
+        }
+    });
+}
+
+// ── Saving ────────────────────────────────────────────────────────────────
+function saveFile(){
+    if (!filepath){
+        ao_module_openFileSelector(handleSaveAs, "user:/Desktop", "new", false, { defaultName: "Untitled.txt" });
+        return;
+    }
+    doSave();
+}
+
+function doSave(callback){
+    var content = $("#editor").val();
+    ao_module_agirun("Text/filesaver.js", {
+        filepath: filepath,
+        content:  content
+    }, function(data){
+        if (data.error){
+            setStatus("Save failed: " + data.error, "error");
+        } else {
+            lastSavedContent = content;
+            updateTitle();
+            setStatus("Saved");
+            if (callback) callback();
+        }
+    }, function(){
+        setStatus("Save failed", "error");
+    });
+}
+
+// ── Opening a file from toolbar ───────────────────────────────────────────
+function openFile(){
+    ao_module_openFileSelector(handleOpenFile, "user:/", "file", false, {
+        filter: ["txt","md","csv","log","ini","conf","json","xml","html","css","js","py","sh","yaml","yml"]
+    });
+}
+
+// ── Title management ──────────────────────────────────────────────────────
+function updateTitle(){
+    var title;
+    if (!filepath){
+        title = "Untitled";
+    } else if (isDirty()){
+        title = filename + " - Edited";
+    } else {
+        title = filename;
+    }
+    ao_module_setWindowTitle(title);
+    document.title = title;
+
+    if (isDirty()){
+        setStatus("Unsaved changes", "dirty");
+    } else if (filepath){
+        setStatus("Saved");
+    } else {
+        setStatus("Ready");
+    }
+}
+
+function isDirty(){
+    return $("#editor").val() !== lastSavedContent;
+}
+
+// ── Formatting ────────────────────────────────────────────────────────────
+function applyFont(){
+    var key = $("#sel-font").val();
+    $("#editor").css("font-family", fontMap[key] || fontMap.system);
+}
+
+function changeFontSize(delta){
+    fontSize = Math.max(8, Math.min(72, fontSize + delta));
+    $("#font-size-lbl").text(fontSize);
+    $("#editor").css("font-size", fontSize + "px");
+    localStorage.setItem("text_fontSize", fontSize);
+}
+
+function toggleBold(){
+    isBold = !isBold;
+    $("#editor").css("font-weight", isBold ? "700" : "normal");
+    $("#bold-btn").toggleClass("active", isBold);
+}
+
+function applyLineHeight(){
+    $("#editor").css("line-height", $("#sel-lh").val());
+}
+
+function toggleTheme(){
+    isDark = !isDark;
+    $("body").toggleClass("dark", isDark);
+    if (isDark){
+        $("#icon-sun").hide(); $("#icon-moon").show();
+        $("#theme-lbl").text("Light");
+    } else {
+        $("#icon-sun").show(); $("#icon-moon").hide();
+        $("#theme-lbl").text("Dark");
+    }
+}
+
+// ── Status bar ────────────────────────────────────────────────────────────
+function setStatus(msg, cls){
+    var el = $("#status-msg");
+    el.text(msg).attr("class", cls || "");
+    if (cls === "error"){
+        setTimeout(function(){ updateTitle(); }, 3000);
+    }
+}
+
+function updateStatBar(){
+    var txt   = $("#editor").val();
+    var chars = txt.length;
+    var lines = txt === "" ? 1 : txt.split("\n").length;
+    $("#stat-count").text(
+        chars + " char" + (chars !== 1 ? "s" : "") +
+        " · " + lines + " line" + (lines !== 1 ? "s" : "")
+    );
+}
+
+// ── Confirm dialog ────────────────────────────────────────────────────────
+function showDialog(callback){
+    dlgCallback = callback;
+    $("#confirm-overlay").addClass("show");
+}
+
+function hideDialog(){
+    $("#confirm-overlay").removeClass("show");
+}
+
+function dlgCancel(){
+    var cb = dlgCallback;
+    hideDialog();
+    dlgCallback = null;
+    if (cb) cb("cancel");
+}
+
+function dlgDiscard(){
+    var cb = dlgCallback;
+    hideDialog();
+    dlgCallback = null;
+    if (cb) cb("discard");
+}
+
+function dlgSave(){
+    pendingCloseCallback = dlgCallback;  // preserve across the async picker
+    dlgCallback = null;
+    hideDialog();
+
+    if (!filepath){
+        // New unsaved file — open picker first; result handled by handleDlgSaveAs
+        ao_module_openFileSelector(handleDlgSaveAs, "user:/Desktop", "new", false, { defaultName: "Untitled.txt" });
+    } else {
+        doSave(function(){
+            if (pendingCloseCallback){
+                pendingCloseCallback("saved");
+                pendingCloseCallback = null;
+            }
+        });
+    }
+}
+
+// ── Close handler override ────────────────────────────────────────────────
+function ao_module_close(){
+    if (!isDirty()){
+        ao_module_closeHandler();
+        return;
+    }
+    showDialog(function(result){
+        if (result === "saved" || result === "discard"){
+            ao_module_closeHandler();
+        }
+        // "cancel" → stay open, do nothing
+    });
+}
+
+// Non-VDI fallback (standalone browser tab)
+if (!ao_module_virtualDesktop){
+    window.onbeforeunload = function(){
+        if (isDirty()) return "You have unsaved changes. Leave anyway?";
+    };
+}
+</script>
+</body>
+</html>
