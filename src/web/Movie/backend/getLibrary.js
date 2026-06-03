@@ -343,6 +343,19 @@ function main() {
         for (var j = 0; j < found.length; j++) { allAlbums.push(found[j]); }
     }
 
+    // Persist to server-side cache so any device (or next session) can load instantly.
+    // This runs before sendJSONResp so the file is guaranteed written even if the
+    // client closes the tab before the response arrives.
+    try {
+        if (!filelib.fileExists("user:/Document/"))           { filelib.mkdir("user:/Document/"); }
+        if (!filelib.fileExists("user:/Document/Appdata/"))   { filelib.mkdir("user:/Document/Appdata/"); }
+        if (!filelib.fileExists("user:/Document/Appdata/Movie/")) { filelib.mkdir("user:/Document/Appdata/Movie/"); }
+        filelib.writeFile(
+            "user:/Document/Appdata/Movie/library_cache.json",
+            JSON.stringify({ ts: new Date().getTime(), data: allAlbums })
+        );
+    } catch (e) {}  // never let a cache-write failure break the response
+
     sendJSONResp(JSON.stringify(allAlbums));
 }
 

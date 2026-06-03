@@ -1170,10 +1170,10 @@ html, body {
 // ─── All configurable paths come from backend/common.js ──────────────────────
 // (SCRIPT_GET_LIBRARY, SCRIPT_GET_EPISODES, SCRIPT_GET_THUMBNAIL, MEDIA_API)
 
-// ─── Library cache (localStorage) ────────────────────────────────────────────
-var LIBRARY_CACHE_KEY     = 'movie_library_cache';
-var LIBRARY_CACHE_VERSION = 1;
-var libraryNeedsRedraw    = false; // set when bg-refresh finishes outside the library view
+// ─── Library cache ────────────────────────────────────────────────────────────
+// Cache is stored server-side (user:/Document/Appdata/Movie/library_cache.json)
+// so it is shared across devices for the same user account.
+var libraryNeedsRedraw = false; // set when bg-refresh finishes outside the library view
 
 // ─── App state ────────────────────────────────────────────────────────────────
 var library        = [];   // full album array from server
@@ -1638,29 +1638,8 @@ $(document).ready(function () {
     });
 });
 
-// ─── Library cache helpers ─────────────────────────────────────────────────────
-function getCachedLibrary() {
-    try {
-        var raw = localStorage.getItem(LIBRARY_CACHE_KEY);
-        if (!raw) { return null; }
-        var obj = JSON.parse(raw);
-        if (!obj || obj.version !== LIBRARY_CACHE_VERSION || !Array.isArray(obj.data)) { return null; }
-        return obj;  // { version, ts, data }
-    } catch (e) { return null; }
-}
-
-function updateLibraryCache(data) {
-    try {
-        localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({
-            version: LIBRARY_CACHE_VERSION,
-            ts:      Date.now(),
-            data:    data
-        }));
-    } catch (e) {} // storage full or unavailable — silently ignore
-}
-
-// spinning=true  →  show spinner, hide Refresh button
-// spinning=false →  hide spinner, show Refresh button
+// ─── Library status bar helpers ────────────────────────────────────────────────
+// spinning=true  shows the spinner and hides the Refresh button, and vice-versa.
 function setLibraryStatus(text, spinning) {
     $('#library-status-text').text(text);
     $('#library-spinner').toggle(spinning);
@@ -1675,67 +1654,95 @@ function timeAgo(ts) {
     return Math.floor(d / 86400) + 'd ago';
 }
 
-// Re-render the library grid, preserving an active search filter if present
+// Re-render the library grid, preserving an active search filter if present.
 function renderCurrentLibrary() {
     var q = $('#search-input').val().trim().toLowerCase();
     renderLibrary(q ? library.filter(function (a) { return a.name.toLowerCase().indexOf(q) > -1; }) : library);
 }
 
-// ─── Load library (cache-first) ────────────────────────────────────────────────
+// Run a background full scan. getLibrary.js writes the cache file server-side
+// before it sends its response, so the cache is updated even if the tab closes
+// partway through — the browser just won't receive the response in that case.
+function backgroundScanLibrary() {
+    ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+        if (!data || data.error) {
+            setLibraryStatus('Refresh failed · showing cached data', false);
+            return;
+        }
+        library = data;
+        if ($('#view-library').hasClass('active')) {
+            renderCurrentLibrary();
+            libraryNeedsRedraw = false;
+        } else {
+            libraryNeedsRedraw = true;
+        }
+        var n = library.length;
+        setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
+    }, function () {
+        setLibraryStatus('Refresh failed · showing cached data', false);
+    });
+}
+
+// ─── Load library (server-side cache-first) ────────────────────────────────────
+// 1. Ask getLibraryCache.js for the last saved scan result (milliseconds, no scan).
+// 2a. Cache hit  → render immediately, kick off backgroundScanLibrary().
+// 2b. Cache miss → show loading overlay, run full scan, render when done.
 function loadLibrary() {
-    var cached = getCachedLibrary();
+    ao_module_agirun(SCRIPT_GET_LIBRARY_CACHE, {}, function (cached) {
 
-    if (cached) {
-        // ── Have cache: show it immediately, skip the loading overlay ──────────
-        $('#loading-overlay').hide();
-        library = cached.data;
-        renderLibrary(library);
-        setLibraryStatus('Cached · ' + timeAgo(cached.ts) + ' · refreshing…', true);
+        if (cached && !cached.error && Array.isArray(cached.data)) {
+            // Fast path: paint the UI from cache right away
+            $('#loading-overlay').hide();
+            library = cached.data;
+            renderLibrary(library);
+            setLibraryStatus('Cached · ' + timeAgo(cached.ts) + ' · refreshing…', true);
+            backgroundScanLibrary();
 
-        // Background fetch — silently update when done
-        ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
-            if (!data || data.error) {
-                setLibraryStatus('⚠ Refresh failed · showing cached data', false);
-                return;
-            }
-            updateLibraryCache(data);
-            library = data;
-            if ($('#view-library').hasClass('active')) {
-                renderCurrentLibrary();    // user is watching — update smoothly
-                libraryNeedsRedraw = false;
-            } else {
-                libraryNeedsRedraw = true; // user navigated away — re-render on return
-            }
-            var n = library.length;
-            setLibraryStatus('✓ ' + n + ' item' + (n !== 1 ? 's' : ''), false);
-        }, function () {
-            setLibraryStatus('⚠ Refresh failed · showing cached data', false);
-        });
+        } else {
+            // Cold start: no cache yet — full scan with loading overlay
+            setLibraryStatus('Loading…', true);
+            ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+                $('#loading-overlay').fadeOut(300);
+                if (!data || data.error) {
+                    showToast('Failed to load library');
+                    setLibraryStatus('Failed to load library', false);
+                    return;
+                }
+                library = data;
+                renderLibrary(library);
+                var n = library.length;
+                setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
+            }, function () {
+                $('#loading-overlay').fadeOut(300);
+                showToast('Error loading library');
+                setLibraryStatus('Error loading library', false);
+            });
+        }
 
-    } else {
-        // ── No cache: full loading screen, wait for first fetch ───────────────
+    }, function () {
+        // getLibraryCache.js itself failed — treat as cold start
         setLibraryStatus('Loading…', true);
         ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
             $('#loading-overlay').fadeOut(300);
             if (!data || data.error) {
                 showToast('Failed to load library');
-                setLibraryStatus('⚠ Failed to load library', false);
+                setLibraryStatus('Failed to load library', false);
                 return;
             }
-            updateLibraryCache(data);
             library = data;
             renderLibrary(library);
             var n = library.length;
-            setLibraryStatus('✓ ' + n + ' item' + (n !== 1 ? 's' : ''), false);
+            setLibraryStatus(n + ' item' + (n !== 1 ? 's' : ''), false);
         }, function () {
             $('#loading-overlay').fadeOut(300);
             showToast('Error loading library');
-            setLibraryStatus('⚠ Error loading library', false);
+            setLibraryStatus('Error loading library', false);
         });
-    }
+    });
 }
 
 // ─── Manual refresh (Refresh button) ──────────────────────────────────────────
+// Triggers a full scan; getLibrary.js saves the cache file automatically.
 function refreshLibrary() {
     $('#library-refresh-btn').prop('disabled', true);
     setLibraryStatus('Refreshing…', true);
@@ -1743,19 +1750,18 @@ function refreshLibrary() {
         $('#library-refresh-btn').prop('disabled', false);
         if (!data || data.error) {
             showToast('Failed to refresh library');
-            setLibraryStatus('⚠ Refresh failed', false);
+            setLibraryStatus('Refresh failed', false);
             return;
         }
-        updateLibraryCache(data);
         library = data;
         renderCurrentLibrary();
         libraryNeedsRedraw = false;
         var n = library.length;
-        setLibraryStatus('✓ ' + n + ' item' + (n !== 1 ? 's' : '') + ' · just refreshed', false);
+        setLibraryStatus(n + ' item' + (n !== 1 ? 's' : '') + ' · just refreshed', false);
     }, function () {
         $('#library-refresh-btn').prop('disabled', false);
         showToast('Error refreshing library');
-        setLibraryStatus('⚠ Refresh failed', false);
+        setLibraryStatus('Refresh failed', false);
     });
 }
 
