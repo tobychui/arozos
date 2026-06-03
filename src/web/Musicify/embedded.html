@@ -267,12 +267,15 @@
 		player.volume = Math.max(0, Math.min(1, isNaN(initVol) ? 0.6 : initVol));
 		setVolumeUI(player.volume);
 
-		// Restore prefs
-		var rr = localStorage.getItem('musicifyEmb_repeat');
-		if (rr === 'all' || rr === 'one') repeatMode = rr;
-		shuffleMode = (localStorage.getItem('musicifyEmb_shuffle') === 'true');
-		updateRepeatUI();
-		updateShuffleUI();
+		// Restore prefs from server (cross-device sync)
+		ao_module_storage.loadStorage("Musicify", "emb_repeat", function(val) {
+			if (val === 'all' || val === 'one') repeatMode = val;
+			updateRepeatUI();
+		});
+		ao_module_storage.loadStorage("Musicify", "emb_shuffle", function(val) {
+			if (val !== null && val !== undefined) shuffleMode = (val === 'true');
+			updateShuffleUI();
+		});
 
 		// Read input file passed by File Manager / ao_module_openWith
 		var inputFiles  = ao_module_loadInputFiles();
@@ -533,7 +536,7 @@
 		// ── Shuffle ───────────────────────────────────────────────────────
 		function toggleShuffle() {
 			shuffleMode = !shuffleMode;
-			localStorage.setItem('musicifyEmb_shuffle', shuffleMode);
+			ao_module_storage.setStorage("Musicify", "emb_shuffle", String(shuffleMode));
 			if (shuffleMode) buildShuffledList();
 			updateShuffleUI();
 		}
@@ -556,7 +559,7 @@
 			var modes = ['none', 'all', 'one'];
 			var idx   = modes.indexOf(repeatMode);
 			repeatMode = modes[(idx + 1) % modes.length];
-			localStorage.setItem('musicifyEmb_repeat', repeatMode);
+			ao_module_storage.setStorage("Musicify", "emb_repeat", repeatMode);
 			updateRepeatUI();
 		}
 

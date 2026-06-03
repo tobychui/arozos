@@ -2306,9 +2306,9 @@ func system_fs_handleUserPreference(w http.ResponseWriter, r *http.Request) {
 		utils.SendOK(w)
 	} else if key != "" && value != "" {
 		//Set mode. Set the preference with given key
-		if len(value) > 1024 {
+		if len(value) > 1024*1024 { //1KB
 			//Size too big. Reject storage
-			utils.SendErrorResponse(w, "Preference value too long. Preference value can only store maximum 1024 characters.")
+			utils.SendErrorResponse(w, "Preference value too long. Preference value can only store maximum 1KB.")
 			return
 		}
 		sysdb.Write("fs", "pref/"+key+"/"+username, value)

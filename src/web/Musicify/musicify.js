@@ -128,16 +128,19 @@ function musicifyApp() {
                 this._audio.volume = this.volume / 100;
             }
 
-            // Restore recently played
-            try {
-                var rp = localStorage.getItem('musicify_recent');
-                if (rp) this.recentlyPlayed = JSON.parse(rp).slice(0, 12);
-            } catch(e) {}
-
-            // Restore shuffle/repeat prefs
-            this.shuffle = localStorage.getItem('musicify_shuffle') === 'true';
-            var rep = localStorage.getItem('musicify_repeat');
-            if (rep === 'all' || rep === 'one') this.repeat = rep;
+            // Restore shuffle / repeat / recently-played from server-side prefs
+            // (cross-device: stored per user, not per browser)
+            ao_module_storage.loadStorage("Musicify", "shuffle", function(val) {
+                if (val !== null && val !== undefined) self.shuffle = (val === 'true');
+            });
+            ao_module_storage.loadStorage("Musicify", "repeat", function(val) {
+                if (val === 'all' || val === 'one' || val === 'none') self.repeat = val;
+            });
+            ao_module_storage.loadStorage("Musicify", "recent", function(val) {
+                if (val) {
+                    try { self.recentlyPlayed = JSON.parse(val).slice(0, 12); } catch(e) {}
+                }
+            });
 
             // MediaSession
             this._setupMediaSession();
@@ -913,7 +916,7 @@ function musicifyApp() {
 
         toggleShuffle() {
             this.shuffle = !this.shuffle;
-            localStorage.setItem('musicify_shuffle', this.shuffle);
+            ao_module_storage.setStorage("Musicify", "shuffle", String(this.shuffle));
             if (this.shuffle) this._buildShuffledQueue(this.queueIndex);
         },
 
@@ -921,7 +924,7 @@ function musicifyApp() {
             var modes = ['none', 'all', 'one'];
             var idx = modes.indexOf(this.repeat);
             this.repeat = modes[(idx + 1) % modes.length];
-            localStorage.setItem('musicify_repeat', this.repeat);
+            ao_module_storage.setStorage("Musicify", "repeat", this.repeat);
         },
 
         _onEnded() {
@@ -1034,14 +1037,14 @@ function musicifyApp() {
         },
 
         // ════════════════════════════════════════════════════════════════════
-        //  RECENTLY PLAYED (localStorage)
+        //  RECENTLY PLAYED (server-side, cross-device)
         // ════════════════════════════════════════════════════════════════════
         _saveRecentlyPlayed(song) {
             var list = this.recentlyPlayed.filter(s => s.filepath !== song.filepath);
             list.unshift(song);
             list = list.slice(0, 12);
             this.recentlyPlayed = list;
-            try { localStorage.setItem('musicify_recent', JSON.stringify(list)); } catch(e) {}
+            ao_module_storage.setStorage("Musicify", "recent", JSON.stringify(list));
         },
 
         // ════════════════════════════════════════════════════════════════════
