@@ -291,20 +291,12 @@ function musicifyApp() {
         _loadArtists(opts) {
             opts = opts || {};
             var forceNetwork = !!opts.forceNetwork;
-            var cache = null;
+            var self = this;
 
             // Artists refresh should never block the entire content panel.
             this.loading = false;
 
-            if (!forceNetwork) {
-                cache = this._readArtistsCache();
-                if (cache && Array.isArray(cache.items)) {
-                    this.artists = cache.items;
-                    this.artistsFromCache = true;
-                    this.artistsCacheUpdatedAt = cache.updatedAt || 0;
-                }
-            }
-
+            // ── Start the network scan immediately — never wait for cache ─────
             if (this._artistsFetchInFlight) return;
 
             this._artistsFetchInFlight = true;
@@ -317,8 +309,19 @@ function musicifyApp() {
             // Use worker first to keep fetch + JSON parsing off the UI thread.
             var startedInWorker = this._dispatchArtistsFetchToWorker(reqId);
             if (!startedInWorker) {
-                // Fallback for environments where Worker is unavailable.
                 this._dispatchArtistsFetchFallback(reqId);
+            }
+
+            // ── In parallel: read server-side cache to pre-populate the UI ────
+            // Only applies the cache if the network scan has not yet returned.
+            if (!forceNetwork) {
+                this._readArtistsCache(function(cache) {
+                    if (self.artistsRefreshing && cache && Array.isArray(cache.items)) {
+                        self.artists = cache.items;
+                        self.artistsFromCache = true;
+                        self.artistsCacheUpdatedAt = cache.ts || 0;
+                    }
+                });
             }
         },
 
@@ -430,29 +433,26 @@ function musicifyApp() {
             this._artistsFetchInFlight = false;
         },
 
-        _readArtistsCache() {
-            try {
-                var raw = localStorage.getItem('musicify_artists_cache');
-                if (!raw) return null;
-                var payload = JSON.parse(raw);
-                if (!payload || !Array.isArray(payload.items)) return null;
-                return {
-                    updatedAt: payload.updatedAt || 0,
-                    items: payload.items
-                };
-            } catch (e) {
-                return null;
-            }
+        // Reads the server-side artists cache (user:/Document/Appdata/Musicify/).
+        // Async — calls callback(cache) where cache is { ts, items } or null.
+        _readArtistsCache(callback) {
+            fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/getArtistsCache.js', {
+                method: 'POST', cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            }).then(function(r) { return r.json(); })
+              .then(function(data) {
+                if (data && !data.error && Array.isArray(data.items)) {
+                    callback({ ts: data.ts || 0, items: data.items });
+                } else {
+                    callback(null);
+                }
+              }).catch(function() { callback(null); });
         },
 
-        _writeArtistsCache(items, updatedAt) {
-            try {
-                localStorage.setItem('musicify_artists_cache', JSON.stringify({
-                    updatedAt: updatedAt || Date.now(),
-                    items: Array.isArray(items) ? items : []
-                }));
-            } catch (e) {}
-        },
+        // Cache is now written server-side by listArtists.js before it sends its
+        // response — no client-side write needed.
+        _writeArtistsCache(items, updatedAt) {},
 
         _flashArtistsUpdated() {
             this._artistsUpdateFlash = true;

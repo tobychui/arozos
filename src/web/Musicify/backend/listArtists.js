@@ -63,6 +63,19 @@ function main() {
         return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
 
+    // Persist to server-side cache so any device (or next session) can load instantly.
+    // Written BEFORE sendJSONResp so the file is guaranteed on disk even if the
+    // client closes the tab before the HTTP response arrives.
+    try {
+        if (!filelib.fileExists("user:/Document/"))                    { filelib.mkdir("user:/Document/"); }
+        if (!filelib.fileExists("user:/Document/Appdata/"))            { filelib.mkdir("user:/Document/Appdata/"); }
+        if (!filelib.fileExists("user:/Document/Appdata/Musicify/"))   { filelib.mkdir("user:/Document/Appdata/Musicify/"); }
+        filelib.writeFile(
+            "user:/Document/Appdata/Musicify/artists_cache.json",
+            JSON.stringify({ ts: new Date().getTime(), items: artists })
+        );
+    } catch (e) {}  // never let a cache-write failure break the response
+
     sendJSONResp(JSON.stringify(artists));
 }
 
