@@ -692,7 +692,9 @@ function initLocalClock(){
         var offFmt = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' });
         var offset = '';
         offFmt.formatToParts(new Date()).forEach(function(x){ if (x.type==='timeZoneName') offset = x.value; });
-        document.getElementById('lc-tz').textContent = offset + '  ·  ' + tz.split('/')[0];
+        var tzRegion = tz.split('/')[0];
+        var tzRegionLabel = getStr('clock/region-' + tzRegion.toLowerCase(), tzRegion);
+        document.getElementById('lc-tz').textContent = offset + '  ·  ' + tzRegionLabel;
     } catch(e){}
     updateLocalClock();
 }
@@ -830,7 +832,8 @@ function wcRefresh(){
             var tzMidnight = new Date(now.toLocaleString('en-US', { timeZone: c.tz }));
             tzMidnight.setHours(0,0,0,0);
             var dd = Math.round((tzMidnight - localMidnight) / 86400000);
-            var dayLabel = dd > 0 ? ' · +'+dd+'d' : (dd < 0 ? ' · '+dd+'d' : '');
+            var dSuffix = getStr('clock/day-suffix', 'd');
+            var dayLabel = dd > 0 ? ' · +'+dd+dSuffix : (dd < 0 ? ' · '+dd+dSuffix : '');
 
             var hmEl   = document.getElementById('wc-hm-'+i);
             var secEl  = document.getElementById('wc-sec-'+i);
@@ -899,7 +902,7 @@ function tzRenderList(){
     var html = '';
     ORDER.forEach(function(r){
         if (!groups[r] || !groups[r].length) return;
-        html += '<div class="tz-region-lbl">'+r+'</div>';
+        html += '<div class="tz-region-lbl">'+getStr('clock/region-'+r.toLowerCase().replace(/ /g,'-'), r)+'</div>';
         groups[r].forEach(function(c){
             html += '<div class="tz-item" data-city="'+htmlEsc(c[0])+'" data-tz="'+htmlEsc(c[1])+'">' +
                 '<span class="tz-item-name">'+htmlEsc(c[0])+'</span>' +
