@@ -71,7 +71,7 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 }
 
 func (l *Logger) Log(title string, errorMessage string, originalError error) {
-	if l.LogToFile {
+	if l != nil && l.LogToFile {
 		l.ValidateAndUpdateLogFilepath()
 		if originalError == nil {
 			l.file.WriteString(time.Now().Format("2006-01-02 15:04:05.000000") + "|" + fmt.Sprintf("%-16s", title) + " [INFO]" + errorMessage + "\n")
