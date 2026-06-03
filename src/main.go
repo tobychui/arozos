@@ -12,6 +12,7 @@ import (
 	"time"
 
 	console "imuslab.com/arozos/mod/console"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -88,9 +89,13 @@ func main() {
 	os.RemoveAll(*tmp_directory)
 	os.Mkdir(*tmp_directory, 0777)
 
+	// Initialize a temporary stdout-only logger so calls before RunStartup are safe.
+	// RunStartup will replace this with a file-backed logger.
+	systemWideLogger, _ = logger.NewTmpLogger()
+
 	//Print copyRight information
-	systemWideLogger.PrintAndLog("System", "ArozOS(C) " + strconv.Itoa(time.Now().Year()) + " " + deviceVendor + ".", nil)
-	systemWideLogger.PrintAndLog("System", "ArozOS " + build_version + " Revision " + internal_version, nil)
+	systemWideLogger.PrintAndLog("System", "ArozOS(C) "+strconv.Itoa(time.Now().Year())+" "+deviceVendor+".", nil)
+	systemWideLogger.PrintAndLog("System", "ArozOS "+build_version+" Revision "+internal_version, nil)
 
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020
