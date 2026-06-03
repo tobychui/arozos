@@ -1,0 +1,245 @@
+{
+    "author": "tobychui",
+    "version": "1.0",
+    "keys": {
+        "en-us": {
+            "name": "English (US)",
+            "strings": {
+                "clock/tab-clock": "Clock",
+                "clock/tab-world": "World",
+                "clock/tab-countdown": "Countdown",
+                "clock/tab-stopwatch": "Stopwatch",
+                "clock/other-clocks": "Other Clocks",
+                "clock/add-city": "Add City",
+                "clock/no-clocks-empty": "No clocks yet.<br>Tap <b>+ Add City</b> to get started.",
+                "clock/cd-hours": "Hours",
+                "clock/cd-minutes": "Minutes",
+                "clock/cd-seconds": "Seconds",
+                "clock/tz-sheet-title": "Choose a City",
+                "clock/status-ready": "Ready",
+                "clock/status-running": "Running",
+                "clock/status-paused": "Paused",
+                "clock/no-results": "No results",
+                "clock/wintitle-main": "Clock",
+                "clock/wintitle-world": "World Clock",
+                "clock/wintitle-countdown": "Countdown",
+                "clock/wintitle-stopwatch": "Stopwatch",
+                "clock/wintitle-countdown-paused": "Countdown (Paused)",
+                "clock/wintitle-times-up": "⏰ Time's up!",
+                "clock/wintitle-stopwatch-paused": "Stopwatch (Paused)",
+                "clock/btn-remove": "Remove"
+            },
+            "titles": {
+                "Start": "Start",
+                "Pause": "Pause",
+                "Reset": "Reset",
+                "Start / Pause": "Start / Pause",
+                "Toggle dark / light theme": "Toggle dark / light theme",
+                "Remove": "Remove"
+            },
+            "placeholder": {
+                "Search city or region…": "Search city or region…"
+            }
+        },
+        "zh-cn": {
+            "name": "简体中文",
+            "fontFamily": "\"Microsoft YaHei\", \"PingFang SC\", \"SimHei\", sans-serif",
+            "strings": {
+                "clock/tab-clock": "时钟",
+                "clock/tab-world": "世界",
+                "clock/tab-countdown": "倒计时",
+                "clock/tab-stopwatch": "秒表",
+                "clock/other-clocks": "其他时钟",
+                "clock/add-city": "添加城市",
+                "clock/no-clocks-empty": "还没有时钟。<br>点击 <b>+ 添加城市</b> 开始。",
+                "clock/cd-hours": "小时",
+                "clock/cd-minutes": "分钟",
+                "clock/cd-seconds": "秒",
+                "clock/tz-sheet-title": "选择城市",
+                "clock/status-ready": "就绪",
+                "clock/status-running": "运行中",
+                "clock/status-paused": "已暂停",
+                "clock/no-results": "无结果",
+                "clock/wintitle-main": "时钟",
+                "clock/wintitle-world": "世界时钟",
+                "clock/wintitle-countdown": "倒计时",
+                "clock/wintitle-stopwatch": "秒表",
+                "clock/wintitle-countdown-paused": "倒计时（已暂停）",
+                "clock/wintitle-times-up": "⏰ 时间到！",
+                "clock/wintitle-stopwatch-paused": "秒表（已暂停）",
+                "clock/btn-remove": "删除"
+            },
+            "titles": {
+                "Start": "开始",
+                "Pause": "暂停",
+                "Reset": "重置",
+                "Start / Pause": "开始 / 暂停",
+                "Toggle dark / light theme": "切换深色 / 浅色主题",
+                "Remove": "删除"
+            },
+            "placeholder": {
+                "Search city or region…": "搜索城市或地区…"
+            }
+        },
+        "zh-tw": {
+            "name": "繁體中文（台灣）",
+            "fontFamily": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
+            "strings": {
+                "clock/tab-clock": "時鐘",
+                "clock/tab-world": "世界",
+                "clock/tab-countdown": "倒數計時",
+                "clock/tab-stopwatch": "碼錶",
+                "clock/other-clocks": "其他時鐘",
+                "clock/add-city": "新增城市",
+                "clock/no-clocks-empty": "尚無時鐘。<br>點擊 <b>+ 新增城市</b> 開始。",
+                "clock/cd-hours": "小時",
+                "clock/cd-minutes": "分鐘",
+                "clock/cd-seconds": "秒",
+                "clock/tz-sheet-title": "選擇城市",
+                "clock/status-ready": "就緒",
+                "clock/status-running": "執行中",
+                "clock/status-paused": "已暫停",
+                "clock/no-results": "無結果",
+                "clock/wintitle-main": "時鐘",
+                "clock/wintitle-world": "世界時鐘",
+                "clock/wintitle-countdown": "倒數計時",
+                "clock/wintitle-stopwatch": "碼錶",
+                "clock/wintitle-countdown-paused": "倒數計時（已暫停）",
+                "clock/wintitle-times-up": "⏰ 時間到！",
+                "clock/wintitle-stopwatch-paused": "碼錶（已暫停）",
+                "clock/btn-remove": "移除"
+            },
+            "titles": {
+                "Start": "開始",
+                "Pause": "暫停",
+                "Reset": "重置",
+                "Start / Pause": "開始 / 暫停",
+                "Toggle dark / light theme": "切換深色 / 淺色主題",
+                "Remove": "移除"
+            },
+            "placeholder": {
+                "Search city or region…": "搜尋城市或地區…"
+            }
+        },
+        "zh-hk": {
+            "name": "繁體中文（香港）",
+            "fontFamily": "\"Microsoft JhengHei\", \"Apple LiGothic Medium\", \"STHeiti\", sans-serif",
+            "strings": {
+                "clock/tab-clock": "時鐘",
+                "clock/tab-world": "世界",
+                "clock/tab-countdown": "倒數計時",
+                "clock/tab-stopwatch": "秒錶",
+                "clock/other-clocks": "其他時鐘",
+                "clock/add-city": "新增城市",
+                "clock/no-clocks-empty": "暫時冇時鐘。<br>點擊 <b>+ 新增城市</b> 開始。",
+                "clock/cd-hours": "小時",
+                "clock/cd-minutes": "分鐘",
+                "clock/cd-seconds": "秒",
+                "clock/tz-sheet-title": "選擇城市",
+                "clock/status-ready": "就緒",
+                "clock/status-running": "運行中",
+                "clock/status-paused": "已暫停",
+                "clock/no-results": "無結果",
+                "clock/wintitle-main": "時鐘",
+                "clock/wintitle-world": "世界時鐘",
+                "clock/wintitle-countdown": "倒數計時",
+                "clock/wintitle-stopwatch": "秒錶",
+                "clock/wintitle-countdown-paused": "倒數計時（已暫停）",
+                "clock/wintitle-times-up": "⏰ 時間到！",
+                "clock/wintitle-stopwatch-paused": "秒錶（已暫停）",
+                "clock/btn-remove": "移除"
+            },
+            "titles": {
+                "Start": "開始",
+                "Pause": "暫停",
+                "Reset": "重置",
+                "Start / Pause": "開始 / 暫停",
+                "Toggle dark / light theme": "切換深色 / 淺色主題",
+                "Remove": "移除"
+            },
+            "placeholder": {
+                "Search city or region…": "搜尋城市或地區…"
+            }
+        },
+        "ja-jp": {
+            "name": "日本語",
+            "fontFamily": "\"Hiragino Kaku Gothic Pro\", \"Meiryo\", \"MS Gothic\", sans-serif",
+            "strings": {
+                "clock/tab-clock": "時計",
+                "clock/tab-world": "世界",
+                "clock/tab-countdown": "カウントダウン",
+                "clock/tab-stopwatch": "ストップウォッチ",
+                "clock/other-clocks": "その他の時計",
+                "clock/add-city": "都市を追加",
+                "clock/no-clocks-empty": "時計がありません。<br><b>+ 都市を追加</b> をタップして開始してください。",
+                "clock/cd-hours": "時間",
+                "clock/cd-minutes": "分",
+                "clock/cd-seconds": "秒",
+                "clock/tz-sheet-title": "都市を選択",
+                "clock/status-ready": "準備完了",
+                "clock/status-running": "実行中",
+                "clock/status-paused": "一時停止中",
+                "clock/no-results": "結果なし",
+                "clock/wintitle-main": "時計",
+                "clock/wintitle-world": "世界時計",
+                "clock/wintitle-countdown": "カウントダウン",
+                "clock/wintitle-stopwatch": "ストップウォッチ",
+                "clock/wintitle-countdown-paused": "カウントダウン（一時停止中）",
+                "clock/wintitle-times-up": "⏰ 時間切れ！",
+                "clock/wintitle-stopwatch-paused": "ストップウォッチ（一時停止中）",
+                "clock/btn-remove": "削除"
+            },
+            "titles": {
+                "Start": "開始",
+                "Pause": "一時停止",
+                "Reset": "リセット",
+                "Start / Pause": "開始 / 一時停止",
+                "Toggle dark / light theme": "ダーク / ライトテーマ切替",
+                "Remove": "削除"
+            },
+            "placeholder": {
+                "Search city or region…": "都市または地域を検索…"
+            }
+        },
+        "ko-kr": {
+            "name": "한국어",
+            "fontFamily": "\"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
+            "strings": {
+                "clock/tab-clock": "시계",
+                "clock/tab-world": "세계",
+                "clock/tab-countdown": "카운트다운",
+                "clock/tab-stopwatch": "스톱워치",
+                "clock/other-clocks": "다른 시계",
+                "clock/add-city": "도시 추가",
+                "clock/no-clocks-empty": "시계가 없습니다.<br><b>+ 도시 추가</b>를 탭하여 시작하세요.",
+                "clock/cd-hours": "시간",
+                "clock/cd-minutes": "분",
+                "clock/cd-seconds": "초",
+                "clock/tz-sheet-title": "도시 선택",
+                "clock/status-ready": "준비됨",
+                "clock/status-running": "실행 중",
+                "clock/status-paused": "일시 정지됨",
+                "clock/no-results": "결과 없음",
+                "clock/wintitle-main": "시계",
+                "clock/wintitle-world": "세계 시계",
+                "clock/wintitle-countdown": "카운트다운",
+                "clock/wintitle-stopwatch": "스톱워치",
+                "clock/wintitle-countdown-paused": "카운트다운 (일시 정지됨)",
+                "clock/wintitle-times-up": "⏰ 시간 초과!",
+                "clock/wintitle-stopwatch-paused": "스톱워치 (일시 정지됨)",
+                "clock/btn-remove": "제거"
+            },
+            "titles": {
+                "Start": "시작",
+                "Pause": "일시 정지",
+                "Reset": "초기화",
+                "Start / Pause": "시작 / 일시 정지",
+                "Toggle dark / light theme": "다크 / 라이트 테마 전환",
+                "Remove": "제거"
+            },
+            "placeholder": {
+                "Search city or region…": "도시 또는 지역 검색…"
+            }
+        }
+    }
+}

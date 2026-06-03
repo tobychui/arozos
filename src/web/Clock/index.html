@@ -6,6 +6,7 @@
     <title>Clock</title>
     <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
+    <script src="../script/applocale.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -406,19 +407,19 @@
     <div class="tab-bar">
         <button class="tab-btn active" id="tab-clock-btn" onclick="switchTab('clock')">
             <img class="theme-icon" data-icon="clock" src="img/icons/clock_black.svg">
-            Clock
+            <span locale="clock/tab-clock">Clock</span>
         </button>
         <button class="tab-btn" id="tab-world-btn" onclick="switchTab('world')">
             <img class="theme-icon" data-icon="globe" src="img/icons/globe_black.svg">
-            World
+            <span locale="clock/tab-world">World</span>
         </button>
         <button class="tab-btn" id="tab-countdown-btn" onclick="switchTab('countdown')">
             <img class="theme-icon" data-icon="countdown" src="img/icons/countdown_black.svg">
-            Countdown
+            <span locale="clock/tab-countdown">Countdown</span>
         </button>
         <button class="tab-btn" id="tab-stopwatch-btn" onclick="switchTab('stopwatch')">
             <img class="theme-icon" data-icon="timer" src="img/icons/timer_black.svg">
-            Stopwatch
+            <span locale="clock/tab-stopwatch">Stopwatch</span>
         </button>
     </div>
 
@@ -455,19 +456,19 @@
 
         <!-- Toolbar -->
         <div class="wc-toolbar">
-            <span class="wc-section-lbl">Other Clocks</span>
+            <span class="wc-section-lbl" locale="clock/other-clocks">Other Clocks</span>
             <button class="wc-add-btn" onclick="tzPickerShow()">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round">
                     <line x1="12" y1="4" x2="12" y2="20"/><line x1="4" y1="12" x2="20" y2="12"/>
                 </svg>
-                Add City
+                <span locale="clock/add-city">Add City</span>
             </button>
         </div>
 
         <!-- Empty state -->
         <div id="wc-empty" style="display:none;">
             <img class="theme-icon" data-icon="globe" src="img/icons/globe_black.svg" width="44" height="44">
-            No clocks yet.<br>Tap <b>+ Add City</b> to get started.
+            <span locale="clock/no-clocks-empty">No clocks yet.<br>Tap <b>+ Add City</b> to get started.</span>
         </div>
 
         <!-- Clock list -->
@@ -496,11 +497,11 @@
             <span></span>
             <button class="cd-arrow" id="cd-dn-s" onclick="cdAdjust('s',-1)">▼</button>
 
-            <div class="cd-lbl">Hours</div>
+            <div class="cd-lbl" locale="clock/cd-hours">Hours</div>
             <span></span>
-            <div class="cd-lbl">Minutes</div>
+            <div class="cd-lbl" locale="clock/cd-minutes">Minutes</div>
             <span></span>
-            <div class="cd-lbl">Seconds</div>
+            <div class="cd-lbl" locale="clock/cd-seconds">Seconds</div>
         </div>
 
         <div class="cd-progress-wrap">
@@ -528,7 +529,7 @@
             <span id="sw-hm">00:00</span><span class="sw-dim">:</span><span id="sw-s">00</span><span class="sw-dim sw-cs">.<span id="sw-cs-val">00</span></span>
         </div>
 
-        <div class="sw-status" id="sw-status">Ready</div>
+        <div class="sw-status" id="sw-status" locale="clock/status-ready">Ready</div>
 
         <div class="ctrl-row">
             <button id="sw-btn-toggle" class="ctrl-btn btn-play" onclick="swToggle()" title="Start / Pause">
@@ -551,7 +552,7 @@
 <div id="tz-overlay" onclick="if(event.target===this)tzPickerHide()">
     <div class="tz-sheet">
         <div class="tz-sheet-header">
-            <span class="tz-sheet-title">Choose a City</span>
+            <span class="tz-sheet-title" locale="clock/tz-sheet-title">Choose a City</span>
             <button class="tz-sheet-close" onclick="tzPickerHide()">✕</button>
         </div>
         <input class="tz-search" id="tz-search" type="search" placeholder="Search city or region…" oninput="tzFilter(this.value)">
@@ -563,9 +564,28 @@
 // ════════════════════════════════════════════════════════════════════════
 //  SETUP
 // ════════════════════════════════════════════════════════════════════════
-ao_module_setWindowTitle('Clock');
 ao_module_setFixedWindowSize();
 ao_module_setWindowSize(420, 450);
+
+function getStr(key, fallback) {
+    return (typeof applocale !== 'undefined' && applocale) ? applocale.getString(key, fallback) : fallback;
+}
+
+// Returns BCP-47 locale string for date/time formatting based on the user's
+// arozos language preference, falling back to the browser's locale.
+function getDateLocale() {
+    var lang = (localStorage.getItem('global_language') || 'default').toLowerCase();
+    if (lang === 'default' || lang === '') return navigator.language;
+    var map = {
+        'en-us': 'en-US',
+        'zh-cn': 'zh-CN',
+        'zh-tw': 'zh-TW',
+        'zh-hk': 'zh-HK',
+        'ja-jp': 'ja-JP',
+        'ko-kr': 'ko-KR'
+    };
+    return map[lang] || lang;
+}
 
 function pad(n){ return n < 10 ? '0'+n : String(n); }
 function htmlEsc(s){
@@ -615,8 +635,13 @@ function switchTab(id){
         document.getElementById('tab-'+t+'-btn').classList.toggle('active', t === id);
         document.getElementById('panel-'+t).classList.toggle('active', t === id);
     });
-    var labels = { clock:'Clock', world:'World Clock', countdown:'Countdown', stopwatch:'Stopwatch' };
-    ao_module_setWindowTitle('Clock — ' + labels[id]);
+    var labels = {
+        clock:     getStr('clock/wintitle-main',      'Clock'),
+        world:     getStr('clock/wintitle-world',     'World Clock'),
+        countdown: getStr('clock/wintitle-countdown', 'Countdown'),
+        stopwatch: getStr('clock/wintitle-stopwatch', 'Stopwatch')
+    };
+    ao_module_setWindowTitle(getStr('clock/wintitle-main', 'Clock') + ' — ' + labels[id]);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -628,9 +653,9 @@ function updateDigitalClock(){
     document.getElementById('dc-m').textContent    = pad(now.getMinutes());
     document.getElementById('dc-s').textContent    = pad(now.getSeconds());
     document.getElementById('dc-day').textContent  =
-        now.toLocaleDateString('en-US', { weekday: 'long' });
+        now.toLocaleDateString(getDateLocale(), { weekday: 'long' });
     document.getElementById('dc-date').textContent =
-        now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        now.toLocaleDateString(getDateLocale(), { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -656,7 +681,7 @@ function updateLocalClock(){
     document.getElementById('lc-sec').textContent  = ':' + pad(s);
     // Date
     document.getElementById('lc-date').textContent =
-        now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+        now.toLocaleDateString(getDateLocale(), { weekday:'short', month:'short', day:'numeric' });
 }
 
 function initLocalClock(){
@@ -780,7 +805,7 @@ function wcRender(){
                 '<span class="wc-time" id="wc-hm-'+i+'">--:--</span>' +
                 '<span class="wc-secs" id="wc-sec-'+i+'"></span>' +
             '</div>' +
-            '<button class="wc-remove" onclick="wcRemove('+i+')" title="Remove">×</button>' +
+            '<button class="wc-remove" onclick="wcRemove('+i+')" title="'+getStr('clock/btn-remove','Remove')+'">×</button>' +
         '</div>';
     }).join('');
     wcRefresh();
@@ -865,7 +890,7 @@ function tzGetOffset(tz){
 function tzRenderList(){
     var listEl = document.getElementById('tz-list');
     if (!tzFiltered.length){
-        listEl.innerHTML = '<div class="tz-noresults">No results</div>';
+        listEl.innerHTML = '<div class="tz-noresults">'+getStr('clock/no-results','No results')+'</div>';
         return;
     }
     var ORDER = ['Americas','Europe','Asia','Africa','Australia','Pacific','UTC'];
@@ -925,7 +950,7 @@ function cdStart(){
     document.getElementById('cd-btn-pause').disabled = false;
     document.getElementById('cd-progress').style.background = 'var(--accent)';
     cdTimer = setInterval(cdTick, 200);
-    ao_module_setWindowTitle('Clock — Countdown');
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown','Countdown'));
 }
 
 function cdTick(){
@@ -962,7 +987,7 @@ function cdPause(){
     cdArrows(false);
     document.getElementById('cd-btn-play').disabled  = false;
     document.getElementById('cd-btn-pause').disabled = true;
-    ao_module_setWindowTitle('Clock — Countdown (Paused)');
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown-paused','Countdown (Paused)'));
 }
 
 function cdReset(){
@@ -975,11 +1000,11 @@ function cdReset(){
     document.getElementById('cd-progress').style.background = 'var(--accent)';
     ['cd-h','cd-m','cd-s'].forEach(function(id){ document.getElementById(id).classList.remove('alarm'); });
     if (cdAlarm){ cdAlarm.pause(); cdAlarm=null; }
-    ao_module_setWindowTitle('Clock — Countdown');
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-countdown','Countdown'));
 }
 
 function cdFireAlarm(){
-    ao_module_setWindowTitle("Clock — ⏰ Time's up!");
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-times-up',"⏰ Time's up!"));
     try {
         cdAlarm = new Audio('sound/imuslab_theme.mp3');
         cdAlarm.volume = 0.3;
@@ -1005,16 +1030,16 @@ function swToggle(){
         document.getElementById('sw-ico-play').style.display  = '';
         document.getElementById('sw-ico-pause').style.display = 'none';
         document.getElementById('sw-btn-toggle').className    = 'ctrl-btn btn-play';
-        document.getElementById('sw-status').textContent      = 'Paused';
-        ao_module_setWindowTitle('Clock — Stopwatch (Paused)');
+        document.getElementById('sw-status').textContent      = getStr('clock/status-paused','Paused');
+        ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-stopwatch-paused','Stopwatch (Paused)'));
     } else {
         swStartTs=Date.now(); swRunning=true;
         swTimer=setInterval(swTick, 47);
         document.getElementById('sw-ico-play').style.display  = 'none';
         document.getElementById('sw-ico-pause').style.display = '';
         document.getElementById('sw-btn-toggle').className    = 'ctrl-btn btn-pause';
-        document.getElementById('sw-status').textContent      = 'Running';
-        ao_module_setWindowTitle('Clock — Stopwatch');
+        document.getElementById('sw-status').textContent      = getStr('clock/status-running','Running');
+        ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-stopwatch','Stopwatch'));
     }
 }
 
@@ -1023,9 +1048,9 @@ function swReset(){
     document.getElementById('sw-ico-play').style.display  = '';
     document.getElementById('sw-ico-pause').style.display = 'none';
     document.getElementById('sw-btn-toggle').className    = 'ctrl-btn btn-play';
-    document.getElementById('sw-status').textContent      = 'Ready';
+    document.getElementById('sw-status').textContent      = getStr('clock/status-ready','Ready');
     swDraw(0);
-    ao_module_setWindowTitle('Clock — Stopwatch');
+    ao_module_setWindowTitle(getStr('clock/wintitle-main','Clock') + ' — ' + getStr('clock/wintitle-stopwatch','Stopwatch'));
 }
 
 function swTick(){ swDraw(swElapsed + (swRunning ? Date.now()-swStartTs : 0)); }
@@ -1051,10 +1076,22 @@ setInterval(function(){
 //  BOOT
 // ════════════════════════════════════════════════════════════════════════
 loadTheme();
-updateDigitalClock();
-initLocalClock();
-wcLoad();
 swDraw(0);
+
+if (typeof applocale !== 'undefined' && applocale) {
+    applocale.init("locale/clock.json", function(){
+        applocale.translate();
+        ao_module_setWindowTitle(getStr('clock/wintitle-main', 'Clock'));
+        updateDigitalClock();
+        initLocalClock();
+        wcLoad();
+    });
+} else {
+    ao_module_setWindowTitle('Clock');
+    updateDigitalClock();
+    initLocalClock();
+    wcLoad();
+}
 </script>
 </body>
 </html>
