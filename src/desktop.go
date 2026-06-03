@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,8 +46,8 @@ func DesktopInit() {
 	//Initialize desktop database
 	err := sysdb.NewTable("desktop")
 	if err != nil {
-		log.Println("Unable to create database table for Desktop. Please validation your installation.")
-		log.Fatal(err)
+		systemWideLogger.PrintAndLog("System", "Unable to create database table for Desktop. Please validation your installation.", nil)
+		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 

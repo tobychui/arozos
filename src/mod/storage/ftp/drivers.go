@@ -3,7 +3,7 @@ package ftp
 import (
 	"crypto/tls"
 	"errors"
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -32,7 +32,7 @@ func (m mainDriver) ClientDisconnected(cc ftp.ClientContext) {
 				if err == nil {
 					//Update the user storage quota
 					userinfo.StorageQuota.CalculateQuotaUsage()
-					log.Println("FTP storage quota updated: ", val.(string))
+					ftpLogger.PrintAndLog("Ftp", fmt.Sprint("FTP storage quota updated: ", val.(string)), nil)
 				}
 			} else {
 				//This user is being delete during his connection to FTP???
@@ -44,7 +44,7 @@ func (m mainDriver) ClientDisconnected(cc ftp.ClientContext) {
 
 }
 
-//Authenicate user using arozos authAgent
+// Authenicate user using arozos authAgent
 func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ftp.ClientDriver, error) {
 	authAgent := m.userHandler.GetAuthAgent()
 	if authAgent.ValidateUsernameAndPassword(user, pass) {
@@ -71,7 +71,7 @@ func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ft
 			//log the signin request
 			m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")
 			//Disconnect this user as he is not in the group that is allowed to access ftp
-			log.Println(userinfo.Username + " tries to access FTP endpoint with invalid permission settings.")
+			ftpLogger.PrintAndLog("Ftp", userinfo.Username+" tries to access FTP endpoint with invalid permission settings.", nil)
 			return nil, errors.New("User " + userinfo.Username + " has no permission to access FTP endpoint")
 		}
 

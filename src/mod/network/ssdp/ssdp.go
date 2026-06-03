@@ -2,7 +2,6 @@ package ssdp
 
 import (
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"os/exec"
@@ -40,11 +39,11 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 		interfaceName, err := getFirstNetworkInterfaceName()
 		if err != nil {
 			//Ignore the interface binding
-			log.Println("[WARN] No connected network interface. Starting SSDP anyway.")
+			ssdpLogger.PrintAndLog("Ssdp", "[WARN] No connected network interface. Starting SSDP anyway.", nil)
 		} else {
 			mainNIC, err := net.InterfaceByName(interfaceName)
 			if err != nil {
-				log.Println("[WARN] Unable to get interface by name: " + interfaceName + ". Starting SSDP on all IPv4 interfaces.")
+				ssdpLogger.PrintAndLog("Ssdp", "[WARN] Unable to get interface by name: "+interfaceName+". Starting SSDP on all IPv4 interfaces.", nil)
 			} else {
 				ssdp.Interfaces = []net.Interface{*mainNIC}
 			}
@@ -73,7 +72,7 @@ func NewSSDPHost(outboundIP string, port int, templateFile string, option SSDPOp
 func (a *SSDPHost) Start() {
 	//Advertise ssdp
 	http.HandleFunc("/ssdp.xml", a.handleSSDP)
-	log.Println("Starting SSDP Discovery Service: " + a.Option.URLBase)
+	ssdpLogger.PrintAndLog("Ssdp", "Starting SSDP Discovery Service: "+a.Option.URLBase, nil)
 	var aliveTick <-chan time.Time
 	aliveTick = time.Tick(time.Duration(5) * time.Second)
 

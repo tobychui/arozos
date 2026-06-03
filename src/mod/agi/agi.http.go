@@ -5,10 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 
 	"github.com/robertkrimen/otto"
@@ -27,7 +28,8 @@ import (
 func (g *Gateway) HTTPLibRegister() {
 	err := g.RegisterLib("http", g.injectHTTPFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 
@@ -94,7 +96,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Println(err)
+			agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 			return otto.NullValue()
 		}
 		defer resp.Body.Close()
@@ -249,7 +251,7 @@ func (g *Gateway) injectHTTPFunctions(payload *static.AgiLibInjectionPayload) {
 
 		r, err := otto.ToValue(string(sEnc))
 		if err != nil {
-			log.Println(err.Error())
+			agiLogger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.NullValue()
 		}
 		return r

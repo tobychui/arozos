@@ -3,7 +3,7 @@ package permission
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"strings"
 
 	db "imuslab.com/arozos/mod/database"
@@ -72,7 +72,7 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 			json.Unmarshal(keypairs[1], &originalJSONString)
 			err := json.Unmarshal([]byte(originalJSONString), &groupPermission)
 			if err != nil {
-				log.Println(err)
+				permissionLogger.PrintAndLog("Permission", fmt.Sprint(err), nil)
 			}
 			//IsAdmin
 			isAdmin := "false"
@@ -111,7 +111,7 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 	return nil
 }
 
-//Get the user permission groups
+// Get the user permission groups
 func (h *PermissionHandler) GetUsersPermissionGroup(username string) ([]*PermissionGroup, error) {
 	//Get user permission group name from database
 	targetUserGroup := []string{}

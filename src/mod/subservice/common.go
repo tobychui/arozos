@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -108,7 +108,8 @@ func isDir(path string) bool {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		log.Fatal(err)
+		subserviceLogger.PrintAndLog("Subservice", fmt.Sprint(err), nil)
+		os.Exit(1)
 		return false
 	}
 	switch mode := fi.Mode(); {

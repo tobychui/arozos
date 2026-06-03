@@ -3,7 +3,6 @@ package raid
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -199,7 +198,7 @@ func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
 			seqInt, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(tmp[1]), "]"))
 			if err != nil {
 				//Not an integer?
-				log.Println("[RAID] Unable to parse " + disk + " sequence ID")
+				raidLogger.PrintAndLog("Raid", "[RAID] Unable to parse "+disk+" sequence ID", nil)
 				continue
 			}
 			member := RAIDMember{

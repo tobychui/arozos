@@ -12,7 +12,6 @@ package prouter
 */
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"imuslab.com/arozos/mod/security/csrf"
@@ -52,7 +51,7 @@ func NewModuleRouter(option RouterOption) *RouterDef {
 func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseWriter, *http.Request)) error {
 	//Check if the endpoint already registered
 	if _, exist := router.endpoints[endpoint]; exist {
-		log.Println("WARNING! Duplicated registering of web endpoint: " + endpoint)
+		prouterLogger.PrintAndLog("Prouter", "WARNING! Duplicated registering of web endpoint: "+endpoint, nil)
 		return errors.New("Endpoint register duplicated")
 	}
 

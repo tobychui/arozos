@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime"
 	"os"
 	"os/exec"
@@ -194,9 +193,9 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 		}
 		//Mount the device
 		if CheckMounted(mountpt) {
-			log.Println(mountpt + " already mounted.")
+			filesystemLogger.PrintAndLog("Filesystem", mountpt+" already mounted.", nil)
 		} else {
-			log.Println("Mounting " + mountdev + "(" + filesystem + ") to " + filepath.Clean(mountpt))
+			filesystemLogger.PrintAndLog("Filesystem", "Mounting "+mountdev+"("+filesystem+") to "+filepath.Clean(mountpt), nil)
 			cmd := exec.Command("mount", "-t", filesystem, mountdev, filepath.Clean(mountpt))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr

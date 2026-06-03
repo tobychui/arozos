@@ -2,7 +2,7 @@ package authlogger
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 	"regexp"
 	"sort"
@@ -23,16 +23,16 @@ func (s summaryDate) Less(i, j int) bool {
 	layout := "Jan-2006"
 	timei, err := time.Parse(layout, s[i])
 	if err != nil {
-		log.Println(err)
+		authloggerLogger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
 	}
 	timej, err := time.Parse(layout, s[j])
 	if err != nil {
-		log.Println(err)
+		authloggerLogger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
 	}
 	return timei.Unix() > timej.Unix()
 }
 
-//Handle of listing of the logger index (months)
+// Handle of listing of the logger index (months)
 func (l *Logger) HandleIndexListing(w http.ResponseWriter, r *http.Request) {
 	indexes := l.ListSummary()
 	sort.Sort(summaryDate(indexes))
@@ -45,7 +45,7 @@ func (l *Logger) HandleIndexListing(w http.ResponseWriter, r *http.Request) {
 	utils.SendJSONResponse(w, string(js))
 }
 
-//Handle of the listing of a given index (month)
+// Handle of the listing of a given index (month)
 func (l *Logger) HandleTableListing(w http.ResponseWriter, r *http.Request) {
 	//Get the record name request for listing
 	month, err := utils.PostPara(r, "record")

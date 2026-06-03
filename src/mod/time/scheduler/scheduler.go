@@ -3,7 +3,6 @@ package scheduler
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -106,7 +105,7 @@ func (a *Scheduler) createTicker(duration time.Duration) chan bool {
 	stop := make(chan bool, 1)
 
 	go func() {
-		defer log.Println("Scheduler Stopped")
+		defer schedulerLogger.PrintAndLog("Scheduler", "Scheduler Stopped", nil)
 		for {
 			select {
 			case <-ticker.C:
@@ -393,11 +392,11 @@ func cronlog(message string) {
 	f, err := os.OpenFile(currentLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//Unable to write to file. Log to STDOUT instead
-		log.Println(message)
+		schedulerLogger.PrintAndLog("Scheduler", fmt.Sprint(message), nil)
 		return
 	}
 	if _, err := f.WriteString(message + "\n"); err != nil {
-		log.Println(message)
+		schedulerLogger.PrintAndLog("Scheduler", fmt.Sprint(message), nil)
 		return
 	}
 	defer f.Close()

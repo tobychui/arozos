@@ -12,8 +12,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/mail"
 	"os"
@@ -102,7 +102,7 @@ func (h *RegisterHandler) HandleRegisterInterface(w http.ResponseWriter, r *http
 			"vendor_logo": imagecontent,
 		})
 		if err != nil {
-			log.Println("Template not found: system/auth/register.html")
+			registerLogger.PrintAndLog("Register", "Template not found: system/auth/register.html", nil)
 			http.NotFound(w, r)
 			return
 		}
@@ -245,7 +245,7 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	defaultGroup := h.DefaultUserGroup
 	if h.permissionHandler.GroupExists(defaultGroup) == false {
 		//Public registry user group not exists. Raise 500 Error
-		log.Println("[CRITICAL] PUBLIC REGISTRY USER GROUP NOT FOUND! PLEASE RESTART YOUR SYSTEM!")
+		registerLogger.PrintAndLog("Register", "[CRITICAL] PUBLIC REGISTRY USER GROUP NOT FOUND! PLEASE RESTART YOUR SYSTEM!", nil)
 		utils.SendErrorResponse(w, "Internal Server Error")
 		return
 	}
@@ -261,7 +261,7 @@ func (h *RegisterHandler) HandleRegisterRequest(w http.ResponseWriter, r *http.R
 	h.database.Write("register", "user/email/"+username, email)
 
 	utils.SendOK(w)
-	log.Println("New User Registered: ", email, username, strings.Repeat("*", len(password)))
+	registerLogger.PrintAndLog("Register", fmt.Sprint("New User Registered: ", email, username, strings.Repeat("*", len(password))), nil)
 
 }
 

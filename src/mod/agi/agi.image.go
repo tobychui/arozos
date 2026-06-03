@@ -12,7 +12,6 @@ import (
 	"image/png"
 	_ "image/png"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,7 +36,8 @@ import (
 func (g *Gateway) ImageLibRegister() {
 	err := g.RegisterLib("imagelib", g.injectImageLibFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 

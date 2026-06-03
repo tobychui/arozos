@@ -1,7 +1,6 @@
 package sonoff_s2x
 
 import (
-	"log"
 	"regexp"
 	"strings"
 
@@ -35,7 +34,7 @@ func NewProtocolHandler(scanner *mdns.MDNSHost) *Handler {
 }
 
 func (h *Handler) Start() error {
-	log.Println("[IoT] Sonoff Tasmoto S2X 6.4 scanner loaded")
+	sonoff_s2xLogger.PrintAndLog("Sonoff_s2x", "[IoT] Sonoff Tasmoto S2X 6.4 scanner loaded", nil)
 	return nil
 }
 
@@ -52,7 +51,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 			value, err := tryGet("http://" + dev.IPv4[0].String() + "/")
 			if err != nil {
 				//This things is not sonoff smart socket
-				log.Println(dev.HostName + " is not sonoff")
+				sonoff_s2xLogger.PrintAndLog("Sonoff_s2x", dev.HostName+" is not sonoff", nil)
 				continue
 			}
 
@@ -63,7 +62,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 				info, err := tryGet("http://" + dev.IPv4[0].String() + "/in")
 				if err != nil {
 					//This things is not sonoff smart socket
-					log.Println(dev.HostName + " failed to extract its MAC address from /in page")
+					sonoff_s2xLogger.PrintAndLog("Sonoff_s2x", dev.HostName+" failed to extract its MAC address from /in page", nil)
 					continue
 				}
 

@@ -1,7 +1,7 @@
 package agi
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -80,7 +80,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 		//Not upgraded. Upgrade it now
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Print("*AGI WebSocket*  WebSocket upgrade failed:", err)
+			agiLogger.PrintAndLog("Agi", fmt.Sprint("*AGI WebSocket*  WebSocket upgrade failed:", err), nil)
 			return otto.FalseValue()
 		}
 
@@ -116,7 +116,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 							vm.Set("_websocket_conn_id", otto.UndefinedValue())
 							connections.Delete(connID)
 
-							log.Println("*AGI WebSocket* Closing connection due to timeout")
+							agiLogger.PrintAndLog("Agi", "*AGI WebSocket* Closing connection due to timeout", nil)
 							break
 						}
 					}
@@ -178,7 +178,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 				vm.Set("_websocket_conn_id", otto.UndefinedValue())
 				connections.Delete(connID)
 
-				log.Println("*AGI WebSocket* Trying to read from a closed socket")
+				agiLogger.PrintAndLog("Agi", "*AGI WebSocket* Trying to read from a closed socket", nil)
 				return otto.FalseValue()
 			}
 			//Update last opr time
@@ -187,7 +187,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 			//Parse the incoming message
 			incomingString, err := otto.ToValue(string(message))
 			if err != nil {
-				log.Println(err)
+				agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 				//Unable to parse to JavaScript. Something out of the scope of otto?
 				return otto.NullValue()
 			}

@@ -3,8 +3,8 @@ package modules
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -63,7 +63,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 			os.RemoveAll(destPath)
 		}
 		if err := os.Rename(folder, destPath); err != nil {
-			log.Println("*Module Installer* Failed to move module:", err)
+			modulesLogger.PrintAndLog("Modules", fmt.Sprint("*Module Installer* Failed to move module:", err), nil)
 			return errors.New("Failed to install " + filepath.Base(folder) + ": " + err.Error())
 		}
 		installedFolders = append(installedFolders, destPath)
@@ -98,7 +98,7 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 // Install a module via git clone
 func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
 	//Download the module from the gitURL
-	log.Println("Starting module installation by Git cloning ", gitURL)
+	modulesLogger.PrintAndLog("Modules", fmt.Sprint("Starting module installation by Git cloning ", gitURL), nil)
 	newDownloadUUID := uuid.NewV4().String()
 	downloadFolder := filepath.Join(m.tmpDirectory, "download", newDownloadUUID)
 	os.MkdirAll(downloadFolder, 0777)
@@ -131,7 +131,7 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	/*
 		for _, src := range copyPendingList {
 			fs.FileCopy(src, "./web/", "skip", func(progress int, filename string) {
-				log.Println("Copying ", filename)
+				modulesLogger.PrintAndLog("Modules", fmt.Sprint("Copying ", filename), nil)
 			})
 		}
 	*/
@@ -159,15 +159,15 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 			//Load this as an module
 			startDef, err := os.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
 			if err != nil {
-				log.Println("*Module Activator* Failed to read init.agi from " + filepath.Base(moduleFolder))
+				modulesLogger.PrintAndLog("Modules", "*Module Activator* Failed to read init.agi from "+filepath.Base(moduleFolder), nil)
 				return errors.New("Failed to read init.agi from " + filepath.Base(moduleFolder))
 			}
 
 			//Execute the init script using AGI
-			log.Println("Starting module: ", filepath.Base(moduleFolder))
+			modulesLogger.PrintAndLog("Modules", fmt.Sprint("Starting module: ", filepath.Base(moduleFolder)), nil)
 			err = gateway.RunScript(string(startDef))
 			if err != nil {
-				log.Println("*Module Activator* " + filepath.Base(moduleFolder) + " Starting failed" + err.Error())
+				modulesLogger.PrintAndLog("Modules", "*Module Activator* "+filepath.Base(moduleFolder)+" Starting failed"+err.Error(), nil)
 				return errors.New(filepath.Base(moduleFolder) + " Starting failed: " + err.Error())
 
 			}
@@ -208,7 +208,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 		// Folder mod time (kept for backward compat)
 		mtime, err := fs.GetModTime(dirPath)
 		if err != nil {
-			log.Println(err)
+			modulesLogger.PrintAndLog("Modules", fmt.Sprint(err), nil)
 		}
 		t := time.Unix(mtime, 0)
 
@@ -263,7 +263,7 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	//Check if the module exists
 	if utils.FileExists(filepath.Join("./web", moduleName)) {
 		//Remove the module
-		log.Println("Removing Module: ", moduleName)
+		modulesLogger.PrintAndLog("Modules", fmt.Sprint("Removing Module: ", moduleName), nil)
 		os.RemoveAll(filepath.Join("./web", moduleName))
 
 		//Unregister the module from loaded list

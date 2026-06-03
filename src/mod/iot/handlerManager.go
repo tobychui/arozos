@@ -2,7 +2,7 @@ package iot
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
 
 	"imuslab.com/arozos/mod/database"
@@ -44,7 +44,7 @@ func (m *Manager) RegisterHandler(h ProtocolHandler) error {
 	err := h.Start()
 	if err != nil {
 		//Handler startup failed
-		log.Println("[IoT] *ERROR* Protocol Handler Startup Failed: ", err.Error())
+		iotLogger.PrintAndLog("Iot", fmt.Sprint("[IoT] *ERROR* Protocol Handler Startup Failed: ", err.Error()), nil)
 		return err
 	}
 
@@ -205,7 +205,7 @@ func (m *Manager) ScanDevices() []*Device {
 		//Scan devices using this handler
 		thisProtcolDeviceList, err := ph.Scan()
 		if err != nil {
-			log.Println("[IoT] *ERROR* Scan Error: " + err.Error())
+			iotLogger.PrintAndLog("Iot", "[IoT] *ERROR* Scan Error: "+err.Error(), nil)
 			continue
 		}
 

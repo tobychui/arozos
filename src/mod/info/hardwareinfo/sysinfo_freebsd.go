@@ -5,12 +5,13 @@ package hardwareinfo
 
 import (
 	"encoding/json"
-	"imuslab.com/arozos/mod/utils"
-	"log"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"imuslab.com/arozos/mod/utils"
 )
 
 /*
@@ -44,7 +45,7 @@ func GetCPUFreq() string {
 	shell := exec.Command("bash", "-c", query_frequency_command) // Run command
 	freqByteArr, err := shell.CombinedOutput()                   // Response from cmdline
 	if err != nil {                                              // If done w/ errors then
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
 
@@ -64,7 +65,7 @@ func GetCPUModel() string {
 	shell := exec.Command("bash", "-c", query_cpumodel_command) // Run command
 	modelStr, err := shell.CombinedOutput()                     // Response from cmdline
 	if err != nil {                                             // If done w/ errors then
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
 
@@ -77,7 +78,7 @@ func GetCPUHardware() string {
 	shell := exec.Command("bash", "-c", query_cpuhardware_command) // Run command
 	hwStr, err := shell.CombinedOutput()                           // Response from cmdline
 	if err != nil {                                                // If done w/ errors then
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
 
@@ -90,7 +91,7 @@ func GetCPUArch() string {
 	shell := exec.Command("bash", "-c", query_cpuarch_command) // Run command
 	archStr, err := shell.CombinedOutput()                     // Response from cmdline
 	if err != nil {                                            // If done w/ errors then
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 		return unknown_string
 	}
 
@@ -110,7 +111,7 @@ func GetCPUInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(CPUInfo)
 	if err != nil {
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -135,7 +136,7 @@ func Ifconfig(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -180,7 +181,7 @@ func GetDriveStat(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 
@@ -207,7 +208,7 @@ func GetUSB(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err = json.Marshal(arr)
 	if err != nil {
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }
@@ -228,7 +229,7 @@ func GetRamInfo(w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	jsonData, err := json.Marshal(ramSizeInt)
 	if err != nil {
-		log.Println(err)
+		hardwareinfoLogger.PrintAndLog("Hardwareinfo", fmt.Sprint(err), nil)
 	}
 	utils.SendTextResponse(w, string(jsonData))
 }

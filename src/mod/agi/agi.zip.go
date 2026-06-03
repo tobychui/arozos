@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +27,8 @@ import (
 func (g *Gateway) ZipLibRegister() {
 	err := g.RegisterLib("ziplib", g.injectZipFileLibFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 

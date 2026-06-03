@@ -3,7 +3,7 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -337,7 +337,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
 				//Script execution failed
-				log.Println("Script Execution Failed: ", err.Error())
+				agiLogger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}

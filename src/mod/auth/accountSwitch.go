@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -76,7 +75,7 @@ func NewSwitchableAccountPoolManager(sysdb *database.Database, parent *AuthAgent
 func (m *SwitchableAccountPoolManager) RunNightlyCleanup() {
 	pools, err := m.GetAllPools()
 	if err != nil {
-		log.Println("[auth] Unable to load account switching pools. Cleaning skipped: " + err.Error())
+		authLogger.PrintAndLog("Auth", "[auth] Unable to load account switching pools. Cleaning skipped: "+err.Error(), nil)
 		return
 	}
 

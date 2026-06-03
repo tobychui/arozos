@@ -7,7 +7,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	db "imuslab.com/arozos/mod/database"
@@ -22,7 +21,7 @@ func RunStartup() {
 
 	//Check if system or web both not exists and web.tar.gz exists. Unzip it for the user
 	if (!fs.FileExists("system/") || !fs.FileExists("web/")) && fs.FileExists("./web.tar.gz") {
-		log.Println("[Update] Unzipping system critical files from archive")
+		systemWideLogger.PrintAndLog("System", "[Update] Unzipping system critical files from archive", nil)
 		extErr := filesystem.ExtractTarGzipFile("./web.tar.gz", "./")
 		if extErr != nil {
 			//Extract failed

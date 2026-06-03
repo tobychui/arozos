@@ -3,8 +3,8 @@ package network
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -178,7 +178,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 
 	jsonData, err := json.Marshal(NICList)
 	if err != nil {
-		log.Println(err)
+		networkLogger.PrintAndLog("Network", fmt.Sprint(err), nil)
 		utils.SendErrorResponse(w, "Failed to encode NIC data")
 		return
 	}

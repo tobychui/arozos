@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -49,7 +48,7 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 
 	// Parse Host and Port
 
-	log.Println("[SFTP FS] Establishing connection with " + serverUrl + "...")
+	sftpfsLogger.PrintAndLog("Sftpfs", "[SFTP FS] Establishing connection with "+serverUrl+"...", nil)
 
 	var auths []ssh.AuthMethod
 
@@ -72,18 +71,18 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 	// Connect to server
 	conn, err := ssh.Dial("tcp", addr, &config)
 	if err != nil {
-		log.Printf("[SFTP FS] Failed to connect to [%s] %v\n", addr, err)
+		sftpfsLogger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Failed to connect to [%s] %v\n", addr, err), nil)
 		return SFTPFileSystemAbstraction{}, err
 	}
 
 	// Create new SFTP client
 	sc, err := sftp.NewClient(conn)
 	if err != nil {
-		log.Printf("[SFTP FS] Unable to start SFTP subsystem: %v\n", err)
+		sftpfsLogger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Unable to start SFTP subsystem: %v\n", err), nil)
 		return SFTPFileSystemAbstraction{}, err
 	}
 
-	log.Println("[SFTP FS] Connected to remote: " + addr)
+	sftpfsLogger.PrintAndLog("Sftpfs", "[SFTP FS] Connected to remote: "+addr, nil)
 	return SFTPFileSystemAbstraction{
 		uuid:        uuid,
 		hierarchy:   hierarchy,

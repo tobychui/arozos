@@ -3,7 +3,7 @@ package subservice
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -155,7 +155,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		launchConfig, err := os.ReadFile(servicePath + "/moduleInfo.json")
 		if err != nil {
 			if startupMode {
-				log.Fatal("Failed to read moduleInfo.json: "+binaryname, err)
+				subserviceLogger.PrintAndLog("Subservice", fmt.Sprint("Failed to read moduleInfo.json: "+binaryname, err), nil)
+				os.Exit(1)
 			} else {
 				return errors.New("Failed to read moduleInfo.json: " + binaryname)
 			}
@@ -168,7 +169,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		if err != nil {
 			sr.logger.PrintAndLog("Subservice", "Missing module startup info for "+servicePath, errors.New("Startup flag -info return no JSON string and moduleInfo.json does not exists for "+servicePath))
 			if startupMode {
-				log.Fatal("Unable to start service: "+binaryname, err)
+				subserviceLogger.PrintAndLog("Subservice", fmt.Sprint("Unable to start service: "+binaryname, err), nil)
+				os.Exit(1)
 			} else {
 				return errors.New("Unable to start service: " + binaryname)
 			}
@@ -184,7 +186,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 	err := json.Unmarshal([]byte(serviceLaunchInfo), &thisModuleInfo)
 	if err != nil {
 		if startupMode {
-			log.Fatal("Failed to load subservice: "+serviceRoot+"\n", err.Error())
+			subserviceLogger.PrintAndLog("Subservice", fmt.Sprint("Failed to load subservice: "+serviceRoot+"\n", err.Error()), nil)
+			os.Exit(1)
 
 		} else {
 			return errors.New("Failed to load subservice: " + serviceRoot)
@@ -204,7 +207,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 
 			if !fileExists(initPath) {
 				if startupMode {
-					log.Fatal("start.sh not found. Unable to startup service " + serviceRoot)
+					subserviceLogger.PrintAndLog("Subservice", "start.sh not found. Unable to startup service "+serviceRoot, nil)
+					os.Exit(1)
 				} else {
 					return errors.New("start.sh not found. Unable to startup service " + serviceRoot)
 				}
@@ -239,7 +243,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 		//Check if this path is reversed
 		if stringInSlice(rProxyEndpoint, sr.ReservePaths) || rProxyEndpoint == "" {
 			if startupMode {
-				log.Fatal(serviceRoot + " service try to request system reserve path as Reverse Proxy endpoint.")
+				subserviceLogger.PrintAndLog("Subservice", serviceRoot+" service try to request system reserve path as Reverse Proxy endpoint.", nil)
+				os.Exit(1)
 			} else {
 				return errors.New(serviceRoot + " service try to request system reserve path as Reverse Proxy endpoint.")
 			}
@@ -259,7 +264,8 @@ func (sr *SubServiceRouter) Launch(servicePath string, startupMode bool) error {
 
 			if !fileExists(initPath) {
 				if startupMode {
-					log.Fatal("start.sh not found. Unable to startup service " + serviceRoot)
+					subserviceLogger.PrintAndLog("Subservice", "start.sh not found. Unable to startup service "+serviceRoot, nil)
+					os.Exit(1)
 				} else {
 					return errors.New(serviceRoot + "start.sh not found. Unable to startup service " + serviceRoot)
 				}

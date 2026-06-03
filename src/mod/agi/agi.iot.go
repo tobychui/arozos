@@ -2,7 +2,8 @@ package agi
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
+	"os"
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
@@ -21,7 +22,8 @@ import (
 func (g *Gateway) IoTLibRegister() {
 	err := g.RegisterLib("iot", g.injectIoTFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 
@@ -119,7 +121,7 @@ func (g *Gateway) injectIoTFunctions(payload *static.AgiLibInjectionPayload) {
 		//Just leave it to the front end to handle :P
 		devStatus, err := dev.Handler.Status(dev)
 		if err != nil {
-			log.Println("*AGI IoT* " + err.Error())
+			agiLogger.PrintAndLog("Agi", "*AGI IoT* "+err.Error(), nil)
 			return otto.FalseValue()
 		}
 
@@ -151,7 +153,7 @@ func (g *Gateway) injectIoTFunctions(payload *static.AgiLibInjectionPayload) {
 		dev := g.Option.IotManager.GetDeviceByID(devID)
 		if dev == nil {
 			//Device not found
-			log.Println("*AGI IoT* Given device ID do not match any IoT devices")
+			agiLogger.PrintAndLog("Agi", "*AGI IoT* Given device ID do not match any IoT devices", nil)
 			return otto.FalseValue()
 		}
 
@@ -168,7 +170,7 @@ func (g *Gateway) injectIoTFunctions(payload *static.AgiLibInjectionPayload) {
 
 		if targetEp == nil {
 			//Endpoint not found
-			log.Println("*AGI IoT* Failed to get endpoint by name in this device")
+			agiLogger.PrintAndLog("Agi", "*AGI IoT* Failed to get endpoint by name in this device", nil)
 			return otto.FalseValue()
 		}
 
@@ -180,7 +182,7 @@ func (g *Gateway) injectIoTFunctions(payload *static.AgiLibInjectionPayload) {
 
 			err = json.Unmarshal([]byte(payload), &payloadMap)
 			if err != nil {
-				log.Println("*AGI IoT* Failed to parse input payload: " + err.Error())
+				agiLogger.PrintAndLog("Agi", "*AGI IoT* Failed to parse input payload: "+err.Error(), nil)
 				return otto.FalseValue()
 			}
 
@@ -193,7 +195,7 @@ func (g *Gateway) injectIoTFunctions(payload *static.AgiLibInjectionPayload) {
 		}
 
 		if err != nil {
-			log.Println("*AGI IoT* Failed to execute request to device: " + err.Error())
+			agiLogger.PrintAndLog("Agi", "*AGI IoT* Failed to execute request to device: "+err.Error(), nil)
 			return otto.FalseValue()
 		}
 
@@ -289,6 +291,6 @@ func (g *Gateway) injectIoTFunctions(payload *static.AgiLibInjectionPayload) {
 	`)
 
 	if err != nil {
-		log.Println("*AGI* IoT Functions Injection Error", err.Error())
+		agiLogger.PrintAndLog("Agi", fmt.Sprint("*AGI* IoT Functions Injection Error", err.Error()), nil)
 	}
 }

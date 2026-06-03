@@ -2,7 +2,7 @@ package agi
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,11 +27,13 @@ import (
 func (g *Gateway) FFmpegLibRegister() {
 	_, err := exec.LookPath("ffmpeg")
 	if err != nil {
-		log.Fatal("ffmpeg not found in PATH")
+		agiLogger.PrintAndLog("Agi", "ffmpeg not found in PATH", nil)
+		os.Exit(1)
 	}
 	err = g.RegisterLib("ffmpeg", g.injectFFmpegFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 

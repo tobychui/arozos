@@ -18,7 +18,6 @@ import (
 	"image/jpeg"
 	"io"
 	"io/fs"
-	"log"
 	"math"
 	"mime"
 	"net/http"
@@ -606,17 +605,17 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 							} else {
 								f, err := targetFshAbs.ReadStream(path)
 								if err != nil {
-									log.Println("[Share] Buffer and zip download operation failed: ", err)
+									shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 								defer f.Close()
 								dest, err := os.OpenFile(localPath, os.O_CREATE|os.O_WRONLY, 0775)
 								if err != nil {
-									log.Println("[Share] Buffer and zip download operation failed: ", err)
+									shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 								defer dest.Close()
 								_, err = io.Copy(dest, f)
 								if err != nil {
-									log.Println("[Share] Buffer and zip download operation failed: ", err)
+									shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 
 							}
@@ -633,7 +632,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 						//Failed to create zip file
 						w.WriteHeader(http.StatusInternalServerError)
 						w.Write([]byte("500 - Internal Server Error: Zip file creation failed"))
-						log.Println("Failed to create zip file for share download: " + err.Error())
+						shareLogger.PrintAndLog("Share", "Failed to create zip file for share download: "+err.Error(), nil)
 						return
 					}
 
@@ -1322,9 +1321,9 @@ func (s *Manager) ValidateAndClearShares() {
 			//This share source file don't exists anymore. Remove it
 			err = s.options.ShareEntryTable.RemoveShareByPathHash(pathHash)
 			if err != nil {
-				log.Println("[Share] Failed to remove share", err)
+				shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Failed to remove share", err), nil)
 			}
-			log.Println("[Share] Removing share to file: " + thisShareOption.FileRealPath + " as it no longer exists")
+			shareLogger.PrintAndLog("Share", "[Share] Removing share to file: "+thisShareOption.FileRealPath+" as it no longer exists", nil)
 		}
 		return true
 	})

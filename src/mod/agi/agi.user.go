@@ -3,7 +3,7 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,17 +29,17 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 
 	//File system and path related
 	vm.Set("decodeVirtualPath", func(call otto.FunctionCall) otto.Value {
-		log.Println("Call to deprecated function decodeVirtualPath")
+		agiLogger.PrintAndLog("Agi", "Call to deprecated function decodeVirtualPath", nil)
 		return otto.FalseValue()
 	})
 
 	vm.Set("decodeAbsoluteVirtualPath", func(call otto.FunctionCall) otto.Value {
-		log.Println("Call to deprecated function decodeAbsoluteVirtualPath")
+		agiLogger.PrintAndLog("Agi", "Call to deprecated function decodeAbsoluteVirtualPath", nil)
 		return otto.FalseValue()
 	})
 
 	vm.Set("encodeRealPath", func(call otto.FunctionCall) otto.Value {
-		log.Println("Call to deprecated function encodeRealPath")
+		agiLogger.PrintAndLog("Agi", "Call to deprecated function encodeRealPath", nil)
 		return otto.FalseValue()
 	})
 
@@ -229,7 +229,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 				return otto.TrueValue()
 			} else {
 				//Lib not exists
-				log.Println("Lib not found: " + libname)
+				agiLogger.PrintAndLog("Agi", "Lib not found: "+libname, nil)
 				return otto.FalseValue()
 			}
 		}
@@ -275,7 +275,7 @@ func (g *Gateway) injectUserFunctions(vm *otto.Otto, fsh *filesystem.FileSystemH
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
 				//Script execution failed
-				log.Println("Script Execution Failed: ", err.Error())
+				agiLogger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
 				g.RaiseError(err)
 			}
 		}()

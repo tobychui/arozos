@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -33,7 +34,7 @@ func (a *Scheduler) saveJobsToCronFile() error {
 }
 
 func (a *Scheduler) cronlog(message string) {
-	a.options.Logger.PrintAndLog("Scheduler", message, nil)
+	a.options.Logger.PrintAndLog("Scheduler", fmt.Sprint(message), nil)
 }
 
 func (a *Scheduler) cronlogError(message string, err error) {

@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -30,7 +30,8 @@ import (
 func (g *Gateway) FileLibRegister() {
 	err := g.RegisterLib("filelib", g.injectFileLibFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 
@@ -281,7 +282,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 			}
 
 			if !fssort.SortModeIsSupported(userSortMode) {
-				log.Println("[AGI] Sort mode: " + userSortMode + " not supported. Using default")
+				agiLogger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
 				userSortMode = "default"
 			}
 
@@ -359,7 +360,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		}
 
 		if !fssort.SortModeIsSupported(userSortMode) {
-			log.Println("[AGI] Sort mode: " + userSortMode + " not supported. Using default")
+			agiLogger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
 			userSortMode = "default"
 		}
 
@@ -436,7 +437,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		}
 
 		if !fssort.SortModeIsSupported(userSortMode) {
-			log.Println("[AGI] Sort mode: " + userSortMode + " not supported. Using default")
+			agiLogger.PrintAndLog("Agi", "[AGI] Sort mode: "+userSortMode+" not supported. Using default", nil)
 			userSortMode = "default"
 		}
 
@@ -624,14 +625,14 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Translate the path to realpath
 		fsh, rdir, err := static.VirtualPathToRealPath(vdir, u)
 		if err != nil {
-			log.Println(err.Error())
+			agiLogger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
 		//Create the directory at rdir location
 		err = fsh.FileSystemAbstraction.MkdirAll(rdir, 0755)
 		if err != nil {
-			log.Println(err.Error())
+			agiLogger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
@@ -731,13 +732,13 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			log.Println(err.Error())
+			agiLogger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
 		info, err := fsh.FileSystemAbstraction.Stat(rpath)
 		if err != nil {
-			log.Println(err.Error())
+			agiLogger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 
@@ -779,7 +780,7 @@ func (g *Gateway) injectFileLibFunctions(payload *static.AgiLibInjectionPayload)
 		//Get the target vpath
 		fsh, rpath, err := static.VirtualPathToRealPath(vpath, u)
 		if err != nil {
-			log.Println(err.Error())
+			agiLogger.PrintAndLog("Agi", err.Error(), nil)
 			return otto.FalseValue()
 		}
 

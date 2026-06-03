@@ -1,7 +1,7 @@
 package dynamicproxy
 
 import (
-	"log"
+	"fmt"
 	"net/url"
 
 	"imuslab.com/arozos/mod/network/reverseproxy"
@@ -39,6 +39,6 @@ func (router *Router) AddSubdomainRoutingService(hostnameWithSubdomain string, d
 		Proxy:          proxy,
 	})
 
-	log.Println("Adding Subdomain Rule: ", hostnameWithSubdomain+" to "+domain)
+	dynamicproxyLogger.PrintAndLog("Dynamicproxy", fmt.Sprint("Adding Subdomain Rule: ", hostnameWithSubdomain+" to "+domain), nil)
 	return nil
 }

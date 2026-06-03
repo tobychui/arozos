@@ -28,7 +28,6 @@ import (
 	"sync"
 
 	"encoding/hex"
-	"log"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -86,7 +85,7 @@ func NewAuthenticationAgent(sessionName string, key []byte, sysdb *db.Database, 
 	store := sessions.NewCookieStore(key)
 	err := sysdb.NewTable("auth")
 	if err != nil {
-		log.Println("Failed to create auth database. Terminating.")
+		authLogger.PrintAndLog("Auth", "Failed to create auth database. Terminating.", nil)
 		panic(err)
 	}
 
@@ -179,7 +178,7 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	username, err := utils.PostPara(r, "username")
 	if err != nil {
 		//Username not defined
-		log.Println("[System Auth] Someone trying to login with username: " + username)
+		authLogger.PrintAndLog("Auth", "[System Auth] Someone trying to login with username: "+username, nil)
 		//Write to log
 		a.Logger.LogAuth(r, false)
 		sendErrorResponse(w, "Username not defined or empty.")
@@ -233,12 +232,12 @@ func (a *AuthAgent) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		a.SwitchableAccountManager.MatchPoolCreatorOrResetPoolID(username, w, r)
 
 		//Print the login message to console
-		log.Println(username + " logged in.")
+		authLogger.PrintAndLog("Auth", username+" logged in.", nil)
 		a.Logger.LogAuth(r, true)
 		sendOK(w)
 	} else {
 		//Password incorrect
-		log.Println(username + " login request rejected: " + rejectionReason)
+		authLogger.PrintAndLog("Auth", username+" login request rejected: "+rejectionReason, nil)
 
 		//Add to retry count
 		a.ExpDelayHandler.AddUserRetrycount(username, r)
@@ -333,7 +332,7 @@ func (a *AuthAgent) LoginUserByRequest(w http.ResponseWriter, r *http.Request, u
 func (a *AuthAgent) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	username, _ := a.GetUserName(w, r)
 	if username != "" {
-		log.Println(username + " logged out.")
+		authLogger.PrintAndLog("Auth", username+" logged out.", nil)
 	}
 
 	//Clear user switchable account pools
@@ -432,7 +431,7 @@ func (a *AuthAgent) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	//Return to the client with OK
 	sendOK(w)
-	log.Println("[System Auth] New user " + newusername + " added to system.")
+	authLogger.PrintAndLog("Auth", "[System Auth] New user "+newusername+" added to system.", nil)
 	return
 }
 
@@ -479,7 +478,7 @@ func (a *AuthAgent) HandleUnregister(w http.ResponseWriter, r *http.Request) {
 
 	//Return to the client with OK
 	sendOK(w)
-	log.Println("[system_auth] User " + username + " has been removed from the system.")
+	authLogger.PrintAndLog("Auth", "[system_auth] User "+username+" has been removed from the system.", nil)
 	return
 }
 
@@ -516,7 +515,7 @@ func (a *AuthAgent) GetUserCounts() int {
 	}
 
 	if usercount == 0 {
-		log.Println("There are no user in the database.")
+		authLogger.PrintAndLog("Auth", "There are no user in the database.", nil)
 	}
 	return usercount
 }

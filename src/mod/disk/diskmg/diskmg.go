@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -112,7 +111,7 @@ func HandleView(w http.ResponseWriter, r *http.Request) {
 			utils.SendJSONResponse(w, string(js))
 
 		} else {
-			log.Println("system/disk/diskmg/DiskmgWin.exe NOT FOUND. Unable to load Window's disk information")
+			diskmgLogger.PrintAndLog("Diskmg", "system/disk/diskmg/DiskmgWin.exe NOT FOUND. Unable to load Window's disk information", nil)
 			utils.SendErrorResponse(w, "DiskmgWin.exe not found")
 			return
 		}
@@ -298,7 +297,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	mounted, err := checkDeviceMounted(devID)
 	if err != nil {
 		//Fail to check if disk mounted
-		log.Println(err.Error())
+		diskmgLogger.PrintAndLog("Diskmg", err.Error(), nil)
 		utils.SendErrorResponse(w, "Failed to check disk mount status")
 		return
 	}
@@ -312,7 +311,7 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 			return
 		}
 
-		log.Println("Unmounting " + mountpt + " for format")
+		diskmgLogger.PrintAndLog("Diskmg", "Unmounting "+mountpt+" for format", nil)
 		//Unmount the devices
 		out, err := Unmount(mountpt, fsHandlers)
 		if err != nil {
@@ -338,16 +337,16 @@ func HandleFormat(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileS
 	}
 
 	//Execute format comamnd
-	log.Println("Formatting of " + "/dev/" + devID + " Started")
+	diskmgLogger.PrintAndLog("Diskmg", "Formatting of "+"/dev/"+devID+" Started", nil)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Format failed: " + string(output))
+		diskmgLogger.PrintAndLog("Diskmg", "Format failed: "+string(output), nil)
 		utils.SendErrorResponse(w, string(output))
 		return
 	}
 
 	//Reply ok
-	log.Println(string(output))
+	diskmgLogger.PrintAndLog("Diskmg", string(output), nil)
 
 	//Let the system to reload the disk
 	time.Sleep(2 * time.Second)
@@ -364,11 +363,11 @@ func Mount(devID string, mountpt string, mountingTool string, fsHandlers []*fs.F
 		}
 	}
 
-	log.Println("Executing Mount Command: ", "mount", "-t", mountingTool, "/dev/"+devID, mountpt)
+	diskmgLogger.PrintAndLog("Diskmg", fmt.Sprint("Executing Mount Command: ", "mount", "-t", mountingTool, "/dev/"+devID, mountpt), nil)
 	cmd := exec.Command("mount", "-t", mountingTool, "/dev/"+devID, mountpt)
 	o, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Failed to mount "+devID, string(o))
+		diskmgLogger.PrintAndLog("Diskmg", fmt.Sprint("Failed to mount "+devID, string(o)), nil)
 	}
 	return string(o), err
 }
@@ -382,7 +381,7 @@ func Unmount(mountpt string, fsHandlers []*fs.FileSystemHandler) (string, error)
 			fsh.Closed = true
 		}
 	}
-	log.Println("Executing Umount Command: ", "umount", mountpt)
+	diskmgLogger.PrintAndLog("Diskmg", fmt.Sprint("Executing Umount Command: ", "umount", mountpt), nil)
 	cmd := exec.Command("umount", mountpt)
 	o, err := cmd.CombinedOutput()
 	return string(o), err

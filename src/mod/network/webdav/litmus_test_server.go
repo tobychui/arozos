@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build ignore
 // +build ignore
 
 /*
@@ -23,6 +24,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 
 	"golang.org/x/net/webdav"
 )
@@ -48,9 +50,9 @@ func main() {
 					dst = u.Path
 				}
 				o := r.Header.Get("Overwrite")
-				log.Printf("%-20s%-10s%-30s%-30so=%-2s%v", litmus, r.Method, r.URL.Path, dst, o, err)
+				systemWideLogger.PrintAndLog("System", fmt.Sprintf("%-20s%-10s%-30s%-30so=%-2s%v", litmus, r.Method, r.URL.Path, dst, o, err), nil)
 			default:
-				log.Printf("%-20s%-10s%-30s%v", litmus, r.Method, r.URL.Path, err)
+				systemWideLogger.PrintAndLog("System", fmt.Sprintf("%-20s%-10s%-30s%v", litmus, r.Method, r.URL.Path, err), nil)
 			}
 		},
 	}
@@ -89,6 +91,7 @@ func main() {
 	}))
 
 	addr := fmt.Sprintf(":%d", *port)
-	log.Printf("Serving %v", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	systemWideLogger.PrintAndLog("System", fmt.Sprintf("Serving %v", addr), nil)
+	systemWideLogger.PrintAndLog("System", fmt.Sprint(http.ListenAndServe(addr), nil), nil)
+	os.Exit(1)
 }

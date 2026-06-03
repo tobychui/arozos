@@ -2,7 +2,6 @@ package samba
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 
 	"strings"
@@ -21,7 +20,7 @@ func (m *ShareManager) ServerToggle(enabled bool) error {
 func (m *ShareManager) IsEnabled() bool {
 	smbdRunning, err := checkSmbdRunning()
 	if err != nil {
-		log.Println("Unable to get smbd state: " + err.Error())
+		sambaLogger.PrintAndLog("Samba", "Unable to get smbd state: "+err.Error(), nil)
 		return false
 	}
 

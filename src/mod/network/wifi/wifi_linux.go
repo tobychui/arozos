@@ -5,7 +5,7 @@ package wifi
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +26,7 @@ func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 	cmd := exec.Command("ifconfig", wlanInterface, status)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("*WiFi* WiFi toggle failed: ", string(out))
+		wifiLogger.PrintAndLog("Wifi", fmt.Sprint("*WiFi* WiFi toggle failed: ", string(out)), nil)
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 		if strings.Contains(string(out), "Interface doesn't support scanning") {
 			//Try nmcli instead if exists
 			if pkg_exists("nmcli") {
-				log.Println("*WiFi* Running WiFi scan in nmcli compatibility mode")
+				wifiLogger.PrintAndLog("Wifi", "*WiFi* Running WiFi scan in nmcli compatibility mode", nil)
 				cmd := exec.Command("bash", "-c", "nmcli d wifi list")
 				out, err := cmd.CombinedOutput()
 				if err != nil {
@@ -151,7 +151,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 
 				return results, nil
 			} else {
-				log.Println("*WiFi* Scan Failed: ", err.Error())
+				wifiLogger.PrintAndLog("Wifi", fmt.Sprint("*WiFi* Scan Failed: ", err.Error()), nil)
 				return []WiFiInfo{}, errors.New("Interface doesn't support scanning")
 			}
 		}
@@ -303,8 +303,8 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			cmd := exec.Command("nmcli", "con", "down", oldSSID)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Println("*WiFi* Connecting previous SSID failed: " + string(out))
-				log.Println("*WiFi* Trying to connect new AP anyway")
+				wifiLogger.PrintAndLog("Wifi", "*WiFi* Connecting previous SSID failed: "+string(out), nil)
+				wifiLogger.PrintAndLog("Wifi", "*WiFi* Trying to connect new AP anyway", nil)
 			}
 		}
 
@@ -317,7 +317,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		cmd := exec.Command("nmcli", "device", "wifi", "connect", ssid, "password", password)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println("*WiFi* Connecting to SSID " + ssid + " failed: " + string(out))
+			wifiLogger.PrintAndLog("Wifi", "*WiFi* Connecting to SSID "+ssid+" failed: "+string(out), nil)
 			return &WiFiConnectionResult{Success: false}, errors.New(string(out))
 		}
 
@@ -326,7 +326,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 			w.database.Write("wifi", ssid, password)
 		}
 
-		log.Println(string(out))
+		wifiLogger.PrintAndLog("Wifi", string(out), nil)
 		//Check and return the current connection ssid
 		//Wait until the WiFi is conencted
 		rescanCount := 0
@@ -334,9 +334,9 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		//Wait for 30 seconds
 		for rescanCount < 10 && connectedSSID == "" {
 			connectedSSID, _, _ = w.GetConnectedWiFi()
-			log.Println(connectedSSID)
+			wifiLogger.PrintAndLog("Wifi", fmt.Sprint(connectedSSID), nil)
 			rescanCount = rescanCount + 1
-			log.Println("*WiFi* Waiting WiFi Connection (Retry " + strconv.Itoa(rescanCount) + "/10)")
+			wifiLogger.PrintAndLog("Wifi", "*WiFi* Waiting WiFi Connection (Retry "+strconv.Itoa(rescanCount)+"/10)", nil)
 			time.Sleep(3 * time.Second)
 		}
 
@@ -378,7 +378,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		//Special case, for handling WiFi Switching without retyping the password
 		writeToConfig = false
 	} else {
-		log.Println("*WiFi* Unsupported connection type")
+		wifiLogger.PrintAndLog("Wifi", "*WiFi* Unsupported connection type", nil)
 		return &WiFiConnectionResult{Success: false}, errors.New("Unsupported Connection Type")
 	}
 
@@ -388,15 +388,15 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	}
 
 	if writeToConfig == true {
-		log.Println("*WiFi* WiFi Config Generated. Writing to file...")
+		wifiLogger.PrintAndLog("Wifi", "*WiFi* WiFi Config Generated. Writing to file...", nil)
 		//Write config file to disk
 		err := os.WriteFile("./system/network/wifi/ap/"+ssid+".config", []byte(networkConfigFile), 0755)
 		if err != nil {
-			log.Println(err.Error())
+			wifiLogger.PrintAndLog("Wifi", err.Error(), nil)
 			return &WiFiConnectionResult{Success: false}, err
 		}
 	} else {
-		log.Println("*WiFi* Switching WiFi AP...")
+		wifiLogger.PrintAndLog("Wifi", "*WiFi* Switching WiFi AP...", nil)
 	}
 
 	//Start creating the new wpa_supplicant file
@@ -404,7 +404,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	configHeader, err := os.ReadFile("./system/network/wifi/wpa_supplicant.conf_template.config")
 	if err != nil {
 		//Template header not found. Use default one from Raspberry Pi
-		log.Println("*WiFi* Warning! wpa_supplicant template file not found. Using default template.")
+		wifiLogger.PrintAndLog("Wifi", "*WiFi* Warning! wpa_supplicant template file not found. Using default template.", nil)
 		configHeader = []byte(`ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 		update_config=1
 		{{networks}}
@@ -414,7 +414,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	//Build network informations
 	networksConfigs, err := filepath.Glob("./system/network/wifi/ap/*.config")
 	if err != nil {
-		log.Println(err.Error())
+		wifiLogger.PrintAndLog("Wifi", err.Error(), nil)
 		return &WiFiConnectionResult{Success: false}, err
 	}
 
@@ -424,7 +424,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	for _, configFile := range networksConfigs {
 		thisNetworkConfig, err := os.ReadFile(configFile)
 		if err != nil {
-			log.Println("*WiFi* Failed to read Network Config File: " + configFile)
+			wifiLogger.PrintAndLog("Wifi", "*WiFi* Failed to read Network Config File: "+configFile, nil)
 			continue
 		}
 
@@ -451,11 +451,11 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	//Try to write the new config to wpa_supplicant
 	err = os.WriteFile(w.wpa_supplicant_path, []byte(newconfig), 0777)
 	if err != nil {
-		log.Println("*WiFi* Failed to update wpa_supplicant config, are you sure you have access permission to that file?")
+		wifiLogger.PrintAndLog("Wifi", "*WiFi* Failed to update wpa_supplicant config, are you sure you have access permission to that file?", nil)
 		return &WiFiConnectionResult{Success: false}, err
 	}
 
-	log.Println("*WiFi* WiFi Config Updated. Restarting Wireless Interfaces...")
+	wifiLogger.PrintAndLog("Wifi", "*WiFi* WiFi Config Updated. Restarting Wireless Interfaces...", nil)
 
 	//Restart network services
 	cmd := exec.Command("wpa_cli", "-i", w.wan_interface_name, "reconfigure")
@@ -464,7 +464,7 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		//Maybe the user forgot to set the flag. Try auto detect.
 		autoDetectedWIface, err := w.GetWirelessInterfaces()
 		if err != nil || len(autoDetectedWIface) == 0 {
-			log.Println("failed to restart network: " + string(out))
+			wifiLogger.PrintAndLog("Wifi", "failed to restart network: "+string(out), nil)
 			return &WiFiConnectionResult{Success: false}, err
 		}
 
@@ -473,22 +473,22 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			//Really failed.
-			log.Println("failed to restart network: " + string(out))
+			wifiLogger.PrintAndLog("Wifi", "failed to restart network: "+string(out), nil)
 			return &WiFiConnectionResult{Success: false}, err
 		}
 
 	}
 
-	log.Println("*WiFi* Trying to connect new AP")
+	wifiLogger.PrintAndLog("Wifi", "*WiFi* Trying to connect new AP", nil)
 	//Wait until the WiFi is conencted
 	rescanCount := 0
 	connectedSSID, _, _ := w.GetConnectedWiFi()
 	//Wait for 30 seconds
 	for rescanCount < 10 && connectedSSID == "" {
 		connectedSSID, _, _ = w.GetConnectedWiFi()
-		log.Println(connectedSSID)
+		wifiLogger.PrintAndLog("Wifi", fmt.Sprint(connectedSSID), nil)
 		rescanCount = rescanCount + 1
-		log.Println("*WiFi* Waiting WiFi Connection (Retry " + strconv.Itoa(rescanCount) + "/10)")
+		wifiLogger.PrintAndLog("Wifi", "*WiFi* Waiting WiFi Connection (Retry "+strconv.Itoa(rescanCount)+"/10)", nil)
 		time.Sleep(3 * time.Second)
 	}
 

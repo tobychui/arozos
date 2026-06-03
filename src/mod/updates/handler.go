@@ -3,7 +3,6 @@ package updates
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"runtime"
@@ -156,7 +155,7 @@ func HandleGetUpdatePlatformInfo(w http.ResponseWriter, r *http.Request) {
 	vendorUpdateConfig := UpdateConfig{}
 	err = json.Unmarshal(updateFileContent, &vendorUpdateConfig)
 	if err != nil {
-		log.Println("[Updates] Failed to parse update config file: ", err.Error())
+		updatesLogger.PrintAndLog("Updates", fmt.Sprint("[Updates] Failed to parse update config file: ", err.Error()), nil)
 		utils.SendErrorResponse(w, "Invalid or corrupted update config")
 		return
 	}

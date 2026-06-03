@@ -188,7 +188,7 @@ func (p *ReverseProxy) logf(format string, args ...interface{}) {
 	if p.ErrorLog != nil {
 		p.ErrorLog.Printf(format, args...)
 	} else {
-		log.Printf(format, args...)
+		dpcoreLogger.PrintAndLog("Dpcore", fmt.Sprintf(format, args...), nil)
 	}
 }
 

@@ -11,13 +11,12 @@ package wifi
 
 import (
 	"errors"
-	"log"
 	"os/exec"
 	"strconv"
 	"strings"
 )
 
-//Toggle WiFi On Off. Only allow on sudo mode
+// Toggle WiFi On Off. Only allow on sudo mode
 func (w *WiFiManager) SetInterfacePower(wlanInterface string, on bool) error {
 	return errors.New("Windows WiFi function is currently readonly")
 }
@@ -31,7 +30,7 @@ func (w *WiFiManager) ScanNearbyWiFi(interfaceName string) ([]WiFiInfo, error) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//No interface found on the system
-		log.Println(string(out))
+		wifiLogger.PrintAndLog("Wifi", string(out), nil)
 		return []WiFiInfo{}, errors.New(string(out))
 	}
 
@@ -132,7 +131,7 @@ func (w *WiFiManager) GetWirelessInterfaces() ([]string, error) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//No interface found on the system
-		log.Println(string(out))
+		wifiLogger.PrintAndLog("Wifi", string(out), nil)
 		return []string{}, err
 	}
 	output := string(out)
@@ -158,13 +157,13 @@ func (w *WiFiManager) ConnectWiFi(ssid string, password string, connType string,
 	return &WiFiConnectionResult{}, errors.New("Windows WiFi function is currently readonly")
 }
 
-//Get connected wifi ssid, interface name and error if any
+// Get connected wifi ssid, interface name and error if any
 func (w *WiFiManager) GetConnectedWiFi() (string, string, error) {
 	cmd := exec.Command("cmd", "/c", "chcp 65001 && netsh WLAN show interface")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		//No interface found on the system
-		log.Println(string(out))
+		wifiLogger.PrintAndLog("Wifi", string(out), nil)
 		return "", "", nil
 	}
 	output := string(out)
