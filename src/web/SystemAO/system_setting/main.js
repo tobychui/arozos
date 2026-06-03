@@ -153,8 +153,8 @@ function loadContent(moduleInfo) {
     $('#detail-inner').html('<div style="color:#999;font-size:13px;">Loading\u2026</div>');
     $('#detail-inner').load('../../' + moduleInfo.StartDir, function () { injectIME(); });
 
-    // For performance tab, set detail-inner padding to 0 to avoid unnecessary reflow when rendering charts
-    if (moduleInfo.Name === 'Performance') {
+    // Remove padding for full-bleed modules (Performance charts, System Log two-panel layout)
+    if (moduleInfo.Name === 'Performance' || moduleInfo.Name === 'System Log') {
         $('#detail-inner').css('padding', '0');
     } else {
         $('#detail-inner').css('padding', '');
