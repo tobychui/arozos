@@ -332,7 +332,28 @@ function scanRoot(rootPath) {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+var CACHE_FILE = "user:/Document/Appdata/Movie/library_cache.json";
+var STALE_MS   = 8 * 60 * 60 * 1000;  // 8 hours
+
 function main() {
+    // ── Serve from cache if it is still fresh and no force-refresh was requested ──
+    // POST param forceRefresh=1 bypasses this check (sent by the manual Refresh button).
+    var forced = (typeof forceRefresh !== "undefined" && forceRefresh === "1");
+
+    if (!forced && filelib.fileExists(CACHE_FILE)) {
+        var raw = filelib.readFile(CACHE_FILE);
+        if (raw && raw !== false && raw.length > 10) {
+            try {
+                var cached = JSON.parse(raw);
+                if (cached && cached.ts && Array.isArray(cached.data) &&
+                    (new Date().getTime() - cached.ts) < STALE_MS) {
+                    sendJSONResp(JSON.stringify(cached.data));
+                    return;  // skip the full scan — cache is still fresh
+                }
+            } catch (e) {}
+        }
+    }
+
     var allAlbums = [];
     var roots     = filelib.glob("/");
     if (!roots) { roots = []; }

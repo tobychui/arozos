@@ -1742,11 +1742,11 @@ function loadLibrary() {
 }
 
 // ─── Manual refresh (Refresh button) ──────────────────────────────────────────
-// Triggers a full scan; getLibrary.js saves the cache file automatically.
+// Passes forceRefresh=1 to bypass the 8-hour staleness guard in getLibrary.js.
 function refreshLibrary() {
     $('#library-refresh-btn').prop('disabled', true);
     setLibraryStatus('Refreshing…', true);
-    ao_module_agirun(SCRIPT_GET_LIBRARY, {}, function (data) {
+    ao_module_agirun(SCRIPT_GET_LIBRARY, { forceRefresh: '1' }, function (data) {
         $('#library-refresh-btn').prop('disabled', false);
         if (!data || data.error) {
             showToast('Failed to refresh library');
