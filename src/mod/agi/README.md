@@ -5,6 +5,14 @@ Scripts run in an Otto VM with sandboxed access to ArozOS functions.
 
 This document is updated to match the current AGI implementation in `mod/agi/agi*.go`.
 
+> **Maintainer note — keep Terminal in sync**
+> The Terminal webapp ships an in-app API reference panel that is driven by a separate
+> structured data file: **`src/web/Terminal/docs/api.json`**.
+> Whenever this README is updated (new functions, changed signatures, new library, etc.)
+> that file **must also be updated** to keep the in-app help accurate.
+> The JSON mirrors this README's section structure — one object per library section,
+> each with a `functions` array of `{ name, sig, desc, ret, example }` entries.
+
 ## AGI Version
 
 - Runtime version: `3.0` (`AgiVersion` in `agi.go`)
