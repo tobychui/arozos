@@ -14,7 +14,8 @@ var TRANSCODE_API  = "../media/transcode";            // ?file
 var AGI_INTERFACE = "../system/ajgi/interface?script=";
 
 // ── Script paths (used when calling ao_module_agirun from the frontend) ──────
-var SCRIPT_GET_LIBRARY   = BACKEND_PATH + "getLibrary.js";
+var SCRIPT_GET_LIBRARY       = BACKEND_PATH + "getLibrary.js";
+var SCRIPT_GET_LIBRARY_CACHE = BACKEND_PATH + "getLibraryCache.js";
 var SCRIPT_GET_EPISODES  = BACKEND_PATH + "getEpisodes.js";
 var SCRIPT_GET_THUMBNAIL = BACKEND_PATH + "getThumbnail.js";
 var SCRIPT_LIST_FOLDER   = BACKEND_PATH + "listFolder.js";
