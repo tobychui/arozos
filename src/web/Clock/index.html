@@ -571,6 +571,11 @@ function getStr(key, fallback) {
     return (typeof applocale !== 'undefined' && applocale) ? applocale.getString(key, fallback) : fallback;
 }
 
+function getCityDisplayName(englishName) {
+    var key = 'clock/city-' + englishName.toLowerCase().replace(/ /g, '-');
+    return getStr(key, englishName);
+}
+
 // Returns BCP-47 locale string for date/time formatting based on the user's
 // arozos language preference, falling back to the browser's locale.
 function getDateLocale() {
@@ -686,7 +691,7 @@ function updateLocalClock(){
 
 function initLocalClock(){
     var city = getLocalTzCity();
-    document.getElementById('lc-label').textContent = city;
+    document.getElementById('lc-label').textContent = getCityDisplayName(city);
     try {
         var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         var offFmt = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' });
@@ -800,7 +805,7 @@ function wcRender(){
     listEl.innerHTML = wcClocks.map(function(c, i){
         return '<div class="wc-card">' +
             '<div class="wc-card-left">' +
-                '<div class="wc-city">'+htmlEsc(c.city)+'</div>' +
+                '<div class="wc-city">'+htmlEsc(getCityDisplayName(c.city))+'</div>' +
                 '<div class="wc-meta" id="wc-meta-'+i+'"></div>' +
             '</div>' +
             '<div class="wc-time-block">' +
@@ -876,7 +881,11 @@ function tzPickerHide(){ document.getElementById('tz-overlay').classList.remove(
 function tzFilter(q){
     q = q.toLowerCase().trim();
     tzFiltered = q
-        ? ALL_CITIES.filter(function(c){ return c[0].toLowerCase().includes(q) || c[2].toLowerCase().includes(q); })
+        ? ALL_CITIES.filter(function(c){
+            return c[0].toLowerCase().includes(q) ||
+                   c[2].toLowerCase().includes(q) ||
+                   getCityDisplayName(c[0]).toLowerCase().includes(q);
+          })
         : ALL_CITIES.slice();
     tzRenderList();
 }
@@ -905,7 +914,7 @@ function tzRenderList(){
         html += '<div class="tz-region-lbl">'+getStr('clock/region-'+r.toLowerCase().replace(/ /g,'-'), r)+'</div>';
         groups[r].forEach(function(c){
             html += '<div class="tz-item" data-city="'+htmlEsc(c[0])+'" data-tz="'+htmlEsc(c[1])+'">' +
-                '<span class="tz-item-name">'+htmlEsc(c[0])+'</span>' +
+                '<span class="tz-item-name">'+htmlEsc(getCityDisplayName(c[0]))+'</span>' +
                 '<span class="tz-item-offset">'+tzGetOffset(c[1])+'</span>' +
             '</div>';
         });
