@@ -1,0 +1,25 @@
+/*
+    Terminal Module Registration
+
+    Registers the AGI Terminal as a Development tool.
+    Handles .agi and .js files so users can open scripts
+    directly from the file manager.
+*/
+
+newDBTableIfNotExists("Terminal");
+
+var moduleLaunchInfo = {
+    Name: "Terminal",
+    Desc: "Interactive AGI script execution terminal with persistent VM session",
+    Group: "Development",
+    IconPath: "Terminal/img/icon.svg",
+    Version: "1.0",
+    StartDir: "Terminal/index.html",
+    SupportFW: true,
+    LaunchFWDir: "Terminal/index.html",
+    InitFWSize: [900, 580],
+    SupportEmb: false,
+    SupportedExt: [".agi", ".js"]
+};
+
+registerModule(JSON.stringify(moduleLaunchInfo));
