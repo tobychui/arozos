@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -748,7 +747,7 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 			time.Sleep(1 * time.Second)
 			os.Remove(src)
 			counter++
-			log.Println("Retrying to remove file: " + src)
+			filesystemLogger.PrintAndLog("Filesystem", "Retrying to remove file: "+src, nil)
 			if counter > 10 {
 				return errors.New("Source file remove failed.")
 			}
@@ -821,7 +820,7 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 			//Move the file using BLFC
 			f, err := srcFshAbs.ReadStream(fileSrc)
 			if err != nil {
-				log.Println(err)
+				filesystemLogger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
 				return err
 			}
 			defer f.Close()
@@ -918,7 +917,8 @@ func IsDir(path string) bool {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		log.Fatal(err)
+		filesystemLogger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
+		os.Exit(1)
 		return false
 	}
 	switch mode := fi.Mode(); {

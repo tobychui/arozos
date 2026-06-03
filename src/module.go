@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -128,15 +128,14 @@ func ModuleServiceInit() {
 
 	err := sysdb.NewTable("module")
 	if err != nil {
-		log.Fatal(err)
+		systemWideLogger.PrintAndLog("System", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 
 }
 
 /*
-	Handle endpoint registry for Module installer
-
+Handle endpoint registry for Module installer
 */
 func ModuleInstallerInit() {
 	//Register module installation setting
@@ -163,7 +162,7 @@ func ModuleInstallerInit() {
 
 }
 
-//Handle module installation request
+// Handle module installation request
 func HandleModuleInstall(w http.ResponseWriter, r *http.Request) {
 	opr, _ := utils.PostPara(r, "opr")
 

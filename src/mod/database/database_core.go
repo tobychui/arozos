@@ -6,7 +6,6 @@ package database
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"sync"
 
 	"github.com/boltdb/bolt"
@@ -41,7 +40,7 @@ func (d *Database) dump(filename string) ([]string, error) {
 	d.Tables.Range(func(tableName, v interface{}) bool {
 		entries, err := d.ListTable(tableName.(string))
 		if err != nil {
-			log.Println("Reading table " + tableName.(string) + " failed: " + err.Error())
+			databaseLogger.PrintAndLog("Database", "Reading table "+tableName.(string)+" failed: "+err.Error(), nil)
 			return false
 		}
 		for _, keypairs := range entries {
@@ -134,7 +133,7 @@ func (d *Database) keyExists(tableName string, key string) bool {
 	resultIsNil := false
 	if !d.TableExists(tableName) {
 		//Table not exists. Do not proceed accessing key
-		log.Println("[DB] ERROR: Requesting key from table that didn't exist!!!")
+		databaseLogger.PrintAndLog("Database", "[DB] ERROR: Requesting key from table that didn't exist!!!", nil)
 		return false
 	}
 	err := d.Db.(*bolt.DB).View(func(tx *bolt.Tx) error {

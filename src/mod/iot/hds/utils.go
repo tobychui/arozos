@@ -3,8 +3,8 @@ package hds
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -46,7 +46,7 @@ func tryGetHDSUUID(ip string) (string, error) {
 		return "", err
 	}
 
-	log.Println(ip, uuid)
+	hdsLogger.PrintAndLog("Hds", fmt.Sprint(ip, uuid), nil)
 	return uuid, nil
 }
 

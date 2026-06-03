@@ -3,7 +3,6 @@ package authlogger
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -36,7 +35,7 @@ type LoginRecord struct {
 	Port           int
 }
 
-//New Logger create a new logger object
+// New Logger create a new logger object
 func NewLogger() (*Logger, error) {
 	os.MkdirAll("./system/auth/", 0775)
 	db, err := database.NewDatabase("./system/auth/authlog.db", false)
@@ -48,7 +47,7 @@ func NewLogger() (*Logger, error) {
 	}, nil
 }
 
-//Log the current authentication to record, Require the request object and login status
+// Log the current authentication to record, Require the request object and login status
 func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 	username, _ := utils.PostPara(r, "username")
 	timestamp := time.Now().Unix()
@@ -65,7 +64,7 @@ func (l *Logger) LogAuth(r *http.Request, loginStatus bool) error {
 	return l.LogAuthByRequestInfo(username, remoteIP, timestamp, loginStatus, "web")
 }
 
-//Log the current authentication to record by custom filled information. Use LogAuth if your module is authenticating via web interface
+// Log the current authentication to record by custom filled information. Use LogAuth if your module is authenticating via web interface
 func (l *Logger) LogAuthByRequestInfo(username string, remoteAddr string, timestamp int64, loginSucceed bool, authType string) error {
 	//Get the current month as the table name, create table if not exists
 	current := time.Now().UTC()
@@ -113,8 +112,8 @@ func (l *Logger) LogAuthByRequestInfo(username string, remoteAddr string, timest
 	entryKey := strconv.Itoa(int(time.Now().UnixNano()))
 	err := l.database.Write(tableName, entryKey, thisRecord)
 	if err != nil {
-		log.Println("*ERROR* Failed to write authentication log. Is the storage fulled?")
-		log.Println(err.Error())
+		authloggerLogger.PrintAndLog("Authlogger", "*ERROR* Failed to write authentication log. Is the storage fulled?", nil)
+		authloggerLogger.PrintAndLog("Authlogger", err.Error(), nil)
 		return err
 	}
 
@@ -122,12 +121,12 @@ func (l *Logger) LogAuthByRequestInfo(username string, remoteAddr string, timest
 
 }
 
-//Close the database when system shutdown
+// Close the database when system shutdown
 func (l *Logger) Close() {
 	l.database.Close()
 }
 
-//List the total number of months recorded in the database
+// List the total number of months recorded in the database
 func (l *Logger) ListSummary() []string {
 	tableNames := []string{}
 	l.database.Tables.Range(func(tableName, _ interface{}) bool {
@@ -159,8 +158,8 @@ func (l *Logger) ListRecords(key string) ([]LoginRecord, error) {
 	}
 }
 
-//Extract the address information from the request object, the first one is the remote address from the last hop,
-//and the 2nd one is the source address filled in by the client (not accurate)
+// Extract the address information from the request object, the first one is the remote address from the last hop,
+// and the 2nd one is the source address filled in by the client (not accurate)
 func getIpAddressFromRequest(r *http.Request) (string, []string) {
 	lastHopAddress := r.RemoteAddr
 	possibleSourceAddress := []string{}

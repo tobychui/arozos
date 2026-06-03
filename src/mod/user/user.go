@@ -2,7 +2,6 @@ package user
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"os"
 
@@ -41,7 +40,7 @@ type UserHandler struct {
 	shareEntryTable **shareEntry.ShareEntryTable
 }
 
-//Initiate a new user handler
+// Initiate a new user handler
 func NewUserHandler(systemdb *db.Database, authAgent *auth.AuthAgent, permissionHandler *permission.PermissionHandler, baseStoragePool *storage.StoragePool, shareEntryTable **shareEntry.ShareEntryTable) (*UserHandler, error) {
 	return &UserHandler{
 		authAgent:       authAgent,
@@ -52,7 +51,7 @@ func NewUserHandler(systemdb *db.Database, authAgent *auth.AuthAgent, permission
 	}, nil
 }
 
-//Return the user handler's auth agent
+// Return the user handler's auth agent
 func (u *UserHandler) GetAuthAgent() *auth.AuthAgent {
 	return u.authAgent
 }
@@ -61,7 +60,7 @@ func (u *UserHandler) GetPermissionHandler() *permission.PermissionHandler {
 	return u.phandler
 }
 
-//Get the user's base storage pool, in most case it is the system pool
+// Get the user's base storage pool, in most case it is the system pool
 func (u *UserHandler) GetStoragePool() *storage.StoragePool {
 	return u.basePool
 }
@@ -74,7 +73,7 @@ func (u *UserHandler) UpdateStoragePool(newpool *storage.StoragePool) {
 	u.basePool = newpool
 }
 
-//Get User object from username
+// Get User object from username
 func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 	//Check if user exists
 	if !u.authAgent.UserExists(username) {
@@ -90,7 +89,7 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 	//Create user directories in the Home Directories
 	if u.basePool.Storages == nil {
 		//This userhandler do not have a basepool?
-		log.Println("USER HANDLER DO NOT HAVE BASEPOOL")
+		userLogger.PrintAndLog("User", "USER HANDLER DO NOT HAVE BASEPOOL", nil)
 	} else {
 		for _, store := range u.basePool.Storages {
 			if store.Hierarchy == "user" {
@@ -145,7 +144,7 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 	return &thisUser, nil
 }
 
-//Get user obejct from session
+// Get user obejct from session
 func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Request) (*User, error) {
 	username, err := u.authAgent.GetUserName(w, r)
 	if err != nil {
@@ -159,7 +158,7 @@ func (u *UserHandler) GetUserInfoFromRequest(w http.ResponseWriter, r *http.Requ
 	return userObject, nil
 }
 
-//Get all the users given the permission group name, super IO heavy operation
+// Get all the users given the permission group name, super IO heavy operation
 func (u *UserHandler) GetUsersInPermissionGroup(permissionGroupName string) ([]*User, error) {
 	results := []*User{}
 	//Check if the given group exists

@@ -2,7 +2,8 @@ package agi
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -40,7 +41,8 @@ var (
 func (g *Gateway) SysinfoLibRegister() {
 	err := g.RegisterLib("sysinfo", g.injectSysinfoLibFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 

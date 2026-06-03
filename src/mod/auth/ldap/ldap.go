@@ -1,7 +1,7 @@
 package ldap
 
 import (
-	"log"
+	"fmt"
 	"regexp"
 
 	"github.com/go-ldap/ldap"
@@ -41,7 +41,7 @@ type UserAccount struct {
 	EquivGroup []string `json:"equiv_group"`
 }
 
-//syncorizeUserReturnInterface not designed to be used outside
+// syncorizeUserReturnInterface not designed to be used outside
 type syncorizeUserReturnInterface struct {
 	Userinfo    []UserAccount `json:"userinfo"`
 	TotalLength int           `json:"total_length"`
@@ -49,13 +49,13 @@ type syncorizeUserReturnInterface struct {
 	Error       string        `json:"error"`
 }
 
-//NewLdapHandler xxx
+// NewLdapHandler xxx
 func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database, permissionHandler *permission.PermissionHandler, userHandler *user.UserHandler, nightlyManager *nightly.TaskManager, iconSystem string) *ldapHandler {
 	//ldap handler init
-	log.Println("Starting LDAP client...")
+	ldapLogger.PrintAndLog("Ldap", "Starting LDAP client...", nil)
 	err := coreDb.NewTable("ldap")
 	if err != nil {
-		log.Println("Failed to create LDAP database. Terminating.")
+		ldapLogger.PrintAndLog("Ldap", "Failed to create LDAP database. Terminating.", nil)
 		panic(err)
 	}
 
@@ -82,7 +82,7 @@ func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, co
 	return &LDAPHandler
 }
 
-//@para limit: -1 means unlimited
+// @para limit: -1 means unlimited
 func (ldap *ldapHandler) getAllUser(limit int) ([]UserAccount, int, error) {
 	//read the user account from ldap, if limit is -1 then it will read all USERS
 	var accounts []UserAccount
@@ -143,7 +143,7 @@ func (ldap *ldapHandler) NightlySync() {
 	if checkLDAPenabled == "true" {
 		err := ldap.SynchronizeUserFromLDAP()
 		if err != nil {
-			log.Println(err)
+			ldapLogger.PrintAndLog("Ldap", fmt.Sprint(err), nil)
 		}
 	}
 }

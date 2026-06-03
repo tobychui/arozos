@@ -2,7 +2,6 @@ package raid
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,17 +35,17 @@ func (m *Manager) FlushReload() error {
 		//Check if it is mounted. If yes, skip this
 		devMounted, err := diskfs.DeviceIsMounted("/dev/" + rd.Name)
 		if devMounted || err != nil {
-			log.Println("[RAID] " + "/dev/" + rd.Name + " is in use. Skipping.")
+			raidLogger.PrintAndLog("Raid", "[RAID] "+"/dev/"+rd.Name+" is in use. Skipping.", nil)
 			continue
 		}
-		log.Println("[RAID] Stopping " + rd.Name)
+		raidLogger.PrintAndLog("Raid", "[RAID] Stopping "+rd.Name, nil)
 
 		cmdMdadm := exec.Command("sudo", "mdadm", "--stop", "/dev/"+rd.Name)
 
 		// Run the command and capture its output
 		_, err = cmdMdadm.Output()
 		if err != nil {
-			log.Println("[RAID] Unable to stop " + rd.Name + ". Skipping")
+			raidLogger.PrintAndLog("Raid", "[RAID] Unable to stop "+rd.Name+". Skipping", nil)
 			continue
 		}
 	}
@@ -158,10 +157,10 @@ func (m *Manager) UpdateMDADMConfig() error {
 		for _, volumeUUID := range poolUUIDToBeRemoved {
 			err = m.RemoveVolumeFromMDADMConfig(volumeUUID)
 			if err != nil {
-				log.Println("[RAID] Error when trying to remove old RAID volume from config: " + err.Error())
+				raidLogger.PrintAndLog("Raid", "[RAID] Error when trying to remove old RAID volume from config: "+err.Error(), nil)
 				return err
 			} else {
-				log.Println("[RAID] RAID volume " + volumeUUID + " removed from config file")
+				raidLogger.PrintAndLog("Raid", "[RAID] RAID volume "+volumeUUID+" removed from config file", nil)
 			}
 		}
 
@@ -169,7 +168,7 @@ func (m *Manager) UpdateMDADMConfig() error {
 
 	if len(newConfigLines) == 0 {
 		//Nothing to write
-		log.Println("[RAID] Nothing to write. Skipping mdadm config update.")
+		raidLogger.PrintAndLog("Raid", "[RAID] Nothing to write. Skipping mdadm config update.", nil)
 		return nil
 	}
 

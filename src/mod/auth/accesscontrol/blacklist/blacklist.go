@@ -2,7 +2,6 @@ package blacklist
 
 import (
 	"errors"
-	"log"
 	"strings"
 
 	"imuslab.com/arozos/mod/auth/accesscontrol"
@@ -31,7 +30,7 @@ func NewBlacklistManager(sysdb *db.Database) *BlackList {
 	if sysdb.KeyExists("ipblacklist", "enable") {
 		err := sysdb.Read("ipblacklist", "enable", &blacklistEnabled)
 		if err != nil {
-			log.Println("[Auth/Blacklist] Unable to load previous enable state from database. Using default.")
+			blacklistLogger.PrintAndLog("Blacklist", "[Auth/Blacklist] Unable to load previous enable state from database. Using default.", nil)
 		}
 	}
 
@@ -41,7 +40,7 @@ func NewBlacklistManager(sysdb *db.Database) *BlackList {
 	}
 }
 
-//Check if a given IP is banned
+// Check if a given IP is banned
 func (bl *BlackList) IsBanned(ip string) bool {
 	if bl.Enabled == false {
 		return false
@@ -77,7 +76,7 @@ func (bl *BlackList) ListBannedIpRanges() []string {
 	return results
 }
 
-//Set the ban state of a ip or ip range
+// Set the ban state of a ip or ip range
 func (bl *BlackList) Ban(ipRange string) error {
 	//Check if the IP range is correct
 	err := accesscontrol.ValidateIpRange(ipRange)
@@ -91,7 +90,7 @@ func (bl *BlackList) Ban(ipRange string) error {
 	return bl.database.Write("ipblacklist", ipRange, true)
 }
 
-//Unban an IP or IP range
+// Unban an IP or IP range
 func (bl *BlackList) UnBan(ipRange string) error {
 	//Check if the IP range is correct
 	err := accesscontrol.ValidateIpRange(ipRange)

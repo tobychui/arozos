@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,7 +62,7 @@ type Config struct {
 // NewOauthHandler creates and initialises the OAuth2 handler.
 func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database) *OauthHandler {
 	if err := coreDb.NewTable("oauth"); err != nil {
-		log.Println("Failed to create oauth database. Terminating.")
+		oauth2Logger.PrintAndLog("Oauth2", "Failed to create oauth database. Terminating.", nil)
 		panic(err)
 	}
 	return &OauthHandler{
@@ -180,7 +179,7 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	log.Println(username + " logged in via OAuth.")
+	oauth2Logger.PrintAndLog("Oauth2", username+" logged in via OAuth.", nil)
 	oh.ag.LoginUserByRequest(w, r, username, true)
 
 	remoteIP := r.Header.Get("X-FORWARDED-FOR")

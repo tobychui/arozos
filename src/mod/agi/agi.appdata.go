@@ -3,7 +3,7 @@ package agi
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -28,7 +28,8 @@ var webRoot string = "./web" //The web folder root
 func (g *Gateway) AppdataLibRegister() {
 	err := g.RegisterLib("appdata", g.injectAppdataLibFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 

@@ -1,7 +1,7 @@
 package agi
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -68,8 +68,8 @@ type wsMsg struct {
 type wsConn struct {
 	conn        *websocket.Conn
 	msgChan     chan wsMsg // filled by the background reader goroutine
-	closed      int32      // 1 when closed; use atomic load/store
-	lastOprTime int64      // unix seconds of last activity; use atomic load/store
+	closed      int32     // 1 when closed; use atomic load/store
+	lastOprTime int64     // unix seconds of last activity; use atomic load/store
 }
 
 func newWsConn(c *websocket.Conn) *wsConn {
@@ -141,7 +141,7 @@ func dispatchOnMessage(vm *otto.Otto, msg wsMsg) {
 			websocket.onMessage(_ws_incoming);
 		}
 	`); err != nil {
-		log.Println("*AGI WebSocket* onMessage handler error:", err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint("*AGI WebSocket* onMessage handler error:", err), nil)
 	}
 	vm.Set("_ws_incoming", otto.UndefinedValue())
 }
@@ -161,7 +161,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Println("*AGI WebSocket* upgrade failed:", err)
+			agiLogger.PrintAndLog("Agi", fmt.Sprint("*AGI WebSocket* upgrade failed:", err), nil)
 			return otto.FalseValue()
 		}
 
@@ -191,7 +191,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 					Type:      msgType,
 				}:
 				default:
-					log.Println("*AGI WebSocket* inbound buffer full, dropping frame")
+					agiLogger.PrintAndLog("Agi", "*AGI WebSocket* inbound buffer full, dropping frame", nil)
 				}
 			}
 		}()
@@ -206,7 +206,7 @@ func (g *Gateway) injectWebSocketFunctions(vm *otto.Otto, u *user.User, w http.R
 					return
 				}
 				if time.Now().Unix()-wsc.getLastOpr() > timeout {
-					log.Println("*AGI WebSocket* idle timeout — closing connection")
+					agiLogger.PrintAndLog("Agi", "*AGI WebSocket* idle timeout — closing connection", nil)
 					c.Close()
 					return
 				}

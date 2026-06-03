@@ -2,7 +2,6 @@ package notification
 
 import (
 	"container/list"
-	"log"
 )
 
 /*
@@ -47,7 +46,7 @@ func NewNotificationQueue() *NotificationQueue {
 	}
 }
 
-//Add a notification agent to the queue
+// Add a notification agent to the queue
 func (q *NotificationQueue) RegisterNotificationAgent(agent Agent) {
 	q.Agents = append(q.Agents, &agent)
 }
@@ -73,11 +72,11 @@ func (q *NotificationQueue) BroadcastNotification(message *NotificationPayload) 
 		//Send this notification via this agent
 		err := thisAgent.ConsumerNotification(message)
 		if err != nil {
-			log.Println("[Notification] Unable to send message via notification agent: " + thisAgent.Name())
+			notificationLogger.PrintAndLog("Notification", "[Notification] Unable to send message via notification agent: "+thisAgent.Name(), nil)
 		}
 
 	}
 
-	log.Println("[Notification] Message titled: " + message.Title + " (ID: " + message.ID + ") broadcasted")
+	notificationLogger.PrintAndLog("Notification", "[Notification] Message titled: "+message.Title+" (ID: "+message.ID+") broadcasted", nil)
 	return nil
 }

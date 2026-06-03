@@ -9,7 +9,6 @@ package webdav
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -19,7 +18,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-//Handle request from Windows File Explorer
+// Handle request from Windows File Explorer
 func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request, vroot string) {
 	coookieName := "arozosWebdavToken"
 	cookie, err := r.Cookie(coookieName)
@@ -44,7 +43,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 			ip = "localhost"
 		}
 
-		log.Println("New Window WebDAV Client Connected! Assinging UUID:", thisWebDAVClientID)
+		webdavLogger.PrintAndLog("Webdav", fmt.Sprint("New Window WebDAV Client Connected! Assinging UUID:", thisWebDAVClientID), nil)
 		//Store this UUID with the connection
 		s.windowsClientNotLoggedIn.Store(thisWebDAVClientID, &WindowClientInfo{
 			Agent:                   r.Header["User-Agent"][0],
@@ -123,7 +122,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 
 			fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vroot + ":/")
 			if err != nil {
-				log.Println("[WebDAV] Failed to load File System Handler from request root: ", err.Error())
+				webdavLogger.PrintAndLog("Webdav", fmt.Sprint("[WebDAV] Failed to load File System Handler from request root: ", err.Error()), nil)
 				http.Error(w, "Invalid ", http.StatusUnauthorized)
 				return
 			}

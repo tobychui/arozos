@@ -1,7 +1,7 @@
 package agi
 
 import (
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -68,7 +68,7 @@ func (g *Gateway) RegisterSchedulerLib(callbacks *SchedulerCallbacks) {
 	})
 	if err != nil {
 		// Library already registered – not fatal, just warn
-		log.Println("[AGI] scheduler lib already registered:", err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint("[AGI] scheduler lib already registered:", err), nil)
 	}
 }
 

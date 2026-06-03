@@ -2,6 +2,7 @@ package reverseproxy
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -188,7 +189,7 @@ func (p *ReverseProxy) logf(format string, args ...interface{}) {
 	if p.ErrorLog != nil {
 		p.ErrorLog.Printf(format, args...)
 	} else {
-		log.Printf(format, args...)
+		reverseproxyLogger.PrintAndLog("Reverseproxy", fmt.Sprintf(format, args...), nil)
 	}
 }
 

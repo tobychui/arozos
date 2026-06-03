@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -123,7 +123,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 	if bucketRegion, rerr := manager.GetBucketRegion(discoverCtx, client, bucket); rerr == nil && bucketRegion != "" && bucketRegion != "us-east-1" {
 		if rc, rerr2 := newClient(bucketRegion); rerr2 == nil {
 			client = rc
-			log.Printf("[S3 FS] Auto-discovered region %q for bucket %q\n", bucketRegion, bucket)
+			s3fsLogger.PrintAndLog("S3fs", fmt.Sprintf("[S3 FS] Auto-discovered region %q for bucket %q\n", bucketRegion, bucket), nil)
 		}
 	}
 
@@ -145,7 +145,7 @@ func NewS3FSAbstraction(uuid, hierarchy, endpoint, bucket, prefix, accessKey, se
 	uploader := manager.NewUploader(client)
 
 	prefix = strings.Trim(prefix, "/")
-	log.Printf("[S3 FS] Mounted s3://%s/%s (endpoint=%s ssl=%v)\n", bucket, prefix, endpoint, useSSL)
+	s3fsLogger.PrintAndLog("S3fs", fmt.Sprintf("[S3 FS] Mounted s3://%s/%s (endpoint=%s ssl=%v)\n", bucket, prefix, endpoint, useSSL), nil)
 
 	return &S3FSAbstraction{
 		uuid:      uuid,

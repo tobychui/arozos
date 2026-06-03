@@ -3,7 +3,6 @@ package fspermission
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
@@ -70,7 +69,7 @@ func SetFilePermisson(fsh *filesystem.FileSystemHandler, file string, permission
 		}
 
 		//Convert the value into a file mode
-		log.Println("Updating " + file + " permission to " + strconv.Itoa(finalMode))
+		fspermissionLogger.PrintAndLog("Fspermission", "Updating "+file+" permission to "+strconv.Itoa(finalMode), nil)
 
 		//Magic way to convert dec to oct
 		output, _ := strconv.ParseInt("0"+strconv.Itoa(finalMode), 8, 64)

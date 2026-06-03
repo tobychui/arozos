@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"io/fs"
-	"log"
 	"math"
 	"mime"
 	"net/http"
@@ -1004,7 +1004,7 @@ func system_fs_WebSocketScanTrashBin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - " + err.Error()))
-		log.Print("Websocket Upgrade Error:", err.Error())
+		systemWideLogger.PrintAndLog("System", fmt.Sprint("Websocket Upgrade Error:", err.Error()), nil)
 		return
 	}
 
@@ -1471,7 +1471,7 @@ func system_fs_handleWebSocketOpr(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("500 - " + err.Error()))
-		log.Print("Websocket Upgrade Error:", err.Error())
+		systemWideLogger.PrintAndLog("System", fmt.Sprint("Websocket Upgrade Error:", err.Error()), nil)
 		return
 	}
 

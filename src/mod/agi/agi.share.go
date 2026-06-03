@@ -1,7 +1,8 @@
 package agi
 
 import (
-	"log"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -11,7 +12,8 @@ import (
 func (g *Gateway) ShareLibRegister() {
 	err := g.RegisterLib("share", g.injectShareFunctions)
 	if err != nil {
-		log.Fatal(err)
+		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		os.Exit(1)
 	}
 }
 
@@ -40,7 +42,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 		vpathSourceFsh := u.GetRootFSHFromVpathInUserScope(vpath)
 		shareID, err := g.Option.ShareManager.CreateNewShare(u, vpathSourceFsh, vpath)
 		if err != nil {
-			log.Println("[AGI] Create Share Failed: " + err.Error())
+			agiLogger.PrintAndLog("Agi", "[AGI] Create Share Failed: "+err.Error(), nil)
 			return otto.New().MakeCustomError("Share failed", err.Error())
 		}
 
@@ -48,7 +50,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 			go func(timeout int) {
 				time.Sleep(time.Duration(timeout) * time.Second)
 				g.Option.ShareManager.RemoveShareByUUID(u, shareID.UUID)
-				log.Println("[AGI] Share auto-removed: " + shareID.UUID)
+				agiLogger.PrintAndLog("Agi", "[AGI] Share auto-removed: "+shareID.UUID, nil)
 			}(int(timeout))
 		}
 
@@ -63,7 +65,7 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 		}
 		err = g.Option.ShareManager.RemoveShareByUUID(u, shareUUID)
 		if err != nil {
-			log.Println("[AGI] Share remove failed: " + err.Error())
+			agiLogger.PrintAndLog("Agi", "[AGI] Share remove failed: "+err.Error(), nil)
 			return otto.New().MakeCustomError("Failed to remove share", err.Error())
 		}
 
@@ -73,13 +75,13 @@ func (g *Gateway) injectShareFunctions(payload *static.AgiLibInjectionPayload) {
 	vm.Set("_share_getShareUUID", func(call otto.FunctionCall) otto.Value {
 		vpath, err := call.Argument(0).ToString()
 		if err != nil {
-			log.Println("[AGI] Failed to get share UUID: filepath not given")
+			agiLogger.PrintAndLog("Agi", "[AGI] Failed to get share UUID: filepath not given", nil)
 			return otto.NullValue()
 		}
 
 		shareObject := g.Option.ShareManager.GetShareObjectFromUserAndVpath(u, vpath)
 		if shareObject == nil {
-			log.Println("[AGI] Failed to get share UUID: File not shared")
+			agiLogger.PrintAndLog("Agi", "[AGI] Failed to get share UUID: File not shared", nil)
 			return otto.NullValue()
 		}
 

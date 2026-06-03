@@ -2,7 +2,6 @@ package diskspace
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"os/exec"
 	"runtime"
@@ -39,7 +38,7 @@ func GetAllLogicDiskInfo() []LogicalDiskSpaceInfo {
 		cmd := exec.Command("wmic", "logicaldisk", "get", "caption,size,freespace")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Println("wmic not supported.")
+			diskspaceLogger.PrintAndLog("Diskspace", "wmic not supported.", nil)
 			return []LogicalDiskSpaceInfo{}
 		}
 		lines := strings.Split(string(out), "\n")

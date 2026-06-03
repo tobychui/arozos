@@ -3,8 +3,8 @@ package hdsv2
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,7 +37,7 @@ func NewProtocolHandler(scanner *mdns.MDNSHost) *Handler {
 }
 
 func (h *Handler) Start() error {
-	log.Println("[IoT] Home Dynamic v2 Loaded")
+	hdsv2Logger.PrintAndLog("Hdsv2", "[IoT] Home Dynamic v2 Loaded", nil)
 	return nil
 }
 
@@ -74,7 +74,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 		status, err := getStatusForDevice(&thisDevice)
 		if err != nil {
 			//This might be not a valid HDSv2 device. Skip this
-			log.Println("*HDSv2* Get status failed for device: ", host.HostName, err.Error())
+			hdsv2Logger.PrintAndLog("Hdsv2", fmt.Sprint("*HDSv2* Get status failed for device: ", host.HostName, err.Error()), nil)
 			continue
 		}
 		thisDevice.Status = status
@@ -83,7 +83,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 		eps, err := getEndpoints(&thisDevice)
 		if err != nil {
 			//This might be not a valid HDSv2 device. Skip this
-			log.Println("*HDSv2* Get endpoints failed for device: ", host.HostName, err.Error())
+			hdsv2Logger.PrintAndLog("Hdsv2", fmt.Sprint("*HDSv2* Get endpoints failed for device: ", host.HostName, err.Error()), nil)
 			continue
 		}
 		thisDevice.ControlEndpoints = eps

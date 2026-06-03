@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -90,8 +89,8 @@ func main() {
 	os.Mkdir(*tmp_directory, 0777)
 
 	//Print copyRight information
-	log.Println("ArozOS(C) " + strconv.Itoa(time.Now().Year()) + " " + deviceVendor + ".")
-	log.Println("ArozOS " + build_version + " Revision " + internal_version)
+	systemWideLogger.PrintAndLog("System", "ArozOS(C) " + strconv.Itoa(time.Now().Year()) + " " + deviceVendor + ".", nil)
+	systemWideLogger.PrintAndLog("System", "ArozOS " + build_version + " Revision " + internal_version, nil)
 
 	/*
 		New Implementation of the ArOZ Online System, Sept 2020
@@ -117,16 +116,16 @@ func main() {
 			if !*disable_http {
 				go func() {
 					address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
-					log.Println("Standard (HTTP) Web server listening at", address)
+					systemWideLogger.PrintAndLog("System", fmt.Sprint("Standard (HTTP) Web server listening at", address), nil)
 					http.ListenAndServe(address, nil)
 				}()
 			}
 			address := fmt.Sprintf("%s:%d", *listen_host, *tls_listen_port)
-			log.Println("Secure (HTTPS) Web server listening at", address)
+			systemWideLogger.PrintAndLog("System", fmt.Sprint("Secure (HTTPS) Web server listening at", address), nil)
 			http.ListenAndServeTLS(address, *tls_cert, *tls_key, nil)
 		} else {
 			address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
-			log.Println("Web server listening at", address)
+			systemWideLogger.PrintAndLog("System", fmt.Sprint("Web server listening at", address), nil)
 			http.ListenAndServe(address, nil)
 		}
 	}()

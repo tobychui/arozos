@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -108,7 +107,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	if a.AllowAutoLogin == false {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 - Forbidden"))
-		log.Println("Someone is requesting autologin while this function is turned off.")
+		authLogger.PrintAndLog("Auth", "Someone is requesting autologin while this function is turned off.", nil)
 		return
 	}
 
@@ -154,7 +153,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	session.Values["username"] = username
 	session.Values["rememberMe"] = false
 
-	log.Println(username + " logged in via auto-login token")
+	authLogger.PrintAndLog("Auth", username+" logged in via auto-login token", nil)
 
 	//Check if remember me is clicked. If yes, set the maxage to 1 week.
 	session.Options = &sessions.Options{
