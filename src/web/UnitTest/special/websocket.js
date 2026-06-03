@@ -1,76 +1,59 @@
 /*
     WebSocket Test Script
 
-    This is a special test script and should not be mixed in with normal
-    AGI module test scripts. Please test this seperately
+    Supports an interactive command loop:
+      echo <text>  — sends <text> back to the client
+      stop         — closes the connection gracefully
 
     Author: tobychui
 */
 
-function setup(){
-    //Require the WebSocket Library
-    var succ = requirelib("websocket");
-    if (!succ){
-        console.log("WebSocket Open Failed");
-        return false
+function setup() {
+    if (!requirelib("websocket")) {
+        console.log("WebSocket library load failed");
+        return false;
     }
 
-    //Upgrade the current connection to WebSocket, set timeout to 30 seconds
-    //Timeout value: if after 30 seconds nothing has been send / received, the websocket will be closed
-    //set this value to 0 to display auto socket closing
-    succ = websocket.upgrade(30);
-    if (!succ){
-        console.log("WebSocket Upgrade Failed");
-        return false
+    // Upgrade to WebSocket; 120-second idle timeout
+    if (!websocket.upgrade(120)) {
+        console.log("WebSocket upgrade failed");
+        return false;
     }
 
-    console.log("WebSocket Opened!")
+    console.log("WebSocket opened");
     return true;
 }
 
-function waitForStart(){
-    websocket.send("Send 'start' to start websocket.send test");
-    var recv = "";
-    for (var i = 0; i < 10; i++){
-        //Read the websocket input from Client (Web UI)
-        recv = websocket.read();
-        if (recv == null){
-            console.log("Read Failed!")
-            return
-        }
-        if (recv != "start"){
-            websocket.send(recv + " reveived. Type 'start' to start testing. (Retry count: " + i + "/10)");
-        }else{
-            websocket.send("'start' command received. Starting test");
+function commandLoop() {
+    websocket.send("Connected. Commands: echo <text> | stop");
+
+    while (true) {
+        var msg = websocket.read();
+
+        // null means the connection was closed or timed out
+        if (msg == null) {
+            console.log("WebSocket read returned null — closing");
             break;
         }
+
+        msg = msg.trim();
+
+        if (msg === "stop") {
+            websocket.send("Bye!");
+            break;
+        } else if (msg.indexOf("echo ") === 0) {
+            websocket.send(msg.slice(5));
+        } else if (msg === "") {
+            // ignore empty messages
+        } else {
+            websocket.send("Unknown command: '" + msg + "'");
+        }
     }
 }
 
-function loop(i){
-    //If the process reach here, that means the WebSocket connection has been opened
-    console.log("Sending: Hello World: " + i);
-
-    //Sebd Hello World {i} to Client (Web UI)
-    websocket.send("Hello World: " + i);
-
-    //Wait for 1 second before next send
-    delay(1000);
-}
-
-function closing(){
-    //Try to close the WebSocket connection
+if (setup()) {
+    commandLoop();
     websocket.close();
+} else {
+    console.log("WebSocket setup failed");
 }
-
-//Start executing the script
-if (setup()){
-    waitForStart();
-    for (var i = 0; i < 10; i++){
-        loop(i);
-    }
-    closing();
-}else{
-    console.log("WebSocket Setup Failed.")
-}
-

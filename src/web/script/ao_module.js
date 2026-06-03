@@ -626,8 +626,13 @@ function ao_module_parentCallback(data=""){
 
 
 function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined, timeout=0){
+    let devmode = (typeof AGI_DEV !== 'undefined' && AGI_DEV === true);
+    let url = ao_root + "system/ajgi/interface?script=" + scriptpath;
+    if (devmode) {
+        url += "&agi_devmode=true";
+    }
     $.ajax({
-        url: ao_root + "system/ajgi/interface?script=" + scriptpath,
+        url: url,
         method: "POST",
         data: data,
         success: function(data){
@@ -635,9 +640,21 @@ function ao_module_agirun(scriptpath, data, callback, failedcallback = undefined
                 callback(data);
             }
         },
-        error: function(){
+        error: function(xhr){
+            if (devmode) {
+                try {
+                    let errInfo = JSON.parse(xhr.responseText);
+                    console.error("[AGI Dev] Error in script: " + scriptpath);
+                    console.error("[AGI Dev] Message: " + errInfo.message);
+                    if (errInfo.stacktrace && errInfo.stacktrace !== errInfo.message) {
+                        console.error("[AGI Dev] Stack Trace:\n" + errInfo.stacktrace);
+                    }
+                } catch(e) {
+                    console.error("[AGI Dev] Error in script: " + scriptpath + "\n" + xhr.responseText);
+                }
+            }
             if (typeof(failedcallback) != "undefined"){
-                failedcallback();
+                failedcallback(xhr);
             }
         },
         timeout: timeout

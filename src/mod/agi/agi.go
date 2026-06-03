@@ -3,6 +3,7 @@ package agi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -283,6 +284,9 @@ w / r : Web request and response writer
 thisuser: userObject
 */
 func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSystemHandler, scriptFile string, scriptScope string, w http.ResponseWriter, r *http.Request, thisuser *user.User) {
+	// Check if developer debug mode is requested via URL query param (set AGI_DEV=true in ao_module)
+	devMode := r.URL.Query().Get("agi_devmode") == "true"
+
 	//Create a new vm for this request
 	vm := otto.New()
 	//Inject standard libs into the vm
@@ -315,8 +319,33 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 
 	_, err := vm.Run(scriptContent)
 	if err != nil {
-		scriptpath, _ := filepath.Abs(scriptFile)
-		g.RenderErrorTemplate(w, err.Error(), scriptpath)
+		username := ""
+		if thisuser != nil {
+			username = thisuser.Username
+		}
+		log.Printf("[AGI] Script error in %s (user: %s): %s", scriptFile, username, err.Error())
+
+		if devMode {
+			// Return a detailed JSON error payload for developer inspection
+			errMsg := err.Error()
+			stackTrace := errMsg
+			if ottoErr, ok := err.(*otto.Error); ok {
+				stackTrace = ottoErr.String()
+			}
+			errPayload, _ := json.Marshal(map[string]interface{}{
+				"error":      true,
+				"message":    errMsg,
+				"stacktrace": stackTrace,
+				"script":     scriptFile,
+				"user":       username,
+			})
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(errPayload)
+		} else {
+			scriptpath, _ := filepath.Abs(scriptFile)
+			g.RenderErrorTemplate(w, err.Error(), scriptpath)
+		}
 		return
 	}
 
@@ -364,17 +393,32 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	defer func() {
 		if caught := recover(); caught != nil {
 			if caught == errTimeout {
-				log.Println("[AGI] Execution timeout: " + scriptFile)
+				log.Printf("[AGI] Execution timeout: %s (user: %s)", scriptFile, targetUser.Username)
 				return
 			} else if caught == errExitcall {
 				//Exit gracefully
-
 				return
 			} else {
 				//Something screwed. Return Internal Server Error
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("500 - ECMA VM crashed due to unknown reason"))
-				//panic(caught)
+				log.Printf("[AGI] VM crash in %s (user: %s): %v", scriptFile, targetUser.Username, caught)
+				if w != nil {
+					devMode := r != nil && r.URL.Query().Get("agi_devmode") == "true"
+					if devMode {
+						errPayload, _ := json.Marshal(map[string]interface{}{
+							"error":      true,
+							"message":    fmt.Sprintf("VM crash: %v", caught),
+							"stacktrace": fmt.Sprintf("VM crash: %v", caught),
+							"script":     scriptFile,
+							"user":       targetUser.Username,
+						})
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write(errPayload)
+					} else {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("500 - ECMA VM crashed due to unknown reason"))
+					}
+				}
 			}
 		}
 	}()
@@ -402,6 +446,7 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 
 	_, err = vm.Run(scriptContent)
 	if err != nil {
+		log.Printf("[AGI] Script error in %s (user: %s): %s", scriptFile, targetUser.Username, err.Error())
 		return execID, "", err
 	}
 
