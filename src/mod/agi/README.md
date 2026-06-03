@@ -756,13 +756,257 @@ ffmpeg.convertWithProgress("user:/in.mp4", "user:/out.gif", "tmp:/conv_progress.
 
 ## websocket API
 
+The websocket library upgrades the current HTTP connection to a WebSocket session.
+It is only available in script paths reached via a live HTTP request context
+(standard `InterfaceHandler` or token-handler routes — not `execd` children).
+
 Load:
 
 ```javascript
 requirelib("websocket");
 ```
 
-This library is only available in request handlers with active HTTP request/response context.
+> **Note on `delay()` after upgrade** — `websocket.upgrade()` replaces the global
+> `delay()` with a message-pumping version. While the script sleeps inside `delay()`,
+> any queued inbound frames are dispatched to `websocket.onMessage` (if set).
+> `delay()` is therefore the natural yield point in event-driven loops.
+> When `onMessage` is `null` the buffer is left untouched so that
+> `available()` and `read()` can still see the frames.
+
+---
+
+### `websocket.upgrade(timeoutSec)` → `bool`
+
+Upgrades the HTTP connection to WebSocket and starts the background frame reader.
+The connection is closed automatically after `timeoutSec` seconds of idle time
+(default `300`). Also installs the message-pumping `delay()` override.
+
+Returns `false` if the upgrade fails.
+
+```javascript
+requirelib("websocket");
+if (!websocket.upgrade(120)) exit();
+```
+
+---
+
+### `websocket.send(text)` → `bool`
+
+Sends a UTF-8 text frame to the client. Returns `false` if the connection is closed.
+
+```javascript
+websocket.send("Hello from server");
+```
+
+---
+
+### `websocket.read(timeoutMs?)` → `string | null | false`
+
+Reads the next inbound message from the internal buffer.
+
+| Return value | Meaning |
+|---|---|
+| `string` | Message text |
+| `null` | `timeoutMs` elapsed with no message; connection still open |
+| `false` | Connection is closed |
+
+`timeoutMs = 0` or omitted blocks indefinitely until a message arrives or the
+connection closes.
+
+```javascript
+// Block until a message arrives or connection closes
+var msg = websocket.read();
+
+// Wait at most 5 s; returns null on timeout
+var msg = websocket.read(5000);
+
+if (msg === false) { /* connection closed */ }
+if (msg === null)  { /* timed out, still open */ }
+```
+
+---
+
+### `websocket.available()` → `number`
+
+Returns the number of messages currently queued in the inbound buffer.
+Non-blocking — safe to call on every iteration of a tight loop.
+
+```javascript
+if (websocket.available() > 0) {
+    var msg = websocket.read();
+}
+```
+
+---
+
+### `websocket.isClosed()` → `bool`
+
+Returns `true` when the WebSocket connection is no longer active.
+
+```javascript
+while (!websocket.isClosed()) {
+    websocket.send("tick");
+    delay(1000);
+}
+```
+
+---
+
+### `websocket.onMessage`
+
+Assign a `function(msg)` callback to receive messages asynchronously.
+The handler fires inside `delay()` on the script's own goroutine — Otto-safe, no
+concurrent JS execution.
+
+**Message object properties:**
+
+| Property | Type | Description |
+|---|---|---|
+| `msg.data` | `string` | Text payload |
+| `msg.timestamp` | `number` | Arrival time (Unix milliseconds) |
+| `msg.type` | `number` | Frame type: `1` = text, `2` = binary |
+
+```javascript
+websocket.onMessage = function(msg) {
+    console.log("Received at " + msg.timestamp + " ms: " + msg.data);
+};
+```
+
+Set back to `null` to stop receiving callbacks and leave messages in the buffer:
+
+```javascript
+websocket.onMessage = null;
+```
+
+---
+
+### `websocket.close()`
+
+Sends a normal-closure frame and closes the connection.
+
+```javascript
+websocket.close();
+```
+
+---
+
+### Pattern 1 — blocking read with optional timeout
+
+Simplest pattern. `read(timeoutMs)` returns `null` on timeout so the loop can
+send a keep-alive or do other work without blocking forever.
+
+```javascript
+requirelib("websocket");
+if (!websocket.upgrade(120)) exit();
+
+websocket.send("Connected. Commands: echo <text> | stop");
+
+while (true) {
+    var msg = websocket.read(30000); // wait up to 30 s
+
+    if (msg === false) break;        // remote side closed
+    if (msg === null)  {             // 30-second idle timeout
+        websocket.send("Still here.");
+        continue;
+    }
+
+    msg = msg.trim();
+    if (msg === "stop") {
+        websocket.send("Bye!");
+        break;
+    } else if (msg.indexOf("echo ") === 0) {
+        websocket.send(msg.slice(5));
+    } else if (msg !== "") {
+        websocket.send("Unknown command: '" + msg + "'");
+    }
+}
+
+websocket.close();
+```
+
+---
+
+### Pattern 2 — `available()` polling (Arduino-style)
+
+Use when you want to drain all queued frames in one shot each iteration, or when
+the main loop body does other work regardless of incoming messages.
+
+`onMessage` must be `null` (the default) so that `delay()` does **not** consume
+frames behind your back.
+
+```javascript
+requirelib("websocket");
+if (!websocket.upgrade(120)) exit();
+
+websocket.send("available() polling mode.");
+
+while (true) {
+    if (websocket.isClosed()) break;
+
+    var n = websocket.available();
+    if (n > 0) {
+        // Drain all waiting frames without blocking
+        for (var i = 0; i < n; i++) {
+            var msg = websocket.read(); // data already queued, returns immediately
+            if (msg === false) break;
+            msg = msg.trim();
+            if (msg === "stop") {
+                websocket.send("Bye!");
+                websocket.close();
+                break;
+            }
+            websocket.send("Echo: " + msg);
+        }
+    } else {
+        delay(500); // sleep; buffer is untouched because onMessage is null
+    }
+}
+```
+
+---
+
+### Pattern 3 — `onMessage` callback with `delay()` pump
+
+Event-driven style. The callback fires inside `delay()` on the script goroutine.
+Use a shared variable to hand data from the callback to the main loop.
+
+```javascript
+requirelib("websocket");
+if (!websocket.upgrade(120)) exit();
+
+websocket.send("onMessage mode. Commands: echo <text> | stop");
+
+var lastMessage = "";
+
+websocket.onMessage = function(msg) {
+    // Runs on the script goroutine during delay() — safe to update shared state
+    lastMessage = msg.data;
+};
+
+while (true) {
+    if (lastMessage !== "") {
+        var msg = lastMessage.trim();
+        lastMessage = "";
+
+        if (msg === "stop") {
+            websocket.send("Bye!");
+            break;
+        } else if (msg.indexOf("echo ") === 0) {
+            websocket.send(msg.slice(5));
+        } else if (msg !== "") {
+            websocket.send("Unknown command: '" + msg + "'");
+        }
+    }
+
+    if (websocket.isClosed()) break;
+
+    // delay() pumps the inbound channel and fires onMessage for each queued frame
+    delay(100);
+}
+
+websocket.onMessage = null;
+websocket.close();
+```
 
 ## Scheduler Library (`scheduler`)
 
@@ -845,31 +1089,6 @@ The scheduler calls `cron.agi` with the permissions of the user who approved it,
 ---
 
 ## Examples
-
-### Complete File Upload Handler
-### `websocket.upgrade(timeoutSec)`
-Upgrades current HTTP request to WebSocket. Default timeout is 300 seconds.
-
-```javascript
-if (!websocket.upgrade(300)) exit();
-```
-
-### `websocket.send(text)`
-```javascript
-websocket.send("hello client");
-```
-
-### `websocket.read()`
-Returns incoming message string, or `false` when closed.
-
-```javascript
-var msg = websocket.read();
-```
-
-### `websocket.close()`
-```javascript
-websocket.close();
-```
 
 ### Background Scheduler (webapp backend)
 
