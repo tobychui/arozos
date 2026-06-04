@@ -6,819 +6,1109 @@
         <script src="../../script/jquery.min.js"></script>
         <script type='text/javascript' src="../../semantic/semantic.min.js"></script>
         <script src="../../script/ao_module.js"></script>
-        <title>Diskmg</title>
+        <title>Disk Management</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <style>
-            body{
-                height: 100%;
+            *, *::before, *::after { box-sizing: border-box; }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+                font-size: 13px;
+                color: #1d1d1f;
+                background: #f2f2f7;
+                margin: 0;
+                padding: 0;
+                height: 100vh;
+                overflow: hidden;
             }
-            .customFitted.item{
-                padding-top:5px !important;
-                padding-bottom:5px !important;
+
+            .main-layout {
+                display: flex;
+                flex-direction: row;
+                height: 100vh;
+                overflow: hidden;
             }
-            #diskListTable{
-                max-height:250px !important;
+
+            /* ── Sidebar ── */
+            .sidebar {
+                width: 210px;
+                flex-shrink: 0;
+                background: rgba(235,235,240,0.95);
+                border-right: 1px solid rgba(0,0,0,0.13);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .sidebar-header {
+                padding: 16px 14px 6px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #6e6e73;
+                letter-spacing: 0.07em;
+                text-transform: uppercase;
+                flex-shrink: 0;
+            }
+
+            .sidebar-list {
+                flex: 1;
                 overflow-y: auto;
+                padding: 2px 6px 10px;
             }
-            #diskVisualization{
-                overflow-y:auto;
-            }
-            .diskPartTable{
-                width:100%;
-                border-bottom:1px solid #9c9c9c;
-                overflow-x:hidden;
-            }
-            .sideblock{
-                background-color:#f0f0f0;
-                height:100px;
-                width:100px;
-                padding:8px;
-                /*
-                    border-right:1px solid #9c9c9c;
-                */
-                
-                font-size:90%;
-                display:inline-block;
-            }
-            .partitionRepresentation{
-                border:1px solid #e8e8e8;
-                display:inline-block;
-                height:100px;
-                vertical-align: top;
-                overflow:hidden;
-                /*
-                    border-left:1px solid #6e6e6e;
-                */
-                
-                cursor:pointer;
-            }
-            .partitionTopBar{
-                background-color:#4287f5;
-                width:100%;
-                height:15px;
-                margin-bottom:3px;
-            }
-            .partitionTopBar.unallocate{
-                 background-color:#1f1f1f;
-            }
-            .partitionTopBar.unmounted{
-                 background-color:#ab8a29;
-            }
-            .partitionDescription{
-                padding-left:8px;
-                padding:3px;
-            }
-            #rightClickMenu{
-                position:absolute;
-            }
-            .selectable{
+
+            .sidebar-item {
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                padding: 6px 8px;
+                border-radius: 7px;
                 cursor: pointer;
+                transition: background 0.1s;
+                margin-bottom: 1px;
             }
-            .selectable:hover{
-                background-color:#f0f0f0 !important;
+            .sidebar-item:hover { background: rgba(0,0,0,0.07); }
+            .sidebar-item.active {
+                background: #007AFF;
+                color: #fff;
             }
-            .focusedPart{
-                background-color: #e3f0ff;
+            .sidebar-item.active .sidebar-item-sub { color: rgba(255,255,255,0.72); }
+
+            .sidebar-item-icon {
+                width: 30px;
+                height: 30px;
+                flex-shrink: 0;
+                object-fit: contain;
             }
-            .disabled{
-                background-color:#e6e6e6;
-                color:#787878 !important;
-                cursor:no-drop !important;
+            .sidebar-item.active .sidebar-item-icon {
+                filter: brightness(1.8);
             }
-            .funcmenu{
-                position:fixed;
-                top:10%;
-                right:20%;
-                left:20%;
-                bottom:10%;
-                overflow-y:auto;
-                z-index:100;
-                background-color:#f7f7f7;
-                padding:12px;
-                display:none;
-                border: 1px solid #9c9c9c;
+
+            .sidebar-item-text { min-width: 0; }
+            .sidebar-item-name {
+                font-size: 12px;
+                font-weight: 500;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
-            .functMenuDimmer{
-                z-index:90;
-                position:absolute;
-                width:100%;
-                height:100%;
-                left:0px;
-                top:0px;
-                background:rgba(48,48,48,0.5);
-                display:none;
+            .sidebar-item-sub {
+                font-size: 11px;
+                color: #6e6e73;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-top: 1px;
             }
-            .funcmenuBottom{
-                position:absolute;
-                width:100%;
-                bottom:0px;
-                left:0px;
-                padding:12px;
+
+            /* ── Detail panel ── */
+            .detail-panel {
+                flex: 1;
+                overflow-y: auto;
+                padding: 18px 18px 22px;
+                min-width: 0;
             }
+
+            /* ── Disk header card ── */
+            .disk-header-card {
+                background: #fff;
+                border-radius: 12px;
+                padding: 18px 22px;
+                display: flex;
+                align-items: flex-start;
+                gap: 18px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+                margin-bottom: 12px;
+            }
+
+            .disk-header-icon {
+                width: 60px;
+                height: 60px;
+                flex-shrink: 0;
+                object-fit: contain;
+            }
+
+            .disk-header-info { flex: 1; min-width: 0; }
+
+            .disk-header-name {
+                font-size: 17px;
+                font-weight: 600;
+                color: #1d1d1f;
+                margin-bottom: 2px;
+            }
+            .disk-header-meta {
+                font-size: 12px;
+                color: #6e6e73;
+                margin-bottom: 14px;
+            }
+
+            /* macOS-style multicolor storage bar */
+            .storage-bar {
+                height: 10px;
+                border-radius: 5px;
+                background: #e5e5ea;
+                display: flex;
+                overflow: hidden;
+                margin-bottom: 10px;
+            }
+            .storage-bar-seg {
+                height: 100%;
+                transition: width 0.35s ease;
+                min-width: 0;
+            }
+
+            .storage-bar-legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px 16px;
+            }
+            .legend-item {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 11px;
+                color: #6e6e73;
+            }
+            .legend-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+
+            .disk-header-stats {
+                display: flex;
+                gap: 28px;
+                margin-top: 14px;
+                padding-top: 13px;
+                border-top: 1px solid rgba(0,0,0,0.07);
+            }
+            .stat-label { font-size: 11px; color: #6e6e73; margin-bottom: 2px; }
+            .stat-value { font-size: 14px; font-weight: 600; color: #1d1d1f; }
+
+            /* ── Partition table card ── */
+            .partition-card {
+                background: #fff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+            }
+
+            .partition-card-header {
+                padding: 11px 18px 9px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #6e6e73;
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                border-bottom: 1px solid rgba(0,0,0,0.07);
+                background: #fafafa;
+            }
+
+            .partition-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .partition-table th {
+                padding: 8px 16px;
+                text-align: left;
+                font-size: 11px;
+                font-weight: 600;
+                color: #6e6e73;
+                background: #fafafa;
+                border-bottom: 1px solid rgba(0,0,0,0.07);
+                white-space: nowrap;
+            }
+            .partition-table td {
+                padding: 11px 16px;
+                border-bottom: 1px solid rgba(0,0,0,0.05);
+                font-size: 12px;
+                vertical-align: middle;
+            }
+            .partition-table tbody tr:last-child td { border-bottom: none; }
+            .partition-table tbody tr:hover { background: rgba(0,122,255,0.05); cursor: default; }
+            .partition-table tbody tr.focusedPart { background: rgba(0,122,255,0.10); }
+
+            .part-color-dot {
+                display: inline-block;
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                flex-shrink: 0;
+                vertical-align: middle;
+                margin-right: 6px;
+            }
+
+            .status-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+            .status-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+            .dot-mounted   { background: #34c759; }
+            .dot-unmounted { background: #ff3b30; }
+            .dot-unalloc   { background: #aeaeb2; }
+
+            .mini-bar {
+                height: 3px;
+                background: rgba(0,0,0,0.08);
+                border-radius: 2px;
+                overflow: hidden;
+                margin-top: 5px;
+                width: 64px;
+            }
+            .mini-bar-fill { height: 100%; border-radius: 2px; }
+
+            /* ── Empty state ── */
+            .empty-state {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                gap: 14px;
+                color: #aeaeb2;
+                text-align: center;
+            }
+            .empty-state img { width: 72px; opacity: 0.3; }
+            .empty-state-text { font-size: 14px; font-weight: 500; }
+
+            /* ── Context menu (macOS vibrancy style) ── */
+            #rightClickMenu {
+                position: fixed;
+                z-index: 200;
+                background: rgba(248,248,250,0.96);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(0,0,0,0.12);
+                border-radius: 10px;
+                padding: 4px;
+                box-shadow: 0 6px 28px rgba(0,0,0,0.16), 0 1px 4px rgba(0,0,0,0.10);
+                min-width: 162px;
+            }
+            #rightClickMenu .ctx-item {
+                padding: 6px 12px;
+                border-radius: 6px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 13px;
+                color: #1d1d1f;
+            }
+            #rightClickMenu .ctx-item:hover { background: rgba(0,0,0,0.07); }
+            #rightClickMenu .ctx-item.disabled { color: #aeaeb2; cursor: not-allowed; }
+            #rightClickMenu .ctx-item.disabled:hover { background: transparent; }
+            #rightClickMenu .ctx-sep { height: 1px; background: rgba(0,0,0,0.11); margin: 3px 8px; }
+
+            /* ── Modal backdrop ── */
+            .functMenuDimmer {
+                z-index: 90;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.28);
+                display: none;
+                backdrop-filter: blur(3px);
+            }
+
+            /* ── Modal (macOS sheet style) ── */
+            .funcmenu {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 390px;
+                max-width: 92vw;
+                max-height: 82vh;
+                overflow-y: auto;
+                z-index: 100;
+                background: #f5f5f7;
+                border-radius: 14px;
+                padding: 0;
+                display: none;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.28);
+            }
+            .funcmenu-title {
+                padding: 18px 22px 14px;
+                font-size: 15px;
+                font-weight: 600;
+                text-align: center;
+                color: #1d1d1f;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+            }
+            .funcmenu-body { padding: 18px 22px; }
+            .funcmenuBottom {
+                display: flex;
+                border-top: 1px solid rgba(0,0,0,0.1);
+            }
+            .mac-btn {
+                flex: 1;
+                padding: 12px;
+                text-align: center;
+                cursor: pointer;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+                font-family: inherit;
+                color: #007AFF;
+                border-right: 1px solid rgba(0,0,0,0.1);
+                transition: background 0.1s;
+            }
+            .mac-btn:last-child { border-right: none; }
+            .mac-btn.danger  { color: #ff3b30; font-weight: 600; }
+            .mac-btn.primary { font-weight: 600; }
+            .mac-btn:hover   { background: rgba(0,0,0,0.05); }
+
+            /* ── Warning banner ── */
+            .warning-banner {
+                background: #fff3cd;
+                border-radius: 8px;
+                padding: 10px 13px;
+                font-size: 12px;
+                margin-bottom: 14px;
+                color: #664d03;
+                line-height: 1.5;
+            }
+
+            /* ── Form ── */
+            .form-field { margin-bottom: 14px; }
+            .form-label { display: block; font-weight: 600; font-size: 12px; margin-bottom: 7px; color: #1d1d1f; }
+            .radio-group { display: flex; flex-direction: column; gap: 7px; }
+            .radio-item { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+            .radio-item input { accent-color: #007AFF; cursor: pointer; }
+
+            .info-row {
+                background: rgba(0,0,0,0.05);
+                border-radius: 8px;
+                padding: 11px 14px;
+                margin-bottom: 14px;
+                font-size: 13px;
+                font-weight: 500;
+                color: #1d1d1f;
+            }
+
+            /* ── Mount list ── */
+            #mtptlist {
+                border: 1px solid rgba(0,0,0,0.12);
+                border-radius: 10px;
+                max-height: 220px;
+                overflow-y: auto;
+                background: #fff;
+            }
+            .mountpt {
+                padding: 9px 14px;
+                cursor: pointer;
+                border-bottom: 1px solid rgba(0,0,0,0.06);
+                font-size: 13px;
+                transition: background 0.1s;
+            }
+            .mountpt:last-child { border-bottom: none; }
+            .mountpt:hover { background: rgba(0,122,255,0.06); }
+            .mountpt.selected { background: rgba(0,122,255,0.12); color: #007AFF; }
+
+            .fluid-input {
+                width: 100%;
+                padding: 6px 10px;
+                border: 1px solid rgba(0,0,0,0.18);
+                border-radius: 6px;
+                font-size: 13px;
+                font-family: inherit;
+                margin-top: 6px;
+                background: #fff;
+            }
+            .fluid-input:focus {
+                outline: none;
+                border-color: #007AFF;
+                box-shadow: 0 0 0 2.5px rgba(0,122,255,0.28);
+            }
+
+            /* ── Loader ── */
+            #loaderUI {
+                position: fixed;
+                inset: 0;
+                background: rgba(255,255,255,0.55);
+                backdrop-filter: blur(8px);
+                display: none;
+                z-index: 300;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                gap: 12px;
+            }
+            #loaderUI.active { display: flex; }
+            .loader-spinner {
+                width: 24px;
+                height: 24px;
+                border: 2.5px solid rgba(0,0,0,0.1);
+                border-top-color: #007AFF;
+                border-radius: 50%;
+                animation: spin 0.72s linear infinite;
+            }
+            @keyframes spin { to { transform: rotate(360deg); } }
+            .loader-text { font-size: 13px; color: #6e6e73; }
+
+            /* ── Dark theme ── */
+            body.dark {
+                background: #000;
+                color: #f2f2f7;
+            }
+            body.dark .sidebar {
+                background: rgba(28,28,30,0.97);
+                border-right-color: rgba(255,255,255,0.1);
+            }
+            body.dark .sidebar-header { color: #98989d; }
+            body.dark .sidebar-item:hover { background: rgba(255,255,255,0.07); }
+            body.dark .sidebar-item.active { background: #0a84ff; }
+            body.dark .sidebar-item-sub { color: #98989d; }
+
+            body.dark .disk-header-card,
+            body.dark .partition-card {
+                background: #1c1c1e;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 8px rgba(0,0,0,0.3);
+            }
+            body.dark .disk-header-name,
+            body.dark .stat-value { color: #f2f2f7; }
+            body.dark .disk-header-meta,
+            body.dark .stat-label,
+            body.dark .legend-item { color: #98989d; }
+            body.dark .storage-bar { background: #3a3a3c; }
+            body.dark .disk-header-stats { border-top-color: rgba(255,255,255,0.08); }
+
+            body.dark .partition-card-header {
+                background: #2c2c2e;
+                color: #98989d;
+                border-bottom-color: rgba(255,255,255,0.07);
+            }
+            body.dark .partition-table th {
+                background: #2c2c2e;
+                color: #98989d;
+                border-bottom-color: rgba(255,255,255,0.07);
+            }
+            body.dark .partition-table td { border-bottom-color: rgba(255,255,255,0.05); }
+            body.dark .partition-table tbody tr:hover  { background: rgba(10,132,255,0.12); }
+            body.dark .partition-table tbody tr.focusedPart { background: rgba(10,132,255,0.2); }
+            body.dark .mini-bar { background: rgba(255,255,255,0.12); }
+
+            body.dark .empty-state img { opacity: 0.2; }
+            body.dark .empty-state { color: #636366; }
+
+            body.dark #rightClickMenu {
+                background: rgba(40,40,42,0.97);
+                border-color: rgba(255,255,255,0.12);
+            }
+            body.dark #rightClickMenu .ctx-item { color: #f2f2f7; }
+            body.dark #rightClickMenu .ctx-item:hover { background: rgba(255,255,255,0.1); }
+            body.dark #rightClickMenu .ctx-sep { background: rgba(255,255,255,0.1); }
+
+            body.dark .funcmenu { background: #2c2c2e; }
+            body.dark .funcmenu-title {
+                color: #f2f2f7;
+                border-bottom-color: rgba(255,255,255,0.1);
+            }
+            body.dark .funcmenuBottom { border-top-color: rgba(255,255,255,0.1); }
+            body.dark .mac-btn { border-right-color: rgba(255,255,255,0.1); color: #0a84ff; }
+            body.dark .mac-btn.danger { color: #ff453a; }
+            body.dark .mac-btn.primary { color: #0a84ff; }
+            body.dark .mac-btn:hover { background: rgba(255,255,255,0.06); }
+
+            body.dark .warning-banner { background: #3a2900; color: #ffd60a; }
+            body.dark .info-row { background: rgba(255,255,255,0.08); color: #f2f2f7; }
+            body.dark .form-label { color: #f2f2f7; }
+
+            body.dark #mtptlist {
+                background: #1c1c1e;
+                border-color: rgba(255,255,255,0.12);
+            }
+            body.dark .mountpt { border-bottom-color: rgba(255,255,255,0.06); color: #f2f2f7; }
+            body.dark .mountpt:hover    { background: rgba(10,132,255,0.1); }
+            body.dark .mountpt.selected { background: rgba(10,132,255,0.22); color: #0a84ff; }
+
+            body.dark .fluid-input {
+                background: #3a3a3c;
+                border-color: rgba(255,255,255,0.18);
+                color: #f2f2f7;
+            }
+            body.dark .fluid-input:focus {
+                border-color: #0a84ff;
+                box-shadow: 0 0 0 2.5px rgba(10,132,255,0.35);
+            }
+            body.dark #loaderUI { background: rgba(0,0,0,0.6); }
+            body.dark .loader-text { color: #98989d; }
+            body.dark .loader-spinner { border-color: rgba(255,255,255,0.1); border-top-color: #0a84ff; }
         </style>
     </head>
     <body>
-        <div id="diskListTable" >
-            <table class="ui celled striped unstackable table">
-                <thead>
-                    <tr>
-                        <th>
-                            Volume
-                        </th>
-                        <th class="windowsonly" style="display:none;">
-                            Name
-                        </th>
-                        <th class="windowsonly" style="display:none;">
-                            Type
-                        </th>
-                        <th class="linuxonly" style="display:none;">
-                            Mount Point
-                        </th>
-                        <th>
-                            File System
-                        </th>
-                        <th>
-                            Capacity
-                        </th>
-                        <th class="windowsonly" style="display:none;">
-                            Free Space
-                        </th>
-                        <th class="windowsonly" style="display:none;">
-                            % Free
-                        </th>
-                        <th class="linuxonly" style="display:none;">
-                            Used Space
-                        </th>
-                        <th class="linuxonly" style="display:none;">
-                            % Used
-                        </th>
-                    </tr>
-                </thead>
-                <tbody id="diskInfoTable">
-                    <tr>
-                        <td class="collapsing">
-                            <i class="disk outline icon"></i>/dev/sda1
-                        </td>
-                        <td class="collapsing">/media/storage1</td>
-                        <td class="right aligned collapsing">NTFS</td>
-                        <td class="right aligned collapsing">64 GB</td>
-                        <td class="right aligned collapsing">12.5 GB</td>
-                        <td class="right aligned collapsing">19.7%</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div id="diskVisualization">
-            <div class="diskPartTable">
-                <div class="sideblock">
-                    <i class="disk outline icon" style="margin-right:0px;font-weight: bold;"></i>
-                    <b style="font-weight: bold;">Drive 0</b><br>
-                    N/A
-                </div><div class="partitionRepresentation" style="width:calc(100% - 150px);">
-                    <div class="partitionTopBar"></div>
-                    <div class="partitionDescription">
-                       Connecting to Virtual Disk Services
+
+        <!-- ── Main layout ── -->
+        <div class="main-layout">
+
+        <!-- ── Sidebar ── -->
+        <div class="sidebar">
+            <div class="sidebar-header">Disks</div>
+            <div class="sidebar-list" id="sidebarList">
+                <div class="sidebar-item active">
+                    <img class="sidebar-item-icon" src="../../img/system/drive.svg" alt="">
+                    <div class="sidebar-item-text">
+                        <div class="sidebar-item-name">Loading…</div>
+                        <div class="sidebar-item-sub">&nbsp;</div>
                     </div>
                 </div>
             </div>
         </div>
-    <div id="rightClickMenu" class="ui vertical menu" style="display: none;">
-        <div id="formatDisk" class="item selectable" onClick="toggleFormatInterface(this);">
-            <i class="disk outline icon"></i> Format Disk
-        </div>
-        <div id="mtbtn" class="item selectable" onClick="toggleMount(this);">
-            <i class="usb icon"></i> Mount
-        </div>
-    </div>
-    <!-- Sections for functional menus-->
-    <div id="formatOptions" class="funcmenu">
-        <h2 class="ui header">
-            <i class="red exclamation circle icon"></i>
-            <div class="content">
-                Format Disk
-                <div class="sub header" style="font-weight:120%;color:red;">Warning! The format process will wipe all data from the selected partition.</div>
-            </div>
-        </h2>
-        <div class="ui red message">
-            <p>Format on any drive or partition will wipe all data within that drive or partition. Please make sure you have backup all necessary files and your drive / partition selection is correct.</p>
-        </div>
-        <div class="ui header">
-            <i class="disk outline icon"></i>
-            <div id="selectedDiskDisplay" class="content">
-                /dev/sda1 (120 GB)
+
+        <!-- ── Detail panel ── -->
+        <div class="detail-panel" id="detailPanel">
+            <div class="empty-state">
+                <img src="../../img/system/drive.svg" alt="">
+                <div class="empty-state-text">Select a disk to view details</div>
             </div>
         </div>
-        <div class="ui form">
-            <div class="field">
-                <label>Target File System Format</label>
-                <div class="ui checkboxes">
-                    <div class="ui radio checkbox">
-                        <input id="ext4" type="radio" name="format" checked>
-                        <label for="ext4">EXT4</label>
-                    </div>
-                    <div class="ui radio checkbox">
-                        <input id="ntfs" type="radio" name="format">
-                        <label for="ntfs">NTFS</label>
-                    </div>
-                    <div class="ui radio checkbox">
-                        <input id="vfat" type="radio" name="format">
-                        <label for="vfat">VFAT</label>
+
+        </div><!-- /.main-layout -->
+
+        <!-- ── Context menu ── -->
+        <div id="rightClickMenu" style="display:none;">
+            <div id="formatDisk" class="ctx-item" onclick="toggleFormatInterface(this);">
+                <i class="erase icon"></i> Erase…
+            </div>
+            <div class="ctx-sep"></div>
+            <div id="mtbtn" class="ctx-item" onclick="toggleMount(this);">
+                <i class="plug icon"></i> Mount
+            </div>
+        </div>
+
+        <!-- ── Format dialog ── -->
+        <div id="formatOptions" class="funcmenu">
+            <div class="funcmenu-title">Erase Partition</div>
+            <div class="funcmenu-body">
+                <div class="warning-banner">
+                    ⚠&nbsp; This will permanently erase all data on the selected partition.
+                    Back up important files before continuing.
+                </div>
+                <div class="info-row" id="selectedDiskDisplay">/dev/sda1</div>
+                <div class="form-field">
+                    <label class="form-label">Format</label>
+                    <div class="radio-group">
+                        <label class="radio-item"><input id="ext4" type="radio" name="format" checked> EXT4</label>
+                        <label class="radio-item"><input id="ntfs" type="radio" name="format"> NTFS</label>
+                        <label class="radio-item"><input id="vfat" type="radio" name="format"> VFAT</label>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="funcmenuBottom" align="right">
-            <button class="ui tiny negative button" onClick="formatThisDev();">Format</button>
-            <button class="ui tiny button" onClick="hideAllFuncMenu();">Close</button>
-        </div>
-    </div>
-    <div id="mountOptions" class="funcmenu">
-        <div class="ui header">
-            Disk Mount
-            <div class="sub header">Select a mount point for this device</div>
-        </div>
-        <div id="mtptlist" class="ui segmented list" style="max-height:300px;overflow-y:auto;">
-           
-            
-   
-            <div class="mountpt item selectable userdefine" onclick="selectThis(this);">
-                <p>User defined mount point</p>
-                <div class="ui fluid mini input">
-                    <input id="userDefinedMountPoint" type="text" placeholder="/">
-                </div>
+            <div class="funcmenuBottom">
+                <button class="mac-btn" onclick="hideAllFuncMenu();">Cancel</button>
+                <button class="mac-btn danger" onclick="formatThisDev();">Erase</button>
             </div>
         </div>
-        
-        <div class="funcmenuBottom" align="right">
-            <button class="ui tiny primary button" onClick="mountThisDev();">Mount</button>
-            <button class="ui tiny button" onClick="hideAllFuncMenu();">Close</button>
+
+        <!-- ── Mount dialog ── -->
+        <div id="mountOptions" class="funcmenu">
+            <div class="funcmenu-title">Mount Drive</div>
+            <div class="funcmenu-body">
+                <p style="color:#6e6e73;font-size:12px;margin:0 0 12px;">Select a mount point for this device.</p>
+                <div id="mtptlist">
+                    <div class="mountpt userdefine" onclick="selectThis(this);">
+                        <div style="font-weight:600;font-size:12px;">Custom Mount Point</div>
+                        <input id="userDefinedMountPoint" class="fluid-input" type="text" placeholder="e.g. /mnt/data">
+                    </div>
+                </div>
+            </div>
+            <div class="funcmenuBottom">
+                <button class="mac-btn" onclick="hideAllFuncMenu();">Cancel</button>
+                <button class="mac-btn primary" onclick="mountThisDev();">Mount</button>
+            </div>
         </div>
-    </div>
-    
-    <!-- dimmers-->
-     <div id="loaderUI" class="ui active dimmer" style="display:none;">
-        <div class="ui text loader">Waiting for System Response<br>Do Not Close This Tab</div>
-    </div>
-    <div class="functMenuDimmer" onClick="hideAllFuncMenu();">
-        
-    </div>
-    <script>
-        var mode = "linux";
-        var viewMode = "human"; //Accept {human / raw}
-        var diskInformation; //Tmp variable for holding disk return results
-        var displayScaleRatio = 0.1; //Maxium differential ratio, default 0.3, it means the minium disk will show as 70% screen width
-        var fwmode = false;
-        var formatPendingDevInfo;
-        
-      
-        //Updates Nov 2020, added platform detection
-        $.get(ao_root + "system/disk/diskmg/platform", function(data){
-            if (data == "windows"){
-                mode = "windows";
-            }else{
-                mode = "linux"
-            }
-            //Init data loading process
-            initView();
-            initPartitionTable();
-            initMountPointList();
-        })
-     
-        
-        //Mount pt selection interface
-        $(".mountpt").on('click',function(e){
-            $(".selected").removeClass("selected");
-            $(this).addClass("selected");
-        });
-        
-        function hideAllFuncMenu(){
-            $(".funcmenu").fadeOut('fast');
-            $(".functMenuDimmer").fadeOut('fast');
-        }
 
-        function initMountPointList(){
-            $.get(ao_root + "system/disk/diskmg/mpt", function(data){
-                if (data == null){
-                    //On Windows
-                    return
-                }
-                data.forEach(mpt => {
-                    $("#mtptlist").prepend(`<div class="mountpt selectable item" style="cursor:pointer;" onclick="selectThis(this);" ondblclick="mountThisDev(this)">${mpt}</div>`)
-                });
-                
+        <!-- ── Loader ── -->
+        <div id="loaderUI">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Waiting for system response…</div>
+        </div>
+
+        <!-- ── Backdrop ── -->
+        <div class="functMenuDimmer" onclick="hideAllFuncMenu();"></div>
+
+        <script>
+            var mode = "linux";
+            var viewMode = "human";
+            var diskInformation;
+            var volumeData = null;
+            var formatPendingDevInfo;
+            var selectedDiskKey = null;
+
+            /* Partition segment colors — macOS palette */
+            var SEG_COLORS = ["#007AFF","#34c759","#ff9500","#af52de","#ff2d55","#5ac8fa","#ffcc00","#ff6b35"];
+
+            $.get(ao_root + "system/disk/diskmg/platform", function(data){
+                mode = (data === "windows") ? "windows" : "linux";
+                initData();
+                initMountPointList();
             });
-        }
 
-        function selectThis(object){
-            $(".selected.selectable.item").removeClass('selected');
-            $(object).addClass("selected");
-        }
-        
-        function formatThisDev(){
-            var targetFormat = $("input[name='format']:checked").attr("id");
-            var targetDisk = formatPendingDevInfo;
-            console.log("Formating Disk: " + targetDisk + " to " + targetFormat);
-            if(targetFormat){
-                $("#loaderUI").show();
-                if (confirm("THIS OPERATION WILL WIPE ALL DATA ON /dev/" + targetDisk[0] + ". ARE YOU SURE?")){
-                    $("#formatOptions").fadeOut('fast');
-                    $(".functMenuDimmer").fadeOut('fast');
-                    console.log(ao_root + "system/disk/diskmg/format?dev=" + targetDisk[0] + "&format=" + targetFormat);
-                    $.ajax({
-                        url: ao_root + "system/disk/diskmg/format",
-                        data: {"dev": targetDisk[0], "format": targetFormat},
-                        method: "POST",
-                        success: function(data){
-                            if (data.error !== undefined){
-                                alert(data.error);
-                            }
-                            initView();
-                            initPartitionTable();
-                            $("#loaderUI").hide();
-                        }
-                    });
-                }else{
-                    $("#loaderUI").hide();
-                }
-            }
-        }
-        
-        function toggleFormatInterface(btnObject){
-            if ($(btnObject).hasClass("disabled") == true){
-                return;
-            }
-            $("#formatOptions").fadeIn('fast');
-            $(".functMenuDimmer").fadeIn('fast');
-            hideRightclickMenu();
-            var diskInfo = $(".focusedPart").attr("metadata");
-            diskInfo = ao_module_utils.attrToObject(diskInfo);
-            formatPendingDevInfo = diskInfo;
-            $("#selectedDiskDisplay").text(diskInfo[0] + " (" + bytesToSize(parseInt(diskInfo[5])) + ") ");
-        }
-        
-        function mountThisDev(object=null){
-            if (object !== null && !$(object).hasClass(".selected.item")){
-                $(".selected").removeClass("selected");
-                $(object).addClass("selected");
-            }
-            var selectedMpt = $(".selected.item");
-            var mountPoint = $(selectedMpt).text().trim();
-            if (selectedMpt.hasClass("userdefine")){
-                var mountPoint = $("#userDefinedMountPoint").val();
-            }
-             $("#loaderUI").show();
-             $("#mountOptions").fadeOut('fast');
-             $(".functMenuDimmer").fadeOut('fast');
-             var diskInfo = $(".focusedPart").attr("metadata");
-             diskInfo = ao_module_utils.attrToObject(diskInfo);
-             $.get(ao_root + "system/disk/diskmg/mount?dev=" + diskInfo[0] + "&format=" + diskInfo[2] + "&mnt=" + mountPoint,function(data){
-                if (data.error != undefined){
-                    $("#loaderUI").hide();
-                    alert(data.error);
-                    return;
-                }
-                //Reload the UI
-                initView();
-                initPartitionTable();
-                $("#loaderUI").hide();
-            });
-        }
-        
-        function toggleMount(btnObject){
-            if ($(btnObject).hasClass("disabled") == true){
-                return;
-            }
-            var diskInfo = $(".focusedPart").attr("metadata");
-            diskInfo = ao_module_utils.attrToObject(diskInfo);
-            if (diskInfo[3] == false){
-                //Mount disk
-                $("#mountOptions").fadeIn('fast');
-                $(".functMenuDimmer").fadeIn('fast');
-                
-            }else{
-                //Unmount disk
-                var dev = diskInfo[0];
-                var mnt = diskInfo[1];
-                var format = diskInfo[2];
-                hideRightclickMenu();
-                $("#loaderUI").show();
-                $.get(ao_root + "system/disk/diskmg/mount?dev=" + dev + "&format=" + format + "&mnt=" + mnt + "&umount=true",function(data){
-                    console.log(data);
-                    //Reload the UI
-                     initView();
-                     initPartitionTable();
-                     $("#loaderUI").hide();
-                });
-            }
-            hideRightclickMenu();
-        }
-        
-        function hideRightclickMenu(){
-            $("#rightClickMenu").hide();
-        }
+            // ── Helpers ──────────────────────────────────────────────────────
 
-        /*
-        function openInFileExplorer(btnObject){
-            if ($(btnObject).hasClass('disabled')){
-                return;
+            function hideAllFuncMenu(){
+                $(".funcmenu").fadeOut("fast");
+                $(".functMenuDimmer").fadeOut("fast");
             }
-            var diskInfo = $(".focusedPart").attr("metadata");
-            diskInfo = ao_module_utils.attrToObject(diskInfo);
-            if (diskInfo[3] == true){
-                //This disk is mounted
-                var uid = Date.now();
-                if (fwmode){
-                    ao_module_newfw("SystemAOB/functions/file_system/index.php?controlLv=2&dir=" + diskInfo[1],"Loading", "folder open outline",uid,1080,580,undefined,undefined,true,true);
-                }else{
-                    window.open("../../functions/file_system/index.php?controlLv=2&dir=" + diskInfo[1]);
-                }
+
+            function hideRightclickMenu(){ $("#rightClickMenu").hide(); }
+
+            function selectThis(el){
+                $(".mountpt.selected").removeClass("selected");
+                $(el).addClass("selected");
             }
-            hideRightclickMenu();
-        }
-        */
-        
-        function createEventHooks(){
-            $(".partitionRepresentation").contextmenu(function(e){
-                if (mode == "windows"){
-                    //Switch back to normal menu when under window mode
-                    return true;
-                }
-                var px = e.clientX;
-                var py = e.clientY;
-                var top = py - $("#rightClickMenu").height();
-                if (ao_module_virtualDesktop){
-                    top -= 50;
-                }
-                $("#rightClickMenu").css({"left": px + "px", "top":  top + "px"});
-                $("#rightClickMenu").show();
-                console.log(e.target);
-                $(".focusedPart").removeClass("focusedPart");
-                var partbody =  $(e.target);
-                if ($(e.target).parent().hasClass("partitionRepresentation")){
-                    //Clicked on the child instead.
-                    $(e.target).parent().addClass("focusedPart");
-                    partbody =  $(e.target).parent();
-                }else{
-                    //Click on the representation body.
-                    $(e.target).addClass("focusedPart");
-                }
-                
-                //Create a custom context menu for the operation
-                var partInfo = ao_module_utils.attrToObject(partbody.attr("metadata"));
-                console.log(partInfo);
-                if (partInfo[3] == true){
-                    //This disk is mounted. Provide unmount btn
-                    if (partInfo[1] == "/" || partInfo[1] == "/boot"){
-                        //No, you can't unmount root nor format it
-                        $("#mtbtn").addClass("disabled");
-                        $("#formatDisk").addClass("disabled");
-                    }else{
-                        $("#mtbtn").removeClass("disabled");
-                        $("#formatDisk").removeClass("disabled");
-                    }
-                    $("#mtbtn").html('<i class="usb icon"></i> Unmount');
-                    if (partInfo[1].substring(0,6) == "/media"){
-                         //This can be opened
-                         $("#openbtn").removeClass("disabled");
-                    }else{
-                         $("#openbtn").addClass("disabled");
-                    }
-                }else{
-                    //This disk is not mounted. Provide mount btn
-                    $("#mtbtn").html('<i class="usb icon"></i> Mount Drive');
-                    $("#openbtn").addClass("disabled");
-                    $("#mtbtn").removeClass("disabled");
-                    $("#formatDisk").removeClass("disabled");
-                }
-                //Prevent browser menu from showing
-                return false;
-            });
-        }
-        
-        function adjustPartitionViewHeight(){
-            $("#diskVisualization").css("height",window.innerHeight - $("#diskListTable").height() - 120 + "px");
-        }
-        
-        function initView(){
-            if (mode == "windows"){
-                $(".windowsonly").show();
-                //Runing on top of Window Host
-                $.get(ao_root + "system/disk/diskmg/view",function(data){
-                    $("#diskInfoTable").html("");
-                    if (data.error == undefined){
-                       for (var i = 0; i < data.length; i++){
-                           var thisDisk = data[i];
-                           var driveName = thisDisk[2];
-                           if (thisDisk[2] == "" && thisDisk[0] == "C:\\"){
-                                driveName = "Primary Drive";
-                           }else if (thisDisk[2] == ""){
-                                driveName = "Local Disk";
-                           }else if (driveName == undefined){
-                                driveName = "No Media"
-                           }
 
-                           if (thisDisk[3] == undefined){
-                               //Unknown File System
-                               thisDisk[3] = "N/A"
-                           }
-
-                           var cap = bytesToSize(thisDisk[6]);
-                           if (thisDisk[6] == undefined){
-                                cap =  "N/A";
-                           }
-
-                           var free = bytesToSize(thisDisk[5]);
-                           if (thisDisk[5] == undefined){
-                               free = "N/A";
-                           }
-
-                           var perc = Math.round(thisDisk[5] / thisDisk[6] * 100);
-                           if (isNaN(perc)){
-                               perc = "0";
-                           }
-
-                           $("#diskInfoTable").append('<tr>\
-                                <td class="collapsing">\
-                                    <i class="disk outline icon"></i>' + thisDisk[0] + '\
-                                </td>\
-                                <td class="">' + driveName + '</td>\
-                                <td class="collapsing">' + thisDisk[1] + '</td>\
-                                <td class="right aligned collapsing">' + thisDisk[3] + '</td>\
-                                <td class="right aligned collapsing">' + cap + '</td>\
-                                <td class="right aligned collapsing">' + free + '</td>\
-                                <td class="right aligned collapsing">' + perc + '%</td>\
-                            </tr>');
-                       }
-                    }
-                });
-            }else{
-                //Runing on top of Linux Host
-                $(".linuxonly").show();
-                $.get(ao_root + "system/disk/diskmg/view",function(data){
-                    $("#diskInfoTable").html("");
-                    if (data.error == undefined){
-                        var disks = data[0]["blockdevices"];
-                        var partitions = data[1];
-                       for (var i = 0; i < disks.length; i++){
-                           var thisDisk = disks[i]["children"];
-                           if (thisDisk === undefined || thisDisk === null){
-                                let thisSize = disks[i]["size"] || 0;
-                                let thisPartitionID = disks[i]["name"] || "✖";
-                                let mountPoint = disks[i]["mountpoint"] || "[NO PARTITION]";
-                                $("#diskInfoTable").append('<tr>\
-                                    <td class="collapsing">\
-                                        <i class="disk outline icon"></i>' + thisPartitionID + '\
-                                    </td>\
-                                    <td class="">' +  mountPoint + '</td>\
-                                    <td class="right aligned collapsing"></td>\
-                                    <td class="right aligned collapsing">' + bytesToSize(thisSize) + '</td>\
-                                    <td class="right aligned collapsing">' + bytesToSize(0) + '</td>\
-                                    <td class="right aligned collapsing"></td>\
-                                </tr>');
-                               continue;
-                           }
-                           for (var j =0; j < thisDisk.length; j++){
-                               var thisPartition = thisDisk[j];
-                               var mtPoint = thisPartition["mountpoint"];
-                               if (mtPoint === null){
-                                   mtPoint = "Not Mounted";
-                               }
-                               //Get the filesystem from another command return results
-                               var disksFormats = data[1]["blockdevices"][i]["children"][j];
-                               var fstype = disksFormats["fstype"];
-                               if (fstype === null){
-                                   fstype = "raw";
-                               }
-                               //console.log(disksFormats);
-                               
-                               //Read freesapce from the last command return results
-                               var freeSpacesRatio = "0%";
-                               for (var k =0; k < data[2].length; k++){
-                                   if (data[2][k][5] == thisPartition["mountpoint"]){
-                                       //This device is mounted at the same path as current partition. It should be this volume
-                                       freeSpacesRatio = data[2][k][4];
-                                   }
-                               }
-                               if (freeSpacesRatio === undefined){
-                                   freeSpacesRatio = "0%";
-                               }
-                               var numericalFreeSpace = parseInt(freeSpacesRatio.replace("%","")) * thisPartition["size"] / 100;
-                               
-                               //Print the results to the interface
-                               //console.log(thisPartition);
-                               $("#diskInfoTable").append('<tr>\
-                                    <td class="collapsing">\
-                                        <i class="disk outline icon"></i>' + thisPartition["name"] + '\
-                                    </td>\
-                                    <td class="">' +  mtPoint + '</td>\
-                                    <td class="right aligned collapsing">' + fstype + '</td>\
-                                    <td class="right aligned collapsing">' + bytesToSize(thisPartition["size"]) + '</td>\
-                                    <td class="right aligned collapsing">' + bytesToSize(numericalFreeSpace) + '</td>\
-                                    <td class="right aligned collapsing">' + freeSpacesRatio + '</td>\
-                                </tr>');
-                           }
-                           
-                       }
-                    }
-                });
-            }
-        }
-    
-        
-        function initPartitionTable(){
-             if (mode == "windows"){
-                  $.get(ao_root + "system/disk/diskmg/view?partition=true",function(data){
-                    var disks = {};
-                    for(var i =0; i < data.length; i++){
-                        var thisPart = data[i];
-                        //var diskID = thisPart[9].replace(":","");
-                        var diskID = thisPart[0].replace(/\\+.+\\/,"");
-                        if (disks == undefined || disks[diskID] == undefined){
-                            disks[diskID] = {"partitionsTotalSize":thisPart[14],"partitionNames":[thisPart[16]],"partitionID":[ thisPart[9]],"partitionVolume":[thisPart[14]],"Type":[thisPart[5]],"Mounted":[thisPart[4]=="True"],"Format":[thisPart[12]]};
-                        }else{
-                           disks[diskID]["partitionsTotalSize"] = parseInt(disks[diskID]["partitionsTotalSize"]) + parseInt(thisPart[14]);
-                           disks[diskID]["partitionVolume"].push(thisPart[14]);
-                           disks[diskID]["partitionNames"].push(thisPart[16]);
-                           disks[diskID]["partitionID"].push(thisPart[9]);
-                           disks[diskID]["Type"].push(thisPart[5]);
-                           disks[diskID]["Format"].push(thisPart[12]);
-                           disks[diskID]["Mounted"].push(thisPart[4]=="True");
-                        }
-                    }
-                    diskInformation = JSON.parse(JSON.stringify(disks));
-                    drawDartitionTable();
-                });
-                
-             }else{
-                 //This is a Linux Host
-                  $.get(ao_root + "system/disk/diskmg/view?partition=true",function(data){
-                      var disks = {};
-                      var diskInfo = data[0]["blockdevices"];
-                      for (var i =0; i < diskInfo.length; i++){
-                          let thisDisk = diskInfo[i];
-                          let diskID = thisDisk["name"];
-                          if (thisDisk["children"] === undefined || thisDisk["children"] === null){
-                              //This disk do not have any child. Assume a large read-only raw partition.
-                              let thisSize = thisDisk["size"] || 0;
-                              let thisPartitionID = thisDisk["name"] || "✖";
-                              disks[diskID] = {
-                                  "partitionsTotalSize":thisSize,
-                                  "partitionNames":[""],
-                                  "partitionID":[thisPartitionID],
-                                  "partitionVolume":[thisSize],
-                                  "Type":[thisDisk["type"]],
-                                  "Mounted":[thisDisk["mountpoint"] !== null],
-                                  "Format":["raw"]
-                                };
-                                continue;
-                             
-                          }
-                          for (var j =0; j < thisDisk["children"].length;j++){
-                            var thisPart = thisDisk["children"][j];
-                            var disksFormats = data[1]["blockdevices"][i]["children"][j];
-                            if (disks == undefined || disks[diskID] == undefined){
-                                disks[diskID] = {
-                                        "partitionsTotalSize":thisPart["size"],
-                                        "partitionNames":[thisPart["mountpoint"]],
-                                        "partitionID":[thisPart["name"]],
-                                        "partitionVolume":[thisPart["size"]],
-                                        "Type":[thisPart["type"]],
-                                        "Mounted":[thisPart["mountpoint"] != ""],
-                                        "Format":[disksFormats["fstype"]]
-                                    };
-                            }else{
-                               disks[diskID]["partitionsTotalSize"] = parseInt(disks[diskID]["partitionsTotalSize"]) + parseInt(thisPart["size"]);
-                               disks[diskID]["partitionVolume"].push(thisPart["size"]);
-                               disks[diskID]["partitionNames"].push(thisPart["mountpoint"]);
-                               disks[diskID]["partitionID"].push(thisPart["name"]);
-                               disks[diskID]["Type"].push(thisPart["type"]);
-                               disks[diskID]["Format"].push(disksFormats["fstype"]);
-                               console.log(thisPart["name"], thisPart["mountpoint"]);
-                               disks[diskID]["Mounted"].push(thisPart["mountpoint"] !== "");
-                            }
-                          }
-                      }
-                      diskInformation = JSON.parse(JSON.stringify(disks));
-                      drawDartitionTable();
-                  });
-                 
-             }
-             
-        }
-        
-        function drawDartitionTable(){
-            var disks = JSON.parse(JSON.stringify(diskInformation));
-            console.log(diskInformation);
-            //Clear the old diskpart table
-            $("#diskVisualization").html("");
-            //Render the partition table
-            var maxWidth = window.innerWidth * 0.96 - 200;
-            var maxCapDisk = -1;
-            var keys = [];
-            for (key in disks){
-                keys.push(key);
-                var thisDiskSize = disks[key]["partitionsTotalSize"];
-                if (thisDiskSize > maxCapDisk){
-                    maxCapDisk = parseInt(thisDiskSize);
+            function bytesToSize(bytes){
+                if (viewMode === "human"){
+                    var sizes = ["Bytes","KB","MB","GB","TB"];
+                    if (bytes == 0) return "0 Byte";
+                    var i = Math.floor(Math.log(bytes) / Math.log(1024));
+                    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + " " + sizes[i];
                 }
-            }
-            
-            keys.sort();
-            for (var i =0; i < keys.length; i++){
-                var diskInfo = disks[keys[i]];
-                var diskID = keys[i];
-                var mountState = "Mounted";
-                var shortenType = diskInfo["Type"][0].split(" ").shift();
-                var thisMaxWidth = maxWidth - (1- (diskInfo["partitionsTotalSize"] / maxCapDisk)) * (window.innerWidth * displayScaleRatio);
-                if (diskInfo["Mounted"].length == 1 && diskInfo["Mounted"][0] == false){
-                    mountState = "Unmounted";
-                }else if(diskInfo["Mounted"].length > 1){
-                    mountState = "Mixed";
-                }
-                console.log(diskID,diskInfo["Mounted"]);
-                //Append the disk info block
-                $("#diskVisualization").append('<div class="diskPartTable">');
-                $("#diskVisualization").append('<div class="sideblock">\
-                    <i class="disk outline icon" style="margin-right:0px;font-weight: bold;"></i>\
-                    <b style="font-weight: bold;">Drive ' + i + '</b><br>\
-                    ' + shortenType + '<br>\
-                    ' + bytesToSize(diskInfo["partitionsTotalSize"]) + '<br>\
-                    ' + mountState + '\
-                </div>');
-                var partitionIDs = diskInfo["partitionID"];
-                for (var k =0; k < partitionIDs.length; k++){
-                    var thisWidth = thisMaxWidth * (parseInt(diskInfo["partitionVolume"][k]) / diskInfo["partitionsTotalSize"]);
-                    var topbarExtraClass = "";
-                    if (diskInfo["partitionVolume"][k] == 0){
-                        topbarExtraClass = " unallocate";
-                    }else if (diskInfo["partitionNames"][k] == "" && mode == "linux"){
-                        topbarExtraClass = " unmounted";
-                        diskInfo["partitionNames"][k] = "Not Mounted";
-                        if (diskInfo.Format.length == 1 && diskInfo.Format[0] == "raw"){
-                            topbarExtraClass = " unallocate"
-                            diskInfo["partitionNames"][k] = "Unallocated / Unpartitioned";
-                        }
-                    }else if (diskInfo["partitionNames"][k] == "" && mode == "windows"){
-                        //All viewable disks on Windows must be mounted
-                        if (diskInfo["partitionID"][0] == "C:"){
-                            diskInfo["partitionNames"][k] = "Primary Disk";
-                        }else{
-                            diskInfo["partitionNames"][k] = "Local Disk";
-                        }
-                    }
-                    
-                    $("#diskVisualization").append('<div class="partitionRepresentation" style="width:' + thisWidth + 'px;" metaData="\
-                    ' + ao_module_utils.objectToAttr([diskInfo["partitionID"][k],diskInfo["partitionNames"][k],diskInfo["Format"][k],diskInfo["Mounted"][k],diskInfo["Type"][k],diskInfo["partitionVolume"][k]]) + '">\
-                        <div class="partitionTopBar' + topbarExtraClass + '"></div>\
-                        <div class="partitionDescription">\
-                            ' + diskInfo["partitionNames"][k] +" (" + diskInfo["partitionID"][k] + ')<br>\
-                            ' + bytesToSize(parseInt(diskInfo["partitionVolume"][k])) + ' ' + diskInfo["Format"][k] + '<br>\
-                        </div>\
-                    </div>');
-                }
-                $("#diskVisualization").append('</div>');
-            }
-            
-            setTimeout(function(){
-                adjustPartitionViewHeight();
-            },500);
-            createEventHooks();
-        }
-        
-        $(window).on("resize",function(){
-            adjustPartitionViewHeight();
-            drawDartitionTable();
-        });
-        
-        $("#diskVisualization").on('click',function(e){
-           var target = e.target;
-           //console.log($(target).parents(".partitionRepresentation"));
-           if ($(target).parents(".partitionRepresentation").length == 0 && !$(target).hasClass("partitionRepresentation")){
-               $("#rightClickMenu").hide();
-           }else if (e.button == 0){
-               if ($(target).parents(".partitionRepresentation").length > 0 || $(target).hasClass("partitionRepresentation")){
-                   $(".focusedPart").removeClass("focusedPart");
-                   if ($(target).parent().hasClass("partitionRepresentation")){
-                       $(target).parent().addClass("focusedPart");
-                   }else{
-                       $(target).addClass("focusedPart");
-                   }
-               }
-               $("#rightClickMenu").hide();
-           }
-        });
-        
-        function bytesToSize(bytes) {
-            if (viewMode == "human"){
-                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-                 if (bytes == 0) return '0 Byte';
-                 var i = parseFloat(Math.floor(Math.log(bytes) / Math.log(1024)));
-                 return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-            }else if (viewMode == "raw"){
                 return bytes + " B";
             }
-           
-        }
-    </script>
+
+            // ── Mount point list ─────────────────────────────────────────────
+
+            function initMountPointList(){
+                $.get(ao_root + "system/disk/diskmg/mpt", function(data){
+                    if (data == null) return;
+                    data.forEach(function(mpt){
+                        $("#mtptlist").prepend(
+                            "<div class='mountpt' onclick='selectThis(this);' ondblclick='mountThisDev(this)'>" + mpt + "</div>"
+                        );
+                    });
+                });
+            }
+
+            // ── Format ───────────────────────────────────────────────────────
+
+            function toggleFormatInterface(btnObject){
+                if ($(btnObject).hasClass("disabled")) return;
+                var diskInfo = $(".focusedPart").attr("metadata");
+                diskInfo = ao_module_utils.attrToObject(diskInfo);
+                formatPendingDevInfo = diskInfo;
+                $("#selectedDiskDisplay").text(diskInfo[0] + " (" + bytesToSize(parseInt(diskInfo[5])) + ")");
+                $(".functMenuDimmer").fadeIn("fast");
+                $("#formatOptions").fadeIn("fast");
+                hideRightclickMenu();
+            }
+
+            function formatThisDev(){
+                var targetFormat = $("input[name='format']:checked").attr("id");
+                var targetDisk   = formatPendingDevInfo;
+                if (!targetFormat) return;
+                if (!confirm("THIS OPERATION WILL WIPE ALL DATA ON /dev/" + targetDisk[0] + ". ARE YOU SURE?")) return;
+                $("#formatOptions").fadeOut("fast");
+                $(".functMenuDimmer").fadeOut("fast");
+                $("#loaderUI").addClass("active");
+                $.ajax({
+                    url: ao_root + "system/disk/diskmg/format",
+                    data: { dev: targetDisk[0], format: targetFormat },
+                    method: "POST",
+                    success: function(data){
+                        if (data.error !== undefined) alert(data.error);
+                        initData();
+                        $("#loaderUI").removeClass("active");
+                    }
+                });
+            }
+
+            // ── Mount / Unmount ──────────────────────────────────────────────
+
+            function toggleMount(btnObject){
+                if ($(btnObject).hasClass("disabled")) return;
+                var diskInfo = $(".focusedPart").attr("metadata");
+                diskInfo = ao_module_utils.attrToObject(diskInfo);
+                hideRightclickMenu();
+                if (diskInfo[3] === false || diskInfo[3] === "false"){
+                    $(".functMenuDimmer").fadeIn("fast");
+                    $("#mountOptions").fadeIn("fast");
+                } else {
+                    $("#loaderUI").addClass("active");
+                    $.get(ao_root + "system/disk/diskmg/mount?dev=" + diskInfo[0] +
+                          "&format=" + diskInfo[2] + "&mnt=" + diskInfo[1] + "&umount=true",
+                        function(data){
+                            initData();
+                            $("#loaderUI").removeClass("active");
+                        }
+                    );
+                }
+            }
+
+            function mountThisDev(object){
+                if (object != null){
+                    $(".mountpt.selected").removeClass("selected");
+                    $(object).addClass("selected");
+                }
+                var selectedMpt = $(".mountpt.selected");
+                var mountPoint  = selectedMpt.text().trim();
+                if (selectedMpt.hasClass("userdefine")){
+                    mountPoint = $("#userDefinedMountPoint").val();
+                }
+                $("#loaderUI").addClass("active");
+                $("#mountOptions").fadeOut("fast");
+                $(".functMenuDimmer").fadeOut("fast");
+                var diskInfo = $(".focusedPart").attr("metadata");
+                diskInfo = ao_module_utils.attrToObject(diskInfo);
+                $.get(ao_root + "system/disk/diskmg/mount?dev=" + diskInfo[0] +
+                      "&format=" + diskInfo[2] + "&mnt=" + mountPoint, function(data){
+                    if (data.error != null){
+                        $("#loaderUI").removeClass("active");
+                        alert(data.error);
+                        return;
+                    }
+                    initData();
+                    $("#loaderUI").removeClass("active");
+                });
+            }
+
+            // ── Data fetch ───────────────────────────────────────────────────
+
+            function initData(){
+                $.when(
+                    $.get(ao_root + "system/disk/diskmg/view"),
+                    $.get(ao_root + "system/disk/diskmg/view?partition=true")
+                ).done(function(viewResp, partResp){
+                    if (mode === "windows"){
+                        processWindowsData(viewResp[0], partResp[0]);
+                    } else {
+                        processLinuxData(viewResp[0], partResp[0]);
+                    }
+                });
+            }
+
+            function processWindowsData(viewData, partData){
+                var volMap = {};
+                if (!viewData.error){
+                    for (var i = 0; i < viewData.length; i++){
+                        var d = viewData[i];
+                        volMap[d[0]] = { free: d[5], total: d[6] };
+                    }
+                }
+                var disks = {};
+                for (var i = 0; i < partData.length; i++){
+                    var p      = partData[i];
+                    var diskID = p[0].replace(/\\+.+\\/, "");
+                    if (disks[diskID] === undefined){
+                        disks[diskID] = {
+                            partitionsTotalSize: p[14],
+                            partitionNames:  [p[16]],
+                            partitionID:     [p[9]],
+                            partitionVolume: [p[14]],
+                            Type:    [p[5]],
+                            Mounted: [p[4] === "True"],
+                            Format:  [p[12]]
+                        };
+                    } else {
+                        disks[diskID].partitionsTotalSize = parseInt(disks[diskID].partitionsTotalSize) + parseInt(p[14]);
+                        disks[diskID].partitionVolume.push(p[14]);
+                        disks[diskID].partitionNames.push(p[16]);
+                        disks[diskID].partitionID.push(p[9]);
+                        disks[diskID].Type.push(p[5]);
+                        disks[diskID].Format.push(p[12]);
+                        disks[diskID].Mounted.push(p[4] === "True");
+                    }
+                }
+                diskInformation = disks;
+                volumeData      = volMap;
+                buildSidebar();
+            }
+
+            function processLinuxData(viewData, partData){
+                var usageMap = {};
+                if (!viewData.error && viewData[2]){
+                    for (var i = 0; i < viewData[2].length; i++){
+                        var row = viewData[2][i];
+                        usageMap[row[5]] = { usedPct: parseInt((row[4] || "0%").replace("%","")) };
+                    }
+                }
+                var disks    = {};
+                var diskInfo = partData[0]["blockdevices"];
+                for (var i = 0; i < diskInfo.length; i++){
+                    var thisDisk = diskInfo[i];
+                    var diskID   = thisDisk["name"];
+                    if (thisDisk["children"] === undefined || thisDisk["children"] === null){
+                        var sz = thisDisk["size"] || 0;
+                        disks[diskID] = {
+                            partitionsTotalSize: sz,
+                            partitionNames:  [""],
+                            partitionID:     [thisDisk["name"] || "✖"],
+                            partitionVolume: [sz],
+                            Type:    [thisDisk["type"]],
+                            Mounted: [thisDisk["mountpoint"] !== null],
+                            Format:  ["raw"]
+                        };
+                        continue;
+                    }
+                    for (var j = 0; j < thisDisk["children"].length; j++){
+                        var part = thisDisk["children"][j];
+                        var fmts = partData[1]["blockdevices"][i]["children"][j];
+                        if (disks[diskID] === undefined){
+                            disks[diskID] = {
+                                partitionsTotalSize: part["size"],
+                                partitionNames:  [part["mountpoint"]],
+                                partitionID:     [part["name"]],
+                                partitionVolume: [part["size"]],
+                                Type:    [part["type"]],
+                                Mounted: [part["mountpoint"] != ""],
+                                Format:  [fmts["fstype"]]
+                            };
+                        } else {
+                            disks[diskID].partitionsTotalSize = parseInt(disks[diskID].partitionsTotalSize) + parseInt(part["size"]);
+                            disks[diskID].partitionVolume.push(part["size"]);
+                            disks[diskID].partitionNames.push(part["mountpoint"]);
+                            disks[diskID].partitionID.push(part["name"]);
+                            disks[diskID].Type.push(part["type"]);
+                            disks[diskID].Format.push(fmts["fstype"]);
+                            disks[diskID].Mounted.push(part["mountpoint"] !== "");
+                        }
+                    }
+                }
+                diskInformation = disks;
+                volumeData      = usageMap;
+                buildSidebar();
+            }
+
+            // ── Sidebar ──────────────────────────────────────────────────────
+
+            function buildSidebar(){
+                var disks = diskInformation;
+                var keys  = Object.keys(disks).sort();
+                $("#sidebarList").html("");
+
+                for (var i = 0; i < keys.length; i++){
+                    var key  = keys[i];
+                    var di   = disks[key];
+                    var total = bytesToSize(parseInt(di.partitionsTotalSize));
+                    var typeShort = (di.Type[0] || "disk").split(" ")[0];
+
+                    var allOn  = di.Mounted.every(function(m){ return m === true;  });
+                    var allOff = di.Mounted.every(function(m){ return m === false; });
+                    var statusLabel = allOn ? "Mounted" : allOff ? "Not mounted" : "Partial";
+
+                    (function(k){
+                        var itemHtml =
+                            "<div class='sidebar-item' data-diskkey='" + k + "' onclick='selectDisk(\"" + k + "\")'>" +
+                                "<img class='sidebar-item-icon' src='../../img/system/drive.svg' alt=''>" +
+                                "<div class='sidebar-item-text'>" +
+                                    "<div class='sidebar-item-name'>" + k + "</div>" +
+                                    "<div class='sidebar-item-sub'>" + total + " &middot; " + statusLabel + "</div>" +
+                                "</div>" +
+                            "</div>";
+                        $("#sidebarList").append(itemHtml);
+                    })(key);
+                }
+
+                /* restore or auto-select first disk */
+                if (selectedDiskKey && disks[selectedDiskKey]){
+                    selectDisk(selectedDiskKey);
+                } else if (keys.length > 0){
+                    selectDisk(keys[0]);
+                }
+            }
+
+            function selectDisk(key){
+                selectedDiskKey = key;
+                $(".sidebar-item").removeClass("active");
+                $(".sidebar-item[data-diskkey='" + key + "']").addClass("active");
+                renderDiskDetail(key);
+            }
+
+            // ── Detail view ──────────────────────────────────────────────────
+
+            function renderDiskDetail(key){
+                var di    = diskInformation[key];
+                var total = parseInt(di.partitionsTotalSize);
+
+                var allOn  = di.Mounted.every(function(m){ return m === true;  });
+                var allOff = di.Mounted.every(function(m){ return m === false; });
+                var mountLabel = allOn ? "Mounted" : allOff ? "Not Mounted" : "Partially Mounted";
+                var typeShort  = (di.Type[0] || "Disk").split(" ")[0];
+
+                /* ── Colored storage bar ── */
+                var barSegs    = "";
+                var legendHtml = "";
+
+                for (var k = 0; k < di.partitionID.length; k++){
+                    var pvol    = parseInt(di.partitionVolume[k]);
+                    var pct     = (total > 0) ? (pvol / total * 100).toFixed(3) : 0;
+                    var color   = (pvol === 0) ? "#e5e5ea" : SEG_COLORS[k % SEG_COLORS.length];
+                    var partLabel = di.partitionID[k] || "Unallocated";
+
+                    barSegs   += "<div class='storage-bar-seg' style='width:" + pct + "%;background:" + color + ";'></div>";
+                    legendHtml += "<div class='legend-item'>" +
+                                      "<div class='legend-dot' style='background:" + color + ";'></div>" +
+                                      partLabel + " (" + bytesToSize(pvol) + ")" +
+                                  "</div>";
+                }
+
+                /* ── Partition table rows ── */
+                var tableRows = "";
+                for (var k = 0; k < di.partitionID.length; k++){
+                    var pvol   = parseInt(di.partitionVolume[k]);
+                    var pname  = di.partitionNames[k];
+                    var pid    = di.partitionID[k];
+                    var pfmt   = di.Format[k] || "N/A";
+                    var pmnt   = di.Mounted[k];
+                    var color  = (pvol === 0) ? "#aeaeb2" : SEG_COLORS[k % SEG_COLORS.length];
+
+                    var dotCls      = "dot-mounted";
+                    var statusLabel = "Mounted";
+                    var isUnalloc   = false;
+
+                    if (pvol === 0){
+                        dotCls      = "dot-unalloc";
+                        statusLabel = "Unallocated";
+                        pname       = "—";
+                        pfmt        = "—";
+                        isUnalloc   = true;
+                    } else if (!pmnt){
+                        dotCls      = "dot-unmounted";
+                        statusLabel = "Not Mounted";
+                        if (!pname || pname === ""){
+                            pname = (mode === "linux" && di.Format[k] === "raw") ? "Unallocated" : "—";
+                        }
+                    } else {
+                        if (!pname || pname === ""){
+                            pname = (mode === "windows") ? "Local Disk" : "—";
+                        }
+                    }
+
+                    /* usage bar */
+                    var usedPct = 0;
+                    if (!isUnalloc && pmnt){
+                        if (mode === "linux" && volumeData && volumeData[di.partitionNames[k]]){
+                            usedPct = volumeData[di.partitionNames[k]].usedPct || 0;
+                        } else if (mode === "windows" && volumeData && volumeData[pid]){
+                            var vd = volumeData[pid];
+                            if (vd && vd.total > 0) usedPct = Math.round((1 - vd.free / vd.total) * 100);
+                        }
+                    }
+                    var usedDisp = (!isUnalloc && pmnt) ? usedPct + "%" : "—";
+                    var barColor = (usedPct >= 90) ? "#ff3b30" : color;
+                    var miniBar  = (!isUnalloc && pmnt)
+                        ? "<div class='mini-bar'><div class='mini-bar-fill' style='width:" + usedPct + "%;background:" + barColor + ";'></div></div>"
+                        : "";
+
+                    var meta = ao_module_utils.objectToAttr([pid, pname, pfmt, pmnt, di.Type[k], pvol]);
+
+                    tableRows +=
+                        "<tr class='part-row' metadata='" + meta + "'>" +
+                            "<td><span class='part-color-dot' style='background:" + color + ";'></span>" + pid + "</td>" +
+                            "<td>" + (pname !== "—" ? pname : "<span style='color:#aeaeb2'>—</span>") + "</td>" +
+                            "<td>" + pfmt + "</td>" +
+                            "<td>" + bytesToSize(pvol) + "</td>" +
+                            "<td><span class='status-badge'><span class='status-dot " + dotCls + "'></span>" + statusLabel + "</span></td>" +
+                            "<td>" + usedDisp + miniBar + "</td>" +
+                        "</tr>";
+                }
+
+                var mountColLabel = (mode === "windows") ? "Name" : "Mount Point";
+
+                var html =
+                    "<div class='disk-header-card'>" +
+                        "<img class='disk-header-icon' src='../../img/system/drive.svg' alt='disk'>" +
+                        "<div class='disk-header-info'>" +
+                            "<div class='disk-header-name'>" + key + "</div>" +
+                            "<div class='disk-header-meta'>" + typeShort + " &middot; " + mountLabel + "</div>" +
+                            "<div class='storage-bar'>" + barSegs + "</div>" +
+                            "<div class='storage-bar-legend'>" + legendHtml + "</div>" +
+                            "<div class='disk-header-stats'>" +
+                                "<div><div class='stat-label'>Capacity</div><div class='stat-value'>" + bytesToSize(total) + "</div></div>" +
+                                "<div><div class='stat-label'>Partitions</div><div class='stat-value'>" + di.partitionID.length + "</div></div>" +
+                            "</div>" +
+                        "</div>" +
+                    "</div>" +
+                    "<div class='partition-card'>" +
+                        "<div class='partition-card-header'>Partitions &amp; Volumes</div>" +
+                        "<table class='partition-table'>" +
+                            "<thead><tr>" +
+                                "<th>Device</th>" +
+                                "<th>" + mountColLabel + "</th>" +
+                                "<th>Format</th>" +
+                                "<th>Size</th>" +
+                                "<th>Status</th>" +
+                                "<th>Usage</th>" +
+                            "</tr></thead>" +
+                            "<tbody>" + tableRows + "</tbody>" +
+                        "</table>" +
+                    "</div>";
+
+                $("#detailPanel").html(html);
+                attachPartitionEvents();
+            }
+
+            // ── Partition row events ─────────────────────────────────────────
+
+            function attachPartitionEvents(){
+                $(".part-row").on("click", function(){
+                    $(".focusedPart").removeClass("focusedPart");
+                    $(this).addClass("focusedPart");
+                });
+
+                $(".part-row").contextmenu(function(e){
+                    if (mode === "windows") return true;
+
+                    $(".focusedPart").removeClass("focusedPart");
+                    $(this).addClass("focusedPart");
+
+                    var px    = e.clientX;
+                    var py    = e.clientY;
+                    var menuH = $("#rightClickMenu").outerHeight() || 80;
+                    var top   = py + 4;
+                    if (top + menuH > window.innerHeight) top = py - menuH - 4;
+                    if (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop) top -= 50;
+
+                    $("#rightClickMenu").css({ left: px + "px", top: top + "px" }).show();
+
+                    var info      = ao_module_utils.attrToObject($(this).attr("metadata"));
+                    var isMounted = (info[3] === true || info[3] === "true");
+
+                    if (isMounted){
+                        var isSystem = (info[1] === "/" || info[1] === "/boot");
+                        if (isSystem){
+                            $("#mtbtn").addClass("disabled");
+                            $("#formatDisk").addClass("disabled");
+                        } else {
+                            $("#mtbtn").removeClass("disabled");
+                            $("#formatDisk").removeClass("disabled");
+                        }
+                        $("#mtbtn").html('<i class="eject icon"></i> Unmount');
+                    } else {
+                        $("#mtbtn").html('<i class="plug icon"></i> Mount').removeClass("disabled");
+                        $("#formatDisk").removeClass("disabled");
+                    }
+                    return false;
+                });
+            }
+
+            $(document).on("click", function(e){
+                if (!$(e.target).closest("#rightClickMenu").length) hideRightclickMenu();
+            });
+
+            // ── Theme ────────────────────────────────────────────────────────
+
+            function applyTheme(theme){
+                document.body.classList.toggle("dark", theme === "dark");
+            }
+
+            if (typeof ao_module_getSystemThemeColor === "function"){
+                ao_module_getSystemThemeColor(function(c){
+                    applyTheme(c === "whiteTheme" ? "light" : "dark");
+                });
+            }
+
+            window.desktopThemeChanged = function(theme){
+                applyTheme(theme);
+            };
+        </script>
     </body>
 </html>
