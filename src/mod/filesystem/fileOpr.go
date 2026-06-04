@@ -27,6 +27,7 @@ import (
 
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/hidden"
+	"imuslab.com/arozos/mod/info/logger"
 
 	archiver "github.com/mholt/archiver/v3"
 )
@@ -747,7 +748,7 @@ func FileMove(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler,
 			time.Sleep(1 * time.Second)
 			os.Remove(src)
 			counter++
-			filesystemLogger.PrintAndLog("Filesystem", "Retrying to remove file: "+src, nil)
+			logger.PrintAndLog("Filesystem", "Retrying to remove file: "+src, nil)
 			if counter > 10 {
 				return errors.New("Source file remove failed.")
 			}
@@ -820,7 +821,7 @@ func dirCopy(srcFsh *FileSystemHandler, src string, destFsh *FileSystemHandler, 
 			//Move the file using BLFC
 			f, err := srcFshAbs.ReadStream(fileSrc)
 			if err != nil {
-				filesystemLogger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
+				logger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
 				return err
 			}
 			defer f.Close()
@@ -917,7 +918,7 @@ func IsDir(path string) bool {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		filesystemLogger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Filesystem", fmt.Sprint(err), nil)
 		os.Exit(1)
 		return false
 	}

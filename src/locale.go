@@ -14,8 +14,8 @@ import (
 
 // localeFileSchema is the top-level structure shared by all locale JSON files.
 type localeFileSchema struct {
-	Author string                     `json:"author"`
-	Keys   map[string]localeKeyEntry  `json:"keys"`
+	Author string                    `json:"author"`
+	Keys   map[string]localeKeyEntry `json:"keys"`
 }
 
 type localeKeyEntry struct {

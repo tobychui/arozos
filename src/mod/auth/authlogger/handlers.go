@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -23,11 +24,11 @@ func (s summaryDate) Less(i, j int) bool {
 	layout := "Jan-2006"
 	timei, err := time.Parse(layout, s[i])
 	if err != nil {
-		authloggerLogger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
 	}
 	timej, err := time.Parse(layout, s[j])
 	if err != nil {
-		authloggerLogger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Authlogger", fmt.Sprint(err), nil)
 	}
 	return timei.Unix() > timej.Unix()
 }

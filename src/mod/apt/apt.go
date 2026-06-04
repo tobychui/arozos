@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -38,7 +40,7 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 
 	installed, err := PackageExists(pkgname)
 	if err != nil {
-		aptLogger.PrintAndLog("Apt", err.Error(), nil)
+		logger.PrintAndLog("Apt", err.Error(), nil)
 	}
 
 	//log.Println(packageInfo)
@@ -47,7 +49,7 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	}
 
 	//Package not installed. Install if now if running in sudo mode
-	aptLogger.PrintAndLog("Apt", "Installing package "+pkgname+"...", nil)
+	logger.PrintAndLog("Apt", "Installing package "+pkgname+"...", nil)
 	cmd := exec.Command("apt-get", "install", "-y", pkgname)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -55,10 +57,10 @@ func (a *AptPackageManager) InstallIfNotExists(pkgname string, mustComply bool) 
 	if err != nil {
 		if mustComply {
 			//Panic and terminate server process
-			aptLogger.PrintAndLog("Apt", "Installation failed on package: "+pkgname, nil)
+			logger.PrintAndLog("Apt", "Installation failed on package: "+pkgname, nil)
 			os.Exit(1)
 		} else {
-			aptLogger.PrintAndLog("Apt", "Installation failed on package: "+pkgname, nil)
+			logger.PrintAndLog("Apt", "Installation failed on package: "+pkgname, nil)
 		}
 		return err
 	}

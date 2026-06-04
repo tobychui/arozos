@@ -31,6 +31,7 @@ import (
 	"imuslab.com/arozos/mod/filesystem/abstractions/smbfs"
 	"imuslab.com/arozos/mod/filesystem/abstractions/webdavfs"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -125,7 +126,7 @@ func NewFileSystemHandlersFromJSON(jsonContent []byte, runtimePersistenceConfig 
 	for _, option := range options {
 		thisHandler, err := NewFileSystemHandler(option, runtimePersistenceConfig)
 		if err != nil {
-			filesystemLogger.PrintAndLog("Filesystem", "[File System] Failed to create system handler for "+option.Name, nil)
+			logger.PrintAndLog("Filesystem", "[File System] Failed to create system handler for "+option.Name, nil)
 			//log.Println(err.Error())
 			continue
 		}
@@ -147,10 +148,10 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 			actualMountDev := option.Mountdev
 			if option.DiskUUID != "" {
 				if resolvedPath, err := ResolveDeviceByUUID(option.DiskUUID); err == nil {
-					filesystemLogger.PrintAndLog("Filesystem", "[Storage] Resolved device by UUID "+option.DiskUUID+" -> "+resolvedPath, nil)
+					logger.PrintAndLog("Filesystem", "[Storage] Resolved device by UUID "+option.DiskUUID+" -> "+resolvedPath, nil)
 					actualMountDev = resolvedPath
 				} else {
-					filesystemLogger.PrintAndLog("Filesystem", "[Storage] UUID lookup failed for "+option.DiskUUID+", falling back to device path "+option.Mountdev, nil)
+					logger.PrintAndLog("Filesystem", "[Storage] UUID lookup failed for "+option.DiskUUID+", falling back to device path "+option.Mountdev, nil)
 				}
 			}
 			err := MountDevice(option.Mountpt, actualMountDev, option.Filesystem)
@@ -216,7 +217,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 		pathChunks := strings.Split(strings.ReplaceAll(option.Path, "\\", "/"), "/")
 
 		if len(pathChunks) < 2 {
-			filesystemLogger.PrintAndLog("Filesystem", "[File System] Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]", nil)
+			logger.PrintAndLog("Filesystem", "[File System] Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]", nil)
 			return nil, errors.New("Invalid configured smb filepath: Path format not matching [ip_addr]:[port]/[root_share path]")
 		}
 
@@ -384,7 +385,7 @@ func NewFileSystemHandler(option FileSystemOption, RuntimePersistenceConfig Runt
 
 	} else if option.Filesystem == "virtual" {
 		//Virtual filesystem, deprecated
-		filesystemLogger.PrintAndLog("Filesystem", "[File System] Deprecated file system type: Virtual", nil)
+		logger.PrintAndLog("Filesystem", "[File System] Deprecated file system type: Virtual", nil)
 	}
 
 	return nil, errors.New("Not supported file system: " + fstype)
@@ -515,7 +516,7 @@ func (fsh *FileSystemHandler) GetDirctorySizeFromVpath(vpath string, username st
 
 // Reload the target file system abstraction
 func (fsh *FileSystemHandler) ReloadFileSystelAbstraction() error {
-	filesystemLogger.PrintAndLog("Filesystem", "[File System] Reloading File System Abstraction for "+fsh.Name, nil)
+	logger.PrintAndLog("Filesystem", "[File System] Reloading File System Abstraction for "+fsh.Name, nil)
 	//Load the start option for this fsh
 	originalStartOption := fsh.StartOptions
 	runtimePersistenceConfig := fsh.RuntimePersistenceConfig
@@ -550,7 +551,7 @@ func (fsh *FileSystemHandler) Close() {
 	//Close the file system object
 	err := fsh.FileSystemAbstraction.Close()
 	if err != nil {
-		filesystemLogger.PrintAndLog("Filesystem", "[File System]  Unable to close File System Abstraction for Handler: "+fsh.UUID+". Skipping.", nil)
+		logger.PrintAndLog("Filesystem", "[File System]  Unable to close File System Abstraction for Handler: "+fsh.UUID+". Skipping.", nil)
 	}
 }
 

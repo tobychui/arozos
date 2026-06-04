@@ -15,6 +15,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	agi "imuslab.com/arozos/mod/agi"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -63,7 +64,7 @@ func (m *ModuleHandler) InstallViaZip(realpath string, gateway *agi.Gateway) err
 			os.RemoveAll(destPath)
 		}
 		if err := os.Rename(folder, destPath); err != nil {
-			modulesLogger.PrintAndLog("Modules", fmt.Sprint("*Module Installer* Failed to move module:", err), nil)
+			logger.PrintAndLog("Modules", fmt.Sprint("*Module Installer* Failed to move module:", err), nil)
 			return errors.New("Failed to install " + filepath.Base(folder) + ": " + err.Error())
 		}
 		installedFolders = append(installedFolders, destPath)
@@ -98,7 +99,7 @@ func (m *ModuleHandler) ReloadAllModules(gateway *agi.Gateway) error {
 // Install a module via git clone
 func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway) error {
 	//Download the module from the gitURL
-	modulesLogger.PrintAndLog("Modules", fmt.Sprint("Starting module installation by Git cloning ", gitURL), nil)
+	logger.PrintAndLog("Modules", fmt.Sprint("Starting module installation by Git cloning ", gitURL), nil)
 	newDownloadUUID := uuid.NewV4().String()
 	downloadFolder := filepath.Join(m.tmpDirectory, "download", newDownloadUUID)
 	os.MkdirAll(downloadFolder, 0777)
@@ -131,7 +132,7 @@ func (m *ModuleHandler) InstallModuleViaGit(gitURL string, gateway *agi.Gateway)
 	/*
 		for _, src := range copyPendingList {
 			fs.FileCopy(src, "./web/", "skip", func(progress int, filename string) {
-				modulesLogger.PrintAndLog("Modules", fmt.Sprint("Copying ", filename), nil)
+				logger.PrintAndLog("Modules", fmt.Sprint("Copying ", filename), nil)
 			})
 		}
 	*/
@@ -159,15 +160,15 @@ func (m *ModuleHandler) ActivateModuleByRoot(moduleFolder string, gateway *agi.G
 			//Load this as an module
 			startDef, err := os.ReadFile(filepath.Join(thisModuleEstimataedRoot, "init.agi"))
 			if err != nil {
-				modulesLogger.PrintAndLog("Modules", "*Module Activator* Failed to read init.agi from "+filepath.Base(moduleFolder), nil)
+				logger.PrintAndLog("Modules", "*Module Activator* Failed to read init.agi from "+filepath.Base(moduleFolder), nil)
 				return errors.New("Failed to read init.agi from " + filepath.Base(moduleFolder))
 			}
 
 			//Execute the init script using AGI
-			modulesLogger.PrintAndLog("Modules", fmt.Sprint("Starting module: ", filepath.Base(moduleFolder)), nil)
+			logger.PrintAndLog("Modules", fmt.Sprint("Starting module: ", filepath.Base(moduleFolder)), nil)
 			err = gateway.RunScript(string(startDef))
 			if err != nil {
-				modulesLogger.PrintAndLog("Modules", "*Module Activator* "+filepath.Base(moduleFolder)+" Starting failed"+err.Error(), nil)
+				logger.PrintAndLog("Modules", "*Module Activator* "+filepath.Base(moduleFolder)+" Starting failed"+err.Error(), nil)
 				return errors.New(filepath.Base(moduleFolder) + " Starting failed: " + err.Error())
 
 			}
@@ -208,7 +209,7 @@ func (m *ModuleHandler) HandleModuleInstallationListing(w http.ResponseWriter, r
 		// Folder mod time (kept for backward compat)
 		mtime, err := fs.GetModTime(dirPath)
 		if err != nil {
-			modulesLogger.PrintAndLog("Modules", fmt.Sprint(err), nil)
+			logger.PrintAndLog("Modules", fmt.Sprint(err), nil)
 		}
 		t := time.Unix(mtime, 0)
 
@@ -263,7 +264,7 @@ func (m *ModuleHandler) UninstallModule(moduleName string) error {
 	//Check if the module exists
 	if utils.FileExists(filepath.Join("./web", moduleName)) {
 		//Remove the module
-		modulesLogger.PrintAndLog("Modules", fmt.Sprint("Removing Module: ", moduleName), nil)
+		logger.PrintAndLog("Modules", fmt.Sprint("Removing Module: ", moduleName), nil)
 		os.RemoveAll(filepath.Join("./web", moduleName))
 
 		//Unregister the module from loaded list

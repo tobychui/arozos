@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func isJSON(s string) bool {
@@ -46,7 +48,7 @@ func tryGetHDSUUID(ip string) (string, error) {
 		return "", err
 	}
 
-	hdsLogger.PrintAndLog("Hds", fmt.Sprint(ip, uuid), nil)
+	logger.PrintAndLog("Hds", fmt.Sprint(ip, uuid), nil)
 	return uuid, nil
 }
 

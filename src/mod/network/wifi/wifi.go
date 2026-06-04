@@ -18,7 +18,7 @@ type WiFiManager struct {
 	wan_interface_name  string
 }
 
-//Create a new WiFi manager
+// Create a new WiFi manager
 func NewWiFiManager(database *db.Database, useSudo bool, wpapath string, wlanname string) *WiFiManager {
 	//Create a database table for wifi
 	database.NewTable("wifi")

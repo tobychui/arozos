@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -20,7 +21,7 @@ import (
 func (g *Gateway) AudioLibRegister() {
 	err := g.RegisterLib("audio", g.injectAudioFunctions)
 	if err != nil {
-		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }

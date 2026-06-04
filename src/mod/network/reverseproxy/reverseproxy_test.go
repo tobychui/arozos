@@ -169,8 +169,8 @@ func TestDirector_UserAgent(t *testing.T) {
 // mockWriteFlusher implements both io.Writer and http.Flusher for testing
 // maxLatencyWriter / copyResponse with FlushInterval.
 type mockWriteFlusher struct {
-	buf      strings.Builder
-	flushed  int
+	buf     strings.Builder
+	flushed int
 }
 
 func (m *mockWriteFlusher) Write(p []byte) (int, error) {
@@ -570,8 +570,8 @@ func newMockHijackResponseWriter(conn net.Conn) *mockHijackResponseWriter {
 	}
 }
 
-func (m *mockHijackResponseWriter) Header() http.Header        { return m.header }
-func (m *mockHijackResponseWriter) WriteHeader(code int)       { m.statusCode = code }
+func (m *mockHijackResponseWriter) Header() http.Header         { return m.header }
+func (m *mockHijackResponseWriter) WriteHeader(code int)        { m.statusCode = code }
 func (m *mockHijackResponseWriter) Write(b []byte) (int, error) { return m.body.Write(b) }
 func (m *mockHijackResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	rw := bufio.NewReadWriter(

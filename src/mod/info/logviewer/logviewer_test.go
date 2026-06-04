@@ -75,9 +75,9 @@ func TestListLogFilesWithLogs(t *testing.T) {
 	}
 
 	files := map[string]string{
-		filepath.Join(cat1, "alpha.log"): "log line alpha",
-		filepath.Join(cat1, "beta.log"):  "log line beta",
-		filepath.Join(cat2, "gamma.log"): "log line gamma",
+		filepath.Join(cat1, "alpha.log"):        "log line alpha",
+		filepath.Join(cat1, "beta.log"):         "log line beta",
+		filepath.Join(cat2, "gamma.log"):        "log line gamma",
 		filepath.Join(tmpRoot, "not_a_log.txt"): "should be ignored",
 	}
 	for path, content := range files {

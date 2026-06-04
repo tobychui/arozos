@@ -8,6 +8,7 @@ import (
 
 	ftp "github.com/fclairamb/ftpserverlib"
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/user"
 )
 
@@ -62,7 +63,7 @@ func NewFTPHandler(userHandler *user.UserHandler, ServerName string, Port int, t
 func UpdateAccessableGroups(database *database.Database, groups []string) {
 	database.Write("ftp", "groups", groups)
 	if len(groups) == 0 {
-		ftpLogger.PrintAndLog("Ftp", "Setting no group access to ftp server!", nil)
+		logger.PrintAndLog("Ftp", "Setting no group access to ftp server!", nil)
 	}
 }
 
@@ -70,7 +71,7 @@ func UpdateAccessableGroups(database *database.Database, groups []string) {
 func (f *Handler) Start() error {
 	if f.server != nil {
 		go func(f *Handler) {
-			ftpLogger.PrintAndLog("Ftp", "FTP Server Started, listening at: "+strconv.Itoa(f.Port), nil)
+			logger.PrintAndLog("Ftp", "FTP Server Started, listening at: "+strconv.Itoa(f.Port), nil)
 			f.server.ListenAndServe()
 		}(f)
 		f.ServerRunning = true

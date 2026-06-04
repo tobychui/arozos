@@ -15,6 +15,7 @@ import (
 	syncdb "imuslab.com/arozos/mod/auth/oauth2/syncdb"
 	reg "imuslab.com/arozos/mod/auth/register"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -62,7 +63,7 @@ type Config struct {
 // NewOauthHandler creates and initialises the OAuth2 handler.
 func NewOauthHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database) *OauthHandler {
 	if err := coreDb.NewTable("oauth"); err != nil {
-		oauth2Logger.PrintAndLog("Oauth2", "Failed to create oauth database. Terminating.", nil)
+		logger.PrintAndLog("Oauth2", "Failed to create oauth database. Terminating.", nil)
 		panic(err)
 	}
 	return &OauthHandler{
@@ -179,7 +180,7 @@ func (oh *OauthHandler) HandleAuthorize(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	oauth2Logger.PrintAndLog("Oauth2", username+" logged in via OAuth.", nil)
+	logger.PrintAndLog("Oauth2", username+" logged in via OAuth.", nil)
 	oh.ag.LoginUserByRequest(w, r, username, true)
 
 	remoteIP := r.Header.Get("X-FORWARDED-FOR")

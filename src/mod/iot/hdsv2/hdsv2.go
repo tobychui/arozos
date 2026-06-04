@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/network/mdns"
 )
@@ -37,7 +38,7 @@ func NewProtocolHandler(scanner *mdns.MDNSHost) *Handler {
 }
 
 func (h *Handler) Start() error {
-	hdsv2Logger.PrintAndLog("Hdsv2", "[IoT] Home Dynamic v2 Loaded", nil)
+	logger.PrintAndLog("Hdsv2", "[IoT] Home Dynamic v2 Loaded", nil)
 	return nil
 }
 
@@ -74,7 +75,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 		status, err := getStatusForDevice(&thisDevice)
 		if err != nil {
 			//This might be not a valid HDSv2 device. Skip this
-			hdsv2Logger.PrintAndLog("Hdsv2", fmt.Sprint("*HDSv2* Get status failed for device: ", host.HostName, err.Error()), nil)
+			logger.PrintAndLog("Hdsv2", fmt.Sprint("*HDSv2* Get status failed for device: ", host.HostName, err.Error()), nil)
 			continue
 		}
 		thisDevice.Status = status
@@ -83,7 +84,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 		eps, err := getEndpoints(&thisDevice)
 		if err != nil {
 			//This might be not a valid HDSv2 device. Skip this
-			hdsv2Logger.PrintAndLog("Hdsv2", fmt.Sprint("*HDSv2* Get endpoints failed for device: ", host.HostName, err.Error()), nil)
+			logger.PrintAndLog("Hdsv2", fmt.Sprint("*HDSv2* Get endpoints failed for device: ", host.HostName, err.Error()), nil)
 			continue
 		}
 		thisDevice.ControlEndpoints = eps

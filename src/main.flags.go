@@ -98,6 +98,7 @@ var enable_buffering = flag.Bool("enable_buffpool", true, "Enable buffer pool fo
 var enable_beta_scanning_support = flag.Bool("beta_scan", false, "Allow compatibility to ArOZ Online Beta Clusters")
 var enable_console = flag.Bool("console", false, "Enable the debugging console.")
 var enable_logging = flag.Bool("logging", true, "Enable logging to file for debug purpose")
+var log_format = flag.String("log_format", "text", "Console log output format: text or json")
 
 // Flags related to running on Cloud Environment or public domain
 var allow_public_registry = flag.Bool("public_reg", false, "Enable public register interface for account creation")

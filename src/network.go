@@ -342,7 +342,7 @@ func FileServerInit() {
 	SambaShareManager, err = samba.NewSambaShareManager(userHandler)
 	if err != nil {
 		//Disable samba if not installed or platform not supported
-		systemWideLogger.PrintAndLog("System", "[INFO] Samba Share Manager Disabled: " + err.Error(), nil)
+		systemWideLogger.PrintAndLog("System", "[INFO] Samba Share Manager Disabled: "+err.Error(), nil)
 	}
 
 	//Register Endpoints

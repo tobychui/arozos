@@ -1,6 +1,6 @@
 package permission
 
-//Get the largest storage quota from all the given groups. Return int64
+// Get the largest storage quota from all the given groups. Return int64
 func GetLargestStorageQuotaFromGroups(groups []*PermissionGroup) int64 {
 	maxQuota := int64(0)
 	for _, group := range groups {

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	db "imuslab.com/arozos/mod/database"
 	syncdb "imuslab.com/arozos/mod/auth/oauth2/syncdb"
+	db "imuslab.com/arozos/mod/database"
 )
 
 // ── Test infrastructure ───────────────────────────────────────────────────────

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -107,7 +109,7 @@ func isDir(path string) bool {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		webdavLogger.PrintAndLog("Webdav", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Webdav", fmt.Sprint(err), nil)
 		os.Exit(1)
 		return false
 	}

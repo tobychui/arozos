@@ -8,6 +8,7 @@ import (
 
 	db "imuslab.com/arozos/mod/database"
 	fs "imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	storage "imuslab.com/arozos/mod/storage"
 	"imuslab.com/arozos/mod/utils"
 )
@@ -72,7 +73,7 @@ func (h *PermissionHandler) LoadPermissionGroupsFromDatabase() error {
 			json.Unmarshal(keypairs[1], &originalJSONString)
 			err := json.Unmarshal([]byte(originalJSONString), &groupPermission)
 			if err != nil {
-				permissionLogger.PrintAndLog("Permission", fmt.Sprint(err), nil)
+				logger.PrintAndLog("Permission", fmt.Sprint(err), nil)
 			}
 			//IsAdmin
 			isAdmin := "false"

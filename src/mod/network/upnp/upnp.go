@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gitlab.com/NebulousLabs/go-upnp"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -25,7 +26,7 @@ type UPnPClient struct {
 
 func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
 	//Create uPNP forwarding in the NAT router
-	upnpLogger.PrintAndLog("Upnp", "Discovering UPnP router in Local Area Network...", nil)
+	logger.PrintAndLog("Upnp", "Discovering UPnP router in Local Area Network...", nil)
 	d, err := upnp.Discover()
 	if err != nil {
 		return &UPnPClient{}, err
@@ -54,7 +55,7 @@ func NewUPNPClient(basePort int, hostname string) (*UPnPClient, error) {
 }
 
 func (u *UPnPClient) ForwardPort(portNumber int, ruleName string) error {
-	upnpLogger.PrintAndLog("Upnp", fmt.Sprint("UPnP forwarding new port: ", portNumber, "for "+ruleName+" service"), nil)
+	logger.PrintAndLog("Upnp", fmt.Sprint("UPnP forwarding new port: ", portNumber, "for "+ruleName+" service"), nil)
 
 	//Check if port already forwarded
 	_, ok := u.PolicyNames.Load(portNumber)
@@ -91,14 +92,14 @@ func (u *UPnPClient) ClosePort(portNumber int) error {
 		u.RequiredPorts = newRequiredPort
 
 		// Close the port
-		upnpLogger.PrintAndLog("Upnp", fmt.Sprint("Closing UPnP Port Forward: ", portNumber), nil)
+		logger.PrintAndLog("Upnp", fmt.Sprint("Closing UPnP Port Forward: ", portNumber), nil)
 		err := u.Connection.Clear(uint16(portNumber))
 
 		//Delete the name registry
 		u.PolicyNames.Delete(portNumber)
 
 		if err != nil {
-			upnpLogger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
+			logger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
 			return err
 		}
 	}
@@ -117,7 +118,7 @@ func (u *UPnPClient) RenewForwardRules() {
 		time.Sleep(100 * time.Millisecond)
 		u.ForwardPort(thisPort, ruleName.(string))
 	}
-	upnpLogger.PrintAndLog("Upnp", "UPnP Port Forward rule renew completed", nil)
+	logger.PrintAndLog("Upnp", "UPnP Port Forward rule renew completed", nil)
 }
 
 func (u *UPnPClient) Close() {
@@ -126,7 +127,7 @@ func (u *UPnPClient) Close() {
 		for _, portNumber := range u.RequiredPorts {
 			err := u.Connection.Clear(uint16(portNumber))
 			if err != nil {
-				upnpLogger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
+				logger.PrintAndLog("Upnp", fmt.Sprint(err), nil)
 			}
 		}
 	}

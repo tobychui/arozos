@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 var onExitFlushLoop func()
@@ -188,7 +190,7 @@ func (p *ReverseProxy) logf(format string, args ...interface{}) {
 	if p.ErrorLog != nil {
 		p.ErrorLog.Printf(format, args...)
 	} else {
-		dpcoreLogger.PrintAndLog("Dpcore", fmt.Sprintf(format, args...), nil)
+		logger.PrintAndLog("Dpcore", fmt.Sprintf(format, args...), nil)
 	}
 }
 

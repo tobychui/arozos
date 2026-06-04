@@ -10,6 +10,7 @@ import (
 	"imuslab.com/arozos/mod/auth/oauth2/syncdb"
 	reg "imuslab.com/arozos/mod/auth/register"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	permission "imuslab.com/arozos/mod/permission"
 	"imuslab.com/arozos/mod/time/nightly"
 	"imuslab.com/arozos/mod/user"
@@ -52,10 +53,10 @@ type syncorizeUserReturnInterface struct {
 // NewLdapHandler xxx
 func NewLdapHandler(authAgent *auth.AuthAgent, register *reg.RegisterHandler, coreDb *db.Database, permissionHandler *permission.PermissionHandler, userHandler *user.UserHandler, nightlyManager *nightly.TaskManager, iconSystem string) *ldapHandler {
 	//ldap handler init
-	ldapLogger.PrintAndLog("Ldap", "Starting LDAP client...", nil)
+	logger.PrintAndLog("Ldap", "Starting LDAP client...", nil)
 	err := coreDb.NewTable("ldap")
 	if err != nil {
-		ldapLogger.PrintAndLog("Ldap", "Failed to create LDAP database. Terminating.", nil)
+		logger.PrintAndLog("Ldap", "Failed to create LDAP database. Terminating.", nil)
 		panic(err)
 	}
 
@@ -143,7 +144,7 @@ func (ldap *ldapHandler) NightlySync() {
 	if checkLDAPenabled == "true" {
 		err := ldap.SynchronizeUserFromLDAP()
 		if err != nil {
-			ldapLogger.PrintAndLog("Ldap", fmt.Sprint(err), nil)
+			logger.PrintAndLog("Ldap", fmt.Sprint(err), nil)
 		}
 	}
 }

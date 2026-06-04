@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
 )
 
@@ -32,7 +33,7 @@ func NewProtocolHandler() *Handler {
 
 // Start the HDSv1 scanner, which no startup process is required
 func (h *Handler) Start() error {
-	hdsLogger.PrintAndLog("Hds", "[IoT] Home Dynamic System (Legacy) Loaded", nil)
+	logger.PrintAndLog("Hds", "[IoT] Home Dynamic System (Legacy) Loaded", nil)
 	return nil
 }
 
@@ -68,7 +69,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 
 	//Check if the IP range is supported by HDS protocol
 	if !valid {
-		hdsLogger.PrintAndLog("Hds", "[IoT] Home Dynamic Protocol requirement not satisfied. Skipping Scan", nil)
+		logger.PrintAndLog("Hds", "[IoT] Home Dynamic Protocol requirement not satisfied. Skipping Scan", nil)
 		return nil, nil
 	}
 
@@ -138,7 +139,7 @@ func (h *Handler) Scan() ([]*iot.Device, error) {
 				ControlEndpoints: endpoints,
 			})
 
-			hdsLogger.PrintAndLog("Hds", fmt.Sprint("*HDS* Found device ", devName, " at ", targetIP, " with UUID ", uuid), nil)
+			logger.PrintAndLog("Hds", fmt.Sprint("*HDS* Found device ", devName, " at ", targetIP, " with UUID ", uuid), nil)
 		}(&wg)
 	}
 

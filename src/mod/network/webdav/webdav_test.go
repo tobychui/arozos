@@ -1100,4 +1100,3 @@ func TestReadPropfind_InvalidXML(t *testing.T) {
 		t.Errorf("expected 400, got %d", status)
 	}
 }
-

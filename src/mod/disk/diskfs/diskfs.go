@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -228,7 +229,7 @@ func UnmountDevice(devicePath string) error {
 	// Run the command
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		diskfsLogger.PrintAndLog("Diskfs", "[RAID] Unable to unmount device: "+string(output), nil)
+		logger.PrintAndLog("Diskfs", "[RAID] Unable to unmount device: "+string(output), nil)
 		return fmt.Errorf("error unmounting device: %v", err)
 	}
 

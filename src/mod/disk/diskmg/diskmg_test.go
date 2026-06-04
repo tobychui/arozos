@@ -22,9 +22,9 @@ func TestCheckDeviceValidRejectsBadNames(t *testing.T) {
 		valid bool
 	}{
 		{"../etc/passwd", false},
-		{"sda", false},    // no partition number
-		{"sda0", false},   // partition number must be 1–9
-		{"sda10", false},  // two-digit partition
+		{"sda", false},   // no partition number
+		{"sda0", false},  // partition number must be 1–9
+		{"sda10", false}, // two-digit partition
 		{"nvme0n1", false},
 		{"/dev/sda1", false}, // full path not matched by the regex alone
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -68,7 +69,7 @@ func (g *Gateway) RegisterSchedulerLib(callbacks *SchedulerCallbacks) {
 	})
 	if err != nil {
 		// Library already registered – not fatal, just warn
-		agiLogger.PrintAndLog("Agi", fmt.Sprint("[AGI] scheduler lib already registered:", err), nil)
+		logger.PrintAndLog("Agi", fmt.Sprint("[AGI] scheduler lib already registered:", err), nil)
 	}
 }
 

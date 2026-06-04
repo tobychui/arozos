@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func execCommand(executable string, args ...string) string {
 	shell := exec.Command(executable, args...) // Run command
 	output, err := shell.CombinedOutput()      // Response from cmdline
 	if err != nil && string(output) == "" {    // If done w/ errors then
-		smartLogger.PrintAndLog("Smart", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Smart", fmt.Sprint(err), nil)
 		return ""
 	}
 

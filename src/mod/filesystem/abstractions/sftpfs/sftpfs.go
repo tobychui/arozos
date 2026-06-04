@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -48,7 +49,7 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 
 	// Parse Host and Port
 
-	sftpfsLogger.PrintAndLog("Sftpfs", "[SFTP FS] Establishing connection with "+serverUrl+"...", nil)
+	logger.PrintAndLog("Sftpfs", "[SFTP FS] Establishing connection with "+serverUrl+"...", nil)
 
 	var auths []ssh.AuthMethod
 
@@ -71,18 +72,18 @@ func NewSFTPFileSystemAbstraction(uuid string, hierarchy string, serverUrl strin
 	// Connect to server
 	conn, err := ssh.Dial("tcp", addr, &config)
 	if err != nil {
-		sftpfsLogger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Failed to connect to [%s] %v\n", addr, err), nil)
+		logger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Failed to connect to [%s] %v\n", addr, err), nil)
 		return SFTPFileSystemAbstraction{}, err
 	}
 
 	// Create new SFTP client
 	sc, err := sftp.NewClient(conn)
 	if err != nil {
-		sftpfsLogger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Unable to start SFTP subsystem: %v\n", err), nil)
+		logger.PrintAndLog("Sftpfs", fmt.Sprintf("[SFTP FS] Unable to start SFTP subsystem: %v\n", err), nil)
 		return SFTPFileSystemAbstraction{}, err
 	}
 
-	sftpfsLogger.PrintAndLog("Sftpfs", "[SFTP FS] Connected to remote: "+addr, nil)
+	logger.PrintAndLog("Sftpfs", "[SFTP FS] Connected to remote: "+addr, nil)
 	return SFTPFileSystemAbstraction{
 		uuid:        uuid,
 		hierarchy:   hierarchy,

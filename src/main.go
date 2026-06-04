@@ -71,6 +71,7 @@ func executeShutdownSequence() {
 func main() {
 	//Parse startup flags and paramters
 	flag.Parse()
+	logger.SetGlobalJSONOutput(*log_format == "json")
 
 	//Handle version printing
 	if *show_version {
@@ -92,6 +93,7 @@ func main() {
 	// Initialize a temporary stdout-only logger so calls before RunStartup are safe.
 	// RunStartup will replace this with a file-backed logger.
 	systemWideLogger, _ = logger.NewTmpLogger()
+	logger.SetDefaultLogger(systemWideLogger)
 
 	//Print copyRight information
 	systemWideLogger.PrintAndLog("System", "ArozOS(C) "+strconv.Itoa(time.Now().Year())+" "+deviceVendor+".", nil)

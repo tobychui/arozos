@@ -10,6 +10,7 @@ import (
 	"github.com/robertkrimen/otto"
 	"imuslab.com/arozos/mod/agi/static"
 	"imuslab.com/arozos/mod/filesystem"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -28,7 +29,7 @@ var webRoot string = "./web" //The web folder root
 func (g *Gateway) AppdataLibRegister() {
 	err := g.RegisterLib("appdata", g.injectAppdataLibFunctions)
 	if err != nil {
-		agiLogger.PrintAndLog("Agi", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
 		os.Exit(1)
 	}
 }

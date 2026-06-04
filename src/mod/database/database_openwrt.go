@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
@@ -33,7 +35,7 @@ func newDatabase(dbfile string, readOnlyMode bool) (*Database, error) {
 		}
 	}
 
-	databaseLogger.PrintAndLog("Database", "Filesystem Emulated Key-value Database Service Started: "+dbRootPath, nil)
+	logger.PrintAndLog("Database", "Filesystem Emulated Key-value Database Service Started: "+dbRootPath, nil)
 	return &Database{
 		Db:       dbRootPath,
 		Tables:   tableMap,
