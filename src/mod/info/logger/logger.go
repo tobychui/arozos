@@ -17,6 +17,14 @@ import (
 	and replace the ton of log.Println in the system core
 */
 
+// globalPrintJSON is set once at startup via SetGlobalJSONOutput and applies to
+// every Logger instance, including the package-level tmp loggers in each module.
+var globalPrintJSON bool
+
+func SetGlobalJSONOutput(enabled bool) {
+	globalPrintJSON = enabled
+}
+
 type Logger struct {
 	LogToFile      bool     //Set enable write to file
 	PrintJSON      bool     //Print console output as JSON lines instead of plain text
@@ -76,7 +84,7 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 	go func() {
 		l.Log(title, message, originalError)
 	}()
-	if l.PrintJSON {
+	if l.PrintJSON || globalPrintJSON {
 		level := "info"
 		if originalError != nil {
 			level = "error"
