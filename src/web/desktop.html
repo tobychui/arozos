@@ -2948,7 +2948,8 @@
 
                 $("#fwdockRightIndicator").hide();
                 $("#fwdockLeftIndicator").hide();
-            }else if (resizingWindow && resizingEdgeID == 6){
+            }else if (resizingWindow && (resizingEdgeID == 6 || resizingEdgeID == 7 || resizingEdgeID == 8)){
+                // Top edge (6), top-left corner (7), top-right corner (8)
                 resizeUp($(object), event);
             }
         }
