@@ -19,6 +19,7 @@ import (
 	apt "imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
+	"imuslab.com/arozos/mod/info/logger"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/share"
@@ -54,6 +55,7 @@ type AgiSysInfo struct {
 	LoadedModule    []string
 
 	//System Handlers
+	Logger               *logger.Logger
 	UserHandler          *user.UserHandler
 	ReservedTables       []string
 	PackageManager       *apt.AptPackageManager
