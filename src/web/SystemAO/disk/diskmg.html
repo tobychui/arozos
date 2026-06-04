@@ -6,7 +6,8 @@
         <script src="../../script/jquery.min.js"></script>
         <script type='text/javascript' src="../../semantic/semantic.min.js"></script>
         <script src="../../script/ao_module.js"></script>
-        <title>Disk Management</title>
+        <script src="../../script/applocale.js"></script>
+        <title locale="diskmg/window-title">Disk Management</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <style>
             *, *::before, *::after { box-sizing: border-box; }
@@ -550,12 +551,12 @@
 
         <!-- ── Sidebar ── -->
         <div class="sidebar">
-            <div class="sidebar-header">Disks</div>
+            <div class="sidebar-header" locale="diskmg/sidebar-header">Disks</div>
             <div class="sidebar-list" id="sidebarList">
                 <div class="sidebar-item active">
                     <img class="sidebar-item-icon" src="../../img/system/drive.svg" alt="">
                     <div class="sidebar-item-text">
-                        <div class="sidebar-item-name">Loading…</div>
+                        <div class="sidebar-item-name" locale="diskmg/loading">Loading…</div>
                         <div class="sidebar-item-sub">&nbsp;</div>
                     </div>
                 </div>
@@ -566,7 +567,7 @@
         <div class="detail-panel" id="detailPanel">
             <div class="empty-state">
                 <img src="../../img/system/drive.svg" alt="">
-                <div class="empty-state-text">Select a disk to view details</div>
+                <div class="empty-state-text" locale="diskmg/select-disk">Select a disk to view details</div>
             </div>
         </div>
 
@@ -575,7 +576,7 @@
         <!-- ── Context menu ── -->
         <div id="rightClickMenu" style="display:none;">
             <div id="formatDisk" class="ctx-item" onclick="toggleFormatInterface(this);">
-                <i class="erase icon"></i> Erase…
+                <i class="erase icon"></i> <span locale="diskmg/erase">Erase…</span>
             </div>
             <div class="ctx-sep"></div>
             <div id="mtbtn" class="ctx-item" onclick="toggleMount(this);">
@@ -585,15 +586,15 @@
 
         <!-- ── Format dialog ── -->
         <div id="formatOptions" class="funcmenu">
-            <div class="funcmenu-title">Erase Partition</div>
+            <div class="funcmenu-title" locale="diskmg/erase-title">Erase Partition</div>
             <div class="funcmenu-body">
-                <div class="warning-banner">
+                <div class="warning-banner" locale="diskmg/erase-warning">
                     ⚠&nbsp; This will permanently erase all data on the selected partition.
                     Back up important files before continuing.
                 </div>
                 <div class="info-row" id="selectedDiskDisplay">/dev/sda1</div>
                 <div class="form-field">
-                    <label class="form-label">Format</label>
+                    <label class="form-label" locale="diskmg/format-label">Format</label>
                     <div class="radio-group">
                         <label class="radio-item"><input id="ext4" type="radio" name="format" checked> EXT4</label>
                         <label class="radio-item"><input id="ntfs" type="radio" name="format"> NTFS</label>
@@ -602,33 +603,33 @@
                 </div>
             </div>
             <div class="funcmenuBottom">
-                <button class="mac-btn" onclick="hideAllFuncMenu();">Cancel</button>
-                <button class="mac-btn danger" onclick="formatThisDev();">Erase</button>
+                <button class="mac-btn" onclick="hideAllFuncMenu();" locale="diskmg/cancel">Cancel</button>
+                <button class="mac-btn danger" onclick="formatThisDev();" locale="diskmg/erase-btn">Erase</button>
             </div>
         </div>
 
         <!-- ── Mount dialog ── -->
         <div id="mountOptions" class="funcmenu">
-            <div class="funcmenu-title">Mount Drive</div>
+            <div class="funcmenu-title" locale="diskmg/mount-title">Mount Drive</div>
             <div class="funcmenu-body">
-                <p style="color:#6e6e73;font-size:12px;margin:0 0 12px;">Select a mount point for this device.</p>
+                <p style="color:#6e6e73;font-size:12px;margin:0 0 12px;" locale="diskmg/mount-desc">Select a mount point for this device.</p>
                 <div id="mtptlist">
                     <div class="mountpt userdefine" onclick="selectThis(this);">
-                        <div style="font-weight:600;font-size:12px;">Custom Mount Point</div>
-                        <input id="userDefinedMountPoint" class="fluid-input" type="text" placeholder="e.g. /mnt/data">
+                        <div style="font-weight:600;font-size:12px;" locale="diskmg/custom-mpt">Custom Mount Point</div>
+                        <input id="userDefinedMountPoint" class="fluid-input" type="text" placeholder="diskmg/mpt-placeholder">
                     </div>
                 </div>
             </div>
             <div class="funcmenuBottom">
-                <button class="mac-btn" onclick="hideAllFuncMenu();">Cancel</button>
-                <button class="mac-btn primary" onclick="mountThisDev();">Mount</button>
+                <button class="mac-btn" onclick="hideAllFuncMenu();" locale="diskmg/cancel">Cancel</button>
+                <button class="mac-btn primary" onclick="mountThisDev();" locale="diskmg/mount">Mount</button>
             </div>
         </div>
 
         <!-- ── Loader ── -->
         <div id="loaderUI">
             <div class="loader-spinner"></div>
-            <div class="loader-text">Waiting for system response…</div>
+            <div class="loader-text" locale="diskmg/waiting">Waiting for system response…</div>
         </div>
 
         <!-- ── Backdrop ── -->
@@ -641,14 +642,18 @@
             var volumeData = null;
             var formatPendingDevInfo;
             var selectedDiskKey = null;
+            var appLocale = NewAppLocale();
 
             /* Partition segment colors — macOS palette */
             var SEG_COLORS = ["#007AFF","#34c759","#ff9500","#af52de","#ff2d55","#5ac8fa","#ffcc00","#ff6b35"];
 
-            $.get(ao_root + "system/disk/diskmg/platform", function(data){
-                mode = (data === "windows") ? "windows" : "linux";
-                initData();
-                initMountPointList();
+            appLocale.init("../locale/diskmg.json", function(){
+                appLocale.translate();
+                $.get(ao_root + "system/disk/diskmg/platform", function(data){
+                    mode = (data === "windows") ? "windows" : "linux";
+                    initData();
+                    initMountPointList();
+                });
             });
 
             // ── Helpers ──────────────────────────────────────────────────────
@@ -705,7 +710,7 @@
                 var targetFormat = $("input[name='format']:checked").attr("id");
                 var targetDisk   = formatPendingDevInfo;
                 if (!targetFormat) return;
-                if (!confirm("THIS OPERATION WILL WIPE ALL DATA ON /dev/" + targetDisk[0] + ". ARE YOU SURE?")) return;
+                if (!confirm(appLocale.getString("diskmg/confirm-wipe", "THIS OPERATION WILL WIPE ALL DATA ON /dev/") + targetDisk[0] + appLocale.getString("diskmg/confirm-suffix", ". ARE YOU SURE?"))) return;
                 $("#formatOptions").fadeOut("fast");
                 $(".functMenuDimmer").fadeOut("fast");
                 $("#loaderUI").addClass("active");
@@ -892,7 +897,7 @@
 
                     var allOn  = di.Mounted.every(function(m){ return m === true;  });
                     var allOff = di.Mounted.every(function(m){ return m === false; });
-                    var statusLabel = allOn ? "Mounted" : allOff ? "Not mounted" : "Partial";
+                    var statusLabel = allOn ? appLocale.getString("diskmg/mounted", "Mounted") : allOff ? appLocale.getString("diskmg/not-mounted-s", "Not mounted") : appLocale.getString("diskmg/partial", "Partial");
 
                     (function(k){
                         var itemHtml =
@@ -930,7 +935,7 @@
 
                 var allOn  = di.Mounted.every(function(m){ return m === true;  });
                 var allOff = di.Mounted.every(function(m){ return m === false; });
-                var mountLabel = allOn ? "Mounted" : allOff ? "Not Mounted" : "Partially Mounted";
+                var mountLabel = allOn ? appLocale.getString("diskmg/mounted", "Mounted") : allOff ? appLocale.getString("diskmg/not-mounted", "Not Mounted") : appLocale.getString("diskmg/partially", "Partially Mounted");
                 var typeShort  = (di.Type[0] || "Disk").split(" ")[0];
 
                 /* ── Colored storage bar ── */
@@ -941,7 +946,7 @@
                     var pvol    = parseInt(di.partitionVolume[k]);
                     var pct     = (total > 0) ? (pvol / total * 100).toFixed(3) : 0;
                     var color   = (pvol === 0) ? "#e5e5ea" : SEG_COLORS[k % SEG_COLORS.length];
-                    var partLabel = di.partitionID[k] || "Unallocated";
+                    var partLabel = di.partitionID[k] || appLocale.getString("diskmg/unallocated", "Unallocated");
 
                     barSegs   += "<div class='storage-bar-seg' style='width:" + pct + "%;background:" + color + ";'></div>";
                     legendHtml += "<div class='legend-item'>" +
@@ -961,24 +966,24 @@
                     var color  = (pvol === 0) ? "#aeaeb2" : SEG_COLORS[k % SEG_COLORS.length];
 
                     var dotCls      = "dot-mounted";
-                    var statusLabel = "Mounted";
+                    var statusLabel = appLocale.getString("diskmg/mounted", "Mounted");
                     var isUnalloc   = false;
 
                     if (pvol === 0){
                         dotCls      = "dot-unalloc";
-                        statusLabel = "Unallocated";
+                        statusLabel = appLocale.getString("diskmg/unallocated", "Unallocated");
                         pname       = "—";
                         pfmt        = "—";
                         isUnalloc   = true;
                     } else if (!pmnt){
                         dotCls      = "dot-unmounted";
-                        statusLabel = "Not Mounted";
+                        statusLabel = appLocale.getString("diskmg/not-mounted", "Not Mounted");
                         if (!pname || pname === ""){
-                            pname = (mode === "linux" && di.Format[k] === "raw") ? "Unallocated" : "—";
+                            pname = (mode === "linux" && di.Format[k] === "raw") ? appLocale.getString("diskmg/unallocated", "Unallocated") : "—";
                         }
                     } else {
                         if (!pname || pname === ""){
-                            pname = (mode === "windows") ? "Local Disk" : "—";
+                            pname = (mode === "windows") ? appLocale.getString("diskmg/local-disk", "Local Disk") : "—";
                         }
                     }
 
@@ -1011,7 +1016,7 @@
                         "</tr>";
                 }
 
-                var mountColLabel = (mode === "windows") ? "Name" : "Mount Point";
+                var mountColLabel = (mode === "windows") ? appLocale.getString("diskmg/col-name", "Name") : appLocale.getString("diskmg/col-mountpt", "Mount Point");
 
                 var html =
                     "<div class='disk-header-card'>" +
@@ -1022,21 +1027,21 @@
                             "<div class='storage-bar'>" + barSegs + "</div>" +
                             "<div class='storage-bar-legend'>" + legendHtml + "</div>" +
                             "<div class='disk-header-stats'>" +
-                                "<div><div class='stat-label'>Capacity</div><div class='stat-value'>" + bytesToSize(total) + "</div></div>" +
-                                "<div><div class='stat-label'>Partitions</div><div class='stat-value'>" + di.partitionID.length + "</div></div>" +
+                                "<div><div class='stat-label'>" + appLocale.getString("diskmg/capacity", "Capacity") + "</div><div class='stat-value'>" + bytesToSize(total) + "</div></div>" +
+                                "<div><div class='stat-label'>" + appLocale.getString("diskmg/partitions", "Partitions") + "</div><div class='stat-value'>" + di.partitionID.length + "</div></div>" +
                             "</div>" +
                         "</div>" +
                     "</div>" +
                     "<div class='partition-card'>" +
-                        "<div class='partition-card-header'>Partitions &amp; Volumes</div>" +
+                        "<div class='partition-card-header'>" + appLocale.getString("diskmg/parts-volumes", "Partitions &amp; Volumes") + "</div>" +
                         "<table class='partition-table'>" +
                             "<thead><tr>" +
-                                "<th>Device</th>" +
+                                "<th>" + appLocale.getString("diskmg/col-device", "Device") + "</th>" +
                                 "<th>" + mountColLabel + "</th>" +
-                                "<th>Format</th>" +
-                                "<th>Size</th>" +
-                                "<th>Status</th>" +
-                                "<th>Usage</th>" +
+                                "<th>" + appLocale.getString("diskmg/format-label-col", "Format") + "</th>" +
+                                "<th>" + appLocale.getString("diskmg/col-size", "Size") + "</th>" +
+                                "<th>" + appLocale.getString("diskmg/col-status", "Status") + "</th>" +
+                                "<th>" + appLocale.getString("diskmg/col-usage", "Usage") + "</th>" +
                             "</tr></thead>" +
                             "<tbody>" + tableRows + "</tbody>" +
                         "</table>" +
@@ -1081,9 +1086,9 @@
                             $("#mtbtn").removeClass("disabled");
                             $("#formatDisk").removeClass("disabled");
                         }
-                        $("#mtbtn").html('<i class="eject icon"></i> Unmount');
+                        $("#mtbtn").html('<i class="eject icon"></i> ' + appLocale.getString("diskmg/unmount", "Unmount"));
                     } else {
-                        $("#mtbtn").html('<i class="plug icon"></i> Mount').removeClass("disabled");
+                        $("#mtbtn").html('<i class="plug icon"></i> ' + appLocale.getString("diskmg/mount", "Mount")).removeClass("disabled");
                         $("#formatDisk").removeClass("disabled");
                     }
                     return false;
