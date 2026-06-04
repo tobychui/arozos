@@ -7,6 +7,7 @@
     <title>Tasks Scheduler</title>
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
     <script src="../arsm/js/moment.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -200,8 +201,8 @@
     <div id="ae-page-header">
         <img src="img/scheduler.png" onerror="this.style.display='none';">
         <div>
-            <div class="ae-title">Tasks Scheduler</div>
-            <div class="ae-subtitle">Schedule tasks to run while you are offline</div>
+            <div class="ae-title" locale="aecron/page/title">Tasks Scheduler</div>
+            <div class="ae-subtitle" locale="aecron/page/subtitle">Schedule tasks to run while you are offline</div>
         </div>
     </div>
 
@@ -209,56 +210,65 @@
     <div id="ae-status-banner">
         <div id="ae-status-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div id="ae-status-text">
-            <div class="ae-status-title">Checking permission…</div>
-            <div class="ae-status-desc">Please wait</div>
+            <div class="ae-status-title" locale="aecron/js/checking/title">Checking permission…</div>
+            <div class="ae-status-desc" locale="aecron/js/checking/desc">Please wait</div>
         </div>
     </div>
 
     <button id="ae-open-btn" style="display:none;" onclick="openSystemScheduler()">
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-1px;margin-right:5px"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.6 3.6l.7.7M11.7 11.7l.7.7M3.6 12.4l.7-.7M11.7 4.3l.7-.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Open System Scheduler
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-1px;margin-right:5px"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.6 3.6l.7.7M11.7 11.7l.7.7M3.6 12.4l.7-.7M11.7 4.3l.7-.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <span locale="aecron/btn/open">Open System Scheduler</span>
     </button>
 
     <!-- User's scheduled tasks -->
-    <div class="ae-section-label">Your Scheduled Tasks</div>
+    <div class="ae-section-label" locale="aecron/section/mytasks">Your Scheduled Tasks</div>
     <div class="ae-card">
         <table class="ae-table">
             <thead>
                 <tr>
-                    <th>Task / App</th>
-                    <th>Script</th>
-                    <th>Interval</th>
-                    <th>Base Time</th>
+                    <th locale="aecron/header/task-app">Task / App</th>
+                    <th locale="aecron/header/script">Script</th>
+                    <th locale="header/interval">Interval</th>
+                    <th locale="header/basetime">Base Time</th>
                 </tr>
             </thead>
             <tbody id="ae-task-list">
-                <tr class="ae-empty"><td colspan="4">Loading…</td></tr>
+                <tr class="ae-empty"><td colspan="4" locale="js/loading">Loading…</td></tr>
             </tbody>
         </table>
     </div>
 
     <!-- Admin: Group cron permissions (only shown to admins) -->
     <div id="ae-admin-section" style="display:none;">
-        <div class="ae-section-label">Group Cron Job Permissions</div>
+        <div class="ae-section-label" locale="aecron/section/groupperm">Group Cron Job Permissions</div>
         <div class="ae-card">
             <table class="ae-table">
                 <thead>
                     <tr>
-                        <th>Permission Group</th>
-                        <th style="width:160px;">Can Create Cron Jobs</th>
+                        <th locale="aecron/header/permgroup">Permission Group</th>
+                        <th style="width:160px;" locale="aecron/header/cancreate">Can Create Cron Jobs</th>
                     </tr>
                 </thead>
                 <tbody id="ae-group-perm-list">
-                    <tr class="ae-empty"><td colspan="2">Loading…</td></tr>
+                    <tr class="ae-empty"><td colspan="2" locale="js/loading">Loading…</td></tr>
                 </tbody>
             </table>
         </div>
-        <p style="font-size:12px;color:var(--ae-muted);margin-top:4px;">
+        <p style="font-size:12px;color:var(--ae-muted);margin-top:4px;" locale="aecron/admin/note">
             Administrator groups always have cron creation permission and cannot be restricted.
         </p>
     </div>
 </div>
 
 <script>
+    /* ── i18n helper ── */
+    function t(key, fallback) {
+        if (typeof applocale !== 'undefined') {
+            return applocale.getString(key, fallback);
+        }
+        return fallback;
+    }
+
     /* ── Theme detection ── */
     (function() {
         var root = document.getElementById('ae-root');
@@ -273,12 +283,12 @@
             }
         } catch(e) {}
         try {
-            var t = null;
-            if (typeof preferredTheme !== 'undefined') t = preferredTheme;
-            else if (parent && typeof parent.preferredTheme !== 'undefined') t = parent.preferredTheme;
-            if (!t) { try { t = localStorage.getItem('preferredTheme'); } catch(e) {} }
-            if (t) {
-                var isDark = t === 'dark' || t === 'darkTheme';
+            var theme = null;
+            if (typeof preferredTheme !== 'undefined') theme = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') theme = parent.preferredTheme;
+            if (!theme) { try { theme = localStorage.getItem('preferredTheme'); } catch(e) {} }
+            if (theme) {
+                var isDark = theme === 'dark' || theme === 'darkTheme';
                 root.classList.toggle('dark', isDark);
                 document.body.classList.toggle('dark', isDark);
             }
@@ -290,50 +300,55 @@
         var d = Math.floor(s / 86400);
         var h = Math.floor((s % 86400) / 3600);
         var m = Math.floor((s % 3600) / 60);
+        var sep = t('js/time/sep', ' ');
         var parts = [];
-        if (d) parts.push(d + (d === 1 ? " day" : " days"));
-        if (h) parts.push(h + (h === 1 ? " hour" : " hours"));
-        if (m) parts.push(m + (m === 1 ? " minute" : " minutes"));
-        return parts.length ? parts.join(" ") : s + " sec";
+        if (d) parts.push(d + t(d === 1 ? 'js/time/day1'    : 'js/time/days',    d === 1 ? ' day'    : ' days'));
+        if (h) parts.push(h + t(h === 1 ? 'js/time/hour1'   : 'js/time/hours',   h === 1 ? ' hour'   : ' hours'));
+        if (m) parts.push(m + t(m === 1 ? 'js/time/minute1' : 'js/time/minutes', m === 1 ? ' minute' : ' minutes'));
+        return parts.length ? parts.join(sep) : s + t('js/time/sec', ' sec');
     }
 
     /* ── Check user cron permission ── */
-    $.ajax({
-        url: "../../system/arsm/aecron/permission",
-        success: function(data) {
-            var banner = document.getElementById('ae-status-banner');
-            var icon   = document.getElementById('ae-status-icon');
-            var title  = banner.querySelector('.ae-status-title');
-            var desc   = banner.querySelector('.ae-status-desc');
-            if (data.CanCreate) {
-                banner.classList.add('permitted');
-                icon.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M7 12.5l3.5 3.5 6.5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-                title.textContent = 'Cron Job Creation Enabled';
-                desc.textContent  = 'You are allowed to create and manage scheduled tasks.';
-            } else {
-                banner.classList.add('denied');
-                icon.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="11" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V7.5a4 4 0 018 0V11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-                title.textContent = 'Cron Job Creation Disabled';
-                desc.textContent  = 'Your account does not have permission to create scheduled tasks. Contact an administrator.';
+    function checkPermission() {
+        $.ajax({
+            url: "../../system/arsm/aecron/permission",
+            success: function(data) {
+                var banner = document.getElementById('ae-status-banner');
+                var icon   = document.getElementById('ae-status-icon');
+                var title  = banner.querySelector('.ae-status-title');
+                var desc   = banner.querySelector('.ae-status-desc');
+                if (data.CanCreate) {
+                    banner.classList.add('permitted');
+                    icon.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M7 12.5l3.5 3.5 6.5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                    title.textContent = t('aecron/js/status/enabled/title', 'Cron Job Creation Enabled');
+                    desc.textContent  = t('aecron/js/status/enabled/desc',  'You are allowed to create and manage scheduled tasks.');
+                } else {
+                    banner.classList.add('denied');
+                    icon.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="11" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V7.5a4 4 0 018 0V11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+                    title.textContent = t('aecron/js/status/disabled/title', 'Cron Job Creation Disabled');
+                    desc.textContent  = t('aecron/js/status/disabled/desc',  'Your account does not have permission to create scheduled tasks. Contact an administrator.');
+                }
             }
-        }
-    });
+        });
+    }
 
     /* ── Check if user has access to Task Scheduler module (show Open button) ── */
-    $.ajax({
-        url: "../../system/modules/list",
-        success: function(data) {
-            var hasAccess = false;
-            if (Array.isArray(data)) {
-                data.forEach(function(m) {
-                    if (m.Name === "Tasks Scheduler") hasAccess = true;
-                });
+    function checkModuleAccess() {
+        $.ajax({
+            url: "../../system/modules/list",
+            success: function(data) {
+                var hasAccess = false;
+                if (Array.isArray(data)) {
+                    data.forEach(function(m) {
+                        if (m.Name === "Tasks Scheduler") hasAccess = true;
+                    });
+                }
+                if (hasAccess) {
+                    document.getElementById('ae-open-btn').style.display = 'inline-flex';
+                }
             }
-            if (hasAccess) {
-                document.getElementById('ae-open-btn').style.display = 'inline-flex';
-            }
-        }
-    });
+        });
+    }
 
     /* ── Load user's task list ── */
     function loadTaskList() {
@@ -343,25 +358,24 @@
                 var tbody = document.getElementById('ae-task-list');
                 tbody.innerHTML = "";
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr class="ae-empty"><td colspan="4">No scheduled tasks registered.</td></tr>';
+                    tbody.innerHTML = '<tr class="ae-empty"><td colspan="4">' + t('aecron/js/empty/notask', 'No scheduled tasks registered.') + '</td></tr>';
                     return;
                 }
                 data.forEach(function(task) {
                     var scriptName = (task.ScriptVpath || "").split("/").pop();
                     var appBadge   = task.AppName ? '<span class="ae-app-badge">' + escapeHtml(task.AppName) + '</span>' : '';
-                    var nameCell   = escapeHtml(task.Name) + appBadge;
                     var tr = document.createElement('tr');
                     tr.innerHTML =
                         '<td><span title="' + escapeHtml(task.ScriptVpath || "") + '">' + escapeHtml(scriptName) + '</span>' + appBadge + '</td>' +
                         '<td style="color:var(--ae-muted);font-size:12px;">' + escapeHtml(task.ScriptVpath || "") + '</td>' +
-                        '<td>Every ' + parseSecondsToHuman(task.ExecutionInterval) + '</td>' +
+                        '<td>' + t('js/task/every', 'Every ') + parseSecondsToHuman(task.ExecutionInterval) + '</td>' +
                         '<td style="font-size:12px;">' + moment.unix(task.BaseTime).format('lll') + '</td>';
                     tbody.appendChild(tr);
                 });
             },
             error: function() {
                 document.getElementById('ae-task-list').innerHTML =
-                    '<tr class="ae-empty"><td colspan="4">Unable to load task list.</td></tr>';
+                    '<tr class="ae-empty"><td colspan="4">' + t('aecron/js/error/loadfail', 'Unable to load task list.') + '</td></tr>';
             }
         });
     }
@@ -375,7 +389,7 @@
                 var tbody = document.getElementById('ae-group-perm-list');
                 tbody.innerHTML = "";
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr class="ae-empty"><td colspan="2">No permission groups found.</td></tr>';
+                    tbody.innerHTML = '<tr class="ae-empty"><td colspan="2">' + t('aecron/js/empty/nogroups', 'No permission groups found.') + '</td></tr>';
                     return;
                 }
                 data.forEach(function(entry) {
@@ -383,7 +397,7 @@
                     var checked = entry.CanCreateCronJob ? ' checked' : '';
                     var lockClass = isAdmin ? ' admin-locked' : '';
                     var adminNote = isAdmin
-                        ? '<div class="ae-group-admin-note">Administrator group — always enabled</div>'
+                        ? '<div class="ae-group-admin-note">' + t('aecron/js/admingroup/note', 'Administrator group — always enabled') + '</div>'
                         : '';
                     var tr = document.createElement('tr');
                     tr.innerHTML =
@@ -402,8 +416,8 @@
                     tbody.appendChild(tr);
                 });
             },
-            error: function(xhr) {
-                // Not admin or endpoint not available – silently skip
+            error: function() {
+                // Not admin or endpoint not available — silently skip
             }
         });
     }
@@ -416,9 +430,8 @@
             method: "POST",
             data: { group: groupName, allow: allow ? "true" : "false" },
             error: function() {
-                // Revert on failure
                 checkbox.checked = !allow;
-                alert("Failed to update group permission.");
+                alert(t('aecron/js/error/groupperm', 'Failed to update group permission.'));
             }
         });
     }
@@ -427,7 +440,7 @@
         ao_module_newfw({
             url: "SystemAO/arsm/scheduler.html",
             appicon: "SystemAO/arsm/img/scheduler.png",
-            title: "Task Scheduler"
+            title: t('aecron/page/title', 'Task Scheduler')
         });
     }
 
@@ -439,9 +452,14 @@
             .replace(/"/g, "&quot;");
     }
 
-    // Init
-    loadTaskList();
-    loadGroupPermissions();
+    /* ── Init ── */
+    applocale.init("../locale/scheduler.json", function() {
+        applocale.translate();
+        checkPermission();
+        checkModuleAccess();
+        loadTaskList();
+        loadGroupPermissions();
+    });
 </script>
 </body>
 </html>

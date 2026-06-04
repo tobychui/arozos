@@ -6,6 +6,7 @@
     <title>Task Scheduler</title>
     <script src="../../script/jquery.min.js"></script>
     <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
     <script src="js/moment.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
@@ -360,24 +361,28 @@
     <div id="sidebar">
         <div id="sidebar-title">
             <img src="img/small_icon.png" onerror="this.style.display='none'">
-            Scheduler
+            <span locale="sidebar/title">Scheduler</span>
         </div>
         <div id="sidebar-nav">
             <div class="nav-item active" id="nav-mine"  onclick="showView('mine')">
-                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M5 4h7M5 8h7M5 12h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="2.5" cy="4" r="0.75" fill="currentColor"/><circle cx="2.5" cy="8" r="0.75" fill="currentColor"/><circle cx="2.5" cy="12" r="0.75" fill="currentColor"/></svg></span> My Tasks
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M5 4h7M5 8h7M5 12h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="2.5" cy="4" r="0.75" fill="currentColor"/><circle cx="2.5" cy="8" r="0.75" fill="currentColor"/><circle cx="2.5" cy="12" r="0.75" fill="currentColor"/></svg></span>
+                <span locale="nav/mine">My Tasks</span>
             </div>
             <div class="nav-item" id="nav-all"   onclick="showView('all')">
-                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg></span> All Tasks
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg></span>
+                <span locale="nav/all">All Tasks</span>
             </div>
             <div class="nav-item" id="nav-new"   onclick="showView('new')">
-                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span> New Task
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+                <span locale="nav/new">New Task</span>
             </div>
             <div class="nav-item" id="nav-remove" onclick="showView('remove')">
-                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6 5V4h4v1M6.5 8v4M9.5 8v4M4 5l.9 9h6.2L12 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Remove Task
+                <span class="nav-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6 5V4h4v1M6.5 8v4M9.5 8v4M4 5l.9 9h6.2L12 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span locale="nav/remove">Remove Task</span>
             </div>
         </div>
         <div id="sidebar-filter">
-            <input id="filter-input" type="text" placeholder="Filter tasks…"
+            <input id="filter-input" type="text" placeholder="filter/placeholder"
                    oninput="applyFilter()" onkeydown="if(event.key==='Enter')applyFilter()">
         </div>
     </div>
@@ -387,102 +392,102 @@
 
         <!-- My Tasks -->
         <div id="view-mine" class="view active">
-            <div class="section-title">My Scheduled Tasks</div>
+            <div class="section-title" locale="view/mine/title">My Scheduled Tasks</div>
             <div class="card" id="card-mine">
                 <div class="task-row header">
-                    <span>Task / Script</span>
-                    <span>Path</span>
-                    <span>App</span>
-                    <span>Interval</span>
+                    <span locale="header/task-script">Task / Script</span>
+                    <span locale="header/path">Path</span>
+                    <span locale="header/app">App</span>
+                    <span locale="header/interval">Interval</span>
                 </div>
-                <div id="list-mine"><div class="empty-state">Loading…</div></div>
+                <div id="list-mine"><div class="empty-state" locale="js/loading">Loading…</div></div>
             </div>
         </div>
 
         <!-- All Tasks (admin) -->
         <div id="view-all" class="view">
-            <div class="section-title">All Scheduled Tasks</div>
+            <div class="section-title" locale="view/all/title">All Scheduled Tasks</div>
             <div class="card">
                 <div class="task-row all-cols header">
-                    <span>Task Name</span>
-                    <span>Creator</span>
-                    <span>Script Path</span>
-                    <span>App</span>
-                    <span>Interval</span>
-                    <span>Base Time</span>
+                    <span locale="header/taskname">Task Name</span>
+                    <span locale="header/creator">Creator</span>
+                    <span locale="header/scriptpath">Script Path</span>
+                    <span locale="header/app">App</span>
+                    <span locale="header/interval">Interval</span>
+                    <span locale="header/basetime">Base Time</span>
                 </div>
-                <div id="list-all"><div class="empty-state">Loading…</div></div>
+                <div id="list-all"><div class="empty-state" locale="js/loading">Loading…</div></div>
             </div>
         </div>
 
         <!-- New Task -->
         <div id="view-new" class="view">
-            <div class="section-title">New Scheduled Task</div>
+            <div class="section-title" locale="view/new/title">New Scheduled Task</div>
             <div id="noPermMessage">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-right:6px;vertical-align:-2px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>
-                Your account does not have permission to create scheduled tasks.
-                Ask an administrator to grant cron job access via <strong>System Settings &rarr; Tasks Scheduler</strong>.
+                <span locale="noperm/message">Your account does not have permission to create scheduled tasks.
+                Ask an administrator to grant cron job access via <strong>System Settings &rarr; Tasks Scheduler</strong>.</span>
             </div>
             <div id="newTaskForm">
                 <div class="form-card">
                     <div class="form-row">
-                        <label class="form-label">Task Name <span class="form-req">*</span></label>
+                        <label class="form-label"><span locale="form/taskname/label">Task Name</span> <span class="form-req">*</span></label>
                         <input class="form-input" id="taskname" type="text"
-                               placeholder="My Daily Task" maxlength="32" autocomplete="off">
-                        <div class="form-hint">Max 32 characters, must be unique.</div>
+                               placeholder="taskname/placeholder" maxlength="32" autocomplete="off">
+                        <div class="form-hint" locale="form/taskname/hint">Max 32 characters, must be unique.</div>
                     </div>
                     <div class="form-row">
-                        <label class="form-label">Description</label>
+                        <label class="form-label" locale="form/desc/label">Description</label>
                         <input class="form-input" id="desc" type="text"
-                               placeholder="What does this task do?" autocomplete="off">
+                               placeholder="desc/placeholder" autocomplete="off">
                     </div>
                     <div class="form-row">
-                        <label class="form-label">Script Path <span class="form-req">*</span></label>
+                        <label class="form-label"><span locale="form/scriptpath/label">Script Path</span> <span class="form-req">*</span></label>
                         <div class="input-with-btn">
                             <input class="form-input" id="scriptpath" type="text"
-                                   placeholder="user:/path/to/script.agi" autocomplete="off"
+                                   placeholder="scriptpath/placeholder" autocomplete="off"
                                    oninput="checkExt(this.value)">
-                            <button class="btn" onclick="openFileSelector()">Browse…</button>
+                            <button class="btn" onclick="openFileSelector()" locale="form/browse">Browse…</button>
                         </div>
                         <div class="warn-bar" id="extWarn">
                             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;vertical-align:-2px;margin-right:4px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>
-                            This file extension may not be supported. Only .agi and .js files are executed.
+                            <span locale="form/extwarn">This file extension may not be supported. Only .agi and .js files are executed.</span>
                         </div>
                     </div>
                     <div class="form-row">
-                        <label class="form-label">Run Every <span class="form-req">*</span></label>
+                        <label class="form-label"><span locale="form/runevery/label">Run Every</span> <span class="form-req">*</span></label>
                         <div class="form-row-inline">
                             <input class="form-input" id="intervalvalue" type="number"
                                    value="1" min="1" style="max-width:90px;">
                             <select class="form-input" id="intervalunit" style="max-width:160px;">
-                                <option value="60">Minutes</option>
-                                <option value="3600">Hours</option>
-                                <option value="86400" selected>Days</option>
-                                <option value="2628333">Months (approx.)</option>
+                                <option value="60" locale="form/unit/minutes">Minutes</option>
+                                <option value="3600" locale="form/unit/hours">Hours</option>
+                                <option value="86400" selected locale="form/unit/days">Days</option>
+                                <option value="2628333" locale="form/unit/months">Months (approx.)</option>
                             </select>
                         </div>
-                        <div class="form-hint">Month is approximated as 2 628 333 seconds.</div>
+                        <div class="form-hint" locale="form/month/hint">Month is approximated as 2 628 333 seconds.</div>
                     </div>
                     <div class="form-row">
-                        <label class="form-label">Align to <span class="form-req">*</span></label>
+                        <label class="form-label"><span locale="form/alignto/label">Align to</span> <span class="form-req">*</span></label>
                         <select class="form-input" id="intervalbase">
-                            <option value="now">Now (current minute)</option>
-                            <option value="hour">Start of the Hour</option>
-                            <option value="day">Start of the Day</option>
-                            <option value="month">Start of the Month</option>
-                            <option value="year">Start of the Year</option>
-                            <option value="mon">Monday midnight</option>
-                            <option value="tue">Tuesday midnight</option>
-                            <option value="wed">Wednesday midnight</option>
-                            <option value="thu">Thursday midnight</option>
-                            <option value="fri">Friday midnight</option>
-                            <option value="sat">Saturday midnight</option>
-                            <option value="sun">Sunday midnight</option>
+                            <option value="now" locale="form/base/now">Now (current minute)</option>
+                            <option value="hour" locale="form/base/hour">Start of the Hour</option>
+                            <option value="day" locale="form/base/day">Start of the Day</option>
+                            <option value="month" locale="form/base/month">Start of the Month</option>
+                            <option value="year" locale="form/base/year">Start of the Year</option>
+                            <option value="mon" locale="form/base/mon">Monday midnight</option>
+                            <option value="tue" locale="form/base/tue">Tuesday midnight</option>
+                            <option value="wed" locale="form/base/wed">Wednesday midnight</option>
+                            <option value="thu" locale="form/base/thu">Thursday midnight</option>
+                            <option value="fri" locale="form/base/fri">Friday midnight</option>
+                            <option value="sat" locale="form/base/sat">Saturday midnight</option>
+                            <option value="sun" locale="form/base/sun">Sunday midnight</option>
                         </select>
-                        <div class="form-hint">Sets the reference point for interval alignment (useful for weekly/monthly schedules).</div>
+                        <div class="form-hint" locale="form/base/hint">Sets the reference point for interval alignment (useful for weekly/monthly schedules).</div>
                     </div>
-                    <button class="btn primary" onclick="submitNewTask()">Create Task</button>
-                    <span style="margin-left:10px; font-size:12px; color:var(--text-muted);">
+                    <button class="btn primary" onclick="submitNewTask()" locale="form/submit">Create Task</button>
+                    <span style="margin-left:10px; font-size:12px; color:var(--text-muted);" locale="form/required/hint">
                         Fields with <span class="form-req">*</span> are required.
                     </span>
                 </div>
@@ -491,18 +496,18 @@
 
         <!-- Remove Task -->
         <div id="view-remove" class="view">
-            <div class="section-title">Remove Scheduled Tasks</div>
+            <div class="section-title" locale="view/remove/title">Remove Scheduled Tasks</div>
             <div class="card">
-                <div class="danger-header"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;vertical-align:-2px;margin-right:5px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg>Removal is permanent and cannot be undone.</div>
+                <div class="danger-header"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;vertical-align:-2px;margin-right:5px"><path d="M8 2L1.5 14h13L8 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="0.8" fill="currentColor"/></svg><span locale="danger/message">Removal is permanent and cannot be undone.</span></div>
                 <div class="task-row remove-cols header">
-                    <span>Task Name</span>
-                    <span>Creator</span>
-                    <span>Script Path</span>
-                    <span>App</span>
-                    <span>Interval</span>
-                    <span>Action</span>
+                    <span locale="header/taskname">Task Name</span>
+                    <span locale="header/creator">Creator</span>
+                    <span locale="header/scriptpath">Script Path</span>
+                    <span locale="header/app">App</span>
+                    <span locale="header/interval">Interval</span>
+                    <span locale="header/action">Action</span>
                 </div>
-                <div id="list-remove"><div class="empty-state">Loading…</div></div>
+                <div id="list-remove"><div class="empty-state" locale="js/loading">Loading…</div></div>
             </div>
         </div>
 
@@ -516,6 +521,14 @@
     ao_module_getSystemThemeColor(function(c) {
         document.body.classList.toggle('dark', c !== 'whiteTheme');
     });
+
+    /* ── i18n helper ── */
+    function t(key, fallback) {
+        if (typeof applocale !== 'undefined') {
+            return applocale.getString(key, fallback);
+        }
+        return fallback;
+    }
 
     /* ── Navigation ── */
     var currentView = 'mine';
@@ -539,7 +552,7 @@
             m = Math.floor(s % 3600 / 60),
             sec = s % 60;
         var parts = [];
-        if (d)   parts.push(d   + (d   === 1 ? 'd' : 'd'));
+        if (d)   parts.push(d   + 'd');
         if (h)   parts.push(h   + 'h');
         if (m)   parts.push(m   + 'min');
         if (sec) parts.push(sec + 's');
@@ -591,18 +604,18 @@
             var el = document.getElementById('list-mine');
             var rows = (data || []).filter(matchFilter);
             if (!rows.length) {
-                el.innerHTML = '<div class="empty-state">No scheduled tasks found.</div>';
+                el.innerHTML = '<div class="empty-state">' + t('js/empty/notfound', 'No scheduled tasks found.') + '</div>';
                 return;
             }
-            el.innerHTML = rows.map(function(t) {
-                var script = (t.ScriptVpath || '').split('/').pop();
+            el.innerHTML = rows.map(function(task) {
+                var script = (task.ScriptVpath || '').split('/').pop();
                 return '<div class="task-row">'
-                    + '<span class="task-name" title="' + esc(t.Name) + '">' + esc(t.Name)
-                    + (t.Description ? '<br><small style="color:var(--text-muted);font-weight:400">' + esc(t.Description) + '</small>' : '')
+                    + '<span class="task-name" title="' + esc(task.Name) + '">' + esc(task.Name)
+                    + (task.Description ? '<br><small style="color:var(--text-muted);font-weight:400">' + esc(task.Description) + '</small>' : '')
                     + '</span>'
-                    + '<span class="task-script" title="' + esc(t.ScriptVpath) + '">' + esc(t.ScriptVpath) + '</span>'
-                    + '<span>' + appBadge(t.AppName) + '</span>'
-                    + '<span class="task-interval">Every ' + fmtInterval(t.ExecutionInterval) + '</span>'
+                    + '<span class="task-script" title="' + esc(task.ScriptVpath) + '">' + esc(task.ScriptVpath) + '</span>'
+                    + '<span>' + appBadge(task.AppName) + '</span>'
+                    + '<span class="task-interval">' + t('js/task/every', 'Every ') + fmtInterval(task.ExecutionInterval) + '</span>'
                     + '</div>';
             }).join('');
         });
@@ -614,17 +627,17 @@
             var el = document.getElementById('list-all');
             var rows = (data || []).filter(matchFilter);
             if (!rows.length) {
-                el.innerHTML = '<div class="empty-state">No scheduled tasks found.</div>';
+                el.innerHTML = '<div class="empty-state">' + t('js/empty/notfound', 'No scheduled tasks found.') + '</div>';
                 return;
             }
-            el.innerHTML = rows.map(function(t) {
+            el.innerHTML = rows.map(function(task) {
                 return '<div class="task-row all-cols">'
-                    + '<span class="task-name" title="' + esc(t.Name) + '">' + esc(t.Name) + '</span>'
-                    + '<span style="color:var(--text-dim);font-size:12.5px">' + esc(t.Creator) + '</span>'
-                    + '<span class="task-script" title="' + esc(t.ScriptVpath) + '">' + esc(t.ScriptVpath) + '</span>'
-                    + '<span>' + appBadge(t.AppName) + '</span>'
-                    + '<span class="task-interval">Every ' + fmtInterval(t.ExecutionInterval) + '</span>'
-                    + '<span class="task-basetime">' + fmtTime(t.BaseTime) + '</span>'
+                    + '<span class="task-name" title="' + esc(task.Name) + '">' + esc(task.Name) + '</span>'
+                    + '<span style="color:var(--text-dim);font-size:12.5px">' + esc(task.Creator) + '</span>'
+                    + '<span class="task-script" title="' + esc(task.ScriptVpath) + '">' + esc(task.ScriptVpath) + '</span>'
+                    + '<span>' + appBadge(task.AppName) + '</span>'
+                    + '<span class="task-interval">' + t('js/task/every', 'Every ') + fmtInterval(task.ExecutionInterval) + '</span>'
+                    + '<span class="task-basetime">' + fmtTime(task.BaseTime) + '</span>'
                     + '</div>';
             }).join('');
         });
@@ -636,27 +649,27 @@
             var el = document.getElementById('list-remove');
             var rows = (data || []).filter(matchFilter);
             if (!rows.length) {
-                el.innerHTML = '<div class="empty-state">No scheduled tasks.</div>';
+                el.innerHTML = '<div class="empty-state">' + t('js/empty/none', 'No scheduled tasks.') + '</div>';
                 return;
             }
-            el.innerHTML = rows.map(function(t) {
+            el.innerHTML = rows.map(function(task) {
                 return '<div class="task-row remove-cols">'
-                    + '<span class="task-name" title="' + esc(t.Name) + '">' + esc(t.Name) + '</span>'
-                    + '<span style="color:var(--text-dim);font-size:12.5px">' + esc(t.Creator) + '</span>'
-                    + '<span class="task-script" title="' + esc(t.ScriptVpath) + '">' + esc(t.ScriptVpath) + '</span>'
-                    + '<span>' + appBadge(t.AppName) + '</span>'
-                    + '<span class="task-interval">Every ' + fmtInterval(t.ExecutionInterval) + '</span>'
-                    + '<span><button class="btn danger sm" onclick="removeTask(' + JSON.stringify(esc(t.Name)) + ')">Remove</button></span>'
+                    + '<span class="task-name" title="' + esc(task.Name) + '">' + esc(task.Name) + '</span>'
+                    + '<span style="color:var(--text-dim);font-size:12.5px">' + esc(task.Creator) + '</span>'
+                    + '<span class="task-script" title="' + esc(task.ScriptVpath) + '">' + esc(task.ScriptVpath) + '</span>'
+                    + '<span>' + appBadge(task.AppName) + '</span>'
+                    + '<span class="task-interval">' + t('js/task/every', 'Every ') + fmtInterval(task.ExecutionInterval) + '</span>'
+                    + '<span><button class="btn danger sm" onclick="removeTask(' + JSON.stringify(esc(task.Name)) + ')">' + t('js/btn/remove', 'Remove') + '</button></span>'
                     + '</div>';
             }).join('');
         });
     }
 
     function removeTask(name) {
-        if (!confirm('Remove task "' + name + '"? This cannot be undone.')) return;
+        if (!confirm(t('js/confirm/remove/pre', 'Remove task "') + name + t('js/confirm/remove/post', '"? This cannot be undone.'))) return;
         $.post('../../system/arsm/aecron/remove', { name: name }, function(data) {
             if (data && data.error) { alert(data.error); return; }
-            toast('Task removed.');
+            toast(t('js/toast/removed', 'Task removed.'));
             loadRemove();
         });
     }
@@ -718,9 +731,9 @@
         var interval   = parseFloat($('#intervalvalue').val()) * parseFloat($('#intervalunit').val());
         var base       = baseUnix($('#intervalbase').val());
 
-        if (!name) { alert('Task name is required.'); return; }
-        if (!scriptPath) { alert('Script path is required.'); return; }
-        if (!interval || interval < 60) { alert('Interval must be at least 1 minute.'); return; }
+        if (!name) { alert(t('js/alert/noname', 'Task name is required.')); return; }
+        if (!scriptPath) { alert(t('js/alert/nopath', 'Script path is required.')); return; }
+        if (!interval || interval < 60) { alert(t('js/alert/interval', 'Interval must be at least 1 minute.')); return; }
 
         $.post('../../system/arsm/aecron/add', {
             name: name, desc: desc, path: scriptPath,
@@ -730,13 +743,16 @@
             $('#taskname').val('');
             $('#desc').val('');
             $('#scriptpath').val('');
-            toast('Task created!');
+            toast(t('js/toast/created', 'Task created!'));
             showView('mine');
         });
     }
 
     /* ── Init ── */
-    loadMine();
+    applocale.init("../locale/scheduler.json", function() {
+        applocale.translate();
+        loadMine();
+    });
 </script>
 </body>
 </html>
