@@ -17,6 +17,7 @@ import (
 
 func RunStartup() {
 	systemWideLogger, _ = logger.NewLogger("system", "system/logs/system/", true)
+	systemWideLogger.PrintJSON = (*log_format == "json")
 	//1. Initiate the main system database
 
 	//Check if system or web both not exists and web.tar.gz exists. Unzip it for the user

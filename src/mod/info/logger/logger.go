@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -18,10 +19,18 @@ import (
 
 type Logger struct {
 	LogToFile      bool     //Set enable write to file
+	PrintJSON      bool     //Print console output as JSON lines instead of plain text
 	Prefix         string   //Prefix for log files
 	LogFolder      string   //Folder to store the log  file
 	CurrentLogFile string   //Current writing filename
 	file           *os.File //File, empty if LogToFile is false
+}
+
+type jsonLogEntry struct {
+	Time    string `json:"time"`
+	Level   string `json:"level"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
 }
 
 // Create a default logger
@@ -67,7 +76,26 @@ func (l *Logger) PrintAndLog(title string, message string, originalError error) 
 	go func() {
 		l.Log(title, message, originalError)
 	}()
-	log.Println("[" + title + "] " + message)
+	if l.PrintJSON {
+		level := "info"
+		if originalError != nil {
+			level = "error"
+		}
+		entry := jsonLogEntry{
+			Time:    time.Now().Format("2006-01-02T15:04:05.000000Z07:00"),
+			Level:   level,
+			Title:   title,
+			Message: message,
+		}
+		b, err := json.Marshal(entry)
+		if err != nil {
+			log.Println("[" + title + "] " + message)
+			return
+		}
+		fmt.Println(string(b))
+	} else {
+		log.Println("[" + title + "] " + message)
+	}
 }
 
 func (l *Logger) Log(title string, errorMessage string, originalError error) {

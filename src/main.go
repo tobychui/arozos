@@ -92,6 +92,7 @@ func main() {
 	// Initialize a temporary stdout-only logger so calls before RunStartup are safe.
 	// RunStartup will replace this with a file-backed logger.
 	systemWideLogger, _ = logger.NewTmpLogger()
+	systemWideLogger.PrintJSON = (*log_format == "json")
 
 	//Print copyRight information
 	systemWideLogger.PrintAndLog("System", "ArozOS(C) "+strconv.Itoa(time.Now().Year())+" "+deviceVendor+".", nil)
