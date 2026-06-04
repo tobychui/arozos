@@ -12,7 +12,7 @@ var moduleLaunchInfo = {
     Name: "Terminal",
     Desc: "Interactive AGI script execution terminal with persistent VM session",
     Group: "Development",
-    IconPath: "Terminal/img/icon.svg",
+    IconPath: "Terminal/img/module_icon.png",
     Version: "1.0",
     StartDir: "Terminal/index.html",
     SupportFW: true,
