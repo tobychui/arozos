@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -198,7 +199,7 @@ func (m *Manager) GetRAIDDevicesFromProcMDStat() ([]RAIDDevice, error) {
 			seqInt, err := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(tmp[1]), "]"))
 			if err != nil {
 				//Not an integer?
-				raidLogger.PrintAndLog("Raid", "[RAID] Unable to parse "+disk+" sequence ID", nil)
+				logger.PrintAndLog("Raid", "[RAID] Unable to parse "+disk+" sequence ID", nil)
 				continue
 			}
 			member := RAIDMember{

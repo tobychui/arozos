@@ -33,7 +33,7 @@ func DiskQuotaInit() {
 	nightlyManager.RegisterNightlyTask(system_disk_quota_updateAllUserQuotaEstimation)
 }
 
-//Register the handler for automatically updating all user storage quota
+// Register the handler for automatically updating all user storage quota
 func system_disk_quota_updateAllUserQuotaEstimation() {
 	registeredUsers := authAgent.ListUsers()
 	for _, username := range registeredUsers {
@@ -43,7 +43,7 @@ func system_disk_quota_updateAllUserQuotaEstimation() {
 	}
 }
 
-//Set the storage quota of the particular user
+// Set the storage quota of the particular user
 func system_disk_quota_setQuota(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {
@@ -132,7 +132,7 @@ var fileExtensions = map[string][]string{
 	"Scripts":       {"pl", "lua", "r", "matlab", "ps1", "psm1", "bash", "zsh", "fish", "awk", "sed", "tcl"},
 }
 
-//Get all the users files and return size + count per category
+// Get all the users files and return size + count per category
 func system_disk_quota_handleFileDistributionView(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := userHandler.GetUserInfoFromRequest(w, r)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"imuslab.com/arozos/mod/disk/diskfs"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -48,7 +49,7 @@ func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Req
 	//Check if the disk is already failed
 	diskAlreadyFailed, err := m.DiskIsFailed(mdDev, sdXDev)
 	if err != nil {
-		raidLogger.PrintAndLog("Raid", "[RAID] Unable to validate if disk failed: "+err.Error(), nil)
+		logger.PrintAndLog("Raid", "[RAID] Unable to validate if disk failed: "+err.Error(), nil)
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
@@ -70,7 +71,7 @@ func (m *Manager) HandleRemoveDiskFromRAIDVol(w http.ResponseWriter, r *http.Req
 		utils.SendErrorResponse(w, err.Error())
 		return
 	}
-	raidLogger.PrintAndLog("Raid", "[RAID] Memeber disk "+sdXDev+" removed from RAID volume "+mdDev, nil)
+	logger.PrintAndLog("Raid", "[RAID] Memeber disk "+sdXDev+" removed from RAID volume "+mdDev, nil)
 	utils.SendOK(w)
 }
 
@@ -141,7 +142,7 @@ func (m *Manager) HandleAddDiskToRAIDVol(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	raidLogger.PrintAndLog("Raid", "[RAID] Device "+sdXDev+" added to RAID volume "+mdDev, nil)
+	logger.PrintAndLog("Raid", "[RAID] Device "+sdXDev+" added to RAID volume "+mdDev, nil)
 
 	utils.SendOK(w)
 }
@@ -201,7 +202,7 @@ func (m *Manager) HandlListChildrenDeviceInfo(w http.ResponseWriter, r *http.Req
 	for _, blockdevice := range raidDevice.Members {
 		bdm, err := diskfs.GetBlockDeviceMeta("/dev/" + blockdevice.Name)
 		if err != nil {
-			raidLogger.PrintAndLog("Raid", "[RAID] Unable to load block device info: "+err.Error(), nil)
+			logger.PrintAndLog("Raid", "[RAID] Unable to load block device info: "+err.Error(), nil)
 			results[blockdevice.Name] = &diskfs.BlockDeviceMeta{
 				Name: blockdevice.Name,
 				Size: -1,
@@ -506,7 +507,7 @@ func (m *Manager) HandleRemoveRaideDevice(w http.ResponseWriter, r *http.Request
 		m.Options.Logger.PrintAndLog("RAID", targetDevice+" is mounted. Trying to unmount...", nil)
 		err = diskfs.UnmountDevice(targetDevice)
 		if err != nil {
-			raidLogger.PrintAndLog("Raid", "[RAID] Unmount failed: "+err.Error(), nil)
+			logger.PrintAndLog("Raid", "[RAID] Unmount failed: "+err.Error(), nil)
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}

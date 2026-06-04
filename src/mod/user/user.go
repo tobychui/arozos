@@ -9,6 +9,7 @@ import (
 
 	auth "imuslab.com/arozos/mod/auth"
 	db "imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 	permission "imuslab.com/arozos/mod/permission"
 	quota "imuslab.com/arozos/mod/quota"
 	"imuslab.com/arozos/mod/share/shareEntry"
@@ -89,7 +90,7 @@ func (u *UserHandler) GetUserInfoFromUsername(username string) (*User, error) {
 	//Create user directories in the Home Directories
 	if u.basePool.Storages == nil {
 		//This userhandler do not have a basepool?
-		userLogger.PrintAndLog("User", "USER HANDLER DO NOT HAVE BASEPOOL", nil)
+		logger.PrintAndLog("User", "USER HANDLER DO NOT HAVE BASEPOOL", nil)
 	} else {
 		for _, store := range u.basePool.Storages {
 			if store.Hierarchy == "user" {

@@ -33,35 +33,38 @@ func (d *Database) UpdateReadWriteMode(readOnly bool) {
 	d.ReadOnly = readOnly
 }
 
-//Dump the whole db into a log file
+// Dump the whole db into a log file
 func (d *Database) Dump(filename string) ([]string, error) {
 	return d.dump(filename)
 }
 
-//Create a new table
+// Create a new table
 func (d *Database) NewTable(tableName string) error {
 	return d.newTable(tableName)
 }
 
-//Check is table exists
+// Check is table exists
 func (d *Database) TableExists(tableName string) bool {
 	return d.tableExists(tableName)
 }
 
-//Drop the given table
+// Drop the given table
 func (d *Database) DropTable(tableName string) error {
 	return d.dropTable(tableName)
 }
 
 /*
-	Write to database with given tablename and key. Example Usage:
+Write to database with given tablename and key. Example Usage:
+
 	type demo struct{
 		content string
 	}
+
 	thisDemo := demo{
 		content: "Hello World",
 	}
-	err := sysdb.Write("MyTable", "username/message",thisDemo);
+
+err := sysdb.Write("MyTable", "username/message",thisDemo);
 */
 func (d *Database) Write(tableName string, key string, value interface{}) error {
 	return d.write(tableName, key, value)
@@ -86,9 +89,9 @@ func (d *Database) KeyExists(tableName string, key string) bool {
 }
 
 /*
-	Delete a value from the database table given tablename and key
+Delete a value from the database table given tablename and key
 
-	err := sysdb.Delete("MyTable", "username/message");
+err := sysdb.Delete("MyTable", "username/message");
 */
 func (d *Database) Delete(tableName string, key string) error {
 	return d.delete(tableName, key)

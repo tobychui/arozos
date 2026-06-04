@@ -22,6 +22,7 @@ import (
 	"imuslab.com/arozos/mod/apt"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/shortcut"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Control Signals for background file operation tasks
@@ -193,9 +194,9 @@ func MountDevice(mountpt string, mountdev string, filesystem string) error {
 		}
 		//Mount the device
 		if CheckMounted(mountpt) {
-			filesystemLogger.PrintAndLog("Filesystem", mountpt+" already mounted.", nil)
+			logger.PrintAndLog("Filesystem", mountpt+" already mounted.", nil)
 		} else {
-			filesystemLogger.PrintAndLog("Filesystem", "Mounting "+mountdev+"("+filesystem+") to "+filepath.Clean(mountpt), nil)
+			logger.PrintAndLog("Filesystem", "Mounting "+mountdev+"("+filesystem+") to "+filepath.Clean(mountpt), nil)
 			cmd := exec.Command("mount", "-t", filesystem, mountdev, filepath.Clean(mountpt))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr

@@ -12,7 +12,7 @@ import (
 	"imuslab.com/arozos/mod/utils"
 )
 
-//Permissions related to modules
+// Permissions related to modules
 func (u *User) GetModuleAccessPermission(moduleName string) bool {
 	//Check if this module permission is within user's permission group access
 	moduleName = strings.ToLower(moduleName)
@@ -73,7 +73,7 @@ func (u *User) IsAdmin() bool {
 	return isAdmin
 }
 
-//Get the (or a list of ) Interface Module (aka booting module) for this user, returning module uuids
+// Get the (or a list of ) Interface Module (aka booting module) for this user, returning module uuids
 func (u *User) GetInterfaceModules() []string {
 	results := []string{}
 	for _, pg := range u.PermissionGroup {
@@ -91,7 +91,7 @@ func (u *User) GetInterfaceModules() []string {
 	return results
 }
 
-//Check if the user has access to this virthal filepath
+// Check if the user has access to this virthal filepath
 func (u *User) GetPathAccessPermission(vpath string) string {
 	fsid, _, err := getIDFromVirtualPath(filepath.ToSlash(vpath))
 	if err != nil {
@@ -125,7 +125,7 @@ func (u *User) GetPathAccessPermission(vpath string) string {
 	}
 }
 
-//Helper function for checking permission
+// Helper function for checking permission
 func (u *User) CanRead(vpath string) bool {
 	rwp := u.GetPathAccessPermission(vpath)
 	if rwp == arozfs.FsReadOnly || rwp == arozfs.FsReadWrite {
@@ -144,7 +144,7 @@ func (u *User) CanWrite(vpath string) bool {
 	}
 }
 
-//Get the highest access right to the given fs uuid
+// Get the highest access right to the given fs uuid
 func (u *User) GetHighestAccessRightStoragePool(fsUUID string) (*storage.StoragePool, error) {
 	//List all storage pool that have access to this fsUUID
 	matchingStoragePool := []*storage.StoragePool{}
@@ -202,7 +202,7 @@ func (u *User) GetUserPermissionGroupNames() []string {
 	return userPermissionGroups
 }
 
-//Check if the user is in one of the permission groups, require groupname
+// Check if the user is in one of the permission groups, require groupname
 func (u *User) UserIsInOneOfTheGroupOf(groupnames []string) bool {
 	userpg := u.GetUserPermissionGroup()
 	for _, thispg := range userpg {

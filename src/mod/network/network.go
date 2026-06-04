@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gitlab.com/NebulousLabs/go-upnp"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -178,7 +179,7 @@ func GetNICInfo(w http.ResponseWriter, r *http.Request) {
 
 	jsonData, err := json.Marshal(NICList)
 	if err != nil {
-		networkLogger.PrintAndLog("Network", fmt.Sprint(err), nil)
+		logger.PrintAndLog("Network", fmt.Sprint(err), nil)
 		utils.SendErrorResponse(w, "Failed to encode NIC data")
 		return
 	}

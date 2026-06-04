@@ -107,7 +107,7 @@ type mockWF struct {
 }
 
 func (m *mockWF) Write(p []byte) (int, error) { return m.buf.Write(p) }
-func (m *mockWF) Flush()                       { m.flushed++ }
+func (m *mockWF) Flush()                      { m.flushed++ }
 
 func TestMaxLatencyWriter_WriteAndFlush(t *testing.T) {
 	mwf := &mockWF{}

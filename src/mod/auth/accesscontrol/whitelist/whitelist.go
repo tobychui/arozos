@@ -6,6 +6,7 @@ import (
 
 	"imuslab.com/arozos/mod/auth/accesscontrol"
 	"imuslab.com/arozos/mod/database"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 /*
@@ -25,7 +26,7 @@ func NewWhitelistManager(sysdb *database.Database) *WhiteList {
 	if sysdb.KeyExists("ipwhitelist", "enable") {
 		err := sysdb.Read("ipwhitelist", "enable", &whitelistEnabled)
 		if err != nil {
-			whitelistLogger.PrintAndLog("Whitelist", "[Auth/Whitelist] Unable to load previous enable state from database. Using default.", nil)
+			logger.PrintAndLog("Whitelist", "[Auth/Whitelist] Unable to load previous enable state from database. Using default.", nil)
 		}
 	}
 

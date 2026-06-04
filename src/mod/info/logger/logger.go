@@ -17,12 +17,29 @@ import (
 	and replace the ton of log.Println in the system core
 */
 
-// globalPrintJSON is set once at startup via SetGlobalJSONOutput and applies to
-// every Logger instance, including the package-level tmp loggers in each module.
+// globalPrintJSON is set once at startup via SetGlobalJSONOutput.
 var globalPrintJSON bool
 
 func SetGlobalJSONOutput(enabled bool) {
 	globalPrintJSON = enabled
+}
+
+// defaultLogger is the single system-wide logger used by all packages.
+// It starts as a tmp (stdout-only) logger and is replaced by SetDefaultLogger
+// once the real logger is ready in main().
+var defaultLogger, _ = NewTmpLogger()
+
+// SetDefaultLogger replaces the default logger used by all packages.
+// Call this once in main() after the persistent logger is created.
+func SetDefaultLogger(l *Logger) {
+	defaultLogger = l
+}
+
+// PrintAndLog is a package-level convenience function that delegates to the
+// default logger. All modules should call this instead of keeping their own
+// logger instances.
+func PrintAndLog(title string, message string, originalError error) {
+	defaultLogger.PrintAndLog(title, message, originalError)
 }
 
 type Logger struct {

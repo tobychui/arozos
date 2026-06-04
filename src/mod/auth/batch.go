@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"strings"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -131,7 +132,7 @@ func (a *AuthAgent) ExportUserListAsCSV() string {
 			//Get usergroup
 			usergroup := []string{}
 			a.Database.Read("auth", "group/"+username, &usergroup)
-			authLogger.PrintAndLog("Auth", fmt.Sprint(usergroup), nil)
+			logger.PrintAndLog("Auth", fmt.Sprint(usergroup), nil)
 			//Get user password hash
 			passhash := string(keypairs[1])
 

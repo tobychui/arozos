@@ -37,6 +37,7 @@ import (
 	filesystem "imuslab.com/arozos/mod/filesystem"
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/filesystem/metadata"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/share/shareEntry"
 	"imuslab.com/arozos/mod/user"
 	"imuslab.com/arozos/mod/utils"
@@ -605,17 +606,17 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 							} else {
 								f, err := targetFshAbs.ReadStream(path)
 								if err != nil {
-									shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
+									logger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 								defer f.Close()
 								dest, err := os.OpenFile(localPath, os.O_CREATE|os.O_WRONLY, 0775)
 								if err != nil {
-									shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
+									logger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 								defer dest.Close()
 								_, err = io.Copy(dest, f)
 								if err != nil {
-									shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
+									logger.PrintAndLog("Share", fmt.Sprint("[Share] Buffer and zip download operation failed: ", err), nil)
 								}
 
 							}
@@ -632,7 +633,7 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 						//Failed to create zip file
 						w.WriteHeader(http.StatusInternalServerError)
 						w.Write([]byte("500 - Internal Server Error: Zip file creation failed"))
-						shareLogger.PrintAndLog("Share", "Failed to create zip file for share download: "+err.Error(), nil)
+						logger.PrintAndLog("Share", "Failed to create zip file for share download: "+err.Error(), nil)
 						return
 					}
 
@@ -1321,9 +1322,9 @@ func (s *Manager) ValidateAndClearShares() {
 			//This share source file don't exists anymore. Remove it
 			err = s.options.ShareEntryTable.RemoveShareByPathHash(pathHash)
 			if err != nil {
-				shareLogger.PrintAndLog("Share", fmt.Sprint("[Share] Failed to remove share", err), nil)
+				logger.PrintAndLog("Share", fmt.Sprint("[Share] Failed to remove share", err), nil)
 			}
-			shareLogger.PrintAndLog("Share", "[Share] Removing share to file: "+thisShareOption.FileRealPath+" as it no longer exists", nil)
+			logger.PrintAndLog("Share", "[Share] Removing share to file: "+thisShareOption.FileRealPath+" as it no longer exists", nil)
 		}
 		return true
 	})

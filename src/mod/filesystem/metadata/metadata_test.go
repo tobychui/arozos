@@ -542,13 +542,13 @@ func TestGetSizeForType_AllTypes(t *testing.T) {
 		expected  uint32
 	}{
 		{1, 1}, {2, 1}, {6, 1}, {7, 1}, // BYTE, ASCII, SBYTE, UNDEFINED
-		{3, 2}, {8, 2},                   // SHORT, SSHORT
-		{4, 4}, {9, 4},                   // LONG, SLONG
-		{5, 8}, {10, 8},                  // RATIONAL, SRATIONAL
-		{11, 4},                           // FLOAT
-		{12, 8},                           // DOUBLE
-		{0, 0},                            // index 0 = 0
-		{99, 1},                           // unknown type → default 1
+		{3, 2}, {8, 2}, // SHORT, SSHORT
+		{4, 4}, {9, 4}, // LONG, SLONG
+		{5, 8}, {10, 8}, // RATIONAL, SRATIONAL
+		{11, 4}, // FLOAT
+		{12, 8}, // DOUBLE
+		{0, 0},  // index 0 = 0
+		{99, 1}, // unknown type → default 1
 	}
 	for _, tc := range tests {
 		got := getSizeForType(tc.fieldType)

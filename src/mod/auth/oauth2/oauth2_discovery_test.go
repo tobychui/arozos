@@ -50,15 +50,15 @@ func TestBuildWellKnownURL_PathPrefix(t *testing.T) {
 // minimalDiscoveryDoc returns a valid OIDC discovery JSON body for a given base URL.
 func minimalDiscoveryDoc(base string) []byte {
 	doc := map[string]interface{}{
-		"issuer":                 base,
-		"authorization_endpoint": base + "/oauth2/authorize",
-		"token_endpoint":         base + "/oauth2/token",
-		"userinfo_endpoint":      base + "/oauth2/userinfo",
-		"jwks_uri":               base + "/oauth2/jwks",
-		"scopes_supported":       []string{"openid", "email", "profile"},
-		"claims_supported":       []string{"sub", "email", "name", "preferred_username"},
+		"issuer":                   base,
+		"authorization_endpoint":   base + "/oauth2/authorize",
+		"token_endpoint":           base + "/oauth2/token",
+		"userinfo_endpoint":        base + "/oauth2/userinfo",
+		"jwks_uri":                 base + "/oauth2/jwks",
+		"scopes_supported":         []string{"openid", "email", "profile"},
+		"claims_supported":         []string{"sub", "email", "name", "preferred_username"},
 		"response_types_supported": []string{"code"},
-		"grant_types_supported":  []string{"authorization_code"},
+		"grant_types_supported":    []string{"authorization_code"},
 	}
 	b, _ := json.Marshal(doc)
 	return b

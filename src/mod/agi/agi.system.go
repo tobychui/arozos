@@ -12,6 +12,7 @@ import (
 	"github.com/robertkrimen/otto"
 	uuid "github.com/satori/go.uuid"
 	"imuslab.com/arozos/mod/agi/static"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -337,7 +338,7 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 			_, err = vm.Run(string(scriptContent))
 			if err != nil {
 				//Script execution failed
-				agiLogger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
+				logger.PrintAndLog("Agi", fmt.Sprint("Script Execution Failed: ", err.Error()), nil)
 				g.RaiseError(err)
 				return otto.FalseValue()
 			}

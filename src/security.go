@@ -23,7 +23,7 @@ var (
 	tokenCleaningTime int   = int(tokenExpireTime) * 12 //Tokens are cleared every 12 x tokenExpireTime
 )
 
-//Initiation function
+// Initiation function
 func security_init() {
 	//Create a default permission router accessable by everyone
 	router := prout.NewModuleRouter(prout.RouterOption{

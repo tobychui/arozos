@@ -16,6 +16,7 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 // Handle request from Windows File Explorer
@@ -43,7 +44,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 			ip = "localhost"
 		}
 
-		webdavLogger.PrintAndLog("Webdav", fmt.Sprint("New Window WebDAV Client Connected! Assinging UUID:", thisWebDAVClientID), nil)
+		logger.PrintAndLog("Webdav", fmt.Sprint("New Window WebDAV Client Connected! Assinging UUID:", thisWebDAVClientID), nil)
 		//Store this UUID with the connection
 		s.windowsClientNotLoggedIn.Store(thisWebDAVClientID, &WindowClientInfo{
 			Agent:                   r.Header["User-Agent"][0],
@@ -122,7 +123,7 @@ func (s *Server) HandleWindowClientAccess(w http.ResponseWriter, r *http.Request
 
 			fsh, err := userinfo.GetFileSystemHandlerFromVirtualPath(vroot + ":/")
 			if err != nil {
-				webdavLogger.PrintAndLog("Webdav", fmt.Sprint("[WebDAV] Failed to load File System Handler from request root: ", err.Error()), nil)
+				logger.PrintAndLog("Webdav", fmt.Sprint("[WebDAV] Failed to load File System Handler from request root: ", err.Error()), nil)
 				http.Error(w, "Invalid ", http.StatusUnauthorized)
 				return
 			}

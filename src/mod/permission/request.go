@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -185,7 +186,7 @@ func (h *PermissionHandler) HandleGroupCreate(w http.ResponseWriter, r *http.Req
 	h.NewPermissionGroup(groupname, isAdmin == "true", int64(quotaInt), permissionSlice, interfaceModule)
 
 	utils.SendOK(w)
-	permissionLogger.PrintAndLog("Permission", fmt.Sprint("Creating New Permission Group:", groupname, permission, isAdmin, quota), nil)
+	logger.PrintAndLog("Permission", fmt.Sprint("Creating New Permission Group:", groupname, permission, isAdmin, quota), nil)
 }
 
 func (h *PermissionHandler) HandleGroupRemove(w http.ResponseWriter, r *http.Request) {

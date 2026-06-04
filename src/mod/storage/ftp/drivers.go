@@ -8,6 +8,7 @@ import (
 	"time"
 
 	ftp "github.com/fclairamb/ftpserverlib"
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 func (m mainDriver) GetSettings() (*ftp.Settings, error) {
@@ -32,7 +33,7 @@ func (m mainDriver) ClientDisconnected(cc ftp.ClientContext) {
 				if err == nil {
 					//Update the user storage quota
 					userinfo.StorageQuota.CalculateQuotaUsage()
-					ftpLogger.PrintAndLog("Ftp", fmt.Sprint("FTP storage quota updated: ", val.(string)), nil)
+					logger.PrintAndLog("Ftp", fmt.Sprint("FTP storage quota updated: ", val.(string)), nil)
 				}
 			} else {
 				//This user is being delete during his connection to FTP???
@@ -71,7 +72,7 @@ func (m mainDriver) AuthUser(cc ftp.ClientContext, user string, pass string) (ft
 			//log the signin request
 			m.userHandler.GetAuthAgent().Logger.LogAuthByRequestInfo(user, cc.RemoteAddr().String(), time.Now().Unix(), false, "ftp")
 			//Disconnect this user as he is not in the group that is allowed to access ftp
-			ftpLogger.PrintAndLog("Ftp", userinfo.Username+" tries to access FTP endpoint with invalid permission settings.", nil)
+			logger.PrintAndLog("Ftp", userinfo.Username+" tries to access FTP endpoint with invalid permission settings.", nil)
 			return nil, errors.New("User " + userinfo.Username + " has no permission to access FTP endpoint")
 		}
 

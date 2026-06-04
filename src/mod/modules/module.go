@@ -48,7 +48,7 @@ func NewModuleHandler(userHandler *user.UserHandler, tmpFolderPath string) *Modu
 	}
 }
 
-//Register endpoint. Provide moduleInfo datastructure or unparsed json
+// Register endpoint. Provide moduleInfo datastructure or unparsed json
 func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
 	m.LoadedModule = append(m.LoadedModule, &module)
 
@@ -59,14 +59,14 @@ func (m *ModuleHandler) RegisterModule(module ModuleInfo) {
 	}
 }
 
-//Sort the module list
+// Sort the module list
 func (m *ModuleHandler) ModuleSortList() {
 	sort.Slice(m.LoadedModule, func(i, j int) bool {
 		return m.LoadedModule[i].Name < m.LoadedModule[j].Name
 	})
 }
 
-//Register a module from JSON string
+// Register a module from JSON string
 func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bool) error {
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
@@ -79,7 +79,7 @@ func (m *ModuleHandler) RegisterModuleFromJSON(jsonstring string, allowReload bo
 	return nil
 }
 
-//Register a module from AGI script
+// Register a module from AGI script
 func (m *ModuleHandler) RegisterModuleFromAGI(jsonstring string) error {
 	var thisModuleInfo ModuleInfo
 	err := json.Unmarshal([]byte(jsonstring), &thisModuleInfo)
@@ -104,7 +104,7 @@ func (m *ModuleHandler) DeregisterModule(moduleName string) {
 	m.LoadedModule = newLoadedModuleList
 }
 
-//Get a list of module names
+// Get a list of module names
 func (m *ModuleHandler) GetModuleNameList() []string {
 	result := []string{}
 	for _, module := range m.LoadedModule {
@@ -129,7 +129,7 @@ func (m *ModuleHandler) GetModuleListJSONForUser(username string) string {
 	return string(js)
 }
 
-//Handle Default Launcher
+// Handle Default Launcher
 func (m *ModuleHandler) HandleDefaultLauncher(w http.ResponseWriter, r *http.Request) {
 	username, _ := m.userHandler.GetAuthAgent().GetUserName(w, r)
 	opr, _ := utils.GetPara(r, "opr") //Operation, accept {get, set, launch}

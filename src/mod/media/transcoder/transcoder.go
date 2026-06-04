@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"os/exec"
 	"time"
+
+	"imuslab.com/arozos/mod/info/logger"
 )
 
 type TranscodeOutputResolution string
@@ -64,7 +66,7 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		http.Error(w, "Failed to create error pipe", http.StatusInternalServerError)
-		transcoderLogger.PrintAndLog("Transcoder", fmt.Sprintf("Failed to create error pipe: %v", err), nil)
+		logger.PrintAndLog("Transcoder", fmt.Sprintf("Failed to create error pipe: %v", err), nil)
 		return
 	}
 
@@ -99,18 +101,18 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	go func() {
 		errOutput, _ := io.ReadAll(stderr)
 		if len(errOutput) > 0 {
-			transcoderLogger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg error output: %s", string(errOutput)), nil)
+			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg error output: %s", string(errOutput)), nil)
 		}
 	}()
 
 	go func() {
 		if err := cmd.Wait(); err != nil {
-			transcoderLogger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg process exited: %v", err), nil)
+			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg process exited: %v", err), nil)
 			return
 		}
 	}()
 
 	// Wait for the command to finish or client disconnect
 	<-done
-	transcoderLogger.PrintAndLog("Transcoder", "[Media Server] Transcode client disconnected", nil)
+	logger.PrintAndLog("Transcoder", "[Media Server] Transcode client disconnected", nil)
 }

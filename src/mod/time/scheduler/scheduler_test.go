@@ -701,11 +701,11 @@ func TestClose_WithTicker(t *testing.T) {
 
 // testEnv holds everything needed for authenticated HTTP handler tests.
 type testEnv struct {
-	scheduler  *Scheduler
-	authAgent  *auth.AuthAgent
+	scheduler   *Scheduler
+	authAgent   *auth.AuthAgent
 	userHandler *user.UserHandler
-	db         interface{ Close() }
-	cleanup    func()
+	db          interface{ Close() }
+	cleanup     func()
 }
 
 // newAuthTestEnv sets up a fully functional scheduler with a real UserHandler

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/sessions"
 	uuid "github.com/satori/go.uuid"
+	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/utils"
 )
 
@@ -107,7 +108,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	if a.AllowAutoLogin == false {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("403 - Forbidden"))
-		authLogger.PrintAndLog("Auth", "Someone is requesting autologin while this function is turned off.", nil)
+		logger.PrintAndLog("Auth", "Someone is requesting autologin while this function is turned off.", nil)
 		return
 	}
 
@@ -153,7 +154,7 @@ func (a *AuthAgent) HandleAutologinTokenLogin(w http.ResponseWriter, r *http.Req
 	session.Values["username"] = username
 	session.Values["rememberMe"] = false
 
-	authLogger.PrintAndLog("Auth", username+" logged in via auto-login token", nil)
+	logger.PrintAndLog("Auth", username+" logged in via auto-login token", nil)
 
 	//Check if remember me is clicked. If yes, set the maxage to 1 week.
 	session.Options = &sessions.Options{
