@@ -492,6 +492,8 @@ function grApplyTheme(dark) {
     } catch(e) {}
 })();
 
+window.detailPageThemeCallback = function(isDark) { grApplyTheme(isDark); };
+
 /* ── Locale ── */
 var grLocale = null;
 var groupPermissionInfo = {};

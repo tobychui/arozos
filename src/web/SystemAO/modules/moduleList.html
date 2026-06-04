@@ -8,9 +8,32 @@
         <script type="text/javascript" src="../../script/jquery.min.js"></script>
         <script type="text/javascript" src="../../script/semantic/semantic.min.js"></script>
         <!-- <script type="text/javascript" src="../../script/ao_module.js"></script> -->
+        <style>
+        #sys-setting-page { padding: 20px; }
+
+        #sys-setting-page.dark { background: #1f1f1f; color: #ececec; }
+        #sys-setting-page.dark .ui.table {
+            background: #2c2c2e;
+            color: #ececec;
+            border-color: #3a3a3c;
+        }
+        #sys-setting-page.dark .ui.table thead th {
+            background: #1c1c1e;
+            color: #aeaeb2;
+            border-color: #3a3a3c !important;
+        }
+        #sys-setting-page.dark .ui.table td,
+        #sys-setting-page.dark .ui.table th { border-color: #3a3a3c !important; }
+        #sys-setting-page.dark .ui.table tr:hover > td { background: rgba(255,255,255,0.04) !important; }
+        #sys-setting-page.dark .ui.divider { border-color: #3a3a3c !important; }
+        #sys-setting-page.dark p { color: #aeaeb2; }
+        #sys-setting-page.dark .ui.image.header .content { color: #ececec; }
+        #sys-setting-page.dark .ui.image.header .sub.header { color: #aeaeb2; }
+        #sys-setting-page.dark .ui.button { background: #3a3a3c; color: #ececec; }
+        </style>
     </head>
     <body>
-        <div class="ui container">
+        <div class="ui container" id="sys-setting-page">
             <div style="width: 100%; overflow-y: auto;">
                 <table class="ui basic celled structured unstackable table">
                     <thead>
@@ -126,8 +149,19 @@
                 });
             }
 
-            
-            
+            /* ── Theme ── */
+            (function() {
+                var el = document.getElementById('sys-setting-page');
+                if (!el) return;
+                if (typeof preferredTheme !== 'undefined') {
+                    el.classList.toggle('dark', preferredTheme === 'dark' || preferredTheme === 'darkTheme');
+                }
+            })();
+
+            window.detailPageThemeCallback = function(isDark) {
+                var el = document.getElementById('sys-setting-page');
+                if (el) el.classList.toggle('dark', isDark);
+            };
         </script>
     </body>
 </html>

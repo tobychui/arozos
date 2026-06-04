@@ -461,6 +461,56 @@
             }
         }
 
+        // Restore light-mode chart colours
+        function applyLightChartColors() {
+            var cpuGrid = "rgba(83, 160, 205, 0.2)";
+            var ramGrid = "rgba(156, 55, 185, 0.2)";
+            var netGrid = "rgba(167, 79, 1, 0.2)";
+
+            [options].forEach(function(opt) {
+                if (opt.scales && opt.scales.x) opt.scales.x.grid.color = cpuGrid;
+                if (opt.scales && opt.scales.y) opt.scales.y.grid.color = cpuGrid;
+            });
+            [ramOptions].forEach(function(opt) {
+                if (opt.scales && opt.scales.x) opt.scales.x.grid.color = ramGrid;
+                if (opt.scales && opt.scales.y) opt.scales.y.grid.color = ramGrid;
+            });
+            [netOptions].forEach(function(opt) {
+                if (opt.scales && opt.scales.x) opt.scales.x.grid.color = netGrid;
+                if (opt.scales && opt.scales.y) opt.scales.y.grid.color = netGrid;
+            });
+
+            if (cpuChart) {
+                cpuChart.data.datasets[0].backgroundColor = "rgba(241,246,250,0.4)";
+                cpuChart.options.scales.x.grid.color = cpuGrid;
+                cpuChart.options.scales.y.grid.color = cpuGrid;
+                cpuChart.update();
+            }
+            if (ramChart) {
+                ramChart.data.datasets[0].backgroundColor = "rgba(244,242,244,0.4)";
+                ramChart.options.scales.x.grid.color = ramGrid;
+                ramChart.options.scales.y.grid.color = ramGrid;
+                ramChart.update();
+            }
+            if (netChart) {
+                netChart.data.datasets[0].backgroundColor = "rgba(252,243,235,0.4)";
+                netChart.data.datasets[1].backgroundColor = "rgba(252,243,235,0.2)";
+                netChart.options.scales.x.grid.color = netGrid;
+                netChart.options.scales.y.grid.color = netGrid;
+                netChart.update();
+            }
+        }
+
+        window.desktopThemeChanged = function(theme) {
+            isDarkMode = (theme === 'dark');
+            document.body.classList.toggle('dark', isDarkMode);
+            if (isDarkMode) {
+                applyDarkChartColors();
+            } else {
+                applyLightChartColors();
+            }
+        };
+
         updateData();
         function updateData(){
             //Testing use 

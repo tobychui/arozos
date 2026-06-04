@@ -673,6 +673,10 @@
 
     /* ── Boot ── */
     quotaApplyTheme();
+    window.detailPageThemeCallback = function(isDark) {
+        var el = document.getElementById('quota-root');
+        if (el) el.classList.toggle('dark', isDark);
+    };
     quotaLocale.init('../locale/users/quota.json', function () {
         quotaLocale.translate();
         quotaInitBar();

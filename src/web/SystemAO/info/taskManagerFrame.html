@@ -10,8 +10,18 @@
     function resizeIframe(){
         $("#managerFrame").css({
             "width": "100%",
-            "height": "100vh", 
+            "height": "100vh",
         });
     }
-  
+
+    /* Receive theme change from system settings and forward into the iframe */
+    window.detailPageThemeCallback = function(isDark) {
+        try {
+            var fw = document.getElementById('managerFrame').contentWindow;
+            if (fw && typeof fw.desktopThemeChanged === 'function') {
+                fw.desktopThemeChanged(isDark ? 'dark' : 'light');
+            }
+        } catch(e) {}
+    };
+
 </script>

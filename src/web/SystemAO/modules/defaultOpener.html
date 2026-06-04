@@ -374,6 +374,10 @@
                 } catch(e) {}
             }
             doTheme();
+            window.detailPageThemeCallback = function(isDark) {
+                var el = document.getElementById('do-root');
+                if (el) el.classList.toggle('dark', isDark);
+            };
 
             $(document).ready(function() {
                 if (typeof applocale !== "undefined" && applocale) {
