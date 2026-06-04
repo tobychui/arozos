@@ -21,7 +21,6 @@ import (
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/info/logger"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
-	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/time/nightly"

@@ -42,10 +42,10 @@ func (g *Gateway) injectStandardLibs(vm *otto.Otto, scriptFile string, scriptSco
 	// Override otto's built-in console.log (which maps to fmt.Println) so that
 	// script output goes through the structured logger and carries the execID.
 	// Use the system-wide logger (with file output) when available; fall back to
-	// agiLogger (stdout only) if the Gateway was created without one.
-	scriptLogger := agiLogger
-	if g.Option.Logger != nil {
-		scriptLogger = g.Option.Logger
+	// a tmp stdout-only logger if the Gateway was created without one.
+	scriptLogger := g.Option.Logger
+	if scriptLogger == nil {
+		scriptLogger, _ = logger.NewTmpLogger()
 	}
 	vm.Set("_agi_console_log", func(call otto.FunctionCall) otto.Value {
 		parts := make([]string, 0, len(call.ArgumentList))
