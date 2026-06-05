@@ -1,286 +1,469 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-	<meta charset="UTF-8">
-    <link rel="stylesheet" href="../../script/semantic/semantic.min.css">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <meta charset="UTF-8">
+    <title>Cluster Neighbourhood</title>
     <script src="../../script/jquery.min.js"></script>
-	<script src="../../script/semantic/semantic.min.js"></script>
-    <script src="../arsm/js/moment.min.js"></script>
+    <script src="../../script/ao_module.js"></script>
+    <script src="../../script/applocale.js"></script>
     <style>
-        #sys-setting-page { padding: 20px; }
-        .hidden{
-            display:none;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        #nb-root {
+            /* Light-theme variables */
+            --nb-bg:        #f5f5f7;
+            --nb-card:      #ffffff;
+            --nb-card-head: #fafafa;
+            --nb-border:    rgba(0,0,0,0.08);
+            --nb-text:      #1d1d1f;
+            --nb-dim:       #6e6e73;
+            --nb-muted:     #98989d;
+            --nb-accent:    #0071e3;
+            --nb-success:   #34c759;
+            --nb-danger:    #ff3b30;
+            --nb-hover:     rgba(0,0,0,0.04);
+            --nb-shadow:    0 1px 4px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            color: var(--nb-text);
+            background: var(--nb-bg);
+            padding: 20px;
+        }
+
+        #nb-root.dark {
+            --nb-bg:        #1f1f1f;
+            --nb-card:      #2c2c2e;
+            --nb-card-head: #232325;
+            --nb-border:    rgba(255,255,255,0.09);
+            --nb-text:      #f2f2f7;
+            --nb-dim:       #aeaeb2;
+            --nb-muted:     #636366;
+            --nb-accent:    #2997ff;
+            --nb-success:   #30d158;
+            --nb-danger:    #ff453a;
+            --nb-hover:     rgba(255,255,255,0.05);
+            --nb-shadow:    0 1px 6px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.06);
+        }
+
+        /* ── Page header ── */
+        #nb-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 22px;
+        }
+        #nb-header-icon {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        #nb-root.dark #nb-header-icon { filter: brightness(1.8); }
+        .nb-page-title    { font-size: 18px; font-weight: 700; }
+        .nb-page-subtitle { font-size: 12px; color: var(--nb-dim); margin-top: 2px; }
+
+        /* ── Error banner ── */
+        #nb-errbox {
+            display: none;
+            background: rgba(255,59,48,0.09);
+            border: 1px solid rgba(255,59,48,0.35);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: var(--nb-danger);
+        }
+        #nb-root.dark #nb-errbox {
+            background: rgba(255,69,58,0.12);
+            border-color: rgba(255,69,58,0.4);
+        }
+        .nb-err-title { font-weight: 600; margin-bottom: 3px; }
+
+        /* ── Sections ── */
+        .nb-section { margin-bottom: 22px; }
+        .nb-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--nb-muted);
+            margin-bottom: 8px;
+        }
+
+        /* ── Host card ── */
+        .nb-card {
+            background: var(--nb-card);
+            border-radius: 12px;
+            box-shadow: var(--nb-shadow);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .nb-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 16px 11px;
+            border-bottom: 1px solid var(--nb-border);
+            background: var(--nb-card-head);
+        }
+        .nb-card-icon {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        #nb-root.dark .nb-card-icon { filter: brightness(1.8); }
+
+        .nb-card-title { flex: 1; min-width: 0; }
+        .nb-card-hostname {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--nb-text);
+            text-decoration: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+        a.nb-card-hostname:hover { text-decoration: underline; color: var(--nb-accent); }
+        .nb-card-model { font-size: 11px; color: var(--nb-dim); margin-top: 2px; }
+
+        .nb-status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .nb-status-dot.online  { background: var(--nb-success); box-shadow: 0 0 0 2.5px rgba(52,199,89,0.2); }
+        #nb-root.dark .nb-status-dot.online { box-shadow: 0 0 0 2.5px rgba(48,209,88,0.2); }
+        .nb-status-dot.offline { background: var(--nb-muted); }
+
+        /* ── Key-value grid ── */
+        .nb-kv {
+            display: grid;
+            grid-template-columns: 76px 1fr;
+            padding: 8px 16px 10px;
+            row-gap: 0;
+        }
+        .nb-kv-k {
+            font-size: 12px;
+            color: var(--nb-dim);
+            padding: 5px 0;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        .nb-kv-v {
+            font-size: 12px;
+            color: var(--nb-text);
+            padding: 5px 0;
+            word-break: break-all;
+        }
+        .nb-kv-v a { color: var(--nb-accent); text-decoration: none; }
+        .nb-kv-v a:hover { text-decoration: underline; }
+
+        /* ── Card footer (WOL) ── */
+        .nb-card-footer {
+            padding: 9px 16px;
+            border-top: 1px solid var(--nb-border);
+            display: flex;
+            justify-content: flex-end;
+        }
+        .nb-btn-wol {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 14px;
+            border-radius: 7px;
+            border: 1px solid var(--nb-border);
+            background: var(--nb-card-head);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--nb-text);
+            transition: background 0.1s, color 0.1s;
+        }
+        .nb-btn-wol:hover:not(:disabled) { background: var(--nb-hover); }
+        .nb-btn-wol.sent  { color: var(--nb-success); border-color: var(--nb-success); }
+        .nb-btn-wol:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Empty state ── */
+        .nb-empty {
+            background: var(--nb-card);
+            border-radius: 12px;
+            box-shadow: var(--nb-shadow);
+            padding: 22px 16px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--nb-muted);
+        }
+
+        /* ── Footer ── */
+        #nb-footer {
+            font-size: 12px;
+            color: var(--nb-muted);
+            margin-top: 4px;
+        }
+        #nb-retention-note {
+            font-size: 11px;
+            color: var(--nb-muted);
+            margin-bottom: 8px;
         }
     </style>
 </head>
 <body>
-    <div class="ui container" id="sys-setting-page">
-        <div class="ui basic segment">
-            <div class="ui header">
-                <i class="server icon"></i>
-                <div class="content">
-                    Cluster Neightbourhood
-                    <div class="sub header">Automatic Cluster Discovery Services</div>
-                </div>
-            </div>
+<div id="nb-root">
+
+    <!-- Page header -->
+    <div id="nb-header">
+        <img id="nb-header-icon" src="../../img/system/cluster.svg" alt="">
+        <div>
+            <div class="nb-page-title"    locale="neighbour/title">Cluster Neighbourhood</div>
+            <div class="nb-page-subtitle" locale="neighbour/subtitle">Automatic Cluster Discovery Services</div>
         </div>
-        
-        <div class="ui divider"></div>
-        <div class="ui red message" id="errbox" style="display:none;">
-            <div class="header">
-                Cluster Scan Error
-            </div>
-            <p id="errormsg">An unknown error has occurred. Please try again later.</p>
-        </div>
-        <h4 class="ui header">
-            This Host
-            <div class="sub header">The broadcasting information sent out by this host server.</div>
-        </h4>
-        <div class="ui basic segment" id="thisHost">
-            
-        </div>
-        <div class="ui divider"></div>
-        <h4 class="ui header">
-            Nearby Hosts
-            <div class="sub header">The ArozOS broadcast receiver from the Local Area Network.</div>
-        </h4>
-        <div class="ui basic segment" id="nearybylist">
-            
-        </div>
-        <div class="ui divider"></div>
-        <h4 class="ui header">
-            Offline Hosts
-            <div class="sub header">Host that goes offline for less than 30 days</div>
-        </h4>
-        <div class="ui basic segment" id="offlineList">
-            
-        </div>
-        <small>All hosts that offline for more than 30 days will be automatically removed from the system record</small>
-        <div class="ui divider"></div>
-        <p>Last Updates: <span id="lastUpdateTime"></span> seconds ago</p>
-        <br><br><br>
     </div>
-    <script>
 
-        initClusterScannerList();
-        function initClusterScannerList(){
-            $.get("../../system/cluster/scan", function(data){
-                if (data.error !== undefined){
-                    $("#errormsg").text(data.error);
-                    $("#errbox").show();
-                }else{
-                    //Render this Host info
-                    if (data.ThisHost != null){
-                        var host = data.ThisHost
-                        $("#thisHost").append(`<div class="ui icon green message">
-                            <i class="server icon"></i>
-                            <div class="content">
-                                <div class="header">
-                                    <a href="//${host.HostName}:${host.Port}" target="_blank">${host.HostName}</a>
-                                </div>
-                                <div class="ui list">
-                                    <div class="item">
-                                        <i class="disk icon"></i>
-                                        <div class="content">
-                                            <b>MODEL:</b> ${host.Model} (${host.Vendor})
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="paperclip icon"></i>
-                                        <div class="content">
-                                            <b>VER:</b> ${host.MinorVersion} (${host.BuildVersion})
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="marker icon"></i>
-                                        <div class="content">
-                                            <b>IP:</b> ${host.IPv4.join(" / ")}
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="tag icon"></i>
-                                        <div class="content">
-                                            <b>UUID:</b> ${host.UUID}
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="server icon"></i>
-                                        <div class="content">
-                                            <b>MAC:</b> ${host.MacAddr.join(" / ")}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`);
-                    }
+    <!-- Error banner -->
+    <div id="nb-errbox">
+        <div class="nb-err-title" locale="neighbour/error/title">Cluster Scan Error</div>
+        <div id="nb-errormsg"></div>
+    </div>
 
-                    //Render remote host info
-                    $("#nearybylist").html("");
-                    if (data.NearbyHosts == null){
-                        $("#nearybylist").append(`<div class="ui icon teal message">
-                                <i class="question icon"></i>
-                                <div class="content">
-                                    No nearby hosts discovered
-                                </div>
-                            `);
-                    }else{
-                        data.NearbyHosts.forEach(host => {
-                            var iplinks = [];
-                            host.IPv4.forEach(ip => {
-                                iplinks.push(`<a href="//${ip}:${host.Port}" target="_blank">${ip}</a>`);
-                            }) 
-                            var ipDOM = iplinks.join(" / ");
-                            var macDOM = host.MacAddr.join(" / ");
-                            if (host.MacAddr.length == 0){
-                                //Old version of ArozOS, do not support MAC addr broadcast
-                                macDOM = "Version Not Supported";
-                            }
-                            $("#nearybylist").append(`<div class="ui icon teal message">
-                                <i class="server icon"></i>
-                                <div class="content">
-                                    <div class="header">
-                                        <a href="//${host.HostName}:${host.Port}" target="_blank">${host.HostName}</a>
-                                    </div>
-                                    <div class="ui list">
-                                        <div class="item">
-                                            <i class="disk icon"></i>
-                                            <div class="content">
-                                                <b>MODEL:</b> ${host.Model} (${host.Vendor})
-                                            </div>
-                                        </div>
-                                        <div class="item">
-                                            <i class="paperclip icon"></i>
-                                            <div class="content">
-                                                <b>VER:</b> ${host.MinorVersion} (${host.BuildVersion})
-                                            </div>
-                                        </div>
-                                        <div class="item">
-                                            <i class="marker icon"></i>
-                                            <div class="content">
-                                                <b>IP:</b> ${ipDOM}
-                                            </div>
-                                        </div>
-                                        <div class="item">
-                                            <i class="tag icon"></i>
-                                            <div class="content">
-                                                <b>UUID:</b> ${host.UUID}
-                                            </div>
-                                        </div>
-                                        <div class="item">
-                                            <i class="server icon"></i>
-                                            <div class="content">
-                                                <b>MAC:</b> ${macDOM}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>`);
-                            });
-                    }
+    <!-- This Host -->
+    <div class="nb-section">
+        <div class="nb-section-label" locale="neighbour/section/thishost">This Host</div>
+        <div id="nb-thishost"></div>
+    </div>
 
-                   
+    <!-- Nearby Hosts -->
+    <div class="nb-section">
+        <div class="nb-section-label" locale="neighbour/section/nearby">Nearby Hosts</div>
+        <div id="nb-nearby"></div>
+    </div>
 
-                    //Update the update time
-                    $("#lastUpdateTime").text(Math.floor(Date.now() / 1000) - data.LastUpdate);
-                }
-            });
+    <!-- Offline Hosts -->
+    <div class="nb-section">
+        <div class="nb-section-label" locale="neighbour/section/offline">Offline Hosts</div>
+        <div id="nb-offline"></div>
+        <div id="nb-retention-note" locale="neighbour/footer/retention">
+            Hosts offline for more than 30 days are automatically removed
+        </div>
+    </div>
 
-            $.get("../../system/cluster/record", function(data){
-                $("#offlineList").html("");
-                if (data != null){
-                    data.forEach(function(host){
-                        let ipDOM = "No Record";
-                        if (host.LastSeenIP != null && host.LastSeenIP.length > 0){
-                            ipDOM = host.LastSeenIP.join(" / ");
-                        }
-                        let macDOM = "No Record";
-                        let wakeOnLanButton = "";
-                        if (host.MacAddr != null && host.MacAddr.length > 0){
-                            macDOM = host.MacAddr.join(" / ");
-                            wakeOnLanButton = `<button class="ui right floated basic button" mac="${encodeURIComponent(JSON.stringify(host.MacAddr))}" onclick="wakeonlan(this);"><i class="power icon"></i> Wake On LAN</button>`;
-                        }
-                        
-                       
-                        $("#offlineList").append(`<div class="ui icon message">
-                         <i class="server icon"></i>
-                            <div class="content">
-                                ${wakeOnLanButton}
-                                <div class="header">
-                                    <span>${host.Name}</a>
-                                </div>
-                                <div class="ui list">
-                                    <div class="item">
-                                        <i class="disk icon"></i>
-                                        <div class="content">
-                                            <b>MODEL:</b> ${host.Model}
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="paperclip icon"></i>
-                                        <div class="content">
-                                            <b>VER:</b> ${host.Version}
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="marker icon"></i>
-                                        <div class="content">
-                                            <b>IP:</b> ${ipDOM}
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="tag icon"></i>
-                                        <div class="content">
-                                            <b>UUID:</b> ${host.UUID}
-                                        </div>
-                                    </div>
-                                    <div class="item">
-                                        <i class="server icon"></i>
-                                        <div class="content">
-                                            <b>MAC:</b> ${macDOM}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`);
-                    });
-                }
-                if (data == null || data.length == 0){
-                    $("#offlineList").append(`<div class="ui message">
-                        <div class="content">
-                            <i class="checkmark icon"></i> No Offline Network Host
-                        </div>
-                    `);
-                }
-            });
+    <div id="nb-footer">
+        <span locale="neighbour/footer/lastupdated">Last updated</span>
+        <span id="nb-lastupdated">—</span>
+        <span locale="neighbour/footer/secsago">seconds ago</span>
+    </div>
+
+</div>
+<script>
+
+    /* ── i18n ── */
+    var nbLocale = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+    function t(key, fallback) {
+        return nbLocale ? nbLocale.getString(key, fallback) : fallback;
+    }
+
+    /* ── Theme ── */
+    function nbApplyTheme(isDark) {
+        document.getElementById('nb-root').classList.toggle('dark', isDark);
+    }
+
+    (function() {
+        try {
+            if (typeof ao_module_getSystemThemeColor === 'function') {
+                ao_module_getSystemThemeColor(function(c) { nbApplyTheme(c !== 'whiteTheme'); });
+                return;
+            }
+        } catch(e) {}
+        try {
+            var theme = null;
+            if      (typeof preferredTheme !== 'undefined')                       theme = preferredTheme;
+            else if (parent && typeof parent.preferredTheme !== 'undefined') theme = parent.preferredTheme;
+            if (theme) nbApplyTheme(theme === 'dark' || theme === 'darkTheme');
+        } catch(e) {}
+    })();
+
+    window.detailPageThemeCallback = function(isDark) { nbApplyTheme(isDark); };
+
+    /* ── Helpers ── */
+    function esc(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* ── Build host card ── */
+    function buildCard(host, status) {
+        var hostname  = esc(host.HostName || host.Name || '');
+        var port      = host.Port || '';
+        var model     = esc(host.Model  || '');
+        var vendor    = esc(host.Vendor || '');
+        var version   = esc(host.MinorVersion || host.Version || '');
+        var build     = esc(host.BuildVersion || '');
+        var uuid      = esc(host.UUID || t('neighbour/js/norecord', 'No Record'));
+        var macs      = host.MacAddr || [];
+
+        var modelLine = model + (vendor ? ' — ' + vendor : '');
+        var verLine   = version + (build ? ' (' + build + ')' : '');
+
+        /* Hostname — clickable only for online hosts */
+        var hostnameEl = (status === 'online' && port)
+            ? '<a class="nb-card-hostname" href="//' + hostname + ':' + port + '" target="_blank">' + hostname + '</a>'
+            : '<span class="nb-card-hostname" style="cursor:default">' + hostname + '</span>';
+
+        /* IP addresses */
+        var ipStr;
+        if (host.IPv4 && host.IPv4.length > 0) {
+            ipStr = host.IPv4.map(function(ip) {
+                return '<a href="//' + esc(ip) + ':' + port + '" target="_blank">' + esc(ip) + '</a>';
+            }).join(' / ');
+        } else if (host.LastSeenIP && host.LastSeenIP.length > 0) {
+            ipStr = esc(host.LastSeenIP.join(' / '));
+        } else {
+            ipStr = '<span style="color:var(--nb-muted)">' + t('neighbour/js/norecord', 'No Record') + '</span>';
         }
 
-        function wakeonlan(object){
-            $(object).addClass("disabled");
-            let macAddr = $(object).attr("mac");
-            macAddr = JSON.parse(decodeURIComponent(macAddr));
-            let counter = macAddr.length;
-            macAddr.forEach(function(thisMac){
-                $.get("../../system/cluster/wol?mac=" + thisMac, function(data){
-                    console.log("Wake On Lan packet sent to "  + thisMac + " with results: "+ data);
-                    counter--;
-                    if (counter == 0){
-                        //All WOL packet has been sent
-                        let currentButtonText = $(object).html();
-                        $(object).addClass("green").addClass("icon");;
-                        $(object).html(`<i class="green checkmark icon"></i>`);
-                        setTimeout(function(){
-                            $(object).removeClass("green").removeClass("remove");
-                            $(object).html(currentButtonText);
-                            $(object).removeClass("disabled");
-                        }, 5000)
-                    }
-                });
-            });
-            
+        /* MAC addresses */
+        var macStr;
+        if (macs.length > 0) {
+            macStr = esc(macs.join(' / '));
+        } else {
+            var label = (status === 'online' && host.MacAddr && host.MacAddr.length === 0)
+                ? t('neighbour/js/unsupported', 'Not Supported')
+                : t('neighbour/js/norecord', 'No Record');
+            macStr = '<span style="color:var(--nb-muted)">' + label + '</span>';
         }
-       
-    </script>
+
+        /* WOL button (offline + has MACs) */
+        var footer = '';
+        if (status === 'offline' && macs.length > 0) {
+            var macEnc = esc(encodeURIComponent(JSON.stringify(macs)));
+            footer =
+                '<div class="nb-card-footer">' +
+                    '<button class="nb-btn-wol" mac="' + macEnc + '" onclick="wakeonlan(this)">' +
+                        '<svg width="12" height="12" viewBox="0 0 16 16" fill="none">' +
+                            '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/>' +
+                            '<path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+                        '</svg> ' + t('neighbour/btn/wol', 'Wake On LAN') +
+                    '</button>' +
+                '</div>';
+        }
+
+        return '<div class="nb-card">' +
+            '<div class="nb-card-header">' +
+                '<img class="nb-card-icon" src="../../img/system/nas.svg" alt="">' +
+                '<div class="nb-card-title">' +
+                    hostnameEl +
+                    '<div class="nb-card-model">' + modelLine + '</div>' +
+                '</div>' +
+                '<span class="nb-status-dot ' + status + '"></span>' +
+            '</div>' +
+            '<div class="nb-kv">' +
+                '<span class="nb-kv-k">' + t('neighbour/label/ip',      'IP')      + '</span>' +
+                '<span class="nb-kv-v">' + ipStr    + '</span>' +
+                '<span class="nb-kv-k">' + t('neighbour/label/version', 'Version') + '</span>' +
+                '<span class="nb-kv-v">' + verLine  + '</span>' +
+                '<span class="nb-kv-k">' + t('neighbour/label/uuid',    'UUID')    + '</span>' +
+                '<span class="nb-kv-v">' + uuid     + '</span>' +
+                '<span class="nb-kv-k">' + t('neighbour/label/mac',     'MAC')     + '</span>' +
+                '<span class="nb-kv-v">' + macStr   + '</span>' +
+            '</div>' +
+            footer +
+        '</div>';
+    }
+
+    /* ── Data fetch ── */
+    function initClusterScannerList() {
+        $.get("../../system/cluster/scan", function(data) {
+            if (data.error !== undefined) {
+                document.getElementById('nb-errormsg').textContent = data.error;
+                document.getElementById('nb-errbox').style.display = 'block';
+                return;
+            }
+
+            /* This Host */
+            var thisHostEl = document.getElementById('nb-thishost');
+            thisHostEl.innerHTML = data.ThisHost
+                ? buildCard(data.ThisHost, 'online')
+                : '<div class="nb-empty">—</div>';
+
+            /* Nearby Hosts */
+            var nearbyEl = document.getElementById('nb-nearby');
+            if (!data.NearbyHosts || data.NearbyHosts.length === 0) {
+                nearbyEl.innerHTML = '<div class="nb-empty">' +
+                    t('neighbour/empty/nearby', 'No nearby hosts discovered') + '</div>';
+            } else {
+                nearbyEl.innerHTML = data.NearbyHosts.map(function(h) {
+                    return buildCard(h, 'online');
+                }).join('');
+            }
+
+            /* Last-updated timestamp */
+            if (data.LastUpdate) {
+                document.getElementById('nb-lastupdated').textContent =
+                    Math.floor(Date.now() / 1000) - data.LastUpdate;
+            }
+        });
+
+        /* Offline hosts */
+        $.get("../../system/cluster/record", function(data) {
+            var offlineEl = document.getElementById('nb-offline');
+            if (!data || data.length === 0) {
+                offlineEl.innerHTML = '<div class="nb-empty">' +
+                    t('neighbour/empty/offline', 'No offline hosts') + '</div>';
+                return;
+            }
+            offlineEl.innerHTML = data.map(function(h) {
+                return buildCard(h, 'offline');
+            }).join('');
+        });
+    }
+
+    /* ── Wake On LAN ── */
+    function wakeonlan(btn) {
+        btn.disabled = true;
+        var macs      = JSON.parse(decodeURIComponent(btn.getAttribute('mac')));
+        var remaining = macs.length;
+        var wolLabel  = t('neighbour/btn/wol', 'Wake On LAN');
+        macs.forEach(function(mac) {
+            $.get("../../system/cluster/wol?mac=" + mac, function() {
+                remaining--;
+                if (remaining === 0) {
+                    btn.classList.add('sent');
+                    btn.textContent = '✓ ' + wolLabel;
+                    setTimeout(function() {
+                        btn.classList.remove('sent');
+                        btn.disabled = false;
+                        btn.innerHTML =
+                            '<svg width="12" height="12" viewBox="0 0 16 16" fill="none">' +
+                            '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5"/>' +
+                            '<path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+                            '</svg> ' + wolLabel;
+                    }, 4000);
+                }
+            });
+        });
+    }
+
+    /* ── Boot ── */
+    // Always run immediately — applocale.init() has no error handler, so if the
+    // locale JSON doesn't exist the success callback never fires and the page
+    // would stay blank. Boot unconditionally; locale translate() enhances static
+    // locale="…" attributes afterwards if the file loads successfully.
+    initClusterScannerList();
+
+    if (nbLocale) {
+        nbLocale.init('../locale/system_settings/neighbour.json', function() {
+            nbLocale.translate();
+        });
+    }
+
+</script>
 </body>
 </html>

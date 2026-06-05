@@ -261,12 +261,11 @@
 </div>
 
 <script>
-    /* ── i18n helper ── */
+    /* ── i18n — scoped instance to avoid collisions with other pages ── */
+    var aeLocale = (typeof NewAppLocale === 'function') ? NewAppLocale() : null;
+
     function t(key, fallback) {
-        if (typeof applocale !== 'undefined') {
-            return applocale.getString(key, fallback);
-        }
-        return fallback;
+        return aeLocale ? aeLocale.getString(key, fallback) : fallback;
     }
 
     /* ── Theme detection ── */
@@ -294,6 +293,12 @@
             }
         } catch(e) {}
     })();
+
+    window.detailPageThemeCallback = function(isDark) {
+        document.body.classList.toggle('dark', isDark);
+        var root = document.getElementById('ae-root');
+        if (root) root.classList.toggle('dark', isDark);
+    };
 
     function parseSecondsToHuman(s) {
         s = Number(s);
@@ -453,13 +458,21 @@
     }
 
     /* ── Init ── */
-    applocale.init("../locale/scheduler.json", function() {
-        applocale.translate();
+    function aeBootstrap() {
         checkPermission();
         checkModuleAccess();
         loadTaskList();
         loadGroupPermissions();
-    });
+    }
+
+    if (aeLocale) {
+        aeLocale.init("../locale/scheduler.json", function() {
+            aeLocale.translate();
+            aeBootstrap();
+        });
+    } else {
+        aeBootstrap();
+    }
 </script>
 </body>
 </html>

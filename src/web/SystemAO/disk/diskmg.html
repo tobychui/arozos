@@ -795,7 +795,9 @@
                 if (!viewData.error){
                     for (var i = 0; i < viewData.length; i++){
                         var d = viewData[i];
-                        volMap[d[0]] = { free: d[5], total: d[6] };
+                        /* view API returns "C:\" but partition API returns "C:" — normalise */
+                        var volKey = String(d[0]).replace(/\\+$/, '');
+                        volMap[volKey] = { free: d[5], total: d[6] };
                     }
                 }
                 var disks = {};

@@ -96,6 +96,7 @@ func RunStartup() {
 	SystemInfoInit()          //System Information UI
 	AuthSettingsInit()        //Authentication Settings Handler, must be start after user Handler
 	AdvanceSettingInit()      //System Advance Settings
+	AGIRuntimeManagerInit()  //AGI VM lifecycle monitor (Developer Options tab)
 	StartupFlagsInit()        //System BootFlag settibg
 	HardwarePowerInit()       //Start host power manager
 	RegisterStorageSettings() //Storage Settings
