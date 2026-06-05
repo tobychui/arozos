@@ -70,13 +70,16 @@ func SystemInfoInit() {
 			HostName:     *host_name,
 		})
 
-		router.HandleFunc("/system/info/getCPUinfo", info.GetCPUInfo)
-		router.HandleFunc("/system/info/ifconfig", info.Ifconfig)
-		router.HandleFunc("/system/info/getDriveStat", info.GetDriveStat)
-		router.HandleFunc("/system/info/usbPorts", info.GetUSB)
+		router.HandleFunc("/system/info/getCPUinfo", info.CachedGetCPUInfo)
+		router.HandleFunc("/system/info/ifconfig", info.CachedIfconfig)
+		router.HandleFunc("/system/info/getDriveStat", info.CachedGetDriveStat)
+		router.HandleFunc("/system/info/usbPorts", info.CachedGetUSB)
 
 		//For low-memory mode detection
-		authRouter.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
+		authRouter.HandleFunc("/system/info/getRAMinfo", info.CachedGetRamInfo)
+
+		// Prime hardware info cache in the background.
+		info.StartHostInfoCache()
 
 		//Register as a system setting
 		registerSetting(settingModule{
