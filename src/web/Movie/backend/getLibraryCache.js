@@ -13,7 +13,7 @@
 includes("common.js");
 requirelib("filelib");
 
-var CACHE_FILE = "user:/Document/Appdata/Movie/library_cache.json";
+var CACHE_FILE = "user:/.appdata/Movie/library_cache.json";
 
 function main() {
     if (!filelib.fileExists(CACHE_FILE)) {

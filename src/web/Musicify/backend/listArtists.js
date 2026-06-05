@@ -68,10 +68,10 @@ function main() {
     // client closes the tab before the HTTP response arrives.
     try {
         if (!filelib.fileExists("user:/Document/"))                    { filelib.mkdir("user:/Document/"); }
-        if (!filelib.fileExists("user:/Document/Appdata/"))            { filelib.mkdir("user:/Document/Appdata/"); }
-        if (!filelib.fileExists("user:/Document/Appdata/Musicify/"))   { filelib.mkdir("user:/Document/Appdata/Musicify/"); }
+        if (!filelib.fileExists("user:/.appdata/"))            { filelib.mkdir("user:/.appdata/"); }
+        if (!filelib.fileExists("user:/.appdata/Musicify/"))   { filelib.mkdir("user:/.appdata/Musicify/"); }
         filelib.writeFile(
-            "user:/Document/Appdata/Musicify/artists_cache.json",
+            "user:/.appdata/Musicify/artists_cache.json",
             JSON.stringify({ ts: new Date().getTime(), items: artists })
         );
     } catch (e) {}  // never let a cache-write failure break the response

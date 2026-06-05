@@ -332,7 +332,7 @@ function scanRoot(rootPath) {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
-var CACHE_FILE = "user:/Document/Appdata/Movie/library_cache.json";
+var CACHE_FILE = "user:/.appdata/Movie/library_cache.json";
 var STALE_MS   = 8 * 60 * 60 * 1000;  // 8 hours
 
 function main() {
@@ -369,10 +369,10 @@ function main() {
     // client closes the tab before the response arrives.
     try {
         if (!filelib.fileExists("user:/Document/"))           { filelib.mkdir("user:/Document/"); }
-        if (!filelib.fileExists("user:/Document/Appdata/"))   { filelib.mkdir("user:/Document/Appdata/"); }
-        if (!filelib.fileExists("user:/Document/Appdata/Movie/")) { filelib.mkdir("user:/Document/Appdata/Movie/"); }
+        if (!filelib.fileExists("user:/.appdata/"))   { filelib.mkdir("user:/.appdata/"); }
+        if (!filelib.fileExists("user:/.appdata/Movie/")) { filelib.mkdir("user:/.appdata/Movie/"); }
         filelib.writeFile(
-            "user:/Document/Appdata/Movie/library_cache.json",
+            "user:/.appdata/Movie/library_cache.json",
             JSON.stringify({ ts: new Date().getTime(), data: allAlbums })
         );
     } catch (e) {}  // never let a cache-write failure break the response

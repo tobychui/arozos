@@ -431,7 +431,7 @@ function musicifyApp() {
             this._artistsFetchInFlight = false;
         },
 
-        // Reads the server-side artists cache (user:/Document/Appdata/Musicify/).
+        // Reads the server-side artists cache (user:/.appdata/Musicify/).
         // Async — calls callback(cache) where cache is { ts, items } or null.
         _readArtistsCache(callback) {
             fetch(ao_root + 'system/ajgi/interface?script=Musicify/backend/getArtistsCache.js', {

@@ -5,7 +5,7 @@
     POST params:
         movie – movie title to search for
 
-    Cache: user:/Document/Appdata/Movie/{sanitized_title}.json
+    Cache: user:/.appdata/Movie/{sanitized_title}.json
     Returns JSON: first IMDB search result, or { error: "..." }
 
     Result fields (from iamidiotareyoutoo.com search API):
@@ -17,7 +17,7 @@ includes("common.js");
 requirelib("filelib");
 requirelib("http");
 
-var CACHE_DIR = "user:/Document/Appdata/Movie/";
+var CACHE_DIR = "user:/.appdata/Movie/";
 
 // Sanitize a string into a safe filename
 function sanitize(str) {
@@ -135,8 +135,7 @@ function main() {
     }
 
     // Ensure cache hierarchy exists
-    mkdirIfMissing("user:/Document/");
-    mkdirIfMissing("user:/Document/Appdata/");
+    mkdirIfMissing("user:/.appdata/");
     mkdirIfMissing(CACHE_DIR);
 
     var cacheFile = CACHE_DIR + sanitize(movie) + ".json";
