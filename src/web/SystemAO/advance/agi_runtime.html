@@ -312,9 +312,14 @@
             }
 
             function updateCountdownLabel() {
-                document.getElementById("countdownText").textContent =
-                    loc("agi_runtime/auto_refresh", "Auto-refresh in {n}s")
-                        .replace("{n}", countdownSecs);
+                var el = document.getElementById("countdownText");
+                if (!el) {
+                    clearInterval(window._agiRtInterval);
+                    window._agiRtInterval = null;
+                    return;
+                }
+                el.textContent = loc("agi_runtime/auto_refresh", "Auto-refresh in {n}s")
+                    .replace("{n}", countdownSecs);
             }
 
             /* ── Toast ──────────────────────────────────────────────── */
