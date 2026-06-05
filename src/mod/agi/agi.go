@@ -21,7 +21,6 @@ import (
 	"imuslab.com/arozos/mod/filesystem/arozfs"
 	"imuslab.com/arozos/mod/info/logger"
 	metadata "imuslab.com/arozos/mod/filesystem/metadata"
-	"imuslab.com/arozos/mod/info/logger"
 	"imuslab.com/arozos/mod/iot"
 	"imuslab.com/arozos/mod/share"
 	"imuslab.com/arozos/mod/time/nightly"
@@ -43,6 +42,10 @@ var (
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
 	errTimeout  = errors.New("errTimeout")
+
+	// agiLogger is a stdout-only fallback used when no system-wide logger is
+	// available. Scripts should use g.Option.Logger when present.
+	agiLogger, _ = logger.NewTmpLogger()
 )
 
 type AgiPackage struct {
