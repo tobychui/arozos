@@ -13,6 +13,7 @@ import (
 
 	console "imuslab.com/arozos/mod/console"
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/requestlog"
 )
 
 /*
@@ -114,6 +115,18 @@ func main() {
 	//Updates 2022-09-06: Gzip handler moved inside the master router
 	http.Handle("/", mrouter(fs))
 
+	// Enable extended request logging when the --extended_log flag is set.
+	// The middleware wraps the entire default mux so every request (including
+	// those registered directly via http.HandleFunc) is covered.
+	if *extended_log {
+		requestlog.Enabled = true
+		systemWideLogger.PrintAndLog("System", "Extended request logging enabled (X-Arozos-RequestId)", nil)
+	}
+	var serverHandler http.Handler = http.DefaultServeMux
+	if *extended_log {
+		serverHandler = requestlog.Middleware(http.DefaultServeMux)
+	}
+
 	//Setup handler for Ctrl +C
 	SetupCloseHandler()
 
@@ -124,16 +137,16 @@ func main() {
 				go func() {
 					address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
 					systemWideLogger.PrintAndLog("System", fmt.Sprint("Standard (HTTP) Web server listening at", address), nil)
-					http.ListenAndServe(address, nil)
+					http.ListenAndServe(address, serverHandler)
 				}()
 			}
 			address := fmt.Sprintf("%s:%d", *listen_host, *tls_listen_port)
 			systemWideLogger.PrintAndLog("System", fmt.Sprint("Secure (HTTPS) Web server listening at", address), nil)
-			http.ListenAndServeTLS(address, *tls_cert, *tls_key, nil)
+			http.ListenAndServeTLS(address, *tls_cert, *tls_key, serverHandler)
 		} else {
 			address := fmt.Sprintf("%s:%d", *listen_host, *listen_port)
 			systemWideLogger.PrintAndLog("System", fmt.Sprint("Web server listening at", address), nil)
-			http.ListenAndServe(address, nil)
+			http.ListenAndServe(address, serverHandler)
 		}
 	}()
 

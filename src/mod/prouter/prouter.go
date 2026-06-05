@@ -15,6 +15,7 @@ import (
 	"net/http"
 
 	"imuslab.com/arozos/mod/info/logger"
+	"imuslab.com/arozos/mod/requestlog"
 	"imuslab.com/arozos/mod/security/csrf"
 	user "imuslab.com/arozos/mod/user"
 )
@@ -81,6 +82,7 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 				if router.adminOnly && !userinfo.IsAdmin() {
 					router.permissionDeniedHandler(w, r)
 				} else {
+					requestlog.LogComponent(r, "(system)", endpoint)
 					handler(w, r)
 				}
 				return
@@ -91,6 +93,7 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 				if router.adminOnly == true {
 					//This module require admin. Check user is admin
 					if userinfo.IsAdmin() == true {
+						requestlog.LogComponent(r, router.moduleUUID, endpoint)
 						handler(w, r)
 					} else {
 						router.permissionDeniedHandler(w, r)
@@ -98,6 +101,7 @@ func (router *RouterDef) HandleFunc(endpoint string, handler func(http.ResponseW
 					}
 				} else {
 					//This module do not require admin. Allow serving
+					requestlog.LogComponent(r, router.moduleUUID, endpoint)
 					handler(w, r)
 				}
 			} else {

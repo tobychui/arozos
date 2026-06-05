@@ -99,6 +99,7 @@ var enable_beta_scanning_support = flag.Bool("beta_scan", false, "Allow compatib
 var enable_console = flag.Bool("console", false, "Enable the debugging console.")
 var enable_logging = flag.Bool("logging", true, "Enable logging to file for debug purpose")
 var log_format = flag.String("log_format", "text", "Console log output format: text or json")
+var extended_log = flag.Bool("extended_log", false, "Enable extended request logging: attach X-Arozos-RequestId UUID header to every response and log method, path, headers, status code, duration, and handling component for each request")
 
 // Flags related to running on Cloud Environment or public domain
 var allow_public_registry = flag.Bool("public_reg", false, "Enable public register interface for account creation")
