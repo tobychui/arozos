@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/freetype"
@@ -51,8 +52,22 @@ type Options struct {
 	TmpFolder       string
 }
 
+// ZipJob tracks the state of an async zip operation
+type ZipJob struct {
+	mu          sync.Mutex
+	Status      string  // "buffering" | "zipping" | "done" | "error"
+	Progress    float64 // 0–100
+	CurrentFile string
+	Error       string
+	OutputPath  string
+	Filename    string
+	CreatedAt   time.Time
+	localBuff   string // temp dir to clean up after zipping
+}
+
 type Manager struct {
 	options Options
+	zipJobs sync.Map // map[string]*ZipJob
 }
 
 // Create a new Share Manager
@@ -262,10 +277,27 @@ func (s *Manager) HandleOPGServing(w http.ResponseWriter, r *http.Request, share
 
 // Main function for handle share. Must be called with http.HandleFunc (No auth)
 func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
+	// Handle async zip status/download endpoints early — these use the job ID as an auth token
+	// and do not require a share entry lookup.
+	{
+		cleanParts := strings.Split(strings.TrimPrefix(filepath.ToSlash(filepath.Clean(r.URL.Path)), "/"), "/")
+		if len(cleanParts) >= 3 {
+			switch cleanParts[1] {
+			case "zip-status":
+				s.handleZipStatus(w, r, cleanParts[2])
+				return
+			case "zip-download":
+				s.handleZipDownload(w, r, cleanParts[2])
+				return
+			}
+		}
+	}
+
 	//New download method variables
 	subpathElements := []string{}
 	directDownload := false
 	directServe := false
+	prepareZip := false
 	relpath := ""
 
 	compressionLevel := flate.DefaultCompression
@@ -306,6 +338,8 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 				}
 			} else if subpathElements[1] == "preview" {
 				directServe = true
+			} else if subpathElements[1] == "prepare-zip" {
+				prepareZip = true
 			} else if len(subpathElements) == 3 {
 				//Check if the last element is the filename
 				if strings.Contains(subpathElements[2], ".") {
@@ -647,6 +681,109 @@ func (s *Manager) HandleShareAccess(w http.ResponseWriter, r *http.Request) {
 						os.RemoveAll(filepath.Dir(localBuff))
 					}
 				}
+
+			} else if prepareZip {
+				// Async zip: start a background job and return the job ID immediately
+				jobID := uuid.NewV4().String()
+				tmpFolder := filepath.Join(s.options.TmpFolder, "share-cache")
+				os.MkdirAll(tmpFolder, 0755)
+				targetZipFilename := filepath.Join(tmpFolder, jobID+".zip")
+
+				localBuffDir := ""
+				if targetFsh.RequireBuffer {
+					localBuffDir = filepath.Join(tmpFolder, jobID+"_buff")
+				}
+
+				job := &ZipJob{
+					Status:     "zipping",
+					OutputPath: targetZipFilename,
+					Filename:   arozfs.Base(shareOption.FileRealPath) + ".zip",
+					CreatedAt:  time.Now(),
+					localBuff:  localBuffDir,
+				}
+				if targetFsh.RequireBuffer {
+					job.Status = "buffering"
+				}
+				s.zipJobs.Store(jobID, job)
+
+				// Capture variables for the goroutine
+				capturedFshAbs := targetFshAbs
+				capturedSrcPath := fileRuntimeAbsPath
+				capturedSrcFsh := targetFsh
+				capturedRequireBuffer := targetFsh.RequireBuffer
+				capturedLocalBuff := filepath.Join(localBuffDir, arozfs.Base(fileRuntimeAbsPath))
+				capturedCompressionLevel := compressionLevel
+
+				go func() {
+					actualSource := capturedSrcPath
+					var actualFsh *filesystem.FileSystemHandler = capturedSrcFsh
+
+					if capturedRequireBuffer {
+						os.MkdirAll(capturedLocalBuff, 0755)
+						capturedFshAbs.Walk(capturedSrcPath, func(path string, info fs.FileInfo, err error) error {
+							if err != nil {
+								return nil
+							}
+							relPath := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(capturedSrcPath))
+							localPath := filepath.Join(capturedLocalBuff, relPath)
+							if info.IsDir() {
+								os.MkdirAll(localPath, 0755)
+							} else {
+								f, err := capturedFshAbs.ReadStream(path)
+								if err != nil {
+									return nil
+								}
+								defer f.Close()
+								dest, err := os.OpenFile(localPath, os.O_CREATE|os.O_WRONLY, 0775)
+								if err != nil {
+									return nil
+								}
+								defer dest.Close()
+								io.Copy(dest, f)
+							}
+							return nil
+						})
+						actualSource = capturedLocalBuff
+						actualFsh = nil
+						job.mu.Lock()
+						job.Status = "zipping"
+						job.mu.Unlock()
+					}
+
+					fshs := []*filesystem.FileSystemHandler{actualFsh}
+					zipErr := filesystem.ArozZipFileWithProgressAndCompression(fshs, []string{actualSource}, nil, targetZipFilename, false, capturedCompressionLevel, func(filename string, current, total int, progress float64) int {
+						job.mu.Lock()
+						job.CurrentFile = filename
+						job.Progress = progress
+						job.mu.Unlock()
+						return 0
+					})
+
+					job.mu.Lock()
+					if zipErr != nil {
+						job.Status = "error"
+						job.Error = zipErr.Error()
+					} else {
+						job.Status = "done"
+						job.Progress = 100
+					}
+					job.mu.Unlock()
+
+					if capturedRequireBuffer {
+						os.RemoveAll(localBuffDir)
+					}
+
+					// Auto-expire the job and zip file after 1 hour
+					go func() {
+						time.Sleep(time.Hour)
+						s.zipJobs.Delete(jobID)
+						os.Remove(targetZipFilename)
+					}()
+				}()
+
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"jobId": jobID})
+				return
 
 			} else if directServe {
 				//Folder provide no direct serve method.
@@ -1429,4 +1566,55 @@ func getPathHashFromUsernameAndVpath(userinfo *user.User, vpath string) (string,
 		return "", err
 	}
 	return shareEntry.GetPathHash(fsh, vpath, userinfo.Username)
+}
+
+// handleZipStatus returns the current status of an async zip job as JSON.
+func (s *Manager) handleZipStatus(w http.ResponseWriter, r *http.Request, jobID string) {
+	v, ok := s.zipJobs.Load(jobID)
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "job not found"})
+		return
+	}
+
+	job := v.(*ZipJob)
+	job.mu.Lock()
+	resp := map[string]interface{}{
+		"status":      job.Status,
+		"progress":    job.Progress,
+		"currentFile": job.CurrentFile,
+		"error":       job.Error,
+		"filename":    job.Filename,
+	}
+	job.mu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// handleZipDownload serves a completed async zip file.
+func (s *Manager) handleZipDownload(w http.ResponseWriter, r *http.Request, jobID string) {
+	v, ok := s.zipJobs.Load(jobID)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	job := v.(*ZipJob)
+	job.mu.Lock()
+	status := job.Status
+	outputPath := job.OutputPath
+	filename := job.Filename
+	job.mu.Unlock()
+
+	if status != "done" {
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte("202 - Zip operation still in progress"))
+		return
+	}
+
+	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+strings.ReplaceAll(url.QueryEscape(filename), "+", "%20"))
+	w.Header().Set("Content-Type", "application/zip")
+	http.ServeFile(w, r, outputPath)
 }
