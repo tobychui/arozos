@@ -201,6 +201,29 @@
                 box-shadow: 0 0 0 3px var(--select-focus);
             }
 
+            /* ── Empty state ── */
+            .empty-state {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 64px 24px;
+                text-align: center;
+                color: var(--dim);
+            }
+            .empty-state h2 {
+                font-size: 17px;
+                font-weight: 600;
+                color: var(--text);
+                margin: 0 0 6px;
+            }
+            .empty-state p {
+                font-size: 13px;
+                margin: 0;
+                max-width: 320px;
+                line-height: 1.5;
+            }
+
             /* ── Skeleton loading ── */
             .skeleton-card {
                 background: var(--card);
@@ -291,6 +314,19 @@
 
             function renderGroups(groups, extMod) {
                 var sortedMods = Object.keys(groups).sort(function(a,b){ return a.localeCompare(b); });
+                if (sortedMods.length === 0) {
+                    var emptyHtml =
+                        '<div class="empty-state">' +
+                            '<h2 locale="defaultOpener/EmptyTitle">No default openers defined</h2>' +
+                            '<p locale="defaultOpener/EmptyDesc">No file type associations have been configured yet. Install apps that support file types to set default openers.</p>' +
+                        '</div>';
+                    $("#groupList").html(emptyHtml);
+                    if (typeof applocale !== "undefined" && applocale) {
+                        var loc = NewAppLocale();
+                        loc.init("../locale/default_opener_settings.json", function() { loc.translate(); });
+                    }
+                    return;
+                }
                 var html = "";
                 for (var m = 0; m < sortedMods.length; m++) {
                     var modName = sortedMods[m];
