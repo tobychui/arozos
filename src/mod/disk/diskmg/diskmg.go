@@ -72,6 +72,11 @@ If you find any bugs in these code, just remember they are legacy
 code and rewriting the whole thing will save you a lot more time.
 */
 func HandleView(w http.ResponseWriter, r *http.Request) {
+	if runtime.GOOS == "darwin" {
+		handleViewDarwin(w, r)
+		return
+	}
+
 	partition, _ := utils.GetPara(r, "partition")
 	detailMode := (partition != "")
 	if runtime.GOOS == "windows" {
@@ -191,6 +196,10 @@ Manual translated from mountTool.php
 Require GET parameter: dev / format / mnt
 */
 func HandleMount(w http.ResponseWriter, r *http.Request, fsHandlers []*fs.FileSystemHandler) {
+	if runtime.GOOS == "darwin" {
+		handleMountDarwin(w, r)
+		return
+	}
 	if runtime.GOOS == "linux" {
 		targetDev, _ := utils.GetPara(r, "dev")
 		format, err := utils.GetPara(r, "format")
