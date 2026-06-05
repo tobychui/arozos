@@ -17,8 +17,10 @@ package requestlog
 */
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -62,6 +64,17 @@ func (rr *responseRecorder) status() int {
 		return http.StatusOK
 	}
 	return rr.statusCode
+}
+
+// Hijack implements http.Hijacker so that WebSocket upgrades work through the
+// middleware. Without this, the gorilla/websocket upgrader cannot take over the
+// underlying TCP connection and returns "response does not implement http.Hijacker".
+func (rr *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := rr.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("requestlog: underlying ResponseWriter does not implement http.Hijacker")
+	}
+	return hijacker.Hijack()
 }
 
 // GetRequestID retrieves the request ID injected by Middleware from the
