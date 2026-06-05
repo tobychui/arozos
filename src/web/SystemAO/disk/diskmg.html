@@ -542,6 +542,128 @@
             body.dark #loaderUI { background: rgba(0,0,0,0.6); }
             body.dark .loader-text { color: #98989d; }
             body.dark .loader-spinner { border-color: rgba(255,255,255,0.1); border-top-color: #0a84ff; }
+
+            /* ── Mobile / RWD ── */
+            @media (max-width: 640px) {
+                body { overflow: auto; }
+
+                .main-layout {
+                    flex-direction: column;
+                    height: auto;
+                    min-height: 100vh;
+                    overflow: visible;
+                }
+
+                /* Sidebar becomes a horizontal scrollable tab strip */
+                .sidebar {
+                    width: 100%;
+                    height: auto;
+                    flex-shrink: 0;
+                    border-right: none;
+                    border-bottom: 1px solid rgba(0,0,0,0.13);
+                    flex-direction: column;
+                    overflow: visible;
+                }
+
+                .sidebar-header {
+                    padding: 10px 12px 4px;
+                    font-size: 10px;
+                }
+
+                .sidebar-list {
+                    display: flex;
+                    flex-direction: row;
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    -webkit-overflow-scrolling: touch;
+                    scrollbar-width: none;
+                    padding: 4px 8px 8px;
+                    gap: 6px;
+                    flex: none;
+                    height: auto;
+                }
+                .sidebar-list::-webkit-scrollbar { display: none; }
+
+                .sidebar-item {
+                    flex-direction: column;
+                    flex-shrink: 0;
+                    align-items: center;
+                    text-align: center;
+                    gap: 3px;
+                    padding: 7px 10px;
+                    min-width: 70px;
+                    margin-bottom: 0;
+                }
+
+                .sidebar-item-icon { width: 22px; height: 22px; }
+                .sidebar-item-name { font-size: 11px; }
+                .sidebar-item-sub  { display: none; }
+
+                /* Detail panel: full width, normal scroll */
+                .detail-panel {
+                    flex: 1;
+                    padding: 10px 10px 20px;
+                    overflow-y: visible;
+                    height: auto;
+                }
+
+                .disk-header-card {
+                    padding: 12px 14px;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                }
+
+                .disk-header-icon { width: 44px; height: 44px; }
+                .disk-header-name { font-size: 15px; }
+                .disk-header-stats { gap: 16px; flex-wrap: wrap; }
+
+                /* Table horizontal scroll */
+                .partition-table-scroll {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .partition-table { min-width: 480px; }
+
+                /* Show the per-row action button on mobile */
+                .row-action-btn {
+                    display: inline-flex !important;
+                }
+
+                /* Context menu: full-width bottom sheet on mobile */
+                #rightClickMenu {
+                    position: fixed;
+                    left: 0 !important;
+                    right: 0;
+                    bottom: 0 !important;
+                    top: auto !important;
+                    width: 100%;
+                    min-width: 0;
+                    border-radius: 14px 14px 0 0;
+                    padding: 6px 6px 28px;
+                }
+            }
+
+            body.dark .sidebar { border-bottom-color: rgba(255,255,255,0.1); }
+
+            /* Action button — hidden on desktop, shown on mobile */
+            .row-action-btn {
+                display: none;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                border: none;
+                background: transparent;
+                font-size: 16px;
+                color: #6e6e73;
+                cursor: pointer;
+                border-radius: 6px;
+                font-family: inherit;
+                padding: 0;
+            }
+            .row-action-btn:hover { background: rgba(0,0,0,0.07); }
+            body.dark .row-action-btn { color: #98989d; }
+            body.dark .row-action-btn:hover { background: rgba(255,255,255,0.1); }
         </style>
     </head>
     <body>
@@ -650,7 +772,9 @@
             appLocale.init("../locale/diskmg.json", function(){
                 appLocale.translate();
                 $.get(ao_root + "system/disk/diskmg/platform", function(data){
-                    mode = (data === "windows") ? "windows" : "linux";
+                    if (data === "windows") mode = "windows";
+                    else if (data === "darwin") mode = "darwin";
+                    else mode = "linux";
                     initData();
                     initMountPointList();
                 });
@@ -733,6 +857,21 @@
                 var diskInfo = $(".focusedPart").attr("metadata");
                 diskInfo = ao_module_utils.attrToObject(diskInfo);
                 hideRightclickMenu();
+
+                if (mode === "darwin"){
+                    /* diskutil handles mount points automatically — no dialog needed */
+                    var isMounted = (diskInfo[3] === true || diskInfo[3] === "true");
+                    $("#loaderUI").addClass("active");
+                    $.get(ao_root + "system/disk/diskmg/mount?dev=" + encodeURIComponent(diskInfo[0]) +
+                          "&umount=" + isMounted,
+                        function(data){
+                            initData();
+                            $("#loaderUI").removeClass("active");
+                        }
+                    );
+                    return;
+                }
+
                 if (diskInfo[3] === false || diskInfo[3] === "false"){
                     $(".functMenuDimmer").fadeIn("fast");
                     $("#mountOptions").fadeIn("fast");
@@ -784,10 +923,60 @@
                 ).done(function(viewResp, partResp){
                     if (mode === "windows"){
                         processWindowsData(viewResp[0], partResp[0]);
+                    } else if (mode === "darwin"){
+                        processMacData(viewResp[0]);
                     } else {
                         processLinuxData(viewResp[0], partResp[0]);
                     }
                 });
+            }
+
+            // ── macOS data processor ─────────────────────────────────────────
+            // viewData is the JSON array of DarwinDisk objects from the backend.
+
+            function processMacData(viewData){
+                if (!Array.isArray(viewData)){
+                    console.error("processMacData: unexpected response", viewData);
+                    return;
+                }
+
+                var disks = {};
+                volumeData = {};
+
+                for (var i = 0; i < viewData.length; i++){
+                    var d = viewData[i];
+                    var diskID = d.identifier;
+
+                    disks[diskID] = {
+                        partitionsTotalSize: d.size,
+                        partitionNames:  [],
+                        partitionID:     [],
+                        partitionVolume: [],
+                        Type:    [],
+                        Mounted: [],
+                        Format:  [],
+                        model:   d.model  || diskID,
+                        removable: d.removable || false
+                    };
+
+                    for (var j = 0; j < d.partitions.length; j++){
+                        var p  = d.partitions[j];
+                        var mp = p.mountpoint || "";
+                        disks[diskID].partitionNames.push(mp);
+                        disks[diskID].partitionID.push(p.identifier);
+                        disks[diskID].partitionVolume.push(p.size);
+                        disks[diskID].Type.push(p.type || "");
+                        disks[diskID].Mounted.push(mp !== "");
+                        disks[diskID].Format.push(p.fstype || "—");
+
+                        if (mp !== ""){
+                            volumeData[mp] = { usedPct: p.usedPct || 0 };
+                        }
+                    }
+                }
+
+                diskInformation = disks;
+                buildSidebar();
             }
 
             function processWindowsData(viewData, partData){
@@ -901,17 +1090,18 @@
                     var allOff = di.Mounted.every(function(m){ return m === false; });
                     var statusLabel = allOn ? appLocale.getString("diskmg/mounted", "Mounted") : allOff ? appLocale.getString("diskmg/not-mounted-s", "Not mounted") : appLocale.getString("diskmg/partial", "Partial");
 
-                    (function(k){
+                    (function(k, diRef){
+                        var displayName = (mode === "darwin" && diRef.model) ? diRef.model : k;
                         var itemHtml =
                             "<div class='sidebar-item' data-diskkey='" + k + "' onclick='selectDisk(\"" + k + "\")'>" +
                                 "<img class='sidebar-item-icon' src='../../img/system/drive.svg' alt=''>" +
                                 "<div class='sidebar-item-text'>" +
-                                    "<div class='sidebar-item-name'>" + k + "</div>" +
+                                    "<div class='sidebar-item-name'>" + displayName + "</div>" +
                                     "<div class='sidebar-item-sub'>" + total + " &middot; " + statusLabel + "</div>" +
                                 "</div>" +
                             "</div>";
                         $("#sidebarList").append(itemHtml);
-                    })(key);
+                    })(key, di);
                 }
 
                 /* restore or auto-select first disk */
@@ -939,6 +1129,9 @@
                 var allOff = di.Mounted.every(function(m){ return m === false; });
                 var mountLabel = allOn ? appLocale.getString("diskmg/mounted", "Mounted") : allOff ? appLocale.getString("diskmg/not-mounted", "Not Mounted") : appLocale.getString("diskmg/partially", "Partially Mounted");
                 var typeShort  = (di.Type[0] || "Disk").split(" ")[0];
+                /* On macOS show the human-readable model name; fall back to identifier */
+                var headerName = (mode === "darwin" && di.model) ? di.model : key;
+                var headerMeta = (mode === "darwin" && di.model) ? key + " &middot; " + mountLabel : typeShort + " &middot; " + mountLabel;
 
                 /* ── Colored storage bar ── */
                 var barSegs    = "";
@@ -992,7 +1185,7 @@
                     /* usage bar */
                     var usedPct = 0;
                     if (!isUnalloc && pmnt){
-                        if (mode === "linux" && volumeData && volumeData[di.partitionNames[k]]){
+                        if ((mode === "linux" || mode === "darwin") && volumeData && volumeData[di.partitionNames[k]]){
                             usedPct = volumeData[di.partitionNames[k]].usedPct || 0;
                         } else if (mode === "windows" && volumeData && volumeData[pid]){
                             var vd = volumeData[pid];
@@ -1015,6 +1208,7 @@
                             "<td>" + bytesToSize(pvol) + "</td>" +
                             "<td><span class='status-badge'><span class='status-dot " + dotCls + "'></span>" + statusLabel + "</span></td>" +
                             "<td>" + usedDisp + miniBar + "</td>" +
+                            "<td style='padding:4px 8px;'><button class='row-action-btn' title='Actions'>&#8943;</button></td>" +
                         "</tr>";
                 }
 
@@ -1024,8 +1218,8 @@
                     "<div class='disk-header-card'>" +
                         "<img class='disk-header-icon' src='../../img/system/drive.svg' alt='disk'>" +
                         "<div class='disk-header-info'>" +
-                            "<div class='disk-header-name'>" + key + "</div>" +
-                            "<div class='disk-header-meta'>" + typeShort + " &middot; " + mountLabel + "</div>" +
+                            "<div class='disk-header-name'>" + headerName + "</div>" +
+                            "<div class='disk-header-meta'>" + headerMeta + "</div>" +
                             "<div class='storage-bar'>" + barSegs + "</div>" +
                             "<div class='storage-bar-legend'>" + legendHtml + "</div>" +
                             "<div class='disk-header-stats'>" +
@@ -1036,6 +1230,7 @@
                     "</div>" +
                     "<div class='partition-card'>" +
                         "<div class='partition-card-header'>" + appLocale.getString("diskmg/parts-volumes", "Partitions &amp; Volumes") + "</div>" +
+                        "<div class='partition-table-scroll'>" +
                         "<table class='partition-table'>" +
                             "<thead><tr>" +
                                 "<th>" + appLocale.getString("diskmg/col-device", "Device") + "</th>" +
@@ -1044,9 +1239,11 @@
                                 "<th>" + appLocale.getString("diskmg/col-size", "Size") + "</th>" +
                                 "<th>" + appLocale.getString("diskmg/col-status", "Status") + "</th>" +
                                 "<th>" + appLocale.getString("diskmg/col-usage", "Usage") + "</th>" +
+                                "<th style='width:36px;'></th>" +
                             "</tr></thead>" +
                             "<tbody>" + tableRows + "</tbody>" +
                         "</table>" +
+                        "</div>" +
                     "</div>";
 
                 $("#detailPanel").html(html);
@@ -1055,45 +1252,82 @@
 
             // ── Partition row events ─────────────────────────────────────────
 
+            function showRowContextMenu(row, x, y){
+                if (mode === "windows") return;
+                /* Erase is Linux-only; hide the option on macOS */
+                if (mode === "darwin"){
+                    $("#formatDisk").addClass("disabled");
+                } else {
+                    $("#formatDisk").removeClass("disabled");
+                }
+
+                $(".focusedPart").removeClass("focusedPart");
+                $(row).addClass("focusedPart");
+
+                var isMobile  = window.matchMedia("(max-width:640px)").matches;
+                var menuH     = $("#rightClickMenu").outerHeight() || 80;
+
+                if (isMobile){
+                    /* Bottom sheet — CSS positions it via media query */
+                    $("#rightClickMenu").css({ left: "", top: "" }).show();
+                } else {
+                    var top = y + 4;
+                    if (top + menuH > window.innerHeight) top = y - menuH - 4;
+                    if (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop) top -= 50;
+                    $("#rightClickMenu").css({ left: x + "px", top: top + "px" }).show();
+                }
+
+                var info      = ao_module_utils.attrToObject($(row).attr("metadata"));
+                var isMounted = (info[3] === true || info[3] === "true");
+
+                if (isMounted){
+                    var isSystem = (info[1] === "/" || info[1] === "/boot");
+                    if (isSystem){
+                        $("#mtbtn").addClass("disabled");
+                        $("#formatDisk").addClass("disabled");
+                    } else {
+                        $("#mtbtn").removeClass("disabled");
+                        $("#formatDisk").removeClass("disabled");
+                    }
+                    $("#mtbtn").html('<i class="eject icon"></i> ' + appLocale.getString("diskmg/unmount", "Unmount"));
+                } else {
+                    $("#mtbtn").html('<i class="plug icon"></i> ' + appLocale.getString("diskmg/mount", "Mount")).removeClass("disabled");
+                    $("#formatDisk").removeClass("disabled");
+                }
+            }
+
             function attachPartitionEvents(){
                 $(".part-row").on("click", function(){
                     $(".focusedPart").removeClass("focusedPart");
                     $(this).addClass("focusedPart");
                 });
 
+                /* Desktop: right-click context menu */
                 $(".part-row").contextmenu(function(e){
-                    if (mode === "windows") return true;
-
-                    $(".focusedPart").removeClass("focusedPart");
-                    $(this).addClass("focusedPart");
-
-                    var px    = e.clientX;
-                    var py    = e.clientY;
-                    var menuH = $("#rightClickMenu").outerHeight() || 80;
-                    var top   = py + 4;
-                    if (top + menuH > window.innerHeight) top = py - menuH - 4;
-                    if (typeof ao_module_virtualDesktop !== "undefined" && ao_module_virtualDesktop) top -= 50;
-
-                    $("#rightClickMenu").css({ left: px + "px", top: top + "px" }).show();
-
-                    var info      = ao_module_utils.attrToObject($(this).attr("metadata"));
-                    var isMounted = (info[3] === true || info[3] === "true");
-
-                    if (isMounted){
-                        var isSystem = (info[1] === "/" || info[1] === "/boot");
-                        if (isSystem){
-                            $("#mtbtn").addClass("disabled");
-                            $("#formatDisk").addClass("disabled");
-                        } else {
-                            $("#mtbtn").removeClass("disabled");
-                            $("#formatDisk").removeClass("disabled");
-                        }
-                        $("#mtbtn").html('<i class="eject icon"></i> ' + appLocale.getString("diskmg/unmount", "Unmount"));
-                    } else {
-                        $("#mtbtn").html('<i class="plug icon"></i> ' + appLocale.getString("diskmg/mount", "Mount")).removeClass("disabled");
-                        $("#formatDisk").removeClass("disabled");
-                    }
+                    showRowContextMenu(this, e.clientX, e.clientY);
                     return false;
+                });
+
+                /* Mobile: ⋯ action button */
+                $(".row-action-btn").on("click", function(e){
+                    e.stopPropagation();
+                    var row  = $(this).closest("tr")[0];
+                    var rect = this.getBoundingClientRect();
+                    showRowContextMenu(row, rect.left, rect.bottom);
+                });
+
+                /* Mobile: long-press (500ms) triggers context menu */
+                var longPressTimer = null;
+                $(".part-row").on("touchstart", function(e){
+                    var touch = e.originalEvent.touches[0];
+                    var row   = this;
+                    var tx    = touch.clientX;
+                    var ty    = touch.clientY;
+                    longPressTimer = setTimeout(function(){
+                        showRowContextMenu(row, tx, ty);
+                    }, 500);
+                }).on("touchend touchmove touchcancel", function(){
+                    clearTimeout(longPressTimer);
                 });
             }
 
