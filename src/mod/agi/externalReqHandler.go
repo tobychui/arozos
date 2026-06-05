@@ -228,7 +228,7 @@ func (g *Gateway) ExtAPIHandler(w http.ResponseWriter, r *http.Request) {
 	g.recordExecution(endpointUUID, pathFromDb, execID, r.Method, durationMs, execErr)
 
 	if execErr != nil {
-		logger.PrintAndLog("Agi", fmt.Sprint("[Remote AGI] ", pathFromDb, " failed to execute", execErr.Error()), nil)
+		logger.PrintAndLog("Agi", fmt.Sprintf("[Remote AGI][%s] %s failed to execute: %s", execID, pathFromDb, execErr.Error()), nil)
 		utils.SendErrorResponse(w, execErr.Error())
 		return
 	}
