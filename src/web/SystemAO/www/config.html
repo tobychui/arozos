@@ -1,161 +1,518 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <!-- Meta headers for mobile devices-->
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
-        <meta charset="UTF-8">
-        <link rel="icon" href="favicon.png">
+<head>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <link rel="icon" href="favicon.png">
+    <!-- ao_module is provided by the parent frame; ao_module.js is not needed standalone -->
+    <script src="../../../script/jquery.min.js"></script>
+    <script src="../../../script/applocale.js"></script>
+    <title>Personal Homepage</title>
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        <!-- CSS and JavaScript, access to scripe folder is not blocked for non logged in users-->
-        <link rel="stylesheet" href="../../../script/semantic/semantic.min.css">
-        <script src="../../../script/jquery.min.js"></script>
-        <!-- <script src="../../../script/ao_module.js"></script> -->
-        <script src="../../../script/semantic/semantic.min.js"></script>
-        <script type="text/javascript" src="../../../script/applocale.js"></script>
-        <title>Personal Homepage</title>
-        <style>
-            body{
-                background-color:white;
-            }
-            #sys-setting-page { padding: 20px; }
-        </style>
-    </head>
-    <body>
-        <br>
-        <div class="ui container" id="sys-setting-page">
-            <div class="ui basic segment">
-                <h3 class="ui header">
-                    <i class="home icon"></i>
-                    <div class="content">
-                        <span locale="header/title">Personal Home Page</span>
-                        <div class="sub header" locale="header/subtitle">Create your own home page on ArozOS</div>
-                    </div>
-                </h3>
-            </div>
-            <div class="ui divider"></div>
-            <div class="ui message">
-                <div class="header" locale="info/header">
-                    What is Personal Home Page?
-                </div>
-                <ul class="list">
-                    <li locale="info/point1">You can host a static website using ArozOS</li>
-                    <li locale="info/point2">All website source are accessiable by your File Manager located inside your user file system</li>
-                    <li><span locale="info/point3">Everyone can access your home page using</span> <a id="homepageLink" target="_blank"><span class="protocol">http:</span>//<span class="hostname"></span><span class="port"></span>/www/<span class="username">{your_username}</span>/</a></li>
-                </ul>
-            </div>
-            <div class="ui container">
-                <h4 locale="toggle/title">Toggle Personal Home Page</h4>
-                <div class="ui toggle checkbox">
-                    <input type="checkbox" id="enablehp" onchange="updateHomepageStatus(this.checked);">
-                    <label locale="toggle/label">Enable personal home page</label>
-                </div>
-                <div id="updateSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i> <span locale="toggle/success">Home Page Status Updated</span></div>
-                <br>
-                <h4 locale="webroot/title">Select web root folder location</h4>
-                <div class="ui action fluid input">
-                    <input id="webroot" type="text" placeholder="Select Location" readonly="true" locale-placeholder="webroot/placeholder">
-                    <button class="ui black button" onclick="selectWebRootLocation();"><i class="folder open icon"></i> <span locale="webroot/button">Open</span></button>
-                </div>
-                <div class="ui yellow message"><i class="warning icon"></i> <span locale="webroot/warning">All files located inside the web root will be accessiable by everyone on the internet.</span></div>
-                <div id="webrootSetSuceed" style="display:none;" class="ui green inverted segment"><i class="checkmark icon"></i> <span locale="webroot/success">Web Root Location Updated</span></div>
-                <br>
-                <small locale="footer/note">*All changes will be saved automatically upon updates.</small>
-            </div>
-            <br><br>
+    body { background: transparent; overflow-x: hidden; }
+
+    /* ── Design tokens ── */
+    #hp-root {
+        --bg:        #f2f2f7;
+        --card:      #ffffff;
+        --border:    rgba(0,0,0,0.10);
+        --text:      #1d1d1f;
+        --dim:       #6e6e73;
+        --muted:     #aeaeb2;
+        --accent:    #007AFF;
+        --accentH:   #0063d1;
+        --success:   #34c759;
+        --warn-bg:   #fff7ed;
+        --warn-text: #7c4e00;
+        --warn-bdr:  rgba(255,149,0,0.28);
+        --radius:    12px;
+        --shadow:    0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--bg);
+        min-height: 100vh;
+        padding-bottom: 32px;
+    }
+
+    /* ── Dark mode ── */
+    #hp-root.dark {
+        --bg:        #000000;
+        --card:      #1c1c1e;
+        --border:    rgba(255,255,255,0.10);
+        --text:      #f2f2f7;
+        --dim:       #98989d;
+        --muted:     #636366;
+        --accent:    #0a84ff;
+        --accentH:   #409cff;
+        --success:   #30d158;
+        --warn-bg:   #2d1f00;
+        --warn-text: #ffd60a;
+        --warn-bdr:  rgba(255,214,10,0.22);
+        --shadow:    0 1px 3px rgba(0,0,0,0.4), 0 1px 8px rgba(0,0,0,0.3);
+    }
+
+    /* ── Page header ── */
+    .hp-page-hd {
+        padding: 18px 16px 6px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .hp-page-hd-icon {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(145deg, #007AFF, #5ac8fa);
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(0,122,255,0.30);
+    }
+    .hp-page-hd-icon svg { display: block; }
+    .hp-page-hd-text h1 {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.2px;
+    }
+    .hp-page-hd-text p {
+        font-size: 12px;
+        color: var(--dim);
+        margin-top: 2px;
+    }
+
+    /* ── Section cards ── */
+    .hp-card {
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin: 10px 12px;
+        overflow: hidden;
+    }
+    .hp-card-hd {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px 11px;
+        border-bottom: 1px solid var(--border);
+    }
+    .hp-card-hd-icon { color: var(--dim); flex-shrink: 0; }
+    .hp-card-title {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--dim);
+        flex: 1;
+    }
+    .hp-card-body { padding: 16px; }
+
+    /* ── Info list ── */
+    .hp-info-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+    .hp-info-list li {
+        display: flex;
+        gap: 10px;
+        font-size: 12.5px;
+        color: var(--dim);
+        line-height: 1.5;
+    }
+    .hp-info-list li::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex-shrink: 0;
+        margin-top: 6px;
+    }
+    .hp-info-list a { color: var(--accent); text-decoration: none; word-break: break-all; }
+    .hp-info-list a:hover { text-decoration: underline; }
+
+    /* ── Setting rows ── */
+    .hp-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .hp-row:last-of-type { border-bottom: none; }
+    .hp-row-text { flex: 1; min-width: 0; }
+    .hp-row-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+    }
+    .hp-row-desc {
+        font-size: 11.5px;
+        color: var(--dim);
+        margin-top: 2px;
+    }
+
+    /* ── Toggle switch (macOS-style) ── */
+    .hp-toggle {
+        position: relative;
+        width: 51px;
+        height: 31px;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+    .hp-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .hp-toggle-track {
+        position: absolute;
+        inset: 0;
+        background: var(--muted);
+        border-radius: 15.5px;
+        transition: background 0.22s;
+    }
+    .hp-toggle-track::after {
+        content: '';
+        position: absolute;
+        left: 3px;
+        top: 3px;
+        width: 25px;
+        height: 25px;
+        background: #fff;
+        border-radius: 50%;
+        transition: left 0.2s cubic-bezier(.4,0,.2,1);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.22);
+    }
+    .hp-toggle input:checked + .hp-toggle-track { background: var(--accent); }
+    .hp-toggle input:checked + .hp-toggle-track::after { left: 23px; }
+
+    /* ── Path input row ── */
+    .hp-path-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 4px;
+    }
+    .hp-path-input {
+        flex: 1;
+        padding: 8px 11px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "SF Mono", "Menlo", "Courier New", monospace;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        min-width: 0;
+    }
+    .hp-path-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(0,122,255,0.18);
+    }
+    #hp-root.dark .hp-path-input { background: rgba(255,255,255,0.06); }
+
+    /* ── Buttons ── */
+    .hp-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.12s, opacity 0.12s;
+        outline: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .hp-btn-primary {
+        background: var(--accent);
+        color: #fff;
+    }
+    .hp-btn-primary:hover { background: var(--accentH); }
+    .hp-btn-secondary {
+        background: rgba(0,0,0,0.06);
+        color: var(--text);
+        border-color: var(--border);
+    }
+    .hp-btn-secondary:hover { background: rgba(0,0,0,0.10); }
+    #hp-root.dark .hp-btn-secondary {
+        background: rgba(255,255,255,0.08);
+    }
+    #hp-root.dark .hp-btn-secondary:hover {
+        background: rgba(255,255,255,0.13);
+    }
+
+    /* ── Warning banner ── */
+    .hp-warn {
+        display: flex;
+        gap: 9px;
+        align-items: flex-start;
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-bdr);
+        border-radius: 8px;
+        padding: 10px 13px;
+        font-size: 12px;
+        color: var(--warn-text);
+        line-height: 1.5;
+        margin-top: 12px;
+    }
+    .hp-warn svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Footer note ── */
+    .hp-note {
+        font-size: 11.5px;
+        color: var(--muted);
+        text-align: center;
+        padding: 6px 16px 0;
+    }
+
+    /* ── Toast ── */
+    #hp-toast {
+        display: none;
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        z-index: 9100;
+        background: rgba(30,30,32,0.92);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-radius: 12px;
+        padding: 10px 18px;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+        max-width: min(340px, calc(100vw - 24px));
+        text-align: center;
+        pointer-events: none;
+    }
+    #hp-toast.err { background: rgba(255,59,48,0.92); }
+    #hp-toast-msg { font-size: 13px; font-weight: 500; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div id="hp-toast"><div id="hp-toast-msg"></div></div>
+
+<div id="hp-root">
+
+    <!-- ── Page header ── -->
+    <div class="hp-page-hd">
+        <div class="hp-page-hd-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="rgba(255,255,255,0.9)"/>
+                <path d="M9 21v-8h6v8" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
         </div>
-        <script>
-            //Initialize applocale for translations
-            if (applocale) {
-                var ph_Locale = NewAppLocale();
-                ph_Locale.init("../locale/personal_homepage.json", function(){
-                    ph_Locale.translate();
-                });
+        <div class="hp-page-hd-text">
+            <h1 locale="header/title">Personal Home Page</h1>
+            <p locale="header/subtitle">Host a static website on your ArozOS</p>
+        </div>
+    </div>
+
+    <!-- ── Info card ── -->
+    <div class="hp-card">
+        <div class="hp-card-hd">
+            <svg class="hp-card-hd-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span class="hp-card-title" locale="info/header">About Personal Home Page</span>
+        </div>
+        <div class="hp-card-body">
+            <ul class="hp-info-list">
+                <li locale="info/point1">You can host a static website directly from your ArozOS user storage.</li>
+                <li locale="info/point2">All website files are accessible through your File Manager inside your user file system.</li>
+                <li>
+                    <span>
+                        <span locale="info/point3">Your home page is publicly accessible at </span>
+                        <a id="homepageLink" target="_blank">
+                            <span class="protocol">http:</span>//<span class="hostname"></span><span class="port"></span>/www/<span class="username">{username}</span>/
+                        </a>
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ── Settings card ── -->
+    <div class="hp-card">
+        <div class="hp-card-hd">
+            <svg class="hp-card-hd-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.37 11.37l1.41 1.41M3.22 12.78l1.41-1.41M11.37 4.63l1.41-1.41"
+                      stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span class="hp-card-title" locale="toggle/title">Settings</span>
+        </div>
+        <div class="hp-card-body">
+
+            <!-- Enable toggle -->
+            <div class="hp-row">
+                <div class="hp-row-text">
+                    <div class="hp-row-label" locale="toggle/label">Enable Personal Home Page</div>
+                    <div class="hp-row-desc" locale="toggle/desc">Make your web root publicly accessible via the /www/ path.</div>
+                </div>
+                <label class="hp-toggle">
+                    <input type="checkbox" id="enablehp" onchange="updateHomepageStatus(this.checked);">
+                    <span class="hp-toggle-track"></span>
+                </label>
+            </div>
+
+            <!-- Web root -->
+            <div class="hp-row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+                <div class="hp-row-text">
+                    <div class="hp-row-label" locale="webroot/title">Web Root Folder</div>
+                    <div class="hp-row-desc" locale="webroot/desc">The folder whose contents will be served as your home page.</div>
+                </div>
+                <div class="hp-path-row" style="width:100%;">
+                    <input id="webroot" class="hp-path-input" type="text" readonly
+                           placeholder="Select a folder…"
+                           locale-placeholder="webroot/placeholder">
+                    <button class="hp-btn hp-btn-secondary" onclick="selectWebRootLocation();">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                            <path d="M1.5 4.5A1 1 0 012.5 3.5h3.586a1 1 0 01.707.293L8 5h5.5a1 1 0 011 1v6.5a1 1 0 01-1 1H2.5a1 1 0 01-1-1V4.5z"
+                                  stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                        </svg>
+                        <span locale="webroot/button">Browse</span>
+                    </button>
+                </div>
+                <div class="hp-warn">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 1.5L14.5 13H1.5L8 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                        <path d="M8 6v3.5M8 11v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    </svg>
+                    <span locale="webroot/warning">All files inside the web root are publicly accessible to everyone on the internet.</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <p class="hp-note" locale="footer/note">* Changes are saved automatically.</p>
+
+</div><!-- /#hp-root -->
+
+<script>
+    /* ── Theme ── */
+    function applyTheme(dark) {
+        document.getElementById('hp-root').classList.toggle('dark', dark);
+    }
+
+    try {
+        var _t = (typeof preferredTheme !== 'undefined' && preferredTheme)
+               || (typeof parent !== 'undefined' && parent.preferredTheme);
+        if (_t) {
+            applyTheme(_t === 'dark' || _t === 'darkTheme');
+        } else {
+            ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); });
+        }
+    } catch(e) {
+        try { ao_module_getSystemThemeColor(function(c) { applyTheme(c !== 'whiteTheme'); }); } catch(_){}
+    }
+
+    window.desktopThemeChanged = function(theme) { applyTheme(theme === 'dark' || theme === 'darkTheme'); };
+    window.detailPageThemeCallback = function(isDark) { applyTheme(isDark); };
+
+    /* ── Toast ── */
+    function showToast(msg, isErr) {
+        var $t = $('#hp-toast');
+        $t.toggleClass('err', !!isErr);
+        $('#hp-toast-msg').text(isErr ? '✕  ' + msg : msg);
+        $t.stop(true, true).fadeIn(160).delay(3500).fadeOut(380);
+    }
+
+    /* ── Locale ── */
+    var _loc = null;
+    var ignoreChange = true;
+
+    $(document).ready(function() {
+        /* Fill in live URL preview */
+        $.get("../../../system/desktop/user", function(data) {
+            if (data.error === undefined) {
+                $(".username").text(data.Username);
+                var href = $("#homepageLink").text();
+                $("#homepageLink").attr('href', href);
             }
-
-            var ignoreChange = true;
-
-            //Update the user information
-            $.get("../../../system/desktop/user", function(data){
-                if (data.error == undefined){
-                    $(".username").text(data.Username);
-                    $("#homepageLink").attr('href', $("#homepageLink").text());
-                }
-            });
-
-            //Update tutorial information
-            $(".hostname").text(window.location.hostname);
+        });
+        $(".hostname").text(window.location.hostname);
+        $(".protocol").text(window.location.protocol);
+        if (window.location.port) {
             $(".port").text(":" + window.location.port);
-            if (window.location.port == ""){
-                $(".port").text("");
-            }
-            $(".protocol").text(window.location.protocol);
+        }
 
+        if (typeof applocale !== 'undefined' && applocale) {
+            _loc = NewAppLocale();
+            _loc.init("../locale/personal_homepage.json", function() {
+                _loc.translate();
+                initHomePageInfo();
+            });
+        } else {
             initHomePageInfo();
-            function initHomePageInfo(){
-                $.get("../../../system/network/www/toggle", function(data){
-                    if (data.error == undefined){
-                        $("#enablehp")[0].checked = data;
-                        ignoreChange = false;
-                    }
-                });
+        }
+    });
 
-                $.get("../../../system/network/www/webRoot", function(data){
-                    if (data.error !== undefined){
-                        //Not defined.
-
-                    }else{
-                        //Defined. Set it to the input field
-                        $("#webroot").val(data);
-                    }
-                });
+    /* ── Load current settings ── */
+    function initHomePageInfo() {
+        $.get("../../../system/network/www/toggle", function(data) {
+            if (data.error === undefined) {
+                $("#enablehp")[0].checked = data;
+                ignoreChange = false;
             }
+        });
 
+        $.get("../../../system/network/www/webRoot", function(data) {
+            if (data.error === undefined) {
+                $("#webroot").val(data);
+            }
+        });
+    }
 
-            function updateHomepageStatus(enableHomePage = false){
-                if (ignoreChange){
-                    return;
+    /* ── Toggle enable / disable ── */
+    function updateHomepageStatus(enabled) {
+        if (ignoreChange) return;
+        $.ajax({
+            url:  "../../../system/network/www/toggle",
+            data: { set: enabled },
+            success: function(data) {
+                if (data.error !== undefined) {
+                    showToast(data.error, true);
+                } else {
+                    var msg = _loc ? _loc.getString("toggle/success", "Home Page Status Updated") : "Home Page Status Updated";
+                    showToast(msg);
                 }
+            },
+            error: function() { showToast("Server communication error", true); }
+        });
+    }
 
-                $.ajax({
-                    url: "../../../system/network/www/toggle",
-                    data: {set: enableHomePage},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            $("#updateSuceed").slideDown("fast").delay(3000).slideUp("fast");
-                        }
-                        
-                    }
-                });
-            }
+    /* ── Web root picker ── */
+    function selectWebRootLocation() {
+        ao_module_openFileSelector(webrootSelected, "user:/", "folder", false);
+    }
 
-            function selectWebRootLocation(){
-                ao_module_openFileSelector(webrootSelected, "user:/", "folder",false);
-            }
+    function webrootSelected(filedata) {
+        if (!filedata || !filedata.length) return;
+        var filepath = filedata[0].filepath;
+        $("#webroot").val(filepath);
 
-            function webrootSelected(filedata){
-                for (var i=0; i < filedata.length; i++){
-                    var filename = filedata[i].filename;
-                    var filepath = filedata[i].filepath;
-                    $("#webroot").val(filepath);
+        $.ajax({
+            url:  "../../../system/network/www/webRoot",
+            data: { set: filepath },
+            success: function(data) {
+                if (data.error !== undefined) {
+                    showToast(data.error, true);
+                } else {
+                    var msg = _loc ? _loc.getString("webroot/success", "Web Root Location Updated") : "Web Root Location Updated";
+                    showToast(msg);
                 }
-
-                //Update the server database
-                $.ajax({
-                    url: "../../../system/network/www/webRoot",
-                    data: {set: $("#webroot").val()},
-                    success: function(data){
-                        if (data.error !== undefined){
-                            alert(data.error);
-                        }else{
-                            $("#webrootSetSuceed").slideDown("fast").delay(3000).slideUp("fast");
-                        }
-                        
-                    }
-                });
-            }
-        </script>
-    </body>
+            },
+            error: function() { showToast("Server communication error", true); }
+        });
+    }
+</script>
+</body>
 </html>
