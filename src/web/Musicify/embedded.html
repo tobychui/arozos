@@ -81,14 +81,19 @@
 		.t.right { text-align: right; }
 		#seekBar {
 			flex: 1; -webkit-appearance: none; appearance: none;
-			height: 3px; border-radius: 2px; outline: none; cursor: pointer;
+			height: 23px; outline: none; cursor: pointer;
 			background: linear-gradient(to right,
 				var(--accent) 0%, var(--accent) var(--progress, 0%),
-				var(--border) var(--progress, 0%), var(--border) 100%);
+				var(--border) var(--progress, 0%), var(--border) 100%)
+				center / 100% 3px no-repeat;
+		}
+		#seekBar::-webkit-slider-runnable-track {
+			height: 3px; background: transparent;
 		}
 		#seekBar::-webkit-slider-thumb {
 			-webkit-appearance: none; width: 12px; height: 12px;
 			border-radius: 50%; background: var(--accent); cursor: pointer;
+			margin-top: -4.5px;
 		}
 
 		/* Controls */
@@ -123,18 +128,23 @@
 		}
 		#volBar {
 			flex: 1; -webkit-appearance: none; appearance: none;
-			height: 3px; border-radius: 2px; outline: none; cursor: pointer;
+			height: 23px; outline: none; cursor: pointer;
 			background: linear-gradient(to right,
 				var(--accent) 0%, var(--accent) var(--vol, 60%),
-				var(--border) var(--vol, 60%), var(--border) 100%);
+				var(--border) var(--vol, 60%), var(--border) 100%)
+				center / 100% 3px no-repeat;
+		}
+		#volBar::-webkit-slider-runnable-track {
+			height: 3px; background: transparent;
 		}
 		#volBar::-webkit-slider-thumb {
 			-webkit-appearance: none; width: 10px; height: 10px;
 			border-radius: 50%; background: var(--accent); cursor: pointer;
+			margin-top: -3.5px;
 		}
 
 		/* Action buttons */
-		.action-row { display: flex; gap: 6px; margin-top: 0.8em;}
+		.action-row { display: flex; gap: 6px; margin-top: 0;}
 		.act-btn {
 			flex: 1; padding: 6px 8px;
 			background: var(--bg3); border: 1px solid var(--border);
