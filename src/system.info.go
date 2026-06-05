@@ -102,6 +102,9 @@ func SystemInfoInit() {
 
 		router.HandleFunc("/system/info/getUsageInfo", InfoHandleTaskInfo)
 
+		// Sample CPU and RAM in the background so the endpoint is non-blocking.
+		usage.StartBackgroundMonitor()
+
 	} else {
 		//Remve hardware information from the infoServer
 		infoServer = info.NewInfoServer(info.ArOZInfo{
@@ -218,14 +221,14 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 		TotalRam string
 		RamUsage float64
 	}
-	cpuUsage := usage.GetCPUUsage()
-	usedRam, totalRam, usagePercentage := usage.GetRAMUsage()
+
+	cpuUsage, usedRam, totalRam, usagePercentage, _ := usage.GetCachedStats()
 
 	info := UsageInfo{
-		cpuUsage,
-		usedRam,
-		totalRam,
-		usagePercentage,
+		CPU:      cpuUsage,
+		UsedRAM:  usedRam,
+		TotalRam: totalRam,
+		RamUsage: usagePercentage,
 	}
 
 	js, _ := json.Marshal(info)
