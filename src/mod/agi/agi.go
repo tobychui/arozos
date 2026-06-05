@@ -42,6 +42,10 @@ var (
 	//AGI Internal Error Standard
 	errExitcall = errors.New("errExit")
 	errTimeout  = errors.New("errTimeout")
+
+	// agiLogger is a stdout-only fallback used when no system-wide logger is
+	// available. Scripts should use g.Option.Logger when present.
+	agiLogger, _ = logger.NewTmpLogger()
 )
 
 type AgiPackage struct {

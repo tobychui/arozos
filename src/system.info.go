@@ -70,13 +70,16 @@ func SystemInfoInit() {
 			HostName:     *host_name,
 		})
 
-		router.HandleFunc("/system/info/getCPUinfo", info.GetCPUInfo)
-		router.HandleFunc("/system/info/ifconfig", info.Ifconfig)
-		router.HandleFunc("/system/info/getDriveStat", info.GetDriveStat)
-		router.HandleFunc("/system/info/usbPorts", info.GetUSB)
+		router.HandleFunc("/system/info/getCPUinfo", info.CachedGetCPUInfo)
+		router.HandleFunc("/system/info/ifconfig", info.CachedIfconfig)
+		router.HandleFunc("/system/info/getDriveStat", info.CachedGetDriveStat)
+		router.HandleFunc("/system/info/usbPorts", info.CachedGetUSB)
 
 		//For low-memory mode detection
-		authRouter.HandleFunc("/system/info/getRAMinfo", info.GetRamInfo)
+		authRouter.HandleFunc("/system/info/getRAMinfo", info.CachedGetRamInfo)
+
+		// Prime hardware info cache in the background.
+		info.StartHostInfoCache()
 
 		//Register as a system setting
 		registerSetting(settingModule{
@@ -101,6 +104,9 @@ func SystemInfoInit() {
 		})
 
 		router.HandleFunc("/system/info/getUsageInfo", InfoHandleTaskInfo)
+
+		// Sample CPU and RAM in the background so the endpoint is non-blocking.
+		usage.StartBackgroundMonitor()
 
 	} else {
 		//Remve hardware information from the infoServer
@@ -218,14 +224,14 @@ func InfoHandleTaskInfo(w http.ResponseWriter, r *http.Request) {
 		TotalRam string
 		RamUsage float64
 	}
-	cpuUsage := usage.GetCPUUsage()
-	usedRam, totalRam, usagePercentage := usage.GetRAMUsage()
+
+	cpuUsage, usedRam, totalRam, usagePercentage, _ := usage.GetCachedStats()
 
 	info := UsageInfo{
-		cpuUsage,
-		usedRam,
-		totalRam,
-		usagePercentage,
+		CPU:      cpuUsage,
+		UsedRAM:  usedRam,
+		TotalRam: totalRam,
+		RamUsage: usagePercentage,
 	}
 
 	js, _ := json.Marshal(info)
