@@ -80,6 +80,7 @@ type Gateway struct {
 	Option           *AgiSysInfo
 	endpointStats    map[string]*EndpointStats // per-UUID execution statistics (in-memory)
 	statsMux         sync.RWMutex              // guards endpointStats
+	vmReg            *vmRegistry               // live VM lifecycle registry
 }
 
 func NewGateway(option AgiSysInfo) (*Gateway, error) {
@@ -90,6 +91,7 @@ func NewGateway(option AgiSysInfo) (*Gateway, error) {
 		LoadedAGILibrary: map[string]AgiLibInjectionIntergface{},
 		Option:           &option,
 		endpointStats:    make(map[string]*EndpointStats),
+		vmReg:            newVMRegistry(),
 	}
 
 	//Start all WebApps Registration
@@ -290,9 +292,36 @@ func (g *Gateway) ExecuteAGIScript(scriptContent string, fsh *filesystem.FileSys
 
 	//Create a new vm for this request
 	vm := otto.New()
-	//Inject standard libs into the vm
-	g.injectStandardLibs(vm, scriptFile, scriptScope)
+	vm.Interrupt = make(chan func(), 1) // required for force-stop support
+	//Inject standard libs into the vm; capture execID for registry correlation
+	execID := g.injectStandardLibs(vm, scriptFile, scriptScope)
 	g.injectUserFunctions(vm, fsh, scriptFile, scriptScope, thisuser, w, r)
+
+	username := ""
+	if thisuser != nil {
+		username = thisuser.Username
+	}
+
+	// Register in the VM lifecycle registry so it can be listed and force-stopped
+	g.vmReg.register(&VMRecord{
+		ExecID:      execID,
+		ScriptFile:  scriptFile,
+		Username:    username,
+		StartTime:   time.Now(),
+		interruptCh: vm.Interrupt,
+	})
+	defer func() {
+		g.vmReg.unregister(execID)
+		if caught := recover(); caught != nil {
+			if caught == errForceStop {
+				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] VM %s force-stopped (script: %s, user: %s)", execID, scriptFile, username), nil)
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte("503 - Script execution was force-terminated"))
+			} else {
+				panic(caught) // re-panic anything we don't own
+			}
+		}
+	}()
 
 	//Detect cotent type
 	contentType := r.Header.Get("Content-type")
@@ -390,8 +419,18 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 	//Inject interrupt Channel
 	vm.Interrupt = make(chan func(), 1)
 
+	// Register in the VM lifecycle registry
+	g.vmReg.register(&VMRecord{
+		ExecID:      execID,
+		ScriptFile:  scriptFile,
+		Username:    targetUser.Username,
+		StartTime:   time.Now(),
+		interruptCh: vm.Interrupt,
+	})
+
 	//Create a panic recovery logic
 	defer func() {
+		g.vmReg.unregister(execID)
 		if caught := recover(); caught != nil {
 			if caught == errTimeout {
 				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] Execution timeout: %s (user: %s)", scriptFile, targetUser.Username), nil)
@@ -399,6 +438,12 @@ func (g *Gateway) ExecuteAGIScriptAsUser(fsh *filesystem.FileSystemHandler, scri
 			} else if caught == errExitcall {
 				//Exit gracefully
 				return
+			} else if caught == errForceStop {
+				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] VM %s force-stopped (script: %s, user: %s)", execID, scriptFile, targetUser.Username), nil)
+				if w != nil {
+					w.WriteHeader(http.StatusServiceUnavailable)
+					w.Write([]byte("503 - Script execution was force-terminated"))
+				}
 			} else {
 				//Something screwed. Return Internal Server Error
 				logger.PrintAndLog("Agi", fmt.Sprintf("[AGI] VM crash in %s (user: %s): %v", scriptFile, targetUser.Username, caught), nil)
