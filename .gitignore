@@ -38,3 +38,5 @@ src/system/smtp_conf.json
 src/mod/**/system/auth/authlog.db
 src/mod/**/system/auth/authlog.db.lock
 src/launcher.exe
+.DS_Store
+src/ffmpeg

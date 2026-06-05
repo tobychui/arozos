@@ -29,12 +29,12 @@ func (g *Gateway) FFmpegLibRegister() {
 	_, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		logger.PrintAndLog("Agi", "ffmpeg not found in PATH", nil)
-		os.Exit(1)
+		return
 	}
 	err = g.RegisterLib("ffmpeg", g.injectFFmpegFunctions)
 	if err != nil {
 		logger.PrintAndLog("Agi", fmt.Sprint(err), nil)
-		os.Exit(1)
+		return
 	}
 }
 
