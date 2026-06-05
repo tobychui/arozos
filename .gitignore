@@ -37,3 +37,4 @@ src/system/smtp_conf.json
 # Test-generated BoltDB artifacts created by package tests
 src/mod/**/system/auth/authlog.db
 src/mod/**/system/auth/authlog.db.lock
+src/launcher.exe
