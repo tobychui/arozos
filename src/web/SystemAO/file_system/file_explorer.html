@@ -889,8 +889,22 @@
                 return [icon, name];
             }
 
+            // ============================== PATH SHORTCUT RESOLUTION ====================
+            var pathShortcuts = {
+                "%appdata%": "user:/.appdata/",
+            };
+
+            function resolvePathShortcut(path){
+                var lower = path.trim().toLowerCase();
+                if (pathShortcuts[lower] !== undefined){
+                    return pathShortcuts[lower];
+                }
+                return path;
+            }
+
             // ============================== FOLDER LISTING FUNCTIONS ====================
             function listDirectory(path, callback=undefined, recordUndo=true){
+                path = resolvePathShortcut(path);
                 enableAutoRefresh = false;
                 var recordPreviousPage = true;
                 if (recordUndo == false){
