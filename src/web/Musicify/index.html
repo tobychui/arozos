@@ -1484,9 +1484,11 @@
 </div><!-- /#app -->
 
 <script>
-    // Register service worker
+    // Unregister any previously installed service worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(function(){});
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+        });
     }
 </script>
 </body>

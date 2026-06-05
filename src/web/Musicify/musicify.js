@@ -151,11 +151,6 @@ function musicifyApp() {
             // Pre-load available music library roots for the folder-view switcher
             this._loadMusicLibraries();
 
-            // Register service worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js').catch(function(){});
-            }
-
             window.addEventListener('beforeunload', () => {
                 if (this._artistsWorker) {
                     this._artistsWorker.terminate();
