@@ -181,8 +181,31 @@
             flex: 1; text-align: center;
             font-size: 13px; font-weight: 500;
             color: var(--text);
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            overflow: hidden;
             padding: 0 4px;
+            display: flex; flex-direction: column; align-items: center; gap: 1px;
+        }
+        .tb-filename-main {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            max-width: 100%;
+        }
+        .tb-roomcode {
+            font-size: 10px; opacity: 0.5; letter-spacing: 0.07em;
+            white-space: nowrap;
+        }
+
+        /* ── Disconnected banner (sender dropped; media still playing) ── */
+        .disconnected-banner {
+            position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 300;
+            background: rgba(20,20,30,0.82);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 20px;
+            padding: 6px 18px;
+            font-size: 11px; color: rgba(255,255,255,0.75);
+            white-space: nowrap;
+            pointer-events: none;
         }
 
         /* ── Disconnected notice ────────────────────────────────────── */
@@ -313,6 +336,12 @@
            @ended="onMediaEnded()">
     </audio>
 
+    <!-- ── Disconnected banner (sender dropped but media still playing) ── -->
+    <div class="disconnected-banner"
+         x-show="currentTrack && senderState === 'disconnected'"
+         x-text="'Sender disconnected · room ' + roomCode + ' · playback continues'">
+    </div>
+
     <!-- ── Bottom toolbar ────────────────────────────────────────── -->
     <div class="toolbar" :class="{hidden: toolbarHidden && currentTrack && mediaType !== 'photo'}"
          @mousemove="showToolbar()" @mouseenter="showToolbar()">
@@ -322,8 +351,11 @@
             <img :src="isFullscreen ? 'img/fullscreen_exit.svg' : 'img/fullscreen.svg'" style="width:20px;height:20px;">
         </button>
 
-        <!-- Filename -->
-        <span class="tb-filename" x-text="currentTrack ? currentTrack.name : 'Arozcast'"></span>
+        <!-- Filename + room code -->
+        <span class="tb-filename">
+            <span class="tb-filename-main" x-text="currentTrack ? currentTrack.name : 'Arozcast'"></span>
+            <span class="tb-roomcode" x-show="roomCode" x-text="'Room ' + roomCode"></span>
+        </span>
 
         <!-- Mute toggle -->
         <button class="tb-btn" @click="toggleMute()" :title="isMuted ? 'Unmute' : 'Mute'">
@@ -515,8 +547,8 @@ function arozcastApp() {
             this._peerTimer = setTimeout(() => {
                 self.peerCount = 0;
                 self.senderState = 'disconnected';
-                self._stop();
-                self._showToast('Sender disconnected');
+                // Intentionally do NOT stop playback — sender may be reconnecting
+                self._showToast('Sender disconnected — playback continues');
             }, 12000);
         },
 
@@ -530,35 +562,36 @@ function arozcastApp() {
             const type = track.type || 'audio';
             this.mediaType = type;
 
-            const fileUrl = ao_root + 'media?file=' + encodeURIComponent(track.filepath);
+            // Prefer the URL provided by the sender (respects transcoding API etc.);
+            // fall back to direct media API if not supplied.
+            const fileUrl = track.src || (ao_root + 'media?file=' + encodeURIComponent(track.filepath));
 
             const startTime = parseFloat(track.startTime) || 0;
+            const self = this;
 
             if (type === 'audio') {
                 this.coverSrc = ao_root + 'system/file_system/loadThumbnail?bytes=true&vpath=' + encodeURIComponent(track.filepath);
                 this._audio.src = fileUrl;
-                this._audio.volume = this.volume / 100;
-                this._audio.muted = this.isMuted;
                 this._audio.load();
-                if (startTime > 0) {
-                    this._audio.addEventListener('loadedmetadata', () => {
-                        this._audio.currentTime = startTime;
-                    }, { once: true });
-                }
+                // Apply volume and seek inside loadedmetadata so browser-assigned
+                // defaults cannot overwrite our values after load() returns.
+                this._audio.addEventListener('loadedmetadata', () => {
+                    self._audio.volume = self.volume / 100;
+                    self._audio.muted  = self.isMuted;
+                    if (startTime > 0) self._audio.currentTime = startTime;
+                }, { once: true });
                 this._audio.play().catch(() => {});
                 this.isPlaying = true;
                 this._video.pause();
                 this._video.removeAttribute('src');
             } else if (type === 'video') {
                 this._video.src = fileUrl;
-                this._video.volume = this.volume / 100;
-                this._video.muted = this.isMuted;
                 this._video.load();
-                if (startTime > 0) {
-                    this._video.addEventListener('loadedmetadata', () => {
-                        this._video.currentTime = startTime;
-                    }, { once: true });
-                }
+                this._video.addEventListener('loadedmetadata', () => {
+                    self._video.volume = self.volume / 100;
+                    self._video.muted  = self.isMuted;
+                    if (startTime > 0) self._video.currentTime = startTime;
+                }, { once: true });
                 this._video.play().catch(() => {});
                 this.isPlaying = true;
                 this._audio.pause();

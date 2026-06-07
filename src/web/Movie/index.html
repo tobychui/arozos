@@ -1468,7 +1468,7 @@ function _castResumeLocally() {
 }
 
 // ── Arozcast auto-reconnect ───────────────────────────────────────────────────
-var _CAST_RECONNECT_DELAYS = [2000, 4000, 8000, 16000, 30000];
+var _CAST_RECONNECT_DELAYS = [2000, 5000, 12000];
 
 function _startCastReconnect(code) {
     if (!code || castReconnectCount >= _CAST_RECONNECT_DELAYS.length) {
@@ -1517,25 +1517,18 @@ function _castDidReconnect(ws, code) {
         $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
         if (wasActive) { _startCastReconnect(savedCode); }
     };
-    // Re-announce and restore full media state at the last known remote position
+    // Re-announce presence and sync volume only — do NOT resend media.load.
+    // Arozcast kept playing while the phone was asleep; its next status.update
+    // will immediately sync castCurrentTime to the live remote position.
     _castSend('peer.hello', {});
     var vid = document.getElementById('main-video');
     _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
-    if (playingIndex >= 0 && currentEpisodes && currentEpisodes[playingIndex]) {
-        var ep  = currentEpisodes[playingIndex];
-        var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
-        var src = isWebPlayable(ext)
-            ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
-            : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
-        _castSend('media.load', { filepath: ep.filepath, name: ep.name, type: 'video', src: src, startTime: castCurrentTime });
-        _castSend(castIsPlaying ? 'media.play' : 'media.pause', {});
-    }
     castPingTimer  = setInterval(function() { _castSend('peer.heartbeat', {}); }, 5000);
     castWatchTimer = setInterval(function() {
         if (Date.now() - castLastSeen > 12000 && castWs) { castWs.close(); }
     }, 4000);
     $('#ctrl-cast, #ctrl-cast-top').addClass('casting');
-    showToast('Arozcast reconnected — resuming from ' + formatTime(castCurrentTime));
+    showToast('Arozcast reconnected');
 }
 
 function _handleCastMessage(msg) {
@@ -2012,13 +2005,10 @@ $(document).ready(function () {
         }
     });
 
-    // Clean up cast on page close
+    // Close WS cleanly on page unload — do NOT send media.stop so Arozcast keeps playing.
+    // Only an explicit disconnectCast() call should stop remote playback.
     window.addEventListener('beforeunload', function() {
-        if (_castConnected()) {
-            _castSend('media.stop', {});
-            castWs.onclose = null;
-            castWs.close();
-        }
+        if (castWs) { castWs.onclose = null; castWs.close(); }
     });
 });
 
@@ -2518,11 +2508,10 @@ function closePlayer() {
     // Always cancel any pending auto-reconnect
     clearTimeout(castReconnectTimer); castReconnectTimer = null;
     castReconnectCount = 0; castPendingCode = null;
-    if (castMode && _castConnected()) {
-        _castSend('media.stop', {});
-        castWs.onclose = null;
-        castWs.close();
-        castWs = null;
+    if (castMode) {
+        // Do NOT send media.stop — Arozcast will keep playing.
+        // Only disconnectCast() (explicit user action) stops remote playback.
+        if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
         clearInterval(castPingTimer); clearInterval(castWatchTimer);
         castPingTimer = castWatchTimer = null;
         castMode = false; castCode = null;
@@ -2612,7 +2601,11 @@ function initVideoControls() {
         if (castMode && _castConnected()) {
             if (castDuration > 0) {
                 var pct = e.offsetX / $(this).width();
-                _castSend('media.seek', { time: pct * castDuration });
+                var seekTo = pct * castDuration;
+                _castSend('media.seek', { time: seekTo });
+                // Optimistic update — reflect position immediately
+                castCurrentTime = seekTo;
+                _castUpdateProgressUI();
             }
             return;
         }
@@ -2682,10 +2675,28 @@ function initVideoControls() {
     }
 }
 
+// Optimistic UI sync for cast mode — call immediately after sending a seek/play/pause command
+// so the user sees instant feedback instead of waiting up to 3 s for status.update.
+function _castUpdateProgressUI() {
+    if (!castDuration) return;
+    var pct = (castCurrentTime / castDuration) * 100;
+    $('#progress-bar').css('width', pct + '%');
+    $('#progress-thumb').css('left', 'calc(' + pct + '% - 7px)');
+    $('#time-display').text(formatTime(castCurrentTime) + ' / ' + formatTime(castDuration));
+}
+
 function togglePlay() {
     $('#resume-popup').removeClass('active');
     if (castMode && _castConnected()) {
-        _castSend(castIsPlaying ? 'media.pause' : 'media.play', {});
+        if (castIsPlaying) {
+            _castSend('media.pause', {});
+            castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        } else {
+            _castSend('media.play', {});
+            castIsPlaying = true;
+            $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        }
         return;
     }
     var vid = document.getElementById('main-video');
@@ -2784,8 +2795,20 @@ function initContextMenu() {
         if (e.key === 'Escape') { $ctx.hide(); closeVideoInfo(); }
     });
 
-    $('#ctx-play').on('click',   function () { if (castMode && _castConnected()) { _castSend('media.play',{}); } else { vid.play(); } $ctx.hide(); });
-    $('#ctx-pause').on('click',  function () { if (castMode && _castConnected()) { _castSend('media.pause',{}); } else { vid.pause(); } $ctx.hide(); });
+    $('#ctx-play').on('click', function () {
+        if (castMode && _castConnected()) {
+            _castSend('media.play', {}); castIsPlaying = true;
+            $('#play-icon').attr('src', 'img/icons/pause_white.svg');
+        } else { vid.play(); }
+        $ctx.hide();
+    });
+    $('#ctx-pause').on('click', function () {
+        if (castMode && _castConnected()) {
+            _castSend('media.pause', {}); castIsPlaying = false;
+            $('#play-icon').attr('src', 'img/icons/play_white.svg');
+        } else { vid.pause(); }
+        $ctx.hide();
+    });
     $('#ctx-prev').on('click',   function () { cancelCountdown(); playOffset(-1); $ctx.hide(); });
     $('#ctx-next').on('click',   function () { cancelCountdown(); playOffset(1);  $ctx.hide(); });
     $('#ctx-repeat').on('click', function () { repeatSingle = !repeatSingle;      $ctx.hide(); });
@@ -2893,13 +2916,19 @@ function initKeyboard() {
                     e.preventDefault(); togglePlay(); showControls(); break;
                 case 'ArrowRight':
                     e.preventDefault();
-                    if (castMode && _castConnected()) { _castSend('media.seekrel', { delta: 10 }); }
-                    else { vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10); }
+                    if (castMode && _castConnected()) {
+                        _castSend('media.seekrel', { delta: 10 });
+                        castCurrentTime = Math.min(castDuration, castCurrentTime + 10);
+                        _castUpdateProgressUI();
+                    } else { vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10); }
                     showControls(); break;
                 case 'ArrowLeft':
                     e.preventDefault();
-                    if (castMode && _castConnected()) { _castSend('media.seekrel', { delta: -10 }); }
-                    else { vid.currentTime = Math.max(0, vid.currentTime - 10); }
+                    if (castMode && _castConnected()) {
+                        _castSend('media.seekrel', { delta: -10 });
+                        castCurrentTime = Math.max(0, castCurrentTime - 10);
+                        _castUpdateProgressUI();
+                    } else { vid.currentTime = Math.max(0, vid.currentTime - 10); }
                     showControls(); break;
                 case 'ArrowUp':
                     e.preventDefault(); vid.volume = Math.min(1, vid.volume + 0.1);

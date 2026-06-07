@@ -1380,7 +1380,7 @@ function musicifyApp() {
         // ── Auto-reconnect helpers ────────────────────────────────────────────
         _startCastReconnect(code) {
             var self = this;
-            var DELAYS = [2000, 4000, 8000, 16000, 30000];
+            var DELAYS = [2000, 5000, 12000];
             if (!code || this._castReconnectCount >= DELAYS.length) {
                 if (this._castReconnectCount > 0) {
                     // All retries exhausted — fall back to local playback
@@ -1456,29 +1456,23 @@ function musicifyApp() {
                 self.castConnected = false; self.castMode = false; self._castWs = null;
                 if (wasActive) { self._startCastReconnect(savedCode); }
             };
-            // Re-announce and restore full media state at the last known remote position
+            // Re-announce presence and sync volume only — do NOT resend media.load.
+            // Arozcast kept playing while the phone was asleep; its next status.update
+            // will immediately sync currentTime to the live remote position.
             ws.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
             this._castSend('media.volume', { volume: this.volume, muted: this.isMuted });
-            if (this.currentTrack) {
-                this._castSend('media.load', {
-                    filepath: this.currentTrack.filepath,
-                    name: this.currentTrack.name,
-                    artist: this.getArtistLabel(this.currentTrack),
-                    cover: this.currentTrack.cover || '',
-                    type: 'audio',
-                    startTime: this.currentTime
-                });
-                this._castSend(this.isPlaying ? 'media.play' : 'media.pause', {});
-            }
             clearInterval(this._castPingTimer); clearInterval(this._castWatchTimer);
             this._castPingTimer = setInterval(function() { self._castSend('peer.heartbeat', {}); }, 5000);
             this._castWatchTimer = setInterval(function() {
                 if (Date.now() - self._castLastSeen > 12000 && self._castWs) self._castWs.close();
             }, 4000);
-            this._showToast('Arozcast reconnected — resuming');
+            this._showToast('Arozcast reconnected');
         },
 
         disconnectCast() {
+            // Capture play state before we tear anything down
+            var wasPlaying = this.isPlaying;
+
             // Cancel any pending auto-reconnect before tearing down
             clearTimeout(this._castReconnectTimer); this._castReconnectTimer = null;
             this._castReconnectCount = 0; this._castPendingCode = null;
@@ -1490,6 +1484,9 @@ function musicifyApp() {
             this.castConnected = false;
             this.showCastModal = false;
             if (this._castWs) {
+                // Send stop so Arozcast halts — this is an explicit user disconnect,
+                // not a sleep/drop (those suppress onclose and never reach here).
+                this._castSend('media.stop', {});
                 this._castWs.onclose = null;   // suppress reconnect trigger
                 this._castWs.close();
                 this._castWs = null;
@@ -1497,8 +1494,10 @@ function musicifyApp() {
             this.castCode = '';
             this.castCodeInput = '';
             this.castError = '';
+            this.isPlaying = false;
 
-            // Resume local playback from current track
+            // Resume local playback at the last known remote position,
+            // but only auto-start if the remote was actually playing.
             if (this.currentTrack) {
                 var resumeAt = this.currentTime;
                 var self = this;
@@ -1511,7 +1510,9 @@ function musicifyApp() {
                         self._audio.currentTime = resumeAt;
                     }, { once: true });
                 }
-                this._audio.play().catch(function() {});
+                if (wasPlaying) {
+                    this._audio.play().catch(function() {});
+                }
             }
             this._showToast('Disconnected from Arozcast');
         },

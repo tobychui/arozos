@@ -1009,7 +1009,7 @@ function _photoCastSendPhoto(filepath) {
 }
 
 // ── Arozcast photo auto-reconnect ─────────────────────────────────────────────
-var _PHOTO_CAST_RECONNECT_DELAYS = [2000, 4000, 8000, 16000, 30000];
+var _PHOTO_CAST_RECONNECT_DELAYS = [2000, 5000, 12000];
 
 function _startPhotoCastReconnect(code) {
     if (!code || _photoCastReconnectCount >= _PHOTO_CAST_RECONNECT_DELAYS.length) {
