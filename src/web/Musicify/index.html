@@ -692,6 +692,35 @@
         .track-action-btn:hover { background: var(--bg3); border-color: var(--accent); color: var(--accent); }
         .track-action-btn i { font-size: 16px; color: var(--accent); width: 20px; text-align: center; margin: 0 !important; flex-shrink: 0; }
         .track-action-btn:hover i { color: var(--accent); }
+
+        /* ── Arozcast cast ───────────────────────────────────────────────── */
+        .cast-indicator {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; color: var(--accent); font-weight: 600;
+            background: var(--accent-glow);
+            border: 1px solid rgba(168,85,247,.3);
+            border-radius: 20px; padding: 3px 10px;
+            white-space: nowrap; cursor: pointer;
+        }
+        .cast-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--accent);
+            animation: castPulse 2s infinite;
+            flex-shrink: 0;
+        }
+        @keyframes castPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+        .cast-code-inp {
+            width: 100%; text-align: center; letter-spacing: 10px;
+            font-size: 26px; font-weight: 700;
+            background: var(--bg3); border: 1px solid var(--border);
+            border-radius: 8px; padding: 14px;
+            color: var(--text); outline: none; font-variant-numeric: tabular-nums;
+        }
+        .cast-code-inp:focus { border-color: var(--accent); }
+        .cast-status-box {
+            background: var(--accent-glow); border: 1px solid rgba(168,85,247,.25);
+            border-radius: 10px; padding: 16px; text-align: center; margin-bottom: 4px;
+        }
     </style>
     <script>
         // ─── Global helpers (must be defined before Alpine evaluates templates) ───────
@@ -1380,6 +1409,17 @@
             <button class="ctrl-btn" :class="{active: showQueue}" x-on:click="showQueue = !showQueue" title="Queue">
                 <i class="ui list icon" style="margin:0;"></i>
             </button>
+
+            <!-- Cast: connected indicator -->
+            <span class="cast-indicator" x-show="castConnected" x-on:click="showCastModal=true" title="Casting – click to manage">
+                <span class="cast-dot"></span>
+                <img src="img/ast_connected.svg" style="width:16px;height:16px;vertical-align:middle;">
+            </span>
+
+            <!-- Cast: connect button -->
+            <button class="ctrl-btn" x-show="!castConnected" x-on:click="showCastModal=true" title="Cast to Arozcast">
+                <img src="img/cast.svg" style="width:18px;height:18px;">
+            </button>
         </div>
 
         <!-- Mobile: seek bar -->
@@ -1441,6 +1481,58 @@
                     <i class="ui plus icon"></i> New playlist
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- ═══ MODAL: Arozcast ══════════════════════════════════════════════ -->
+    <div class="modal-backdrop" x-show="showCastModal" x-on:click.self="showCastModal=false">
+        <div class="modal-box">
+            <div class="modal-title" style="display:flex;align-items:center;gap:8px;">
+                <img src="img/cast.svg" style="width:20px;height:20px;">
+                Cast to Arozcast
+            </div>
+
+            <!-- ─ Not yet connected ─ -->
+            <template x-if="!castConnected">
+                <div>
+                    <div class="modal-label">Enter the 4-digit code shown on your Arozcast screen</div>
+                    <input class="cast-code-inp" type="text" inputmode="numeric"
+                        maxlength="4" placeholder="_ _ _ _"
+                        x-model="castCodeInput"
+                        x-on:keydown.enter="connectToCast()"
+                        autofocus>
+                    <template x-if="castError">
+                        <p style="color:#f87171;font-size:12px;margin-top:8px;" x-text="castError"></p>
+                    </template>
+                    <div class="modal-row">
+                        <button class="btn btn-secondary" x-on:click="showCastModal=false;castCodeInput='';castError=''">Cancel</button>
+                        <button class="btn btn-primary" x-on:click="connectToCast()" :disabled="castConnecting">
+                            <span x-show="!castConnecting">Connect</span>
+                            <span x-show="castConnecting">Connecting...</span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ─ Connected ─ -->
+            <template x-if="castConnected">
+                <div>
+                    <div class="cast-status-box">
+                        <div class="cast-indicator" style="display:inline-flex;margin-bottom:10px;">
+                            <span class="cast-dot"></span>
+                            Casting on code&nbsp;<strong x-text="castCode"></strong>
+                        </div>
+                        <p style="font-size:13px;color:var(--text2);margin-top:6px;">
+                            Playback is controlled on the remote Arozcast screen.
+                            Volume, seek, and play/pause operate remotely.
+                        </p>
+                    </div>
+                    <div class="modal-row">
+                        <button class="btn btn-secondary" x-on:click="showCastModal=false">Close</button>
+                        <button class="btn btn-danger" x-on:click="disconnectCast()">Disconnect</button>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 

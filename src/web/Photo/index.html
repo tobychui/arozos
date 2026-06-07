@@ -456,6 +456,81 @@
             display:none;
         }
 
+        .cast-photo-btn {
+            position: absolute;
+            top: 1.3em;
+            right: 6.5em;
+            background: #222222;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cast-photo-btn svg { width: 18px; height: 18px; }
+        .cast-photo-btn.casting { background: #c0392b; }
+
+        /* Cast modal */
+        #cast-photo-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #cast-photo-modal.visible { display: flex; }
+
+        .cast-photo-dialog {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 1.5em 2em;
+            min-width: 260px;
+            color: #eee;
+            font-family: sans-serif;
+        }
+
+        .cast-photo-dialog h4 { margin: 0 0 1em; font-size: 1em; }
+
+        .cast-photo-dialog input {
+            width: 100%;
+            padding: 0.4em 0.6em;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: #eee;
+            font-size: 1.4em;
+            letter-spacing: 0.3em;
+            text-align: center;
+            box-sizing: border-box;
+            margin-bottom: 0.8em;
+        }
+
+        .cast-photo-dialog .cast-error { color: #e74c3c; font-size: 0.85em; margin-bottom: 0.6em; min-height: 1.2em; }
+
+        .cast-photo-dialog .cast-actions { display: flex; gap: 0.6em; justify-content: flex-end; }
+
+        .cast-photo-dialog button {
+            padding: 0.4em 1em;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .cast-photo-dialog .btn-connect { background: #e74c3c; color: #fff; }
+        .cast-photo-dialog .btn-cancel  { background: #333; color: #ccc; }
+        .cast-photo-dialog .btn-disconnect { background: #555; color: #fff; }
+        .cast-photo-dialog .cast-status { font-size: 0.85em; color: #aaa; margin-bottom: 0.8em; }
+
         @media (max-width: 768px) {
             .viewer-right {
                 position: fixed;
@@ -724,6 +799,9 @@
                 <img id="fullImage" src="img/loading.png" />
                 <button class="close-btn" onclick="closeViewer()">×</button>
                 <button class="show-info-btn" onclick="showInfoPanel()">ℹ</button>
+                <button class="cast-photo-btn" id="cast-photo-btn" onclick="openPhotoCastDialog()" title="Cast to Arozcast">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#F3F3F3"><path d="M480-480Zm320 320H600q0-20-1.5-40t-4.5-40h206v-480H160v46q-20-3-40-4.5T80-680v-40q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160Zm-720 0v-120q50 0 85 35t35 85H80Zm200 0q0-83-58.5-141.5T80-360v-80q117 0 198.5 81.5T360-160h-80Zm160 0q0-75-28.5-140.5t-77-114q-48.5-48.5-114-77T80-520v-80q91 0 171 34.5T391-471q60 60 94.5 140T520-160h-80Z"/></svg>
+                </button>
                 
                 <!-- Loading Progress -->
                 <div id="loading-progress" class="loading-progress"><i class="loading spinner icon"></i> Loading</div>
@@ -883,6 +961,23 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Arozcast Photo Cast Modal -->
+    <div id="cast-photo-modal">
+        <div class="cast-photo-dialog">
+            <h4>Cast to Arozcast</h4>
+            <div id="cast-photo-status" class="cast-status" style="display:none;"></div>
+            <input id="cast-photo-code" type="text" maxlength="4" placeholder="1234"
+                   oninput="this.value=this.value.replace(/\D/g,'')"
+                   onkeydown="if(event.key==='Enter') connectPhotoCast()">
+            <div id="cast-photo-error" class="cast-error"></div>
+            <div class="cast-actions">
+                <button class="btn-cancel" onclick="closePhotoCastDialog()">Cancel</button>
+                <button class="btn-disconnect" id="cast-photo-disc-btn" style="display:none;" onclick="disconnectPhotoCast()">Disconnect</button>
+                <button class="btn-connect" id="cast-photo-conn-btn" onclick="connectPhotoCast()">Connect</button>
             </div>
         </div>
     </div>

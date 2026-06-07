@@ -86,6 +86,7 @@ func RunStartup() {
 	AGIInit()        //ArOZ Javascript Gateway Interface, must start after fs
 	SchedulerInit()  //Start System Scheudler
 	SubserviceInit() //Subservice Handler
+	ArozcastInit()   //Arozcast remote projection pub/sub relay
 
 	//9. Initiate System Settings Handlers
 	SystemSettingInit()       //Start System Setting Core
