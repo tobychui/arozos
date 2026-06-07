@@ -1382,8 +1382,6 @@ function connectCast() {
                 castWs.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
 
                 var vid = document.getElementById('main-video');
-                // Volume first so Arozcast has it before media loads
-                _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
 
                 // Load current episode on Arozcast; stop local playback
                 if (playingIndex >= 0 && currentEpisodes[playingIndex]) {
@@ -1396,6 +1394,9 @@ function connectCast() {
                         filepath: ep.filepath, name: ep.name, type: 'video',
                         src: src, startTime: vid.currentTime || 0
                     });
+                    // Volume after load, before play — ensures it overrides any default
+                    // the Arozcast side might apply during media initialisation.
+                    _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
                     _castSend(vid.paused ? 'media.pause' : 'media.play', {});
                     // Stop local video to avoid dual transcoding
                     vid.pause();
@@ -2431,11 +2432,13 @@ function startPlayback(index) {
     if (castMode && _castConnected()) {
         // Don't load locally — avoids transcoding the same file twice
         vid.pause();
-        _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
         _castSend('media.load', {
             filepath: ep.filepath, name: ep.name, type: 'video',
             src: src, startTime: 0
         });
+        // Volume after load, before play — guarantees device volume overrides
+        // whatever Arozcast was previously playing at.
+        _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
         _castSend('media.play', {});
     } else {
         vid.src = src;
