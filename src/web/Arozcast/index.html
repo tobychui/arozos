@@ -176,6 +176,8 @@
         }
         .tb-btn:hover { background: rgba(255,255,255,.18); }
         .tb-btn svg { width: 18px; height: 18px; fill: currentColor; }
+        .tb-btn.active { background: rgba(168,85,247,.28); }
+        .tb-btn.active img { filter: brightness(1.4) saturate(1.6); }
 
         .tb-filename {
             flex: 1; text-align: center;
@@ -361,6 +363,13 @@
         <button class="tb-btn" @click="toggleMute()" :title="isMuted ? 'Unmute' : 'Mute'">
             <img :src="isMuted ? 'img/mute.svg' : 'img/unmute.svg'" style="width:20px;height:20px;">
         </button>
+
+        <!-- Repeat indicator (controlled by sender) -->
+        <button class="tb-btn" :class="{active: repeatMode !== 'none'}"
+                :title="repeatMode === 'none' ? 'Repeat: off' : repeatMode === 'one' ? 'Repeat: one' : 'Repeat: all'"
+                x-show="currentTrack" style="pointer-events:none;">
+            <img src="img/repeat.svg" style="width:20px;height:20px;">
+        </button>
     </div>
 
     <!-- ── Progress bar ───────────────────────────────────────────── -->
@@ -401,6 +410,7 @@ function arozcastApp() {
         duration: 0,
         volume: 100,
         isMuted: false,
+        repeatMode: 'none',   // 'none' | 'one' | 'all' — set by sender via media.repeat
 
         // Toolbar
         isFullscreen: false,
@@ -530,6 +540,9 @@ function arozcastApp() {
                 case 'media.volume':
                     this._setVolume(msg.payload.volume, msg.payload.muted);
                     break;
+                case 'media.repeat':
+                    this._setRepeat(msg.payload.mode || 'none');
+                    break;
                 case 'media.stop':
                     this._stop();
                     break;
@@ -571,6 +584,7 @@ function arozcastApp() {
 
             if (type === 'audio') {
                 this.coverSrc = ao_root + 'system/file_system/loadThumbnail?bytes=true&vpath=' + encodeURIComponent(track.filepath);
+                this._audio.loop = (this.repeatMode === 'one');
                 this._audio.src = fileUrl;
                 this._audio.load();
                 // Apply volume and seek inside loadedmetadata so browser-assigned
@@ -585,6 +599,7 @@ function arozcastApp() {
                 this._video.pause();
                 this._video.removeAttribute('src');
             } else if (type === 'video') {
+                this._video.loop = (this.repeatMode === 'one');
                 this._video.src = fileUrl;
                 this._video.load();
                 this._video.addEventListener('loadedmetadata', () => {
@@ -640,6 +655,17 @@ function arozcastApp() {
             this._audio.muted = muted;
             this._video.volume = v;
             this._video.muted = muted;
+        },
+
+        _setRepeat(mode) {
+            this.repeatMode = mode;
+            // Native browser loop only for single-track repeat — the browser
+            // suppresses the 'ended' event when loop=true, which is fine for 'one'
+            // (no sender action needed). For 'all', the sender drives playlist
+            // advancement via media.ended → nextTrack, so we must NOT set loop=true.
+            const loop = (mode === 'one');
+            this._audio.loop = loop;
+            this._video.loop = loop;
         },
 
         _stop() {

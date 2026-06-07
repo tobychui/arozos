@@ -990,6 +990,9 @@ function musicifyApp() {
             var idx = modes.indexOf(this.repeat);
             this.repeat = modes[(idx + 1) % modes.length];
             ao_module_storage.setStorage("Musicify", "repeat", this.repeat);
+            if (this.castMode) {
+                this._castSend('media.repeat', { mode: this.repeat });
+            }
         },
 
         _onEnded() {
@@ -1329,6 +1332,7 @@ function musicifyApp() {
                     } else {
                         self._castSend('media.pause', {});
                     }
+                    self._castSend('media.repeat', { mode: self.repeat });
                 }
 
                 // Heartbeat: tell Arozcast we are still here every 5 s
@@ -1461,6 +1465,7 @@ function musicifyApp() {
             // will immediately sync currentTime to the live remote position.
             ws.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
             this._castSend('media.volume', { volume: this.volume, muted: this.isMuted });
+            this._castSend('media.repeat', { mode: this.repeat });
             clearInterval(this._castPingTimer); clearInterval(this._castWatchTimer);
             this._castPingTimer = setInterval(function() { self._castSend('peer.heartbeat', {}); }, 5000);
             this._castWatchTimer = setInterval(function() {
