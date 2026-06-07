@@ -1320,6 +1320,9 @@ var castLastSeen    = 0;
 var castCurrentTime = 0;
 var castDuration    = 0;
 var castIsPlaying   = false;
+var castReconnectTimer  = null;   // setTimeout handle for next reconnect attempt
+var castReconnectCount  = 0;      // number of attempts made so far
+var castPendingCode     = null;   // room code kept alive during reconnect
 
 function _castConnected() {
     return castWs !== null && castWs.readyState === WebSocket.OPEN;
@@ -1418,9 +1421,10 @@ function connectCast() {
                 clearInterval(castPingTimer); clearInterval(castWatchTimer);
                 castPingTimer = castWatchTimer = null;
                 var wasActive = castMode;
+                var savedCode = castCode;
                 castMode = false; castCode = null; castWs = null;
                 $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
-                if (wasActive) { _castResumeLocally(); }
+                if (wasActive) { _startCastReconnect(savedCode); }
             };
 
             castWs.onerror = function() {
@@ -1432,6 +1436,9 @@ function connectCast() {
 }
 
 function disconnectCast() {
+    // Cancel any pending auto-reconnect before tearing down
+    clearTimeout(castReconnectTimer); castReconnectTimer = null;
+    castReconnectCount = 0; castPendingCode = null;
     if (_castConnected()) { _castSend('media.stop', {}); }
     if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
     clearInterval(castPingTimer); clearInterval(castWatchTimer);
@@ -1458,6 +1465,77 @@ function _castResumeLocally() {
     }
     $('#play-icon').attr('src', 'img/icons/play_white.svg');
     showToast('Arozcast disconnected — click play to resume');
+}
+
+// ── Arozcast auto-reconnect ───────────────────────────────────────────────────
+var _CAST_RECONNECT_DELAYS = [2000, 4000, 8000, 16000, 30000];
+
+function _startCastReconnect(code) {
+    if (!code || castReconnectCount >= _CAST_RECONNECT_DELAYS.length) {
+        if (castReconnectCount > 0) { _castResumeLocally(); }
+        castReconnectCount = 0; castPendingCode = null;
+        return;
+    }
+    castPendingCode = code;
+    var delay = _CAST_RECONNECT_DELAYS[castReconnectCount++];
+    clearTimeout(castReconnectTimer);
+    castReconnectTimer = setTimeout(function() {
+        castReconnectTimer = null;
+        _attemptCastReconnect();
+    }, delay);
+    showToast('Arozcast disconnected — reconnecting…');
+}
+
+function _attemptCastReconnect() {
+    if (!castPendingCode) return;
+    var code = castPendingCode;
+    var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+    wsUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var ws = new WebSocket(wsUrl.toString());
+    // If the socket doesn't open within 8 s, count as a failed attempt
+    var openTimer = setTimeout(function() {
+        ws.onopen = ws.onclose = ws.onerror = null; ws.close();
+        _startCastReconnect(code);
+    }, 8000);
+    ws.onopen  = function() { clearTimeout(openTimer); castReconnectCount = 0; castPendingCode = null; _castDidReconnect(ws, code); };
+    ws.onerror = function() {};   // let onclose handle it
+    ws.onclose = function() { clearTimeout(openTimer); _startCastReconnect(code); };
+}
+
+function _castDidReconnect(ws, code) {
+    castWs = ws; castCode = code; castMode = true; castLastSeen = Date.now();
+    ws.onmessage = function(evt) {
+        castLastSeen = Date.now();
+        try { _handleCastMessage(JSON.parse(evt.data)); } catch(e) {}
+    };
+    ws.onclose = function() {
+        clearInterval(castPingTimer); clearInterval(castWatchTimer);
+        castPingTimer = castWatchTimer = null;
+        var wasActive = castMode;
+        var savedCode = castCode;
+        castMode = false; castCode = null; castWs = null;
+        $('#ctrl-cast, #ctrl-cast-top').removeClass('casting');
+        if (wasActive) { _startCastReconnect(savedCode); }
+    };
+    // Re-announce and restore full media state at the last known remote position
+    _castSend('peer.hello', {});
+    var vid = document.getElementById('main-video');
+    _castSend('media.volume', { volume: vid.volume * 100, muted: vid.muted });
+    if (playingIndex >= 0 && currentEpisodes && currentEpisodes[playingIndex]) {
+        var ep  = currentEpisodes[playingIndex];
+        var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+        var src = isWebPlayable(ext)
+            ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
+            : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+        _castSend('media.load', { filepath: ep.filepath, name: ep.name, type: 'video', src: src, startTime: castCurrentTime });
+        _castSend(castIsPlaying ? 'media.play' : 'media.pause', {});
+    }
+    castPingTimer  = setInterval(function() { _castSend('peer.heartbeat', {}); }, 5000);
+    castWatchTimer = setInterval(function() {
+        if (Date.now() - castLastSeen > 12000 && castWs) { castWs.close(); }
+    }, 4000);
+    $('#ctrl-cast, #ctrl-cast-top').addClass('casting');
+    showToast('Arozcast reconnected — resuming from ' + formatTime(castCurrentTime));
 }
 
 function _handleCastMessage(msg) {
@@ -1924,6 +2002,15 @@ $(document).ready(function () {
             }
         };
     } catch(e) {}
+
+    // When the user returns to this tab after the phone was asleep, reconnect immediately
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && castPendingCode) {
+            clearTimeout(castReconnectTimer);
+            castReconnectTimer = null;
+            _attemptCastReconnect();
+        }
+    });
 
     // Clean up cast on page close
     window.addEventListener('beforeunload', function() {
@@ -2428,6 +2515,9 @@ function highlightPlayingEpisode(idx) {
 }
 
 function closePlayer() {
+    // Always cancel any pending auto-reconnect
+    clearTimeout(castReconnectTimer); castReconnectTimer = null;
+    castReconnectCount = 0; castPendingCode = null;
     if (castMode && _castConnected()) {
         _castSend('media.stop', {});
         castWs.onclose = null;

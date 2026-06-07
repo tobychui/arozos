@@ -110,6 +110,9 @@ function musicifyApp() {
         _castPingTimer: null,
         _castWatchTimer: null,
         _castLastSeen: 0,
+        _castReconnectTimer: null,
+        _castReconnectCount: 0,
+        _castPendingCode: null,
 
         // ── Internal refs ────────────────────────────────────────────────────
         _audio: null,
@@ -190,6 +193,15 @@ function musicifyApp() {
                     }
                 };
             } catch(e) {}
+
+            // When the user returns to this tab after the phone was asleep, reconnect immediately
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible' && self._castPendingCode) {
+                    clearTimeout(self._castReconnectTimer);
+                    self._castReconnectTimer = null;
+                    self._attemptCastReconnect();
+                }
+            });
 
             // Responsive sidebar
             this.sidebarOpen = window.innerWidth > 768;
@@ -1339,28 +1351,12 @@ function musicifyApp() {
                 clearInterval(self._castWatchTimer);
                 self._castPingTimer = null;
                 self._castWatchTimer = null;
-
-                if (self.castMode) {
-                    // Reload local audio, seek to last known remote position, leave paused
-                    if (self.currentTrack) {
-                        var resumeAt = self.currentTime;
-                        self._audio.src = ao_root + 'media?file=' + encodeURIComponent(self.currentTrack.filepath);
-                        self._audio.volume = self.volume / 100;
-                        self._audio.muted = self.isMuted;
-                        self._audio.load();
-                        if (resumeAt > 0) {
-                            self._audio.addEventListener('loadedmetadata', function() {
-                                self._audio.currentTime = resumeAt;
-                            }, { once: true });
-                        }
-                    }
-                    self.isPlaying = false;
-                    self._showToast('Arozcast disconnected — click play to resume locally', 'error');
-                }
-
+                var wasActive = self.castMode;
+                var savedCode = self.castCode;
                 self.castConnected = false;
                 self.castMode = false;
                 self._castWs = null;
+                if (wasActive) { self._startCastReconnect(savedCode); }
             };
 
             ws.onerror = function() {
@@ -1381,7 +1377,111 @@ function musicifyApp() {
             };
         },
 
+        // ── Auto-reconnect helpers ────────────────────────────────────────────
+        _startCastReconnect(code) {
+            var self = this;
+            var DELAYS = [2000, 4000, 8000, 16000, 30000];
+            if (!code || this._castReconnectCount >= DELAYS.length) {
+                if (this._castReconnectCount > 0) {
+                    // All retries exhausted — fall back to local playback
+                    if (this.currentTrack) {
+                        var resumeAt = this.currentTime;
+                        this._audio.src = ao_root + 'media?file=' + encodeURIComponent(this.currentTrack.filepath);
+                        this._audio.volume = this.volume / 100;
+                        this._audio.muted = this.isMuted;
+                        this._audio.load();
+                        if (resumeAt > 0) {
+                            this._audio.addEventListener('loadedmetadata', function() {
+                                self._audio.currentTime = resumeAt;
+                            }, { once: true });
+                        }
+                        this.isPlaying = false;
+                        this._showToast('Arozcast: reconnect failed — resuming locally', 'error');
+                    }
+                }
+                this._castReconnectCount = 0; this._castPendingCode = null;
+                return;
+            }
+            this._castPendingCode = code;
+            var delay = DELAYS[this._castReconnectCount++];
+            clearTimeout(this._castReconnectTimer);
+            this._castReconnectTimer = setTimeout(function() {
+                self._castReconnectTimer = null;
+                self._attemptCastReconnect();
+            }, delay);
+            this._showToast('Arozcast disconnected — reconnecting…');
+        },
+
+        _attemptCastReconnect() {
+            var self = this;
+            if (!this._castPendingCode) return;
+            var code = this._castPendingCode;
+            var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
+            wsUrl.protocol = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+            var ws = new WebSocket(wsUrl.toString());
+            var openTimer = setTimeout(function() {
+                ws.onopen = ws.onclose = ws.onerror = null; ws.close();
+                self._startCastReconnect(code);
+            }, 8000);
+            ws.onopen  = function() { clearTimeout(openTimer); self._castReconnectCount = 0; self._castPendingCode = null; self._castDidReconnect(ws, code); };
+            ws.onerror = function() {};
+            ws.onclose = function() { clearTimeout(openTimer); self._startCastReconnect(code); };
+        },
+
+        _castDidReconnect(ws, code) {
+            var self = this;
+            this._castWs = ws;
+            this.castCode = code;
+            this.castMode = true;
+            this.castConnected = true;
+            this._castLastSeen = Date.now();
+            ws.onmessage = function(evt) {
+                self._castLastSeen = Date.now();
+                try {
+                    var msg = JSON.parse(evt.data);
+                    if (msg.topic === 'status.update') {
+                        if (!self.isSeeking) self.currentTime = msg.payload.currentTime || 0;
+                        self.duration = msg.payload.duration || 0;
+                        self.isPlaying = msg.payload.isPlaying || false;
+                    } else if (msg.topic === 'media.ended') {
+                        self._onEnded();
+                    }
+                } catch(e) {}
+            };
+            ws.onclose = function() {
+                clearInterval(self._castPingTimer); clearInterval(self._castWatchTimer);
+                self._castPingTimer = null; self._castWatchTimer = null;
+                var wasActive = self.castMode;
+                var savedCode = self.castCode;
+                self.castConnected = false; self.castMode = false; self._castWs = null;
+                if (wasActive) { self._startCastReconnect(savedCode); }
+            };
+            // Re-announce and restore full media state at the last known remote position
+            ws.send(JSON.stringify({ topic: 'peer.hello', payload: {} }));
+            this._castSend('media.volume', { volume: this.volume, muted: this.isMuted });
+            if (this.currentTrack) {
+                this._castSend('media.load', {
+                    filepath: this.currentTrack.filepath,
+                    name: this.currentTrack.name,
+                    artist: this.getArtistLabel(this.currentTrack),
+                    cover: this.currentTrack.cover || '',
+                    type: 'audio',
+                    startTime: this.currentTime
+                });
+                this._castSend(this.isPlaying ? 'media.play' : 'media.pause', {});
+            }
+            clearInterval(this._castPingTimer); clearInterval(this._castWatchTimer);
+            this._castPingTimer = setInterval(function() { self._castSend('peer.heartbeat', {}); }, 5000);
+            this._castWatchTimer = setInterval(function() {
+                if (Date.now() - self._castLastSeen > 12000 && self._castWs) self._castWs.close();
+            }, 4000);
+            this._showToast('Arozcast reconnected — resuming');
+        },
+
         disconnectCast() {
+            // Cancel any pending auto-reconnect before tearing down
+            clearTimeout(this._castReconnectTimer); this._castReconnectTimer = null;
+            this._castReconnectCount = 0; this._castPendingCode = null;
             clearInterval(this._castPingTimer);
             clearInterval(this._castWatchTimer);
             this._castPingTimer = null;
@@ -1390,6 +1490,7 @@ function musicifyApp() {
             this.castConnected = false;
             this.showCastModal = false;
             if (this._castWs) {
+                this._castWs.onclose = null;   // suppress reconnect trigger
                 this._castWs.close();
                 this._castWs = null;
             }
@@ -1399,10 +1500,17 @@ function musicifyApp() {
 
             // Resume local playback from current track
             if (this.currentTrack) {
+                var resumeAt = this.currentTime;
+                var self = this;
                 this._audio.src = ao_root + 'media?file=' + encodeURIComponent(this.currentTrack.filepath);
                 this._audio.volume = this.volume / 100;
                 this._audio.muted = this.isMuted;
                 this._audio.load();
+                if (resumeAt > 0) {
+                    this._audio.addEventListener('loadedmetadata', function() {
+                        self._audio.currentTime = resumeAt;
+                    }, { once: true });
+                }
                 this._audio.play().catch(function() {});
             }
             this._showToast('Disconnected from Arozcast');
