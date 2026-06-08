@@ -471,6 +471,15 @@ function arozcastApp() {
             const url = wsUrl.toString();
             const self = this;
 
+            // Detach stale handlers from the old socket before replacing it.
+            // This prevents a dying connection from firing onmessage if it
+            // receives a relayed frame during the server-side cleanup window.
+            if (this.ws) {
+                this.ws.onopen    = null;
+                this.ws.onclose   = null;
+                this.ws.onmessage = null;
+            }
+
             this.ws = new WebSocket(url);
             this.ws.onopen = () => {
                 // Start periodic status broadcast
@@ -515,40 +524,55 @@ function arozcastApp() {
 
         // ── Message handler ───────────────────────────────────────────
         _handleMessage(msg) {
-            // Any message from a peer means at least one sender is active
-            this._touchPeer();
-
+            // _touchPeer() is called ONLY for sender-originated topics.
+            // The receiver emits 'status.update' and 'media.ended' itself; receiving
+            // those (e.g. via a brief double-connection during WS reconnect) must
+            // not be mistaken for a connected sender.
             switch(msg.topic) {
                 case 'media.load':
+                    this._touchPeer();
                     this._loadMedia(msg.payload);
                     break;
                 case 'media.play':
+                    this._touchPeer();
                     this._play();
                     break;
                 case 'media.pause':
+                    this._touchPeer();
                     this._pause();
                     break;
                 case 'media.seek':
+                    this._touchPeer();
                     this._seek(msg.payload.time);
                     break;
                 case 'media.seekrel': {
+                    this._touchPeer();
                     const el = this.mediaType === 'audio' ? this._audio : this._video;
                     const t = Math.max(0, Math.min((el.duration || 0), el.currentTime + (msg.payload.delta || 0)));
                     this._seek(t);
                     break;
                 }
                 case 'media.volume':
+                    this._touchPeer();
                     this._setVolume(msg.payload.volume, msg.payload.muted);
                     break;
                 case 'media.repeat':
+                    this._touchPeer();
                     this._setRepeat(msg.payload.mode || 'none');
                     break;
                 case 'media.stop':
+                    this._touchPeer();
                     this._stop();
                     break;
                 case 'peer.hello':
+                    this._touchPeer();
                     this.peerCount = 1;
                     break;
+                case 'peer.heartbeat':
+                    this._touchPeer();
+                    break;
+                // 'status.update' and 'media.ended' are sent BY this receiver —
+                // ignore silently if received (loopback via duplicate connection).
             }
         },
 
