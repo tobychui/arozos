@@ -1038,7 +1038,7 @@ function _attemptPhotoCastReconnect() {
         ws.onopen = ws.onclose = ws.onerror = null; ws.close();
         _startPhotoCastReconnect(code);
     }, 8000);
-    ws.onopen  = function() { clearTimeout(openTimer); _photoCastReconnectCount = 0; _photoCastPendingCode = null; _photoCastDidReconnect(ws, code); };
+    ws.onopen  = function() { clearTimeout(openTimer); _photoCastPendingCode = null; _photoCastDidReconnect(ws, code); };
     ws.onerror = function() {};
     ws.onclose = function() { clearTimeout(openTimer); _startPhotoCastReconnect(code); };
 }
@@ -1047,7 +1047,7 @@ function _photoCastDidReconnect(ws, code) {
     _photoCastWs = ws;
     _photoCastCode = code;
     _photoCastLastSeen = Date.now();
-    ws.onmessage = function() { _photoCastLastSeen = Date.now(); };
+    ws.onmessage = function() { _photoCastLastSeen = Date.now(); _photoCastReconnectCount = 0; }; // any reply = receiver alive — reset retry counter
     ws.onclose = function() {
         clearInterval(_photoCastPingTimer); clearInterval(_photoCastWatchTimer);
         var savedCode = _photoCastCode;

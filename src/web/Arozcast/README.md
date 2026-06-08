@@ -664,6 +664,32 @@ document.addEventListener('visibilitychange', function() {
 | All retries exhausted | Call `resumeLocally()` — fall back to device playback |
 | User explicitly presses "Disconnect" | Send `media.stop`, skip retries, resume locally |
 | Page/tab closed | Send only `media.stop` if explicit disconnect; otherwise let receiver keep playing |
+| Server sends `room.closed` | Give up immediately — no retries; see [receiver idle timeout](#receiver-idle-timeout) |
+
+> **Important:** Do not reset the reconnect counter when the WebSocket opens. Only reset it after the **first `status.update` is received** — this proves the receiver is alive. Resetting on WS open alone creates an infinite loop when the room exists on the server but the receiver page is gone.
+
+```javascript
+ws.onopen = function() {
+    // Do NOT set reconnectCount = 0 here
+    pendingCode = null;
+    castWs = ws; castCode = code; castMode = true;
+    castSend('peer.hello', {});
+    startHeartbeat();
+};
+
+ws.onmessage = function(evt) {
+    var msg = JSON.parse(evt.data);
+    if (msg.topic === 'status.update') {
+        reconnectCount = 0; // receiver confirmed alive — now safe to reset
+        // ... sync playback state
+    } else if (msg.topic === 'room.closed') {
+        // Backend closed the room — stop retrying immediately
+        reconnectCount = 0; pendingCode = null;
+        clearTimeout(reconnectTimer);
+        resumeLocally();
+    }
+};
+```
 
 ---
 
@@ -712,7 +738,26 @@ Setting `repeat === 'all'` does **not** make the receiver loop automatically. In
 Setting `repeat === 'one'` sets `loop = true` on the receiver's media element, so the browser handles looping natively and `media.ended` is never fired.
 
 ### Room lifetime
-Rooms are automatically garbage-collected after **10 minutes of inactivity** (no connected clients). Always call `/api/arozcast/close` when tearing down intentionally so the slot is freed immediately.
+
+Rooms are closed automatically by the server in two cases:
+
+| Condition | Timeout | Notes |
+|-----------|---------|-------|
+| **Receiver idle** | **30 seconds** | The receiver (`index.html`) sends `status.update` every 3 s. If no `status.update` has been seen for 30 s the receiver is considered gone and the room is closed. |
+| **Empty room** | **10 minutes** | The room has no connected WebSocket clients. Catches rooms whose owner never opened the Arozcast page. |
+
+The sweep runs every 15 seconds. When a room is closed by the sweep, the backend first broadcasts `{"topic":"room.closed","payload":{}}` to every connected sender before dropping their sockets. A well-behaved sender should stop retrying immediately on receiving this message.
+
+Always call `/api/arozcast/close` when tearing down intentionally so the slot is freed immediately without waiting for the sweep.
+
+#### Receiver idle timeout
+
+The **30-second receiver idle** guard is the second line of defence against zombie sessions where the Arozcast iframe was force-removed from the DOM without triggering `beforeunload` (so the room was not explicitly closed via `/api/arozcast/close`). When the sweep fires:
+
+1. Room is deleted from the server's room map.
+2. `{"topic":"room.closed","payload":{}}` is broadcast to all connected senders.
+3. All WebSocket connections are closed.
+4. Any sender that receives `room.closed` should give up immediately; any sender that misses it will discover the room is gone when its next reconnect attempt gets a **404 Room not found** response.
 
 ### HTTP publish for non-WS contexts
 AGI scripts and server-side code that cannot hold a WebSocket can use `/api/arozcast/publish` to inject any message into a live room. This is useful for automation (e.g. skip to next track on a timer) without modifying the frontend.

@@ -1501,7 +1501,7 @@ function _attemptCastReconnect() {
         ws.onopen = ws.onclose = ws.onerror = null; ws.close();
         _startCastReconnect(code);
     }, 8000);
-    ws.onopen  = function() { clearTimeout(openTimer); castReconnectCount = 0; castPendingCode = null; _castDidReconnect(ws, code); };
+    ws.onopen  = function() { clearTimeout(openTimer); castPendingCode = null; _castDidReconnect(ws, code); };
     ws.onerror = function() {};   // let onclose handle it
     ws.onclose = function() { clearTimeout(openTimer); _startCastReconnect(code); };
 }
@@ -1537,6 +1537,7 @@ function _castDidReconnect(ws, code) {
 
 function _handleCastMessage(msg) {
     if (msg.topic === 'status.update') {
+        castReconnectCount = 0; // receiver confirmed alive — reset retry counter
         castCurrentTime = msg.payload.currentTime || 0;
         castDuration    = msg.payload.duration    || 0;
         castIsPlaying   = msg.payload.isPlaying   || false;

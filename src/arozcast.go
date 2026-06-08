@@ -14,9 +14,30 @@ package main
 	  GET  /api/arozcast/ping?code=XXXX     → {"exists":true/false}
 	  POST /api/arozcast/publish            → "OK"  (code=, msg=)
 	  GET  /api/arozcast/ws?code=XXXX       → WebSocket upgrade
+
+	Room lifecycle / idle timeouts
+	──────────────────────────────
+	A sweep goroutine runs every 15 seconds and closes rooms that meet
+	either of the following conditions:
+
+	  1. Receiver idle — the receiver (Arozcast page) sends a
+	     'status.update' frame every 3 s.  If no such frame has been
+	     seen for receiverIdleTimeout (30 s) the receiver is considered
+	     gone and the room is closed.  This guard only activates after
+	     the receiver has connected at least once (lastStatusUpdate is
+	     non-zero), so a freshly-created room is not immediately culled.
+
+	  2. Empty + idle — the room has no connected clients and has been
+	     idle for emptyRoomTimeout (10 min).  This catches rooms whose
+	     owner never opened the Arozcast page.
+
+	Before closing, the backend broadcasts {"topic":"room.closed"} to
+	every connected sender so they can react immediately (emit 'giveup')
+	instead of waiting for the watchdog cycle to fire.
 */
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -27,6 +48,18 @@ import (
 	prout "imuslab.com/arozos/mod/prouter"
 	"imuslab.com/arozos/mod/utils"
 )
+
+// Idle-timeout constants.  Adjust here if you need different behaviour.
+const (
+	acReceiverIdleTimeout = 30 * time.Second // close room when receiver goes silent
+	acEmptyRoomTimeout    = 10 * time.Minute // clean up empty rooms
+	acSweepInterval       = 15 * time.Second // how often the sweep goroutine runs
+)
+
+// roomClosedMsg is broadcast to all senders before the room is torn down,
+// giving arozcast.js (and the built-in sender apps) a chance to emit
+// 'giveup' immediately rather than going through the full watchdog/retry cycle.
+var roomClosedMsg = []byte(`{"topic":"room.closed","payload":{}}`)
 
 // acClient is one WebSocket participant in a room.
 type acClient struct {
@@ -41,12 +74,13 @@ func (c *acClient) safeClose() {
 
 // acRoom holds all connected clients sharing a 4-digit code.
 type acRoom struct {
-	code         string
-	owner        string
-	clients      map[*acClient]struct{}
-	mu           sync.Mutex
-	createdAt    time.Time
-	lastActivity time.Time // updated on every client join / leave
+	code             string
+	owner            string
+	clients          map[*acClient]struct{}
+	mu               sync.Mutex
+	createdAt        time.Time
+	lastActivity     time.Time // updated on every client join / leave
+	lastStatusUpdate time.Time // updated each time a 'status.update' frame is relayed
 }
 
 func (r *acRoom) add(c *acClient) {
@@ -73,7 +107,7 @@ func (r *acRoom) broadcast(msg []byte, exclude *acClient) {
 		}
 		select {
 		case c.send <- append([]byte(nil), msg...):
-		default: // drop frame if buffer is full
+		default: // drop frame if send buffer is full
 		}
 	}
 }
@@ -90,23 +124,65 @@ var acUpgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+// acCloseRoom removes a room from the manager and disconnects all its clients.
+// It first broadcasts roomClosedMsg so senders can react before the socket drops.
+// Safe to call even if the room no longer exists.
+func acCloseRoom(mgr *acManager, code string) {
+	mgr.mu.Lock()
+	room, exists := mgr.rooms[code]
+	if exists {
+		delete(mgr.rooms, code)
+	}
+	mgr.mu.Unlock()
+
+	if !exists {
+		return
+	}
+
+	// Notify senders that the room is going away.
+	// broadcast() queues the message into each client's send channel;
+	// the writer goroutine will deliver it before exiting when the channel
+	// is closed below.
+	room.broadcast(roomClosedMsg, nil)
+
+	room.mu.Lock()
+	for c := range room.clients {
+		c.safeClose()
+	}
+	room.mu.Unlock()
+}
+
 func ArozcastInit() {
 	mgr := &acManager{rooms: make(map[string]*acRoom)}
 
-	// Sweep rooms with no active clients that have been idle for 10 minutes.
+	// ── Sweep goroutine ───────────────────────────────────────────────────
+	// Runs every acSweepInterval and closes rooms that match either idle
+	// condition.  Rooms to close are collected while holding a read-lock,
+	// then actually closed (write-lock + WS teardown) after releasing it.
 	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
+		ticker := time.NewTicker(acSweepInterval)
 		defer ticker.Stop()
 		for range ticker.C {
-			mgr.mu.Lock()
+			var toClose []string
+
+			mgr.mu.RLock()
 			for code, room := range mgr.rooms {
 				room.mu.Lock()
-				if len(room.clients) == 0 && time.Since(room.lastActivity) > 10*time.Minute {
-					delete(mgr.rooms, code)
-				}
+				receiverDead := !room.lastStatusUpdate.IsZero() &&
+					time.Since(room.lastStatusUpdate) > acReceiverIdleTimeout
+				emptyIdle := len(room.clients) == 0 &&
+					time.Since(room.lastActivity) > acEmptyRoomTimeout
 				room.mu.Unlock()
+
+				if receiverDead || emptyIdle {
+					toClose = append(toClose, code)
+				}
 			}
-			mgr.mu.Unlock()
+			mgr.mu.RUnlock()
+
+			for _, code := range toClose {
+				acCloseRoom(mgr, code)
+			}
 		}
 	}()
 
@@ -154,22 +230,7 @@ func ArozcastInit() {
 			utils.SendErrorResponse(w, "Missing code")
 			return
 		}
-
-		mgr.mu.Lock()
-		room, exists := mgr.rooms[code]
-		if exists {
-			delete(mgr.rooms, code)
-		}
-		mgr.mu.Unlock()
-
-		if exists {
-			room.mu.Lock()
-			for c := range room.clients {
-				c.safeClose()
-			}
-			room.mu.Unlock()
-		}
-
+		acCloseRoom(mgr, code)
 		utils.SendOK(w)
 	})
 
@@ -249,6 +310,8 @@ func ArozcastInit() {
 		room.add(client)
 
 		// Writer goroutine: drains client.send and writes to the socket.
+		// When the send channel is closed (safeClose), the goroutine delivers
+		// any queued messages (e.g. roomClosedMsg) before closing the connection.
 		go func() {
 			defer conn.Close()
 			for msg := range client.send {
@@ -259,15 +322,27 @@ func ArozcastInit() {
 		}()
 
 		// Reader loop: relay incoming frames to all other room members.
+		// Also inspects each frame: if it is a 'status.update' from the
+		// receiver, refresh lastStatusUpdate so the sweep goroutine knows
+		// the receiver is still alive.
 		defer func() {
 			room.remove(client)
 			client.safeClose()
 		}()
 
+		var topicCheck struct {
+			Topic string `json:"topic"`
+		}
+
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
 				break
+			}
+			if json.Unmarshal(msg, &topicCheck) == nil && topicCheck.Topic == "status.update" {
+				room.mu.Lock()
+				room.lastStatusUpdate = time.Now()
+				room.mu.Unlock()
 			}
 			room.broadcast(msg, client)
 		}

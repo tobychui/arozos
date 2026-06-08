@@ -469,7 +469,11 @@ class ArozCast {
 
         ws.onopen = () => {
             clearTimeout(timeout);
-            self._reconnectCount = 0;
+            // Do NOT reset _reconnectCount here — only reset it once the receiver
+            // confirms it is alive by sending 'status.update'.  Resetting on WS
+            // open alone would cause an infinite loop when the room exists on the
+            // server but the receiver is gone (WS opens → no status.update → watchdog
+            // fires → onclose → _scheduleReconnect with count reset to 0 → repeat).
             self._pendingCode    = null;
             self._ws             = ws;
             self.code            = code;
@@ -488,14 +492,38 @@ class ArozCast {
 
     /**
      * Dispatch incoming receiver messages to the event system.
-     * Only `status.update` and `media.ended` are receiver-originated.
+     *
+     * Receiver-originated topics: `status.update`, `media.ended`
+     * Backend-originated topic:   `room.closed` (server terminated the room)
      * All other topics are sender-originated and should not appear here.
      * @private
      */
     _handleIncoming(msg) {
         switch (msg.topic) {
-            case 'status.update': this._emit('status', msg.payload); break;
-            case 'media.ended':   this._emit('ended',  msg.payload); break;
+            case 'status.update':
+                // Receiver confirmed alive — safe to reset the retry counter so a
+                // subsequent real network drop gets the full backoff sequence again.
+                this._reconnectCount = 0;
+                this._emit('status', msg.payload);
+                break;
+            case 'media.ended':
+                this._emit('ended', msg.payload);
+                break;
+            case 'room.closed': {
+                // The backend closed the room (receiver idle timeout).
+                // Emit 'giveup' immediately and mark the close as intentional so
+                // the WS-close event that follows does not trigger reconnect attempts.
+                const savedCode = this.code;
+                this._intentional    = true;
+                this._reconnectCount = 0;
+                this._pendingCode    = null;
+                clearTimeout(this._reconnectTimer);
+                this._reconnectTimer = null;
+                this.code            = null;
+                this.connected       = false;
+                this._emit('giveup', { code: savedCode });
+                break;
+            }
             // Unknown/loopback topics are silently ignored
         }
     }

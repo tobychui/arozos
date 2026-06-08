@@ -1431,7 +1431,7 @@ function musicifyApp() {
                 ws.onopen = ws.onclose = ws.onerror = null; ws.close();
                 self._startCastReconnect(code);
             }, 8000);
-            ws.onopen  = function() { clearTimeout(openTimer); self._castReconnectCount = 0; self._castPendingCode = null; self._castDidReconnect(ws, code); };
+            ws.onopen  = function() { clearTimeout(openTimer); self._castPendingCode = null; self._castDidReconnect(ws, code); };
             ws.onerror = function() {};
             ws.onclose = function() { clearTimeout(openTimer); self._startCastReconnect(code); };
         },
@@ -1448,6 +1448,7 @@ function musicifyApp() {
                 try {
                     var msg = JSON.parse(evt.data);
                     if (msg.topic === 'status.update') {
+                        self._castReconnectCount = 0; // receiver confirmed alive — reset retry counter
                         if (!self.isSeeking) self.currentTime = msg.payload.currentTime || 0;
                         self.duration = msg.payload.duration || 0;
                         self.isPlaying = msg.payload.isPlaying || false;

@@ -431,7 +431,10 @@ cast.on('reconnecting', ({ code, attempt, delay }) => {
 
 ### `giveup` — `{ code }`
 
-Fired when all reconnection attempts are exhausted. Resume local playback.
+Fired in two situations:
+
+1. **Retries exhausted** — all reconnection attempts failed (network error, room no longer exists).
+2. **Server closed the room** — the backend broadcast `room.closed` because the Arozcast receiver page was idle for more than 30 seconds. In this case `giveup` fires immediately, without going through the reconnect cycle.
 
 ```javascript
 cast.on('giveup', ({ code }) => {
@@ -439,6 +442,8 @@ cast.on('giveup', ({ code }) => {
     resumeLocally(lastKnownTime);
 });
 ```
+
+> **Note:** `room.closed` is a backend-internal topic; you never need to handle it directly when using this SDK — it is converted to the `giveup` event automatically.
 
 ---
 
