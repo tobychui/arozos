@@ -935,6 +935,9 @@ function connectPhotoCast() {
             }
             clearInterval(_photoCastPingTimer);
             clearInterval(_photoCastWatchTimer);
+            // Cancel any pending auto-reconnect to the old room — user is opening a new session
+            clearTimeout(_photoCastReconnectTimer); _photoCastReconnectTimer = null;
+            _photoCastReconnectCount = 0; _photoCastPendingCode = null;
 
             // Signal other apps (e.g. Musicify) to yield the cast session
             try { new BroadcastChannel('arozcast').postMessage({ type: 'arozcast.takeover' }); } catch(e) {}

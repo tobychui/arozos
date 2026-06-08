@@ -1367,6 +1367,9 @@ function connectCast() {
 
             if (castWs) { castWs.onclose = null; castWs.close(); castWs = null; }
             clearInterval(castPingTimer); clearInterval(castWatchTimer);
+            // Cancel any pending auto-reconnect to the old room — user is opening a new session
+            clearTimeout(castReconnectTimer); castReconnectTimer = null;
+            castReconnectCount = 0; castPendingCode = null;
 
             // Signal other apps (Musicify, Photo) to yield the cast room
             try { new BroadcastChannel('arozcast').postMessage({ type: 'arozcast.takeover' }); } catch(e) {}

@@ -1296,6 +1296,10 @@ function musicifyApp() {
 
         _castOpen(code) {
             var self = this;
+            // Cancel any pending auto-reconnect to the old room — user is opening a new session
+            clearTimeout(this._castReconnectTimer); this._castReconnectTimer = null;
+            this._castReconnectCount = 0; this._castPendingCode = null;
+
             var wsUrl = new URL(ao_root + 'api/arozcast/ws?code=' + code, window.location.href);
             wsUrl.protocol = (location.protocol === 'https:') ? 'wss:' : 'ws:';
 
