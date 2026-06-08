@@ -338,7 +338,7 @@ body.darkTheme .ui.icon.button{
 }
 
 /* Mobile interface */
-.fileOprBtnMobile{
+.fileoprBtnMobile{
     position: relative;
     width: 100%;
     background-color: none;
@@ -355,18 +355,18 @@ body.darkTheme .ui.icon.button{
     border-bottom: 1px solid var(--divider);
 }
 
-.fileOprBtnMobile:hover{
+.fileoprBtnMobile:hover{
     background-color: var(--popup_btn_hover) !important;
 }
 
-.fileOprBtnMobile .opricon{
+.fileoprBtnMobile .opricon{
     width: 30px;
     display: inline-block;
     vertical-align: middle;
     margin-right: 0.4em;
 }
 
-.fileOprBtnMobile  p{
+.fileoprBtnMobile p{
     display: inline-block;
     vertical-align: middle;
 }
