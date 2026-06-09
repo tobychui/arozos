@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Screen Share — Arozcast</title>
+    <script src="../script/jquery.min.js"></script>
     <script src="../script/ao_module.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -237,7 +238,7 @@ async function connectRoom() {
     codeInput.disabled  = true;
     setConnStatus('', 'Checking room…');
 
-    const root = (typeof ao_root !== 'undefined') ? ao_root : '/';
+    const root = (typeof ao_root !== 'undefined' && ao_root) ? ao_root : '/';
 
     try {
         const res  = await fetch(root + 'api/arozcast/ping?code=' + code);
