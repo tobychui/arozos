@@ -48,7 +48,7 @@ func TestTranscodeAndStream_InvalidResolution(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/media/transcode", nil)
 	rr := httptest.NewRecorder()
 
-	TranscodeAndStream(rr, req, "/some/file.mkv", "invalid-resolution")
+	TranscodeAndStream(rr, req, "/some/file.mkv", "invalid-resolution", 0)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d for invalid resolution, got %d", http.StatusBadRequest, rr.Code)
@@ -65,7 +65,7 @@ func TestTranscodeAndStream_NoFfmpeg(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/media/transcode", nil)
 	rr := httptest.NewRecorder()
 
-	TranscodeAndStream(rr, req, "/some/nonexistent.mp4", TranscodeResolution_original)
+	TranscodeAndStream(rr, req, "/some/nonexistent.mp4", TranscodeResolution_original, 0)
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("expected status %d when ffmpeg is missing, got %d", http.StatusInternalServerError, rr.Code)
@@ -93,7 +93,7 @@ func TestTranscodeAndStream_ResolutionSwitch(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/media/transcode", nil)
 			rr := httptest.NewRecorder()
 
-			TranscodeAndStream(rr, req, "/nonexistent.mp4", tc.res)
+			TranscodeAndStream(rr, req, "/nonexistent.mp4", tc.res, 0)
 
 			// Should NOT be 400 – the resolution is recognised.
 			if rr.Code == http.StatusBadRequest {
@@ -148,7 +148,7 @@ func TestTranscodeAndStream_WithFakeFfmpeg(t *testing.T) {
 		cancel()
 	}()
 
-	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_original)
+	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_original, 0)
 }
 
 // TestTranscodeAndStream_WithFakeFfmpeg360p covers the 360p resolution branch
@@ -169,7 +169,7 @@ func TestTranscodeAndStream_WithFakeFfmpeg360p(t *testing.T) {
 		cancel()
 	}()
 
-	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_360p)
+	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_360p, 0)
 }
 
 // TestTranscodeAndStream_WithFakeFfmpeg720p covers the 720p resolution branch.
@@ -189,7 +189,7 @@ func TestTranscodeAndStream_WithFakeFfmpeg720p(t *testing.T) {
 		cancel()
 	}()
 
-	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_720p)
+	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_720p, 0)
 }
 
 // TestTranscodeAndStream_WithFakeFfmpeg1080p covers the 1080p branch.
@@ -209,7 +209,7 @@ func TestTranscodeAndStream_WithFakeFfmpeg1080p(t *testing.T) {
 		cancel()
 	}()
 
-	TranscodeAndStream(rr, req, "/dev/null", TranscodeOutputResolution("1080p"))
+	TranscodeAndStream(rr, req, "/dev/null", TranscodeOutputResolution("1080p"), 0)
 }
 
 // makeFakeFfmpegWithStderrDir creates a temporary directory with a fake "ffmpeg"
@@ -247,7 +247,7 @@ func TestTranscodeAndStream_WithFfmpegStderrAndError(t *testing.T) {
 		cancel()
 	}()
 
-	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_original)
+	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_original, 0)
 
 	// Allow goroutines time to run their stderr/wait branches before the test exits.
 	time.Sleep(100 * time.Millisecond)
@@ -272,6 +272,6 @@ func TestTranscodeAndStream_WithFfmpegStderrAndError360p(t *testing.T) {
 		cancel()
 	}()
 
-	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_360p)
+	TranscodeAndStream(rr, req, "/dev/null", TranscodeResolution_360p, 0)
 	time.Sleep(100 * time.Millisecond)
 }

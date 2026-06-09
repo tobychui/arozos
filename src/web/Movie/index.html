@@ -1395,7 +1395,7 @@ function connectCast() {
                         : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
                     _castSend('media.load', {
                         filepath: ep.filepath, name: ep.name, type: 'video',
-                        src: src, startTime: vid.currentTime || 0
+                        src: src, startTime: (isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime) || 0
                     });
                     // Volume after load, before play — ensures it overrides any default
                     // the Arozcast side might apply during media initialisation.
@@ -1457,16 +1457,21 @@ function _castResumeLocally() {
     if (playingIndex < 0 || !currentEpisodes || !currentEpisodes[playingIndex]) { return; }
     var ep  = currentEpisodes[playingIndex];
     var pos = castCurrentTime;
-    var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
-    var src = isWebPlayable(ext)
-        ? MEDIA_API + '?file=' + encodeURIComponent(ep.filepath)
-        : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
     var vid = document.getElementById('main-video');
-    vid.src = src;
-    vid.load();
-    if (pos > 0) {
-        $(vid).one('loadedmetadata.castresume', function() { vid.currentTime = pos; });
+    if (isTranscodedVideo && pos > 0) {
+        // Seek-by-reload: restart the transcode stream at the cast position
+        transcodeSeekOffset = pos;
+        vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath) + '&start=' + pos.toFixed(3);
+    } else {
+        var ext = ep.ext ? ep.ext.toLowerCase().replace(/^\./, '') : '';
+        vid.src = isWebPlayable(ext)
+            ? MEDIA_API     + '?file=' + encodeURIComponent(ep.filepath)
+            : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
+        if (pos > 0) {
+            $(vid).one('loadedmetadata.castresume', function() { vid.currentTime = pos; });
+        }
     }
+    vid.load();
     $('#play-icon').attr('src', 'img/icons/play_white.svg');
     showToast('Arozcast disconnected — click play to resume');
 }
@@ -1572,6 +1577,11 @@ var currentMovieImdbTitle = null; // IMDB title once fetched; null until then
 var playerReturnView  = 'library';
 var pendingResumePos  = 0;
 var watchSaveInterval = null;
+
+// Transcode seek state (seek-by-reload for non-web-playable formats)
+var transcodeSeekOffset = 0;    // seconds already consumed before current chunk start
+var isTranscodedVideo   = false; // true when current video plays via transcode endpoint
+var transcodeDuration   = 0;    // duration pre-fetched via /media/duration/ (seconds)
 
 // Folder browse state
 var folderViewPath   = '/';
@@ -1778,13 +1788,15 @@ function closeMovieInfo() {
 // ─── Watch position (resume) ──────────────────────────────────────────────────
 function saveWatchPosition() {
     var vid = document.getElementById('main-video');
-    if (playingIndex < 0 || !currentEpisodes || !vid.duration || vid.duration < 3600) { return; }
+    var effectiveDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+    if (playingIndex < 0 || !currentEpisodes || !effectiveDuration || effectiveDuration < 3600) { return; }
     var ep = currentEpisodes[playingIndex];
-    if (!ep || vid.currentTime < 10) { return; }
+    var effectiveTime = isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+    if (!ep || effectiveTime < 10) { return; }
     ao_module_agirun(SCRIPT_SET_WATCHTIME, {
         filepath: ep.filepath,
-        position: Math.floor(vid.currentTime),
-        duration: Math.floor(vid.duration)
+        position: Math.floor(effectiveTime),
+        duration: Math.floor(effectiveDuration)
     }, function () {}, function () {});
 }
 
@@ -1807,8 +1819,16 @@ function showResumePopup(savedPos, duration) {
     showControls();
 
     $('#resume-btn-continue').off('click').on('click', function () {
-        vid.currentTime = pendingResumePos;
-        vid.play();
+        if (isTranscodedVideo && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+            var ep = currentEpisodes[playingIndex];
+            transcodeSeekOffset = pendingResumePos;
+            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath) + '&start=' + pendingResumePos.toFixed(3);
+            vid.load();
+            vid.play();
+        } else {
+            vid.currentTime = pendingResumePos;
+            vid.play();
+        }
         $('#resume-popup').removeClass('active');
     });
     $('#resume-btn-restart').off('click').on('click', function () {
@@ -2431,6 +2451,11 @@ function startPlayback(index) {
         ? MEDIA_API   + '?file=' + encodeURIComponent(ep.filepath)
         : TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath);
 
+    // Reset transcode seek state for the new episode
+    transcodeSeekOffset = 0;
+    isTranscodedVideo = !isWebPlayable(ext);
+    transcodeDuration = 0;
+
     var vid = document.getElementById('main-video');
 
     if (castMode && _castConnected()) {
@@ -2471,18 +2496,41 @@ function startPlayback(index) {
     showView('player');
     showControls();
 
-    // After metadata loads, offer to resume if the video is >1 hr and has a saved position
-    (function (epFilepath) {
-        $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
-            if (vid.duration > 3600) {
-                ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: epFilepath }, function (data) {
-                    if (data && !data.error && data.position > 30 && data.position < vid.duration * 0.95) {
-                        showResumePopup(data.position, vid.duration);
+    // For non-transcoded video: offer to resume via the native loadedmetadata event.
+    // For transcoded video: wait for the duration fetch, then check for a saved position.
+    if (!isTranscodedVideo) {
+        (function (epFilepath) {
+            $(vid).off('loadedmetadata.resume').one('loadedmetadata.resume', function () {
+                if (vid.duration > 3600) {
+                    ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: epFilepath }, function (data) {
+                        if (data && !data.error && data.position > 30 && data.position < vid.duration * 0.95) {
+                            showResumePopup(data.position, vid.duration);
+                        }
+                    });
+                }
+            });
+        })(ep.filepath);
+    } else {
+        $(vid).off('loadedmetadata.resume'); // clear any stale handler
+        (function (capturedEp, capturedIndex) {
+            fetch(ao_root + 'media/duration/?file=' + encodeURIComponent(capturedEp.filepath))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.duration > 0 && playingIndex === capturedIndex &&
+                            currentEpisodes[capturedIndex] &&
+                            currentEpisodes[capturedIndex].filepath === capturedEp.filepath) {
+                        transcodeDuration = data.duration;
+                        if (transcodeDuration > 3600) {
+                            ao_module_agirun(SCRIPT_GET_WATCHTIME, { filepath: capturedEp.filepath }, function (wdata) {
+                                if (wdata && !wdata.error && wdata.position > 30 && wdata.position < transcodeDuration * 0.95) {
+                                    showResumePopup(wdata.position, transcodeDuration);
+                                }
+                            });
+                        }
                     }
-                });
-            }
-        });
-    })(ep.filepath);
+                }).catch(function () {});
+        })(ep, index);
+    }
 }
 
 function renderSidebar(episodes, playing) {
@@ -2616,6 +2664,16 @@ function initVideoControls() {
             }
             return;
         }
+        if (isTranscodedVideo && transcodeDuration > 0 && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+            var pct = e.offsetX / $(this).width();
+            var seekTo = pct * transcodeDuration;
+            transcodeSeekOffset = seekTo;
+            var ep = currentEpisodes[playingIndex];
+            vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(ep.filepath) + '&start=' + seekTo.toFixed(3);
+            vid.load();
+            vid.play();
+            return;
+        }
         if (vid.duration) {
             var pct = e.offsetX / $(this).width();
             vid.currentTime = pct * vid.duration;
@@ -2624,6 +2682,18 @@ function initVideoControls() {
 
     // Video events
     $(vid).on('timeupdate', function () {
+        if (isTranscodedVideo) {
+            var displayTime = vid.currentTime + transcodeSeekOffset;
+            if (transcodeDuration > 0) {
+                var pct = (displayTime / transcodeDuration) * 100;
+                $prog.css('width', pct + '%');
+                $thumb.css('left', 'calc(' + pct + '% - 7px)');
+                $time.text(formatTime(displayTime) + ' / ' + formatTime(transcodeDuration));
+            } else {
+                $time.text(formatTime(displayTime) + ' / --:--');
+            }
+            return;
+        }
         if (!vid.duration) { return; }
         var pct = (vid.currentTime / vid.duration) * 100;
         $prog.css('width', pct + '%');
@@ -2636,13 +2706,16 @@ function initVideoControls() {
         // Periodically save position for videos longer than 1 hr
         if (watchSaveInterval) { clearInterval(watchSaveInterval); }
         watchSaveInterval = setInterval(function () {
-            if (!vid.paused && vid.duration > 3600) { saveWatchPosition(); }
+            var effectiveDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+            if (!vid.paused && effectiveDuration > 3600) { saveWatchPosition(); }
         }, 30000);
     });
     $(vid).on('pause', function () {
         $('#play-icon').attr('src', 'img/icons/play_white.svg');
         if (watchSaveInterval) { clearInterval(watchSaveInterval); watchSaveInterval = null; }
-        if (vid.duration > 3600 && vid.currentTime > 30) { saveWatchPosition(); }
+        var effectiveDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+        var effectiveTime = isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+        if (effectiveDuration > 3600 && effectiveTime > 30) { saveWatchPosition(); }
     });
     $(vid).on('ended', function () {
         clearWatchPosition(); // video finished naturally — remove resume point
@@ -2863,8 +2936,10 @@ function renderInfoContent() {
         html += infoRow('Title',          ep ? ep.name : '–');
         html += infoRow('Resolution',     (vid.videoWidth && vid.videoHeight)
             ? vid.videoWidth + ' × ' + vid.videoHeight : '–');
-        html += infoRow('Duration',       vid.duration   ? formatTime(vid.duration)    : '–');
-        html += infoRow('Position',       vid.currentTime ? formatTime(vid.currentTime) : '–');
+        var infoDuration = isTranscodedVideo ? transcodeDuration : vid.duration;
+        var infoPosition = isTranscodedVideo ? (vid.currentTime + transcodeSeekOffset) : vid.currentTime;
+        html += infoRow('Duration',       infoDuration   ? formatTime(infoDuration)    : '–');
+        html += infoRow('Position',       infoPosition   ? formatTime(infoPosition)    : '–');
         html += infoRow('Playback speed', vid.playbackRate + '×');
         html += infoRow('Volume',         vid.muted ? 'Muted' : Math.round(vid.volume * 100) + '%');
         if (ep) { html += infoRow('File path', ep.filepath || '–'); }
@@ -2927,6 +3002,13 @@ function initKeyboard() {
                         _castSend('media.seekrel', { delta: 10 });
                         castCurrentTime = Math.min(castDuration, castCurrentTime + 10);
                         _castUpdateProgressUI();
+                    } else if (isTranscodedVideo && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+                        var newPos = vid.currentTime + transcodeSeekOffset + 10;
+                        if (transcodeDuration > 0) { newPos = Math.min(transcodeDuration, newPos); }
+                        transcodeSeekOffset = newPos;
+                        var seekEp = currentEpisodes[playingIndex];
+                        vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(seekEp.filepath) + '&start=' + newPos.toFixed(3);
+                        vid.load(); vid.play();
                     } else { vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 10); }
                     showControls(); break;
                 case 'ArrowLeft':
@@ -2935,6 +3017,12 @@ function initKeyboard() {
                         _castSend('media.seekrel', { delta: -10 });
                         castCurrentTime = Math.max(0, castCurrentTime - 10);
                         _castUpdateProgressUI();
+                    } else if (isTranscodedVideo && playingIndex >= 0 && currentEpisodes[playingIndex]) {
+                        var newPos = Math.max(0, vid.currentTime + transcodeSeekOffset - 10);
+                        transcodeSeekOffset = newPos;
+                        var seekEp = currentEpisodes[playingIndex];
+                        vid.src = TRANSCODE_API + '?file=' + encodeURIComponent(seekEp.filepath) + '&start=' + newPos.toFixed(3);
+                        vid.load(); vid.play();
                     } else { vid.currentTime = Math.max(0, vid.currentTime - 10); }
                     showControls(); break;
                 case 'ArrowUp':

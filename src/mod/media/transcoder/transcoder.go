@@ -8,10 +8,12 @@ package transcoder
 */
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"imuslab.com/arozos/mod/info/logger"
@@ -27,26 +29,34 @@ const (
 )
 
 // Transcode and stream the given file. Make sure ffmpeg is installed before calling to transcoder.
-func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution) {
+// startTime is a seek offset in seconds; pass 0 to start from the beginning.
+func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string, resolution TranscodeOutputResolution, startTime float64) {
 	// Build the FFmpeg command based on the resolution parameter
 	var cmd *exec.Cmd
 
 	transcodeFormatArgs := []string{"-f", "mp4", "-vcodec", "libx264", "-preset", "superfast", "-g", "60", "-movflags", "frag_keyframe+empty_moov+faststart", "pipe:1"}
-	var args []string
+	var preInputArgs []string
+	if startTime > 0.001 {
+		preInputArgs = []string{"-ss", fmt.Sprintf("%.3f", startTime)}
+	}
+	var middleArgs []string
 	switch resolution {
 	case "360p":
-		args = append([]string{"-i", inputFile, "-vf", "scale=-1:360"}, transcodeFormatArgs...)
+		middleArgs = []string{"-i", inputFile, "-vf", "scale=-1:360"}
 	case "720p":
-		args = append([]string{"-i", inputFile, "-vf", "scale=-1:720"}, transcodeFormatArgs...)
+		middleArgs = []string{"-i", inputFile, "-vf", "scale=-1:720"}
 	case "1080p":
-		args = append([]string{"-i", inputFile, "-vf", "scale=-1:1080"}, transcodeFormatArgs...)
+		middleArgs = []string{"-i", inputFile, "-vf", "scale=-1:1080"}
 	case "":
-		// Original resolution
-		args = append([]string{"-i", inputFile}, transcodeFormatArgs...)
+		middleArgs = []string{"-i", inputFile}
 	default:
 		http.Error(w, "Invalid resolution parameter", http.StatusBadRequest)
 		return
 	}
+	var args []string
+	args = append(args, preInputArgs...)
+	args = append(args, middleArgs...)
+	args = append(args, transcodeFormatArgs...)
 	cmd = exec.Command("ffmpeg", args...)
 
 	// Set response headers for streaming MP4 video
@@ -115,4 +125,112 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 	// Wait for the command to finish or client disconnect
 	<-done
 	logger.PrintAndLog("Transcoder", "[Media Server] Transcode client disconnected", nil)
+}
+
+type TranscodeAudioSampleRate int
+
+const (
+	TranscodeAudio_16kHz TranscodeAudioSampleRate = 16000
+	TranscodeAudio_24kHz TranscodeAudioSampleRate = 24000
+	TranscodeAudio_48kHz TranscodeAudioSampleRate = 48000
+)
+
+// TranscodeAndStreamAudio transcodes an audio file to MP3 and streams it.
+// startTime is the seek offset in seconds; pass 0 to start from the beginning.
+func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile string, sampleRate TranscodeAudioSampleRate, startTime float64) {
+	var args []string
+	if startTime > 0.001 {
+		args = append(args, "-ss", fmt.Sprintf("%.3f", startTime))
+	}
+	args = append(args,
+		"-i", inputFile,
+		"-vn",
+		"-acodec", "libmp3lame",
+		"-ar", fmt.Sprintf("%d", int(sampleRate)),
+		"-b:a", "128k",
+		"-f", "mp3",
+		"pipe:1",
+	)
+	cmd := exec.Command("ffmpeg", args...)
+
+	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Transfer-Encoding", "chunked")
+	w.Header().Set("Cache-Control", "no-cache, no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		http.Error(w, "Failed to create output pipe", http.StatusInternalServerError)
+		return
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		http.Error(w, "Failed to create error pipe", http.StatusInternalServerError)
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		http.Error(w, "Failed to start FFmpeg", http.StatusInternalServerError)
+		return
+	}
+
+	done := make(chan struct{})
+
+	go func() {
+		<-r.Context().Done()
+		time.Sleep(300 * time.Millisecond)
+		cmd.Process.Kill()
+		done <- struct{}{}
+	}()
+
+	go func() {
+		if _, err := io.Copy(w, stdout); err != nil {
+			cmd.Process.Kill()
+			return
+		}
+	}()
+
+	go func() {
+		errOutput, _ := io.ReadAll(stderr)
+		if len(errOutput) > 0 {
+			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg audio error output: %s", string(errOutput)), nil)
+		}
+	}()
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			logger.PrintAndLog("Transcoder", fmt.Sprintf("FFmpeg audio process exited: %v", err), nil)
+		}
+	}()
+
+	<-done
+	logger.PrintAndLog("Transcoder", "[Media Server] Audio transcode client disconnected", nil)
+}
+
+// GetAudioDuration returns the duration of a local audio file in seconds using ffprobe.
+func GetAudioDuration(inputFile string) (float64, error) {
+	cmd := exec.Command("ffprobe",
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_format",
+		inputFile,
+	)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("ffprobe failed: %w", err)
+	}
+
+	var result struct {
+		Format struct {
+			Duration string `json:"duration"`
+		} `json:"format"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil {
+		return 0, fmt.Errorf("failed to parse ffprobe output: %w", err)
+	}
+
+	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration value: %w", err)
+	}
+	return duration, nil
 }

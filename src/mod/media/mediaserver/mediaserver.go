@@ -3,6 +3,7 @@ package mediaserver
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -313,6 +314,11 @@ func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Reques
 		transcodeOutputResolution = transcoder.TranscodeResolution_360p
 	}
 
+	var startTime float64
+	if startTimeStr, _ := utils.GetPara(r, "start"); startTimeStr != "" {
+		startTime, _ = strconv.ParseFloat(startTimeStr, 64)
+	}
+
 	targetFshAbs := targetFsh.FileSystemAbstraction
 	transcodeSourceFile := realFilepath
 	if filesystem.FileExists(transcodeSourceFile) {
@@ -323,7 +329,7 @@ func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Reques
 			utils.SendErrorResponse(w, err.Error())
 			return
 		}
-		transcoder.TranscodeAndStream(w, r, transcodeSrcFileAbsPath, transcodeOutputResolution)
+		transcoder.TranscodeAndStream(w, r, transcodeSrcFileAbsPath, transcodeOutputResolution, startTime)
 		return
 	} else {
 		//This file is from a remote file system. Check if it already has a local buffer
@@ -339,7 +345,7 @@ func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Reques
 					if string(localFileHash) == remoteFileHash {
 						//Hash matches. Serve local buffered file
 						buffFileAbs, _ := filepath.Abs(buffFile)
-						transcoder.TranscodeAndStream(w, r, buffFileAbs, transcodeOutputResolution)
+						transcoder.TranscodeAndStream(w, r, buffFileAbs, transcodeOutputResolution, startTime)
 						return
 					}
 				}
@@ -358,7 +364,7 @@ func (s *Instance) ServeVideoWithTranscode(w http.ResponseWriter, r *http.Reques
 
 			//Buffer completed. Start transcode
 			buffFileAbs, _ := filepath.Abs(buffFile)
-			transcoder.TranscodeAndStream(w, r, buffFileAbs, transcodeOutputResolution)
+			transcoder.TranscodeAndStream(w, r, buffFileAbs, transcodeOutputResolution, startTime)
 			return
 		} else {
 			utils.SendErrorResponse(w, "unable to transcode remote file with file buffer disabled")
@@ -475,4 +481,97 @@ func (s *Instance) GetHashFromRemoteFile(fshAbs filesystem.FileSystemAbstraction
 	statHash := strconv.Itoa(int(filestat.ModTime().Unix() + filestat.Size()))
 	hash := md5.Sum([]byte(statHash))
 	return hex.EncodeToString(hash[:]), nil
+}
+
+// Serve audio file with real-time transcoder, supporting seeking via &start= parameter
+func (s *Instance) ServeAudioWithTranscode(w http.ResponseWriter, r *http.Request) {
+	userinfo, _ := s.options.UserHandler.GetUserInfoFromRequest(w, r)
+	targetFsh, vpath, realFilepath, err := s.ValidateSourceFile(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	// Parse sample rate (default 48000)
+	sampleRateStr, _ := utils.GetPara(r, "samplerate")
+	sampleRateInt, _ := strconv.Atoi(sampleRateStr)
+	var sampleRate transcoder.TranscodeAudioSampleRate
+	switch sampleRateInt {
+	case 16000:
+		sampleRate = transcoder.TranscodeAudio_16kHz
+	case 24000:
+		sampleRate = transcoder.TranscodeAudio_24kHz
+	default:
+		sampleRate = transcoder.TranscodeAudio_48kHz
+	}
+
+	// Parse start time for seeking (default 0)
+	startStr, _ := utils.GetPara(r, "start")
+	startTime, _ := strconv.ParseFloat(startStr, 64)
+
+	if filesystem.FileExists(realFilepath) {
+		absPath, err := filepath.Abs(realFilepath)
+		if err != nil {
+			utils.SendErrorResponse(w, err.Error())
+			return
+		}
+		transcoder.TranscodeAndStreamAudio(w, r, absPath, sampleRate, startTime)
+		return
+	}
+
+	// Remote file: try local buffer first, then download and transcode
+	ps, _ := targetFsh.GetUniquePathHash(vpath, userinfo.Username)
+	buffpool := filepath.Join(s.options.TmpDirectory, "fsbuffpool")
+	buffFile := filepath.Join(buffpool, ps)
+	if fs.FileExists(buffFile) {
+		remoteFileHash, err := s.GetHashFromRemoteFile(targetFsh.FileSystemAbstraction, realFilepath)
+		if err == nil {
+			localFileHash, err := os.ReadFile(buffFile + ".hash")
+			if err == nil && string(localFileHash) == remoteFileHash {
+				buffFileAbs, _ := filepath.Abs(buffFile)
+				transcoder.TranscodeAndStreamAudio(w, r, buffFileAbs, sampleRate, startTime)
+				return
+			}
+		}
+	}
+
+	if !s.options.EnableFileBuffering {
+		utils.SendErrorResponse(w, "unable to transcode remote file with file buffer disabled")
+		return
+	}
+
+	os.MkdirAll(buffpool, 0775)
+	s.options.Logger.PrintAndLog("Media Server", "Buffering audio from remote file system for transcode", nil)
+	if err := s.BufferRemoteFileToTmp(buffFile, targetFsh, realFilepath); err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+	buffFileAbs, _ := filepath.Abs(buffFile)
+	transcoder.TranscodeAndStreamAudio(w, r, buffFileAbs, sampleRate, startTime)
+}
+
+// GetAudioDuration returns the duration of a local audio file in seconds using ffprobe
+func (s *Instance) GetAudioDuration(w http.ResponseWriter, r *http.Request) {
+	targetFsh, _, realFilepath, err := s.ValidateSourceFile(w, r)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	if targetFsh.RequireBuffer || !filesystem.FileExists(realFilepath) {
+		js, _ := json.Marshal(map[string]interface{}{"duration": 0, "error": "remote file"})
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(js)
+		return
+	}
+
+	duration, err := transcoder.GetAudioDuration(realFilepath)
+	if err != nil {
+		utils.SendErrorResponse(w, err.Error())
+		return
+	}
+
+	js, _ := json.Marshal(map[string]float64{"duration": duration})
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
