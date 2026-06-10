@@ -40,23 +40,27 @@ jobs:
           else
             base="${{ github.event.before }}"
           fi
-          # Fall back to the previous commit if the base is missing/empty
-          # (first push, force-push, shallow edge cases).
-          case "$base" in
-            ""|0000000000000000000000000000000000000000)
-              base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)" ;;
-          esac
+          # Use the base only if it is a real commit present in this checkout.
+          # Push events can report a github.event.before that was force-pushed
+          # away or never fetched (git then errors "fatal: bad object"); fall
+          # back to HEAD's parent, and finally to empty so the diff-scoped steps
+          # below skip gracefully instead of crashing the job under `bash -e`.
+          if ! git rev-parse --verify --quiet "${base}^{commit}" >/dev/null 2>&1; then
+            base="$(git rev-parse --verify --quiet 'HEAD~1^{commit}' 2>/dev/null || true)"
+          fi
           echo "sha=$base" >> "$GITHUB_OUTPUT"
-          echo "Diff base: $base"
+          echo "Diff base: ${base:-<none; diff-scoped checks skipped>}"
 
       - name: Convention checker (rules 1-5, diff only)
+        if: steps.base.outputs.sha != ''
         working-directory: ${{ github.workspace }}
         run: sh scripts/check-conventions.sh --diff "${{ steps.base.outputs.sha }}"
 
       - name: gofmt (changed Go files)
+        if: steps.base.outputs.sha != ''
         working-directory: ${{ github.workspace }}
         run: |
-          files=$(git diff --name-only --diff-filter=ACM "${{ steps.base.outputs.sha }}" -- '*.go')
+          files=$(git diff --name-only --diff-filter=ACM "${{ steps.base.outputs.sha }}" -- '*.go' || true)
           [ -z "$files" ] && { echo "No Go files changed."; exit 0; }
           unformatted=$(gofmt -l $files)
           if [ -n "$unformatted" ]; then
