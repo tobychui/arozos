@@ -1,0 +1,54 @@
+/*
+	AI Chat — chat backend
+	Relays a conversation to an OpenAI-compatible endpoint via aimodel.request().
+
+	POST parameters:
+	    messages : JSON array of {role, content}
+	    options  : JSON object { model, system, temperature, max_tokens }
+
+	Response (JSON):
+	    { ok:true,  content:"...", usage:{...}, model:"..." }
+	    { ok:false, error:"..." }
+*/
+
+requirelib("aimodel");
+
+//Read POST parameters safely (they are injected as VM globals when present)
+var rawMessages = (typeof messages !== "undefined") ? messages : "[]";
+var rawOptions = (typeof options !== "undefined") ? options : "{}";
+
+var msgs = [];
+var opts = {};
+try { msgs = JSON.parse(rawMessages) || []; } catch (e) { msgs = []; }
+try { opts = JSON.parse(rawOptions) || {}; } catch (e) { opts = {}; }
+
+//Build the final message list, prepending the system prompt if provided
+var finalMessages = [];
+if (opts.system && ("" + opts.system).trim() != "") {
+	finalMessages.push({ role: "system", content: "" + opts.system });
+}
+for (var i = 0; i < msgs.length; i++) {
+	if (msgs[i] && msgs[i].role && typeof msgs[i].content != "undefined") {
+		finalMessages.push({ role: msgs[i].role, content: msgs[i].content });
+	}
+}
+
+if (finalMessages.length == 0) {
+	sendJSONResp(JSON.stringify({ ok: false, error: "No messages to send" }));
+} else {
+	try {
+		var res = aimodel.request(finalMessages, opts);
+		var content = "";
+		if (res && res.choices && res.choices.length > 0 && res.choices[0].message) {
+			content = res.choices[0].message.content;
+		}
+		sendJSONResp(JSON.stringify({
+			ok: true,
+			content: content,
+			usage: (res && res.usage) ? res.usage : null,
+			model: (res && res.model) ? res.model : (opts.model || "")
+		}));
+	} catch (e) {
+		sendJSONResp(JSON.stringify({ ok: false, error: "" + e }));
+	}
+}

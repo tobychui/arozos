@@ -1,0 +1,16 @@
+/*
+	AI Chat — models backend
+	Returns the configured models and the default model from the aimodel lib.
+	Shape: { "default": "gpt-4o-mini", "models": ["gpt-4o-mini", ...] }
+*/
+
+requirelib("aimodel");
+
+var result = { "default": "", "models": [] };
+try {
+	result = aimodel.models();
+} catch (e) {
+	result = { "default": "", "models": [], "error": "" + e };
+}
+
+sendJSONResp(JSON.stringify(result));
