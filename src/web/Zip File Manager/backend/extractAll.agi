@@ -1,0 +1,19 @@
+/*
+	ZipFileManager - Extract all files from a zip to a destination folder
+
+	POST params:
+	  src  - virtual path to the zip file
+	  dest - destination virtual path (folder)
+*/
+requirelib("ziplib");
+
+if (typeof src === "undefined" || src === "" || typeof dest === "undefined" || dest === "") {
+	sendJSONResp(JSON.stringify({error: "Missing src or dest parameter"}));
+} else {
+	try {
+		var ok = ziplib.extractZipFile(src, dest);
+		sendJSONResp(JSON.stringify({success: ok}));
+	} catch(e) {
+		sendJSONResp(JSON.stringify({error: e.toString()}));
+	}
+}

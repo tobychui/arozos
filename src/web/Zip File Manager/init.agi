@@ -1,0 +1,22 @@
+/*
+	Zip File Manager Module Registration
+
+	Provides in-place zip browsing, partial extraction, and file addition
+	without requiring a full unzip first.
+*/
+
+var moduleLaunchInfo = {
+	Name: "Zip File Manager",
+	Desc: "Browse and manage zip archives",
+	Group: "Utilities",
+	IconPath: "Zip File Manager/img/module_icon.png",
+	Version: "1.0",
+	StartDir: "Zip File Manager/index.html",
+	SupportFW: true,
+	LaunchFWDir: "Zip File Manager/index.html",
+	SupportEmb: false,
+	InitFWSize: [1024, 640],
+	SupportedExt: [".zip"]
+}
+
+registerModule(JSON.stringify(moduleLaunchInfo));
