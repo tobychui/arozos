@@ -86,25 +86,26 @@ func TranscodeAndStream(w http.ResponseWriter, r *http.Request, inputFile string
 		return
 	}
 
-	// Create a channel to signal when the client disconnects
-	done := make(chan struct{})
+	// Buffered so both the natural-end goroutine and the client-disconnect goroutine
+	// can send without blocking — only the first signal is consumed.
+	done := make(chan struct{}, 2)
 
 	// Monitor client connection close
 	go func() {
 		<-r.Context().Done()
 		time.Sleep(300 * time.Millisecond)
-		cmd.Process.Kill() // Kill the FFmpeg process when client disconnects
+		cmd.Process.Kill()
 		done <- struct{}{}
-		//close(done)
 	}()
 
 	// Copy the command output to the HTTP response in a separate goroutine
 	go func() {
 		if _, err := io.Copy(w, stdout); err != nil {
-			// End of video or client disconnected
 			cmd.Process.Kill()
-			return
 		}
+		// Signal natural end so the handler returns and the chunked-transfer
+		// terminator is flushed to the client.
+		done <- struct{}{}
 	}()
 
 	// Read and log the command standard error
@@ -173,7 +174,9 @@ func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile s
 		return
 	}
 
-	done := make(chan struct{})
+	// Buffered so both the natural-end goroutine and the client-disconnect goroutine
+	// can send without blocking — only the first signal is consumed.
+	done := make(chan struct{}, 2)
 
 	go func() {
 		<-r.Context().Done()
@@ -185,8 +188,12 @@ func TranscodeAndStreamAudio(w http.ResponseWriter, r *http.Request, inputFile s
 	go func() {
 		if _, err := io.Copy(w, stdout); err != nil {
 			cmd.Process.Kill()
-			return
 		}
+		// Signal even on a clean finish so the handler returns and the HTTP
+		// chunked-transfer terminator (final zero-length frame) is flushed to
+		// the client.  Without this the browser never receives EOF and the
+		// audio element's 'ended' event does not fire reliably.
+		done <- struct{}{}
 	}()
 
 	go func() {
