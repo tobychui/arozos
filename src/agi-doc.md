@@ -676,6 +676,65 @@ http.getCode("http://redirect.example.com"); //Get response code for the target 
 http.redirect("https://example.com", 307); //Redirect to target with status code
 ```
 
+### aimodel
+
+The aimodel library lets AGI scripts call any OpenAI-compatible chat completion
+endpoint (OpenAI, Azure OpenAI, OpenRouter, Ollama, LM Studio, llama.cpp server,
+vLLM, etc.). It supports both plain text prompts and file based prompts (images
+for vision models, or text documents inlined into the conversation).
+
+The endpoint, global API key and default model are configured by an administrator
+in `System Settings > Developer Options > AI Model`. Per-model pricing is also set
+there, and every call's token usage and computed cost are accumulated into a
+metrics board on the same page.
+
+```
+//Include the library
+requirelib("aimodel");
+```
+
+#### aimodel functions
+
+```
+//Plain text prompt. Returns the assistant reply as a string.
+var answer = aimodel.chat("Summarize the theory of relativity in one sentence.");
+
+//With options. All option fields are optional and fall back to the global config.
+var reply = aimodel.chat("Translate to French: good morning", {
+    model: "gpt-4o-mini",            //override the default model
+    system: "You are a translator.", //optional system prompt
+    temperature: 0.2,
+    max_tokens: 256,
+    endpoint: "http://localhost:11434/v1", //override the global endpoint
+    apikey: "sk-..."                 //override the global API key
+});
+
+//File based prompt. Pass a single vpath or an array of vpaths.
+//Images are sent as vision image_url parts; text documents are inlined.
+var caption = aimodel.chatWithFile("Describe this image", "user:/Photo/cat.png");
+var review  = aimodel.chatWithFile("Review this code", ["user:/Desktop/main.go"], {model:"gpt-4o"});
+
+//Low-level call. Pass a full messages array, returns the parsed response object
+//(including usage info and finish reason).
+var res = aimodel.request([
+    {role: "system", content: "You are a helpful assistant."},
+    {role: "user", content: "Hello!"}
+], {model: "gpt-4o-mini"});
+console.log(res.choices[0].message.content);
+console.log(res.usage.total_tokens);
+
+//Aggregated usage metrics (tokens + cost) accumulated by the system.
+var usage = aimodel.usage();
+console.log(usage.totalTokens, usage.totalCost);
+
+//Configured models (the models that have pricing defined) and the default.
+var models = aimodel.models(); // { default: "gpt-4o-mini", models: ["...", ...] }
+```
+
+On error (missing configuration, network failure, or an error returned by the
+endpoint), the call throws a JavaScript exception that can be caught with
+`try { ... } catch(e) { ... }`.
+
 ### websocket
 
 websocket library provide request upgrade from normal HTTP request to WebSocket connections. 

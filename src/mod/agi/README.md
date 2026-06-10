@@ -270,6 +270,7 @@ Registered library IDs:
 - `appdata`
 - `sysinfo`
 - `ziplib`
+- `aimodel` (OpenAI-compatible LLM chat: text & file based)
 - `ffmpeg` (only when ffmpeg exists on host)
 
 Special case:

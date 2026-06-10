@@ -54,6 +54,7 @@ func (g *Gateway) LoadAllFunctionalModules() {
 	g.SysinfoLibRegister()
 	//g.AudioLibRegister() //work in progress
 	g.ZipLibRegister()
+	g.AIModelLibRegister()
 
 	//Only register ffmpeg lib if host OS have ffmpeg installed
 	ffmpegExists, _ := apt.PackageExists("ffmpeg")

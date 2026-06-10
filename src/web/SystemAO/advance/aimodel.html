@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>AI Model</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="../../script/semantic/semantic.css">
+        <script src="../../script/jquery.min.js"></script>
+        <script src="../../script/semantic/semantic.js"></script>
+        <style>
+            #sys-setting-page { padding: 20px; }
+
+            .metric-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 12px;
+                margin-bottom: 8px;
+            }
+            .metric-card {
+                border: 1px solid rgba(34,36,38,0.12);
+                border-radius: 6px;
+                padding: 14px 16px;
+                background: #fff;
+            }
+            .metric-card .label {
+                font-size: 0.82em;
+                color: #888;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+            }
+            .metric-card .value {
+                font-size: 1.6em;
+                font-weight: 600;
+                margin-top: 4px;
+                word-break: break-all;
+            }
+            .metric-card.cost .value { color: #21ba45; }
+
+            .pricing-table input { width: 100%; }
+            #toast {
+                display: none;
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                z-index: 9999;
+                min-width: 220px;
+            }
+            .muted { color: #999; font-size: 0.9em; }
+            .section-divider { margin-top: 34px !important; }
+            .keyhint { font-family: monospace; color: #888; }
+        </style>
+    </head>
+    <body>
+        <div id="sys-setting-page">
+
+            <!-- Page header -->
+            <div class="ui basic segment" style="padding-bottom:0">
+                <div class="ui header">
+                    <i class="robot icon"></i>
+                    <div class="content">
+                        AI Model
+                        <div class="sub header">
+                            Connect ArozOS AGI scripts to any OpenAI-compatible chat completion endpoint,
+                            define per-model pricing and track token usage &amp; cost.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ui divider"></div>
+
+            <!-- ── Connection settings ───────────────────────────── -->
+            <h3 class="ui header"><i class="plug icon"></i> Connection</h3>
+            <form class="ui form" id="configForm" onsubmit="return false;">
+                <div class="field">
+                    <label>Endpoint Base URL</label>
+                    <input type="text" id="endpoint" placeholder="https://api.openai.com/v1">
+                    <div class="muted">OpenAI-compatible base URL. Examples: <code>https://api.openai.com/v1</code>,
+                        <code>https://openrouter.ai/api/v1</code>, <code>http://localhost:11434/v1</code> (Ollama).
+                        The path <code>/chat/completions</code> is appended automatically.</div>
+                </div>
+                <div class="field">
+                    <label>API Key</label>
+                    <input type="password" id="apikey" placeholder="sk-...">
+                    <div class="muted">Sent as <code>Authorization: Bearer &lt;key&gt;</code>. Leave blank to keep the
+                        saved key. <span id="keyStatus"></span></div>
+                    <div class="ui checkbox" style="margin-top:6px;">
+                        <input type="checkbox" id="clearkey">
+                        <label>Remove saved API key</label>
+                    </div>
+                </div>
+                <div class="two fields">
+                    <div class="field">
+                        <label>Default Model</label>
+                        <input type="text" id="defaultModel" list="modelList" placeholder="gpt-4o-mini">
+                        <datalist id="modelList"></datalist>
+                    </div>
+                    <div class="field">
+                        <label>Currency Label</label>
+                        <input type="text" id="currency" placeholder="USD">
+                    </div>
+                </div>
+                <button class="ui primary button" onclick="saveConfig()"><i class="save icon"></i> Save Connection</button>
+                <button class="ui basic button" onclick="testConnection()"><i class="plug icon"></i> Test Connection</button>
+                <span id="testResult" class="muted" style="margin-left:8px;"></span>
+            </form>
+
+            <!-- ── Per-model pricing ─────────────────────────────── -->
+            <div class="ui divider section-divider"></div>
+            <h3 class="ui header"><i class="dollar sign icon"></i> Per-Model Pricing</h3>
+            <p class="muted">Prices are per <b>1,000,000 tokens</b> in your chosen currency. These rates are used to
+                compute the running cost shown in the metrics board below.</p>
+            <table class="ui celled compact table pricing-table">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th style="width:180px">Input price / 1M</th>
+                        <th style="width:180px">Output price / 1M</th>
+                        <th style="width:60px"></th>
+                    </tr>
+                </thead>
+                <tbody id="pricingBody"></tbody>
+            </table>
+            <button class="ui basic button" onclick="addPricingRow()"><i class="plus icon"></i> Add Model</button>
+            <button class="ui basic button" id="importModelsBtn" onclick="importDiscoveredModels()" style="display:none;">
+                <i class="download icon"></i> Import models from endpoint</button>
+            <button class="ui primary button" onclick="savePricing()"><i class="save icon"></i> Save Pricing</button>
+
+            <!-- ── Usage metrics ─────────────────────────────────── -->
+            <div class="ui divider section-divider"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <h3 class="ui header" style="margin:0;"><i class="chart bar icon"></i> Usage Metrics</h3>
+                <div>
+                    <span id="updatedAt" class="muted" style="margin-right:10px;"></span>
+                    <button class="ui tiny basic blue button" onclick="loadMetrics()"><i class="refresh icon"></i> Refresh</button>
+                    <button class="ui tiny basic red button" onclick="resetMetrics()"><i class="trash icon"></i> Reset</button>
+                </div>
+            </div>
+
+            <div class="metric-grid" style="margin-top:14px;">
+                <div class="metric-card"><div class="label">Total Tokens</div><div class="value" id="m_total">0</div></div>
+                <div class="metric-card"><div class="label">Prompt Tokens</div><div class="value" id="m_prompt">0</div></div>
+                <div class="metric-card"><div class="label">Completion Tokens</div><div class="value" id="m_completion">0</div></div>
+                <div class="metric-card cost"><div class="label">Total Cost</div><div class="value" id="m_cost">0</div></div>
+                <div class="metric-card"><div class="label">Requests</div><div class="value" id="m_requests">0</div></div>
+            </div>
+
+            <table class="ui celled striped compact table" style="margin-top:8px;">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Requests</th>
+                        <th>Prompt</th>
+                        <th>Completion</th>
+                        <th>Total Tokens</th>
+                        <th>Cost</th>
+                    </tr>
+                </thead>
+                <tbody id="metricsBody">
+                    <tr><td colspan="6" style="text-align:center;color:#aaa;">No usage recorded yet.</td></tr>
+                </tbody>
+            </table>
+
+            <div class="ui divider section-divider"></div>
+            <h3 class="ui header"><i class="code icon"></i> Using it from an AGI script</h3>
+            <pre style="background:#f7f7f7;padding:14px;border-radius:6px;overflow:auto;">requirelib("aimodel");
+
+// Plain text prompt
+var answer = aimodel.chat("Summarize the theory of relativity in one sentence.");
+
+// With options (override model / add a system prompt)
+var reply = aimodel.chat("Translate to French: good morning", {
+    model: "gpt-4o-mini",
+    system: "You are a professional translator.",
+    temperature: 0.2
+});
+
+// File based (image for vision models, or a text document)
+var caption = aimodel.chatWithFile("Describe this image", "user:/Photo/cat.png");
+var review  = aimodel.chatWithFile("Review this code", ["user:/Desktop/main.go"]);
+
+// Low-level call returning the full response (incl. usage)
+var res = aimodel.request([{role:"user", content:"Hello"}], {model:"gpt-4o-mini"});
+console.log(res.usage.total_tokens);
+
+// Current aggregated usage / configured models
+var usage  = aimodel.usage();
+var models = aimodel.models();</pre>
+
+        </div><!-- #sys-setting-page -->
+
+        <div id="toast" class="ui message"></div>
+
+        <script>
+            var API = "../../system/aimodel/";
+            var discoveredModels = [];
+            var currencyLabel = "USD";
+
+            $(document).ready(function() {
+                $('.ui.checkbox').checkbox();
+                loadConfig();
+                loadPricing();
+                loadMetrics();
+            });
+
+            /* ── Connection config ──────────────────────────────────── */
+            function loadConfig() {
+                $.ajax({ url: API + "config", method: "GET", success: function(d) {
+                    $("#endpoint").val(d.endpoint || "");
+                    $("#defaultModel").val(d.defaultModel || "");
+                    $("#currency").val(d.currency || "USD");
+                    currencyLabel = d.currency || "USD";
+                    if (d.hasKey) {
+                        $("#apikey").attr("placeholder", d.keyHint || "(saved)");
+                        $("#keyStatus").html('Saved key: <span class="keyhint">' + esc(d.keyHint || "") + '</span>');
+                    } else {
+                        $("#keyStatus").text("No API key saved.");
+                    }
+                }, error: function(){ showToast("Failed to load configuration (admin only).", "red"); }});
+            }
+
+            function saveConfig() {
+                var payload = {
+                    endpoint: $("#endpoint").val().trim(),
+                    defaultModel: $("#defaultModel").val().trim(),
+                    currency: ($("#currency").val().trim() || "USD"),
+                    clearkey: $("#clearkey").is(":checked") ? "true" : "false"
+                };
+                var key = $("#apikey").val();
+                if (key && key.length > 0) { payload.apikey = key; }
+                $.ajax({ url: API + "config", method: "POST", data: payload, success: function(r) {
+                    if (r && r.error) { showToast("Error: " + r.error, "red"); return; }
+                    showToast("Connection settings saved.", "green");
+                    $("#apikey").val("");
+                    $("#clearkey").prop("checked", false);
+                    loadConfig();
+                }, error: function(){ showToast("Failed to save configuration.", "red"); }});
+            }
+
+            function testConnection() {
+                $("#testResult").text("Testing…").css("color", "#999");
+                var data = {
+                    endpoint: $("#endpoint").val().trim(),
+                    apikey: $("#apikey").val()
+                };
+                $.ajax({ url: API + "test", method: "POST", data: data, success: function(r) {
+                    if (r && r.error) {
+                        $("#testResult").text("✗ " + r.error).css("color", "#db2828");
+                        return;
+                    }
+                    discoveredModels = r.models || [];
+                    $("#testResult").text("✓ Connected — " + r.modelCount + " model(s) available").css("color", "#21ba45");
+                    var dl = discoveredModels.map(function(m){ return '<option value="' + esc(m) + '">'; }).join("");
+                    $("#modelList").html(dl);
+                    $("#importModelsBtn").toggle(discoveredModels.length > 0);
+                }, error: function(){ $("#testResult").text("✗ Request failed").css("color", "#db2828"); }});
+            }
+
+            /* ── Pricing editor ─────────────────────────────────────── */
+            function loadPricing() {
+                $.ajax({ url: API + "pricing", method: "GET", success: function(d) {
+                    var body = $("#pricingBody").empty();
+                    var names = Object.keys(d || {}).sort();
+                    if (names.length === 0) { addPricingRow(); return; }
+                    names.forEach(function(name) {
+                        addPricingRow(name, d[name].inputPrice, d[name].outputPrice);
+                    });
+                }, error: function(){ showToast("Failed to load pricing.", "red"); }});
+            }
+
+            function addPricingRow(model, inPrice, outPrice) {
+                var row = $(
+                    '<tr>' +
+                        '<td><input type="text" class="p-model" placeholder="model-name" value="' + esc(model || "") + '"></td>' +
+                        '<td><input type="number" step="any" min="0" class="p-in" value="' + (inPrice != null ? inPrice : "") + '"></td>' +
+                        '<td><input type="number" step="any" min="0" class="p-out" value="' + (outPrice != null ? outPrice : "") + '"></td>' +
+                        '<td style="text-align:center;"><i class="red trash alternate outline link icon" onclick="$(this).closest(\'tr\').remove();"></i></td>' +
+                    '</tr>'
+                );
+                $("#pricingBody").append(row);
+            }
+
+            function importDiscoveredModels() {
+                var existing = {};
+                $("#pricingBody .p-model").each(function(){ existing[$(this).val().trim()] = true; });
+                var added = 0;
+                discoveredModels.forEach(function(m){
+                    if (!existing[m]) { addPricingRow(m, 0, 0); added++; }
+                });
+                showToast(added + " model(s) added — set prices and Save Pricing.", "blue");
+            }
+
+            function savePricing() {
+                var pricing = {};
+                var ok = true;
+                $("#pricingBody tr").each(function() {
+                    var name = $(this).find(".p-model").val().trim();
+                    if (name === "") return;
+                    var inP = parseFloat($(this).find(".p-in").val()) || 0;
+                    var outP = parseFloat($(this).find(".p-out").val()) || 0;
+                    if (inP < 0 || outP < 0) { ok = false; }
+                    pricing[name] = { inputPrice: inP, outputPrice: outP };
+                });
+                if (!ok) { showToast("Prices cannot be negative.", "red"); return; }
+                $.ajax({ url: API + "pricing", method: "POST", data: { pricing: JSON.stringify(pricing) }, success: function(r) {
+                    if (r && r.error) { showToast("Error: " + r.error, "red"); return; }
+                    showToast("Pricing saved.", "green");
+                    loadMetrics();
+                }, error: function(){ showToast("Failed to save pricing.", "red"); }});
+            }
+
+            /* ── Metrics ────────────────────────────────────────────── */
+            function loadMetrics() {
+                $.ajax({ url: API + "metrics", method: "GET", success: function(m) {
+                    currencyLabel = m.currency || currencyLabel;
+                    $("#m_total").text(numfmt(m.totalTokens));
+                    $("#m_prompt").text(numfmt(m.totalPromptTokens));
+                    $("#m_completion").text(numfmt(m.totalCompletionTokens));
+                    $("#m_cost").text(money(m.totalCost));
+                    $("#m_requests").text(numfmt(m.totalRequests));
+
+                    if (m.updatedAt && m.updatedAt > 0) {
+                        $("#updatedAt").text("Updated " + new Date(m.updatedAt * 1000).toLocaleString());
+                    } else {
+                        $("#updatedAt").text("");
+                    }
+
+                    var per = m.perModel || {};
+                    var names = Object.keys(per).sort();
+                    if (names.length === 0) {
+                        $("#metricsBody").html('<tr><td colspan="6" style="text-align:center;color:#aaa;">No usage recorded yet.</td></tr>');
+                        return;
+                    }
+                    $("#metricsBody").html(names.map(function(name) {
+                        var r = per[name];
+                        return '<tr>' +
+                            '<td>' + esc(name) + '</td>' +
+                            '<td>' + numfmt(r.requests) + '</td>' +
+                            '<td>' + numfmt(r.promptTokens) + '</td>' +
+                            '<td>' + numfmt(r.completionTokens) + '</td>' +
+                            '<td>' + numfmt(r.totalTokens) + '</td>' +
+                            '<td>' + money(r.cost) + '</td>' +
+                        '</tr>';
+                    }).join(""));
+                }, error: function(){ showToast("Failed to load metrics.", "red"); }});
+            }
+
+            function resetMetrics() {
+                if (!confirm("Reset all usage metrics to zero? This cannot be undone.")) return;
+                $.ajax({ url: API + "metrics/reset", method: "POST", success: function(r) {
+                    if (r && r.error) { showToast("Error: " + r.error, "red"); return; }
+                    showToast("Metrics reset.", "green");
+                    loadMetrics();
+                }, error: function(){ showToast("Failed to reset metrics.", "red"); }});
+            }
+
+            /* ── Helpers ────────────────────────────────────────────── */
+            function numfmt(n) { return Number(n || 0).toLocaleString(); }
+            function money(n) {
+                n = Number(n || 0);
+                return currencyLabel + " " + n.toFixed(n < 1 ? 4 : 2);
+            }
+            function showToast(msg, color) {
+                var t = document.getElementById("toast");
+                t.className = "ui " + (color || "blue") + " message";
+                t.textContent = msg;
+                t.style.display = "block";
+                setTimeout(function() { t.style.display = "none"; }, 3500);
+            }
+            function esc(s) {
+                return String(s == null ? "" : s)
+                    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+            }
+        </script>
+    </body>
+</html>
