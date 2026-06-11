@@ -112,7 +112,11 @@ type AIModelUsageRecord struct {
 	TotalTokens      int64   `json:"totalTokens"`
 	Cost             float64 `json:"cost"`
 	Requests         int64   `json:"requests"`
-	GenerationMs     int64   `json:"generationMs"` //total generation time, for average tok/s
+	GenerationMs     int64   `json:"generationMs"` //total generation time
+	//Sum and count of per-request tokens/sec, so the average speed is the mean
+	//of the per-request speeds (matching what is shown on each reply).
+	SpeedSum     float64 `json:"speedSum"`
+	SpeedSamples int64   `json:"speedSamples"`
 }
 
 // AIModelMetrics is the aggregated consumption across every model.
@@ -122,7 +126,9 @@ type AIModelMetrics struct {
 	TotalTokens           int64                          `json:"totalTokens"`
 	TotalCost             float64                        `json:"totalCost"`
 	TotalRequests         int64                          `json:"totalRequests"`
-	TotalGenerationMs     int64                          `json:"totalGenerationMs"` //for average tok/s
+	TotalGenerationMs     int64                          `json:"totalGenerationMs"`
+	SpeedSum              float64                        `json:"speedSum"`     //sum of per-request tok/s
+	SpeedSamples          int64                          `json:"speedSamples"` //count of timed requests
 	PerModel              map[string]*AIModelUsageRecord `json:"perModel"`
 	Currency              string                         `json:"currency"`
 	UpdatedAt             int64                          `json:"updatedAt"`
@@ -965,6 +971,16 @@ func (g *Gateway) recordAIModelUsage(model string, promptTokens int64, completio
 	metrics.TotalRequests++
 	metrics.TotalGenerationMs += generationMs
 	metrics.UpdatedAt = time.Now().Unix()
+
+	//Accumulate this request's speed (tokens/sec) so the reported average is the
+	//mean of per-request speeds, consistent with the per-reply figures.
+	if completionTokens > 0 && generationMs > 0 {
+		speed := float64(completionTokens) / (float64(generationMs) / 1000.0)
+		rec.SpeedSum += speed
+		rec.SpeedSamples++
+		metrics.SpeedSum += speed
+		metrics.SpeedSamples++
+	}
 
 	//Maintain the windowed usage used for quota enforcement. Reset the window
 	//first if it has rolled over for the configured quota period.

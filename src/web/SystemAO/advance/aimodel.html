@@ -270,7 +270,7 @@ body.dark #aim-root {
     function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
     function numfmt(n){ return Number(n||0).toLocaleString(); }
     function money(n){ n = Number(n||0); return currency + " " + (n < 1 ? n.toFixed(4) : n.toFixed(2)); }
-    function speed(tokens, ms){ tokens = Number(tokens||0); ms = Number(ms||0); if (tokens <= 0 || ms <= 0) return "—"; return (tokens / (ms/1000)).toFixed(1) + " tok/s"; }
+    function speed(sum, n){ sum = Number(sum||0); n = Number(n||0); if (n <= 0) return "—"; return (sum / n).toFixed(1) + " tok/s"; }
     function toast(msg, ok){
         var t = el("aim-toast"); t.textContent = msg;
         t.style.background = ok === false ? "#c42b1c" : (ok === true ? "#107c10" : "#4d6bff");
@@ -421,12 +421,12 @@ body.dark #aim-root {
             el("aim-m-completion").textContent = numfmt(m.totalCompletionTokens);
             el("aim-m-cost").textContent = money(m.totalCost);
             el("aim-m-requests").textContent = numfmt(m.totalRequests);
-            el("aim-m-speed").textContent = speed(m.totalCompletionTokens, m.totalGenerationMs);
+            el("aim-m-speed").textContent = speed(m.speedSum, m.speedSamples);
             el("aim-updated").textContent = (m.updatedAt > 0) ? ("Updated " + new Date(m.updatedAt*1000).toLocaleString()) : "";
             var per = m.perModel || {}, names = Object.keys(per).sort();
             if (names.length === 0){ el("aim-metrics-body").innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--aim-dim);">No usage recorded yet.</td></tr>'; return; }
             el("aim-metrics-body").innerHTML = names.map(function(n){ var r = per[n];
-                return '<tr><td>'+esc(n)+'</td><td>'+numfmt(r.requests)+'</td><td>'+numfmt(r.promptTokens)+'</td><td>'+numfmt(r.completionTokens)+'</td><td>'+numfmt(r.totalTokens)+'</td><td>'+money(r.cost)+'</td><td>'+speed(r.completionTokens, r.generationMs)+'</td></tr>';
+                return '<tr><td>'+esc(n)+'</td><td>'+numfmt(r.requests)+'</td><td>'+numfmt(r.promptTokens)+'</td><td>'+numfmt(r.completionTokens)+'</td><td>'+numfmt(r.totalTokens)+'</td><td>'+money(r.cost)+'</td><td>'+speed(r.speedSum, r.speedSamples)+'</td></tr>';
             }).join("");
         }).fail(function(){ toast("Failed to load metrics.", false); });
     }

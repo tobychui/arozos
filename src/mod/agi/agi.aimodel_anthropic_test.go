@@ -172,8 +172,31 @@ func TestAIModelRecordsTokensPerSecond(t *testing.T) {
 	if m.TotalGenerationMs <= 0 {
 		t.Errorf("expected total generation ms recorded, got %d", m.TotalGenerationMs)
 	}
-	if rec := m.PerModel["m"]; rec == nil || rec.GenerationMs <= 0 {
-		t.Errorf("per-model generation ms not recorded: %+v", rec)
+	if m.SpeedSamples != 1 || m.SpeedSum <= 0 {
+		t.Errorf("expected one speed sample recorded, got samples=%d sum=%v", m.SpeedSamples, m.SpeedSum)
+	}
+	if rec := m.PerModel["m"]; rec == nil || rec.GenerationMs <= 0 || rec.SpeedSamples != 1 {
+		t.Errorf("per-model speed sample not recorded: %+v", rec)
+	}
+}
+
+// The average speed must be the mean of per-request speeds, not total tokens
+// over total time (which is token-weighted and skews toward large requests).
+func TestAIModelAverageSpeedIsMeanOfRequests(t *testing.T) {
+	g := dbGateway(t)
+	//Request A: 10 tokens in 1000ms -> 10 tok/s
+	g.recordAIModelUsage("m", 0, 10, 1000)
+	//Request B: 1000 tokens in 10000ms -> 100 tok/s
+	g.recordAIModelUsage("m", 0, 1000, 10000)
+
+	m := g.getAIModelMetrics()
+	if m.SpeedSamples != 2 {
+		t.Fatalf("expected 2 speed samples, got %d", m.SpeedSamples)
+	}
+	avg := m.SpeedSum / float64(m.SpeedSamples)
+	//Mean of speeds = (10 + 100) / 2 = 55 (NOT throughput 1010/11 ≈ 91.8).
+	if avg < 54.9 || avg > 55.1 {
+		t.Errorf("expected average speed ~55 tok/s, got %v", avg)
 	}
 }
 
