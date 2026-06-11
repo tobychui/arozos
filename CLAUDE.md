@@ -11,6 +11,30 @@ the repository root holds docs, the installer and release tooling.
 
 License: **GPLv3** (see [`LICENSE`](LICENSE)).
 
+## What AGI is
+
+In this codebase **AGI** stands for **ArOZ Online JavaScript Gateway Interface**
+— *not* "Artificial General Intelligence". It is the server-side JavaScript
+runtime that powers ArozOS web apps: module scripts with a `.agi` (or `.js`)
+extension are executed inside a sandboxed [Otto](https://github.com/robertkrimen/otto)
+JavaScript VM, one fresh VM per request, with permission-checked access to
+ArozOS functions (file system, database, sharing, IoT, image/zip/ffmpeg helpers,
+WebSockets, an LLM-chat library, and more).
+
+Key points:
+
+- **Where it lives:** [`src/mod/agi/`](src/mod/agi/) (`agi*.go`); the runtime
+  version is the `AgiVersion` constant in [`src/mod/agi/agi.go`](src/mod/agi/agi.go).
+- **What it runs:** a web app's `init.agi` (startup/registration), backend
+  scripts called from the front end, nightly tasks, and user-approved scheduled
+  (cron) tasks — each scoped to the permissions of the invoking user.
+- **How scripts talk to the host:** core globals (`USERNAME`, `HTTP_RESP`, …)
+  and built-in functions (`sendJSONResp`, `requirelib`, `includes`, `execd`, …);
+  libraries are pulled in on demand with `requirelib("filelib")` and friends.
+- **Full API reference:** [`src/mod/agi/README.md`](src/mod/agi/README.md). When
+  you change AGI functions or signatures, also update the in-app help data file
+  [`src/web/Terminal/docs/api.json`](src/web/Terminal/docs/api.json) to match.
+
 ## Build, run and test
 
 All Go commands run from `src/`:
@@ -163,5 +187,6 @@ short comment explaining why. Use it sparingly — it is reviewed.
 - [`src/mod/`](src/mod/) — self-contained library packages (each with its own tests).
 - [`src/mod/info/logger/`](src/mod/info/logger/) — the system logger (rule 1).
 - [`src/mod/prouter/`](src/mod/prouter/) — permission/auth router (rule 4).
+- [`src/mod/agi/`](src/mod/agi/) — the AGI JavaScript gateway runtime (see "What AGI is"); API reference in [`src/mod/agi/README.md`](src/mod/agi/README.md).
 - [`src/web/`](src/web/) — front-end assets and web apps.
 - [`src/system/`](src/system/) — runtime data and config (not shipped in release).
